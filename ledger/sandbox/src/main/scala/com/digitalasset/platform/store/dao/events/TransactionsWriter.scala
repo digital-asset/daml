@@ -90,11 +90,26 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     insertWitnessesBatch
   }
 
-  private def computeEventWitnesses(
-      transaction: Transaction,
+  def write(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
       transactionId: TransactionId,
-      blinding: BlindingInfo,
-  ): (WitnessRelation[EventId], WitnessRelation[EventId]) = {
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: Transaction,
+      divulgedContracts: Iterable[DivulgedContract],
+  )(implicit connection: Connection): Unit = {
+
+    val eventBatches = EventsTable.prepareBatchInsert(
+      submitterInfo = submitterInfo,
+      workflowId = workflowId,
+      transactionId = transactionId,
+      ledgerEffectiveTime = ledgerEffectiveTime,
+      offset = offset,
+      transaction = transaction,
+    )
+
+    val blinding = Blinding.blind(transaction)
 
     val disclosureForFlatTransaction =
       computeDisclosureForFlatTransaction(transactionId, transaction)
@@ -109,42 +124,29 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     val disclosureComplement =
       Relation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
 
-    (disclosureForFlatTransaction, disclosureComplement)
-  }
+    // Prepare batch inserts for flat transactions
+    val flatTransactionWitnessesBatch =
+      WitnessesTable.ForFlatTransactions.prepareBatchInsert(
+        witnesses = disclosureForFlatTransaction,
+      )
 
-  private def insertEventsWithWitnesses(
-      events: EventsTable.PreparedBatches,
-      transaction: Transaction,
-      transactionId: TransactionId,
-      blinding: BlindingInfo,
-  )(implicit connection: Connection): Unit =
-    for (batch <- events) {
-      batch.execute()
+    // Prepare batch inserts for all witnesses except those for flat transactions
+    val complementWitnessesBatch =
+      WitnessesTable.Complement.prepareBatchInsert(
+        witnesses = disclosureComplement,
+      )
 
-      val (disclosureForFlatTransaction, disclosureComplement) =
-        computeEventWitnesses(transaction, transactionId, blinding)
+    eventBatches.foreach(_.execute())
+    flatTransactionWitnessesBatch.foreach(_.execute())
+    complementWitnessesBatch.foreach(_.execute())
 
-      WitnessesTable.ForFlatTransactions
-        .prepareBatchInsert(
-          witnesses = disclosureForFlatTransaction,
-        )
-        .foreach(_.execute())
+    val contractBatches = contractsTable.prepareBatchInsert(
+      ledgerEffectiveTime = ledgerEffectiveTime,
+      transaction = transaction,
+      divulgedContracts = divulgedContracts,
+    )
 
-      WitnessesTable.Complement
-        .prepareBatchInsert(
-          witnesses = disclosureComplement,
-        )
-        .foreach(_.execute())
-
-    }
-
-  private def insertContractsAndUpdateWitnesses(
-      contracts: ContractsTable.PreparedBatches,
-      transaction: Transaction,
-      blinding: BlindingInfo,
-  )(implicit connection: Connection): Unit = {
-
-    for ((deleted, deleteContractsBatch) <- contracts.deletions) {
+    for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
       val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
       assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
       // Delete the witnesses first to respect the foreign key constraint of the underlying storage
@@ -152,7 +154,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       deleteContractsBatch.execute()
     }
 
-    for ((_, insertContractsBatch) <- contracts.insertions) {
+    for ((_, insertContractsBatch) <- contractBatches.insertions) {
       insertContractsBatch.execute()
     }
 
@@ -161,47 +163,13 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     // contracts because it may be the case that we are only adding new witnesses to existing
     // contracts (e.g. via divulging a contract with fetch).
     val insertWitnessesBatch = prepareWitnessesBatch(
-      toBeInserted = contracts.insertions.fold(Set.empty[ContractId])(_._1),
-      toBeDeleted = contracts.deletions.fold(Set.empty[ContractId])(_._1),
-      transient = contracts.transientContracts,
+      toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
+      toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
+      transient = contractBatches.transientContracts,
       transaction = transaction,
       blinding = blinding,
     )
     insertWitnessesBatch.foreach(_.execute())
-
-  }
-
-  def write(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: Transaction,
-      divulgedContracts: Iterable[DivulgedContract],
-  )(implicit connection: Connection): Unit = {
-
-    val events = EventsTable.prepareBatchInsert(
-      submitterInfo = submitterInfo,
-      workflowId = workflowId,
-      transactionId = transactionId,
-      ledgerEffectiveTime = ledgerEffectiveTime,
-      offset = offset,
-      transaction = transaction,
-    )
-
-    if (events.isEmpty && divulgedContracts.isEmpty) {
-      ()
-    } else {
-      val blinding = Blinding.blind(transaction)
-      insertEventsWithWitnesses(events, transaction, transactionId, blinding)
-      val contracts = contractsTable.prepareBatchInsert(
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        transaction = transaction,
-        divulgedContracts = divulgedContracts,
-      )
-      insertContractsAndUpdateWitnesses(contracts, transaction, blinding)
-    }
 
   }
 
