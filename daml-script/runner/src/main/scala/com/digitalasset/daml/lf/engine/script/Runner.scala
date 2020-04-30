@@ -43,10 +43,7 @@ import com.google.protobuf.duration.Duration
 
 import ParticipantsJsonProtocol.AbsoluteContractIdFormat
 
-object LfValueCodec
-    extends ApiCodecCompressed[AbsoluteContractId](false, false)(
-      AbsoluteContractIdFormat,
-      AbsoluteContractIdFormat)
+object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
 
 case class Participant(participant: String)
 case class Party(party: String)
@@ -92,15 +89,16 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(p: Party) = JsString(p.party)
   }
-  implicit object AbsoluteContractIdFormat extends JsonFormat[AbsoluteContractId] {
-    override def write(obj: AbsoluteContractId) =
-      JsString(obj.coid)
-    override def read(json: JsValue) = json match {
-      case JsString(s) =>
-        AbsoluteContractId fromString s fold (deserializationError(_), identity)
-      case _ => deserializationError("ContractId must be a string")
+  implicit val AbsoluteContractIdFormat: JsonFormat[AbsoluteContractId] =
+    new JsonFormat[AbsoluteContractId] {
+      override def write(obj: AbsoluteContractId) =
+        JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          AbsoluteContractId fromString s fold (deserializationError(_), identity)
+        case _ => deserializationError("ContractId must be a string")
+      }
     }
-  }
   implicit val apiParametersFormat = jsonFormat2(ApiParameters)
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }

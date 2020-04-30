@@ -13,6 +13,7 @@ import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
 import scalaz.{@@, Equal, Order, Tag}
+import scalaz.std.string._
 import scalaz.syntax.equal._
 import scalaz.syntax.std.string._
 
@@ -31,7 +32,8 @@ import scalaz.syntax.std.string._
   */
 class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
     implicit readCid: JsonReader[Cid],
-    writeCid: JsonWriter[Cid]) { self =>
+    writeCid: JsonWriter[Cid],
+    orderCid: Order[Cid]) { self =>
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -194,7 +196,6 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       case iface.Enum(ctors) => Some(ctors.toImmArray)
       case iface.Record(_) => None
     }))
-    implicit def ocid: Order[Cid] = (_, _) => ??? // TODO SC
     Tag subst (Tag unsubst V.orderInstance[Cid](scope))
   }
 

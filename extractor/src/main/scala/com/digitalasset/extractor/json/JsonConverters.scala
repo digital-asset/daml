@@ -13,6 +13,7 @@ import io.circe._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
 import io.circe.syntax._
+import scalaz.std.string._
 
 object JsonConverters {
   import ApiCodecCompressed.JsonImplicits.StringJsonFormat
