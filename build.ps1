@@ -53,6 +53,7 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
+# TODO
 bazel build //...
 
 bazel shutdown
