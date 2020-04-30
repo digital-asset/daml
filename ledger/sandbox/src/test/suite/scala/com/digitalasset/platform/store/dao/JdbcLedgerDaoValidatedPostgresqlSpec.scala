@@ -11,4 +11,4 @@ final class JdbcLedgerDaoValidatedPostgresqlSpec
     with Matchers
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendPostgresql
-    with JdbcLedgerDaoTransactionsWriterSpec
+    with JdbcLedgerDaoPostCommitValidationSpec
