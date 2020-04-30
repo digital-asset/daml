@@ -150,7 +150,7 @@ class ValueSpec
       val EmptyScope: Value.LookupVariantEnum = _ => None
       implicit val ord: Order[T] = Tag unsubst Value.orderInstance(EmptyScope)
 
-      "obeys order laws" in forAll(genAddend, minSuccessful(10)) { va =>
+      "obeys order laws" in forAll(genAddend, minSuccessful(100)) { va =>
         implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
         checkLaws(SzP.order.laws[T])
       }

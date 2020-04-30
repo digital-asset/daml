@@ -21,7 +21,7 @@ import iface.{
   Variant,
 }
 
-import scalaz.{Order, Ordering, ~>}
+import scalaz.{@@, Order, Ordering, Tag, ~>}
 import scalaz.Id.Id
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
@@ -136,11 +136,11 @@ object TypedValueGenerators {
       override def injord[Cid: Order] = {
         import scalaz.std.iterable._ // compatible with SValue ordering
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
-        implicitly[Order[Iterable[elt.Inj[Cid]]]] contramap identity
+        Order[Iterable[elt.Inj[Cid]]] contramap identity
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        implicitly[Arbitrary[Vector[elt.Inj[Cid]]]]
+        Tag unsubst implicitly[Arbitrary[Vector[elt.Inj[Cid]] @@ Div3]]
       }
       override def injshrink[Cid: Shrink] = {
         import elt.injshrink
@@ -158,7 +158,7 @@ object TypedValueGenerators {
       }
       override def injord[Cid: Order] = {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
-        implicitly[Order[Option[elt.Inj[Cid]]]]
+        Order[Option[elt.Inj[Cid]]]
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
@@ -181,11 +181,11 @@ object TypedValueGenerators {
       }
       override def injord[Cid: Order] = {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord[Cid]
-        implicitly[Order[SortedLookupList[elt.Inj[Cid]]]]
+        Order[SortedLookupList[elt.Inj[Cid]]]
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
+        Tag unsubst implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]] @@ Div3]]
       }
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
@@ -221,7 +221,7 @@ object TypedValueGenerators {
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val k: Arbitrary[key.Inj[Cid]] = key.injarb
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid]]]
+        Tag unsubst implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid] @@ Div3]]
       }
       override def injshrink[Cid: Shrink] = {
         import key.{injshrink => keyshrink}, elt.{injshrink => eltshrink}
@@ -496,10 +496,12 @@ object TypedValueGenerators {
     * ValueAddend gen.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def indGenAddend(f: Gen[ValueAddend] => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
+  def indGenAddend(
+      f: (Gen[ValueAddend], Gen[ValueAddend]) => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
     object Knot {
       val tie: Gen[ValueAddend] = Gen.sized { sz =>
-        val self = Gen.resize(sz / 2, Gen.lzy(tie))
+        val keySelf = Gen.resize(sz / 10, tie)
+        val self = Gen.resize(sz / 2, tie)
         val nestSize = sz / 3
         Gen.frequency(
           Seq(
@@ -508,7 +510,7 @@ object TypedValueGenerators {
             (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
             (nestSize, self.map(ValueAddend.optional(_)))
           ) ++
-            f(self).map((nestSize, _)): _*
+            f(keySelf, self).map((nestSize, _)): _*
         )
       }
     }
@@ -526,15 +528,15 @@ object TypedValueGenerators {
     * Scalacheck support surrounding that type.''
     */
   val genAddend: Gen[ValueAddend] =
-    indGenAddend(
-      self =>
-        Seq(
-          self.map(ValueAddend.list(_)),
-          self.map(ValueAddend.map(_)),
-          Gen.zip(self, self).map { case (k, v) => ValueAddend.genMap(k, v) },
-      ))
+    indGenAddend { (keySelf, self) =>
+      Seq(
+        self.map(ValueAddend.list(_)),
+        self.map(ValueAddend.map(_)),
+        Gen.zip(keySelf, self).map { case (k, v) => ValueAddend.genMap(k, v) },
+      )
+    }
 
-  val genAddendNoListMap: Gen[ValueAddend] = indGenAddend(_ => Seq.empty)
+  val genAddendNoListMap: Gen[ValueAddend] = indGenAddend((_, _) => Seq.empty)
 
   /** Generate a type and value guaranteed to conform to that type. */
   def genTypeAndValue[Cid: Order](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
