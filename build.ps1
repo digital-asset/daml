@@ -54,6 +54,6 @@ bazel clean --expunge
 #bazel fetch @nodejs_dev_env//...
 
 # TODO
-bazel build @zlib//:zlib `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `-`-build_event_binary_file ${ARTIFACT_DIRS}/test_build_events_windows.log
+bazel build //... `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `-`-build_event_binary_file ${ARTIFACT_DIRS}/test_build_events_windows.log
 
 bazel clean --expunge
