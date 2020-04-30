@@ -376,9 +376,9 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       case EStructUpd(field, struct, update) =>
         SBStructUpd(field)(translate(struct), translate(update))
 
-      case ECase(scrut, alts) => {
-        val altsTranslated =
-          alts.iterator.map {
+      case ECase(scrut, altsIn) => {
+        var alts =
+          altsIn.iterator.map {
             case CaseAlt(pat, expr) =>
               pat match {
                 case CPVariant(tycon, variant, binder) =>
@@ -422,28 +422,103 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                   SCaseAlt(SCPDefault, translate(expr))
               }
           }.toArray
-        val jumpable = altsTranslated.headOption match {
-          case Some(SCaseAlt(SCPVariant(tycon, _, _), _)) => {
+        if (alts.isEmpty) {
+          sys.error("case expression without alternatives")
+        }
+        val alt0 = alts.head
+        val jumpable = alt0.pattern match {
+          case SCPDefault => sys.error("case expression stating with default pattern")
+          case SCPVariant(tycon, _, _) => {
             val variantDef = lookupVariantDefinition(tycon).get
-            variantDef.variants.length == altsTranslated.length &&
-              altsTranslated.iterator.zipWithIndex.forall {
+            variantDef.variants.length == alts.length &&
+              alts.iterator.zipWithIndex.forall {
                 case (SCaseAlt(SCPVariant(_, _, rank), _), index) => rank == index
                 case _ => false
               }
           }
-          case Some(SCaseAlt(SCPEnum(tycon, _, _), _)) => {
+          case SCPEnum(tycon, _, _) => {
             val enumDef = lookupEnumDefinition(tycon).get
-            enumDef.constructors.length == altsTranslated.length &&
-              altsTranslated.iterator.zipWithIndex.forall {
+            enumDef.constructors.length == alts.length &&
+              alts.iterator.zipWithIndex.forall {
                 case (SCaseAlt(SCPEnum(_, _, rank), _), index) => rank == index
                 case _ => false
               }
+          }
+          case SCPPrimCon(PCFalse) => {
+            val altTrue = alts.find { alt =>
+              alt.pattern match {
+                case SCPPrimCon(PCTrue) => true
+                case SCPDefault => true
+                case _ => false
+              }
+            }.getOrElse(throw CompilationError("case on bool without true pattern"))
+            alts = Array(alt0, altTrue)
+            true
+          }
+          case SCPPrimCon(PCTrue) => {
+            val altFalse = alts.find { alt =>
+              alt.pattern match {
+                case SCPPrimCon(PCFalse) => true
+                case SCPDefault => true
+                case _ => false
+              }
+            }.getOrElse(throw CompilationError("case on bool without false pattern"))
+            alts = Array(altFalse, alt0)
+            true
+          }
+          case SCPPrimCon(PCUnit) => {
+            alts = Array(alt0)
+            true
+          }
+          case SCPNil => {
+            val altCons = alts.find { alt =>
+              alt.pattern match {
+                case SCPCons => true
+                case SCPDefault => true
+                case _ => false
+              }
+            }.getOrElse(throw CompilationError("case on list without cons pattern"))
+            alts = Array(alt0, altCons)
+            true
+          }
+          case SCPCons => {
+            val altNil = alts.find { alt =>
+              alt.pattern match {
+                case SCPNil => true
+                case SCPDefault => true
+                case _ => false
+              }
+            }.getOrElse(throw CompilationError("case on list without nil pattern"))
+            alts = Array(altNil, alt0)
+            true
+          }
+          case SCPNone => {
+            val altSome = alts.find { alt =>
+              alt.pattern match {
+                case SCPSome => true
+                case SCPDefault => true
+                case _ => false
+              }
+            }.getOrElse(throw CompilationError("case on optional without some pattern"))
+            alts = Array(alt0, altSome)
+            true
+          }
+          case SCPSome => {
+            val altNone = alts.find { alt =>
+              alt.pattern match {
+                case SCPNone => true
+                case SCPDefault => true
+                case _ => false
+              }
+            }.getOrElse(throw CompilationError("case on optional without none pattern"))
+            alts = Array(altNone, alt0)
+            true
           }
           case _ => false
         }
         SECase(
           translate(scrut),
-          altsTranslated,
+          alts,
           jumpable,
         )
       }

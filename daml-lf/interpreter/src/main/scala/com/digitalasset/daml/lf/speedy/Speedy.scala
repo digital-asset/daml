@@ -582,14 +582,7 @@ object Speedy {
     def execute(v: SValue, machine: Machine) = {
       val altOpt = v match {
         case SBool(b) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPPrimCon(PCTrue) => b
-              case SCPPrimCon(PCFalse) => !b
-              case SCPDefault => true
-              case _ => false
-            }
-          }
+            Some(alts(if (b) 1 else 0))
         case SVariant(_, _, rank1, arg) =>
           if (jumpable) {
             machine.kont.add(KPop(1))
@@ -620,41 +613,30 @@ object Speedy {
             }
           }
         case SList(lst) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPNil if lst.isEmpty => true
-              case SCPCons if !lst.isEmpty =>
-                machine.kont.add(KPop(2))
-                val Some((head, tail)) = lst.pop
-                machine.env.add(head)
-                machine.env.add(SList(tail))
-                true
-              case SCPDefault => true
-              case _ => false
+          if (lst.isEmpty) {
+            Some(alts(0))
+          } else {
+            val altCons = alts(1)
+            if (altCons.pattern == SCPCons) {
+              machine.kont.add(KPop(2))
+              val Some((head, tail)) = lst.pop
+              machine.env.add(head)
+              machine.env.add(SList(tail))
             }
+            Some(altCons)
           }
         case SUnit =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPPrimCon(PCUnit) => true
-              case SCPDefault => true
-              case _ => false
-            }
-          }
+          Some(alts(0))
         case SOptional(mbVal) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPNone if mbVal.isEmpty => true
-              case SCPSome =>
-                mbVal match {
-                  case None => false
-                  case Some(x) =>
+          mbVal match {
+            case None => Some(alts(0))
+            case Some(x) => {
+              val altSome = alts(1)
+              if (altSome.pattern == SCPSome) {
                     machine.kont.add(KPop(1))
                     machine.env.add(x)
-                    true
-                }
-              case SCPDefault => true
-              case _ => false
+              }
+              Some(altSome)
             }
           }
         case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
