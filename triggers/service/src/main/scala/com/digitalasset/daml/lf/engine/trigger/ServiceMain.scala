@@ -128,24 +128,21 @@ object TriggerActor {
               Behaviors.same
           }
 
-      val acsQuery =
-        LedgerClient
-          .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
-          .flatMap { client =>
-            val runner = new Runner(
-              config.compiledPackages,
-              config.trigger,
-              client,
-              config.ledgerConfig.timeProvider,
-              appId,
-              config.party)
-            runner
-              .queryACS()
-              .map({
-                case (acs, offset) =>
-                  QueriedACS(runner, acs, offset)
-              })
-          }
+      val acsQuery: Future[QueriedACS] = for {
+        client <- LedgerClient.singleHost(
+          config.ledgerConfig.host,
+          config.ledgerConfig.port,
+          clientConfig)
+        runner = new Runner(
+          config.compiledPackages,
+          config.trigger,
+          client,
+          config.ledgerConfig.timeProvider,
+          appId,
+          config.party)
+        (acs, offset) <- runner.queryACS()
+      } yield QueriedACS(runner, acs, offset)
+
       context.pipeToSelf(acsQuery) {
         case Success(msg) => msg
         case Failure(cause) => QueryACSFailed(cause)
