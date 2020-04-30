@@ -8,7 +8,6 @@ import spray.json.DefaultJsonProtocol._
 import spray.json.{JsString, JsValue, JsonFormat, deserializationError}
 
 object Request {
-  case class TriggerParams(identifier: Identifier, party: String)
   implicit object IdentifierFormat extends JsonFormat[Identifier] {
     def read(value: JsValue) = value match {
       case JsString(s) => {
@@ -32,8 +31,9 @@ object Request {
     def write(id: Identifier) = JsString(s"${id.packageId}:${id.qualifiedName}")
   }
 
-  implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
+  case class StartParams(identifier: Identifier, party: String)
+  implicit val startParamsFormat = jsonFormat2(StartParams)
 
-  case class ListParams(party: String) // May also need an auth token later
+  case class ListParams(party: String)
   implicit val listParamsFormat = jsonFormat1(ListParams)
 }

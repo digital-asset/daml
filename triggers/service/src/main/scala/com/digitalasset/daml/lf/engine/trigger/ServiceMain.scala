@@ -54,7 +54,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.lf.engine.trigger.Request.{ListParams, TriggerParams}
+import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.platform.services.time.TimeProviderType
 
 case class LedgerConfig(
@@ -210,7 +210,7 @@ object Server {
           // Start a new trigger given its identifier and the party it should be running as.
           // Returns a UUID for the newly started trigger.
           path("start") {
-            entity(as[TriggerParams]) {
+            entity(as[StartParams]) {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
                   case Left(err) =>
