@@ -47,7 +47,7 @@ private[preprocessing] final class TransactionPreprocessor(
   def unsafeTranslateNode[Cid <: Value.ContractId](
       acc: (Set[Value.AbsoluteContractId], Set[Value.ContractId]),
       node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid]
-  ): ((Set[Value.AbsoluteContractId], Set[Value.ContractId]), speedy.Command) = {
+  ): (speedy.Command, (Set[Value.AbsoluteContractId], Set[Value.ContractId])) = {
 
     val (localCids, globalCids) = acc
 
@@ -57,14 +57,14 @@ private[preprocessing] final class TransactionPreprocessor(
         val arg = unsafeAsValueWithAbsoluteContractIds(coinst.arg.value)
         coid match {
           case acoid: AbsoluteContractId =>
-            if (localCids(acoid))
+            if (globalCids(acoid))
               fail("Conflicting discriminators between a global and local contract ID.")
           case _ =>
         }
         val (cmd, newCids) = commandPreprocessor.unsafePreprocessCreate(identifier, arg)
         val newGlobalCids = globalCids + coid
         val newLocalCids = localCids | newCids.filterNot(globalCids)
-        (newLocalCids -> newGlobalCids, cmd)
+        cmd -> (newLocalCids -> newGlobalCids)
 
       case Node.NodeExercises(
           coid,
@@ -84,15 +84,15 @@ private[preprocessing] final class TransactionPreprocessor(
         val arg = unsafeAsValueWithAbsoluteContractIds(chosenVal.value)
         val (cmd, newCids) =
           commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, arg)
-        (localCids | newCids.filterNot(globalCids), globalCids) -> cmd
+        (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
       case Node.NodeFetch(coid, templateId, _, _, _, _, _) =>
         val acoid = unsafeAsAbsoluteContractId(coid)
         val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, acoid)
-        acc -> cmd
+        (cmd, acc)
       case Node.NodeLookupByKey(templateId, _, key, _) =>
         val keyValue = unsafeAsValueWithNoContractIds(key.key.value)
         val cmd = commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
-        acc -> cmd
+        (cmd, acc)
     }
   }
 
@@ -116,8 +116,8 @@ private[preprocessing] final class TransactionPreprocessor(
                 case Node.NodeLookupByKey(_, _, _, _) =>
                   fail(s"Transaction contains a lookup by key root node $id")
                 case _ =>
-                  val (newCids, cmd) = unsafeTranslateNode(cids, node)
-                  (newCids, stack :+ cmd)
+                  val (cmd, acc) = unsafeTranslateNode(cids, node)
+                  (acc, stack :+ cmd)
               }
           }
       }
