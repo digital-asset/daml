@@ -466,7 +466,7 @@ object Pretty {
             case other => str(other)
           }
 
-        case SECase(scrut, alts) =>
+        case SECase(scrut, alts, jumpable@_) =>
           (text("case") & prettySExpr(index)(scrut) & text("of") +
             line +
             intercalate(line, alts.map(prettyAlt(index)))).nested(2)

@@ -576,8 +576,9 @@ object Speedy {
     }
   }
 
-  /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  final case class KMatch(alts: Array[SCaseAlt]) extends Kont with SomeArrayEquals {
+  /** The scrutinee of a match has been evaluated, now match the alternatives against it.
+    * Consult the documentation of `SECase` for the meaning of `jumpable`. */
+  final case class KMatch(alts: Array[SCaseAlt], jumpable: Boolean) extends Kont with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       val altOpt = v match {
         case SBool(b) =>
@@ -590,22 +591,32 @@ object Speedy {
             }
           }
         case SVariant(_, _, rank1, arg) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                machine.kont.add(KPop(1))
-                machine.env.add(arg)
-                true
-              case SCPDefault => true
-              case _ => false
+          if (jumpable) {
+            machine.kont.add(KPop(1))
+            machine.env.add(arg)
+            Some(alts(rank1))
+          } else {
+            alts.find { alt =>
+              alt.pattern match {
+                case SCPVariant(_, _, rank2) if rank1 == rank2 =>
+                  machine.kont.add(KPop(1))
+                  machine.env.add(arg)
+                  true
+                case SCPDefault => true
+                case _ => false
+              }
             }
           }
         case SEnum(_, _, rank1) =>
-          alts.find { alt =>
-            alt.pattern match {
-              case SCPEnum(_, _, rank2) => rank1 == rank2
-              case SCPDefault => true
-              case _ => false
+          if (jumpable) {
+            Some(alts(rank1))
+          } else {
+            alts.find { alt =>
+              alt.pattern match {
+                case SCPEnum(_, _, rank2) => rank1 == rank2
+                case SCPDefault => true
+                case _ => false
+              }
             }
           }
         case SList(lst) =>

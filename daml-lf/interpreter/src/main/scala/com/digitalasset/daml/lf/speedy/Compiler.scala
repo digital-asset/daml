@@ -376,9 +376,8 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       case EStructUpd(field, struct, update) =>
         SBStructUpd(field)(translate(struct), translate(update))
 
-      case ECase(scrut, alts) =>
-        SECase(
-          translate(scrut),
+      case ECase(scrut, alts) => {
+        val altsTranslated =
           alts.iterator.map {
             case CaseAlt(pat, expr) =>
               pat match {
@@ -422,8 +421,32 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case CPDefault =>
                   SCaseAlt(SCPDefault, translate(expr))
               }
-          }.toArray,
+          }.toArray
+        val jumpable = altsTranslated.headOption match {
+          case Some(SCaseAlt(SCPVariant(tycon, _, _), _)) => {
+            val variantDef = lookupVariantDefinition(tycon).get
+            variantDef.variants.length == altsTranslated.length &&
+              altsTranslated.iterator.zipWithIndex.forall {
+                case (SCaseAlt(SCPVariant(_, _, rank), _), index) => rank == index
+                case _ => false
+              }
+          }
+          case Some(SCaseAlt(SCPEnum(tycon, _, _), _)) => {
+            val enumDef = lookupEnumDefinition(tycon).get
+            enumDef.constructors.length == altsTranslated.length &&
+              altsTranslated.iterator.zipWithIndex.forall {
+                case (SCaseAlt(SCPEnum(_, _, rank), _), index) => rank == index
+                case _ => false
+              }
+          }
+          case _ => false
+        }
+        SECase(
+          translate(scrut),
+          altsTranslated,
+          jumpable,
         )
+      }
 
       case ENil(_) => SEValue.EmptyList
       case ECons(_, front, tail) =>
@@ -971,7 +994,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         val newArgs = args.map(closureConvert(remaps, bound, _))
         SEApp(newFun, newArgs)
 
-      case SECase(scrut, alts) =>
+      case SECase(scrut, alts, jumpable) =>
         SECase(
           closureConvert(remaps, bound, scrut),
           alts.map {
@@ -981,6 +1004,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 closureConvert(remaps, bound + patternNArgs(pat), body),
               )
           },
+          jumpable,
         )
 
       case SELet(bounds, body) =>
@@ -1025,7 +1049,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           bound -= n
         case x: SEMakeClo =>
           throw CompilationError(s"unexpected SEMakeClo: $x")
-        case SECase(scrut, alts) =>
+        case SECase(scrut, alts, jumpable@_) =>
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>
@@ -1099,7 +1123,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           bound = n + fv.length
           go(body)
           bound = oldBound
-        case SECase(scrut, alts) =>
+        case SECase(scrut, alts, jumpable@_) =>
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>

@@ -126,10 +126,15 @@ object SExpr {
     }
   }
 
-  /** Pattern match. */
-  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
+  /** Pattern match. The `jumpable` flag indicates whether the alternatives form
+    * an exhaustive list of non-default patterns for the scrutinee type in the
+    * "right" order, i.e., in the same order the variants of the type are
+    * defined. This allows for selecting the right alternative at runtime by
+    * indexing into the table of alternatives. Currently, this is flag is only
+    * considered for variant and enum types. */
+  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt], jumpable: Boolean = false) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KMatch(alts))
+      machine.kont.add(KMatch(alts, jumpable))
       CtrlExpr(scrut)
     }
 
