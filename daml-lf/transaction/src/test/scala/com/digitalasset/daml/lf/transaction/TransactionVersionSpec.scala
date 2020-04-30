@@ -66,7 +66,9 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 }
 
 object TransactionVersionSpec {
-  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, mkTransaction}
+
+  import TransactionSpec._
+
   private[this] val singleId = Value.NodeId(0)
   private val dummyCreateTransaction =
     mkTransaction(HashMap(singleId -> dummyCreateNode("cid1")), ImmArray(singleId))

@@ -143,6 +143,43 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
       )
   }
 
+  override private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): Event[A, B, C] => Unit = {
+    case CreateEvent(
+        contractId,
+        templateId @ _,
+        contractKey,
+        argument,
+        agreementText @ _,
+        signatories @ _,
+        observers @ _,
+        witnesses @ _,
+        ) =>
+      f2(contractId)
+      contractKey.foreach(KeyWithMaintainers.foreach1(f3))
+      f3(argument)
+
+    case ExerciseEvent(
+        contractId,
+        templateId @ _,
+        choice @ _,
+        choiceArgument,
+        actingParties @ _,
+        isConsuming @ _,
+        children,
+        stakeholders @ _,
+        witnesses @ _,
+        exerciseResult,
+        ) =>
+      f2(contractId)
+      f3(choiceArgument)
+      children.foreach(f1)
+      exerciseResult.foreach(f3)
+  }
+
   case class Events[Nid, Cid, Val](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid, Val]]) {
     // filters from the leaves upwards: if any any exercise node returns false all its children will be purged, too
     def filter(f: Event[Nid, Cid, Val] => Boolean): Events[Nid, Cid, Val] = {
@@ -264,6 +301,17 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
         })
     }
 
+    override private[lf] def foreach3[A, B, C](
+        f1: A => Unit,
+        f2: B => Unit,
+        f3: C => Unit,
+    ): Events[A, B, C] => Unit = {
+      case Events(roots, events) =>
+        roots.foreach(f1)
+        events.foreach {
+          case (id, event) => f1(id) -> Event.foreach3(f1, f2, f3)(event)
+        }
+    }
   }
 
 }

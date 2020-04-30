@@ -355,6 +355,19 @@ object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTrans
         roots = roots.map(f1)
       )
   }
+
+  override private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): GenTransaction[A, B, C] => Unit = {
+    case GenTransaction(nodes, _) =>
+      nodes.foreach {
+        case (nodeId, node) =>
+          f1(nodeId)
+          GenNode.foreach3(f1, f2, f3)(node)
+      }
+  }
 }
 
 object Transaction {

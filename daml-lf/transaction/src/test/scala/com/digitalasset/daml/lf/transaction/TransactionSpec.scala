@@ -63,6 +63,29 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     }
   }
 
+  "cids" - {
+
+    "collects contract IDs" in {
+      val tx = mkTransaction(
+        HashMap(
+          V.NodeId(0) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(1))),
+          V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(2))),
+          V.NodeId(2) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(V.NodeId(0), V.NodeId(2)),
+      )
+      val cids = tx.cids(
+        GenTransaction.cidConsumerInstance(
+          V.NodeId.cidConsumer,
+          V.ContractId.cidConsumer,
+          V.cidConsumerInstance(V.ContractId.cidConsumer))
+      )
+      cids shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
+
+    }
+
+  }
+
   /* TODO SC Gen for well-formed Transaction needed first
   "equalForest" - {
     "is reflexive" in forAll(genTransaction) { tx =>
@@ -165,12 +188,12 @@ object TransactionSpec {
   ): Transaction = GenTransaction(nodes, roots)
 
   def dummyExerciseNode(
-      cid: String,
+      cid: V.ContractId,
       children: ImmArray[V.NodeId],
       hasExerciseResult: Boolean = true,
   ): NodeExercises[V.NodeId, V.ContractId, Value] =
     NodeExercises(
-      targetCoid = toCid(cid),
+      targetCoid = cid,
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
@@ -188,6 +211,8 @@ object TransactionSpec {
       key = None,
     )
 
+  val dummyCid = toCid("dummyCid").copy(suffix = Bytes.assertFromString("f00d"))
+
   def dummyCreateNode(cid: String): NodeCreate[V.ContractId, Value] =
     NodeCreate(
       coid = toCid(cid),
@@ -196,8 +221,8 @@ object TransactionSpec {
           Ref.PackageId.assertFromString("-dummyPkg-"),
           Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
         ),
-        V.ValueUnit,
-        ("dummyAgreement"),
+        V.ValueContractId(dummyCid),
+        "dummyAgreement",
       ),
       optLocation = None,
       signatories = Set.empty,
@@ -205,9 +230,9 @@ object TransactionSpec {
       key = None,
     )
 
-  private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
-  private def toCid(s: String): V.AbsoluteContractId.V1 =
+  implicit def toCid(s: String): V.AbsoluteContractId.V1 =
     V.AbsoluteContractId.V1(crypto.Hash.hashPrivateKey(s))
 
 }
