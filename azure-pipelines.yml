@@ -148,6 +148,7 @@ jobs:
   - job: Windows
     dependsOn:
       - check_for_release
+      - compatibility_windows
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -208,22 +209,22 @@ jobs:
 #         test_flags: '--quick'
 #     - template: ci/tell-slack-failed.yml
 #     - template: ci/report-end.yml
-#
-# - job: compatibility_windows
-#   dependsOn:
-#     - check_for_release
-#   timeoutInMinutes: 60
-#   pool:
-#     name: 'windows-pool'
-#   steps:
-#     - template: ci/report-start.yml
-#     - checkout: self
-#     - template: ci/compatibility-windows.yml
-#       parameters:
-#         test_flags: '--quick'
-#     - template: ci/tell-slack-failed.yml
-#     - template: ci/report-end.yml
-#
+ 
+  - job: compatibility_windows
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: 'windows-pool'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility-windows.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+ 
   - job: check_for_release
     dependsOn:
       - git_sha
@@ -398,7 +399,7 @@ jobs:
       - git_sha
 #     - compatibility_macos
 #     - compatibility_linux
-#     - compatibility_windows
+      - compatibility_windows
     pool:
       name: "linux-pool"
     variables:
@@ -430,10 +431,10 @@ jobs:
 #     compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
 #     compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
 #     compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
-#     compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
-#     compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
-#     compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
-#     compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
+      compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
+      compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
+      compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
+      compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
 
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       master_sha: $[ dependencies.git_sha.outputs['out.master'] ]

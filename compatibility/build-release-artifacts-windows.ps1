@@ -34,7 +34,7 @@ function bazel() {
 }
 
 
-bazel shutdown
+bazel clean --expunge
 bazel fetch @nodejs_dev_env//...
 bazel build `
   //release:sdk-release-tarball `
