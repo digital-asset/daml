@@ -5,7 +5,7 @@ package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.{Behaviors}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -15,16 +15,17 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.Route
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import akka.stream.scaladsl.{Source}
+import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.io.StdIn
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
@@ -43,17 +44,17 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.language.Ast._
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.v1.event.{CreatedEvent}
-import com.daml.ledger.api.v1.ledger_offset.{LedgerOffset}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
+  LedgerIdRequirement
 }
+import com.daml.lf.engine.trigger.Request.{ListParams, TriggerParams}
 import com.daml.platform.services.time.TimeProviderType
 
 case class LedgerConfig(
@@ -158,34 +159,6 @@ object Server {
   private final case class Started(binding: ServerBinding) extends Message
   final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
   final case object Stop extends Message
-
-  case class TriggerParams(identifier: Identifier, party: String)
-  implicit object IdentifierFormat extends JsonFormat[Identifier] {
-    def read(value: JsValue) = value match {
-      case JsString(s) => {
-        val components = s.split(":")
-        if (components.length == 3) {
-          val parsed = for {
-            pkgId <- PackageId.fromString(components(0))
-            mod <- DottedName.fromString(components(1))
-            entity <- DottedName.fromString(components(2))
-          } yield Identifier(pkgId, QualifiedName(mod, entity))
-          parsed match {
-            case Left(e) => deserializationError(e)
-            case Right(id) => id
-          }
-        } else {
-          deserializationError(s"Expected trigger identifier of the form pkgid:mod:name but got $s")
-        }
-      }
-      case _ => deserializationError("Expected trigger identifier of the form pkgid:mod:name")
-    }
-    def write(id: Identifier) = JsString(s"${id.packageId}:${id.qualifiedName}")
-  }
-  implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
-
-  case class ListParams(party: String) // May also need an auth token later
-  implicit val listParamsFormat = jsonFormat1(ListParams)
 
   private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
