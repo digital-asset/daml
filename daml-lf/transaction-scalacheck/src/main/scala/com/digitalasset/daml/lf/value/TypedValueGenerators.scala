@@ -25,7 +25,6 @@ import scalaz.{Order, Ordering, ~>}
 import scalaz.Id.Id
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
-import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
