@@ -584,34 +584,14 @@ object Speedy {
         case SBool(b) =>
             Some(alts(if (b) 1 else 0))
         case SVariant(_, _, rank1, arg) =>
-          if (jumpable) {
+          val altRank = alts(rank1)
+          if (altRank.pattern.isInstanceOf[SCPVariant]) {
             machine.kont.add(KPop(1))
             machine.env.add(arg)
-            Some(alts(rank1))
-          } else {
-            alts.find { alt =>
-              alt.pattern match {
-                case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                  machine.kont.add(KPop(1))
-                  machine.env.add(arg)
-                  true
-                case SCPDefault => true
-                case _ => false
-              }
-            }
           }
+          Some(altRank)
         case SEnum(_, _, rank1) =>
-          if (jumpable) {
-            Some(alts(rank1))
-          } else {
-            alts.find { alt =>
-              alt.pattern match {
-                case SCPEnum(_, _, rank2) => rank1 == rank2
-                case SCPDefault => true
-                case _ => false
-              }
-            }
-          }
+          Some(alts(rank1))
         case SList(lst) =>
           if (lst.isEmpty) {
             Some(alts(0))

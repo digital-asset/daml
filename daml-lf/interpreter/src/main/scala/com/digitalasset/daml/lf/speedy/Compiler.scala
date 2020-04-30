@@ -377,7 +377,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         SBStructUpd(field)(translate(struct), translate(update))
 
       case ECase(scrut, altsIn) => {
-        var alts =
+        val alts =
           altsIn.iterator.map {
             case CaseAlt(pat, expr) =>
               pat match {
@@ -426,23 +426,33 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           sys.error("case expression without alternatives")
         }
         val alt0 = alts.head
-        val jumpable = alt0.pattern match {
-          case SCPDefault => sys.error("case expression stating with default pattern")
+        val altsChecked = alt0.pattern match {
+          case SCPDefault => sys.error("case expression starting with default pattern")
           case SCPVariant(tycon, _, _) => {
-            val variantDef = lookupVariantDefinition(tycon).get
-            variantDef.variants.length == alts.length &&
-              alts.iterator.zipWithIndex.forall {
-                case (SCaseAlt(SCPVariant(_, _, rank), _), index) => rank == index
-                case _ => false
+            lookupVariantDefinition(tycon).get.variants.iterator.zipWithIndex.map {
+              case (_, index) => {
+                alts.find { alt =>
+                  alt.pattern match {
+                    case SCPVariant(_, _, rank) => rank == index
+                    case SCPDefault => true
+                    case _ => false
+                  }
+                }.getOrElse(throw CompilationError("non-exhaustive case on variant"))
               }
+            }.toArray
           }
           case SCPEnum(tycon, _, _) => {
-            val enumDef = lookupEnumDefinition(tycon).get
-            enumDef.constructors.length == alts.length &&
-              alts.iterator.zipWithIndex.forall {
-                case (SCaseAlt(SCPEnum(_, _, rank), _), index) => rank == index
-                case _ => false
+            lookupEnumDefinition(tycon).get.constructors.iterator.zipWithIndex.map {
+              case (_, index) => {
+                alts.find { alt =>
+                  alt.pattern match {
+                    case SCPEnum(_, _, rank) => rank == index
+                    case SCPDefault => true
+                    case _ => false
+                  }
+                }.getOrElse(throw CompilationError("non-exhaustive case on enum"))
               }
+            }.toArray
           }
           case SCPPrimCon(PCFalse) => {
             val altTrue = alts.find { alt =>
@@ -452,8 +462,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case _ => false
               }
             }.getOrElse(throw CompilationError("case on bool without true pattern"))
-            alts = Array(alt0, altTrue)
-            true
+            Array(alt0, altTrue)
           }
           case SCPPrimCon(PCTrue) => {
             val altFalse = alts.find { alt =>
@@ -463,12 +472,10 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case _ => false
               }
             }.getOrElse(throw CompilationError("case on bool without false pattern"))
-            alts = Array(altFalse, alt0)
-            true
+            Array(altFalse, alt0)
           }
           case SCPPrimCon(PCUnit) => {
-            alts = Array(alt0)
-            true
+            Array(alt0)
           }
           case SCPNil => {
             val altCons = alts.find { alt =>
@@ -478,8 +485,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case _ => false
               }
             }.getOrElse(throw CompilationError("case on list without cons pattern"))
-            alts = Array(alt0, altCons)
-            true
+            Array(alt0, altCons)
           }
           case SCPCons => {
             val altNil = alts.find { alt =>
@@ -489,8 +495,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case _ => false
               }
             }.getOrElse(throw CompilationError("case on list without nil pattern"))
-            alts = Array(altNil, alt0)
-            true
+            Array(altNil, alt0)
           }
           case SCPNone => {
             val altSome = alts.find { alt =>
@@ -500,8 +505,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case _ => false
               }
             }.getOrElse(throw CompilationError("case on optional without some pattern"))
-            alts = Array(alt0, altSome)
-            true
+            Array(alt0, altSome)
           }
           case SCPSome => {
             val altNone = alts.find { alt =>
@@ -511,15 +515,13 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
                 case _ => false
               }
             }.getOrElse(throw CompilationError("case on optional without none pattern"))
-            alts = Array(altNone, alt0)
-            true
+            Array(altNone, alt0)
           }
-          case _ => false
         }
         SECase(
           translate(scrut),
-          alts,
-          jumpable,
+          altsChecked,
+          true,
         )
       }
 
