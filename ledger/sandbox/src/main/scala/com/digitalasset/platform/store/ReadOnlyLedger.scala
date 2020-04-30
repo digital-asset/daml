@@ -80,7 +80,7 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def lookupMaximumLedgerTime(
       contractIds: Set[AbsoluteContractId],
-  ): Future[Instant]
+  ): Future[Option[Instant]]
 
   def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 

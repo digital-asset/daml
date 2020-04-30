@@ -3,8 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.time.Instant
-
+import com.codahale.metrics.{Meter, MetricRegistry}
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
@@ -20,6 +19,7 @@ final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     contractStore: ContractStore,
     maxRetries: Int,
+    metricRegistry: MetricRegistry,
 ) extends CommandExecutor {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -67,15 +67,22 @@ final class LedgerTimeAwareCommandExecutor(
           else
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
-              .flatMap(maxUsedTime => {
-                if (!maxUsedTime.isAfter(commands.ledgerEffectiveTime))
+              .flatMap(maxUsedInstant => {
+                val maxUsedTime = maxUsedInstant.map(Time.Timestamp.assertFromInstant)
+                if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
                   Future.successful(Right(cer))
-                else if (!cer.dependsOnLedgerTime)
+                } else if (!cer.dependsOnLedgerTime) {
+                  logger.debug(
+                    s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime")
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
-                else if (retriesLeft > 0)
+                } else if (retriesLeft > 0) {
+                  Metrics.retryMeter.mark()
+                  logger.debug(
+                    s"Restarting the computation with new ledger effective time $maxUsedTime")
                   loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
-                else
+                } else {
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
+                }
               })
               .recoverWith {
                 // An error while looking up the maximum ledger time for the used contracts
@@ -92,13 +99,20 @@ final class LedgerTimeAwareCommandExecutor(
       }
   }
 
+  // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceOutputTime(
       res: CommandExecutionResult,
-      t: Instant): CommandExecutionResult =
-    res.copy(
-      transactionMeta =
-        res.transactionMeta.copy(ledgerEffectiveTime = Time.Timestamp.assertFromInstant(t)))
+      newTime: Option[Time.Timestamp],
+  ): CommandExecutionResult =
+    newTime.fold(res)(t =>
+      res.copy(transactionMeta = res.transactionMeta.copy(ledgerEffectiveTime = t)))
 
-  private[this] def advanceInputTime(cmd: Commands, t: Instant): Commands =
-    cmd.copy(ledgerEffectiveTime = t)
+  // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
+  private[this] def advanceInputTime(cmd: Commands, newTime: Option[Time.Timestamp]): Commands =
+    newTime.fold(cmd)(t => cmd.copy(commands = cmd.commands.copy(ledgerEffectiveTime = t)))
+
+  object Metrics {
+    val retryMeter: Meter = metricRegistry.meter(MetricPrefix :+ "retry")
+  }
+
 }

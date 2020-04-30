@@ -11,6 +11,7 @@ trigger:
   branches:
     include:
       - master
+      - release/*
 
 # Enable PR triggers that target the master branch
 pr:
@@ -18,6 +19,7 @@ pr:
   branches:
     include:
       - master
+      - release/*
 
 jobs:
   - job: git_sha
@@ -38,6 +40,11 @@ jobs:
         name: out
 
   - job: check_standard_change_label
+    dependsOn:
+      - git_sha
+    variables:
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
@@ -47,7 +54,7 @@ jobs:
           set -euo pipefail
 
           has_changed_infra_folder () {
-              git diff origin/master --name-only | grep -q '^infra/'
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q '^infra/'
           }
 
           fail_if_missing_std_change_label () {
@@ -61,12 +68,16 @@ jobs:
           PR: $(System.PullRequest.PullRequestNumber)
 
   - job: check_changelog_entry
+    dependsOn:
+      - git_sha
+    variables:
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
       - checkout: self
-      - bash: ci/check-changelog.sh
+      - bash: ci/check-changelog.sh $(fork_sha)
 
   - job: Linux
     dependsOn:
@@ -109,10 +120,8 @@ jobs:
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      vmImage: 'macOS-10.14'
+      name: 'macOS-pool'
     variables:
-      bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
-      bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -126,19 +135,11 @@ jobs:
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
-      - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
-        displayName: bazel repo cache key
-      - task: CacheBeta@0
-        inputs:
-          key: $(bazel-repo-cache-key)
-          path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
           release_tag: $(release_tag)
           name: macos
           is_release: variables.is_release
-      - bash: mkdir -p $(bazel-repo-cache-path)
-        displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
@@ -171,6 +172,51 @@ jobs:
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
+      - template: ci/report-end.yml
+
+  - job: compatibility_linux
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: compatibility_macos
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: macos-pool
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: compatibility_windows
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: 'windows-pool'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility-windows.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: check_for_release
@@ -208,7 +254,8 @@ jobs:
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -285,7 +332,7 @@ jobs:
           tag: 'v$(release_tag)'
           assets: $(Build.StagingDirectory)/release/*
           assetUploadMode: 'replace'
-          title: 'v$(release_tag)'
+          title: '$(release_tag)'
           addChangeLog: false
           isPrerelease: true
         condition: not(eq(variables['skip-github'], 'TRUE'))
@@ -299,7 +346,8 @@ jobs:
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
@@ -335,16 +383,17 @@ jobs:
           trigger_sha: '$(trigger_sha)'
 
   - job: collect_build_data
-    condition: succeededOrFailed()
+    condition: always()
     dependsOn:
       - Linux
       - macOS
       - Windows
-      - check_for_release
       - release
-      - check_standard_change_label
       - write_ledger_dump
       - git_sha
+      - compatibility_macos
+      - compatibility_linux
+      - compatibility_windows
     pool:
       name: "linux-pool"
     variables:
@@ -360,22 +409,26 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
-      check_for_release.start: $[ dependencies.check_for_release.outputs['start.time'] ]
-      check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
-      check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
-      check_for_release.status: $[ dependencies.check_for_release.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
-      std_change.start: $[ dependencies.check_standard_change_label.outputs['start.time'] ]
-      std_change.machine: $[ dependencies.check_standard_change_label.outputs['start.machine'] ]
-      std_change.end: $[ dependencies.check_standard_change_label.outputs['end.time'] ]
-      std_change.status: $[ dependencies.check_standard_change_label.result ]
       dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
       dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
       dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
       dump.status: $[ dependencies.write_ledger_dump.result ]
+      compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
+      compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
+      compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
+      compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+      compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
+      compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
+      compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
+      compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
+      compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
+      compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
+      compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
+      compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
 
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       master_sha: $[ dependencies.git_sha.outputs['out.master'] ]
@@ -407,14 +460,6 @@ jobs:
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
                                 "status": "$(Windows.status)"},
-                    "check_for_release": {"start": "$(check_for_release.start)",
-                                          "machine": "$(check_for_release.machine)",
-                                          "end": "$(check_for_release.end)",
-                                          "status": "$(check_for_release.status)"},
-                    "check_standard_change_label": {"start": "$(std_change.start)",
-                                                    "machine": "$(std_change.machine)",
-                                                    "end": "$(std_change.end)",
-                                                    "status": "$(std_change.status)"},
                     "write_ledger_dump": {"start": "$(dump.start)",
                                           "machine": "$(dump.machine)",
                                           "end": "$(dump.end)",
@@ -422,7 +467,19 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"}},
+                                "status": "$(release.status)"},
+                    "compatibility_linux": {"start": "$(compatibility_linux.start)",
+                                            "machine": "$(compatibility_linux.machine)",
+                                            "end": "$(compatibility_linux.end)",
+                                            "status": "$(compatibility_linux.status)"},
+                    "compatibility_macos": {"start": "$(compatibility_macos.start)",
+                                            "machine": "$(compatibility_macos.machine)",
+                                            "end": "$(compatibility_macos.end)",
+                                            "status": "$(compatibility_macos.status)"},
+                    "compatibility_windows": {"start": "$(compatibility_windows.start)",
+                                              "machine": "$(compatibility_windows.machine)",
+                                              "end": "$(compatibility_windows.end)",
+                                              "status": "$(compatibility_windows.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
@@ -462,14 +519,16 @@ jobs:
               cat $REPORT
           fi
 
-          # Linux, macOS, check_std_change_label and Windows are always
-          # required and should always succeed.
+          # Linux, macOS and Windows are always required and should always
+          # succeed.
           #
-          # windows_signing, release and write_ledger_dump only run on releases
-          # and are skipped otherwise.
+          # release and write_ledger_dump only run on releases and are skipped
+          # otherwise.
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
+              || "$(compatibility_linux.status)" != "Succeeded"
+              || "$(compatibility_macos.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
@@ -485,7 +544,7 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: and(succeededOrFailed(), eq(variables['Build.Reason'], 'PullRequest'))
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     dependsOn:
       - git_sha
       - collect_build_data

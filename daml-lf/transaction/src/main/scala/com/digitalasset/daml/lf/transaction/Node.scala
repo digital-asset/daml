@@ -60,7 +60,6 @@ object Node {
         f3: A3 => B3,
     ): GenNode[A1, A2, A3] => GenNode[B1, B2, B3] = {
       case NodeCreate(
-          nodeSeed,
           coid,
           coinst,
           optLocation,
@@ -69,7 +68,6 @@ object Node {
           key,
           ) =>
         NodeCreate(
-          nodeSeed = nodeSeed,
           coid = f2(coid),
           coinst = value.Value.ContractInst.map1(f3)(coinst),
           optLocation = optLocation,
@@ -96,7 +94,6 @@ object Node {
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
       case NodeExercises(
-          nodeSeed,
           targetCoid,
           templateId,
           choiceId,
@@ -112,7 +109,6 @@ object Node {
           key,
           ) =>
         NodeExercises(
-          nodeSeed = nodeSeed,
           targetCoid = f2(targetCoid),
           templateId = templateId,
           choiceId = choiceId,
@@ -149,7 +145,6 @@ object Node {
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
-      nodeSeed: Option[crypto.Hash],
       coid: Cid,
       coinst: ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
@@ -181,7 +176,6 @@ object Node {
     * ledgers.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
-      nodeSeed: Option[crypto.Hash],
       targetCoid: Cid,
       templateId: Identifier,
       choiceId: ChoiceName,
@@ -210,7 +204,6 @@ object Node {
       * apply method enforces it.
       */
     def apply[Nid, Cid, Val](
-        nodeSeed: Option[crypto.Hash] = None,
         targetCoid: Cid,
         templateId: Identifier,
         choiceId: ChoiceName,
@@ -225,7 +218,6 @@ object Node {
         key: Option[KeyWithMaintainers[Val]],
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
-        nodeSeed,
         targetCoid,
         templateId,
         choiceId,
@@ -287,7 +279,7 @@ object Node {
   ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(_, coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
+        case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
           import nc._
           // NOTE(JM): Do not compare location annotations as they may differ due to
           // differing update expression constructed from the root node.
@@ -313,7 +305,6 @@ object Node {
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
-            _,
             targetCoid2,
             templateId2,
             choiceId2,

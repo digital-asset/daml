@@ -31,10 +31,12 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 
-rules_haskell_version = "d59ccf9e7785553fd392924fb083d926c7e01134"
-rules_haskell_sha256 = "c29e779f512f72126c774bceb0bee5c01ca8149d30acc400058014f4b2275710"
+rules_haskell_version = "cf6beb4e3748dce6dc401a95ab8cacb803c5d944"
+rules_haskell_sha256 = "cadb4ceb63994d86343fb407a9b5eaab363af428850d1698d6c6132690ccfb71"
 rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
 rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
+buildifier_version = "0.26.0"
+buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -174,8 +176,8 @@ def daml_deps():
     if "build_bazel_rules_nodejs" not in native.existing_rules():
         http_archive(
             name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.1.0/rules_nodejs-1.1.0.tar.gz"],
-            sha256 = "c97bf38546c220fa250ff2cc052c1a9eac977c662c1fc23eda797b0ce8e70a43",
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.6.0/rules_nodejs-1.6.0.tar.gz"],
+            sha256 = "f9e7b9f42ae202cc2d2ce6d698ccb49a9f7f7ea572a78fd451696d03ef2ee116",
             patches = [
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
@@ -229,9 +231,9 @@ def daml_deps():
     if "com_github_bazelbuild_buildtools" not in native.existing_rules():
         http_archive(
             name = "com_github_bazelbuild_buildtools",
-            sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29",
-            strip_prefix = "buildtools-0.26.0",
-            url = "https://github.com/bazelbuild/buildtools/archive/0.26.0.tar.gz",
+            sha256 = buildifier_sha256,
+            strip_prefix = "buildtools-{}".format(buildifier_version),
+            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(

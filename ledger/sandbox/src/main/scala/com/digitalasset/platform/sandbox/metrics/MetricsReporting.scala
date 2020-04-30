@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
-import com.daml.ledger.participant.state.metrics.JvmMetricSet
+import com.daml.metrics.JvmMetricSet
 import com.daml.platform.configuration.MetricsReporter
 import com.daml.resources.{Resource, ResourceOwner}
 

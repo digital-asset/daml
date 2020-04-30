@@ -8,7 +8,6 @@ import akka.stream._
 import akka.stream.scaladsl._
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
-
 import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
@@ -25,9 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.Pretty
-import com.daml.lf.speedy.{SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -136,10 +133,15 @@ object Trigger extends StrictLogging {
       compiler: Compiler,
       converter: Converter,
       expr: TypedExpr): Either[String, Option[FiniteDuration]] = {
-    val heartbeat = compiler.compile(
+    val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    var machine = Speedy.Machine.fromSExpr(heartbeat, false, compiledPackages)
+    val machine = Speedy.Machine.fromSExpr(
+      sexpr = heartbeat,
+      compiledPackages = compiledPackages,
+      submissionTime = Timestamp.now(),
+      seeding = InitialSeeding.NoSeed,
+    )
     Machine.stepToValue(machine)
     machine.toSValue match {
       case SOptional(None) => Right(None)
@@ -155,9 +157,15 @@ object Trigger extends StrictLogging {
       converter: Converter,
       expr: TypedExpr): Either[String, Filters] = {
     val registeredTemplates =
-      compiler.compile(ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
-    var machine =
-      Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
+      compiler.unsafeCompile(
+        ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
+    val machine =
+      Speedy.Machine.fromSExpr(
+        sexpr = registeredTemplates,
+        compiledPackages = compiledPackages,
+        submissionTime = Timestamp.now(),
+        seeding = InitialSeeding.NoSeed,
+      )
     Machine.stepToValue(machine)
     machine.toSValue match {
       case SVariant(_, "AllInDar", _, _) => {
@@ -300,13 +308,18 @@ class Runner(
   ): Sink[TriggerMsg, Future[SExpr]] = {
     logger.info(s"Trigger is running as ${party}")
     val update =
-      compiler.compile(
+      compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
     val getInitialState =
-      compiler.compile(
+      compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
 
-    var machine = Speedy.Machine.fromSExpr(null, false, compiledPackages)
+    var machine = Speedy.Machine.fromSExpr(
+      sexpr = null,
+      compiledPackages = compiledPackages,
+      submissionTime = Timestamp.now(),
+      seeding = InitialSeeding.NoSeed
+    )
     val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
@@ -440,9 +453,7 @@ object Runner extends StrictLogging {
       party: String
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
     val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    val compiledPackages =
-      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val compiledPackages = PureCompiledPackages(darMap).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
       case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
       case Right(trigger) => trigger

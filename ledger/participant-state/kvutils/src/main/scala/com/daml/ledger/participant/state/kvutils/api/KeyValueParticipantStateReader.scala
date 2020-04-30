@@ -6,13 +6,17 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.{Envelope, KVOffset, KeyValueConsumption}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.kvutils
+import com.daml.metrics.Timed
 
-class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer: Materializer)
+class KeyValueParticipantStateReader(reader: LedgerReader, metricRegistry: MetricRegistry)(
+    implicit materializer: Materializer)
     extends ReadService {
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
@@ -23,19 +27,23 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
       .flatMapConcat(reader.events)
       .flatMapConcat {
         case LedgerRecord(offset, entryId, envelope) =>
-          Envelope
-            .open(envelope)
+          Timed
+            .value(Metrics.openEnvelope, Envelope.open(envelope))
             .flatMap {
               case Envelope.LogEntryMessage(logEntry) =>
-                val logEntryId = DamlLogEntryId.parseFrom(entryId)
-                val updates = KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry)
-                val updateOffset: (Offset, Int) => Offset =
-                  if (updates.size > 1) KVOffset.setMiddleIndex else (offset, _) => offset
-                val updatesWithOffsets = Source(updates).zipWithIndex.map {
-                  case (update, index) =>
-                    updateOffset(offset, index.toInt) -> update
-                }
-                Right(updatesWithOffsets)
+                Timed.value(
+                  Metrics.parseUpdates, {
+                    val logEntryId = DamlLogEntryId.parseFrom(entryId)
+                    val updates = KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry)
+                    val updateOffset: (Offset, Int) => Offset =
+                      if (updates.size > 1) KVOffset.setMiddleIndex else (offset, _) => offset
+                    val updatesWithOffsets = Source(updates).zipWithIndex.map {
+                      case (update, index) =>
+                        updateOffset(offset, index.toInt) -> update
+                    }
+                    Right(updatesWithOffsets)
+                  }
+                )
               case _ =>
                 Left("Envelope does not contain a log entry")
             }
@@ -52,4 +60,11 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
       reader.ledgerId(),
       LedgerReader.DefaultConfiguration,
       Time.Timestamp.Epoch)
+
+  object Metrics {
+    private val Prefix = kvutils.MetricPrefix :+ "reader"
+
+    val openEnvelope: Timer = metricRegistry.timer(Prefix :+ "open_envelope")
+    val parseUpdates: Timer = metricRegistry.timer(Prefix :+ "parse_updates")
+  }
 }

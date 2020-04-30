@@ -24,5 +24,10 @@ trait ContractStore {
 
   def lookupContractKey(submitter: Party, key: GlobalKey): Future[Option[AbsoluteContractId]]
 
-  def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Instant]
+  /**
+    * @return The maximum ledger effective time of all contracts in ids, fails as follows:
+    *         - if ids is empty or not all the non-divulged ids can be found, a failed [[Future]]
+    *         - if all ids are found but each refer to a divulged contract, a successful [[None]]
+    */
+  def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Option[Instant]]
 }

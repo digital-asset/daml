@@ -18,7 +18,7 @@
 > 
 > > : (a -\> b -\> b) -\> b -\> t a -\> b
 
-<a name="class-defaultmethods-traversablex-59027"></a>**class** ([Functor](https://docs.daml.com/daml/reference/base.html#class-ghc-base-functor-73448) t, [FoldableX](#class-defaultmethods-foldablex-48748) t) =\> [TraversableX](#class-defaultmethods-traversablex-59027) t **where**
+<a name="class-defaultmethods-traversablex-59027"></a>**class** ([Functor](https://docs.daml.com/daml/stdlib/index.html#class-ghc-base-functor-73448) t, [FoldableX](#class-defaultmethods-foldablex-48748) t) =\> [TraversableX](#class-defaultmethods-traversablex-59027) t **where**
 
 > <a name="function-defaultmethods-traversex-21140"></a>[traverseX](#function-defaultmethods-traversex-21140)
 > 
@@ -34,7 +34,7 @@
 > 
 > > : a -\> a
 > 
-> **instance** [Id](#class-defaultmethods-id-77721) [Int](https://docs.daml.com/daml/reference/base.html#type-ghc-types-int-68728)
+> **instance** [Id](#class-defaultmethods-id-77721) [Int](https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-int-68728)
 
 <a name="class-defaultmethods-myshow-63359"></a>**class** [MyShow](#class-defaultmethods-myshow-63359) t **where**
 
@@ -42,12 +42,12 @@
 > 
 > <a name="function-defaultmethods-myshow-41356"></a>[myShow](#function-defaultmethods-myshow-41356)
 > 
-> > : t -\> [Text](https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703)
+> > : t -\> [Text](https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-text-57703)
 > > 
 > > Doc for method.
 > 
 > **default** myShow
 > 
-> > : [Show](https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447) t =\> t -\> [Text](https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703)
+> > : [Show](https://docs.daml.com/daml/stdlib/index.html#class-ghc-show-show-56447) t =\> t -\> [Text](https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-text-57703)
 > > 
 > > Doc for default.

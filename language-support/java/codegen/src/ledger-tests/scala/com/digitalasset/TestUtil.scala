@@ -11,7 +11,6 @@ import java.util.stream.{Collectors, StreamSupport}
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
@@ -49,7 +48,6 @@ object TestUtil {
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = Some(TimeProviderType.WallClock),
-      timeModel = TimeModel.reasonableDefault,
     )
 
     val channelOwner = for {

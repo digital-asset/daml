@@ -94,6 +94,8 @@
   type: jar-deploy
 - target: //ledger/ledger-on-sql:ledger-on-sql
   type: jar-scala
+- target: //ledger/metrics:metrics
+  type: jar-scala
 - target: //ledger/participant-state:participant-state
   type: jar-scala
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
@@ -117,6 +119,8 @@
 - target: //ledger-service/http-json:http-json
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
+  type: jar-scala
+- target: //ledger-service/cli-opts:cli-opts
   type: jar-scala
 - target: //ledger-service/jwt:jwt
   type: jar-scala

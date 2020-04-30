@@ -51,6 +51,7 @@ genrule(
         "@npm//browser-resolve",
         "@npm//buffer",
         "@npm//buffer-from",
+        "@npm//bytes",
         "@npm//cached-path-relative",
         "@npm//chalk",
         "@npm//chokidar",
@@ -92,6 +93,7 @@ genrule(
         "@npm//faye-websocket",
         "@npm//figures",
         "@npm//file-sync-cmp",
+        "@npm//finalhandler",
         "@npm//findup-sync",
         "@npm//fresh",
         "@npm//fs.realpath",
@@ -123,6 +125,7 @@ genrule(
         "@npm//has-flag",
         "@npm//hooker",
         "@npm//htmlescape",
+        "@npm//http-errors",
         "@npm//http-parser-js",
         "@npm//https-browserify",
         "@npm//iconv-lite",
@@ -170,7 +173,9 @@ genrule(
         "@npm//pretty-bytes",
         "@npm//process",
         "@npm//process-nextick-args",
+        "@npm//punycode",
         "@npm//querystring-es3",
+        "@npm//raw-body",
         "@npm//readable-stream",
         "@npm//readdirp",
         "@npm//read-only-stream",
@@ -179,7 +184,9 @@ genrule(
         "@npm//safe-buffer",
         "@npm//safe-json-parse",
         "@npm//safer-buffer",
+        "@npm//send",
         "@npm//serve-index",
+        "@npm//serve-static",
         "@npm//shasum",
         "@npm//sprintf-js",
         "@npm//statuses",
@@ -254,7 +261,7 @@ genrule(
 genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
-        "//compiler/damlc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-rst.tar.gz",
         "//triggers/daml:daml-trigger-rst-docs",
         "//daml-script/daml:daml-script-rst-docs",
         "//ledger-api/grpc-definitions:docs",
@@ -266,7 +273,10 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        cp -rL $(location //compiler/damlc:daml-base-rst-docs) source/daml/reference/base.rst
+        mkdir -p source/daml/stdlib
+        tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \
+            --strip-components 1 \
+            -C source/daml/stdlib
 
         # Copy in daml-trigger documentation
         cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
@@ -344,13 +354,14 @@ genrule(
     ]) + [
         ":sources",
         ":theme",
-        "//compiler/damlc:daml-base-rst-docs",
-        "//compiler/damlc:daml-base-hoogle-docs",
+        "//compiler/damlc:daml-base-hoogle.txt",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
         "//templates:templates-tarball",
+        "//templates:create-daml-app-test-resources/messaging.patch",
+        "//templates:create-daml-app-test-resources/index.test.ts",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -366,8 +377,16 @@ genrule(
         tar -zxf $(location :theme) -C build/docs/theme
 
         # Copy templates for code snippets in getting started guide
-        mkdir -p build/docs/source/getting-started/code
-        tar -zxf $(location //templates:templates-tarball) -C build/docs/source/getting-started/code/
+        CODE_DIR=$$PWD/build/docs/source/getting-started/code/
+        mkdir -p $$CODE_DIR
+        tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+        # Copy create-daml-app tests
+        mkdir $$CODE_DIR/testing
+        cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+        # Apply patch for messaging feature (we only need the "after" state)
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
+        (cd $$CODE_DIR/templates-tarball; $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH)
 
         # Build with Sphinx
         cd build
@@ -397,15 +416,16 @@ genrule(
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
-        cp -rL ../$(location //compiler/damlc:daml-base-hoogle-docs) html/hoogle_db/base.txt
+        cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
 
         tar c html \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
             | gzip -n > ../$(location html-only.tar.gz)
         """.format(sdk = sdk_version),
-    tools =
-        ["@sphinx_nix//:bin/sphinx-build"] +
-        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    tools = [
+        "@sphinx_nix//:bin/sphinx-build",
+        "@patch_dev_env//:patch",
+    ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 
 genrule(

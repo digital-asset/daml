@@ -171,6 +171,7 @@ activateDaml env@InstallEnv{..} targetPath = do
         damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
         damlBinaryTargetPath = installedAssistantPath damlPath
         damlBinaryTargetDir = takeDirectory damlBinaryTargetPath
+        damlBinaryRelativeSourcePath = ".." </> makeRelative (unwrapDamlPath damlPath) damlBinarySourcePath
 
     unlessM (doesFileExist damlBinarySourcePath) $
         throwIO $ assistantErrorBecause
@@ -189,7 +190,7 @@ activateDaml env@InstallEnv{..} targetPath = do
                      [ "@echo off"
                      , "\"" <> damlBinarySourcePath <> "\" %*"
                      ]
-            else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+            else createSymbolicLink damlBinaryRelativeSourcePath damlBinaryTargetPath
 
     updatePath options (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
     installBashCompletions options damlPath (\s -> unlessQuiet env (output s))

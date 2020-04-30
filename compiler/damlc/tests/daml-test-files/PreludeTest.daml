@@ -1,39 +1,39 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use uncurry
--- @INFO Redundant identity
--- @INFO Redundant identity
--- @INFO Redundant identity
--- @INFO Evaluate
--- @INFO Use elem
--- @INFO Use elem
--- @INFO Use elem
--- @INFO Redundant if
--- @INFO Redundant if
--- @INFO Use ||
--- @INFO Use ||
--- @INFO Use ||
--- @INFO Use &&
--- @INFO Use &&
--- @INFO Use &&
--- @INFO Use isNone
--- @INFO Use $>
--- @INFO Evaluate
--- @INFO Evaluate
--- @INFO Use ++
--- @INFO Redundant flip
--- @INFO Redundant flip
--- @INFO Evaluate
--- @INFO Take on a non-positive
--- @INFO Drop on a non-positive
--- @INFO Use zip
--- @INFO Use zip
--- @INFO Use zip3
--- @INFO Use zip3
--- @INFO Evaluate
--- @INFO Evaluate
--- @INFO Evaluate
+-- @INFO range=51:26-51:42; Use uncurry
+-- @INFO range=65:8-65:18; Redundant identity
+-- @INFO range=66:12-66:26; Redundant identity
+-- @INFO range=67:22-67:60; Redundant identity
+-- @INFO range=89:8-89:17; Evaluate
+-- @INFO range=93:12-93:21; Use elem
+-- @INFO range=94:12-94:21; Use elem
+-- @INFO range=95:10-95:19; Use elem
+-- @INFO range=99:22-99:59; Redundant if
+-- @INFO range=108:23-108:61; Redundant if
+-- @INFO range=111:12-111:36; Use ||
+-- @INFO range=113:11-113:34; Use ||
+-- @INFO range=114:11-114:26; Use ||
+-- @INFO range=117:12-117:37; Use &&
+-- @INFO range=119:12-119:36; Use &&
+-- @INFO range=120:11-120:27; Use &&
+-- @INFO range=155:11-155:35; Use isNone
+-- @INFO range=155:20-155:34; Use $>
+-- @INFO range=161:9-161:55; Evaluate
+-- @INFO range=162:9-162:58; Evaluate
+-- @INFO range=175:16-175:35; Use ++
+-- @INFO range=179:8-179:21; Redundant flip
+-- @INFO range=180:14-180:37; Redundant flip
+-- @INFO range=206:12-206:52; Evaluate
+-- @INFO range=218:9-218:28; Take on a non-positive
+-- @INFO range=224:9-224:28; Drop on a non-positive
+-- @INFO range=290:27-290:38; Use zip
+-- @INFO range=291:37-291:48; Use zip
+-- @INFO range=295:37-295:50; Use zip3
+-- @INFO range=296:52-296:65; Use zip3
+-- @INFO range=308:8-308:20; Evaluate
+-- @INFO range=311:10-311:22; Evaluate
+-- @INFO range=315:12-315:19; Evaluate
 
 
 module PreludeTest where

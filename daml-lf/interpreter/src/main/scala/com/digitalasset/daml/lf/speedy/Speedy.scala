@@ -13,7 +13,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -40,17 +39,6 @@ object Speedy {
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
-      /* Whether we check if the submitter is in contract key maintainers
-       * when looking up / fetching keys. This was introduced in #1866.
-       * We derive this from the "submission version", which is the scenario
-       * definition DAML-LF version for scenarios, and the command version for
-       * a Ledger API submission.
-       *
-       * We store a specific flag rather than the DAML-LF version mostly here because
-       * we want to avoid the risk of future implementors misusing the DAML-LF
-       * version to influence the operational semantics of DAML-LF.
-       */
-      var checkSubmitterInMaintainers: Boolean,
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -237,18 +225,14 @@ object Speedy {
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
     def clearCommit: Unit = {
+      val freshSeed = ptx.context.nextChildrenSeed
+        .map(crypto.Hash.deriveTransactionSeed(_, scenarioServiceParticipant, ptx.submissionTime))
       committers = Set.empty
       commitLocation = None
-      val seedWithTime = for {
-        time <- ptx.submissionTime
-        currentSeed <- ptx.context.contextSeed
-        newSeed = crypto.Hash.deriveTransactionSeed(
-          currentSeed,
-          scenarioServiceParticipant,
-          time
-        )
-      } yield newSeed -> time
-      ptx = PartialTransaction.initial(seedWithTime)
+      ptx = PartialTransaction.initial(
+        submissionTime = ptx.submissionTime,
+        InitialSeeding(freshSeed),
+      )
     }
 
   }
@@ -258,69 +242,74 @@ object Speedy {
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
 
     private def initial(
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)],
+        submissionTime: Time.Timestamp,
+        initialSeeding: InitialSeeding,
     ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
         kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial(seedWithTime),
+        ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
-        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
         dependsOnTime = false,
       )
 
     def newBuilder(
         compiledPackages: CompiledPackages,
-        submissionSeedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None
-    ): Either[SError, (Boolean, Expr) => Machine] = {
+        submissionTime: Time.Timestamp,
+        transactionSeed: Option[crypto.Hash],
+    ): Either[SError, Expr => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
-      Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
-        fromSExpr(
-          SEApp(compiler.compile(expr), Array(SEValue.Token)),
-          checkSubmitterInMaintainers,
-          compiledPackages,
-          submissionSeedWithTime,
-        )
-      })
+      Right(
+        (expr: Expr) =>
+          fromSExpr(
+            SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
+            compiledPackages,
+            submissionTime,
+            InitialSeeding(transactionSeed)
+        ))
     }
 
     def build(
-        checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
-        transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp,
+        seeds: InitialSeeding,
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
-        checkSubmitterInMaintainers,
         compiledPackages,
-        transactionSeedAndSubmissionTime,
+        submissionTime,
+        seeds,
       )
 
     // Used from repl.
     def fromExpr(
         expr: Expr,
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp,
+        transactionSeed: Option[crypto.Hash],
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          SEApp(compiler.compile(expr), Array(SEValue.Token))
+          SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
         else
-          compiler.compile(expr)
+          compiler.unsafeCompile(expr)
 
-      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages, seedWithTime)
+      fromSExpr(
+        sexpr,
+        compiledPackages,
+        submissionTime,
+        InitialSeeding(transactionSeed),
+      )
     }
 
     // Construct a machine from an SExpr. This is useful when you don’t have
@@ -328,12 +317,11 @@ object Speedy {
     // a token is not appropriate.
     def fromSExpr(
         sexpr: SExpr,
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp,
+        seeding: InitialSeeding,
     ): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages, seedWithTime).copy(
-        ctrl = CtrlExpr(sexpr))
+      initial(compiledPackages, submissionTime, seeding).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
@@ -387,8 +375,8 @@ object Speedy {
                 throw DamlEArithmeticError(e.getMessage)
             }
         }
-      case v =>
-        machine.ctrl = CtrlValue(v)
+      case _ =>
+        machine.ctrl = this
         machine.kontPop.execute(value, machine)
     }
   }
@@ -400,7 +388,7 @@ object Speedy {
     * when executing.
     */
   final case class CtrlWronglyTypeContractId(
-      acoid: AbsoluteContractId,
+      acoid: V.AbsoluteContractId,
       expected: TypeConName,
       actual: TypeConName,
   ) extends Ctrl {
@@ -414,13 +402,112 @@ object Speedy {
       CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
   }
 
+  // This translates a well-typed LF value (typically coming from
+  // the ledger) to speedy value and set the control of with the result.
+  // Raises an exception if missing a package.
+  final case class CtrlTranslateValue(value: V[V.ContractId]) extends Ctrl {
+    override def execute(machine: Machine): Unit = {
+
+      def go(value0: V[V.ContractId]): SValue =
+        value0 match {
+          case V.ValueList(vs) => SList(vs.map[SValue](go))
+          case V.ValueContractId(coid) => SContractId(coid)
+          case V.ValueInt64(x) => SInt64(x)
+          case V.ValueNumeric(x) => SNumeric(x)
+          case V.ValueText(t) => SText(t)
+          case V.ValueTimestamp(t) => STimestamp(t)
+          case V.ValueParty(p) => SParty(p)
+          case V.ValueBool(b) => SBool(b)
+          case V.ValueDate(x) => SDate(x)
+          case V.ValueUnit => SUnit
+          case V.ValueRecord(Some(id), fs) =>
+            val fields = Name.Array.ofDim(fs.length)
+            val values = new util.ArrayList[SValue](fields.length)
+            fs.foreach {
+              case (optk, v) =>
+                optk match {
+                  case None =>
+                    crash("SValue.fromValue: record missing field name")
+                  case Some(k) =>
+                    fields(values.size) = k
+                    val _ = values.add(go(v))
+                }
+            }
+            SRecord(id, fields, values)
+          case V.ValueRecord(None, _) =>
+            crash("SValue.fromValue: record missing identifier")
+          case V.ValueStruct(fs) =>
+            val fields = Name.Array.ofDim(fs.length)
+            val values = new util.ArrayList[SValue](fields.length)
+            fs.foreach {
+              case (k, v) =>
+                fields(values.size) = k
+                val _ = values.add(go(v))
+            }
+            SStruct(fields, values)
+          case V.ValueVariant(None, _variant @ _, _value @ _) =>
+            crash("SValue.fromValue: variant without identifier")
+          case V.ValueEnum(None, constructor @ _) =>
+            crash("SValue.fromValue: enum without identifier")
+          case V.ValueOptional(mbV) =>
+            SOptional(mbV.map(go))
+          case V.ValueTextMap(map) =>
+            STextMap(map.mapValue(go).toHashMap)
+          case V.ValueGenMap(entries) =>
+            SGenMap(
+              entries.iterator.map { case (k, v) => go(k) -> go(v) }
+            )
+          case V.ValueVariant(Some(id), variant, arg) =>
+            machine.compiledPackages.getPackage(id.packageId) match {
+              case Some(pkg) =>
+                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                  case DDataType(_, _, data: DataVariant) =>
+                    SVariant(id, variant, data.constructorRank(variant), go(arg))
+                  case _ =>
+                    crash(s"definition for variant $id not found")
+                }
+              case None =>
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    id.packageId,
+                    pkg => {
+                      machine.compiledPackages = pkg
+                      machine.ctrl = this
+                    }
+                  ))
+            }
+          case V.ValueEnum(Some(id), constructor) =>
+            machine.compiledPackages.getPackage(id.packageId) match {
+              case Some(pkg) =>
+                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                  case DDataType(_, _, data: DataEnum) =>
+                    SEnum(id, constructor, data.constructorRank(constructor))
+                  case _ =>
+                    crash(s"definition for variant $id not found")
+                }
+              case None =>
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    id.packageId,
+                    pkg => {
+                      machine.compiledPackages = pkg
+                      machine.ctrl = this
+                    }
+                  ))
+            }
+        }
+
+      machine.ctrl = CtrlValue(go(value))
+    }
+  }
+
   //
   // Environment
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
   type Env = util.ArrayList[SValue]
-  def emptyEnv(): Env = new util.ArrayList[SValue](512)
+  def emptyEnv: Env = new util.ArrayList[SValue](512)
 
   //
   // Kontinuation
@@ -621,5 +708,13 @@ object Speedy {
 
   /** Internal exception thrown when a continuation result needs to be returned. */
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
+
+  def deriveTransactionSeed(
+      submissionSeed: Option[crypto.Hash],
+      participant: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+  ): InitialSeeding =
+    InitialSeeding(
+      submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, submissionTime)))
 
 }

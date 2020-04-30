@@ -36,6 +36,7 @@ load(
     "nixpkgs_cc_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
+    "nixpkgs_python_configure",
 )
 load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
@@ -103,6 +104,8 @@ nixpkgs_cc_configure(
     ],
     repositories = dev_env_nix_repos,
 )
+
+nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
 
 # Curl system dependency
 nixpkgs_package(
@@ -203,6 +206,26 @@ dev_env_tool(
     tools = ["gzip"],
     win_include = ["usr/bin/gzip.exe"],
     win_paths = ["usr/bin/gzip.exe"],
+    win_tool = "msys2",
+)
+
+nixpkgs_package(
+    name = "patch_nix",
+    attribute_path = "gnupatch",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "patch_dev_env",
+    nix_include = ["bin/patch"],
+    nix_label = "@patch_nix",
+    nix_paths = ["bin/patch"],
+    tools = ["patch"],
+    win_include = ["usr/bin/patch.exe"],
+    win_paths = ["usr/bin/patch.exe"],
     win_tool = "msys2",
 )
 
@@ -764,16 +787,6 @@ cc_library(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
-
-nixpkgs_package(
-    name = "python3_nix",
-    attribute_path = "python3",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-register_toolchains("//:nix_python_toolchain") if not is_windows else None
 
 nixpkgs_package(
     name = "postgresql_nix",

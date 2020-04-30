@@ -24,6 +24,7 @@ JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.18.5"
+ZIP_VERSION = "1.5.0"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -416,6 +417,42 @@ haskell_cabal_library(
         urls = ["http://hackage.haskell.org/package/shake-{version}/shake-{version}.tar.gz".format(version = SHAKE_VERSION)],
     )
 
+    http_archive(
+        name = "zip",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "zip",
+    version = "{version}",
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = [
+        "@stackage//:case-insensitive",
+        "@stackage//:cereal",
+        "@stackage//:conduit",
+        "@stackage//:conduit-extra",
+        "@stackage//:digest",
+        "@stackage//:dlist",
+        "@stackage//:exceptions",
+        "@stackage//:monad-control",
+        "@stackage//:resourcet",
+        "@stackage//:transformers-base",
+    ],
+    verbose = False,
+    visibility = ["//visibility:public"],
+    flags = ["disable-bzip2"],
+)
+""".format(version = ZIP_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-zip.patch",
+        ],
+        sha256 = "051e891d6a13774f1d06b0251e9a0bf92f05175da8189d936c7d29c317709802",
+        strip_prefix = "zip-{}".format(ZIP_VERSION),
+        urls = ["http://hackage.haskell.org/package/zip-{version}/zip-{version}.tar.gz".format(version = ZIP_VERSION)],
+    )
+
     #
     # Stack binary
     #
@@ -482,6 +519,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "aeson",
+            "aeson-extra",
             "aeson-pretty",
             "ansi-terminal",
             "ansi-wl-pprint",
@@ -509,6 +547,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "data-default",
             "Decimal",
             "deepseq",
+            "digest",
             "directory",
             "dlist",
             "either",
@@ -613,6 +652,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "tar-conduit",
             "tasty",
             "tasty-ant-xml",
+            "tasty-expected-failure",
             "tasty-golden",
             "tasty-hunit",
             "tasty-quickcheck",
@@ -638,7 +678,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "xml",
             "xml-conduit",
             "yaml",
-            "zip",
             "zip-archive",
             "zlib",
             "zlib-bindings",
@@ -656,5 +695,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
             "shake": "@shake//:shake",
+            "zip": "@zip//:zip",
         },
     )

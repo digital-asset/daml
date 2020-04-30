@@ -9,7 +9,6 @@
 -- | Set up the GHC monad in a way that works for us
 module DA.Daml.Options
     ( checkDFlags
-    , dependantUnitsFromDamlYaml
     , expandSdkPackages
     , fakeDynFlags
     , findProjectRoot
@@ -24,15 +23,11 @@ module DA.Daml.Options
     , PackageDynFlags(..)
     ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception
 import Control.Exception.Safe (handleIO)
 import Control.Concurrent.Extra
 import Control.Monad.Extra
-import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified CmdLineParser as Cmd (warnMsg)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
 import Data.IORef
 import Data.List
 import Data.Maybe (fromMaybe)
@@ -58,16 +53,10 @@ import System.FilePath
 import qualified DA.Daml.LF.Ast.Version as LF
 
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.LF.Reader
-import DA.Daml.LF.Ast.Util
-import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
-import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import DA.Daml.Project.Util
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
-import qualified DA.Pretty
 import Development.IDE.GHC.Util
 import qualified Development.IDE.Types.Options as Ghcide
 import SdkVersion (damlStdlib)
@@ -474,55 +463,3 @@ mkBaseUnits optMbPackageName
   | otherwise =
       [ stringToUnitId "daml-prim"
       , damlStdlib ]
-
-dependantUnitsFromDamlYaml :: LF.Version -> NormalizedFilePath -> IO [UnitId]
-dependantUnitsFromDamlYaml lfVersion root = do
-  (deps,dataDeps) <- depsFromDamlYaml (ProjectPath $ fromNormalizedFilePath root)
-  deps <- expandSdkPackages lfVersion (filter (`notElem` basePackages) deps)
-  calcUnitsFromDeps root (deps ++ dataDeps)
-
-depsFromDamlYaml :: ProjectPath -> IO ([FilePath],[FilePath])
-depsFromDamlYaml projectPath = do
-  try (readProjectConfig projectPath) >>= \case
-    Left (_::ConfigError) -> return ([],[])
-    Right project -> return $ projectDeps project
-
-projectDeps :: ProjectConfig -> ([FilePath],[FilePath])
-projectDeps project = do
-  let deps = fromMaybe [] $ either (error . show) id $ queryProjectConfig ["dependencies"] project
-  let dataDeps = fromMaybe [] $ either (error . show) id $ queryProjectConfig ["data-dependencies"] project
-  (deps,dataDeps)
-
-calcUnitsFromDeps :: NormalizedFilePath -> [FilePath] -> IO [UnitId]
-calcUnitsFromDeps root deps = do
-  let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) deps
-  entries <- mapM (mainEntryOfDar root) fpDars
-  let dalfsFromDars =
-        [ ( ZipArchive.eRelativePath e
-          , BSL.toStrict $ ZipArchive.fromEntry e)
-        | e <- entries ]
-  dalfsFromFps <-
-    forM fpDalfs $ \fp -> do
-      bs <- BS.readFile (fromNormalizedFilePath root </> fp)
-      pure (fp, bs)
-  let mainDalfs = dalfsFromDars ++ dalfsFromFps
-  flip mapMaybeM mainDalfs $ \(file, dalf) -> runMaybeT $ do
-    (pkgId, pkg) <-
-        liftIO $
-        either (fail . DA.Pretty.renderPretty) pure $
-        Archive.decodeArchive Archive.DecodeAsMain dalf
-    let (name, mbVersion) = packageMetadataFromFile file pkg pkgId
-    pure (pkgNameVersion name mbVersion)
-
-mainEntryOfDar :: NormalizedFilePath -> FilePath -> IO ZipArchive.Entry
-mainEntryOfDar root fp = do
-  bs <- BSL.readFile (fromNormalizedFilePath root </> fp)
-  let archive = ZipArchive.toArchive bs
-  dalfManifest <- either fail pure $ readDalfManifest archive
-  getEntry (mainDalfPath dalfManifest) archive
-
--- | Get an entry from a dar or fail.
-getEntry :: FilePath -> ZipArchive.Archive -> IO ZipArchive.Entry
-getEntry fp dar =
-  maybe (fail $ "Package does not contain " <> fp) pure $
-  ZipArchive.findEntryByPath fp dar

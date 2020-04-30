@@ -50,7 +50,7 @@ object domain {
 
   type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
-  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: Party)
+  case class JwtPayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
@@ -165,6 +165,14 @@ object domain {
   }
 
   final case class StartingOffset(offset: Offset)
+
+  type LedgerIdTag = lar.LedgerIdTag
+  type LedgerId = lar.LedgerId
+  val LedgerId = lar.LedgerId
+
+  type ApplicationIdTag = lar.ApplicationIdTag
+  type ApplicationId = lar.ApplicationId
+  val ApplicationId = lar.ApplicationId
 
   type Choice = lar.Choice
   val Choice = lar.Choice

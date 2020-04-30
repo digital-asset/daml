@@ -7,6 +7,8 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
 
 import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
@@ -117,7 +119,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
       req: NewContextRequest,
       respObs: StreamObserver[NewContextResponse],
   ): Unit = {
-    val ctx = Context.newContext()
+    val ctx = Context.newContext
     contexts += (ctx.contextId -> ctx)
     val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
     respObs.onNext(response)
@@ -183,12 +185,13 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
       case Some(ctx) =>
         try {
-
           val unloadModules =
             if (req.hasUpdateModules)
               req.getUpdateModules.getUnloadModulesList.asScala
+                .map(ModuleName.assertFromString)
+                .toSet
             else
-              Seq.empty
+              Set.empty[ModuleName]
 
           val loadModules =
             if (req.hasUpdateModules)
@@ -199,8 +202,10 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
           val unloadPackages =
             if (req.hasUpdatePackages)
               req.getUpdatePackages.getUnloadPackagesList.asScala
+                .map(Ref.PackageId.assertFromString)
+                .toSet
             else
-              Seq.empty
+              Set.empty[Ref.PackageId]
 
           val loadPackages =
             if (req.hasUpdatePackages)

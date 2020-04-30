@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.trigger
+package com.daml.lf
+package engine
+package trigger
 
-import com.daml.lf.engine.{ResultDone, ValueTranslator}
 import java.util
 
 import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.CompiledPackages
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -157,7 +157,7 @@ object Converter {
   }
 
   private def fromCreatedEvent(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       created: CreatedEvent): Either[String, SValue] = {
     val createdTy = triggerIds.damlTriggerLowLevel("Created")
@@ -174,10 +174,12 @@ object Converter {
         .left
         .map(_.getMessage)
       anyTemplate <- valueTranslator.translateValue(TTyCon(templateTy), createArguments) match {
-        case ResultDone(r @ SRecord(tyCon, _, _)) =>
+        case Right(r @ SRecord(tyCon, _, _)) =>
           Right(record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
-        case ResultDone(v) => Left(s"Expected record but got $v")
-        case res => Left(s"Failure to translate value in create: $res")
+        case Right(v) =>
+          Left(s"Expected record but got $v")
+        case Left(res) =>
+          Left(s"Failure to translate value in create: $res")
       }
     } yield
       record(
@@ -218,7 +220,7 @@ object Converter {
   }
 
   private def fromEvent(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       ev: Event): Either[String, SValue] = {
     val eventTy = triggerIds.damlTriggerLowLevel("Event")
@@ -246,7 +248,7 @@ object Converter {
   }
 
   private def fromTransaction(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       t: Transaction): Either[String, SValue] = {
     val messageTy = triggerIds.damlTriggerLowLevel("Message")
@@ -537,7 +539,7 @@ object Converter {
   }
 
   private def fromACS(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       createdEvents: Seq[CreatedEvent]): Either[String, SValue] = {
     val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
@@ -549,7 +551,7 @@ object Converter {
   }
 
   def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
-    val valueTranslator = new ValueTranslator(compiledPackages)
+    val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
     Converter(
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),

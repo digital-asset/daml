@@ -27,7 +27,6 @@ object Tests {
     "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletion(_)),
     "CommandDeduplicationIT" -> (new CommandDeduplication(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
-    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
     "HealthServiceIT" -> (new HealthService(_)),
     "IdentityIT" -> (new Identity(_)),

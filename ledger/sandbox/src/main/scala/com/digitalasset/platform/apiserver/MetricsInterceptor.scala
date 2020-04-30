@@ -3,11 +3,10 @@
 
 package com.daml.platform.apiserver
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.metrics.MetricName
-import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
+import com.daml.metrics.MetricName
+import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
+import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor, Status}
 
 import scala.collection.concurrent.TrieMap
 
@@ -44,38 +43,17 @@ final class MetricsInterceptor(metrics: MetricRegistry) extends ServerIntercepto
       fullMethodName,
       MetricsNaming.nameFor(fullMethodName))
     val timer = metrics.timer(metricName).time()
-    val listener = next.startCall(call, headers)
-    new TimedListener(listener, timer)
+    next.startCall(new TimedServerCall(call, timer), headers)
   }
 
-  class TimedListener[ReqT](listener: ServerCall.Listener[ReqT], timer: Timer.Context)
-      extends ServerCall.Listener[ReqT] {
-    private val timerStopped = new AtomicBoolean(false)
-
-    override def onReady(): Unit =
-      listener.onReady()
-
-    override def onMessage(message: ReqT): Unit =
-      listener.onMessage(message)
-
-    override def onHalfClose(): Unit =
-      listener.onHalfClose()
-
-    override def onCancel(): Unit = {
-      listener.onCancel()
-      stopTimer()
-    }
-
-    override def onComplete(): Unit = {
-      listener.onComplete()
-      stopTimer()
-    }
-
-    private def stopTimer(): Unit = {
-      if (timerStopped.compareAndSet(false, true)) {
-        timer.stop()
-        ()
-      }
+  private final class TimedServerCall[ReqT, RespT](
+      delegate: ServerCall[ReqT, RespT],
+      timer: Timer.Context,
+  ) extends SimpleForwardingServerCall[ReqT, RespT](delegate) {
+    override def close(status: Status, trailers: Metadata): Unit = {
+      delegate.close(status, trailers)
+      timer.stop()
+      ()
     }
   }
 

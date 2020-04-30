@@ -10,23 +10,22 @@ import java.time.{Duration, Instant}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.metrics.MetricName
-import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
-import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.Engine
 import com.daml.dec.DirectExecutionContext
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
+import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
+import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -206,11 +205,7 @@ final class SandboxServer(
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val defaultConfiguration = ParticipantState.Configuration(
-      generation = 0,
-      timeModel = config.timeModel,
-      maxDeduplicationTime = Duration.ofDays(1),
-    )
+    val defaultConfiguration = config.ledgerConfig.initialConfiguration
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
@@ -270,32 +265,43 @@ final class SandboxServer(
         () => resetAndRestartServer(),
         authorizer,
       )
+      ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration = defaultConfiguration,
+        // In SandboxServer, there is no delay between indexer and ledger
+        initialConfigurationSubmitDelay = Duration.ZERO,
+      )
+      executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
+      apiServicesOwner = new ApiServices.Owner(
+        participantId = participantId,
+        writeService = new TimedWriteService(
+          indexAndWriteService.writeService,
+          metrics,
+          MetricName.DAML :+ "services" :+ "write"),
+        indexService = new TimedIndexService(
+          indexAndWriteService.indexService,
+          metrics,
+          MetricName.DAML :+ "services" :+ "write"),
+        authorizer = authorizer,
+        engine = SandboxServer.engine,
+        timeProvider = timeProvider,
+        timeProviderType = timeProviderType,
+        ledgerConfiguration = ledgerConfiguration,
+        commandConfig = config.commandConfig,
+        partyConfig = PartyConfiguration.default.copy(
+          // In this version of Sandbox, parties are always allocated implicitly. Enabling
+          // this would result in an extra `writeService.allocateParty` call, which is
+          // unnecessary and bad for performance.
+          implicitPartyAllocation = false,
+        ),
+        submissionConfig = config.submissionConfig,
+        optTimeServiceBackend = timeServiceBackendO,
+        metrics = metrics,
+        healthChecks = healthChecks,
+        seedService = config.seeding.map(SeedService(_)),
+      )(materializer, executionSequencerFactory, logCtx)
+        .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
-        (mat: Materializer, esf: ExecutionSequencerFactory) =>
-          ApiServices
-            .create(
-              participantId = participantId,
-              writeService = new TimedWriteService(
-                indexAndWriteService.writeService,
-                metrics,
-                MetricName.DAML :+ "services" :+ "write"),
-              indexService = new TimedIndexService(
-                indexAndWriteService.indexService,
-                metrics,
-                MetricName.DAML :+ "services" :+ "write"),
-              authorizer = authorizer,
-              engine = SandboxServer.engine,
-              timeProvider = timeProvider,
-              defaultLedgerConfiguration = defaultConfiguration,
-              commandConfig = config.commandConfig,
-              partyConfig = config.partyConfig,
-              submissionConfig = config.submissionConfig,
-              optTimeServiceBackend = timeServiceBackendO,
-              metrics = metrics,
-              healthChecks = healthChecks,
-              seedService = config.seeding.map(SeedService(_)),
-            )(mat, esf, logCtx)
-            .map(_.withServices(List(resetService))),
+        apiServicesOwner,
         // NOTE: Re-use the same port after reset.
         currentPort.getOrElse(config.port),
         config.maxInboundMessageSize,

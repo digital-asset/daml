@@ -67,7 +67,8 @@ steps:
     name: publish_npm_mvn
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
                    eq('${{parameters.name}}', 'linux'))
   - bash: |
       set -euo pipefail
@@ -81,19 +82,22 @@ steps:
     name: publish
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
       artifactName: $(publish.protos-zip)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
                    eq('${{parameters.name}}', 'linux'))

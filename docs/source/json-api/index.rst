@@ -77,6 +77,15 @@ From a DAML project directory:
             Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
+      --pem <value>
+            TLS: The pem file to be used as the private key.
+      --crt <value>
+            TLS: The crt file to be used as the cert chain.
+            Required for client authentication.
+      --cacrt <value>
+            TLS: The crt file to be used as the the trusted root CA.
+      --tls
+            TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
       --max-inbound-message-size <value>
@@ -94,6 +103,8 @@ From a DAML project directory:
             prefix -- URL prefix,
             directory -- local directory that will be mapped to the URL prefix.
             Example: "prefix=static,directory=./static-content"
+      --allow-insecure-tokens
+            DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.
       --access-token-file <value>
             provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
       --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
@@ -1053,6 +1064,113 @@ HTTP Response
         "isLocal": true
       },
       "status": 200
+    }
+
+List All DALF Packages
+**********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        "c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd",
+        "733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a",
+        "bfcd37bd6b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f",
+        "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7",
+        "8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb"
+      ],
+      "status": 200
+    }
+
+Where ``result`` is the JSON array containing package IDs of all loaded DALFs.
+
+Download a DALF Package
+***********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages/<package ID>``
+- Method: ``GET``
+- Content: <EMPTY>
+
+Note that package ID is specified in the URL.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Transfer-Encoding: ``chunked``
+- Content-Type: ``application/octet-stream``
+- Content: <DALF bytes>
+
+The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
+
+HTTP Response with Error, any status different from 200 OK
+==========================================================
+
+Any status different from ``200 OK`` will be in the format specified below.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: NOT_FOUND"
+        ],
+        "status": 500
+    }
+
+Upload a DAR File
+*****************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``POST``
+- Content-Type: ``application/octet-stream``
+- Content: <DAR bytes>
+
+The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "result": 1,
+        "status": 200
+    }
+
+HTTP Response with Error
+========================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Invalid DAR: package-upload, content: [}]"
+        ],
+        "status": 500
     }
 
 Streaming API

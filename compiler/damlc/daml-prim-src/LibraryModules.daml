@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 
--- Remove this module when DEL-6311 is done.
+-- | HIDE Remove this module when DEL-6311 is done.
 module LibraryModules where
 
 import DA.Internal.Erased

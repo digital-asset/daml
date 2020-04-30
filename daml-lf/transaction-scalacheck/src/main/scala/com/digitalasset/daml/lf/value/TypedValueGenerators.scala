@@ -124,18 +124,20 @@ object TypedValueGenerators {
 
     type Compose[F[_], G[_], A] = F[G[A]]
     def list(elt: ValueAddend): Aux[Compose[Vector, elt.Inj, ?]] = new ValueAddend {
-      import scalaz.std.vector._
       type Inj[Cid] = Vector[elt.Inj[Cid]]
       override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
       override def inj[Cid: IntroCtx](elts: Inj[Cid]) =
         ValueList(elts.map(elt.inj(_)).to[FrontStack])
       override def prj[Cid] = {
-        case ValueList(v) => v.toImmArray.toSeq.to[Vector] traverse elt.prj
+        case ValueList(v) =>
+          import scalaz.std.vector._
+          v.toImmArray.toSeq.to[Vector] traverse elt.prj
         case _ => None
       }
       override def injord[Cid: Order] = {
+        import scalaz.std.iterable._ // compatible with SValue ordering
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
-        implicitly[Order[Vector[elt.Inj[Cid]]]]
+        implicitly[Order[Iterable[elt.Inj[Cid]]]] contramap identity
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
@@ -210,15 +212,22 @@ object TypedValueGenerators {
       }
       override def injord[Cid: Order] = {
         implicit val k: Order[key.Inj[Cid]] = key.injord
+        implicit val ki: math.Ordering[key.Inj[Cid]] = k.toScalaOrdering
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
-        implicitly[Order[key.Inj[Cid] Map elt.Inj[Cid]]]
+        // for compatibility with SValue ordering
+        Order[ImmArray[(key.Inj[Cid], elt.Inj[Cid])]] contramap { m =>
+          m.to[ImmArraySeq].sortBy(_._1).toImmArray
+        }
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val k: Arbitrary[key.Inj[Cid]] = key.injarb
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid]]]
       }
-      override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
+      override def injshrink[Cid: Shrink] = {
+        import key.{injshrink => keyshrink}, elt.{injshrink => eltshrink}
+        implicitly[Shrink[key.Inj[Cid] Map elt.Inj[Cid]]]
+      }
     }
 
     /** See [[RecVarSpec]] companion for usage examples. */

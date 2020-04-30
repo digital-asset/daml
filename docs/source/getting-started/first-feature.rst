@@ -39,7 +39,7 @@ To implement this workflow, let's start by adding the new *data* for messages.
 Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom.
 Indentation is important: it should be at the top level like the original ``User`` template.
 
-.. literalinclude:: code/daml-after/User.daml
+.. literalinclude:: code/templates-tarball/create-daml-app/daml/User.daml
   :language: daml
   :start-after: -- MESSAGE_BEGIN
   :end-before: -- MESSAGE_END
@@ -51,7 +51,7 @@ This enforces the fact that creation and archival of ``Message`` contracts must 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
 Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``SendMessage`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
 
-.. literalinclude:: code/daml-after/User.daml
+.. literalinclude:: code/templates-tarball/create-daml-app/daml/User.daml
   :language: daml
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
@@ -110,7 +110,7 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
 
 .. TODO Include file in template with placeholder for component logic.
 
-.. literalinclude:: code/ui-after/MessageList.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MessageList.tsx
   :language: tsx
   :start-after: // MESSAGELIST_BEGIN
   :end-before: // MESSAGELIST_END
@@ -134,7 +134,7 @@ Again we show the entire component here; you should copy this into a new ``Messa
 
 .. TODO Include file in template with placeholder for component logic.
 
-.. literalinclude:: code/ui-after/MessageEdit.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MessageEdit.tsx
   :language: tsx
   :start-after: // MESSAGEEDIT_BEGIN
   :end-before: // MESSAGEEDIT_END
@@ -164,7 +164,7 @@ Finally we can see these components come together in the ``MainView`` component.
 We want to add a new panel to house our messaging UI.
 Open the ``ui/src/components/MainView.tsx`` file and start by adding imports for the two new components.
 
-.. literalinclude:: code/ui-after/MainView.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
   :start-after: // IMPORTS_BEGIN
   :end-before: // IMPORTS_END
@@ -172,10 +172,10 @@ Open the ``ui/src/components/MainView.tsx`` file and start by adding imports for
 Next, find where the *Network* ``Segment`` closes, towards the end of the component.
 This is where we'll add a new ``Segment`` for *Messages*. Make sure you've saved the file after copying the code.
 
-.. literalinclude:: code/ui-after/MainView.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
-  :start-after: // MESSAGES_SEGMENT_BEGIN
-  :end-before: // MESSAGES_SEGMENT_END
+  :start-after: {/* MESSAGES_SEGMENT_BEGIN */}
+  :end-before: {/* MESSAGES_SEGMENT_END */}
 
 You can see we simply follow the formatting of the previous panels and include the new messaging components: ``MessageEdit`` supplied with the usernames of all visible parties as props, and ``MessageList`` to display all messages.
 

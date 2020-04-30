@@ -100,6 +100,11 @@ object Cli {
             "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
             "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
 
+      opt[Boolean](name = "implicit-party-allocation")
+        .action((x, c) => c.copy(implicitPartyAllocation = x))
+        .text("When referring to a party that doesn't yet exist on the ledger, Sandbox will implicitly allocate that party."
+          + " You can optionally disable this behavior to bring Sandbox into line with other ledgers.")
+
       opt[String]("pem")
         .optional()
         .text("TLS: The pem file to be used as the private key.")

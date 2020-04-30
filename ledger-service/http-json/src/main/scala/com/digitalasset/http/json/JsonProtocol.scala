@@ -3,19 +3,16 @@
 
 package com.daml.http.json
 
-import java.time.Instant
-
 import akka.http.scaladsl.model.StatusCode
+import com.daml.http.domain
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.lf.value.json.ApiCodecCompressed
-import com.daml.http.domain
-import com.daml.http.json.TaggedJsonFormat._
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 
-object JsonProtocol extends DefaultJsonProtocol {
+object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
 
@@ -43,6 +40,9 @@ object JsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("ContractId must be a string")
       }
     }
+
+  implicit val OffsetFormat: JsonFormat[domain.Offset] =
+    taggedJsonFormat[String, domain.OffsetTag]
 
   implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
     case JsArray(hd +: tl) =>

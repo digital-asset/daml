@@ -24,6 +24,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//libs-scala/resources",

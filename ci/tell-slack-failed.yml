@@ -8,15 +8,17 @@ steps:
   - bash: |
       set -euo pipefail
       COMMIT_TITLE=$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})
-      COMMI_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+      COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
       if [ -z "${{ parameters.trigger_sha }}" ]; then
-          WARNING="<!here> *FAILED* $(Agent.JobName): $COMMIT_LINK"
+          WARNING="<!here> *FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK"
       else
-          WARNING=":fire: :fire: :fire: :fire: :fire:\n<!here> *RELEASE FAILED* $(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
+          WARNING=":fire: :fire: :fire: :fire: :fire:\n<!here> *RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
       fi
       curl -XPOST \
            -i \
            -H 'Content-type: application/json' \
            --data "{\"text\":\"$WARNING\n\"}" \
            $(Slack.team-daml)
-    condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+    condition: and(failed(),
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

@@ -81,7 +81,6 @@ class ImplicitPartyAdditionIT
           "create-signatory",
           "CmdId1",
           NodeCreate(
-            nodeSeed = None,
             coid = Value.AbsoluteContractId.assertFromString("#cId1"),
             coinst = Value.ContractInst(
               templateId1,
@@ -99,7 +98,6 @@ class ImplicitPartyAdditionIT
           "exercise-signatory",
           "CmdId2",
           NodeExercises(
-            nodeSeed = None,
             targetCoid = Value.AbsoluteContractId.assertFromString("#cId1"),
             templateId = templateId1,
             choiceId = Ref.ChoiceName.assertFromString("choice"),
@@ -208,6 +206,8 @@ object ImplicitPartyAdditionIT {
       submissionTime = let.addMicros(1000),
       submissionSeed = None,
       optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None
     )
 
     ledger.publishTransaction(submitterInfo, transactionMeta, transaction)

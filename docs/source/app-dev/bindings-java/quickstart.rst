@@ -325,7 +325,7 @@ A more interesting choice is ``IouTrade_Accept``. To look at it, open ``IouTrade
   :language: daml
   :lines: 25-46
 
-This choice uses the ``===`` operator from the :doc:`DAML Standard Library </daml/reference/base>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
+This choice uses the ``===`` operator from the :doc:`DAML Standard Library </daml/stdlib/index>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
 
 Then, it *composes* the ``Iou_Transfer`` and ``IouTransfer_Accept`` choices to build one big transaction. In this transaction, ``buyer`` and ``seller`` exchange their Ious atomically, without disclosing the entire transaction to all parties involved.
 
@@ -475,7 +475,12 @@ A distributed ledger only forms the core of a full DAML application.
 
 To build automations and integrations around the ledger, the SDK has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
-To compile the Java integration for the quickstart application, run ``mvn compile``.
+
+To compile the Java integration for the quickstart application, we first need to run the Java codegen on the DAR we built before::
+
+    daml codegen java
+
+Once the code has been generated, we can now compile it using ``mvn compile``.
 
 Now start the Java integration with ``mvn exec:java@run-quickstart``. Note that
 this step requires that the sandbox started :ref:`earlier

@@ -12,9 +12,11 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.Statement.discard
 import com.daml.http.dbbackend.ContractDao
+import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
+import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -49,8 +51,10 @@ object Main extends StrictLogging {
         s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
+        s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
+        s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile.toString}" +
         ")")
 
@@ -82,18 +86,8 @@ object Main extends StrictLogging {
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
       HttpService.start(
-        ledgerHost = config.ledgerHost,
-        ledgerPort = config.ledgerPort,
-        applicationId = config.applicationId,
-        address = config.address,
-        httpPort = config.httpPort,
-        portFile = config.portFile,
-        wsConfig = config.wsConfig,
-        accessTokenFile = config.accessTokenFile,
+        startSettings = config,
         contractDao = contractDao,
-        staticContentConfig = config.staticContentConfig,
-        packageReloadInterval = config.packageReloadInterval,
-        maxInboundMessageSize = config.maxInboundMessageSize,
       )
 
     discard {
@@ -178,6 +172,9 @@ object Main extends StrictLogging {
         .text(
           s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
 
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
+
       opt[Duration]("package-reload-interval")
         .action((x, c) => c.copy(packageReloadInterval = FiniteDuration(x.length, x.unit)))
         .optional()
@@ -207,6 +204,11 @@ object Main extends StrictLogging {
         .valueName(StaticContentConfig.usage)
         .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
           + StaticContentConfig.help)
+
+      opt[Unit]("allow-insecure-tokens")
+        .action((_, c) => c copy (allowNonHttps = true))
+        .text(
+          "DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.")
 
       opt[String]("access-token-file")
         .text(

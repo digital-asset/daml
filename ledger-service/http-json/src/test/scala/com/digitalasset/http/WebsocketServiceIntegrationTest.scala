@@ -5,12 +5,12 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.{DomainJsonEncoder, SprayJson}
 import com.daml.http.util.TestUtil
+import HttpServiceTestFixture.UseTls
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.{-\/, \/, \/-}
@@ -39,7 +39,7 @@ class WebsocketServiceIntegrationTest
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+  override def useTls = UseTls.NoTls
 
   private val baseQueryInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))

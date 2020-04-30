@@ -228,7 +228,9 @@ object KVTest {
           workflowId = None,
           submissionTime = txMetaData.submissionTime,
           submissionSeed = submissionSeed,
-          optUsedPackages = Some(txMetaData.usedPackages)
+          optUsedPackages = Some(txMetaData.usedPackages),
+          optNodeSeeds = None,
+          optByKeyNodes = None,
         ),
         tx = tx
       )

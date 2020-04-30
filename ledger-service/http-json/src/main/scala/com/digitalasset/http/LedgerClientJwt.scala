@@ -5,9 +5,9 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.lf.data.Ref
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
+import com.daml.ledger.api.v1.package_service
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
@@ -18,6 +18,8 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.data.Ref
+import com.google.protobuf
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,6 +49,15 @@ object LedgerClientJwt {
 
   type AllocateParty =
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
+
+  type ListPackages =
+    Jwt => Future[package_service.ListPackagesResponse]
+
+  type GetPackage =
+    (Jwt, String) => Future[package_service.GetPackageResponse]
+
+  type UploadDarFile =
+    (Jwt, protobuf.ByteString) => Future[Unit]
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
@@ -122,4 +133,14 @@ object LedgerClientJwt {
         hint = identifierHint,
         displayName = displayName,
         token = bearer(jwt))
+
+  def listPackages(client: LedgerClient): ListPackages =
+    jwt => client.packageClient.listPackages(bearer(jwt))
+
+  def getPackage(client: LedgerClient): GetPackage =
+    (jwt, packageId) => client.packageClient.getPackage(packageId, token = bearer(jwt))
+
+  def uploadDar(client: LedgerClient): UploadDarFile =
+    (jwt, byteString) =>
+      client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
 }

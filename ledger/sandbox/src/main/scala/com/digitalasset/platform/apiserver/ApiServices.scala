@@ -9,17 +9,19 @@ import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
+import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
-  StoreBackedCommandExecutor
+  StoreBackedCommandExecutor,
+  TimedCommandExecutor
 }
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
@@ -39,10 +41,13 @@ import com.daml.platform.apiserver.services.{
 }
 import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
@@ -50,19 +55,13 @@ import scalaz.syntax.tag._
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
-trait ApiServices extends AutoCloseable {
+trait ApiServices {
   val services: Iterable[BindableService]
 
   def withServices(otherServices: immutable.Seq[BindableService]): ApiServices
 }
 
 private case class ApiServicesBundle(services: immutable.Seq[BindableService]) extends ApiServices {
-
-  override def close(): Unit =
-    services.foreach {
-      case closeable: AutoCloseable => closeable.close()
-      case _ => ()
-    }
 
   override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices =
     copy(services = services ++ otherServices)
@@ -73,14 +72,15 @@ object ApiServices {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  def create(
+  class Owner(
       participantId: Ref.ParticipantId,
       writeService: WriteService,
       indexService: IndexService,
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
-      defaultLedgerConfiguration: Configuration,
+      timeProviderType: TimeProviderType,
+      ledgerConfiguration: LedgerConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       submissionConfig: SubmissionConfiguration,
@@ -91,45 +91,65 @@ object ApiServices {
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext
-  ): Future[ApiServices] = {
-    implicit val ec: ExecutionContext = mat.system.dispatcher
+      logCtx: LoggingContext,
+  ) extends ResourceOwner[ApiServices] {
+    private val configurationService: IndexConfigurationService = indexService
+    private val identityService: IdentityProvider = indexService
+    private val packagesService: IndexPackagesService = indexService
+    private val activeContractsService: IndexActiveContractsService = indexService
+    private val transactionsService: IndexTransactionsService = indexService
+    private val contractStore: ContractStore = indexService
+    private val completionsService: IndexCompletionsService = indexService
+    private val partyManagementService: IndexPartyManagementService = indexService
+    private val configManagementService: IndexConfigManagementService = indexService
+    private val submissionService: IndexSubmissionService = indexService
 
-    // still trying to keep it tidy in case we want to split it later
-    val configurationService: IndexConfigurationService = indexService
-    val identityService: IdentityProvider = indexService
-    val packagesService: IndexPackagesService = indexService
-    val activeContractsService: IndexActiveContractsService = indexService
-    val transactionsService: IndexTransactionsService = indexService
-    val contractStore: ContractStore = indexService
-    val completionsService: IndexCompletionsService = indexService
-    val partyManagementService: IndexPartyManagementService = indexService
-    val configManagementService: IndexConfigManagementService = indexService
-    val submissionService: IndexSubmissionService = indexService
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
+      Resource(
+        indexService
+          .getLedgerId()
+          .map(ledgerId => createServices(ledgerId)(mat.system.dispatcher)))(services =>
+        Future {
+          services.foreach {
+            case closeable: AutoCloseable => closeable.close()
+            case _ => ()
+          }
+      }).map(ApiServicesBundle(_))
 
-    identityService.getLedgerId().map { ledgerId =>
-      val commandExecutor = new LedgerTimeAwareCommandExecutor(
-        new StoreBackedCommandExecutor(engine, participantId, packagesService, contractStore),
-        contractStore,
-        maxRetries = 3,
-      )
-      val apiSubmissionService =
-        ApiSubmissionService.create(
-          ledgerId,
-          contractStore,
-          writeService,
-          submissionService,
-          partyManagementService,
-          defaultLedgerConfiguration.timeModel,
-          timeProvider,
-          seedService,
-          commandExecutor,
-          ApiSubmissionService.Configuration(
-            submissionConfig.maxDeduplicationTime,
-            partyConfig.implicitPartyAllocation,
+    private def createServices(ledgerId: LedgerId)(
+        implicit executionContext: ExecutionContext): List[BindableService] = {
+      val commandExecutor = new TimedCommandExecutor(
+        new LedgerTimeAwareCommandExecutor(
+          new StoreBackedCommandExecutor(
+            engine,
+            participantId,
+            packagesService,
+            contractStore,
+            metrics,
           ),
+          contractStore,
+          maxRetries = 3,
           metrics,
-        )
+        ),
+        metrics,
+      )
+      val apiSubmissionService = ApiSubmissionService.create(
+        ledgerId,
+        contractStore,
+        writeService,
+        submissionService,
+        partyManagementService,
+        ledgerConfiguration.initialConfiguration.timeModel,
+        timeProvider,
+        timeProviderType,
+        seedService,
+        commandExecutor,
+        ApiSubmissionService.Configuration(
+          submissionConfig.maxDeduplicationTime,
+          partyConfig.implicitPartyAllocation,
+        ),
+        metrics,
+      )
 
       logger.info(EngineInfo.show)
 
@@ -147,6 +167,9 @@ object ApiServices {
       val apiCompletionService =
         ApiCommandCompletionService.create(ledgerId, completionsService)
 
+      // Note: the command service uses the command submission, command completion, and transaction
+      // services internally. These connections do not use authorization, authorization wrappers are
+      // only added here to all exposed services.
       val apiCommandService = ApiCommandService.create(
         ApiCommandService.Configuration(
           ledgerId,
@@ -196,31 +219,28 @@ object ApiServices {
             configManagementService,
             writeService,
             timeProvider,
-            defaultLedgerConfiguration)
+            ledgerConfiguration)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks)
 
-      // Note: the command service uses the command submission, command completion, and transaction services internally.
-      // These connections do not use authorization, authorization wrappers are only added here to all exposed services.
-      ApiServicesBundle(
-        apiTimeServiceOpt.toList :::
-          List(
-          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
-          new PackageServiceAuthorization(apiPackageService, authorizer),
-          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
-          new TransactionServiceAuthorization(apiTransactionService, authorizer),
-          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
-          new CommandServiceAuthorization(apiCommandService, authorizer),
-          new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
-          new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
-          new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
-          new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
-          apiReflectionService,
-          apiHealthService,
-        ))
+      apiTimeServiceOpt.toList :::
+        List(
+        new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
+        new PackageServiceAuthorization(apiPackageService, authorizer),
+        new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
+        new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+        new TransactionServiceAuthorization(apiTransactionService, authorizer),
+        new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
+        new CommandServiceAuthorization(apiCommandService, authorizer),
+        new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
+        new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
+        new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
+        new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
+        apiReflectionService,
+        apiHealthService,
+      )
     }
   }
 }

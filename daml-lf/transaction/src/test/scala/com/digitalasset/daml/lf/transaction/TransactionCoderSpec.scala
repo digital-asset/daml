@@ -304,7 +304,6 @@ class TransactionCoderSpec
     "do tx with a lot of root nodes" in {
       val node =
         Node.NodeCreate[Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
-          nodeSeed = None,
           coid = absCid("#test-cid"),
           coinst = ContractInst(
             Identifier(

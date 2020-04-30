@@ -35,6 +35,7 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 import Development.IDE.Types.Location as Base
@@ -202,11 +203,16 @@ diagsToIdeResult :: NormalizedFilePath -> [Diagnostic] -> IdeResult ()
 diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
     where r = if any ((Just DsError ==) . _severity) diags then Nothing else Just ()
 
-getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
-getDalfDependencies files = do
+-- | Dependencies on other packages excluding stable DALFs.
+getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getUnstableDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- Map.unions <$> usesE GeneratePackageMap files
-    let actualDeps = Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+    pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+
+getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getDalfDependencies files = do
+    actualDeps <- getUnstableDalfDependencies files
     -- For now, we unconditionally include all stable packages.
     -- Given that they are quite small and it is pretty much impossible to not depend on them
     -- this is fine. We might want to try being more clever here in the future.
@@ -525,7 +531,13 @@ damlGhcSessionRule opts@Options{..} = do
         let base = mkBaseUnits (optUnitId opts)
         inferredPackages <- liftIO $ case mbProjectRoot of
             Just projectRoot | getInferDependantPackages optInferDependantPackages ->
-                dependantUnitsFromDamlYaml optDamlLfVersion projectRoot
+                -- We catch doesNotExistError which could happen if the
+                -- package db has never been initialized. In that case, we simply
+                -- infer no extra packages.
+                catchJust
+                    (guard . isDoesNotExistError)
+                    (directDependencies <$> readMetadata projectRoot)
+                    (const $ pure [])
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag (base ++ inferredPackages) ++ optPackageImports
         env <- liftIO $ runGhcFast $ do

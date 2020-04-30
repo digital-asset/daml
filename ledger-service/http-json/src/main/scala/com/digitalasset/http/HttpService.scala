@@ -28,6 +28,7 @@ import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -56,19 +57,34 @@ object HttpService extends StrictLogging {
 
   final case class Error(message: String)
 
+  // defined separately from Config so
+  //  1. it is absolutely lexically apparent what `import startSettings._` means
+  //  2. avoid incorporating other Config'd things into "the shared args to start"
+  trait StartSettings {
+    val ledgerHost: String
+    val ledgerPort: Int
+    val applicationId: ApplicationId
+    val address: String
+    val httpPort: Int
+    val portFile: Option[Path]
+    val tlsConfig: TlsConfiguration
+    val wsConfig: Option[WebsocketConfig]
+    val accessTokenFile: Option[Path]
+    val allowNonHttps: Boolean
+    val staticContentConfig: Option[StaticContentConfig]
+    val packageReloadInterval: FiniteDuration
+    val maxInboundMessageSize: Int
+  }
+
+  trait DefaultStartSettings extends StartSettings {
+    override val staticContentConfig: Option[StaticContentConfig] = None
+    override val packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval
+    override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
+  }
+
   def start(
-      ledgerHost: String,
-      ledgerPort: Int,
-      applicationId: ApplicationId,
-      address: String,
-      httpPort: Int,
-      portFile: Option[Path],
-      wsConfig: Option[WebsocketConfig],
-      accessTokenFile: Option[Path],
+      startSettings: StartSettings,
       contractDao: Option[ContractDao] = None,
-      staticContentConfig: Option[StaticContentConfig] = None,
-      packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
-      maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt,
   )(
       implicit asys: ActorSystem,
@@ -76,6 +92,7 @@ object HttpService extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[Error \/ ServerBinding] = {
+    import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys)
 
@@ -85,7 +102,7 @@ object HttpService extends StrictLogging {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None,
+      sslContext = tlsConfig.client,
       token = tokenHolder.flatMap(_.token),
     )
 
@@ -131,14 +148,24 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.allocateParty(client)
       )
 
+      packageManagementService = new PackageManagementService(
+        LedgerClientJwt.listPackages(client),
+        LedgerClientJwt.getPackage(client),
+        uploadDarAndReloadPackages(
+          LedgerClientJwt.uploadDar(client),
+          () => packageService.reload(ec))
+      )
+
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
       jsonEndpoints = new Endpoints(
         ledgerId,
+        allowNonHttps,
         validateJwt,
         commandService,
         contractsService,
         partiesService,
+        packageManagementService,
         encoder,
         decoder,
       )
@@ -158,11 +185,11 @@ object HttpService extends StrictLogging {
         websocketService,
       )
 
+      defaultEndpoints = jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+
       allEndpoints = staticContentConfig.cata(
-        c =>
-          StaticContentEndpoints
-            .all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
+        c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
+        defaultEndpoints
       )
 
       binding <- liftET[Error](
@@ -295,4 +322,10 @@ object HttpService extends StrictLogging {
     import util.ErrorOps._
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
   }
+
+  private def uploadDarAndReloadPackages(
+      f: LedgerClientJwt.UploadDarFile,
+      g: () => Future[PackageService.Error \/ Unit])(
+      implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
+    (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
 }

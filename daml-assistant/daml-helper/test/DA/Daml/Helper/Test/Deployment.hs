@@ -26,6 +26,12 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 
 data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
 
+-- NOTE: This test was moved to the compatibility tests in
+-- `compatibility/bazel_tools/daml_ledger/Main.hs`. This file remains for now
+-- for easier iterative testing during development. If you modify these tests
+-- then please keep them in sync with the corresponding tests in the
+-- compatibility workspace.
+
 main :: IO ()
 main = do
   -- We manipulate global state via the working directory

@@ -170,7 +170,6 @@ object TransactionSpec {
       hasExerciseResult: Boolean = true,
   ): NodeExercises[V.NodeId, V.ContractId, Value] =
     NodeExercises(
-      nodeSeed = None,
       targetCoid = toCid(cid),
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
@@ -191,7 +190,6 @@ object TransactionSpec {
 
   def dummyCreateNode(cid: String): NodeCreate[V.ContractId, Value] =
     NodeCreate(
-      nodeSeed = None,
       coid = toCid(cid),
       coinst = V.ContractInst(
         Ref.Identifier(

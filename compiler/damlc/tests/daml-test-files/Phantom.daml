@@ -1,9 +1,6 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Replace case with optional
-
-
 module Phantom where
 
 data Phantom a = Phantom {}
@@ -11,12 +8,8 @@ data Phantom a = Phantom {}
 phantom : Phantom (Party -> Party)
 phantom = Phantom {}
 
-
 showOptional : (a -> Text) -> Optional a -> Text
-showOptional f x = case x of
-    Some v -> f v
-    None -> "None"
-
+showOptional f x = optional "None" f x
 
 main = scenario do
     alice <- getParty "alice"

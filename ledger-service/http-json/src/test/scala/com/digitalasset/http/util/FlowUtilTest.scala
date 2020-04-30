@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import org.scalacheck.{Gen, Arbitrary}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
@@ -24,22 +25,25 @@ class FlowUtilTest
   implicit val asys: ActorSystem = ActorSystem(this.getClass.getSimpleName)
   implicit val materializer: Materializer = Materializer(asys)
 
-  "allowOnlyFirstInput" should "pass 1st message through and replace all others with errors" in forAll {
-    xs: Vector[Int] =>
-      val error = "Error"
-      val errorNum = Math.max(xs.size - 1, 0)
-      val expected: Vector[String \/ Int] =
-        xs.take(1).map(\/-(_)) ++ Vector.fill(errorNum)(-\/(error))
-      val input: Source[String \/ Int, NotUsed] =
-        Source.fromIterator(() => xs.toIterator).map(\/-(_))
+  "allowOnlyFirstInput" should "pass 1st message through and replace all others with errors" in forAll(
+    nonEmptyVectorOfInts) { xs: Vector[Int] =>
+    val error = "Error"
+    val errorNum = Math.max(xs.size - 1, 0)
+    val expected: Vector[String \/ Int] =
+      xs.take(1).map(\/-(_)) ++ Vector.fill(errorNum)(-\/(error))
+    val input: Source[String \/ Int, NotUsed] =
+      Source.fromIterator(() => xs.toIterator).map(\/-(_))
 
-      val actualF: Future[Vector[String \/ Int]] =
-        input
-          .via(allowOnlyFirstInput[String, Int](error))
-          .runFold(Vector.empty[String \/ Int])(_ :+ _)
+    val actualF: Future[Vector[String \/ Int]] =
+      input
+        .via(allowOnlyFirstInput[String, Int](error))
+        .runFold(Vector.empty[String \/ Int])(_ :+ _)
 
-      whenReady(actualF) { actual =>
-        actual shouldBe expected
-      }
+    whenReady(actualF) { actual =>
+      actual shouldBe expected
+    }
   }
+
+  private val nonEmptyVectorOfInts: Gen[Vector[Int]] =
+    Gen.nonEmptyBuildableOf[Vector[Int], Int](Arbitrary.arbitrary[Int])
 }

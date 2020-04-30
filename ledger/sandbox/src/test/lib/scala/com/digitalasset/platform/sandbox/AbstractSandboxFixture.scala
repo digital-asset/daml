@@ -7,7 +7,6 @@ import java.io.File
 import java.net.InetAddress
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -62,7 +61,6 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       port = Port.Dynamic,
       damlPackages = packageFiles,
       timeProviderType = Some(TimeProviderType.Static),
-      timeModel = TimeModel.reasonableDefault,
       scenario = scenario,
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
     )

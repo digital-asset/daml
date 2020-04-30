@@ -14,9 +14,9 @@ import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Compiler, SValue, SExpr}
+import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -172,7 +172,7 @@ class ReplService(
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     packages = packages + (pkgId -> pkg)
-    compiledDefinitions = compiledDefinitions ++ Compiler(packages).compilePackage(pkgId)
+    compiledDefinitions = compiledDefinitions ++ Compiler(packages).unsafeCompilePackage(pkgId)
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
   }
@@ -208,14 +208,18 @@ class ReplService(
     }
 
     val allPkgs = packages + (homePackageId -> pkg)
-    val defs = Compiler(allPkgs).compilePackage(homePackageId)
-    val compiledPackages = PureCompiledPackages(allPkgs, compiledDefinitions ++ defs).right.get
+    val defs = Compiler(allPkgs).unsafeCompilePackage(homePackageId)
+    val compiledPackages = PureCompiledPackages(allPkgs, compiledDefinitions ++ defs)
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
       TimeProvider.UTC)
     runner.runWithClients(clients).onComplete {
+      case Failure(e: SError.SError) =>
+        // The error here is already printed by the logger in stepToValue.
+        // No need to print anything here.
+        respObs.onError(e)
       case Failure(e) =>
         println(s"$e")
         respObs.onError(e)

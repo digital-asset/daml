@@ -232,6 +232,8 @@ object KeyValueConsumption {
         submissionTime = parseTimestamp(txEntry.getSubmissionTime),
         submissionSeed = parseOptHash(txEntry.getSubmissionSeed),
         optUsedPackages = None,
+        optNodeSeeds = None,
+        optByKeyNodes = None,
       ),
       transaction = transaction,
       transactionId = hexTxId,

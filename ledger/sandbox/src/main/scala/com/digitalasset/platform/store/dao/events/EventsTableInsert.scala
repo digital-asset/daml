@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
-import java.util.Date
+import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
@@ -57,10 +57,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "transaction_id" -> "{transaction_id}",
       "workflow_id" -> "{workflow_id}",
       "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_package_id" -> "{template_package_id}",
-      "template_name" -> "{template_name}",
+      "template_id" -> "{template_id}",
       "node_index" -> "{node_index}",
-      "is_root" -> "{is_root}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
       "submitter" -> "{submitter}",
@@ -80,7 +78,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       nodeId: NodeId,
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       create: Create,
   ): Vector[NamedParameter] =
@@ -91,10 +89,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> create.coinst.template.packageId,
-      "template_name" -> create.coinst.template.qualifiedName,
+      "template_id" -> create.coinst.template,
       "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
       "command_id" -> commandId,
       "application_id" -> applicationId,
       "submitter" -> submitter,
@@ -113,10 +109,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "transaction_id" -> "{transaction_id}",
       "workflow_id" -> "{workflow_id}",
       "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_package_id" -> "{template_package_id}",
-      "template_name" -> "{template_name}",
+      "template_id" -> "{template_id}",
       "node_index" -> "{node_index}",
-      "is_root" -> "{is_root}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
       "submitter" -> "{submitter}",
@@ -136,7 +130,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       nodeId: NodeId,
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       exercise: Exercise,
   ): Vector[NamedParameter] =
@@ -147,10 +141,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> exercise.templateId.packageId,
-      "template_name" -> exercise.templateId.qualifiedName,
+      "template_id" -> exercise.templateId,
       "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
       "command_id" -> commandId,
       "application_id" -> applicationId,
       "submitter" -> submitter,
@@ -238,7 +230,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       commandId: Option[CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
   ): PreparedBatches =

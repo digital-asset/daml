@@ -4,78 +4,109 @@
 package com.daml.platform.store.dao
 
 import java.time.Instant
+import java.util.UUID
 
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.GenTransaction
-import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate}
-import com.daml.lf.value.Value.{AbsoluteContractId, ValueText, VersionedValue}
-import com.daml.lf.value.ValueVersions
-import com.daml.platform.store.PersistenceEntry
-import com.daml.platform.store.entries.LedgerEntry
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import com.daml.lf.value.Value.AbsoluteContractId
+import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers}
 
-import scala.collection.immutable.HashMap
-
-private[dao] trait JdbcLedgerDaoContractsSpec {
+private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (contracts)"
 
   it should "be able to persist and load contracts" in {
-    val offset = nextOffset()
-    val offsetString = offset.toLong
-    val absCid = AbsoluteContractId.assertFromString(s"#cId1-$offsetString")
-    val txId = s"trId-$offsetString"
-    val workflowId = s"workflowId-$offsetString"
-    val let = Instant.now
-    val keyWithMaintainers = KeyWithMaintainers(
-      VersionedValue(ValueVersions.acceptedVersions.head, ValueText(s"key-$offsetString")),
-      Set(alice)
-    )
-    val event1 = event(txId, 1)
-    val event2 = event(txId, 2)
-
-    val transaction = LedgerEntry.Transaction(
-      Some("commandId1"),
-      txId,
-      Some(s"appID-$offsetString"),
-      Some("Alice"),
-      Some(workflowId),
-      let,
-      let,
-      GenTransaction(
-        HashMap(
-          event1 -> NodeCreate(
-            nodeSeed = None,
-            coid = absCid,
-            coinst = someContractInstance,
-            optLocation = None,
-            signatories = Set(alice, bob),
-            stakeholders = Set(alice, bob),
-            key = Some(keyWithMaintainers)
-          )),
-        ImmArray(event1),
-      ),
-      Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
-    )
     for {
-      result1 <- ledgerDao.lookupActiveOrDivulgedContract(absCid, alice)
-      _ <- ledgerDao.storeLedgerEntry(
-        offset,
-        PersistenceEntry.Transaction(
-          transaction,
-          Map(
-            absCid -> Set(Ref.Party.assertFromString("Alice"), Ref.Party.assertFromString("Bob"))),
-          List.empty
-        )
-      )
-      result2 <- ledgerDao.lookupActiveOrDivulgedContract(absCid, alice)
+      (_, tx) <- store(singleCreate)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
     } yield {
-      result1 shouldEqual None
-      result2 shouldEqual Some(someContractInstance)
+      // The agreement text is always empty when retrieved from the contract store
+      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
     }
+  }
 
+  it should "allow to divulge a contract that has already been committed" in {
+    for {
+      (_, tx) <- store(singleCreate)
+      create = nonTransient(tx).loneElement
+      _ <- store(
+        divulgedContracts = Map((create, someContractInstance) -> Set(charlie)),
+        offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
+      )
+      result <- ledgerDao.lookupActiveOrDivulgedContract(create, charlie)
+    } yield {
+      // The agreement text is always empty when retrieved from the contract store
+      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
+    }
+  }
+
+  it should "not find contracts that are not visible to the requester" in {
+    for {
+      (_, tx) <- store(singleCreate)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, charlie)
+    } yield {
+      result shouldEqual None
+    }
+  }
+
+  it should "prevent retrieving the maximum ledger time if some contracts are not found" in {
+    val randomContractId = AbsoluteContractId.assertFromString(s"#random-${UUID.randomUUID}")
+    for {
+      failure <- ledgerDao.lookupMaximumLedgerTime(Set(randomContractId)).failed
+    } yield {
+      failure shouldBe an[IllegalArgumentException]
+      failure.getMessage should startWith(
+        "One or more of the following contract identifiers has been found"
+      )
+    }
+  }
+
+  it should "allow the retrieval of the maximum ledger time" in {
+    for {
+      (_, tx) <- store(singleCreate)
+      result <- ledgerDao.lookupMaximumLedgerTime(nonTransient(tx))
+    } yield {
+      inside(result) {
+        case Some(time) => time should be <= Instant.now
+      }
+    }
+  }
+
+  it should "allow the retrieval of the maximum ledger time even when there are divulged contracts" in {
+    val divulgedContractId = AbsoluteContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    for {
+      (_, _) <- store(
+        divulgedContracts = Map(
+          (divulgedContractId, someContractInstance) -> Set(charlie)
+        ),
+        offsetAndTx = singleExercise(divulgedContractId)
+      )
+      (_, tx) <- store(singleCreate)
+      contractIds = nonTransient(tx) + divulgedContractId
+      result <- ledgerDao.lookupMaximumLedgerTime(contractIds)
+    } yield {
+      inside(result) {
+        case Some(tx.ledgerEffectiveTime) => succeed
+      }
+    }
+  }
+
+  it should "allow the retrieval of the maximum ledger time even when there are only divulged contracts" in {
+    val divulgedContractId = AbsoluteContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    for {
+      (_, _) <- store(
+        divulgedContracts = Map(
+          (divulgedContractId, someContractInstance) -> Set(charlie)
+        ),
+        offsetAndTx = singleExercise(divulgedContractId)
+      )
+      result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
+    } yield {
+      result shouldBe None
+    }
+  }
+
+  it should "store contracts with a transient contract in the global divulgence" in {
+    store(fullyTransientWithChildren).flatMap(_ => succeed)
   }
 
 }

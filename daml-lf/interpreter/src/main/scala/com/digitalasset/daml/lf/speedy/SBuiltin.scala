@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
+import java.util.regex.Pattern
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -12,7 +13,13 @@ import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy.{CtrlValue, CtrlWronglyTypeContractId, Machine, SpeedyHungry}
+import com.daml.lf.speedy.Speedy.{
+  CtrlTranslateValue,
+  CtrlValue,
+  CtrlWronglyTypeContractId,
+  Machine,
+  SpeedyHungry
+}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.{Transaction => Tx}
@@ -838,10 +845,10 @@ object SBuiltin {
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
-  ) extends SBuiltin(8) {
+  ) extends SBuiltin(9) {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(7))
+      checkToken(args.get(8))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -851,11 +858,15 @@ object SBuiltin {
         case SOptional(optValue) => optValue.map(extractParties)
         case v => crash(s"expect optional parties, got: $v")
       }
-      val sigs = extractParties(args.get(3))
-      val obs = extractParties(args.get(4))
-      val ctrls = extractParties(args.get(5))
+      val byKey = args.get(3) match {
+        case SBool(b) => b
+        case v => crash(s"expect boolean flag, got: $v")
+      }
+      val sigs = extractParties(args.get(4))
+      val obs = extractParties(args.get(5))
+      val ctrls = extractParties(args.get(6))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -869,6 +880,7 @@ object SBuiltin {
           stakeholders = sigs union obs,
           controllers = ctrls,
           mbKey = mbKey,
+          byKey = byKey,
           chosenValue = asVersionedValue(arg) match {
             case Left(err) => crash(err)
             case Right(x) => x
@@ -897,101 +909,6 @@ object SBuiltin {
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
-  }
-
-  // This function translates well-typed values.
-  // Raises an exception if missing packages.
-  @throws[SpeedyHungry]
-  def translateValue(machine: Machine, value: V[V.ContractId]): CtrlValue = {
-    def go(value0: V[V.ContractId]): SValue =
-      value0 match {
-        case V.ValueList(vs) => SList(vs.map[SValue](go))
-        case V.ValueContractId(coid) => SContractId(coid)
-        case V.ValueInt64(x) => SInt64(x)
-        case V.ValueNumeric(x) => SNumeric(x)
-        case V.ValueText(t) => SText(t)
-        case V.ValueTimestamp(t) => STimestamp(t)
-        case V.ValueParty(p) => SParty(p)
-        case V.ValueBool(b) => SBool(b)
-        case V.ValueDate(x) => SDate(x)
-        case V.ValueUnit => SUnit
-        case V.ValueRecord(Some(id), fs) =>
-          val fields = Name.Array.ofDim(fs.length)
-          val values = new util.ArrayList[SValue](fields.length)
-          fs.foreach {
-            case (optk, v) =>
-              optk match {
-                case None =>
-                  throw crash("SValue.fromValue: record missing field name")
-                case Some(k) =>
-                  fields(values.size) = k
-                  val _ = values.add(go(v))
-              }
-          }
-          SRecord(id, fields, values)
-        case V.ValueRecord(None, _) =>
-          crash("SValue.fromValue: record missing identifier")
-        case V.ValueStruct(fs) =>
-          val fields = Name.Array.ofDim(fs.length)
-          val values = new util.ArrayList[SValue](fields.length)
-          fs.foreach {
-            case (k, v) =>
-              fields(values.size) = k
-              val _ = values.add(go(v))
-          }
-          SStruct(fields, values)
-        case V.ValueVariant(None, _variant @ _, _value @ _) =>
-          crash("SValue.fromValue: variant without identifier")
-        case V.ValueEnum(None, constructor @ _) =>
-          crash("SValue.fromValue: enum without identifier")
-        case V.ValueOptional(mbV) =>
-          SOptional(mbV.map(go))
-        case V.ValueTextMap(map) =>
-          STextMap(map.mapValue(go).toHashMap)
-        case V.ValueGenMap(entries) =>
-          SGenMap(
-            entries.iterator.map { case (k, v) => go(k) -> go(v) }
-          )
-        case V.ValueVariant(Some(id), variant, value) =>
-          machine.compiledPackages.getPackage(id.packageId) match {
-            case Some(pkg) =>
-              pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
-                case Ast.DDataType(_, _, data: Ast.DataVariant) =>
-                  SVariant(id, variant, data.constructorRank(variant), go(value))
-                case _ =>
-                  crash(s"definition for variant $id not found")
-              }
-            case None =>
-              throw SpeedyHungry(
-                SResultNeedPackage(
-                  id.packageId,
-                  pkg => {
-                    machine.compiledPackages = pkg
-                    machine.ctrl = translateValue(machine, value)
-                  }
-                ))
-          }
-        case V.ValueEnum(Some(id), constructor) =>
-          machine.compiledPackages.getPackage(id.packageId) match {
-            case Some(pkg) =>
-              pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
-                case Ast.DDataType(_, _, data: Ast.DataEnum) =>
-                  SEnum(id, constructor, data.constructorRank(constructor))
-                case _ =>
-                  crash(s"definition for variant $id not found")
-              }
-            case None =>
-              throw SpeedyHungry(
-                SResultNeedPackage(
-                  id.packageId,
-                  pkg => {
-                    machine.compiledPackages = pkg
-                    machine.ctrl = translateValue(machine, value)
-                  }
-                ))
-          }
-      }
-    CtrlValue(go(value))
   }
 
   /** $fetch[T]
@@ -1033,7 +950,7 @@ object SBuiltin {
                             CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
                         } else {
                           machine.ptx = machine.ptx.cachedContract(coid, coinst)
-                          machine.ctrl = translateValue(machine, coinst.arg.value)
+                          machine.ctrl = CtrlTranslateValue(coinst.arg.value)
                         }
                     },
                   ),
@@ -1054,7 +971,7 @@ object SBuiltin {
         // (see below).
         crash(s"Relative contract $coid ($templateId) not found from partial transaction")
       } else {
-        machine.ctrl = translateValue(machine, coinst.arg.value)
+        CtrlTranslateValue(coinst.arg.value).execute(machine)
       }
     }
   }
@@ -1067,7 +984,7 @@ object SBuiltin {
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(5) {
+  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean) extends SBuiltin(5) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(4))
       val coid = args.get(0) match {
@@ -1079,10 +996,10 @@ object SBuiltin {
       val key = extractOptionalKeyWithMaintainers(args.get(3))
 
       val stakeholders = observers union signatories
-      val contextActors = machine.ptx.context match {
-        case PartialTransaction.ContextExercise(ctx, _) =>
+      val contextActors = machine.ptx.context.exeContext match {
+        case Some(ctx) =>
           ctx.actingParties union ctx.signatories
-        case PartialTransaction.ContextRoot(_, _) =>
+        case None =>
           machine.committers
       }
 
@@ -1093,7 +1010,8 @@ object SBuiltin {
         contextActors intersect stakeholders,
         signatories,
         stakeholders,
-        key
+        key,
+        byKey,
       )
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
@@ -1109,7 +1027,6 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
-      checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1123,15 +1040,17 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.ctrl = CtrlValue.None
-                true
-              },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SOptional(Some(SContractId(contractId))))
+              machine.committers, {
+                case SKeyLookupResult.Found(cid) =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  machine.ctrl = CtrlValue(SOptional(Some(SContractId(cid))))
+                  true
+                case SKeyLookupResult.NotFound =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  machine.ctrl = CtrlValue.None
+                  true
+                case SKeyLookupResult.NotVisible =>
+                  machine.tryHandleException()
               },
             ),
           )
@@ -1180,7 +1099,6 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
-      checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1194,14 +1112,14 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.tryHandleException()
-              },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SContractId(contractId))
+              machine.committers, {
+                case SKeyLookupResult.Found(cid) =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  machine.ctrl = CtrlValue(SContractId(cid))
+                  true
+                case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  machine.tryHandleException()
               },
             ),
           )
@@ -1508,7 +1426,16 @@ object SBuiltin {
         case SText(pattern) =>
           args.get(1) match {
             case SText(t) =>
-              val seq: Seq[SValue] = t.split(pattern).map(SText).toSeq
+              val seq: Seq[SValue] =
+                // Java will produce a two-element list for this with the second
+                // element being the empty string.
+                if (pattern.isEmpty) {
+                  Seq(SText(t))
+                } else {
+                  // We do not want to do a regex match so we use Pattern.quote
+                  // and we want to keep empty strings, so we use -1 as the second argument.
+                  t.split(Pattern.quote(pattern), -1).map(SText).toSeq
+                }
               machine.ctrl = CtrlValue(SList(FrontStack(seq)))
             case x =>
               throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
@@ -1609,36 +1536,6 @@ object SBuiltin {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
       case v => crash(s"Expected optional key with maintainers, got: $v")
     }
-
-  private def checkLookupMaintainers(
-      templateId: Identifier,
-      machine: Machine,
-      maintainers: Set[Party],
-  ): Unit = {
-    // This check is dependent on whether we are submitting or validating the transaction.
-    // See <https://github.com/digital-asset/daml/issues/1866#issuecomment-506315152>,
-    // specifically "Consequently it suffices to implement this check
-    // only for the submission. There is no intention to enforce "submitter
-    // must be a maintainer" during validation; if we find in the future a
-    // way to disclose key information or support interactive submission,
-    // then we can lift this restriction without changing the validation
-    // parts. In particular, this should not affect whether we have to ship
-    // the submitter along with the transaction."
-    if (!machine.validating) {
-      val submitter = if (machine.committers.size != 1) {
-        crash(
-          s"expecting exactly one committer since we're not validating, but got ${machine.committers}",
-        )
-      } else {
-        machine.committers.toSeq.head
-      }
-      if (machine.checkSubmitterInMaintainers) {
-        if (!(maintainers.contains(submitter))) {
-          throw DamlESubmitterNotInMaintainers(templateId, submitter, maintainers)
-        }
-      }
-    }
-  }
 
   private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)

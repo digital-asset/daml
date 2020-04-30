@@ -13,7 +13,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private def createdFlatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -25,8 +25,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
               createdEvent(
                 eventId = eventId,
                 contractId = contractId,
-                templatePackageId = templatePackageId,
-                templateName = templateName,
+                templateId = templateId,
                 createArgument = createArgument,
                 createSignatories = createSignatories,
                 createObservers = createObservers,
@@ -42,7 +41,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private val archivedFlatEventParser: RowParser[Entry[Event]] =
     archivedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses =>
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
         Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -54,8 +53,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
               archivedEvent(
                 eventId = eventId,
                 contractId = contractId,
-                templatePackageId = templatePackageId,
-                templateName = templateName,
+                templateId = templateId,
                 eventWitnesses = eventWitnesses,
               )
             )
@@ -80,15 +78,16 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "workflow_id",
       "participant_events.event_id",
       "contract_id",
-      "template_package_id",
-      "template_name",
+      "template_id",
       "create_argument",
       "create_signatories",
       "create_observers",
       "create_agreement_text",
       "create_key_value",
-      "array_agg(event_witness) as event_witnesses",
     ).mkString(", ")
+
+  private val witnessesAggregation =
+    "array_agg(event_witness) as event_witnesses"
 
   private val flatEventsTable =
     "participant_events natural join participant_event_flat_transaction_witnesses"
@@ -105,8 +104,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "workflow_id",
       "participant_events.event_id",
       "contract_id",
-      "template_package_id",
-      "template_name",
+      "template_id",
       "create_argument",
       "create_signatories",
       "create_observers",
@@ -118,11 +116,27 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
-    SQL"select #$selectColumns, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns)"
+    route(requestingParties)(
+      single = singlePartyLookup(transactionId, _),
+      multi = multiPartyLookup(transactionId, _),
+    )
+
+  private def singlePartyLookup(
+      transactionId: TransactionId,
+      requestingParty: Party,
+  ): SimpleSql[Row] =
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness = $requestingParty order by #$orderByColumns"
+
+  private def multiPartyLookup(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): SimpleSql[Row] =
+    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns) order by #$orderByColumns"
 
   private val getFlatTransactionsQueries =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
+      witnessesAggregation = witnessesAggregation,
       flatEventsTable = flatEventsTable,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,
@@ -140,6 +154,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   private val getActiveContractsQueries =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
+      witnessesAggregation = witnessesAggregation,
       flatEventsTable = flatEventsTable,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,

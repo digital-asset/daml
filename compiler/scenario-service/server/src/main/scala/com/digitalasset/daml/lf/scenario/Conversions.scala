@@ -24,7 +24,20 @@ final class Conversions(
   private val packageIdSelf: PackageIdentifier =
     PackageIdentifier.newBuilder.setSelf(empty).build
 
-  private val coidToNodeId = ledger.ledgerData.coidToNodeId
+  // The ledger data will not contain information from the partial transaction at this point.
+  // We need the mapping for converting error message so we manually add it here.
+  private val ptxCoidToNodeId = machine.ptx.nodes
+    .collect {
+      case (nodeId, node: N.NodeCreate.WithTxValue[V.ContractId]) =>
+        node.coid match {
+          case acoid: V.AbsoluteContractId =>
+            acoid -> ledger.ptxNodeId(nodeId)
+          case V.RelativeContractId(_) =>
+            throw new IllegalArgumentException("unexpected relative contract id")
+        }
+    }
+
+  private val coidToNodeId = ledger.ledgerData.coidToNodeId ++ ptxCoidToNodeId
 
   private val nodes =
     ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
@@ -136,15 +149,6 @@ final class Conversions(
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
           s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",
-        )
-
-      case SError.DamlESubmitterNotInMaintainers(templateId, submitter, maintainers) =>
-        builder.setSubmitterNotInMaintainers(
-          ScenarioError.SubmitterNotInMaintainers.newBuilder
-            .setTemplateId(convertIdentifier(templateId))
-            .setSubmitter(convertParty(submitter))
-            .addAllMaintainers(maintainers.map(convertParty).asJava)
-            .build,
         )
     }
     builder.build
@@ -308,7 +312,7 @@ final class Conversions(
       case acoid: V.AbsoluteContractId =>
         coidToNodeId(acoid)
       case V.RelativeContractId(_) =>
-        throw new IllegalArgumentException("unexpected relative cotnract id")
+        throw new IllegalArgumentException("unexpected relative contract id")
     }
 
   def convertScenarioStep(
@@ -379,9 +383,9 @@ final class Conversions(
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava,
       )
 
-    ptx.context match {
-      case SPartialTransaction.ContextRoot(_, _) =>
-      case SPartialTransaction.ContextExercise(ctx, _) =>
+    ptx.context.exeContext match {
+      case None =>
+      case Some(ctx) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)

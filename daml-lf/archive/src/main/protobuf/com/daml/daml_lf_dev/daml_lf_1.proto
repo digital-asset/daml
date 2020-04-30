@@ -31,7 +31,6 @@
 // * 6 -- 2019-05-27: Add enum type.
 //        2019-06-04: Add BuiltinFunction.{TEXT_FROM_CODE_POINTS, TEXT_TO_CODE_POINTS}
 //        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
-//        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 // * 7 -- 2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 //        2019-09-17: Add Any type and, `to_any` and `from_any` builtins
 //        2019-09-17: Drop support for Decimal
