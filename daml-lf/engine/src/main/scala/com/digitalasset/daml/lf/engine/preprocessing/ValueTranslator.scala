@@ -82,7 +82,9 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value[AbsoluteContractId],
-  ): SValue = {
+  ): (SValue, Set[Value.AbsoluteContractId]) = {
+
+    val cids = Set.newBuilder[Value.AbsoluteContractId]
 
     def go(ty: Type, value: Value[AbsoluteContractId], nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
@@ -108,6 +110,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
           case (TParty, ValueParty(p)) =>
             SValue.SParty(p)
           case (TContractId(_), ValueContractId(c)) =>
+            cids += c
             SValue.SContractId(c)
 
           // optional
@@ -227,11 +230,11 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
         }
       }
 
-    go(ty, value)
+    go(ty, value) -> cids.result()
   }
 
-  // This does not try to pull missing packages
+  // This does not try to pull missing packages, return an error instead.
   def translateValue(ty: Type, value: Value[AbsoluteContractId]): Either[Error, SValue] =
-    safelyRun(unsafeTranslateValue(ty, value))
+    safelyRun(unsafeTranslateValue(ty, value)._1)
 
 }

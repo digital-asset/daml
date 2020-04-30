@@ -209,13 +209,15 @@ object Converter {
       2,
       SEApp(
         SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
-        Array(SEVar(2), SEVar(1))))
+        Array(SEVar(2), SEVar(1))),
+    )
     val machine =
       Speedy.Machine.fromSExpr(
         sexpr = SEApp(SEValue(fun), Array(extractStruct)),
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.now(),
-        seeding = InitialSeeding.NoSeed
+        seeding = InitialSeeding.NoSeed,
+        Set.empty,
       )
     @tailrec
     def iter(): Either[String, (SValue, SValue)] = {
