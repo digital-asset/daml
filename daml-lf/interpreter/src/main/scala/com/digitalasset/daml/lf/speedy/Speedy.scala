@@ -580,21 +580,21 @@ object Speedy {
     * Consult the documentation of `SECase` for the meaning of `jumpable`. */
   final case class KMatch(alts: Array[SCaseAlt], jumpable: Boolean) extends Kont with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
-      val altOpt = v match {
+      val alt = v match {
         case SBool(b) =>
-            Some(alts(if (b) 1 else 0))
+          alts(if (b) 1 else 0)
         case SVariant(_, _, rank1, arg) =>
           val altRank = alts(rank1)
           if (altRank.pattern.isInstanceOf[SCPVariant]) {
             machine.kont.add(KPop(1))
             machine.env.add(arg)
           }
-          Some(altRank)
+          altRank
         case SEnum(_, _, rank1) =>
-          Some(alts(rank1))
+          alts(rank1)
         case SList(lst) =>
           if (lst.isEmpty) {
-            Some(alts(0))
+            alts(0)
           } else {
             val altCons = alts(1)
             if (altCons.pattern == SCPCons) {
@@ -603,20 +603,20 @@ object Speedy {
               machine.env.add(head)
               machine.env.add(SList(tail))
             }
-            Some(altCons)
+            altCons
           }
         case SUnit =>
-          Some(alts(0))
+          alts(0)
         case SOptional(mbVal) =>
           mbVal match {
-            case None => Some(alts(0))
+            case None => alts(0)
             case Some(x) => {
               val altSome = alts(1)
               if (altSome.pattern == SCPSome) {
-                    machine.kont.add(KPop(1))
-                    machine.env.add(x)
+                machine.kont.add(KPop(1))
+                machine.env.add(x)
               }
-              Some(altSome)
+              altSome
             }
           }
         case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
@@ -625,11 +625,7 @@ object Speedy {
           crash("Match on non-matchable value")
       }
 
-      machine.ctrl = CtrlExpr(
-        altOpt
-          .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-          .body,
-      )
+      machine.ctrl = CtrlExpr(alt.body)
     }
 
   }
