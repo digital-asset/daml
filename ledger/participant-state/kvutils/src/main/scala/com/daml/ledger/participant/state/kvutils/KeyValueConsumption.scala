@@ -191,7 +191,7 @@ object KeyValueConsumption {
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
         wrap(RejectionReason.Disputed(rejEntry.getDisputed.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
-        wrap(RejectionReason.Inconsistent)
+        wrap(RejectionReason.Inconsistent(rejEntry.getDisputed.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         wrap(RejectionReason.ResourcesExhausted)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>

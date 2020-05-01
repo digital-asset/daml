@@ -315,7 +315,7 @@ private[kvutils] class ProcessTransactionSubmission(
     if (causalKeyMonotonicity)
       pass
     else
-      reject(recordTime, buildRejectionLogEntry(transactionEntry, RejectionReason.Inconsistent))
+      reject(recordTime, buildRejectionLogEntry(transactionEntry, RejectionReason.Inconsistent("Causal Monotonicity Violated")))
   }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
@@ -571,8 +571,8 @@ private[kvutils] class ProcessTransactionSubmission(
       .setSubmitterInfo(transactionEntry.submitterInfo)
 
     reason match {
-      case RejectionReason.Inconsistent =>
-        builder.setInconsistent(Inconsistent.newBuilder.setDetails(""))
+      case RejectionReason.Inconsistent(reason) =>
+        builder.setInconsistent(Inconsistent.newBuilder.setDetails(reason))
       case RejectionReason.Disputed(disputeReason) =>
         builder.setDisputed(Disputed.newBuilder.setDetails(disputeReason))
       case RejectionReason.ResourcesExhausted =>

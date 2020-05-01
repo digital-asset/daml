@@ -19,8 +19,8 @@ object RejectionReason {
     * See https://docs.daml.com/concepts/ledger-model/ledger-integrity.html
     * for the definition of ledger consistency.
     */
-  final case object Inconsistent extends RejectionReason {
-    override def description: String = "Inconsistent"
+  final case class Inconsistent(reason: String) extends RejectionReason {
+    override def description: String = "Inconsistent: " + reason
   }
 
   /** The transaction has been disputed.
