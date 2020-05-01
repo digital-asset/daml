@@ -22,6 +22,8 @@ import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
+import com.daml.ledger.api.refinements.ApiTypes.Party
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.io.StdIn
@@ -30,11 +32,10 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-
 import com.daml.lf.CompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.data.Ref._
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
   MutableCompiledPackages,
@@ -79,7 +80,7 @@ object TriggerActor {
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      party: String,
+      party: Party,
   )
 
   def apply(
@@ -158,7 +159,7 @@ object TriggerActor {
           client,
           config.ledgerConfig.timeProvider,
           appId,
-          config.party)
+          config.party.unwrap)
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)
 
@@ -197,7 +198,7 @@ object Server {
 
   case class TriggerActorWithParty(
       ref: ActorRef[TriggerActor.Message],
-      party: String,
+      party: Party,
   )
 
   def apply(
@@ -213,7 +214,7 @@ object Server {
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
     var triggers: Map[UUID, TriggerActorWithParty] = Map.empty
-    var triggersByParty: Map[String, Set[UUID]] = Map.empty
+    var triggersByParty: Map[Party, Set[UUID]] = Map.empty
 
     // Mutable in preparation for dynamic package upload.
     val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
