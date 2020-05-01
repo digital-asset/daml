@@ -2895,18 +2895,18 @@ String functions
 
   Returns string such as.
 
-* ``TEXT_FROM_CODE_POINTS``: 'Text' → 'List' 'Int64'
+* ``TEXT_TO_CODE_POINTS``: 'Text' → 'List' 'Int64'
 
-  Returns the list of the Unicode `codepoint
+  Returns the list of the Unicode `codepoints
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
-  string represented as integer.
+  string represented as integers.
 
   [*Available in versions >= 1.6*]
 
-* ``TEXT_TO_CODE_POINTS``: 'List' 'Int64' → 'Text'
+* ``TEXT_FROM_CODE_POINTS``: 'List' 'Int64' → 'Text'
 
-  Given a list of integer representation of Unicode codepoint,
-  return the string built from those codepoint. Throws an error
+  Given a list of integer representations of Unicode codepoints,
+  return the string built from those codepoints. Throws an error
   if one of the elements of the input list is not in the range
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
