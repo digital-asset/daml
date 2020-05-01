@@ -61,8 +61,8 @@ object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
   def stepToValue(machine: Speedy.Machine): Unit = {
     while (!machine.isFinal) {
-      machine.step() match {
-        case SResultContinue => ()
+      machine.run() match {
+        case SResultFinalValue(_) => ()
         case SResultError(err) => {
           logger.error(Pretty.prettyError(err, machine.ptx).render(80))
           throw err

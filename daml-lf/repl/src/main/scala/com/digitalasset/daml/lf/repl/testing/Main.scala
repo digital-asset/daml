@@ -12,6 +12,7 @@ import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.types.Ledger
 import com.daml.lf.speedy.SExpr.LfDefRef
@@ -414,12 +415,11 @@ object Repl {
             val startTime = System.nanoTime()
             var errored = false
             while (!machine.isFinal && !errored) {
-              machine.step match {
+              machine.run match {
                 case SResultError(err) =>
                   println(prettyError(err, machine.ptx).render(128))
                   errored = true
-                case SResultContinue =>
-                  ()
+                case SResultFinalValue(_) => ()
                 case other =>
                   sys.error("unimplemented callback: " + other.toString)
               }
@@ -432,7 +432,7 @@ object Repl {
             println(s"time: ${diff}ms")
             if (!errored) {
               val result = machine.ctrl match {
-                case Speedy.CtrlValue(sv) =>
+                case CtrlValue(sv) =>
                   prettyValue(true)(sv.toValue).render(128)
                 case x => x.toString
               }
