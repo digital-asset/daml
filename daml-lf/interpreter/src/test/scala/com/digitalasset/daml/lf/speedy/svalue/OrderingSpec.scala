@@ -477,14 +477,13 @@ class OrderingSpec
   private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
     sexpr = expr,
     compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
-    Time.Timestamp.now(),
-    InitialSeeding(Some(txSeed)),
-    Set.empty,
+    submissionTime = Time.Timestamp.now(),
+    seeding = InitialSeeding(Some(txSeed)),
+    globalCids = Set.empty,
   )
 
   private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
-    val expr = SEImportValue(v)
-    val machine = initMachine(expr)
+    val machine = initMachine(SEImportValue(v))
     machine.run() match {
       case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")

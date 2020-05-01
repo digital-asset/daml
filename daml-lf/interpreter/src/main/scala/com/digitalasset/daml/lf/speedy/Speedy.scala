@@ -133,9 +133,14 @@ object Speedy {
       case _ =>
     }
 
+    /** Reuse an existing speedy machine to evaluate a new expression.
+      Do not use if the machine is partway though an existing evaluation.
+      i.e. run() has returned an `SResult` requiring a callback.
+      */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
       ctrl = expr
-      returnValue = null
+      kontStack = initialKontStack()
+      env = emptyEnv
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
@@ -151,7 +156,8 @@ object Speedy {
       while (result == null) {
         // note: exception handler is outside while loop
         try {
-          while (!isFinal) {
+          // normal exit from this loop is when KFinished.execute throws SpeedyHungry
+          while (true) {
             if (returnValue != null) {
               val value = returnValue
               returnValue = null
@@ -161,11 +167,6 @@ object Speedy {
               ctrl = null
               expr.execute(this)
             }
-          }
-          if (returnValue != null) {
-            result = SResultFinalValue(returnValue)
-          } else {
-            throw SErrorCrash(s"Unexpected ctrl on final machine $ctrl")
           }
         } catch {
           case SpeedyHungry(res: SResult) => result = res //stop
@@ -228,14 +229,6 @@ object Speedy {
                 )
           }
       }
-    }
-
-    /** Returns true when the machine has finished evaluation.
-      * The machine is considered final when the kont stack
-      * is empty, and we have a `returnValue`, and hence `ctrl` is null.
-      */
-    def isFinal(): Boolean = {
-      kontStack.isEmpty && returnValue != null
     }
 
     def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
@@ -418,7 +411,7 @@ object Speedy {
         ctrl = null,
         returnValue = null,
         env = emptyEnv,
-        kontStack = new util.ArrayList[Kont](128),
+        kontStack = initialKontStack(),
         lastLocation = None,
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
@@ -513,6 +506,15 @@ object Speedy {
   //
   // Kontinuation
   //
+  // Whilst the machine is running, we ensure the kontStack is *never* empty.
+  // We do this by pushing a KFinished continutaion on the initially empty stack, which
+  // returns the final result (by raising it as a SpeedyHungry exception).
+
+  def initialKontStack(): util.ArrayList[Kont] = {
+    val kontStack = new util.ArrayList[Kont](128)
+    kontStack.add(KFinished)
+    kontStack
+  }
 
   /** Kont, or continuation. Describes the next step for the machine
     * after an expression has been evaluated into a 'SValue'.
@@ -521,6 +523,13 @@ object Speedy {
 
     /** Execute the continuation. */
     def execute(v: SValue, machine: Machine): Unit
+  }
+
+  /** Final continuation; machine has computed final value */
+  final case object KFinished extends Kont {
+    def execute(v: SValue, _machine: Machine) = {
+      throw SpeedyHungry(SResultFinalValue(v))
+    }
   }
 
   /** Pop 'count' arguments from the environment. */
@@ -710,7 +719,8 @@ object Speedy {
     }
   }
 
-  /** Internal exception thrown when a continuation result needs to be returned. */
+  /** Internal exception thrown when a continuation result needs to be returned.
+    Or machine execution has reached a final value. */
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
   def deriveTransactionSeed(
