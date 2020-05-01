@@ -158,7 +158,10 @@ private[kvutils] class ProcessTransactionSubmission(
       case None =>
         reject(
           recordTime,
-          buildRejectionLogEntry(transactionEntry, RejectionReason.PartyNotKnownOnLedger))
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.PartyNotKnownOnLedger(
+              s"Party not known '${transactionEntry.submitter}'")))
     }
 
   /** Validate ledger effective time and the command's time-to-live. */
@@ -315,7 +318,11 @@ private[kvutils] class ProcessTransactionSubmission(
     if (causalKeyMonotonicity)
       pass
     else
-      reject(recordTime, buildRejectionLogEntry(transactionEntry, RejectionReason.Inconsistent("Causal Monotonicity Violated")))
+      reject(
+        recordTime,
+        buildRejectionLogEntry(
+          transactionEntry,
+          RejectionReason.Inconsistent("Causal Monotonicity Violated")))
   }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
@@ -341,7 +348,9 @@ private[kvutils] class ProcessTransactionSubmission(
       else
         reject(
           recordTime,
-          buildRejectionLogEntry(transactionEntry, RejectionReason.PartyNotKnownOnLedger)
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.PartyNotKnownOnLedger("Not all parties known"))
         )
     } yield result
   }
@@ -573,12 +582,12 @@ private[kvutils] class ProcessTransactionSubmission(
     reason match {
       case RejectionReason.Inconsistent(reason) =>
         builder.setInconsistent(Inconsistent.newBuilder.setDetails(reason))
-      case RejectionReason.Disputed(disputeReason) =>
-        builder.setDisputed(Disputed.newBuilder.setDetails(disputeReason))
-      case RejectionReason.ResourcesExhausted =>
-        builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(""))
-      case RejectionReason.PartyNotKnownOnLedger =>
-        builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(""))
+      case RejectionReason.Disputed(reason) =>
+        builder.setDisputed(Disputed.newBuilder.setDetails(reason))
+      case RejectionReason.ResourcesExhausted(reason) =>
+        builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(reason))
+      case RejectionReason.PartyNotKnownOnLedger(reason) =>
+        builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(reason))
       case RejectionReason.SubmitterCannotActViaParticipant(details) =>
         builder.setSubmitterCannotActViaParticipant(
           SubmitterCannotActViaParticipant.newBuilder

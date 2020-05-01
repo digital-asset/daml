@@ -323,10 +323,13 @@ class JdbcIndexer private[indexer] (
   private def toDomainRejection(
       submitterInfo: SubmitterInfo,
       state: RejectionReason): domain.RejectionReason = state match {
-    case RejectionReason.Inconsistent(_) => domain.RejectionReason.Inconsistent(state.description)
-    case RejectionReason.Disputed(_) => domain.RejectionReason.Disputed(state.description)
-    case RejectionReason.ResourcesExhausted => domain.RejectionReason.OutOfQuota(state.description)
-    case RejectionReason.PartyNotKnownOnLedger =>
+    case RejectionReason.Inconsistent(_) =>
+      domain.RejectionReason.Inconsistent(state.description)
+    case RejectionReason.Disputed(_) =>
+      domain.RejectionReason.Disputed(state.description)
+    case RejectionReason.ResourcesExhausted(_) =>
+      domain.RejectionReason.OutOfQuota(state.description)
+    case RejectionReason.PartyNotKnownOnLedger(_) =>
       domain.RejectionReason.PartyNotKnownOnLedger(state.description)
     case RejectionReason.SubmitterCannotActViaParticipant(_) =>
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
