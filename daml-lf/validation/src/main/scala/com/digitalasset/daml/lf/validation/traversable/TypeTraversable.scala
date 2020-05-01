@@ -11,7 +11,7 @@ private[validation] object TypeTraversable {
   that =>
 
   private def toType(tyCon: TypeConApp): Type =
-    ((TTyCon(tyCon.tycon): Type) /: tyCon.args.iterator)(TApp)
+    (tyCon.args.iterator foldLeft (TTyCon(tyCon.tycon): Type))(TApp)
 
   private[validation] def foreach[U](typ: Type, f: Type => U): Unit =
     typ match {

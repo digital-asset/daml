@@ -164,7 +164,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     field -> Ast.TVar(var_)
 
   private def primField(field: Ref.Name, primType: Ast.BuiltinType, args: Ast.Type*) =
-    field -> ((Ast.TBuiltin(primType): Ast.Type) /: args)(Ast.TApp)
+    field -> (args foldLeft (Ast.TBuiltin(primType): Ast.Type))(Ast.TApp)
 
   private def typeConstructorField(field: Ast.FieldName, segments: List[String]) =
     field -> typeConName(segments)
