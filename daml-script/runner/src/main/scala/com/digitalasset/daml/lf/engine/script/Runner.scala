@@ -353,7 +353,7 @@ class Runner(
                                     freeAp,
                                     results))
                               v <- {
-                                machine.ctrl = Speedy.CtrlExpr(filled)
+                                machine.ctrl = filled
                                 go()
                               }
                             } yield v
@@ -364,8 +364,7 @@ class Runner(
                                 Converter
                                   .fromStatusException(script.scriptIds, statusEx))
                               v <- {
-                                machine.ctrl =
-                                  Speedy.CtrlExpr(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))
+                                machine.ctrl = SEApp(SEValue(vals.get(2)), Array(SEValue(res)))
                                 go()
                               }
                             } yield v
@@ -398,8 +397,7 @@ class Runner(
                             .traverseU(Converter
                               .fromCreated(valueTranslator, _)))
                         v <- {
-                          machine.ctrl =
-                            Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
+                          machine.ctrl = SEApp(SEValue(continue), Array(SEValue(SList(res))))
                           go()
                         }
                       } yield v
@@ -446,8 +444,7 @@ class Runner(
                                 party_participants = clients.party_participants + (Party(
                                   party.value) -> participant))
                           }
-                          machine.ctrl =
-                            Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(party))))
+                          machine.ctrl = SEApp(SEValue(continue), Array(SEValue(party)))
                           go()
                         }
                       } yield v
@@ -459,8 +456,7 @@ class Runner(
                 }
                 case SVariant(_, "GetTime", _, continue) => {
                   val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
-                  machine.ctrl =
-                    Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
+                  machine.ctrl = SEApp(SEValue(continue), Array(SEValue(STimestamp(t))))
                   go()
                 }
                 case SVariant(_, "Sleep", _, v) => {
@@ -482,8 +478,7 @@ class Runner(
                           val sleepMillis = sleepMicros / 1000
                           val sleepNanos = (sleepMicros % 1000) * 1000
                           Thread.sleep(sleepMillis, sleepNanos.toInt)
-                          machine.ctrl =
-                            Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                          machine.ctrl = SEApp(SEValue(continue), Array(SEValue(SUnit)))
                           go()
                         }
                       } yield v
@@ -517,7 +512,7 @@ class Runner(
         case SRecord(_, _, vals) if vals.size == 1 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
-              machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
+              machine.ctrl = SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit)))
               Future.unit
             case v =>
               Future.failed(
