@@ -628,19 +628,6 @@ null _ = False
 filter : (a -> Bool) -> [a] -> [a]
 filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 
--- | Filters the list using the applicative function: keeps only the elements where the predicate holds.
---
--- ```
--- >>> filterA (\x -> Some (x % 2 == 0)) [0..5]
--- Some [0, 2, 4]
--- ```
-filterA : Applicative m => (a -> m Bool) -> [a] -> m [a]
-filterA p =
-  foldr filtering (pure [])
-  where
-    filtering a = liftA2 (prependIf a) (p a)
-    prependIf a prepend filtered = if prepend then a :: filtered else filtered
-
 -- | HIDE
 fixedpoint : ((a -> b) -> a -> b) -> a -> b
 fixedpoint g v = g ( fixedpoint g ) v
