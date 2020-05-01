@@ -630,7 +630,7 @@ filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 
 -- | Filters the list using the applicative function: keeps only the elements where the predicate holds.
 -- Useful for example when a list of contract IDs are known, which should be filtered based on some
--- condition for the correspodning contracts.
+-- condition for the corresponding contracts.
 --
 -- ```
 -- >>> filterA (\x -> Some (x % 2 == 0)) [0..5]
