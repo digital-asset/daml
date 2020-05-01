@@ -9,7 +9,9 @@ import java.util
 import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SExpr.SEImportValue
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
@@ -482,12 +484,10 @@ class OrderingSpec
   )
 
   private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
-    val ctrl = Speedy.CtrlImportValue(v)
     val machine = dummyMachine
-    machine.ctrl = Speedy.CtrlCrash(ctrl)
-    ctrl.execute(machine)
-    machine.ctrl match {
-      case Speedy.CtrlValue(value) => value
+    machine.ctrl = SEImportValue(v)
+    machine.run() match {
+      case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")
     }
   }
