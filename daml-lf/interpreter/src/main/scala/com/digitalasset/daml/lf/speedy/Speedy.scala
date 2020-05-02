@@ -21,6 +21,43 @@ import scala.util.control.NoStackTrace
 
 object Speedy {
 
+  // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
+  val enableInstrumentation: Boolean = false
+  val enableLightweightStepTracing: Boolean = false
+
+  /** Instrumentation counters. */
+  final case class Instrumentation(
+      var classifyCounts: Classify.Counts,
+      var countPushesKont: Int,
+      var countPushesEnv: Int,
+      var maxDepthKont: Int,
+      var maxDepthEnv: Int,
+  ) {
+    def print(): Unit = {
+      println("--------------------")
+      println(s"#steps: ${classifyCounts.steps}")
+      println(s"#pushEnv: $countPushesEnv")
+      println(s"maxDepthEnv: $maxDepthEnv")
+      println(s"#pushKont: $countPushesKont")
+      println(s"maxDepthKont: $maxDepthKont")
+      println("--------------------")
+      println(s"classify:\n${classifyCounts.pp}")
+      println("--------------------")
+    }
+  }
+
+  object Instrumentation {
+    def apply(): Instrumentation = {
+      Instrumentation(
+        classifyCounts = Classify.newEmptyCounts(),
+        countPushesKont = 0,
+        countPushesEnv = 0,
+        maxDepthKont = 0,
+        maxDepthEnv = 0,
+      )
+    }
+  }
+
   /** The speedy CEK machine. */
   final case class Machine(
       /* The control is what the machine should be evaluating. If this is not
@@ -59,19 +96,53 @@ object Speedy {
       var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
+      /* Used when enableLightweightStepTracing is true */
+      var steps: Int,
+      /* Used when enableInstrumentation is true */
+      var track: Instrumentation,
   ) {
 
+    /* kont manipulation... */
+
+    @inline def kontDepth(): Int = kontStack.size()
+
     @inline def pushKont(k: Kont): Unit = {
-      kontStack.add(k); ()
+      kontStack.add(k)
+      if (enableInstrumentation) {
+        track.countPushesKont += 1
+        if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+      }
     }
 
     @inline def popKont(): Kont = {
       kontStack.remove(kontStack.size - 1)
     }
 
+    /* env manipulation... */
+
+    @inline def envDepth(): Int = env.size()
+
     @inline def getEnv(i: Int): SValue = env.get(env.size - i)
-    @inline def popEnv(count: Int): Unit =
+
+    @inline def pushEnv(v: SValue): Unit = {
+      env.add(v)
+      if (enableInstrumentation) {
+        track.countPushesEnv += 1
+        if (envDepth > track.maxDepthEnv) track.maxDepthEnv = envDepth
+      }
+    }
+
+    @inline def pushEnvAll(vs: Env): Unit = {
+      env.addAll(vs)
+      if (enableInstrumentation) {
+        track.countPushesEnv += vs.size()
+        if (envDepth > track.maxDepthEnv) track.maxDepthEnv = envDepth
+      }
+    }
+
+    @inline def popEnv(count: Int): Unit = {
       env.subList(env.size - count, env.size).clear
+    }
 
     /** Push a single location to the continuation stack for the sake of
         maintaining a stack trace. */
@@ -86,6 +157,10 @@ object Speedy {
         case Some(KArg(Array(SEValue.Token))) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
           kontStack.add(last_index, KLocation(loc))
+          if (enableInstrumentation) {
+            track.countPushesKont += 1
+            if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+          }
         }
         // NOTE(MH): When we use a cached top level value, we need to put the
         // stack trace it produced back on the continuation stack to get
@@ -158,6 +233,13 @@ object Speedy {
         try {
           // normal exit from this loop is when KFinished.execute throws SpeedyHungry
           while (true) {
+            if (enableInstrumentation) {
+              Classify.classifyMachine(this, track.classifyCounts)
+            }
+            if (enableLightweightStepTracing) {
+              steps += 1
+              println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
+            }
             if (returnValue != null) {
               val value = returnValue
               returnValue = null
@@ -238,10 +320,10 @@ object Speedy {
           pushKont(KPop(args.size + vars.size))
 
           // Add all the variables we closed over
-          vars.foreach(env.add)
+          vars.foreach(pushEnv)
 
           // Add the arguments
-          env.addAll(args)
+          pushEnvAll(args)
 
           // And start evaluating the body of the closure.
           ctrl = expr
@@ -424,6 +506,8 @@ object Speedy {
         globalDiscriminators = globalCids.collect {
           case V.AbsoluteContractId.V1(discriminator, _) => discriminator
         },
+        steps = 0,
+        track = Instrumentation(),
       )
 
     def newBuilder(
@@ -527,7 +611,10 @@ object Speedy {
 
   /** Final continuation; machine has computed final value */
   final case object KFinished extends Kont {
-    def execute(v: SValue, _machine: Machine) = {
+    def execute(v: SValue, machine: Machine) = {
+      if (enableInstrumentation) {
+        machine.track.print()
+      }
       throw SpeedyHungry(SResultFinalValue(v))
     }
   }
@@ -610,7 +697,7 @@ object Speedy {
             alt.pattern match {
               case SCPVariant(_, _, rank2) if rank1 == rank2 =>
                 machine.pushKont(KPop(1))
-                machine.env.add(arg)
+                machine.pushEnv(arg)
                 true
               case SCPDefault => true
               case _ => false
@@ -631,8 +718,8 @@ object Speedy {
               case SCPCons if !lst.isEmpty =>
                 machine.pushKont(KPop(2))
                 val Some((head, tail)) = lst.pop
-                machine.env.add(head)
-                machine.env.add(SList(tail))
+                machine.pushEnv(head)
+                machine.pushEnv(SList(tail))
                 true
               case SCPDefault => true
               case _ => false
@@ -655,7 +742,7 @@ object Speedy {
                   case None => false
                   case Some(x) =>
                     machine.pushKont(KPop(1))
-                    machine.env.add(x)
+                    machine.pushEnv(x)
                     true
                 }
               case SCPDefault => true
