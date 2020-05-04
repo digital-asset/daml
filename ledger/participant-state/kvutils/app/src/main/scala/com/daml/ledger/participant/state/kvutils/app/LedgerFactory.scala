@@ -61,14 +61,11 @@ trait ConfigProvider[ExtraConfig] {
   def commandConfig(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig]): CommandConfiguration = {
-    val defaultMaxParallelSubmissions = CommandConfiguration.default.maxParallelSubmissions
     val defaultMaxCommandsInFlight = CommandConfiguration.default.maxCommandsInFlight
 
     CommandConfiguration.default.copy(
       maxCommandsInFlight =
         participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
-      maxParallelSubmissions =
-        participantConfig.maxParallelSubmissions.getOrElse(defaultMaxParallelSubmissions)
     )
   }
 
