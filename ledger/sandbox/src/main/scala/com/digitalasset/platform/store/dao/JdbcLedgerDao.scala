@@ -10,12 +10,18 @@ import java.util.{Date, UUID}
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
-import anorm.{Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
+import anorm.ToStatement.optionToStatement
+import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.{EventId, WorkflowId}
 import com.daml.lf.archive.Decode
@@ -25,17 +31,37 @@ import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{AbsoluteContractId, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.events.EventIdFormatter.split
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
-import com.daml.platform.store.dao.CommandCompletionsTable.{prepareCompletionInsert, prepareRejectionInsert}
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.daml.platform.store.dao.events.{
+  ContractsReader,
+  PostCommitValidation,
+  TransactionsReader,
+  TransactionsWriter
+}
+import com.daml.platform.store.dao.CommandCompletionsTable.{
+  prepareCompletionInsert,
+  prepareRejectionInsert
+}
 import com.daml.platform.store.dao.PersistenceResponse.Ok
-import com.daml.platform.store.dao.events.{ContractsReader, PostCommitValidation, TransactionsReader, TransactionsWriter}
-import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.entries.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PackageLedgerEntry,
+  PartyLedgerEntry
+}
 import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import scalaz.syntax.tag._
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
+import scala.util.control.NonFatal
 
 private final case class ParsedPartyData(
     party: String,
@@ -897,7 +923,7 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =

@@ -29,7 +29,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
         eventsPageSize = 100,
-        metrics = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )
 
   protected final var ledgerDao: LedgerDao = _

@@ -242,17 +242,18 @@ class Metrics(val registry: MetricRegistry) {
       val publishConfiguration: Timer = registry.timer(prefix :+ "publish_configuration")
 
       object db {
+
         val prefix: MetricName = index.prefix :+ "db"
 
         val storePartyEntry: Timer = registry.timer(prefix :+ "store_party_entry")
         val storeInitialState: Timer = registry.timer(prefix :+ "store_initial_state")
         val storePackageEntry: Timer = registry.timer(prefix :+ "store_package_entry")
-        val storeLedgerEntry: Timer = registry.timer(prefix :+ "store_ledger_entry")
+        val storeTransaction: Timer = registry.timer(prefix :+ "store_ledger_entry")
+        val storeRejection: Timer = registry.timer(prefix :+ "store_rejection")
         val storeConfigurationEntry: Timer = registry.timer(prefix :+ "store_configuration_entry")
 
         val lookupLedgerId: Timer = registry.timer(prefix :+ "lookup_ledger_id")
         val lookupLedgerEnd: Timer = registry.timer(prefix :+ "lookup_ledger_end")
-        val lookupLedgerEntry: Timer = registry.timer(prefix :+ "lookup_ledger_entry")
         val lookupTransaction: Timer = registry.timer(prefix :+ "lookup_transaction")
         val lookupLedgerConfiguration: Timer =
           registry.timer(prefix :+ "lookup_ledger_configuration")
