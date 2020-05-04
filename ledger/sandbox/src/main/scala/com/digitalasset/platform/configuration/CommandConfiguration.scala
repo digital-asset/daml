@@ -17,7 +17,7 @@ object CommandConfiguration {
   lazy val default: CommandConfiguration =
     CommandConfiguration(
       inputBufferSize = 512,
-      maxParallelSubmissions = 128,
+      maxParallelSubmissions = 512,
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
       retentionPeriod = 24.hours
