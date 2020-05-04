@@ -10,7 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
-import com.daml.lf.speedy.SResult.{SResultContinue, SResultError}
+import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
@@ -1459,8 +1459,8 @@ object SBuiltinTest {
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
-      while (!machine.isFinal) machine.step() match {
-        case SResultContinue => ()
+      while (!machine.isFinal) machine.run() match {
+        case SResultFinalValue(_) => ()
         case SResultError(err) => throw Goodbye(err)
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }

@@ -117,31 +117,35 @@ object Speedy {
       case _ =>
     }
 
-    /** Perform a single step of the machine execution. */
-    def step(): SResult =
-      try {
-        val ctrlToExecute = ctrl
-        // Set control to crash as it must be reset after execution. This guards
-        // against e.g. buggy builtin operations which do not set control and could
-        // then not advance the machine state.
-        ctrl = CtrlCrash(ctrlToExecute)
-        ctrlToExecute.execute(this)
-        SResultContinue
-      } catch {
-        case SpeedyHungry(res: SResult) =>
-          res
-
-        case serr: SError =>
-          serr match {
-            case _: SErrorDamlException if tryHandleException =>
-              SResultContinue
-            case _ => SResultError(serr)
+    /** Run a machine until we get a result: either a final-value of a request for data, with a callback */
+    def run(): SResult = {
+      var result: SResult = null
+      while (result == null) {
+        // note: exception handler is outside while loop
+        try {
+          while (!isFinal) {
+            ctrl.execute(this) // make a single step
           }
-
-        case ex: RuntimeException =>
-          SResultError(SErrorCrash(s"exception: $ex"))
-
+          ctrl match {
+            case CtrlValue(value) => {
+              result = SResultFinalValue(value) //stop
+            }
+            case _ =>
+              throw SErrorCrash(s"Unexpected ctrl on final machine $ctrl")
+          }
+        } catch {
+          case SpeedyHungry(res: SResult) => result = res //stop
+          case serr: SError =>
+            serr match {
+              case _: SErrorDamlException if tryHandleException => () // outer loop will run again
+              case _ => result = SResultError(serr) //stop
+            }
+          case ex: RuntimeException =>
+            result = SResultError(SErrorCrash(s"exception: $ex")) //stop
+        }
       }
+      result
+    }
 
     /** Try to handle a DAML exception by looking for
       * the catch handler. Returns true if the exception
