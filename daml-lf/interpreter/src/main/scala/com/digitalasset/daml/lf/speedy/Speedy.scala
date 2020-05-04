@@ -370,15 +370,6 @@ object Speedy {
     def execute(machine: Machine): Unit
   }
 
-  /** A special control object to guard against misbehaving operations.
-    * It is set by default, so for example if an action forgets to set the
-    * control we won't loop but rather we'll crash.
-    */
-  final case class CtrlCrash(before: Ctrl) extends Ctrl {
-    def execute(machine: Machine) =
-      crash(s"CtrlCrash: control set to crash after evaluting: $before")
-  }
-
   final case class CtrlExpr(expr: SExpr) extends Ctrl {
     def execute(machine: Machine) =
       machine.ctrl = expr.execute(machine)
