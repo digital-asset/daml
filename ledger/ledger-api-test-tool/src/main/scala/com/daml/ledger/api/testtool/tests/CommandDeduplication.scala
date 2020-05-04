@@ -55,7 +55,7 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         failure1 <- ledger.submit(requestA).failed
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by(deduplicationSeconds.seconds)(())
+        _ <- Delayed.by((deduplicationSeconds + 1).seconds)(())
 
         // Submit command A (second deduplication window)
         _ <- ledger.submit(requestA)
@@ -160,7 +160,7 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         failure1 <- ledger.submitAndWait(requestA).failed
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by(deduplicationSeconds.seconds)(())
+        _ <- Delayed.by((deduplicationSeconds + 1).seconds)(())
 
         // Submit command A (second deduplication window)
         _ <- ledger.submitAndWait(requestA)
