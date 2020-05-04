@@ -1,0 +1,14 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Flow
+module DA.Flow
+  ((|>)) where
+
+-- | Forward-pipe operation that applies the given function with the given value. For example,
+--
+-- ```
+-- >>> [1..5] |> filter (\x -> x % 2 == 0)
+-- [2,4]
+(|>) : a -> (a -> b) -> b
+(|>) a f = f a
