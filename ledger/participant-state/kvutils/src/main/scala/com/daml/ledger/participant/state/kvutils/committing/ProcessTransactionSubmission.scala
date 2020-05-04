@@ -161,7 +161,7 @@ private[kvutils] class ProcessTransactionSubmission(
           buildRejectionLogEntry(
             transactionEntry,
             RejectionReason.PartyNotKnownOnLedger(
-              s"Party not known '${transactionEntry.submitter}'")))
+              s"Submitting party '${transactionEntry.submitter}' not known")))
     }
 
   /** Validate ledger effective time and the command's time-to-live. */

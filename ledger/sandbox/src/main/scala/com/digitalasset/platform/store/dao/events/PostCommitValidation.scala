@@ -227,7 +227,7 @@ object PostCommitValidation {
     )
 
   private[events] val UnknownContract: RejectionReason =
-    RejectionReason.Inconsistent("Unknown Contract")
+    RejectionReason.Inconsistent("Unknown contract")
 
   private[events] def CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Instant,
