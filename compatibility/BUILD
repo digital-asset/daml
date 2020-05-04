@@ -7,6 +7,7 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "sdk_platform_test")
+load("//bazel_tools/daml_script:daml_script.bzl", "daml_script_dar")
 
 config_setting(
     name = "ghci_data",
@@ -49,6 +50,11 @@ platform_versions = [
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
+]
+
+[
+    daml_script_dar(sdk_version)
+    for sdk_version in sdk_versions
 ]
 
 test_suite(
