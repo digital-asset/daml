@@ -30,9 +30,22 @@ data Safety
   | Safe Int  -- number is >= 0
   deriving (Eq, Ord)
 
+-- | This is used to track the necessary information for typeclass dictionary
+-- inlining and projecion. We really only want to inline typeclass projection
+-- function applied to dictionary functions, so we need to keep track of what
+-- is what.
+--
+-- We rely on laziness to prevent actual inlining/substitution until it is
+-- confirmed to be necessary.
+data TypeClassInfo
+  = TCNeither
+  | TCProjection Expr
+  | TCDictionary Expr
+
 data Info = Info
   { freeVars :: VarSet
   , safety   :: Safety
+  , tcinfo   :: TypeClassInfo
   }
 
 -- | @'cata' freeVarsStep@ maps an 'Expr' to its free term variables.
@@ -258,45 +271,85 @@ isTypeClassProjection DefValue{..} = go dvalBody
     go (EStructProj _ _) = True
     go _ = False
 
--- | Should I inline this definition?
-shouldInline :: DefValue -> Bool
-shouldInline dval
-    = isTypeClassDictionary dval
-    || isTypeClassProjection dval
+typeclassStep :: World -> ExprF TypeClassInfo -> TypeClassInfo
+typeclassStep world = \case
+    EValF x ->
+        case lookupValue x world of
+            Left _ -> TCNeither
+            Right dv
+                | isTypeClassProjection dv -> TCProjection (dvalBody dv)
+                | isTypeClassDictionary dv -> TCDictionary (dvalBody dv)
+                | otherwise -> TCNeither
 
--- | Should I apply this argument immediately in a lambda?
-shouldApply :: Expr -> Bool
-shouldApply = \case
-    EBuiltin _ -> True
-    EStructCon _ -> True
-    _ -> False
+    ETyAppF tci ty ->
+        case tci of
+            TCProjection (ETyLam (x,_) e) ->
+                TCProjection (substExpr (typeSubst x ty) e)
+            TCDictionary (ETyLam (x,_) e) ->
+                TCDictionary (substExpr (typeSubst x ty) e)
+            _ ->
+                TCNeither
 
-infoStep :: ExprF Info -> Info
-infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))
+    _ -> TCNeither
 
-simplifyExpr :: World -> Version -> Expr -> Expr
-simplifyExpr lfWorld _lfVersion = fst . cata go
+
+-- -- | Should I apply this argument immediately in a lambda?
+-- shouldApply :: Expr -> Bool
+-- shouldApply = \case
+--     EBuiltin _ -> True
+-- --    EStructCon _ -> True
+--     _ -> False
+
+infoStep :: World -> ExprF Info -> Info
+infoStep world e = Info
+    (freeVarsStep (fmap freeVars e))
+    (safetyStep (fmap safety e))
+    (typeclassStep world (fmap tcinfo e))
+
+-- | Try to get the actual field value from the body of
+-- a typeclass projection function, after substitution of the
+-- dictionary function inside.
+getProjectedTypeclassField :: Expr -> Maybe Expr
+getProjectedTypeclassField = \case
+    EStructProj f (EStructCon fs) ->
+        lookup f fs
+
+    ETmApp e (EBuiltin BEUnit) -> do
+        ETmLam (x,_) e' <- getProjectedTypeclassField e
+        Just (substExpr (exprSubst x (EBuiltin BEUnit)) e')
+
+    _ ->
+        Nothing
+
+simplifyExpr :: World -> Expr -> Expr
+simplifyExpr world = fst . cata go
   where
+
     go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
 
       -- selective inlining
-      EValF x
-        | Right dv <- lookupValue x lfWorld
-        , shouldInline dv
-        -> (dvalBody dv, cata infoStep (dvalBody dv))
+      -- EValF x
+        -- | Right dv <- lookupValue x lfWorld
+        -- , shouldInline dv
+        -- -> (dvalBody dv, cata info (dvalBody dv))
 
-      -- immediately applied type lambdas
-      ETyAppF (ETyLam (x, _k) e, s) t
-        -> (substExpr (typeSubst x t) e, s) -- s doesn't track type variables
+      ETmAppF (_, i1) (_, i2)
+          | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
+          , TCDictionary e2 <- tcinfo i2
+          , Just e' <- getProjectedTypeclassField (substExpr (exprSubst x e2) e1)
+          -> cata go e'
 
-      -- immediately applied term lambdas
-      ETmAppF (ETmLam (x, _t) e1, s1) (e2, s2)
-        | shouldApply e2
-        , Info fv1 st1 <- s1
-        , Info fv2 _st2 <- s2
-        -> (substExpr (exprSubst x e2) e1, Info (fv1 <> fv2) (decrSafety st1))
-        --, Info (fv1 <> fv2) (decrSafety st1))
+      -- -- immediately applied type lambdas
+      -- ETyAppF (ETyLam (x, _k) e, s) t
+      --   -> (substExpr (typeSubst x t) e, s) -- s doesn't track type variables
+
+      -- -- immediately applied term lambdas
+      -- ETmAppF (ETmLam (x, _t) e1, s1) (e2, s2)
+      --   | shouldApply e2
+      --   , Info fv1 st1 _tc1 <- s1
+      --   , Info fv2 _st2 _tc2 <- s2
+      --   -> (substExpr (exprSubst x e2) e1, Info (fv1 <> fv2) (decrSafety st1) TCNeither)
 
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
@@ -341,18 +394,14 @@ simplifyExpr lfWorld _lfVersion = fst . cata go
       --   `fv(e2) ⊆ V ∪ {x}`.
       -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
       --   k-safe.
-      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf) ->
+      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf _) ->
         go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
-          s1 = Info fv (sf `min` Safe 0)
-          s2 = Info (Set.insert x fv) sf
+          s1 = Info fv (sf `min` Safe 0) TCNeither
+          s2 = Info (Set.insert x fv) sf TCNeither
 
       -- e    ==>    e
-      e -> (embed (fmap fst e), infoStep (fmap snd e))
-
-simplifyModuleOnce :: World -> Version -> Module -> Module
-simplifyModuleOnce lfWorld lfVersion = over moduleExpr (simplifyExpr lfWorld lfVersion)
+      e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
 simplifyModule :: World -> Version -> Module -> Module
-simplifyModule w v =
-  simplifyModuleOnce w v . simplifyModuleOnce w v
+simplifyModule world _version = over moduleExpr (simplifyExpr world)
