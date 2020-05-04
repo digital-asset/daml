@@ -260,7 +260,7 @@ class JdbcIndexer private[indexer] (
             case (offset, update) =>
               Timed
                 .future(
-                  metrics.daml.indexer.stateUpdateProcessingTimer,
+                  metrics.daml.indexer.stateUpdateProcessing,
                   handleStateUpdate(offset, update))
           }
           .toMat(Sink.ignore)(Keep.both)

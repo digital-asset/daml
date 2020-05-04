@@ -19,8 +19,8 @@ class Metrics(val registry: MetricRegistry) {
     object commands {
       val prefix: MetricName = daml.prefix :+ "commands"
 
-      val submissionsTimer: Timer = registry.timer(prefix :+ "submissions")
-      val validationTimer: Timer = registry.timer(prefix :+ "validation")
+      val submissions: Timer = registry.timer(prefix :+ "submissions")
+      val validation: Timer = registry.timer(prefix :+ "validation")
 
       val failedInterpretations: Meter =
         registry.meter(prefix :+ "failed_command_interpretations")
@@ -269,10 +269,10 @@ class Metrics(val registry: MetricRegistry) {
         val stopDeduplicatingCommand: Timer =
           registry.timer(prefix :+ "stop_deduplicating_command")
 
-        def waitTimer(description: String): Timer = registry.timer(prefix :+ description :+ "wait")
-        def execTimer(description: String): Timer = registry.timer(prefix :+ description :+ "exec")
-        val waitAllTimer: Timer = waitTimer("all")
-        val execAllTimer: Timer = execTimer("all")
+        def wait(description: String): Timer = registry.timer(prefix :+ description :+ "wait")
+        def exec(description: String): Timer = registry.timer(prefix :+ description :+ "exec")
+        val waitAll: Timer = wait("all")
+        val execAll: Timer = exec("all")
 
       }
     }
@@ -288,7 +288,7 @@ class Metrics(val registry: MetricRegistry) {
       def currentRecordTimeLag(value: () => Long): Gauge[Nothing] =
         gauge(prefix :+ "current_record_time_lag", () => () => value())
 
-      val stateUpdateProcessingTimer: Timer = registry.timer(prefix :+ "processed_state_updates")
+      val stateUpdateProcessing: Timer = registry.timer(prefix :+ "processed_state_updates")
     }
     object services {
       val prefix: MetricName = daml.prefix :+ "services"

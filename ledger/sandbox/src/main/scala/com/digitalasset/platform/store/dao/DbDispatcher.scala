@@ -39,15 +39,15 @@ final class DbDispatcher private (
       sql: Connection => T
   ): Future[T] = {
     lazy val extraLogMemoized = extraLog
-    val waitTimer = metrics.daml.index.db.waitTimer(description)
-    val execTimer = metrics.daml.index.db.execTimer(description)
+    val waitTimer = metrics.daml.index.db.wait(description)
+    val execTimer = metrics.daml.index.db.exec(description)
     val startWait = System.nanoTime()
     Future {
       val waitNanos = System.nanoTime() - startWait
       extraLogMemoized.foreach(log =>
         logger.trace(s"$description: $log wait ${(waitNanos / 1E6).toLong} ms"))
       waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-      metrics.daml.index.db.waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+      metrics.daml.index.db.waitAll.update(waitNanos, TimeUnit.NANOSECONDS)
       val startExec = System.nanoTime()
       try {
         // Actual execution
@@ -70,7 +70,7 @@ final class DbDispatcher private (
           extraLogMemoized.foreach(log =>
             logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
           execTimer.update(execNanos, TimeUnit.NANOSECONDS)
-          metrics.daml.index.db.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
+          metrics.daml.index.db.execAll.update(execNanos, TimeUnit.NANOSECONDS)
         } catch {
           case t: Throwable =>
             logger

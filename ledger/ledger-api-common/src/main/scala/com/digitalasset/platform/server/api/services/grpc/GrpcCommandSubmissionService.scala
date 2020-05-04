@@ -42,10 +42,10 @@ class GrpcCommandSubmissionService(
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     Timed.future(
-      metrics.daml.commands.submissionsTimer,
+      metrics.daml.commands.submissions,
       Timed
         .value(
-          metrics.daml.commands.validationTimer,
+          metrics.daml.commands.validation,
           validator
             .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
         .fold(
