@@ -268,7 +268,8 @@ object Cli {
         .optional()
         .action((value, config) =>
           config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value)))
-        .text("The maximum number of parallel command submissions.")
+        .text(
+          "The maximum number of parallel command submissions. Only applicable to sandbox-classic.")
 
       help("help").text("Print the usage text")
 
