@@ -131,10 +131,10 @@ object SValue {
     * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
     * [[AnyRef]] for the label.
     */
-  final case class PClosure(label: AnyRef, expr: SExpr, closure: Array[SValue])
+  final case class PClosure(label: AnyRef, expr: SExpr, fvs: Array[SValue])
       extends Prim
       with SomeArrayEquals {
-    override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
+    override def toString: String = s"PClosure($expr, ${fvs.mkString("[", ",", "]")})"
   }
 
   /** A partially applied primitive.

@@ -454,6 +454,13 @@ object Pretty {
       }
       (pat & text("=>") + lineOrSpace + prettySExpr(newIndex)(alt.body)).nested(2)
     }
+
+    def prettySELoc(loc: SELoc): Doc = loc match {
+      case SELocS(i) => char('S') + str(i)
+      case SELocA(i) => char('A') + str(i)
+      case SELocF(i) => char('F') + str(i)
+    }
+
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
         case SEVar(i) => char('@') + str(index - i)
@@ -515,10 +522,12 @@ object Pretty {
 
         case SEMakeClo(fv, n, body) =>
           val prefix = char('[') +
-            intercalate(space, fv.map((v: Int) => str(v))) + char(']') + text("(\\") +
+            intercalate(space, fv.map(prettySELoc)) + char(']') + text("(\\") +
             intercalate(space, (index to n + index - 1).map((v: Int) => str(v))) &
             text("-> ")
           prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
+
+        case loc: SELoc => prettySELoc(loc)
 
         case SELet(bounds, body) =>
           // let [a, b, c] in X
