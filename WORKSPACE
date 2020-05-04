@@ -611,6 +611,7 @@ load(
     "scala_repositories",
 )
 
+# note some dependencies in bazel-jvm-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
 scala_repositories((
     "2.12.11",
     {
