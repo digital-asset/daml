@@ -60,8 +60,8 @@ data TemplateChoices = TemplateChoices
     , choiceAndActions :: [ChoiceAndAction]
     } deriving (Show)
 
-templateChoiceId :: TemplateChoices -> LF.Qualified LF.TypeConName
-templateChoiceId TemplateChoices{..} =
+templateId :: TemplateChoices -> LF.Qualified LF.TypeConName
+templateId TemplateChoices{..} =
     fmap LF.tplTypeCon template
 
 data ChoiceDetails = ChoiceDetails
@@ -228,7 +228,7 @@ choiceNameWithId tplChcActions = Map.unions (evalState (mapM f tplChcActions) 0)
         choices <- forM (createChoice : choiceAndActions) $ \ChoiceAndAction{..} -> do
           id <- get
           put (id + 1)
-          let choiceId = ChoiceIdentifier (templateChoiceId tpl) choiceName
+          let choiceId = ChoiceIdentifier (templateId tpl) choiceName
           pure (choiceId, ChoiceDetails id choiceConsuming choiceName)
         pure (Map.fromList choices)
     createChoice = ChoiceAndAction
@@ -247,7 +247,7 @@ addCreateChoice tpl@TemplateChoices{..} lookupData = nodeIdForChoice lookupData 
   where
     tplNameCreateChoice =
         ChoiceIdentifier
-            (templateChoiceId tpl)
+            (templateId tpl)
             createChoiceName
 
 labledField :: T.Text -> T.Text -> T.Text
@@ -271,9 +271,9 @@ constructSubgraphsWithLables :: LF.World -> Map.Map ChoiceIdentifier ChoiceDetai
 constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} =
     SubGraph (addCreateChoice tpla lookupData : choices) fieldsInTemplate (LF.qualObject template)
   where
-    fieldsInTemplate = typeConFields (templateChoiceId tpla) wrld
+    fieldsInTemplate = typeConFields (templateId tpla) wrld
     choicesInTemplate =
-        map (\c -> ChoiceIdentifier (templateChoiceId tpla) (choiceName c))
+        map (\c -> ChoiceIdentifier (templateId tpla) (choiceName c))
             choiceAndActions
     choices = map (nodeIdForChoice lookupData) choicesInTemplate
 
@@ -297,7 +297,7 @@ graphEdges lookupData tplChcActions =
     map (both (nodeIdForChoice lookupData)) $
     concat $
     concatMap
-        (\tpl -> map (choiceActionToChoicePairs (templateChoiceId tpl)) (choiceAndActions tpl))
+        (\tpl -> map (choiceActionToChoicePairs (templateId tpl)) (choiceAndActions tpl))
         tplChcActions
 
 subGraphHeader :: SubGraph -> String
