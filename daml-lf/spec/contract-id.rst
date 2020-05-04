@@ -10,6 +10,7 @@ Goals
 * Allows ordering contract IDs and make DAML semantics depend on this
   order, e.g., for comparison builtin and maps using IDs as keys.
 * Eliminate all contract ID translations for central commiter ledger
+* Allows ledgers to store arbitrary information about the contract and the creating transaction in the contract ID if necessary.
 
 Requirements
 ^^^^^^^^^^^^
@@ -23,7 +24,7 @@ projection of a transaction to a set of parties can be computed
 solely from the projection and input seeds.
 
 **Unlinkability**: It is computationally infeasible to link the contract
-contents to the contract ID unless the create node is witnessed. The
+contents to the contract ID unless the create node is witnessed or the input seeds are known. The
 contract contents include the contract instance, the template ID, the
 stakeholders / signatories / maintainers, and the contract key.
 
@@ -49,7 +50,7 @@ bytes defined as follows ::
 where
 
 * ``∥`` is the concatenation operation; 
-* ``verisionPrefix`` is 1 byte (equal to 0) used to versioned the
+* ``verisionPrefix`` is 1 byte (equal to 0) used to version the
   contract ID scheme;
 * ``discriminator`` is a sequence of 32 bytes. It is like a random
   UUID, but generated from an initial seed (called *submission seed*)
@@ -61,18 +62,18 @@ where
 Discriminator freshness
 -----------------------
 
-In a transaction we distinct two kinds of contract IDs:
+In a transaction we distinguish two kinds of contract IDs:
 
 * The *local* contract IDs are the IDs of the contracts created by the
   transaction.
 
-*  The *global* contract IDs are the contract IDs that:
+* The *global* contract IDs are the contract IDs that:
    
-   * appears in the commands that produced the transaction. This
+   * appear in the commands that produced the transaction. This
      includes the IDs of the exercised contract, together with all the
      IDs referenced in the arguments of the create and exercise
      commands;
-   * that are fetched or looked up by key;
+   * that are fetched or looked up by key unless they are local;
    * are referenced in the input contracts.
 
 Note that local contract IDs correspond to the ID of output contracts
@@ -80,23 +81,24 @@ together with those contracts that have been created and archived in
 the transaction. On the other hand, global contract IDs do not
 reference only IDs of some contracts that have been previously
 persisted on the ledger, but also any arbitrary contract IDs that the
-submitter have referenced in its submission.
+submitter has referenced in its submission.
 
 The so-called *discriminator freshness condition* holds if the
 discriminators from local contract IDs are distinct from the
 discriminators from global contract IDs.
 
 This ensures that only the discriminators, not the suffix are needed
-to order the contract IDs of created contract w.r.t. other contract
+to order the contract IDs of created contracts w.r.t. other contract
 IDs. 
 
 Contract ID uniqueness
 ----------------------
 
 During interpretation local contract IDs are created without suffix.
-It is the responsibility of the ledger implementation to provide for
-each local contract ID a suffix that guarantee global uniqueness of
-the whole contract ID. No other requirement (except the 95 bytes size
+Ledger implementations are responsible for enforcing 
+uniqueness of contract IDs on the whole ledger.
+This can be done by enforcing global uniqueness of the seeds or by appropriately suffixing the contract IDs.
+No other requirement (except the 95 bytes size
 limit) is assumed for those suffices.
 
 This guard against the submitter choosing low-entropy submission seeds. 
@@ -112,24 +114,24 @@ Submission time
 ---------------
 
 The submission time is used to derive the transaction seed. In
-practice, it should be closed to the original time at which the
+practice, it should be close to the original time at which the
 submission was initiated. No particular requirement is made in this
 specification. However a particular ledger implementation can require
 this time to be within a particular time window around the commit
 time. This allows, for instance, the commiter of a central commiter
-ledger to en enforce global uniqueness of the pair (submission seed,
+ledger to enforce global uniqueness of the pair (submission seed,
 submission time).
 
 Allocation scheme for discriminators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   
 From an initial seed, called in the following *submission seed*, seeds
-for all nodes in the transaction tree are derived as they are
+for all Create and Exercise nodes in the transaction tree are derived as they are
 computed.
 
 We propose the following scheme, inspired by NIST’s HMAC_DRBG
 construction. It assumes a hash-based MAC function HMAC, and defines
-for each big-endian 32 bits integer ``n`` the derived seed::
+for each big-endian 32 bits integer ``n`` the derived seed:
 
   deriveSeed(seed, n) := HMAC(seed, n)
   
@@ -160,7 +162,7 @@ where
   lexicographically.
 
 Strings such as participant IDs or submitter IDs are interpreted as
-their US-ASCII encoding prefixed with there size encoded as a
+their US-ASCII encoding prefixed with their size encoded as a
 32 bits big-endian integer.
   
      
@@ -203,17 +205,17 @@ with there size encoded as a 32 bits  big-endian integer.
 Submission
 ^^^^^^^^^^
 
-The submission the following steps:
+The submission performs the following steps:
 
-* Peek a submission seed  with high entropy.
+* Pick a submission seed with high entropy.
 * Derive the transaction seed and start the interperation
 * During interpretation derive the node seeds, and the discriminator
   of local contract ID accordingly the scheme described above.  If the
   discriminator is not `fresh <Discriminator Freshness_>`_, abort the
-  interpretation. The submitter can restart the interpretation with
+  interpretation. The submitter can restart the interpretation, which will pick
   another submission seed.
 * If the transaction succeeds, the output is a *raw transaction*
-* All local contract IDs in the raw transaction are suffix with a
+* All local contract IDs in the raw transaction are suffixed with a
   ledger specific suffix. This yields the *ready transaction*.
 * The ready transaction is then sent on the write path, along with the
   submission seed and the submission time.
@@ -222,7 +224,7 @@ Validation
 ^^^^^^^^^^
 
 Reinterpretation for a full transaction validation takes the
-transition, the submission seed, and the submission time as
+transaction, the submission seed, and the submission time as
 inputs. Transaction seed is derived in the same way as for
 submission.
 
@@ -242,4 +244,3 @@ suffix of the local contract IDs.
 .. End:
 
 ..  LocalWords:  commiter lexicographically endian
-

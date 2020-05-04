@@ -575,7 +575,7 @@ V0 contract identifiers, a DAML-LF compliant engine must refuse to
 load any DAML-LF >= 1.dev archives.  On the contrary, when configured
 to produce V1 contract IDs, a DAML-LF compliant engine must accept to
 load any non-deprecated DAML-LF version. V1 Contract IDs allocation
-scheme is described in the Contract IDs a `V1 Contract ID allocation
+scheme is described in the `V1 Contract ID allocation
 scheme specification <./contract-id.rst>`_.
 
 Also note that package identifiers are typically `cryptographic hash
