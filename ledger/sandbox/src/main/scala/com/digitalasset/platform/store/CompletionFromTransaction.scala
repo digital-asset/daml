@@ -34,10 +34,10 @@ private[platform] object CompletionFromTransaction {
   // * -Xfatal-warnings _MUST_ be enabled
   def toErrorCode(rejection: RejectionReason): Code = {
     rejection match {
-      case RejectionReason.Inconsistent | _: RejectionReason.Disputed |
-          RejectionReason.PartyNotKnownOnLedger =>
+      case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
+          _: RejectionReason.PartyNotKnownOnLedger =>
         Code.INVALID_ARGUMENT
-      case RejectionReason.ResourcesExhausted | _: RejectionReason.InvalidLedgerTime =>
+      case _: RejectionReason.ResourcesExhausted | _: RejectionReason.InvalidLedgerTime =>
         Code.ABORTED
       case _: RejectionReason.SubmitterCannotActViaParticipant =>
         Code.PERMISSION_DENIED
@@ -46,14 +46,14 @@ private[platform] object CompletionFromTransaction {
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
     reason match {
-      case _: domain.RejectionReason.Inconsistent =>
-        RejectionReason.Inconsistent
+      case r: domain.RejectionReason.Inconsistent =>
+        RejectionReason.Inconsistent(r.description)
       case r: domain.RejectionReason.Disputed =>
         RejectionReason.Disputed(r.description)
-      case _: domain.RejectionReason.OutOfQuota =>
-        RejectionReason.ResourcesExhausted
-      case _: domain.RejectionReason.PartyNotKnownOnLedger =>
-        RejectionReason.PartyNotKnownOnLedger
+      case r: domain.RejectionReason.OutOfQuota =>
+        RejectionReason.ResourcesExhausted(r.description)
+      case r: domain.RejectionReason.PartyNotKnownOnLedger =>
+        RejectionReason.PartyNotKnownOnLedger(r.description)
       case r: domain.RejectionReason.SubmitterCannotActViaParticipant =>
         RejectionReason.SubmitterCannotActViaParticipant(r.description)
       case r: domain.RejectionReason.InvalidLedgerTime =>

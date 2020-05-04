@@ -69,9 +69,9 @@ object CommandCompletionsTable {
 
   private def toStatus(rejection: RejectionReason): (Int, String) = {
     rejection match {
-      case Inconsistent | _: Disputed | PartyNotKnownOnLedger =>
+      case _: Inconsistent | _: Disputed | _: PartyNotKnownOnLedger =>
         Code.INVALID_ARGUMENT.value() -> rejection.description
-      case ResourcesExhausted | _: InvalidLedgerTime =>
+      case _: ResourcesExhausted | _: InvalidLedgerTime =>
         Code.ABORTED.value() -> rejection.description
       case _: SubmitterCannotActViaParticipant =>
         Code.PERMISSION_DENIED.value() -> rejection.description

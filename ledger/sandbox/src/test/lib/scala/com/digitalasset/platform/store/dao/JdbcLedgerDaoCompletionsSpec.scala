@@ -46,7 +46,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     val expectedCmdId = UUID.randomUUID.toString
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      offset <- storeRejection(RejectionReason.Inconsistent, expectedCmdId)
+      offset <- storeRejection(RejectionReason.Inconsistent(""), expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, parties)
@@ -65,7 +65,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "not return completions if the application id is wrong" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeRejection(RejectionReason.Inconsistent)
+      _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId = "WRONG", parties)
@@ -78,7 +78,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "not return completions if the parties do not match" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeRejection(RejectionReason.Inconsistent)
+      _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
@@ -91,10 +91,10 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "return the expected status for each rejection reason" in {
     val reasons = Seq[RejectionReason](
       RejectionReason.Disputed(""),
-      RejectionReason.Inconsistent,
+      RejectionReason.Inconsistent(""),
       RejectionReason.InvalidLedgerTime(""),
-      RejectionReason.ResourcesExhausted,
-      RejectionReason.PartyNotKnownOnLedger,
+      RejectionReason.ResourcesExhausted(""),
+      RejectionReason.PartyNotKnownOnLedger(""),
       RejectionReason.SubmitterCannotActViaParticipant(""),
       RejectionReason.InvalidLedgerTime(""),
     )
