@@ -10,6 +10,8 @@ module Sandbox
   , withSandbox
   , createSandbox
   , destroySandbox
+  , readPortFile
+  , maxRetries
   ) where
 
 import Control.Concurrent (threadDelay)

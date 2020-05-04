@@ -21,6 +21,7 @@ da_haskell_library(
         "tasty",
         "text",
     ],
+    visibility = ["//visibility:public"],
 )
 
 da_haskell_binary(

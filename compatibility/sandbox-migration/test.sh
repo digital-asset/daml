@@ -2,6 +2,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+
 # Copy-pasted from the Bazel Bash runfiles library v2.
 set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
 source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
@@ -11,16 +12,19 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
+set -euox pipefail
 
-set -eou pipefail
-version=$1
-extra_args="${@:2}"
-WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres/with-postgres-exe)
-if [ -z "$WITH_POSTGRES" ]; then
-    WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres/with-postgres.exe)
-fi
-if [ -z "$WITH_POSTGRES" ]; then
-    echo "Faild to find with-postgres wrapper"
-    exit 1
-fi
-$WITH_POSTGRES $(rlocation daml-sdk-$version/daml) sandbox $extra_args
+RUNNER="$(rlocation $TEST_WORKSPACE/sandbox-migration/sandbox-migration-runner)"
+SCRIPT_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-script.dar)"
+MODEL_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-model.dar)"
+SCRIPT_ASSISTANT="$(rlocation daml-sdk-0.0.0/daml)"
+SANDBOX_ARGS=""
+for PLATFORM in $@; do
+    SANDBOX_ARGS="$SANDBOX_ARGS $(rlocation daml-sdk-$PLATFORM/daml)"
+done
+$RUNNER \
+    --script-dar $SCRIPT_DAR \
+    --model-dar $MODEL_DAR \
+    --script-assistant $SCRIPT_ASSISTANT \
+    $SANDBOX_ARGS
+
