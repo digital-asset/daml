@@ -965,76 +965,76 @@
                 "sha256": "76e20c7a3eb5ddbd9de617440fbc3cfb87907ecb27e1f79283a7f91e0e459389"
             },
             {
-                "coord": "com.github.ghik:silencer-lib_2.12:1.3.1",
-                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12/1.3.1/silencer-lib_2.12-1.3.1.jar",
+                "coord": "com.github.ghik:silencer-lib_2.12.8:1.6.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12.8/1.6.0/silencer-lib_2.12.8-1.6.0.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12/1.3.1/silencer-lib_2.12-1.3.1.jar",
+                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12.8/1.6.0/silencer-lib_2.12.8-1.6.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12/1.3.1/silencer-lib_2.12-1.3.1.jar"
+                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12.8/1.6.0/silencer-lib_2.12.8-1.6.0.jar"
                 ],
-                "sha256": "66a5d76822d536ee261f8da2e89821f2893cf92a1d344fc3b1586debe2e7d4e7"
+                "sha256": "48a5d6addc8e01faecef120102c2271caa5b082d728010449cab08cbcb36d6a9"
             },
             {
-                "coord": "com.github.ghik:silencer-lib_2.12:jar:sources:1.3.1",
-                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12/1.3.1/silencer-lib_2.12-1.3.1-sources.jar",
+                "coord": "com.github.ghik:silencer-lib_2.12.8:jar:sources:1.6.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12.8/1.6.0/silencer-lib_2.12.8-1.6.0-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12/1.3.1/silencer-lib_2.12-1.3.1-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12.8/1.6.0/silencer-lib_2.12.8-1.6.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12/1.3.1/silencer-lib_2.12-1.3.1-sources.jar"
+                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-lib_2.12.8/1.6.0/silencer-lib_2.12.8-1.6.0-sources.jar"
                 ],
-                "sha256": "9e45308c71dc3fc1a0019b152ba57f9e5c782e71d3c8a1a51dd0429d9d53fef9"
+                "sha256": "8ebeab45d324d23ed751891830ae0b200bfd134354699f4ec427ca489513f3df"
             },
             {
-                "coord": "com.github.ghik:silencer-plugin_2.12:1.3.1",
-                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12/1.3.1/silencer-plugin_2.12-1.3.1.jar",
+                "coord": "com.github.ghik:silencer-plugin_2.12.8:1.6.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12.8/1.6.0/silencer-plugin_2.12.8-1.6.0.jar",
                 "directDependencies": [
-                    "com.github.ghik:silencer-lib_2.12:1.3.1",
-                    "org.scala-lang:scala-compiler:2.12.7",
+                    "com.github.ghik:silencer-lib_2.12.8:1.6.0",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-lang:scala-reflect:2.12.8",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10",
-                    "com.github.ghik:silencer-lib_2.12:1.3.1",
+                    "com.github.ghik:silencer-lib_2.12.8:1.6.0",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12/1.3.1/silencer-plugin_2.12-1.3.1.jar",
+                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12.8/1.6.0/silencer-plugin_2.12.8-1.6.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12/1.3.1/silencer-plugin_2.12-1.3.1.jar"
+                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12.8/1.6.0/silencer-plugin_2.12.8-1.6.0.jar"
                 ],
-                "sha256": "082da2de307d68da58ef262a606d1f6ea49865f4383306e16a82821c2f4e3d90"
+                "sha256": "c23796722eaa5078e92430c4f4f2380bdd242ae726bba5894c7ce3fb0c85a510"
             },
             {
-                "coord": "com.github.ghik:silencer-plugin_2.12:jar:sources:1.3.1",
-                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12/1.3.1/silencer-plugin_2.12-1.3.1-sources.jar",
+                "coord": "com.github.ghik:silencer-plugin_2.12.8:jar:sources:1.6.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12.8/1.6.0/silencer-plugin_2.12.8-1.6.0-sources.jar",
                 "directDependencies": [
-                    "com.github.ghik:silencer-lib_2.12:jar:sources:1.3.1",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "com.github.ghik:silencer-lib_2.12.8:jar:sources:1.6.0",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
+                    "com.github.ghik:silencer-lib_2.12.8:jar:sources:1.6.0",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
-                    "com.github.ghik:silencer-lib_2.12:jar:sources:1.3.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7"
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12/1.3.1/silencer-plugin_2.12-1.3.1-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12.8/1.6.0/silencer-plugin_2.12.8-1.6.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12/1.3.1/silencer-plugin_2.12-1.3.1-sources.jar"
+                    "https://repo1.maven.org/maven2/com/github/ghik/silencer-plugin_2.12.8/1.6.0/silencer-plugin_2.12.8-1.6.0-sources.jar"
                 ],
-                "sha256": "d03611e559c72522ed9078940d810032b39dc1b8e86d01af4041115a1764be8e"
+                "sha256": "b0a9bbbca8575619d629ce85fa097acb03ab7f8652786632b8b64045ea581334"
             },
             {
                 "coord": "com.github.jnr:jffi:1.2.15",
@@ -1294,15 +1294,15 @@
                 "coord": "com.github.pureconfig:pureconfig-macros_2.12:0.8.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/github/pureconfig/pureconfig-macros_2.12/0.8.0/pureconfig-macros_2.12-0.8.0.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "org.typelevel:macro-compat_2.12:1.1.1"
                 ],
                 "dependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "org.typelevel:macro-compat_2.12:1.1.1",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6"
                 ],
@@ -1316,7 +1316,7 @@
                 "coord": "com.github.pureconfig:pureconfig-macros_2.12:jar:sources:0.8.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/github/pureconfig/pureconfig-macros_2.12/0.8.0/pureconfig-macros_2.12-0.8.0-sources.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
                     "org.typelevel:macro-compat_2.12:jar:sources:1.1.1"
@@ -1325,7 +1325,7 @@
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.typelevel:macro-compat_2.12:jar:sources:1.1.1"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/github/pureconfig/pureconfig-macros_2.12/0.8.0/pureconfig-macros_2.12-0.8.0-sources.jar",
@@ -1345,9 +1345,9 @@
                 ],
                 "dependencies": [
                     "com.typesafe:config:1.4.0",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "org.typelevel:macro-compat_2.12:1.1.1",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "com.github.pureconfig:pureconfig-macros_2.12:0.8.0",
                     "com.chuusai:shapeless_2.12:2.3.2",
                     "org.scala-lang:scala-library:2.12.10",
@@ -1375,7 +1375,7 @@
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.github.pureconfig:pureconfig-macros_2.12:jar:sources:0.8.0",
                     "com.typesafe:config:jar:sources:1.4.0",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.typelevel:macro-compat_2.12:jar:sources:1.1.1"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/github/pureconfig/pureconfig_2.12/0.8.0/pureconfig_2.12-0.8.0-sources.jar",
@@ -8524,8 +8524,8 @@
                 "sha256": "a7e8aac79394df396afda98b35537791809d815ce15ab2224f7d31e50c753922"
             },
             {
-                "coord": "org.scala-lang:scala-compiler:2.12.7",
-                "file": "v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.7/scala-compiler-2.12.7.jar",
+                "coord": "org.scala-lang:scala-compiler:2.12.8",
+                "file": "v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang:scala-reflect:2.12.8",
@@ -8536,15 +8536,15 @@
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
                     "org.scala-lang:scala-reflect:2.12.8"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.7/scala-compiler-2.12.7.jar",
+                "url": "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.7/scala-compiler-2.12.7.jar"
+                    "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar"
                 ],
-                "sha256": "6e80ef4493127214d31631287a6789170bf6c9a771d6094acd8dc785e8970270"
+                "sha256": "f34e9119f45abd41e85b9e121ba19dd9288b3b4af7f7047e86dc70236708d170"
             },
             {
-                "coord": "org.scala-lang:scala-compiler:jar:sources:2.12.7",
-                "file": "v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.7/scala-compiler-2.12.7-sources.jar",
+                "coord": "org.scala-lang:scala-compiler:jar:sources:2.12.8",
+                "file": "v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
@@ -8555,11 +8555,11 @@
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.7/scala-compiler-2.12.7-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.7/scala-compiler-2.12.7-sources.jar"
+                    "https://repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8-sources.jar"
                 ],
-                "sha256": "676f9865eee108b703d812a21ba0bd9530e166157d431171cdc1964d359d514f"
+                "sha256": "51706711a1399f06206745907f188815c31f2dd95b39b01f0e2c2fc78b0e7e3b"
             },
             {
                 "coord": "org.scala-lang:scala-library:2.12.10",
@@ -8709,7 +8709,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "org.scala-sbt:testing_2.12:1.1.4",
@@ -8729,6 +8728,7 @@
                     "org.scala-sbt:test-interface:1.0",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "org.scala-sbt:zinc-core_2.12:1.1.5",
@@ -8829,6 +8829,7 @@
                     "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
@@ -8837,7 +8838,6 @@
                     "org.scala-sbt:tasks_2.12:jar:sources:1.1.4",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
@@ -8924,7 +8924,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -8939,6 +8938,7 @@
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:util-cache_2.12:1.1.3",
@@ -9015,9 +9015,9 @@
                     "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
                 ],
@@ -9123,16 +9123,16 @@
                 "coord": "org.scala-sbt:core-macros_2.12:1.1.4",
                 "file": "v1/https/repo1.maven.org/maven2/org/scala-sbt/core-macros_2.12/1.1.4/core-macros_2.12-1.1.4.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:collections_2.12:1.1.4"
                 ],
                 "dependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "org.scala-sbt:util-position_2.12:1.1.3",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:collections_2.12:1.1.4",
@@ -9149,7 +9149,7 @@
                 "coord": "org.scala-sbt:core-macros_2.12:jar:sources:1.1.4",
                 "file": "v1/https/repo1.maven.org/maven2/org/scala-sbt/core-macros_2.12/1.1.4/core-macros_2.12-1.1.4-sources.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-sbt:collections_2.12:jar:sources:1.1.4"
                 ],
@@ -9163,7 +9163,7 @@
                     "com.eed3si9n:sjson-new-scalajson_2.12:jar:sources:0.8.2",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7"
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scala-sbt/core-macros_2.12/1.1.4/core-macros_2.12-1.1.4-sources.jar",
                 "mirror_urls": [
@@ -9243,12 +9243,12 @@
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
                     "org.scala-sbt:util-position_2.12:1.1.3",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "org.scala-sbt:io_2.12:1.1.6",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:util-cache_2.12:1.1.3",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6"
@@ -9266,7 +9266,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
@@ -9278,6 +9277,7 @@
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:util-cache_2.12:1.1.3",
@@ -9309,8 +9309,8 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
-                    "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7"
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
+                    "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
@@ -9342,9 +9342,9 @@
                     "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scala-sbt/librarymanagement-core_2.12/1.1.4/librarymanagement-core_2.12-1.1.4-sources.jar",
@@ -9375,7 +9375,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
@@ -9389,6 +9388,7 @@
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
                     "org.scala-sbt.ivy:ivy:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:util-cache_2.12:1.1.3",
@@ -9445,10 +9445,10 @@
                     "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt.ivy:ivy:jar:sources:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scala-sbt/librarymanagement-ivy_2.12/1.1.4/librarymanagement-ivy_2.12-1.1.4-sources.jar",
@@ -9539,7 +9539,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -9554,6 +9553,7 @@
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-sbt:task-system_2.12:1.1.4",
                     "org.scala-lang:scala-library:2.12.10",
@@ -9635,11 +9635,11 @@
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:core-macros_2.12:jar:sources:1.1.4",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:task-system_2.12:jar:sources:1.1.4",
                     "org.scala-sbt:tasks_2.12:jar:sources:1.1.4",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
                 ],
@@ -9696,7 +9696,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "org.scala-sbt:main-settings_2.12:1.1.4",
                     "jline:jline:2.14.4",
@@ -9721,6 +9720,7 @@
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
                     "org.scala-sbt.ivy:ivy:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "org.scala-sbt:zinc-core_2.12:1.1.5",
@@ -9845,6 +9845,7 @@
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:core-macros_2.12:jar:sources:1.1.4",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
@@ -9855,7 +9856,6 @@
                     "org.scala-sbt.ivy:ivy:jar:sources:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:actions_2.12:jar:sources:1.1.4",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
@@ -9955,7 +9955,6 @@
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "org.scala-sbt:util-position_2.12:1.1.3",
@@ -9965,6 +9964,7 @@
                     "org.scala-sbt:io_2.12:1.1.6",
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "com.swoval:apple-file-events:1.3.0",
@@ -10012,7 +10012,7 @@
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scala-sbt/run_2.12/1.1.4/run_2.12-1.1.4-sources.jar",
@@ -10085,7 +10085,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "org.scala-sbt:main-settings_2.12:1.1.4",
                     "jline:jline:2.14.4",
@@ -10111,6 +10110,7 @@
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
                     "org.scala-sbt.ivy:ivy:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "org.scala-sbt:zinc-core_2.12:1.1.5",
@@ -10219,6 +10219,7 @@
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:core-macros_2.12:jar:sources:1.1.4",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
@@ -10229,7 +10230,6 @@
                     "org.scala-sbt.ivy:ivy:jar:sources:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:actions_2.12:jar:sources:1.1.4",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
@@ -10465,7 +10465,6 @@
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "org.scala-lang:scala-reflect:2.12.8",
@@ -10475,6 +10474,7 @@
                     "net.java.dev.jna:jna:4.5.0",
                     "org.scala-sbt:test-interface:1.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "com.swoval:apple-file-events:1.3.0",
@@ -10526,7 +10526,7 @@
                     "org.scala-sbt:test-interface:jar:sources:1.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scala-sbt/testing_2.12/1.1.4/testing_2.12-1.1.4-sources.jar",
@@ -10968,20 +10968,20 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/scala-sbt/zinc-classpath_2.12/1.1.5/zinc-classpath_2.12-1.1.5.jar",
                 "directDependencies": [
                     "org.scala-sbt:launcher-interface:1.0.4",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.scala-sbt:io_2.12:1.1.6",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.scala-sbt:io_2.12:1.1.6",
                     "net.java.dev.jna:jna:4.5.0",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10",
                     "com.swoval:apple-file-events:1.3.0",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6"
@@ -11000,7 +11000,7 @@
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:io_2.12:jar:sources:1.1.6",
                     "org.scala-sbt:compiler-interface:jar:sources:1.1.5",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7"
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
@@ -11012,7 +11012,7 @@
                     "org.scala-sbt:compiler-interface:jar:sources:1.1.5",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scala-sbt/zinc-classpath_2.12/1.1.5/zinc-classpath_2.12-1.1.5-sources.jar",
@@ -11042,7 +11042,6 @@
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -11054,6 +11053,7 @@
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "com.swoval:apple-file-events:1.3.0",
@@ -11105,8 +11105,8 @@
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
@@ -11133,7 +11133,6 @@
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "org.scala-sbt:util-tracking_2.12:1.1.3",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -11145,6 +11144,7 @@
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:util-cache_2.12:1.1.3",
@@ -11191,12 +11191,12 @@
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
@@ -11226,7 +11226,6 @@
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "org.scala-lang:scala-reflect:2.12.8",
@@ -11236,6 +11235,7 @@
                     "org.scala-sbt:zinc-apiinfo_2.12:1.1.5",
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "com.swoval:apple-file-events:1.3.0",
@@ -11284,8 +11284,8 @@
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5"
                 ],
@@ -11316,7 +11316,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -11332,6 +11331,7 @@
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-sbt:util-cache_2.12:1.1.3",
@@ -11392,11 +11392,11 @@
                     "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
@@ -11425,7 +11425,6 @@
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
                     "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "org.scala-lang:scala-reflect:2.12.8",
@@ -11436,6 +11435,7 @@
                     "org.scala-sbt:zinc-apiinfo_2.12:1.1.5",
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "org.scala-sbt:zinc-core_2.12:1.1.5",
@@ -11491,9 +11491,9 @@
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5"
                 ],
@@ -11530,7 +11530,6 @@
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
-                    "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -11548,6 +11547,7 @@
                     "net.java.dev.jna:jna:4.5.0",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "com.eed3si9n:sjson-new-core_2.12:0.8.2",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.spire-math:jawn-parser_2.12:0.13.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "org.scala-sbt:zinc-core_2.12:1.1.5",
@@ -11624,12 +11624,12 @@
                     "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
@@ -11984,14 +11984,14 @@
                 "coord": "org.scalameta:paradise_2.12.6:3.0.0-M11",
                 "file": "v1/https/repo1.maven.org/maven2/org/scalameta/paradise_2.12.6/3.0.0-M11/paradise_2.12.6-3.0.0-M11.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
-                    "org.scala-lang:scala-reflect:2.12.8",
-                    "org.scala-lang:scala-compiler:2.12.7"
+                    "org.scala-lang:scala-compiler:2.12.8",
+                    "org.scala-lang:scala-reflect:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scalameta/paradise_2.12.6/3.0.0-M11/paradise_2.12.6-3.0.0-M11.jar",
                 "mirror_urls": [
@@ -12003,14 +12003,14 @@
                 "coord": "org.scalameta:paradise_2.12.6:jar:sources:3.0.0-M11",
                 "file": "v1/https/repo1.maven.org/maven2/org/scalameta/paradise_2.12.6/3.0.0-M11/paradise_2.12.6-3.0.0-M11-sources.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10"
+                    "org.scala-lang:scala-library:jar:sources:2.12.10",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scalameta/paradise_2.12.6/3.0.0-M11/paradise_2.12.6-3.0.0-M11-sources.jar",
                 "mirror_urls": [
@@ -13762,14 +13762,14 @@
                 "coord": "org.spire-math:kind-projector_2.12:0.9.3",
                 "file": "v1/https/repo1.maven.org/maven2/org/spire-math/kind-projector_2.12/0.9.3/kind-projector_2.12-0.9.3.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
-                    "org.scala-lang:scala-reflect:2.12.8",
-                    "org.scala-lang:scala-compiler:2.12.7"
+                    "org.scala-lang:scala-compiler:2.12.8",
+                    "org.scala-lang:scala-reflect:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/spire-math/kind-projector_2.12/0.9.3/kind-projector_2.12-0.9.3.jar",
                 "mirror_urls": [
@@ -13781,14 +13781,14 @@
                 "coord": "org.spire-math:kind-projector_2.12:jar:sources:0.9.3",
                 "file": "v1/https/repo1.maven.org/maven2/org/spire-math/kind-projector_2.12/0.9.3/kind-projector_2.12-0.9.3-sources.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10"
+                    "org.scala-lang:scala-library:jar:sources:2.12.10",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/spire-math/kind-projector_2.12/0.9.3/kind-projector_2.12-0.9.3-sources.jar",
                 "mirror_urls": [
@@ -14636,14 +14636,14 @@
                 "coord": "org.wartremover:wartremover_2.12:2.2.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/wartremover/wartremover_2.12/2.2.0/wartremover_2.12-2.2.0.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:2.12.7",
+                    "org.scala-lang:scala-compiler:2.12.8",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
-                    "org.scala-lang:scala-reflect:2.12.8",
-                    "org.scala-lang:scala-compiler:2.12.7"
+                    "org.scala-lang:scala-compiler:2.12.8",
+                    "org.scala-lang:scala-reflect:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/wartremover/wartremover_2.12/2.2.0/wartremover_2.12-2.2.0.jar",
                 "mirror_urls": [
@@ -14655,14 +14655,14 @@
                 "coord": "org.wartremover:wartremover_2.12:jar:sources:2.2.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/wartremover/wartremover_2.12/2.2.0/wartremover_2.12-2.2.0-sources.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.8",
-                    "org.scala-lang:scala-compiler:jar:sources:2.12.7",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10"
+                    "org.scala-lang:scala-library:jar:sources:2.12.10",
+                    "org.scala-lang:scala-compiler:jar:sources:2.12.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/wartremover/wartremover_2.12/2.2.0/wartremover_2.12-2.2.0-sources.jar",
                 "mirror_urls": [
@@ -14810,6 +14810,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1616658845
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1861411111
     }
 }
