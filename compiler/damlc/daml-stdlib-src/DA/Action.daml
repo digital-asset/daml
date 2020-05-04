@@ -63,7 +63,7 @@ foldl1A _ [] = error "foldl1M: empty list"
 -- Example: given a collection of Iou contract IDs one can find only the GBPs.
 --
 -- ```
--- >>> filterA (fmap (\iou -> iou.currency == "GBP") . fetch) iouCids
+-- filterA (fmap (\iou -> iou.currency == "GBP") . fetch) iouCids
 -- ```
 filterA : Applicative m => (a -> m Bool) -> [a] -> m [a]
 filterA p = foldr (\x -> liftA2 (\pHolds -> if pHolds then (x ::) else identity) (p x)) (pure [])
