@@ -77,10 +77,6 @@ object SqlLedger {
             initialLedgerEntries,
             initialConfig,
             queueDepth,
-            // we use `maxConcurrentConnections` for the maximum batch size, since it doesn't make
-            // sense to try to persist more ledger entries concurrently than we have SQL executor
-            // threads and SQL connections available.
-            ledgerDao.maxConcurrentConnections,
         ))
     } yield ledger
 }
@@ -94,7 +90,6 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
-    maxBatchSize: Int,
 )(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
@@ -128,7 +123,7 @@ private final class SqlLedger(
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
     persistenceQueue
-      .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
+      .batch(1, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // we can only do this because there is no parallelism here!
@@ -349,7 +344,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     *                             used if starting from a fresh database.
     * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
     *                        upstream
-    * @param maxBatchSize maximum size of ledger entry batches to be persisted
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
@@ -362,7 +356,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       initialConfig: Configuration,
       queueDepth: Int,
-      maxBatchSize: Int,
   )(implicit mat: Materializer): Future[SqlLedger] = {
     implicit val ec: ExecutionContext = DEC
 
@@ -404,7 +397,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         timeProvider,
         packages,
         queueDepth,
-        maxBatchSize,
       )
   }
 
