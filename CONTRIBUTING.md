@@ -21,7 +21,7 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
   * *Improve explanation of …*
   * *Remove module X because it is not used.*
 * Commits should have a description that concisely explains the rationale and context for the change if that is not obvious.
-* Commit descriptions should include a `Fixes #XX` line indicating what GitHub issue number the commit fixes.
+* The first line of the description should include a reference to the fixed issue `(#XXX)`.
 * The git logs are not intended for user-facing change logs, but should be a useful reference when writing them.
 
 ## Pull request checklist
@@ -35,14 +35,14 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
 
 The following is an example of a well-formed commit, including the description (first line) and a body that includes changelog additions:
 
-      Fixes #1311
+      Introduced a new API for package management (#1311)
 
-      Also fixes a typo in the Scala bindings documentation.
+      Also fixes a typo in the Scala bindings documentation
 
       CHANGELOG_BEGIN
 
       - [Sandbox] Introduced a new API for package management.
-        See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
+      See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
 
       CHANGELOG_END
 
