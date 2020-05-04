@@ -12,7 +12,6 @@ import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.types.Ledger
 import com.daml.lf.speedy.SExpr.LfDefRef
@@ -432,7 +431,7 @@ object Repl {
             println(s"time: ${diff}ms")
             if (!errored) {
               val result = machine.ctrl match {
-                case CtrlValue(sv) =>
+                case Speedy.CtrlValue(sv) =>
                   prettyValue(true)(sv.toValue).render(128)
                 case x => x.toString
               }
