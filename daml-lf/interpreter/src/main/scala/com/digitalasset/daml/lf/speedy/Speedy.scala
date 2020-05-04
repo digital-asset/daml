@@ -119,7 +119,8 @@ object Speedy {
 
     /** Run a machine until we get a result: either a final-value of a request for data, with a callback */
     def run(): SResult = {
-      def again(): SResult = {
+      var result: SResult = null
+      while (result == null) {
         // note: exception handler is outside while loop
         try {
           while (!isFinal) {
@@ -127,22 +128,23 @@ object Speedy {
           }
           ctrl match {
             case CtrlValue(value) => {
-              SResultFinalValue(value) //stop
+              result = SResultFinalValue(value) //stop
             }
             case _ =>
               throw SErrorCrash(s"Unexpected ctrl on final machine $ctrl")
           }
         } catch {
-          case SpeedyHungry(res: SResult) => res //stop
+          case SpeedyHungry(res: SResult) => result = res //stop
           case serr: SError =>
             serr match {
-              case _: SErrorDamlException if tryHandleException => again() // not tail recursive
-              case _ => SResultError(serr) //stop
+              case _: SErrorDamlException if tryHandleException => () // outer loop will run again
+              case _ => result = SResultError(serr) //stop
             }
-          case ex: RuntimeException => SResultError(SErrorCrash(s"exception: $ex")) //stop
+          case ex: RuntimeException =>
+            result = SResultError(SErrorCrash(s"exception: $ex")) //stop
         }
       }
-      again()
+      result
     }
 
     /** Try to handle a DAML exception by looking for
