@@ -293,6 +293,14 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+nixpkgs_package(
+    name = "jekyll_nix",
+    attribute_path = "jekyll",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
 load(
     "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
