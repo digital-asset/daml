@@ -21,6 +21,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import spray.json._
 
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -117,33 +118,53 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
   }
 
-  it should "should fail for non-existent trigger" in withHttpService(Some(dar)) {
-    (uri: Uri, client) =>
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", "Alice")
-        body <- {
-          assert(resp.status == StatusCodes.UnprocessableEntity)
-          responseBodyToString(resp)
-        }
-      } yield assert(body == "Could not find name foobar in module TestTrigger")
+  // Check the response was successful and extract the "result" field.
+  def parseResult(resp: HttpResponse): Future[JsValue] = {
+    for {
+      _ <- assert(resp.status.isSuccess)
+      body <- responseBodyToString(resp)
+      JsObject(fields) = body.parseJson
+      Some(result) = fields.get("result")
+    } yield result
   }
 
-  it should "find a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
+  def parseTriggerId(resp: HttpResponse): Future[String] = {
     for {
-      // attempt to start trigger before uploading which fails.
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-      _ <- assert(resp.status == StatusCodes.UnprocessableEntity)
+      JsString(triggerId) <- parseResult(resp)
+    } yield triggerId
+  }
+
+  it should "fail to start non-existent trigger" in withHttpService(Some(dar)) {
+    (uri: Uri, client) =>
+      val expectedError = StatusCodes.UnprocessableEntity
+      for {
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", "Alice")
+        _ <- resp.status should equal(expectedError)
+        // Check the "status" and "errors" fields
+        body <- responseBodyToString(resp)
+        JsObject(fields) = body.parseJson
+        _ <- fields.get("status") should equal(Some(JsNumber(expectedError.intValue)))
+        _ <- fields.get("errors") should equal(
+          Some(JsArray(JsString("Could not find name foobar in module TestTrigger"))))
+      } yield succeed
+  }
+
+  it should "start a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
+    for {
       resp <- uploadDar(uri, darPath)
-      body <- responseBodyToString(resp)
-      _ <- body should startWith("DAR uploaded")
+      JsString(result) <- parseResult(resp)
+      _ <- result should startWith("DAR uploaded")
+
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-      _ <- assert(resp.status.isSuccess)
-      triggerId <- responseBodyToString(resp)
+      triggerId <- parseTriggerId(resp)
+
       resp <- listTriggers(uri, "Alice")
-      body <- responseBodyToString(resp)
-      _ <- body should include(triggerId)
+      result <- parseResult(resp)
+      _ <- result should equal(JsArray(JsString(triggerId)))
+
       resp <- stopTrigger(uri, triggerId)
-      _ <- assert(resp.status.isSuccess)
+      JsString(result) <- parseResult(resp)
+      _ <- result should equal(s"Trigger $triggerId has been stopped.")
     } yield succeed
   }
 
@@ -152,65 +173,53 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       for {
         // no triggers running initially
         resp <- listTriggers(uri, "Alice")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal("[]")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray())
         // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        _ <- assert(resp.status.isSuccess)
-        aliceTrigger <- responseBodyToString(resp)
+        aliceTrigger <- parseTriggerId(resp)
         resp <- listTriggers(uri, "Alice")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal(s"""["$aliceTrigger"]""")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray(JsString(aliceTrigger)))
         // start trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
-        _ <- assert(resp.status.isSuccess)
-        bobTrigger1 <- responseBodyToString(resp)
+        bobTrigger1 <- parseTriggerId(resp)
         resp <- listTriggers(uri, "Bob")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal(s"""["$bobTrigger1"]""")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray(JsString(bobTrigger1)))
         // start another trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
-        _ <- assert(resp.status.isSuccess)
-        bobTrigger2 <- responseBodyToString(resp)
+        bobTrigger2 <- parseTriggerId(resp)
         resp <- listTriggers(uri, "Bob")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal(s"""["$bobTrigger1","$bobTrigger2"]""")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray(JsString(bobTrigger1), JsString(bobTrigger2)))
         // stop Alice's trigger
         resp <- stopTrigger(uri, aliceTrigger)
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Alice")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal("[]")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray())
         resp <- listTriggers(uri, "Bob")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal(s"""["$bobTrigger1","$bobTrigger2"]""")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray(JsString(bobTrigger1), JsString(bobTrigger2)))
         // stop Bob's triggers
         resp <- stopTrigger(uri, bobTrigger1)
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2)
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Bob")
-        _ <- assert(resp.status.isSuccess)
-        body <- responseBodyToString(resp)
-        _ <- body should equal("[]")
+        result <- parseResult(resp)
+        _ <- result should equal(JsArray())
       } yield succeed
   }
 
   it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
-      // start the trigger
       for {
+        // Start the trigger
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        triggerId <- {
-          assert(resp.status.isSuccess)
-          responseBodyToString(resp)
-        }
+        triggerId <- parseTriggerId(resp)
+
         // Trigger is running, create an A contract
         _ <- {
           val cmd = Command().withCreate(
@@ -240,6 +249,6 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       }
       // format: on
         resp <- stopTrigger(uri, triggerId)
-      } yield (assert(resp.status.isSuccess))
+      } yield assert(resp.status.isSuccess)
   }
 }
