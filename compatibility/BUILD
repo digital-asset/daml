@@ -57,6 +57,34 @@ platform_versions = [
     for sdk_version in sdk_versions
 ]
 
+client_server_test(
+    name = "daml-script",
+    client = "@daml-sdk-1.0.0//:daml",
+    client_args = [
+        "script",
+        "--ledger-host",
+        "localhost",
+        "--ledger-port",
+        "6865",
+        "--wall-clock-time",
+        "--script-name",
+        "ScriptExample:test",
+        "--dar",
+    ],
+    client_files = [
+        "$(rootpath //:script-example-dar-1.0.0)",
+    ],
+    data = [
+        "//:script-example-dar-1.0.0",
+    ],
+    runner = "//bazel_tools/client_server:runner",
+    runner_args = ["6865"],
+    server = "@daml-sdk-1.0.0//:daml",
+    server_args = ["sandbox"],
+    server_files = ["$(rootpath //:script-example-dar-1.0.0)"],
+    tags = ["exclusive"],
+)
+
 test_suite(
     name = "head-quick",
     tags = ["head-quick"],
