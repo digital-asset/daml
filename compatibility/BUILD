@@ -65,8 +65,8 @@ platform_versions = [
     # Test that the DAML script runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
     # more recent. The HEAD version 0.0.0 is a special case.
-    if versions.is_at_least(sdk_version, platform_version) and sdk_version != "0.0.0"
-       or platform_version == "0.0.0"
+    if versions.is_at_least(sdk_version, platform_version) and sdk_version != "0.0.0" or
+       platform_version == "0.0.0"
 ]
 
 test_suite(
