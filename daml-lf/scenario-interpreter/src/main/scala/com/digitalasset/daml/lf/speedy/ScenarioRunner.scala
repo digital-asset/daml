@@ -52,6 +52,7 @@ final case class ScenarioRunner(
       val res: SResult = machine.run()
       res match {
         case SResultFinalValue(_) =>
+          ()
         case SResultError(err) =>
           throw SRunnerException(err)
 
