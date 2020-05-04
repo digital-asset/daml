@@ -70,13 +70,14 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           checkTableExists("participant_command_submissions")
           checkTableExists("participant_contract_witnesses")
           checkTableExists("participant_contracts")
-          checkTableExists("participant_event_witnesses")
+          checkTableExists("participant_event_flat_transaction_witnesses")
+          checkTableExists("participant_event_witnesses_complement")
           checkTableExists("participant_events")
 
           checkTableExists("parties")
           checkTableExists("party_entries")
 
-          checkTableExists("pacakges")
+          checkTableExists("packages")
           checkTableExists("package_entries")
 
         }
