@@ -8,16 +8,14 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
-import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.daml.lf.data.Ref.LedgerString
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{MetricName, Timed}
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
@@ -33,7 +31,7 @@ final class JdbcIndexerFactory(
     serverRole: ServerRole,
     config: IndexerConfig,
     readService: ReadService,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 )(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -118,63 +116,21 @@ class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 )(implicit mat: Materializer)
     extends Indexer {
 
   @volatile
   private var lastReceivedRecordTime: Long = Instant.now().toEpochMilli
 
-  @volatile
-  private var lastReceivedOffset: LedgerString = _
-
-  object Metrics {
-    private val prefix = MetricName.DAML :+ "indexer"
-
-    private val processedStateUpdatesName = prefix :+ "processed_state_updates"
-    private val lastReceivedRecordTimeName = prefix :+ "last_received_record_time"
-    private val lastReceivedOffsetName = prefix :+ "last_received_offset"
-    private val currentRecordTimeLagName = prefix :+ "current_record_time_lag"
-
-    val stateUpdateProcessingTimer: Timer = metrics.timer(processedStateUpdatesName)
-
-    private[JdbcIndexer] def setup(): Unit = {
-
-      metrics.remove(lastReceivedRecordTimeName)
-      metrics.remove(lastReceivedOffsetName)
-      metrics.remove(currentRecordTimeLagName)
-
-      metrics.gauge(
-        lastReceivedRecordTimeName,
-        () =>
-          new Gauge[Long] {
-            override def getValue: Long = lastReceivedRecordTime
-        })
-
-      metrics.gauge(
-        lastReceivedOffsetName,
-        () =>
-          new Gauge[LedgerString] {
-            override def getValue: LedgerString = lastReceivedOffset
-        })
-
-      metrics.gauge(
-        currentRecordTimeLagName,
-        () =>
-          new Gauge[Long] {
-            override def getValue: Long =
-              Instant.now().toEpochMilli - lastReceivedRecordTime
-        })
-      ()
-    }
-  }
-
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
     new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
-    lastReceivedOffset = offset.toApiString
     lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
+
+    metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
+    metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
 
     val result = update match {
       case PartyAddedToParticipant(
@@ -294,14 +250,18 @@ class JdbcIndexer private[indexer] (
         implicit executionContext: ExecutionContext
     ): Resource[IndexFeedHandle] =
       Resource(Future {
-        Metrics.setup()
+        metrics.daml.indexer.currentRecordTimeLag(() =>
+          Instant.now().toEpochMilli - lastReceivedRecordTime)
 
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              Timed.future(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+              Timed
+                .future(
+                  metrics.daml.indexer.stateUpdateProcessingTimer,
+                  handleStateUpdate(offset, update))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

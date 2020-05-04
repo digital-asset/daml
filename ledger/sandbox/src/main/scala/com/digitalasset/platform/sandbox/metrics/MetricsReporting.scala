@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.MetricsReporter
 import com.daml.resources.{Resource, ResourceOwner}
 
@@ -35,8 +35,8 @@ final class MetricsReporting(
     jmxDomain: String,
     extraMetricsReporter: Option[MetricsReporter],
     extraMetricsReportingInterval: Duration,
-) extends ResourceOwner[MetricRegistry] {
-  def acquire()(implicit executionContext: ExecutionContext): Resource[MetricRegistry] = {
+) extends ResourceOwner[Metrics] {
+  def acquire()(implicit executionContext: ExecutionContext): Resource[Metrics] = {
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
@@ -50,7 +50,7 @@ final class MetricsReporting(
       // Trigger a report to the SLF4J logger on shutdown.
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report()))
-    } yield registry
+    } yield new Metrics(registry)
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =

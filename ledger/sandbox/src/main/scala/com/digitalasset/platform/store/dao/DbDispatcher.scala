@@ -6,10 +6,9 @@ package com.daml.platform.store.dao
 import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.MetricName
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -21,24 +20,13 @@ final class DbDispatcher private (
     val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
     executor: Executor,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 )(implicit logCtx: LoggingContext)
     extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val executionContext = ExecutionContext.fromExecutor(executor)
-
-  object Metrics {
-    private val prefix = MetricName.DAML :+ "index" :+ "db"
-
-    def waitTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "wait")
-
-    def execTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "exec")
-
-    val waitAllTimer: Timer = waitTimer("all")
-    val execAllTimer: Timer = execTimer("all")
-  }
 
   override def currentHealth(): HealthStatus = connectionProvider.currentHealth()
 
@@ -51,15 +39,15 @@ final class DbDispatcher private (
       sql: Connection => T
   ): Future[T] = {
     lazy val extraLogMemoized = extraLog
-    val waitTimer = Metrics.waitTimer(description)
-    val execTimer = Metrics.execTimer(description)
+    val waitTimer = metrics.daml.index.db.waitTimer(description)
+    val execTimer = metrics.daml.index.db.execTimer(description)
     val startWait = System.nanoTime()
     Future {
       val waitNanos = System.nanoTime() - startWait
       extraLogMemoized.foreach(log =>
         logger.trace(s"$description: $log wait ${(waitNanos / 1E6).toLong} ms"))
       waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-      Metrics.waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+      metrics.daml.index.db.waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
       val startExec = System.nanoTime()
       try {
         // Actual execution
@@ -82,7 +70,7 @@ final class DbDispatcher private (
           extraLogMemoized.foreach(log =>
             logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
           execTimer.update(execNanos, TimeUnit.NANOSECONDS)
-          Metrics.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
+          metrics.daml.index.db.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
         } catch {
           case t: Throwable =>
             logger
@@ -100,14 +88,14 @@ object DbDispatcher {
       serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(
         serverRole,
         jdbcUrl,
         maxConnections,
-        metrics)
+        metrics.registry)
       executor <- ResourceOwner.forExecutorService(
         () =>
           Executors.newFixedThreadPool(

@@ -1,9 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.common.metrics
+package com.daml.metrics
 
 import java.util.concurrent.atomic.AtomicReference
+
 import com.codahale.metrics.Gauge
 
 case class VarGauge[T](initial: T) extends Gauge[T] {

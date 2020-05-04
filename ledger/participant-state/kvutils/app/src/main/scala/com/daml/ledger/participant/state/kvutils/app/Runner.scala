@@ -10,17 +10,12 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.participant.state.kvutils.app.Metrics.{
-  IndexServicePrefix,
-  ReadServicePrefix,
-  WriteServicePrefix
-}
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.resources.akka.AkkaResourceOwner
@@ -61,6 +56,7 @@ final class Runner[T <: ReadWriteService, Extra](
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
             val metricRegistry = factory.metricRegistry(participantConfig, config)
+            val metrics = new Metrics(metricRegistry)
             metricRegistry.registerAll(new JvmMetricSet)
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
@@ -72,14 +68,14 @@ final class Runner[T <: ReadWriteService, Extra](
               ledger <- factory
                 .readWriteServiceOwner(config, participantConfig, sharedEngine)
                 .acquire()
-              readService = new TimedReadService(ledger, metricRegistry, ReadServicePrefix)
-              writeService = new TimedWriteService(ledger, metricRegistry, WriteServicePrefix)
+              readService = new TimedReadService(ledger, metrics)
+              writeService = new TimedWriteService(ledger, metrics)
               _ <- Resource.fromFuture(
                 Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
               _ <- new StandaloneIndexerServer(
                 readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
-                metrics = metricRegistry,
+                metrics = metrics,
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
@@ -90,9 +86,8 @@ final class Runner[T <: ReadWriteService, Extra](
                 readService = readService,
                 writeService = writeService,
                 authService = factory.authService(config),
-                transformIndexService =
-                  service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
-                metrics = metricRegistry,
+                transformIndexService = service => new TimedIndexService(service, metrics),
+                metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
                 engine = sharedEngine,
               ).acquire()

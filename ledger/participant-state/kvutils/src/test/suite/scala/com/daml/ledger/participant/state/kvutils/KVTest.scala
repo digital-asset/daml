@@ -15,6 +15,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.Transaction
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.metrics.Metrics
 import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -37,11 +38,11 @@ object KVTest {
 
   private[this] val defaultAdditionalContractDataTy = "Party"
 
-  private[kvutils] val metricRegistry = new MetricRegistry
+  private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
   private[this] val engine = Engine()
-  private[this] val keyValueCommitting = new KeyValueCommitting(engine, metricRegistry)
-  private[this] val keyValueSubmission = new KeyValueSubmission(metricRegistry)
+  private[this] val keyValueCommitting = new KeyValueCommitting(engine, metrics)
+  private[this] val keyValueSubmission = new KeyValueSubmission(metrics)
 
   def initialTestState: KVTestState =
     KVTestState(

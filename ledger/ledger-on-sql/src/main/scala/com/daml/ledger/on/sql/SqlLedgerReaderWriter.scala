@@ -8,7 +8,6 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -19,12 +18,12 @@ import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord
 import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Timed
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.LedgerIdMismatchException
@@ -38,7 +37,7 @@ final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
     engine: Engine,
-    metricRegistry: MetricRegistry,
+    metrics: Metrics,
     timeProvider: TimeProvider,
     stateValueCache: Cache[Bytes, DamlStateValue],
     database: Database,
@@ -66,7 +65,7 @@ final class SqlLedgerReaderWriter(
         allocateNextLogEntryId = () => allocateSeededLogEntryId(),
         stateValueCache = stateValueCache,
         engine = engine,
-        metricRegistry = metricRegistry,
+        metrics = metrics,
         inStaticTimeMode = timeProvider != TimeProvider.UTC,
       ),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
@@ -81,10 +80,11 @@ final class SqlLedgerReaderWriter(
         RangeSource(
           (startExclusive, endInclusive) =>
             Source
-              .future(Timed.value(Metrics.readLog, database.inReadTransaction("read_log") {
-                queries =>
-                  Future.fromTry(queries.selectFromLog(startExclusive, endInclusive))
-              }))
+              .future(
+                Timed.value(metrics.daml.ledger.log.read, database.inReadTransaction("read_log") {
+                  queries =>
+                    Future.fromTry(queries.selectFromLog(startExclusive, endInclusive))
+                }))
               .mapConcat(identity)
               .mapMaterializedValue(_ => NotUsed)),
       )
@@ -96,7 +96,7 @@ final class SqlLedgerReaderWriter(
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       database.inWriteTransaction("commit") { queries =>
-        body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metricRegistry))
+        body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
       }
   }
 
@@ -111,11 +111,6 @@ final class SqlLedgerReaderWriter(
     override def appendToLog(key: Key, value: Value): Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value))
   }
-
-  private object Metrics {
-    val readLog: Timer = metricRegistry.timer(MetricPrefix :+ "log" :+ "read")
-  }
-
 }
 
 object SqlLedgerReaderWriter {
@@ -126,7 +121,7 @@ object SqlLedgerReaderWriter {
   final class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
@@ -139,7 +134,7 @@ object SqlLedgerReaderWriter {
         implicit executionContext: ExecutionContext
     ): Resource[SqlLedgerReaderWriter] =
       for {
-        uninitializedDatabase <- Database.owner(jdbcUrl, metricRegistry).acquire()
+        uninitializedDatabase <- Database.owner(jdbcUrl, metrics).acquire()
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset()
           else Future.successful(uninitializedDatabase.migrate()))
@@ -150,7 +145,7 @@ object SqlLedgerReaderWriter {
           ledgerId,
           participantId,
           engine,
-          metricRegistry,
+          metrics,
           timeProvider,
           stateValueCache,
           database,

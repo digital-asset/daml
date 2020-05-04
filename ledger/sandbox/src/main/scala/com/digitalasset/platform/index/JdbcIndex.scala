@@ -6,12 +6,12 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner
 
@@ -23,7 +23,7 @@ object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
     ReadOnlySqlLedger
       .owner(serverRole, jdbcUrl, ledgerId, eventsPageSize, metrics)

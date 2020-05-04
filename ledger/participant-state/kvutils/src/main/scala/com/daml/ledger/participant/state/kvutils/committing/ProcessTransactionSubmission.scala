@@ -5,8 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committing
 
 import java.time.Instant
 
-import com.codahale.metrics.{Counter, MetricRegistry, Timer}
-import com.daml.ledger.participant.state.kvutils
+import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.Common.Commit._
@@ -25,6 +24,7 @@ import com.daml.lf.transaction.Transaction.AbsTransaction
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -44,7 +44,7 @@ import scala.collection.JavaConverters._
 private[kvutils] class ProcessTransactionSubmission(
     defaultConfig: Configuration,
     engine: Engine,
-    metricRegistry: MetricRegistry,
+    metrics: Metrics,
     inStaticTimeMode: Boolean
 ) {
 
@@ -56,26 +56,27 @@ private[kvutils] class ProcessTransactionSubmission(
       participantId: ParticipantId,
       txEntry: DamlTransactionEntry,
       inputState: DamlStateMap,
-  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
-    val transactionEntry = TransactionEntry(txEntry)
-    runSequence(
-      inputState = inputState,
-      "Authorize submitter" -> authorizeSubmitter(recordTime, participantId, transactionEntry),
-      "Check Informee Parties Allocation" ->
-        checkInformeePartiesAllocation(recordTime, transactionEntry),
-      "Deduplicate" -> deduplicateCommand(recordTime, transactionEntry),
-      "Validate Ledger Time" -> validateLedgerTime(recordTime, transactionEntry, inputState),
-      "Validate Contract Keys" ->
-        validateContractKeys(recordTime, transactionEntry),
-      "Validate Model Conformance" -> timed(
-        Metrics.interpretTimer,
-        validateModelConformance(engine, recordTime, participantId, transactionEntry, inputState),
-      ),
-      "Authorize and build result" ->
-        authorizeAndBlind(recordTime, transactionEntry).flatMap(
-          buildFinalResult(entryId, recordTime, transactionEntry))
-    )
-  }
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+    metrics.daml.kvutils.committer.transaction.runTimer.time { () =>
+      val transactionEntry = TransactionEntry(txEntry)
+      runSequence(
+        inputState = inputState,
+        "Authorize submitter" -> authorizeSubmitter(recordTime, participantId, transactionEntry),
+        "Check Informee Parties Allocation" ->
+          checkInformeePartiesAllocation(recordTime, transactionEntry),
+        "Deduplicate" -> deduplicateCommand(recordTime, transactionEntry),
+        "Validate Ledger Time" -> validateLedgerTime(recordTime, transactionEntry, inputState),
+        "Validate Contract Keys" ->
+          validateContractKeys(recordTime, transactionEntry),
+        "Validate Model Conformance" -> timed(
+          metrics.daml.kvutils.committer.transaction.interpretTimer,
+          validateModelConformance(engine, recordTime, participantId, transactionEntry, inputState),
+        ),
+        "Authorize and build result" ->
+          authorizeAndBlind(recordTime, transactionEntry).flatMap(
+            buildFinalResult(entryId, recordTime, transactionEntry))
+      )
+    }
 
   // -------------------------------------------------------------------------------
 
@@ -448,7 +449,7 @@ private[kvutils] class ProcessTransactionSubmission(
           updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
       }),
       delay {
-        Metrics.accepts.inc()
+        metrics.daml.kvutils.committer.transaction.accepts.inc()
         logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
         done(
           DamlLogEntry.newBuilder
@@ -613,14 +614,9 @@ private[kvutils] class ProcessTransactionSubmission(
   }
 
   private object Metrics {
-    private val prefix = kvutils.MetricPrefix :+ "committer" :+ "transaction"
-
-    val runTimer: Timer = metricRegistry.timer(prefix :+ "run_timer")
-    val interpretTimer: Timer = metricRegistry.timer(prefix :+ "interpret_timer")
-    val accepts: Counter = metricRegistry.counter(prefix :+ "accepts")
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values
-        .map(v => v.getNumber -> metricRegistry.counter(prefix :+ s"rejections_${v.name}"))
+        .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
 }

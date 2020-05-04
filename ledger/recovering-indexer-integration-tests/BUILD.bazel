@@ -24,6 +24,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-on-memory",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/sandbox:ledger-api-server",

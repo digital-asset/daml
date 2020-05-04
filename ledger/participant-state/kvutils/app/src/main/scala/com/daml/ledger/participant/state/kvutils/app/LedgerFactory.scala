@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
@@ -153,7 +154,7 @@ object LedgerFactory {
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          metricRegistry(participantConfig, config),
+          new Metrics(metricRegistry(participantConfig, config)),
         )
 
     def owner(

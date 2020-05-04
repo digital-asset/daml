@@ -9,12 +9,12 @@ import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
-import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
@@ -33,7 +33,7 @@ object ReadOnlySqlLedger {
       jdbcUrl: String,
       ledgerId: LedgerId,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
       ledgerReadDao <- JdbcLedgerDao.readOwner(serverRole, jdbcUrl, eventsPageSize, metrics)

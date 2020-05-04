@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
 
@@ -56,11 +57,11 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       val jdbcUrl = config.extra.jdbcUrl.getOrElse {
         throw new IllegalStateException("No JDBC URL provided.")
       }
-      val metrics = metricRegistry(participantConfig, config)
+      val metrics = new Metrics(metricRegistry(participantConfig, config))
       new SqlLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
-        metrics,
+        metrics = metrics,
         engine,
         jdbcUrl,
         stateValueCache = caching.Cache.from(config.stateValueCache),

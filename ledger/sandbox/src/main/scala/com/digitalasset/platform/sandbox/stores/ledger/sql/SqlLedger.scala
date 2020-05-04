@@ -11,17 +11,17 @@ import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1._
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{ImmArray, Time}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{ImmArray, Time}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.daml.platform.configuration.ServerRole
@@ -60,7 +60,7 @@ object SqlLedger {
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))

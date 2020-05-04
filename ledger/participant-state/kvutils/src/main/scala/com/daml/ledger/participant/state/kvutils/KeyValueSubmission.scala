@@ -3,19 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  ParticipantId,
-  SubmissionId,
-  SubmitterInfo,
-  TransactionMeta
-}
+import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.Transaction
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
@@ -29,7 +23,7 @@ import scala.collection.JavaConverters._
   * and embedding should happen through conversion into a byte string (via
   * [[KeyValueSubmission!.packDamlSubmission]]).
   */
-class KeyValueSubmission(metricRegistry: MetricRegistry) {
+class KeyValueSubmission(metrics: Metrics) {
 
   /** Given the assigned log entry id, compute the output state entries that would result
     * from committing the given transaction.
@@ -39,7 +33,7 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
     * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
   def transactionOutputs(tx: Transaction.AbsTransaction): List[DamlStateKey] =
-    Metrics.transactionOutputs.time { () =>
+    metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
       val effects = InputsAndEffects.computeEffects(tx)
       effects.createdContracts.map(_._1) ++ effects.consumedContracts
     }
@@ -50,7 +44,7 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
       meta: TransactionMeta,
       tx: Transaction.AbsTransaction,
   ): DamlSubmission =
-    Metrics.transactionToSubmission.time { () =>
+    metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
       val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
       val encodedSubInfo = buildSubmitterInfo(submitterInfo)
 
@@ -78,7 +72,7 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
       sourceDescription: String,
       participantId: ParticipantId,
   ): DamlSubmission =
-    Metrics.archivesToSubmission.time { () =>
+    metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
         archives.map(
           archive =>
@@ -106,7 +100,7 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
       displayName: Option[String],
       participantId: ParticipantId,
   ): DamlSubmission =
-    Metrics.partyToSubmission.time { () =>
+    metrics.daml.kvutils.submission.conversion.partyToSubmission.time { () =>
       val party = hint.getOrElse("")
       DamlSubmission.newBuilder
         .addInputDamlState(partyAllocationDedupKey(participantId, submissionId))
@@ -128,7 +122,7 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
       participantId: ParticipantId,
       config: Configuration,
   ): DamlSubmission =
-    Metrics.configurationToSubmission.time { () =>
+    metrics.daml.kvutils.submission.conversion.configurationToSubmission.time { () =>
       val inputDamlState =
         configDedupKey(participantId, submissionId) ::
           configurationStateKey :: Nil
@@ -147,20 +141,5 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
   def packDamlSubmission(submission: DamlSubmission): ByteString = submission.toByteString
 
   def unpackDamlSubmission(bytes: ByteString): DamlSubmission = DamlSubmission.parseFrom(bytes)
-
-  object Metrics {
-    private val prefix = MetricPrefix :+ "submission" :+ "conversion"
-
-    val transactionOutputs: Timer =
-      metricRegistry.timer(prefix :+ "transaction_outputs")
-    val transactionToSubmission: Timer =
-      metricRegistry.timer(prefix :+ "transaction_to_submission")
-    val archivesToSubmission: Timer =
-      metricRegistry.timer(prefix :+ "archives_to_submission")
-    val partyToSubmission: Timer =
-      metricRegistry.timer(prefix :+ "party_to_submission")
-    val configurationToSubmission: Timer =
-      metricRegistry.timer(prefix :+ "configuration_to_submission")
-  }
 
 }
