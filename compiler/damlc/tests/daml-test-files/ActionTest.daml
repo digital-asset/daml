@@ -1,0 +1,31 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module ActionTest where
+
+import DA.Assert
+import DA.Action
+
+import Iou12
+
+testFilterA: Scenario ()
+testFilterA = scenario do
+  bank <- getParty "Acme Bank"
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  charlie <- getParty "Charlie"
+  let
+    aliceIou = Iou bank alice "USD" 1.23 []
+    bobIou = Iou bank bob "GBP" 2.34 []
+    charlieIou = Iou bank charlie "EUR" 3.45 []
+    ious = [aliceIou, bobIou, charlieIou]
+
+  iouIds <- bank `submit` forA ious create
+
+  aliceIouIds <- bank `submit` filterA (fmap (\iou -> iou.owner == alice) . fetch) iouIds
+  aliceIous <- bank `submit` forA aliceIouIds fetch
+  [aliceIou] === aliceIous
+
+  largeIouIds <- bank `submit` filterA (fmap (\iou -> iou.amount > (2.0 : Decimal)) . fetch) iouIds
+  largeIous <- bank `submit` forA largeIouIds fetch
+  [bobIou, charlieIou] === largeIous

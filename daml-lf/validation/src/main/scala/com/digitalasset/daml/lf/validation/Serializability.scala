@@ -119,7 +119,8 @@ private[validation] object Serializability {
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
-    val env = (Env(version, world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
+    val env =
+      (params.iterator foldLeft Env(version, world, context, SRDataType, tyCon))(_.introVar(_))
     val typs = dataCons match {
       case DataVariant(variants) =>
         if (variants.isEmpty) env.unserializable(URUninhabitatedType)

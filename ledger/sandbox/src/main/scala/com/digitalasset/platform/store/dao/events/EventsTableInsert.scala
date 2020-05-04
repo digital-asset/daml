@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo}
 import com.daml.ledger._
 import com.daml.platform.events.EventIdFormatter.fromTransactionId
 import com.daml.platform.store.Conversions._
@@ -77,7 +77,6 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       transactionId: TransactionId,
       nodeId: NodeId,
       submitter: Option[Party],
-      roots: Set[NodeId],
       ledgerEffectiveTime: Instant,
       offset: Offset,
       create: Create,
@@ -129,7 +128,6 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       transactionId: TransactionId,
       nodeId: NodeId,
       submitter: Option[Party],
-      roots: Set[NodeId],
       ledgerEffectiveTime: Instant,
       offset: Offset,
       exercise: Exercise,
@@ -224,12 +222,9 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     */
   @throws[RuntimeException]
   def prepareBatchInsert(
-      applicationId: Option[ApplicationId],
+      submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
@@ -239,13 +234,12 @@ private[events] trait EventsTableInsert { this: EventsTable =>
         case (batches, (nodeId, node: Create)) =>
           batches.addCreate(
             create(
-              applicationId = applicationId,
+              applicationId = submitterInfo.map(_.applicationId),
               workflowId = workflowId,
-              commandId = commandId,
+              commandId = submitterInfo.map(_.commandId),
               transactionId = transactionId,
               nodeId = nodeId,
-              submitter = submitter,
-              roots = roots,
+              submitter = submitterInfo.map(_.submitter),
               ledgerEffectiveTime = ledgerEffectiveTime,
               offset = offset,
               create = node,
@@ -255,13 +249,12 @@ private[events] trait EventsTableInsert { this: EventsTable =>
           val batchWithExercises =
             batches.addExercise(
               exercise(
-                applicationId = applicationId,
+                applicationId = submitterInfo.map(_.applicationId),
                 workflowId = workflowId,
-                commandId = commandId,
+                commandId = submitterInfo.map(_.commandId),
                 transactionId = transactionId,
                 nodeId = nodeId,
-                submitter = submitter,
-                roots = roots,
+                submitter = submitterInfo.map(_.submitter),
                 ledgerEffectiveTime = ledgerEffectiveTime,
                 offset = offset,
                 exercise = node,

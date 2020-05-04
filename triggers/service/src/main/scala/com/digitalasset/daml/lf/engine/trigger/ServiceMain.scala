@@ -5,7 +5,7 @@ package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.{Behaviors}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -15,25 +15,27 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.Route
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import akka.stream.scaladsl.{Source}
+import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
+
+import com.daml.ledger.api.refinements.ApiTypes.Party
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.io.StdIn
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-
 import com.daml.lf.CompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.data.Ref._
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
   MutableCompiledPackages,
@@ -43,17 +45,17 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.language.Ast._
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.v1.event.{CreatedEvent}
-import com.daml.ledger.api.v1.ledger_offset.{LedgerOffset}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
+  LedgerIdRequirement
 }
+import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.platform.services.time.TimeProviderType
 
 case class LedgerConfig(
@@ -78,15 +80,15 @@ object TriggerActor {
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      party: String,
+      party: Party,
   )
 
   def apply(
       config: Config,
   )(implicit esf: ExecutionSequencerFactory, mat: Materializer): Behavior[Message] =
-    Behaviors.setup { context =>
-      implicit val ec: ExecutionContext = context.executionContext
-      val name = context.self.path.name
+    Behaviors.setup { ctx =>
+      implicit val ec: ExecutionContext = ctx.executionContext
+      val name = ctx.self.path.name
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
@@ -96,24 +98,42 @@ object TriggerActor {
         sslContext = None,
       )
 
-      // Waiting for the ACS query to finish so we can build the initial state.
-      // TODO We should handle being stopped while querying the ACS.
-      def queryingACS() = Behaviors.receiveMessagePartial[Message] {
-        case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, acs, offset) =>
-          val (killSwitch, trigger) = runner.runWithACS(
-            acs,
-            offset,
-            msgFlow = KillSwitches.single[TriggerMsg],
-          )
-          // TODO If we are stopped we will end up causing the future to complete which will trigger
-          // a message that is sent to a now terminated actor. We should fix this somehow™.
-          context.pipeToSelf(trigger) {
-            case Success(_) => Failed(new RuntimeException("Trigger exited unexpectedly"))
-            case Failure(cause) => Failed(cause)
-          }
-          running(killSwitch)
-      }
+      // Waiting for the ACS query to finish so we can build the
+      // initial state.
+      def queryingACS(wasStopped: Boolean): Behaviors.Receive[Message] =
+        Behaviors.receiveMessagePartial[Message] {
+          case QueryACSFailed(cause) =>
+            if (wasStopped) {
+              // Never mind that it failed - we were asked to stop
+              // anyway.
+              Behaviors.stopped;
+            } else {
+              throw new RuntimeException("ACS query failed", cause)
+            }
+          case QueriedACS(runner, acs, offset) =>
+            if (wasStopped) {
+              Behaviors.stopped;
+            } else {
+              val (killSwitch, trigger) = runner.runWithACS(
+                acs,
+                offset,
+                msgFlow = KillSwitches.single[TriggerMsg],
+              )
+              // TODO If we are stopped we will end up causing the
+              // future to complete which will trigger a message that
+              // is sent to a now terminated actor. We should fix this
+              // somehow™.
+              ctx.pipeToSelf(trigger) {
+                case Success(_) => Failed(new RuntimeException("Trigger exited unexpectedly"))
+                case Failure(cause) => Failed(cause)
+              }
+              running(killSwitch)
+            }
+          case Stop =>
+            // We got a stop message but the ACS query hasn't
+            // completed yet.
+            queryingACS(wasStopped = true)
+        }
 
       // Trigger loop is started, wait until we should stop.
       def running(killSwitch: KillSwitch) =
@@ -139,15 +159,15 @@ object TriggerActor {
           client,
           config.ledgerConfig.timeProvider,
           appId,
-          config.party)
+          config.party.unwrap)
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)
 
-      context.pipeToSelf(acsQuery) {
+      ctx.pipeToSelf(acsQuery) {
         case Success(msg) => msg
         case Failure(cause) => QueryACSFailed(cause)
       }
-      queryingACS()
+      queryingACS(wasStopped = false)
     }
 }
 
@@ -158,34 +178,6 @@ object Server {
   private final case class Started(binding: ServerBinding) extends Message
   final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
   final case object Stop extends Message
-
-  case class TriggerParams(identifier: Identifier, party: String)
-  implicit object IdentifierFormat extends JsonFormat[Identifier] {
-    def read(value: JsValue) = value match {
-      case JsString(s) => {
-        val components = s.split(":")
-        if (components.length == 3) {
-          val parsed = for {
-            pkgId <- PackageId.fromString(components(0))
-            mod <- DottedName.fromString(components(1))
-            entity <- DottedName.fromString(components(2))
-          } yield Identifier(pkgId, QualifiedName(mod, entity))
-          parsed match {
-            case Left(e) => deserializationError(e)
-            case Right(id) => id
-          }
-        } else {
-          deserializationError(s"Expected trigger identifier of the form pkgid:mod:name but got $s")
-        }
-      }
-      case _ => deserializationError("Expected trigger identifier of the form pkgid:mod:name")
-    }
-    def write(id: Identifier) = JsString(s"${id.packageId}:${id.qualifiedName}")
-  }
-  implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
-
-  case class ListParams(party: String) // May also need an auth token later
-  implicit val listParamsFormat = jsonFormat1(ListParams)
 
   private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
@@ -206,7 +198,7 @@ object Server {
 
   case class TriggerActorWithParty(
       ref: ActorRef[TriggerActor.Message],
-      party: String,
+      party: Party,
   )
 
   def apply(
@@ -222,7 +214,7 @@ object Server {
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
     var triggers: Map[UUID, TriggerActorWithParty] = Map.empty
-    var triggersByParty: Map[String, Set[UUID]] = Map.empty
+    var triggersByParty: Map[Party, Set[UUID]] = Map.empty
 
     // Mutable in preparation for dynamic package upload.
     val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
@@ -237,7 +229,7 @@ object Server {
           // Start a new trigger given its identifier and the party it should be running as.
           // Returns a UUID for the newly started trigger.
           path("start") {
-            entity(as[TriggerParams]) {
+            entity(as[StartParams]) {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
                   case Left(err) =>
@@ -344,7 +336,11 @@ object Server {
         req: Option[ActorRef[ServerBinding]]): Behaviors.Receive[Message] =
       Behaviors.receiveMessage[Message] {
         case StartFailed(cause) =>
-          throw new RuntimeException("Server failed to start", cause)
+          if (wasStopped) {
+            Behaviors.stopped
+          } else {
+            throw new RuntimeException("Server failed to start", cause)
+          }
         case Started(binding) =>
           ctx.log.info(
             "Server online at http://{}:{}/",

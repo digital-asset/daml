@@ -414,12 +414,11 @@ object Repl {
             val startTime = System.nanoTime()
             var errored = false
             while (!machine.isFinal && !errored) {
-              machine.step match {
+              machine.run match {
                 case SResultError(err) =>
                   println(prettyError(err, machine.ptx).render(128))
                   errored = true
-                case SResultContinue =>
-                  ()
+                case SResultFinalValue(_) => ()
                 case other =>
                   sys.error("unimplemented callback: " + other.toString)
               }

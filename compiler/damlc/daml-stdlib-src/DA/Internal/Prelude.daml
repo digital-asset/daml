@@ -624,7 +624,7 @@ null : [a] -> Bool
 null [] = True
 null _ = False
 
--- | Filter the list using the function: keep only the elements where the predicate holds.
+-- | Filters the list using the function: keep only the elements where the predicate holds.
 filter : (a -> Bool) -> [a] -> [a]
 filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 

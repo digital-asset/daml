@@ -258,6 +258,19 @@ object Cli {
         .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
 
+      opt[Int]("max-commands-in-flight")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value)))
+        .text("The maximum number of unconfirmed commands in flight in CommandService.")
+
+      opt[Int]("max-parallel-submissions")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value)))
+        .text(
+          "The maximum number of parallel command submissions. Only applicable to sandbox-classic.")
+
       help("help").text("Print the usage text")
 
       checkConfig(c => {

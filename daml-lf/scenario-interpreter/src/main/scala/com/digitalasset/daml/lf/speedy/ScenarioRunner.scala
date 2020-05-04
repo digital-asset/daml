@@ -48,9 +48,11 @@ final case class ScenarioRunner(
     var steps = 0
     while (!machine.isFinal) {
       //machine.print(steps)
-      machine.step match {
-        case SResultContinue =>
-          steps += 1
+      steps += 1 // this counts the number of external `Need` interactions
+      val res: SResult = machine.run()
+      res match {
+        case SResultFinalValue(_) =>
+          ()
         case SResultError(err) =>
           throw SRunnerException(err)
 

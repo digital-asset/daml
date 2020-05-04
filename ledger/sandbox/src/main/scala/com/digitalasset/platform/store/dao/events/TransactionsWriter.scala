@@ -7,8 +7,8 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.BatchSql
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
+import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.events.EventIdFormatter
@@ -91,100 +91,86 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
   }
 
   def write(
-      applicationId: Option[ApplicationId],
+      submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
-      divulgedContracts: Iterable[(ContractId, Contract)],
+      divulgedContracts: Iterable[DivulgedContract],
   )(implicit connection: Connection): Unit = {
 
     val eventBatches = EventsTable.prepareBatchInsert(
-      applicationId = applicationId,
+      submitterInfo = submitterInfo,
       workflowId = workflowId,
       transactionId = transactionId,
-      commandId = commandId,
-      submitter = submitter,
-      roots = roots,
       ledgerEffectiveTime = ledgerEffectiveTime,
       offset = offset,
       transaction = transaction,
     )
 
-    if (eventBatches.isEmpty) {
+    val blinding = Blinding.blind(transaction)
 
-      // Nothing to persist, avoid hitting the underlying storage
-      ()
+    val disclosureForFlatTransaction =
+      computeDisclosureForFlatTransaction(transactionId, transaction)
 
-    } else {
+    val disclosureForTransactionTree =
+      computeDisclosureForTransactionTree(transactionId, transaction, blinding)
 
-      val blinding = Blinding.blind(transaction)
+    // Remove witnesses for the flat transactions from the full disclosure
+    // This minimizes the data we save and allows us to use the union of the
+    // witnesses for flat transactions and its complement to filter parties
+    // for the transactions tree stream
+    val disclosureComplement =
+      Relation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
 
-      val disclosureForFlatTransaction =
-        computeDisclosureForFlatTransaction(transactionId, transaction)
-
-      val disclosureForTransactionTree =
-        computeDisclosureForTransactionTree(transactionId, transaction, blinding)
-
-      // Remove witnesses for the flat transactions from the full disclosure
-      // This minimizes the data we save and allows us to use the union of the
-      // witnesses for flat transactions and its complement to filter parties
-      // for the transactions tree stream
-      val disclosureComplement =
-        Relation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
-
-      // Prepare batch inserts for flat transactions
-      val flatTransactionWitnessesBatch =
-        WitnessesTable.ForFlatTransactions.prepareBatchInsert(
-          witnesses = disclosureForFlatTransaction,
-        )
-
-      // Prepare batch inserts for all witnesses except those for flat transactions
-      val complementWitnessesBatch =
-        WitnessesTable.Complement.prepareBatchInsert(
-          witnesses = disclosureComplement,
-        )
-
-      eventBatches.foreach(_.execute())
-      flatTransactionWitnessesBatch.foreach(_.execute())
-      complementWitnessesBatch.foreach(_.execute())
-
-      val contractBatches = contractsTable.prepareBatchInsert(
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        transaction = transaction,
-        divulgedContracts = divulgedContracts,
+    // Prepare batch inserts for flat transactions
+    val flatTransactionWitnessesBatch =
+      WitnessesTable.ForFlatTransactions.prepareBatchInsert(
+        witnesses = disclosureForFlatTransaction,
       )
 
-      for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
-        val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
-        assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
-        // Delete the witnesses first to respect the foreign key constraint of the underlying storage
-        deleteWitnessesBatch.get.execute()
-        deleteContractsBatch.execute()
-      }
-
-      for ((_, insertContractsBatch) <- contractBatches.insertions) {
-        insertContractsBatch.execute()
-      }
-
-      // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
-      // Compute and insert new witnesses regardless of whether the current transaction adds new
-      // contracts because it may be the case that we are only adding new witnesses to existing
-      // contracts (e.g. via divulging a contract with fetch).
-      val insertWitnessesBatch = prepareWitnessesBatch(
-        toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
-        toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
-        transient = contractBatches.transientContracts,
-        transaction = transaction,
-        blinding = blinding,
+    // Prepare batch inserts for all witnesses except those for flat transactions
+    val complementWitnessesBatch =
+      WitnessesTable.Complement.prepareBatchInsert(
+        witnesses = disclosureComplement,
       )
-      insertWitnessesBatch.foreach(_.execute())
 
+    eventBatches.foreach(_.execute())
+    flatTransactionWitnessesBatch.foreach(_.execute())
+    complementWitnessesBatch.foreach(_.execute())
+
+    val contractBatches = contractsTable.prepareBatchInsert(
+      ledgerEffectiveTime = ledgerEffectiveTime,
+      transaction = transaction,
+      divulgedContracts = divulgedContracts,
+    )
+
+    for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
+      val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
+      assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
+      // Delete the witnesses first to respect the foreign key constraint of the underlying storage
+      deleteWitnessesBatch.get.execute()
+      deleteContractsBatch.execute()
     }
+
+    for ((_, insertContractsBatch) <- contractBatches.insertions) {
+      insertContractsBatch.execute()
+    }
+
+    // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
+    // Compute and insert new witnesses regardless of whether the current transaction adds new
+    // contracts because it may be the case that we are only adding new witnesses to existing
+    // contracts (e.g. via divulging a contract with fetch).
+    val insertWitnessesBatch = prepareWitnessesBatch(
+      toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
+      toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
+      transient = contractBatches.transientContracts,
+      transaction = transaction,
+      blinding = blinding,
+    )
+    insertWitnessesBatch.foreach(_.execute())
+
   }
 
 }

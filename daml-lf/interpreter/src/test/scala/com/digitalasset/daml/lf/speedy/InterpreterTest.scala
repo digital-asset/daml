@@ -31,8 +31,8 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       transactionSeed = None,
     )
     while (!machine.isFinal) {
-      machine.step match {
-        case SResultContinue => ()
+      machine.run match {
+        case SResultFinalValue(_) => ()
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
     }
@@ -149,8 +149,8 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
     "interpret" in {
       while (!machine.isFinal) {
-        machine.step match {
-          case SResultContinue => ()
+        machine.run match {
+          case SResultFinalValue(_) => ()
           case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
         }
       }
@@ -247,19 +247,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
         submissionTime = Time.Timestamp.now(),
         transactionSeed = None
       )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-
-      run()
+      val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
           cb(pkgs2)
-          result = SResultContinue
-          run()
-          machine.ctrl shouldBe Speedy.CtrlValue(SValue.SBool(true))
+          val result = machine.run()
+          result shouldBe SResultFinalValue(SValue.SBool(true))
         case _ =>
           sys.error(s"expected result to be missing definition, got $result")
       }
@@ -274,15 +268,10 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
         submissionTime = Time.Timestamp.now(),
         transactionSeed = None
       )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-      run()
+      val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
-          result = SResultContinue
           try {
             cb(pkgs3)
             sys.error(s"expected crash when definition not provided")

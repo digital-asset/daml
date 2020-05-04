@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.v1.RejectionReason
   * - the transaction's ledger effective time is determined after interpretation,
   *   meaning that causal monotonicity cannot be verified while interpreting a command
   */
-sealed trait PostCommitValidation {
+private[dao] sealed trait PostCommitValidation {
 
   def validate(
       transaction: Transaction,
@@ -34,7 +34,7 @@ sealed trait PostCommitValidation {
 
 }
 
-object PostCommitValidation {
+private[dao] object PostCommitValidation {
 
   /**
     * Accept unconditionally a transaction.
@@ -227,7 +227,7 @@ object PostCommitValidation {
     )
 
   private[events] val UnknownContract: RejectionReason =
-    RejectionReason.Inconsistent
+    RejectionReason.Inconsistent("Unknown contract")
 
   private[events] def CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Instant,

@@ -69,7 +69,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   lazy val expr: Parser[Expr] = {
     expr0 ~ rep(eAppAgr) ^^ {
       case e0 ~ args =>
-        (e0 /: args) {
+        (args foldLeft e0) {
           case (acc, EAppExprArg(e)) => EApp(acc, e)
           case (acc, EAppTypArg(t)) => ETyApp(acc, t)
         }
@@ -150,12 +150,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eAbs: Parser[Expr] =
     `\\` ~>! rep1(varBinder) ~ (`->` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(EAbs(_, _, None))
+      case binders ~ body => (binders foldRight body)(EAbs(_, _, None))
     }
 
   private lazy val eTyAbs: Parser[Expr] =
     `/\\` ~>! rep1(typeBinder) ~ (`.` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(ETyAbs)
+      case binders ~ body => (binders foldRight body)(ETyAbs)
     }
 
   private lazy val bindings: Parser[ImmArray[Binding]] =

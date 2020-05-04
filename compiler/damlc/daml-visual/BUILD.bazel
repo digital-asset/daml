@@ -17,6 +17,7 @@ da_haskell_library(
         "containers",
         "extra",
         "filepath",
+        "mtl",
         "open-browser",
         "text",
         "safe",

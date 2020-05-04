@@ -302,8 +302,8 @@ class Runner(
     @SuppressWarnings(Array("org.wartremover.warts.Return"))
     def stepToValue(): Either[RuntimeException, Unit] = {
       while (!machine.isFinal) {
-        machine.step() match {
-          case SResultContinue => ()
+        machine.run() match {
+          case SResultFinalValue(_) => ()
           case SResultError(err) => {
             logger.error(Pretty.prettyError(err, machine.ptx).render(80))
             return Left(err)

@@ -174,7 +174,6 @@ object ApiServices {
         ApiCommandService.Configuration(
           ledgerId,
           commandConfig.inputBufferSize,
-          commandConfig.maxParallelSubmissions,
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.retentionPeriod,
@@ -182,7 +181,7 @@ object ApiServices {
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LocalServices(
-          CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxParallelSubmissions),
+          CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
           r => apiCompletionService.completionStreamSource(r),
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
