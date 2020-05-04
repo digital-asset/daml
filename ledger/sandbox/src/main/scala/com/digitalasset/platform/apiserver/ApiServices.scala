@@ -174,7 +174,6 @@ object ApiServices {
         ApiCommandService.Configuration(
           ledgerId,
           commandConfig.inputBufferSize,
-          commandConfig.maxParallelSubmissions,
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.retentionPeriod,

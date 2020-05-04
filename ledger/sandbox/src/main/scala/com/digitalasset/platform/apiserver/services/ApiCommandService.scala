@@ -174,7 +174,6 @@ object ApiCommandService {
   final case class Configuration(
       ledgerId: LedgerId,
       inputBufferSize: Int,
-      maxParallelSubmissions: Int,
       maxCommandsInFlight: Int,
       limitMaxCommandsInFlight: Boolean,
       retentionPeriod: FiniteDuration,
