@@ -288,10 +288,8 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          // In this version of Sandbox, parties are always allocated implicitly. Enabling
-          // this would result in an extra `writeService.allocateParty` call, which is
-          // unnecessary and bad for performance.
-          implicitPartyAllocation = false,
+          // sandbox-classic always allocates party implicitly
+          implicitPartyAllocation = true,
         ),
         submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,

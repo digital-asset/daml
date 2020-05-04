@@ -63,12 +63,23 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
             resultSet.next shouldEqual false
           }
 
-          checkTableExists("ledger_entries")
-          checkTableExists("contracts")
-          checkTableExists("disclosures")
-          checkTableExists("contract_witnesses")
           checkTableExists("parameters")
+          checkTableExists("configuration_entries")
+
+          checkTableExists("participant_command_completions")
+          checkTableExists("participant_command_submissions")
+          checkTableExists("participant_contract_witnesses")
+          checkTableExists("participant_contracts")
+          checkTableExists("participant_event_flat_transaction_witnesses")
+          checkTableExists("participant_event_witnesses_complement")
+          checkTableExists("participant_events")
+
           checkTableExists("parties")
+          checkTableExists("party_entries")
+
+          checkTableExists("packages")
+          checkTableExists("package_entries")
+
         }
       }
     }

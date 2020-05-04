@@ -122,7 +122,7 @@ class InMemoryLedger(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def ledgerEntries(
+  def ledgerEntries(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     entries

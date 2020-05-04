@@ -30,12 +30,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.store.ReadOnlyLedger
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
@@ -66,11 +61,6 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def ledgerId: LedgerId = ledger.ledgerId
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
-
-  override def ledgerEntries(
-      startExclusive: Option[Offset],
-      endOpt: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
-    ledger.ledgerEntries(startExclusive, endOpt)
 
   override def flatTransactions(
       startExclusive: Option[Offset],

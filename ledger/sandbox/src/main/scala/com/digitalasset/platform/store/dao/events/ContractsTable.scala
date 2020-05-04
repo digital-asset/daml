@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.DivulgedContract
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.platform.store.Conversions._
@@ -43,12 +44,6 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
-  case class PreparedBatches private (
-      insertions: Option[(Set[ContractId], BatchSql)],
-      deletions: Option[(Set[ContractId], BatchSql)],
-      transientContracts: Set[ContractId],
-  )
-
   private case class AccumulatingBatches(
       insertions: Map[ContractId, Vector[NamedParameter]],
       deletions: Map[ContractId, Vector[NamedParameter]],
@@ -83,8 +78,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       }
     }
 
-    def prepare: PreparedBatches =
-      PreparedBatches(
+    def prepare: ContractsTable.PreparedBatches =
+      ContractsTable.PreparedBatches(
         insertions = prepareNonEmpty(insertContractQuery, insertions),
         deletions = prepareNonEmpty(deleteContractQuery, deletions),
         transientContracts = transientContracts,
@@ -95,8 +90,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
   def prepareBatchInsert(
       ledgerEffectiveTime: Instant,
       transaction: Transaction,
-      divulgedContracts: Iterable[(ContractId, Contract)],
-  ): PreparedBatches = {
+      divulgedContracts: Iterable[DivulgedContract],
+  ): ContractsTable.PreparedBatches = {
 
     // Add the locally created contracts, ensuring that _transient_
     // contracts are not inserted in the first place
@@ -130,11 +125,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     // consumed or not).
     val divulgedContractsInsertions =
       divulgedContracts.iterator.collect {
-        case (contractId, contract) if !locallyCreatedContracts.insertions.contains(contractId) =>
-          contractId -> insertContractQuery(
-            contractId = contractId,
-            templateId = contract.template,
-            createArgument = contract.arg,
+        case contract if !locallyCreatedContracts.insertions.contains(contract.contractId) =>
+          contract.contractId -> insertContractQuery(
+            contractId = contract.contractId,
+            templateId = contract.contractInst.template,
+            createArgument = contract.contractInst.arg,
             createLedgerEffectiveTime = None,
             stakeholders = Set.empty,
             key = None,
@@ -195,5 +190,11 @@ private[events] object ContractsTable {
     new IllegalArgumentException(
       s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
+
+  final case class PreparedBatches private (
+      insertions: Option[(Set[ContractId], BatchSql)],
+      deletions: Option[(Set[ContractId], BatchSql)],
+      transientContracts: Set[ContractId],
+  )
 
 }

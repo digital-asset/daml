@@ -19,12 +19,13 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
-import com.daml.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -32,12 +33,13 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.{BaseLedger, FlywayMigrations, PersistenceEntry}
+import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.ResourceOwner
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object SqlLedger {
@@ -62,7 +64,7 @@ object SqlLedger {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
-      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
+      ledgerDao <- JdbcLedgerDao.validatingWriteOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
           new SqlLedgerFactory(ledgerDao).createSqlLedger(
@@ -75,10 +77,6 @@ object SqlLedger {
             initialLedgerEntries,
             initialConfig,
             queueDepth,
-            // we use `maxConcurrentConnections` for the maximum batch size, since it doesn't make
-            // sense to try to persist more ledger entries concurrently than we have SQL executor
-            // threads and SQL connections available.
-            ledgerDao.maxConcurrentConnections,
         ))
     } yield ledger
 }
@@ -92,7 +90,6 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
-    maxBatchSize: Int,
 )(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
@@ -126,7 +123,7 @@ private final class SqlLedger(
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
     persistenceQueue
-      .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
+      .batch(1, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // we can only do this because there is no parallelism here!
@@ -160,28 +157,18 @@ private final class SqlLedger(
     new AtomicReference[Option[Configuration]](configAtInitialization)
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant): Either[String, Unit] = {
+  private def checkTimeModel(ledgerTime: Instant): Either[RejectionReason, Unit] = {
     val recordTime = timeProvider.getCurrentTime
-
     currentConfiguration
       .get()
-      .fold[Either[String, Unit]](
-        Left("No ledger configuration available, cannot validate ledger time")
+      .fold[Either[RejectionReason, Unit]](
+        Left(
+          RejectionReason.InvalidLedgerTime(
+            "No ledger configuration available, cannot validate ledger time"))
       )(
-        config => config.timeModel.checkTime(ledgerTime, recordTime)
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReason.InvalidLedgerTime)
       )
   }
-
-  private def storeLedgerEntry(offset: Offset, entry: PersistenceEntry): Future[Unit] =
-    ledgerDao
-      .storeLedgerEntry(offset, entry)
-      .map(_ => ())(DEC)
-      .recover {
-        case t =>
-          //recovering from the failure so the persistence stream doesn't die
-          logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
-          ()
-      }(DEC)
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -190,42 +177,36 @@ private final class SqlLedger(
     enqueue { offset =>
       val transactionId = offset.toApiString
 
-      val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-        Ledger.convertToCommittedTransaction(transactionId, transaction)
-
       val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
-      val entry = checkTimeModel(ledgerTime)
+
+      checkTimeModel(ledgerTime)
         .fold(
           reason =>
-            PersistenceEntry.Rejection(
-              LedgerEntry.Rejection(
-                recordTime,
-                submitterInfo.commandId,
-                submitterInfo.applicationId,
-                submitterInfo.submitter,
-                RejectionReason.InvalidLedgerTime(reason)
-              )
+            ledgerDao.storeRejection(
+              Some(submitterInfo),
+              recordTime,
+              offset,
+              reason,
           ),
           _ =>
-            PersistenceEntry.Transaction(
-              LedgerEntry.Transaction(
-                Some(submitterInfo.commandId),
-                transactionId,
-                Some(submitterInfo.applicationId),
-                Some(submitterInfo.submitter),
-                transactionMeta.workflowId,
-                transactionMeta.ledgerEffectiveTime.toInstant,
-                recordTime,
-                transactionForIndex,
-                disclosureForIndex
-              ),
-              globalDivulgence,
-              List.empty
+            ledgerDao.storeTransaction(
+              Some(submitterInfo),
+              transactionMeta.workflowId,
+              transactionId,
+              recordTime,
+              transactionMeta.ledgerEffectiveTime.toInstant,
+              offset,
+              transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
+              Nil,
           )
         )
-
-      storeLedgerEntry(offset, entry)
+        .transform(
+          _.map(_ => ()).recover {
+            case NonFatal(t) =>
+              logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
+          }
+        )(DEC)
 
     }
 
@@ -363,7 +344,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     *                             used if starting from a fresh database.
     * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
     *                        upstream
-    * @param maxBatchSize maximum size of ledger entry batches to be persisted
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
@@ -376,7 +356,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       initialConfig: Configuration,
       queueDepth: Int,
-      maxBatchSize: Int,
   )(implicit mat: Materializer): Future[SqlLedger] = {
     implicit val ec: ExecutionContext = DEC
 
@@ -418,7 +397,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         timeProvider,
         packages,
         queueDepth,
-        maxBatchSize,
       )
   }
 
@@ -518,7 +496,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
           }
       }
 
-    val contracts = acs.activeContracts.values.toList
     for {
       _ <- copyPackages(packages, timeProvider.getCurrentTime, SandboxOffset.toOffset(ledgerEnd))
       _ <- ledgerDao.storeConfigurationEntry(
@@ -529,7 +506,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         configuration = initialConfig,
         rejectionReason = None,
       )
-      _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
+      _ <- ledgerDao.storeInitialState(ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
     } yield ()
   }
 

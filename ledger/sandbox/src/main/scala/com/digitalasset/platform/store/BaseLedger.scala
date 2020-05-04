@@ -34,12 +34,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.LedgerReadDao
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,16 +58,6 @@ abstract class BaseLedger(
 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     ledgerDao.lookupKey(key, forParty)
-
-  override def ledgerEntries(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] = {
-    dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
-      RangeSource(ledgerDao.getLedgerEntries),
-      endInclusive
-    )
-  }
 
   override def flatTransactions(
       startExclusive: Option[Offset],
