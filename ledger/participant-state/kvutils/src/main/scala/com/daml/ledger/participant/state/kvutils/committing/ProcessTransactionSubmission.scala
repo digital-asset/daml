@@ -323,7 +323,7 @@ private[kvutils] class ProcessTransactionSubmission(
         recordTime,
         buildRejectionLogEntry(
           transactionEntry,
-          RejectionReason.Inconsistent("Causal Monotonicity Violated")))
+          RejectionReason.Inconsistent("Causal monotonicity violated")))
   }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
