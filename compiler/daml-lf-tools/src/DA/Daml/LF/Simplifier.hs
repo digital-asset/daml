@@ -309,14 +309,42 @@ infoStep world e = Info
 -- | Try to get the actual field value from the body of
 -- a typeclass projection function, after substitution of the
 -- dictionary function inside.
-getProjectedTypeclassField :: Expr -> Maybe Expr
-getProjectedTypeclassField = \case
-    EStructProj f (EStructCon fs) ->
+getProjectedTypeclassField :: World -> Expr -> Maybe Expr
+getProjectedTypeclassField world = \case
+    EStructProj f e -> do
+        EStructCon fs <- getTypeClassDictionary world e
         lookup f fs
 
     ETmApp e (EBuiltin BEUnit) -> do
-        ETmLam (x,_) e' <- getProjectedTypeclassField e
+        ETmLam (x,_) e' <- getProjectedTypeclassField world e
         Just (substExpr (exprSubst x (EBuiltin BEUnit)) e')
+
+    _ ->
+        Nothing
+
+-- | Try to get typeclass dictionary from the body of
+-- a typeclass dictionary function, after substitution.
+-- This is made complicated by GHC's specializer, which
+-- introduces a level of indirection. That's why we need
+-- to inline dictionary functions and beta-reduce.
+getTypeClassDictionary :: World -> Expr -> Maybe Expr
+getTypeClassDictionary world = \case
+    e@(EStructCon _) ->
+        Just e
+
+    EVal x
+        | Right dv <- lookupValue x world
+        , isTypeClassDictionary dv
+        -> do
+            Just (dvalBody dv)
+
+    ETyApp e t -> do
+        ETyLam (x,_) e' <- getTypeClassDictionary world e
+        Just (substExpr (typeSubst x t) e')
+
+    ETmApp e1 e2 -> do
+        ETmLam (x,_) e1' <- getTypeClassDictionary world e1
+        Just (substExpr (exprSubst x e2) e1')
 
     _ ->
         Nothing
@@ -337,7 +365,7 @@ simplifyExpr world = fst . cata go
       ETmAppF (_, i1) (_, i2)
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
           , TCDictionary e2 <- tcinfo i2
-          , Just e' <- getProjectedTypeclassField (substExpr (exprSubst x e2) e1)
+          , Just e' <- getProjectedTypeclassField world (substExpr (exprSubst x e2) e1)
           -> cata go e'
 
       -- -- immediately applied type lambdas
@@ -404,4 +432,5 @@ simplifyExpr world = fst . cata go
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
 simplifyModule :: World -> Version -> Module -> Module
-simplifyModule world _version = over moduleExpr (simplifyExpr world)
+simplifyModule world _version m =
+    over moduleExpr (simplifyExpr (extendWorldSelf m world)) m
