@@ -30,7 +30,7 @@ final case class SandboxConfig(
     portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
-    commandConfig: CommandConfiguration, //TODO: this should go to the file config
+    commandConfig: CommandConfiguration,
     submissionConfig: SubmissionConfiguration,
     ledgerConfig: LedgerConfiguration,
     tlsConfig: Option[TlsConfiguration],

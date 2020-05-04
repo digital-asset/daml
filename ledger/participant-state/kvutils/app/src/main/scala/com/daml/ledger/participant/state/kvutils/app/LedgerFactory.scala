@@ -7,9 +7,9 @@ import java.time.Duration
 
 import akka.stream.Materializer
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
@@ -58,8 +58,16 @@ trait ConfigProvider[ExtraConfig] {
       seeding = Some(config.seeding),
     )
 
-  def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
-    CommandConfiguration.default
+  def commandConfig(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig]): CommandConfiguration = {
+    val defaultMaxCommandsInFlight = CommandConfiguration.default.maxCommandsInFlight
+
+    CommandConfiguration.default.copy(
+      maxCommandsInFlight =
+        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
+    )
+  }
 
   def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default

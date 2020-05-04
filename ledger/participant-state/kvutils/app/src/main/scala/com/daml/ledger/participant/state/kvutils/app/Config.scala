@@ -41,6 +41,7 @@ case class ParticipantConfig(
     portFile: Option[Path],
     serverJdbcUrl: String,
     allowExistingSchemaForIndex: Boolean,
+    maxCommandsInFlight: Option[Int],
 )
 
 object ParticipantConfig {
@@ -95,7 +96,7 @@ object Config {
       opt[Map[String, String]]("participant")
         .minOccurs(1)
         .unbounded()
-        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url]")
+        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -103,13 +104,16 @@ object Config {
           val portFile = kv.get("port-file").map(new File(_).toPath)
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
+          val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
           val partConfig = ParticipantConfig(
             participantId,
             address,
             port,
             portFile,
             jdbcUrl,
-            allowExistingSchemaForIndex = false)
+            allowExistingSchemaForIndex = false,
+            maxCommandsInFlight = maxCommandsInFlight
+          )
           config.copy(participants = config.participants :+ partConfig)
         })
       opt[String]("ledger-id")

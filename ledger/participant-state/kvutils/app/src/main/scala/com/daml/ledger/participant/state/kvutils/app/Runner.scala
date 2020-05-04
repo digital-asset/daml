@@ -83,7 +83,7 @@ final class Runner[T <: ReadWriteService, Extra](
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
-                commandConfig = factory.commandConfig(config),
+                commandConfig = factory.commandConfig(participantConfig, config),
                 partyConfig = factory.partyConfig(config),
                 submissionConfig = factory.submissionConfig(config),
                 ledgerConfig = factory.ledgerConfig(config),
