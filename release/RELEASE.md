@@ -15,6 +15,9 @@ snapshot, so we "bless" an existing, tested version of the SDK rather than try
 our luck with a random new one. For a snapshot, this should generally be the
 latest commit on master.
 
+> **IMPORTANT**: If the release fails, please do not just abandon it. There are
+> some cleanup steps that need to be taken.
+
 1. **[STABLE]** Coordinate with the product and marketing teams to define
    release highlights, tweets, blog posts, as well as timeline for publishing
    the release. Define a version number, `$VERSION`. The following command may
@@ -70,8 +73,11 @@ latest commit on master.
       you will have to manually add wrap them in double backslashes.
 
 1. Once this is done, create a GitHub pull request (PR) with the above changes
-   to the `LATEST` and (for a stable release) `release-notes.rst` files.
-   It is important that your PR changes no other file.
+   to the `LATEST` and (for a stable release) `release-notes.rst` files. It is
+   important that your PR changes no other file. Your PR also needs to have the
+   `Standard-Change` label. Note that if the build failed because of this, you
+   should be able to add the label and "rerun failed checks" in a few seconds;
+   there is no need to restart an entire build cycle.
 
 1. Get a review and approval on your PR and then merge it into master.
    **[STABLE]** For a stable release, the approval **MUST** be from the team

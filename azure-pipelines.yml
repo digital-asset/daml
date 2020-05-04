@@ -53,15 +53,15 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          has_changed_infra_folder () {
-              git diff $(fork_sha) $(branch_sha) --name-only | grep -q '^infra/'
+          has_changed () {
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1/"
           }
 
           fail_if_missing_std_change_label () {
               curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
           }
 
-          if has_changed_infra_folder; then
+          if has_changed "infra" || has_changed "LATEST"; then
               fail_if_missing_std_change_label
           fi
         env:
