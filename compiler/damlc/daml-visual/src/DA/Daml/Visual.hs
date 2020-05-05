@@ -139,11 +139,11 @@ startFromUpdate seen world update = case update of
     -- in dictionaries for the template and choice typeclasses (`HasCreate`
     -- `HasExercise`, `HasArchive`, `HasFetch`, `HasFetchByKey`, `HasLookupByKey`)
     -- which we ignore below.
-    LF.UCreate{} -> error "IMPOSSIBLE"
-    LF.UExercise{} -> error "IMPOSSIBLE"
-    LF.UFetch{} -> error "IMPOSSIBLE"
-    LF.ULookupByKey{} -> error "IMPOSSIBLE"
-    LF.UFetchByKey{} -> error "IMPOSSIBLE"
+    LF.UCreate tpl _ -> Set.singleton (ACreate tpl)
+    LF.UExercise tpl choice _ _ _ -> Set.singleton (AExercise tpl choice)
+    LF.UFetch{} -> Set.empty
+    LF.ULookupByKey{} -> Set.empty
+    LF.UFetchByKey{} -> Set.empty
 
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
