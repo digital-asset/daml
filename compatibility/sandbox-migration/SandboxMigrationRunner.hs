@@ -16,13 +16,21 @@ module Main (main) where
 --    2. Stop sandbox.
 -- 6. Stop postgres.
 
+import Control.Exception
 import Control.Monad
 import qualified Data.Aeson as A
 import Data.Foldable
 import qualified Data.Text as T
 import GHC.Generics
 import Options.Applicative
-import Sandbox (readPortFile, maxRetries)
+import Sandbox
+    ( createSandbox
+    , defaultSandboxConf
+    , destroySandbox
+    , nullDevice
+    , sandboxPort
+    , SandboxConfig(..)
+    )
 import System.Environment.Blank
 import System.FilePath
 import System.IO.Extra
@@ -162,19 +170,12 @@ instance A.FromJSON Result
 
 withSandbox :: FilePath -> T.Text -> (Int -> IO a) -> IO a
 withSandbox assistant jdbcUrl f =
+    withBinaryFile nullDevice ReadWriteMode $ \handle ->
     withTempFile $ \portFile ->
-    withCreateProcess (proc assistant (args portFile)) { create_group = True } $ \_ _ _ ph -> do
-        p <- readPortFile maxRetries portFile
-        r <- f p
-        -- This is a shell process so we need to kill the whole process group.
-        interruptProcessGroupOf ph
-        _ <- waitForProcess ph
-        pure r
+    bracket (createSandbox portFile handle sandboxConfig) destroySandbox $ \resource ->
+      f (sandboxPort resource)
   where
-    args portFile =
-        [ "sandbox-classic"
-        , "--jdbcurl=" <> T.unpack jdbcUrl
-        , "--port=0"
-        , "--port-file=" <> portFile
-        ]
-
+    sandboxConfig = defaultSandboxConf
+        { sandboxBinary = assistant
+        , sandboxArgs = ["sandbox-classic", "--jdbcurl=" <> T.unpack jdbcUrl]
+        }
