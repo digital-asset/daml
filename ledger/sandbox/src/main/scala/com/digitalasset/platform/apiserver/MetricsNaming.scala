@@ -37,7 +37,7 @@ private[apiserver] object MetricsNaming {
   val camelCaseToSnakeCase: String => String =
     snakifyWholeWord andThen snakifyStart andThen snakifyEnd andThen snakify
 
-  // assert(nameFor("org.example.SomeService/someMethod") == "daml.lapi.some_service.some_method")
+  // assert(nameFor("org.example.SomeService/someMethod") == "some_service.some_method")
   def nameFor(fullMethodName: String): MetricName = {
     val serviceAndMethodName = fullMethodName.split('/')
     assert(

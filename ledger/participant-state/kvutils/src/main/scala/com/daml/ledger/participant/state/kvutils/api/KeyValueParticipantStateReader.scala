@@ -26,11 +26,11 @@ class KeyValueParticipantStateReader(reader: LedgerReader, metrics: Metrics)(
       .flatMapConcat {
         case LedgerRecord(offset, entryId, envelope) =>
           Timed
-            .value(metrics.daml.kvutils.openEnvelope, Envelope.open(envelope))
+            .value(metrics.daml.kvutils.reader.openEnvelope, Envelope.open(envelope))
             .flatMap {
               case Envelope.LogEntryMessage(logEntry) =>
                 Timed.value(
-                  metrics.daml.kvutils.parseUpdates, {
+                  metrics.daml.kvutils.reader.parseUpdates, {
                     val logEntryId = DamlLogEntryId.parseFrom(entryId)
                     val updates = KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry)
                     val updateOffset: (Offset, Int) => Offset =

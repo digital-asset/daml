@@ -22,7 +22,7 @@ class Metrics(val registry: MetricRegistry) {
       val submissions: Timer = registry.timer(prefix :+ "submissions")
       val validation: Timer = registry.timer(prefix :+ "validation")
 
-      val failedInterpretations: Meter =
+      val failedCommandInterpretations: Meter =
         registry.meter(prefix :+ "failed_command_interpretations")
       val deduplicatedCommands: Meter =
         registry.meter(prefix :+ "deduplicated_commands")
@@ -45,9 +45,6 @@ class Metrics(val registry: MetricRegistry) {
 
     object kvutils {
       val prefix: MetricName = daml.prefix :+ "kvutils"
-
-      val openEnvelope: Timer = registry.timer(prefix :+ "open_envelope")
-      val parseUpdates: Timer = registry.timer(prefix :+ "parse_updates")
 
       object committer {
         val prefix: MetricName = kvutils.prefix :+ "committer"
@@ -120,6 +117,12 @@ class Metrics(val registry: MetricRegistry) {
         }
       }
 
+      object reader {
+        val prefix: MetricName = kvutils.prefix :+ "reader"
+
+        val openEnvelope: Timer = registry.timer(prefix :+ "open_envelope")
+        val parseUpdates: Timer = registry.timer(prefix :+ "parse_updates")
+      }
       object submission {
         val prefix: MetricName = kvutils.prefix :+ "submission"
 
@@ -323,7 +326,7 @@ class Metrics(val registry: MetricRegistry) {
         val stopDeduplicateCommand: Timer = registry.timer(prefix :+ "stop_deduplicating_command")
       }
 
-      object readService {
+      object read {
         val prefix: MetricName = services.prefix :+ "read"
 
         val getLedgerInitialConditions: Timer =
@@ -331,7 +334,7 @@ class Metrics(val registry: MetricRegistry) {
         val stateUpdates: Timer = registry.timer(prefix :+ "state_updates")
       }
 
-      object writeService {
+      object write {
         val prefix: MetricName = services.prefix :+ "write"
 
         val submitTransaction: Timer = registry.timer(prefix :+ "submit_transaction")

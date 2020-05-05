@@ -19,7 +19,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transaction: SubmittedTransaction
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
-      metrics.daml.services.writeService.submitTransaction,
+      metrics.daml.services.write.submitTransaction,
       delegate.submitTransaction(submitterInfo, transactionMeta, transaction))
 
   override def uploadPackages(
@@ -28,7 +28,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
-      metrics.daml.services.writeService.uploadPackages,
+      metrics.daml.services.write.uploadPackages,
       delegate.uploadPackages(submissionId, archives, sourceDescription))
 
   override def allocateParty(
@@ -37,7 +37,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       submissionId: SubmissionId
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
-      metrics.daml.services.writeService.allocateParty,
+      metrics.daml.services.write.allocateParty,
       delegate.allocateParty(hint, displayName, submissionId))
 
   override def submitConfiguration(
@@ -46,7 +46,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       config: Configuration
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
-      metrics.daml.services.writeService.submitConfiguration,
+      metrics.daml.services.write.submitConfiguration,
       delegate.submitConfiguration(maxRecordTime, submissionId, config))
 
   override def currentHealth(): HealthStatus =

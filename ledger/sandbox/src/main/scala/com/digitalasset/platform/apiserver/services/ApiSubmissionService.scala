@@ -185,7 +185,7 @@ final class ApiSubmissionService private (
     for {
       res <- commandExecutor.execute(commands, submissionSeed)
       transactionInfo <- res.fold(error => {
-        metrics.daml.commands.failedInterpretations.mark()
+        metrics.daml.commands.failedCommandInterpretations.mark()
         Future.failed(grpcError(toStatus(error)))
       }, Future.successful)
       partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)

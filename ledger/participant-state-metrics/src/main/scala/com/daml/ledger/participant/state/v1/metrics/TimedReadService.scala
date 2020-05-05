@@ -13,11 +13,11 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Timed.source(
-      metrics.daml.services.readService.getLedgerInitialConditions,
+      metrics.daml.services.read.getLedgerInitialConditions,
       delegate.getLedgerInitialConditions())
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
-    Timed.source(metrics.daml.services.readService.stateUpdates, delegate.stateUpdates(beginAfter))
+    Timed.source(metrics.daml.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
