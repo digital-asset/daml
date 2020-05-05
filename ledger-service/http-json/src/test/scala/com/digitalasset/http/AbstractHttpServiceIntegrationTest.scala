@@ -1002,13 +1002,10 @@ abstract class AbstractHttpServiceIntegrationTest
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
       ).flatMap {
         case (status, output) =>
-          status shouldBe StatusCodes.OK
+          status shouldBe StatusCodes.BadRequest
           inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
-            case \/-(domain.OkResponse(List(), Some(warnings), StatusCodes.OK)) =>
-              inside(warnings) {
-                case domain.UnknownParties(unknownParties) =>
-                  unknownParties.toSet shouldBe requestedPartyIds.toSet
-              }
+            case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest)) =>
+              error should include("DAML LF Party is empty")
           }
       }: Future[Assertion]
   }

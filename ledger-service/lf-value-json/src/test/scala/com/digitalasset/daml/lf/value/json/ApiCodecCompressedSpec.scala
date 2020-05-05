@@ -320,17 +320,19 @@ class ApiCodecCompressedSpec
     )
 
     val failures = Table(
-      ("JSON", "type"),
-      ("42.3", VA.int64),
-      ("\"42.3\"", VA.int64),
-      ("9223372036854775808", VA.int64),
-      ("-9223372036854775809", VA.int64),
-      ("\"garbage\"", VA.int64),
-      ("\"   42 \"", VA.int64),
-      ("\"1970-01-01T00:00:00\"", VA.timestamp),
-      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp),
-      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp),
-      ("""{"a": "b", "c": "d"}""", VA.genMap(VA.text, VA.text)),
+      ("JSON", "type", "optionalErrorSubstring"),
+      ("42.3", VA.int64, None),
+      ("\"42.3\"", VA.int64, None),
+      ("9223372036854775808", VA.int64, None),
+      ("-9223372036854775809", VA.int64, None),
+      ("\"garbage\"", VA.int64, None),
+      ("\"   42 \"", VA.int64, None),
+      ("\"1970-01-01T00:00:00\"", VA.timestamp, None),
+      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, None),
+      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp, None),
+      ("""{"a": "b", "c": "d"}""", VA.genMap(VA.text, VA.text), None),
+      ("\"\"", VA.party, Some("DAML LF Party is empty")),
+      (List.fill(256)('a').mkString("\"", "", "\""), VA.party, Some("DAML LF Party is too long")),
     )
 
     "dealing with particular formats" should {
@@ -350,10 +352,13 @@ class ApiCodecCompressedSpec
           }
       }
 
-      "fail in cases" in forEvery(failures) { (serialized, typ) =>
+      "fail in cases" in forEvery(failures) { (serialized, typ, optionalErrorSubstring) =>
         val json = serialized.parseJson // we don't test *the JSON decoder*
-        a[DeserializationException] shouldBe thrownBy {
+        val exception = the[DeserializationException] thrownBy {
           jsValueToApiValue(json, typ.t, typeLookup)
+        }
+        optionalErrorSubstring.foreach { errorSubstring =>
+          exception.getMessage should include(errorSubstring)
         }
       }
     }
