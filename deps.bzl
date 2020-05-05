@@ -46,6 +46,10 @@ davl_sha256 = "3e8ae2a05724093e33b7f0363381e81a7e8e9655ccb3aa47ad540ea87e814321"
 davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
+# daml cheat sheet
+daml_cheat_sheet_version = "10a302dff8521cebe7bacd0b237a9b89741c5d5e"  # 2020-05-05
+daml_cheat_sheet_sha256 = "0209a41c823d9fa7cab42f76155e3dcc70f498aff31437878ecc3421b0c5de1b"
+
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
         http_archive(
@@ -285,5 +289,36 @@ exports_files(["released/davl-v3.dar"])
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
+            """,
+        )
+
+    if "daml-cheat-sheet" not in native.existing_rules():
+        http_archive(
+            name = "daml-cheat-sheet",
+            strip_prefix = "daml-cheat-sheet-{}".format(daml_cheat_sheet_version),
+            urls = ["https://github.com/digital-asset/daml-cheat-sheet/archive/{}.tar.gz".format(daml_cheat_sheet_version)],
+            sha256 = daml_cheat_sheet_sha256,
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = "site",
+  srcs = ["_config.yml"] + glob(["**/*"],
+          exclude = ["_config.yml", "LICENSE", "WORKSPACE", "BUILD.bazel", "README.md"]),
+  outs = ["cheat-sheet.tar.gz"],
+  tools = ["@jekyll_nix//:bin/jekyll"],
+  cmd = '''
+    DIR=$$(dirname $(execpath _config.yml))
+    $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
+    tar hc _site \
+        --owner=1000 \
+        --group=1000 \
+        --mtime=2000-01-01\ 00:00Z \
+        --no-acls \
+        --no-xattrs \
+        --no-selinux \
+        --sort=name \
+        | gzip -n > $(OUTS)
+  ''',
+)
             """,
         )

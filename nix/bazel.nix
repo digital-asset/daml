@@ -16,6 +16,7 @@ let shared = rec {
     gzip
     imagemagick
     jdk8
+    jekyll
     jq
     netcat-gnu
     nodejs

@@ -362,6 +362,7 @@ genrule(
         "//templates:templates-tarball",
         "//templates:create-daml-app-test-resources/messaging.patch",
         "//templates:create-daml-app-test-resources/index.test.ts",
+        "@daml-cheat-sheet//:site",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -413,6 +414,10 @@ genrule(
         tar -xzf ../$(location //language-support/ts/daml-react:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-react/
         tar -xzf ../$(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-ledger/
         tar -xzf ../$(location //language-support/ts/daml-types:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-types/
+
+        # Get the daml cheat sheet
+        mkdir -p html/cheat-sheet
+        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
