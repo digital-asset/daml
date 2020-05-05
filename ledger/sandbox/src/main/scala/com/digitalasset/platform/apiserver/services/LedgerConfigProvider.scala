@@ -6,8 +6,9 @@ package com.daml.platform.apiserver.services
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.stream.Materializer
-import akka.stream.scaladsl.{RestartSource, Sink}
+import akka.{Done, NotUsed}
+import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import com.daml.api.util.TimeProvider
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
@@ -40,13 +41,16 @@ final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit logCtx: LoggingContext) {
+)(implicit logCtx: LoggingContext)
+    extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
 
   // The latest offset that was read (if any), and the latest ledger configuration found (if any)
   private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
   private[this] val state: AtomicReference[StateType] = new AtomicReference(None -> None)
+  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] = new AtomicReference(
+    None)
   private[this] val readyPromise: Promise[Unit] = Promise()
 
   // At startup, do the following:
@@ -88,25 +92,29 @@ final class LedgerConfigProvider private (
   }
 
   private[this] def startStreamingUpdates(): Unit = {
-    RestartSource
-      .withBackoff(
-        minBackoff = 1.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.1,
-      ) { () =>
-        index
-          .configurationEntries(state.get._1)
-          .map {
-            case (offset, domain.ConfigurationEntry.Accepted(_, _, config)) =>
-              logger.info(s"New ledger configuration $config found at $offset")
-              configFound(offset, config)
-            case (offset, domain.ConfigurationEntry.Rejected(_, _, _, _)) =>
-              logger.trace(s"New ledger configuration rejection found at $offset")
-              state.updateAndGet(previous => Some(offset) -> previous._2)
-              ()
+    killSwitch.set(
+      Some(
+        RestartSource
+          .withBackoff(
+            minBackoff = 1.seconds,
+            maxBackoff = 30.seconds,
+            randomFactor = 0.1,
+          ) { () =>
+            index
+              .configurationEntries(state.get._1)
+              .map {
+                case (offset, domain.ConfigurationEntry.Accepted(_, _, config)) =>
+                  logger.info(s"New ledger configuration $config found at $offset")
+                  configFound(offset, config)
+                case (offset, domain.ConfigurationEntry.Rejected(_, _, _, _)) =>
+                  logger.trace(s"New ledger configuration rejection found at $offset")
+                  state.updateAndGet(previous => Some(offset) -> previous._2)
+                  ()
+              }
           }
-      }
-      .runWith(Sink.ignore)(materializer)
+          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+          .toMat(Sink.ignore)(Keep.left[UniqueKillSwitch, Future[Done]])
+          .run()(materializer)))
     ()
   }
 
@@ -150,6 +158,10 @@ final class LedgerConfigProvider private (
     * , whichever happens first.
     */
   def ready: Future[Unit] = readyPromise.future
+
+  override def close(): Unit = {
+    killSwitch.get.foreach(k => k.shutdown())
+  }
 }
 
 object LedgerConfigProvider {

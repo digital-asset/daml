@@ -104,14 +104,17 @@ object ApiServices {
             ledgerConfiguration)
           services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
           _ <- ledgerConfigProvider.ready
-        } yield services
-      )(services =>
-        Future {
-          services.foreach {
-            case closeable: AutoCloseable => closeable.close()
-            case _ => ()
+        } yield (ledgerConfigProvider, services)
+      ) {
+        case (ledgerConfigProvider, services) =>
+          Future {
+            services.foreach {
+              case closeable: AutoCloseable => closeable.close()
+              case _ => ()
+            }
+            ledgerConfigProvider.close()
           }
-      }).map(ApiServicesBundle(_))
+      }.map(x => ApiServicesBundle(x._2))
 
     private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
