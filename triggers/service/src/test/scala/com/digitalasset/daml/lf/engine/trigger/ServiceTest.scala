@@ -238,19 +238,20 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         }
         // Query ACS until we see a B contract
         // format: off
-      _ <- Future {
-        val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
-        eventually {
-          val acs = client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq)
-            .map(acsPages => acsPages.flatMap(_.activeContracts))
-          // Once we switch to scalatest 3.1, we should no longer need the Await.result here since eventually
-          // handles Future results.
-          val r = Await.result(acs, Duration.Inf)
-          assert(r.length == 1)
+        _ <- Future {
+          val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
+          eventually {
+            val acs = client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq)
+              .map(acsPages => acsPages.flatMap(_.activeContracts))
+            // Once we switch to scalatest 3.1, we should no longer need the Await.result here since eventually
+            // handles Future results.
+            val r = Await.result(acs, Duration.Inf)
+            assert(r.length == 1)
+          }
         }
-      }
-      // format: on
+        // format: on
         resp <- stopTrigger(uri, triggerId)
-      } yield assert(resp.status.isSuccess)
+        _ <- assert(resp.status.isSuccess)
+      } yield succeed
   }
 }
