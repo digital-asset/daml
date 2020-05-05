@@ -233,7 +233,6 @@ object SExpr {
   final case class SEImportValue(value: V[V.ContractId]) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.importValue(value)
-//>>>>>>> ddfe844ec... Optimize Speedy machine.ctrl
     }
   }
 
