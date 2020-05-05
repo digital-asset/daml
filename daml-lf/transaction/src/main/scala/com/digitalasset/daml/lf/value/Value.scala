@@ -244,7 +244,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   final case class ValueBool(value: Boolean) extends ValueCidlessLeaf
   object ValueBool {
     val True = new ValueBool(true)
-    val Fasle = new ValueBool(false)
+    val False = new ValueBool(false)
     def apply(value: Boolean): ValueBool =
       if (value) ValueTrue else ValueFalse
   }
@@ -414,7 +414,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   type Key = Value[Nothing]
 
   val ValueTrue: ValueBool = ValueBool.True
-  val ValueFalse: ValueBool = ValueBool.Fasle
+  val ValueFalse: ValueBool = ValueBool.False
   val ValueNil: ValueList[Nothing] = ValueList(FrontStack.empty)
   val ValueNone: ValueOptional[Nothing] = ValueOptional(None)
 }
