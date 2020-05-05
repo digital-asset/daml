@@ -12,8 +12,8 @@ module Main (main) where
 -- 4. Stop sandbox.
 -- 5. In a loop over all versions:
 --    1. Start sandbox of the given version.
---    1. Run a script for querying and creating new contracts.
---    2. Stop sandbox.
+--    2. Run a script for querying and creating new contracts.
+--    3. Stop sandbox.
 -- 6. Stop postgres.
 
 import Control.Exception
