@@ -184,6 +184,7 @@ object Node {
         f3(chosenValue)
         exerciseResult.foreach(f3)
         key.foreach(KeyWithMaintainers.foreach1(f3))
+        children.foreach(f1)
       case NodeLookupByKey(
           templateId @ _,
           optLocation @ _,
