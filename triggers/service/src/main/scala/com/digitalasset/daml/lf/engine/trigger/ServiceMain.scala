@@ -30,7 +30,6 @@ import scala.io.StdIn
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import spray.json._
 import spray.json.DefaultJsonProtocol._
 import com.daml.lf.CompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -56,6 +55,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
+import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
 
 case class LedgerConfig(
@@ -233,7 +233,7 @@ object Server {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
                   case Left(err) =>
-                    complete((StatusCodes.UnprocessableEntity, err))
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, err))
                   case Right(trigger) =>
                     val party = params.party
                     val uuid = UUID.randomUUID
@@ -245,7 +245,7 @@ object Server {
                     triggers = triggers + (uuid -> TriggerActorWithParty(ref, party))
                     val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
                     triggersByParty = triggersByParty + (party -> newTriggerSet)
-                    complete(uuid.toString)
+                    complete(successResponse(uuid.toString))
                 }
             }
           },
@@ -260,16 +260,19 @@ object Server {
                     val inputStream = new ByteArrayInputStream(byteString.toArray)
                     DarReader()
                       .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                      case Failure(err) => complete((StatusCodes.UnprocessableEntity, err))
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
                       case Success(encodedDar) =>
                         try {
                           val dar = encodedDar.map {
                             case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
                           }
                           addDar(compiledPackages, dar)
-                          complete(s"DAR uploaded, main package id: ${dar.main._1}")
+                          complete(
+                            successResponse(s"DAR uploaded, main package id: ${dar.main._1}"))
                         } catch {
-                          case e: ParseError => complete((StatusCodes.UnprocessableEntity, e))
+                          case err: ParseError =>
+                            complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
                         }
                     }
                 }
@@ -282,9 +285,9 @@ object Server {
         path("list") {
           entity(as[ListParams]) { params =>
             {
-              val list =
-                triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList.toJson
-              complete(list)
+              val triggerList =
+                triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList
+              complete(successResponse(triggerList))
             }
           }
         }
@@ -298,7 +301,7 @@ object Server {
           val party = actorWithParty.party
           val newTriggerSet = triggersByParty.get(party).get - id
           triggersByParty = triggersByParty + (party -> newTriggerSet)
-          complete(s"Trigger $id has been stopped.")
+          complete(successResponse(s"Trigger $id has been stopped."))
         }
       },
     )
