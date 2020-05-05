@@ -59,6 +59,11 @@ jobs:
     steps:
       - checkout: self
       - template: ../compatibility-windows.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
       - bash: |
           set -euo pipefail
           COMMIT_TITLE=$(git log --pretty=format:%s -n1)

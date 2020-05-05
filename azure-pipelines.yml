@@ -223,6 +223,11 @@ jobs:
           test_flags: '--quick'
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
 
   - job: check_for_release
     dependsOn:
