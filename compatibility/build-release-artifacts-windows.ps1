@@ -19,6 +19,8 @@ if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
     Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
 }
 
+$ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
@@ -37,6 +39,7 @@ function bazel() {
 bazel shutdown
 bazel fetch @nodejs_dev_env//...
 bazel build `
+  `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
   //release:sdk-release-tarball `
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
 
