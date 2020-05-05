@@ -44,6 +44,14 @@ cd compatibility
 # Symlinks don’t work on Windows.
 cp ../.bazelrc .bazelrc
 
+# Modify the output path (x64_windows-opt-compat) to avoid shared action keys
+# between external dependencies of the daml and compatibility workspaces. These
+# are causing issues on Windows, namely sporadic failures due to "undeclared
+# inclusion(s)" with the mingw toolchain. This doesn't modify all action keys,
+# e.g. metadata actions like `Mnemonic: Middleman` are unaffected. However, all
+# actions that produce artifacts will be affected.
+Add-Content .bazelrc "build --platform_suffix=-compat"
+
 bazel shutdown
 bazel build //...
 bazel shutdown
