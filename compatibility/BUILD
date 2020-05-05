@@ -59,7 +59,10 @@ platform_versions = [
 ]
 
 [
-    daml_script_test(sdk_version, platform_version)
+    daml_script_test(
+        compiler_version = sdk_version,
+        runner_version = platform_version,
+    )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
     # Test that the DAML script runner can run DARs built with an older SDK
