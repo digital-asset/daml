@@ -30,7 +30,7 @@ object Speedy {
       /* Kont, or continuation specifies what should be done next
        * once the control has been evaluated.
        */
-      var kont: util.ArrayList[Kont],
+      var kontStack: util.ArrayList[Kont],
       /* The last encountered location */
       var lastLocation: Option[Location],
       /* The current partial transaction */
@@ -55,29 +55,39 @@ object Speedy {
       var globalDiscriminators: Set[crypto.Hash],
   ) {
 
-    def kontPop(): Kont = kont.remove(kont.size - 1)
-    def getEnv(i: Int): SValue = env.get(env.size - i)
-    def popEnv(count: Int): Unit =
+    @inline def pushKont(k: Kont): Unit = {
+      kontStack.add(k); ()
+    }
+
+    @inline def popKont(): Kont = {
+      kontStack.remove(kontStack.size - 1)
+    }
+
+    @inline def getEnv(i: Int): SValue = env.get(env.size - i)
+    @inline def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
 
     /** Push a single location to the continuation stack for the sake of
         maintaining a stack trace. */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
-      val last_index = kont.size() - 1
-      val last_kont = if (last_index >= 0) Some(kont.get(last_index)) else None
+      val last_index = kontStack.size() - 1
+      val last_kont = if (last_index >= 0) Some(kontStack.get(last_index)) else None
       last_kont match {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
-        case Some(KArg(Array(SEValue.Token))) => kont.add(last_index, KLocation(loc))
+        case Some(KArg(Array(SEValue.Token))) => {
+          // Can't call pushKont here, because we don't push at the top of the stack.
+          kontStack.add(last_index, KLocation(loc))
+        }
         // NOTE(MH): When we use a cached top level value, we need to put the
         // stack trace it produced back on the continuation stack to get
         // complete stack trace at the use site. Thus, we store the stack traces
         // of top level values separately during their execution.
         case Some(KCacheVal(v, stack_trace)) =>
-          kont.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
-        case _ => kont.add(KLocation(loc)); ()
+          kontStack.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
+        case _ => pushKont(KLocation(loc))
       }
     }
 
@@ -90,7 +100,7 @@ object Speedy {
         The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
       val s = new util.ArrayList[Location]
-      kont.forEach { k =>
+      kontStack.forEach { k =>
         k match {
           case KLocation(location) => { s.add(location); () }
           case _ => ()
@@ -117,8 +127,15 @@ object Speedy {
       case _ =>
     }
 
-    /** Run a machine until we get a result: either a final-value of a request for data, with a callback */
+    /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
+      // Note: We have an outer and inner while loop.
+      // An exception handler is wrapped around the inner-loop, but inside the outer-loop.
+      // Most iterations are performed by the inner-loop, thus avoiding the work of to
+      // wrap the exception handler on each of these steps. This is a performace gain.
+      // However, we still need the outer loop because of the case:
+      //    case _:SErrorDamlException if tryHandleException =>
+      // where we must continue interation.
       var result: SResult = null
       while (result == null) {
         // note: exception handler is outside while loop
@@ -153,10 +170,10 @@ object Speedy {
       */
     def tryHandleException(): Boolean = {
       val catchIndex =
-        kont.asScala.lastIndexWhere(_.isInstanceOf[KCatch])
+        kontStack.asScala.lastIndexWhere(_.isInstanceOf[KCatch])
       if (catchIndex >= 0) {
-        val kcatch = kont.get(catchIndex).asInstanceOf[KCatch]
-        kont.subList(catchIndex, kont.size).clear()
+        val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
+        kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
         ctrl = CtrlExpr(kcatch.handler)
         true
@@ -174,7 +191,7 @@ object Speedy {
           val ref = eval.ref
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
-              kont.add(KCacheVal(eval, Nil))
+              pushKont(KCacheVal(eval, Nil))
               CtrlExpr(body)
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
@@ -201,7 +218,7 @@ object Speedy {
       * is empty, and the value is not a fully applied PAP.
       */
     def isFinal(): Boolean =
-      if (!kont.isEmpty)
+      if (!kontStack.isEmpty)
         // Kont stack not empty, can always reduce further.
         false
       else
@@ -239,7 +256,7 @@ object Speedy {
         println("  " + v.toString)
       }
       println("Kontinuation:")
-      kont.forEach { k =>
+      kontStack.forEach { k =>
         println(s"  " + k.toString)
       }
       println("============================================================")
@@ -276,7 +293,7 @@ object Speedy {
       Machine(
         ctrl = null,
         env = emptyEnv,
-        kont = new util.ArrayList[Kont](128),
+        kontStack = new util.ArrayList[Kont](128),
         lastLocation = None,
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
@@ -390,7 +407,7 @@ object Speedy {
         pap.prim match {
           case PClosure(expr, vars) =>
             // Pop the arguments once we're done evaluating the body.
-            machine.kont.add(KPop(pap.arity + vars.size))
+            machine.pushKont(KPop(pap.arity + vars.size))
 
             // Add all the variables we closed over
             vars.foreach(machine.env.add)
@@ -413,7 +430,7 @@ object Speedy {
         }
       case _ =>
         machine.ctrl = this
-        machine.kontPop.execute(value, machine)
+        machine.popKont.execute(value, machine)
     }
   }
 
@@ -584,16 +601,16 @@ object Speedy {
           if (othersLength > 0) {
             val others = new Array[SExpr](othersLength)
             System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.kont.add(KArg(others))
+            machine.pushKont(KArg(others))
           }
 
-          machine.kont.add(KFun(prim, extendedArgs, arity))
+          machine.pushKont(KFun(prim, extendedArgs, arity))
 
           // Start evaluating the arguments.
           var i = 1
           while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
-            machine.kont.add(KPushTo(extendedArgs, arg))
+            machine.pushKont(KPushTo(extendedArgs, arg))
             i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
@@ -631,7 +648,7 @@ object Speedy {
           alts.find { alt =>
             alt.pattern match {
               case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                machine.kont.add(KPop(1))
+                machine.pushKont(KPop(1))
                 machine.env.add(arg)
                 true
               case SCPDefault => true
@@ -651,7 +668,7 @@ object Speedy {
             alt.pattern match {
               case SCPNil if lst.isEmpty => true
               case SCPCons if !lst.isEmpty =>
-                machine.kont.add(KPop(2))
+                machine.pushKont(KPop(2))
                 val Some((head, tail)) = lst.pop
                 machine.env.add(head)
                 machine.env.add(SList(tail))
@@ -676,7 +693,7 @@ object Speedy {
                 mbVal match {
                   case None => false
                   case Some(x) =>
-                    machine.kont.add(KPop(1))
+                    machine.pushKont(KPop(1))
                     machine.env.add(x)
                     true
                 }
