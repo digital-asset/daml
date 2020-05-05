@@ -302,15 +302,22 @@ exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-up
 package(default_visibility = ["//visibility:public"])
 genrule(
   name = "site",
-  srcs = glob(["**/*"]),
+  srcs = ["_config.yml"] + glob(["**/*"], exclude = ["_config.yml"]),
   outs = ["cheat-sheet.tar.gz"],
   tools = ["@jekyll_nix//:bin/jekyll"],
-  cmd = \"\"\"
-    TMP=`mktemp -d`
-    cp -aR $(SRCS) $$TMP
-    $(location @jekyll_nix//:bin/jekyll) build -s $$TMP
-    tar czf cheat-sheet.tar.gz _site/*
-  \"\"\"
+  cmd = '''
+    DIR=$$(dirname $(execpath _config.yml))
+    $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
+    tar hc _site \
+        --owner=1000 \
+        --group=1000 \
+        --mtime=2000-01-01\ 00:00Z \
+        --no-acls \
+        --no-xattrs \
+        --no-selinux \
+        --sort=name \
+        | gzip -n > $(OUTS)
+  ''',
 )
             """,
         )
