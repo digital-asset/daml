@@ -47,6 +47,15 @@ fi
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
+
+  # Modify the output path (x64_windows-opt-compatibility) to avoid shared
+  # action keys between external dependencies of the daml and compatibility
+  # workspaces. These are causing issues on Windows, namely sporadic failures
+  # due to "undeclared inclusion(s)" with the mingw toolchain. This doesn't
+  # modify all action keys, e.g. metadata actions like `Mnemonic: Middleman`
+  # are unaffected. However, all actions that produce artifacts will be
+  # affected.
+  echo "build --platform_suffix=-${BAZEL_CONFIG_DIR-default}" >> .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
