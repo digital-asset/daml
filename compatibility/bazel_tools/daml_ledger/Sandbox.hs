@@ -10,11 +10,14 @@ module Sandbox
   , withSandbox
   , createSandbox
   , destroySandbox
+  , readPortFile
+  , maxRetries
+  , nullDevice
   ) where
 
 import Control.Concurrent (threadDelay)
 import Control.Exception.Safe (catchJust, mask, onException)
-import Control.Monad (guard)
+import Control.Monad
 import qualified Data.Text.IO as T
 import Safe (readMay)
 import System.Environment (getEnvironment)
@@ -101,7 +104,7 @@ createSandbox :: FilePath -> Handle -> SandboxConfig -> IO SandboxResource
 createSandbox portFile sandboxOutput conf = do
     sandboxProc <- getSandboxProc conf portFile
     mask $ \unmask -> do
-        ph <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
+        ph <- createProcess sandboxProc { std_out = UseHandle sandboxOutput, create_group = True }
         let waitForStart = do
                 port <- readPortFile maxRetries portFile
                 pure (SandboxResource ph port)
@@ -125,7 +128,12 @@ data SandboxResource = SandboxResource
     }
 
 destroySandbox :: SandboxResource -> IO ()
-destroySandbox = cleanupProcess . sandboxProcess
+destroySandbox SandboxResource{..} = do
+    let (_, _, _, ph) = sandboxProcess
+    -- This is a shell script so we kill the whole process group.
+    interruptProcessGroupOf ph
+    cleanupProcess sandboxProcess
+    void $ waitForProcess ph
 
 nullDevice :: FilePath
 nullDevice

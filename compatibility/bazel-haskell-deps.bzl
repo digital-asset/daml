@@ -56,6 +56,7 @@ def daml_haskell_deps():
             "tasty",
             "tasty-hunit",
             "text",
+            "optparse-applicative",
         ] + (["unix"] if not is_windows else ["Win32"]),
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         tools = [

@@ -9,6 +9,7 @@ load(
     "daml_script_dar",
     "daml_script_test",
 )
+load("//sandbox-migration:util.bzl", "migration_test")
 
 config_setting(
     name = "ghci_data",
@@ -31,12 +32,18 @@ platform_versions = [
     "0.0.0",
 ]
 
+# TODO Generate this automatically.
+stable_platform_versions = [
+    "1.0.0",
+    "0.0.0",
+]
+
 [
     sh_binary(
         name = "sandbox-with-postgres-{}".format(version),
         srcs = ["@//bazel_tools:sandbox-with-postgres.sh"],
         data = [
-            "@//bazel_tools/client_server:with-postgres",
+            "@//bazel_tools/client_server/with-postgres:with-postgres-exe",
             "@daml-sdk-{}//:daml".format(version),
         ],
         deps = ["@bazel_tools//tools/bash/runfiles"],
@@ -76,3 +83,17 @@ test_suite(
     name = "head-quick",
     tags = ["head-quick"],
 )
+
+# We have two migration tests: migration-stable runs through all stable releases
+# including current HEAD. migration-all includes snapshot releases.
+
+migration_test(
+    name = "migration-stable",
+    tags = ["head-quick"],
+    versions = stable_platform_versions,
+) if not is_windows else None
+
+migration_test(
+    name = "migration-all",
+    versions = platform_versions,
+) if not is_windows else None

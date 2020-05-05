@@ -1,13 +1,12 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Main (main) where
+module WithPostgres (withPostgres) where
 
 import Control.Exception
 import Data.Text (Text)
 import qualified Data.Text as T
 import System.Directory.Extra
-import System.Environment
 import System.FilePath
 import System.IO.Extra
 import System.Process
@@ -76,8 +75,3 @@ withPostgres f =
             callProcess
                 "external/postgresql_nix/bin/createdb"
                 ["-h", "localhost", "-U", T.unpack dbUser, "-p", show dbPort, T.unpack dbName]
-main :: IO ()
-main = do
-    (arg : args) <- getArgs
-    withPostgres $ \jdbcUrl ->
-        callProcess arg (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])
