@@ -38,7 +38,7 @@ object DomainMocks {
     private val invalidPartyString = "p@rty"
     val invalidApiParty = Value(Sum.Party(invalidPartyString))
     val invalidPartyMsg =
-      """Invalid argument: non expected character 0x40 in "p@rty""""
+      """Invalid argument: non expected character 0x40 in DAML LF Party "p@rty""""
   }
 
 }
