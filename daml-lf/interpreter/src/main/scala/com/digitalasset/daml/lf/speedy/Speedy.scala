@@ -28,6 +28,7 @@ object Speedy {
   final case class Machine(
       /* So we can limit chains of calls to returnDepth. */
       var returnDepth: Int,
+      //var maxReturnDepth: Int, //Instrumentation
       /* The control is what the machine should be evaluating. */
       var ctrl: SExpr,
       /* The environment: an array of values */
@@ -146,11 +147,13 @@ object Speedy {
         // note: exception handler is outside while loop
         try {
           while (!isFinal) {
+            //if (returnDepth > maxReturnDepth) maxReturnDepth = returnDepth;
             returnDepth = 0
             ctrl.execute(this) // make a single step
           }
           ctrl match {
             case SEValue(value) => {
+              //println(s"maxReturnDepth = $maxReturnDepth")
               result = SResultFinalValue(value) //stop
             }
             case _ =>
@@ -245,6 +248,43 @@ object Speedy {
         } else {
           ctrl = SEValue(value) // force the current step to end
         }
+      }
+    }
+
+    /**
+      Unwind all KPop and KLocation continuations from the kont-stack.
+      For KPop - we do the required popEnv.
+      Execute the first continutaion found which is not KPop/KLocation.
+      Or, if kont-stack becomes empty, set the machine.ctrl to the final value.
+
+      This function has the same semantics as `returnValue` but avoids consuming JVM stack
+      for sequences of KPop/KLocation.  We only use this function from the `execute`
+      method of KPop/KLocation, so not every call to returnDepth has the pay the price of
+      the extra matching on the Kont class which is done here.
+      Even so, this function has a small negative impact on performance.
+      */
+    def unwindKontStackThenReturnValue(value: SValue): Unit = {
+      var kont: Kont = null
+      var again: Boolean = true
+      while (again) {
+        if (kontStack.isEmpty) {
+          again = false
+        } else {
+          popKont() match {
+            case KLocation(_) => ()
+            case KPop(count) =>
+              popEnv(count)
+            case properContinution => {
+              again = false
+              kont = properContinution
+            }
+          }
+        }
+      }
+      if (kont != null) {
+        kont.execute(value, this)
+      } else {
+        ctrl = SEValue(value) // The final resulting value
       }
     }
 
@@ -433,6 +473,7 @@ object Speedy {
     ) =
       Machine(
         returnDepth = 0,
+        //maxReturnDepth = 0,
         ctrl = null,
         env = emptyEnv,
         kontStack = new util.ArrayList[Kont](128),
@@ -544,7 +585,7 @@ object Speedy {
   final case class KPop(count: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       machine.popEnv(count)
-      machine.returnValue(v)
+      machine.unwindKontStackThenReturnValue(v)
     }
   }
 
@@ -724,7 +765,7 @@ object Speedy {
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(location: Location) extends Kont {
     def execute(v: SValue, machine: Machine) = {
-      machine.returnValue(v)
+      machine.unwindKontStackThenReturnValue(v)
     }
   }
 
