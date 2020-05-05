@@ -363,6 +363,11 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
       def assertFromString(s: String): V1 = assertRight(fromString(s))
 
+      implicit val `V1 Order`: Order[V1] = {
+        case (AbsoluteContractId.V1(hash1, suffix1), AbsoluteContractId.V1(hash2, suffix2)) =>
+          hash1 ?|? hash2 |+| suffix1 ?|? suffix2
+      }
+
     }
 
     def fromString(s: String): Either[String, AbsoluteContractId] =
@@ -375,13 +380,24 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     def assertFromString(s: String): AbsoluteContractId =
       assertRight(fromString(s))
 
-    implicit val `AbsCid Equal`: Equal[AbsoluteContractId] = (a, b) =>
-      (a, b).match2 {
-        case a: V0 => { case b: V0 => Equal[V0].equal(a, b) }
-        case V1(discA, suffA) => {
-          case V1(discB, suffB) => discA == discB && suffA.toByteString == suffB.toByteString
+    implicit val `AbsCid Order`: Order[AbsoluteContractId] = new Order[AbsoluteContractId] {
+      import scalaz.Ordering._
+      override def order(a: AbsoluteContractId, b: AbsoluteContractId) =
+        (a, b) match {
+          case (a: V0, b: V0) => a ?|? b
+          case (a: V1, b: V1) => a ?|? b
+          case (_: V0, _: V1) => LT
+          case (_: V1, _: V0) => GT
         }
-      }(fallback = false)
+
+      override def equal(a: AbsoluteContractId, b: AbsoluteContractId) =
+        (a, b).match2 {
+          case a: V0 => { case b: V0 => a === b }
+          case V1(discA, suffA) => {
+            case V1(discB, suffB) => discA == discB && suffA.toByteString == suffB.toByteString
+          }
+        }(fallback = false)
+    }
   }
 
   final case class RelativeContractId(txnid: NodeId) extends ContractId

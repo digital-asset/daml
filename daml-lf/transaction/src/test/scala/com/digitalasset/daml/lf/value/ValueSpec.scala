@@ -7,7 +7,7 @@ package value
 import data.{FrontStack, ImmArray, Ref, Unnatural}
 import Value._
 import Ref.{Identifier, Name}
-import ValueGenerators.{idGen, nameGen}
+import ValueGenerators.{absCoidGen, idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -118,6 +118,14 @@ class ValueSpec
 
     "results preserve natural == results" in forAll { (a: T, b: T) =>
       scalaz.Equal[T].equal(a, b) shouldBe (a == b)
+    }
+  }
+
+  "AbsoluteContractId" - {
+    type T = AbsoluteContractId
+    implicit val arbT: Arbitrary[T] = Arbitrary(absCoidGen)
+    "Order" - {
+      "obeys Order laws" in checkLaws(SzP.order.laws[T])
     }
   }
 
