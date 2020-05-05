@@ -362,7 +362,7 @@ genrule(
         "//templates:templates-tarball",
         "//templates:create-daml-app-test-resources/messaging.patch",
         "//templates:create-daml-app-test-resources/index.test.ts",
-        "@daml-cheat-sheet//file",
+        "@daml-cheat-sheet//:site",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -403,9 +403,9 @@ genrule(
         fi
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-        unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
-        # Remove JAR metadata
-        rm -r html/app-dev/bindings-java/javadocs/META-INF
+        # unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
+        # # Remove JAR metadata
+        # rm -r html/app-dev/bindings-java/javadocs/META-INF
 
         # Copy generated documentation for typescript libraries
         mkdir -p html/app-dev/bindings-ts/daml-react
@@ -416,10 +416,8 @@ genrule(
         tar -xzf ../$(location //language-support/ts/daml-types:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-types/
 
         # Get the daml cheat sheet
-        TMP=`mktemp -d`
         mkdir -p html/cheat-sheet
-        tar -xzf ../$(location @daml-cheat-sheet//file) --strip-components 1 -C $$TMP
-        ../$(location @jekyll_nix//:bin/jekyll) build -s $$TMP/ -d html/cheat-sheet
+        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
@@ -432,7 +430,6 @@ genrule(
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
         "@patch_dev_env//:patch",
-        "@jekyll_nix//:bin/jekyll",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 

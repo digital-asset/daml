@@ -293,10 +293,24 @@ exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-up
         )
 
     if "daml-cheat-sheet" not in native.existing_rules():
-        http_file(
+        http_archive(
             name = "daml-cheat-sheet",
+            strip_prefix = "daml-cheat-sheet-{}".format(daml_cheat_sheet_version),
             urls = ["https://github.com/digital-asset/daml-cheat-sheet/archive/{}.tar.gz".format(daml_cheat_sheet_version)],
-            downloaded_file_path = "daml-cheat-sheet",
             sha256 = daml_cheat_sheet_sha256,
-            executable = False,
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = "site",
+  srcs = glob(["**/*"]),
+  outs = ["cheat-sheet.tar.gz"],
+  tools = ["@jekyll_nix//:bin/jekyll"],
+  cmd = \"\"\"
+    TMP=`mktemp -d`
+    cp -aR $(SRCS) $$TMP
+    $(location @jekyll_nix//:bin/jekyll) build -s $$TMP
+    tar czf cheat-sheet.tar.gz _site/*
+  \"\"\"
+)
+            """,
         )
