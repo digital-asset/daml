@@ -27,10 +27,12 @@ import scala.collection.immutable.TreeSet
 
 /** Speedy builtin functions */
 sealed abstract class SBuiltin(val arity: Int) {
+  private val builtin = SEBuiltin(this)
+
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
   def apply(args: SExpr*): SExpr =
-    SEApp(SEBuiltin(this), args.toArray)
+    SEApp(builtin, args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly. */
@@ -968,9 +970,7 @@ object SBuiltin {
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
         case Some(mbCoid) =>
-          machine.returnValue = SOptional(mbCoid.map { coid =>
-            SContractId(coid)
-          })
+          machine.returnValue = mbCoid.fold(SV.None)(coid => SOptional(Some(SContractId(coid))))
         case None =>
           // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
           // that.
@@ -1162,6 +1162,11 @@ object SBuiltin {
     }
   }
 
+  object SBSEndCommit {
+    val MustSucceed = SBSEndCommit(false)
+    val MustFail = SBSEndCommit(true)
+  }
+
   /** $pass :: Int64 -> Token -> Timestamp */
   final case object SBSPass extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
@@ -1277,7 +1282,7 @@ object SBuiltin {
                 case SText(t) =>
                   val length = t.codePointCount(0, t.length).toLong
                   if (to <= 0 || from >= length || to <= from) {
-                    SText("")
+                    SValue.SValue.EmptyText
                   } else {
                     val rfrom = from.max(0).toInt
                     val rto = to.min(length).toInt
@@ -1311,7 +1316,7 @@ object SBuiltin {
             case SText(t) =>
               val n = t.indexOfSlice(slice) // n is -1 if slice is not found.
               if (n < 0) {
-                SOptional(None)
+                SValue.SValue.None
               } else {
                 val rn = t.codePointCount(0, n).toLong // we want to return the number of codepoints!
                 SOptional(Some(SInt64(rn)))
@@ -1352,7 +1357,7 @@ object SBuiltin {
           args.get(1) match {
             case SText(t) =>
               if (n < 0) {
-                SText("")
+                SValue.SValue.EmptyText
               } else {
                 val rn = n.min(Int.MaxValue.toLong).toInt
                 SText(t * rn)

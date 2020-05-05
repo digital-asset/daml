@@ -223,6 +223,7 @@ object SValue {
     val EmptyMap = STextMap(HashMap.empty)
     val EmptyGenMap = SGenMap.Empty
     val Token = SToken
+    val EmptyText = SText("")
   }
 
   abstract class SValueContainer[X] {

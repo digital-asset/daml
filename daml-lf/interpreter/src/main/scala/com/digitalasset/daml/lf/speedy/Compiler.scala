@@ -4,6 +4,8 @@
 package com.daml.lf
 package speedy
 
+import java.util
+
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Time}
 import com.daml.lf.language.Ast._
@@ -256,6 +258,8 @@ private[lf] final case class Compiler(
     case SCPCons => 2
   }
 
+  private val NoRecordArgs = new util.ArrayList[SValue](0)
+
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
@@ -402,7 +406,7 @@ private[lf] final case class Compiler(
 
       case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
-          SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
+          SEValue(SRecord(tApp.tycon, Name.Array.empty, NoRecordArgs))
         else {
           SEApp(
             SEBuiltin(SBRecCon(tApp.tycon, Name.Array(fields.map(_._1).toSeq: _*))),
@@ -686,7 +690,7 @@ private[lf] final case class Compiler(
   private def translateType(typ: Type): Option[SExpr] =
     typ match {
       case TNat(n) => SENat(n)
-      case TVar(name) => env.lookUpTypeVar(name).map(SEVar)
+      case TVar(name) => env.lookUpTypeVar(name).map(SEVar(_))
       case _ => None
     }
 
@@ -722,7 +726,7 @@ private[lf] final case class Compiler(
                   SEApp(SEVar(3), Array(SEVar(2))),
                   // stack: <party> <update> <token> () result
                 ) in
-                  SBSEndCommit(false)(SEVar(1), SEVar(3))
+                  SBSEndCommit.MustSucceed(SEVar(1), SEVar(3))
               }
             )
         }
@@ -743,7 +747,7 @@ private[lf] final case class Compiler(
               SELet(
                 SBSBeginCommit(optLoc)(party, SEVar(1)),
                 SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
-              ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
+              ) in SBSEndCommit.MustFail(SEVar(1), SEVar(3))
             }
           )
         }

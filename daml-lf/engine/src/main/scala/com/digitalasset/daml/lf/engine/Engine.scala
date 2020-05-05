@@ -277,7 +277,8 @@ final class Engine {
           seeds = seeding,
           globalCids,
         )
-        .copy(validating = validating, committers = submitters)
+      machine.validating = validating
+      machine.committers = submitters
       interpretLoop(machine, ledgerTime)
     }
 

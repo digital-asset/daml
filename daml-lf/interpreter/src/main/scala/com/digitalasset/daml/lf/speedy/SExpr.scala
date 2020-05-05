@@ -17,8 +17,6 @@ import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SBuiltin._
-import java.util.ArrayList
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -46,6 +44,14 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       crash("unexpected SEVar, expected SELoc(S/A/F)")
     }
+  }
+
+  object SEVar {
+    private val samllSEVarsLimit = 16
+    private val smallSEVArs = Array.range(0, samllSEVarsLimit).map(new SEVar(_))
+
+    def apply(index: Int): SEVar =
+      if (index < samllSEVarsLimit) smallSEVArs(index) else new SEVar(index)
   }
 
   /** Reference to a value. On first lookup the evaluated expression is
@@ -78,15 +84,10 @@ object SExpr {
 
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExpr {
-    def execute(machine: Machine): Unit = {
-      /* special case for nullary record constructors */
-      machine.returnValue = b match {
-        case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, new ArrayList())
-        case _ =>
-          SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
-      }
-    }
+    private val svalue: SValue = SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
+
+    def execute(machine: Machine): Unit =
+      machine.returnValue = svalue
   }
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */

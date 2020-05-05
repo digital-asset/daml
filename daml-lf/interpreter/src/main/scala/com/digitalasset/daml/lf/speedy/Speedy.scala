@@ -91,9 +91,9 @@ object Speedy {
   type Actuals = util.ArrayList[SValue]
 
   /** The speedy CEK machine. */
-  final case class Machine(
+  final class Machine(
       /* Value versions that the machine can output */
-      supportedValueVersions: VersionRange[value.ValueVersion],
+      val supportedValueVersions: VersionRange[value.ValueVersion],
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -125,7 +125,7 @@ object Speedy {
        */
       var validating: Boolean,
       /* The trace log. */
-      traceLog: TraceLog,
+      val traceLog: TraceLog,
       /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Flag to trace usage of get_time builtins */
@@ -140,7 +140,7 @@ object Speedy {
       var track: Instrumentation,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       var profile: Profile
-  ) extends SomeArrayEquals {
+  ) {
 
     /* kont manipulation... */
 
@@ -519,7 +519,7 @@ object Speedy {
         initialSeeding: InitialSeeding,
         globalCids: Set[V.ContractId]
     ) =
-      Machine(
+      new Machine(
         supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
         ctrl = null,
         returnValue = null,
@@ -609,8 +609,11 @@ object Speedy {
         submissionTime: Time.Timestamp,
         seeding: InitialSeeding,
         globalCids: Set[V.ContractId],
-    ): Machine =
-      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = sexpr)
+    ): Machine = {
+      val m = initial(compiledPackages, submissionTime, seeding, globalCids)
+      m.ctrl = sexpr
+      m
+    }
   }
 
   // Environment
