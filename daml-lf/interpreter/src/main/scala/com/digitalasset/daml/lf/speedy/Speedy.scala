@@ -141,7 +141,7 @@ object Speedy {
       // wrap the exception handler on each of these steps. This is a performace gain.
       // However, we still need the outer loop because of the case:
       //    case _:SErrorDamlException if tryHandleException =>
-      // where we must continue interation.
+      // where we must continue iteration.
       var result: SResult = null
       while (result == null) {
         // note: exception handler is outside while loop
