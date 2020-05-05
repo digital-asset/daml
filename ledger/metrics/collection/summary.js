@@ -42,7 +42,7 @@ function toDict(rawData) {
 const formatNumber = (num) => (num === undefined || isNaN(num)) ? "" : Math.round( num * 100 + Number.EPSILON ) / 100;
 
 function toCsv(dictData) {
-    const result = ["Metric, Count, Mean, Total, Min, Max"];
+    const result = [];
     for(const key in dictData) {
         const rowData = dictData[key];
         const count = formatNumber(rowData.count);
@@ -52,7 +52,7 @@ function toCsv(dictData) {
         const max = formatNumber(rowData.max);
         result.push(`${key}, ${count}, ${mean}, ${total}, ${min}, ${max}`);
     }
-    return result.join("\n");
+    return "Metric, Count, Mean, Total, Min, Max\n" + result.sort().join("\n");
 }
 
 async function fetchData() {
