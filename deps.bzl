@@ -37,6 +37,8 @@ rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
 rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
 buildifier_version = "0.26.0"
 buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
+zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
+zlib_sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -94,9 +96,9 @@ def daml_deps():
         http_archive(
             name = "com_github_madler_zlib",
             build_file = "@com_github_digital_asset_daml//3rdparty/c:zlib.BUILD",
-            strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
-            urls = ["https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz"],
-            sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45",
+            strip_prefix = "zlib-{}".format(zlib_version),
+            urls = ["https://github.com/madler/zlib/archive/{}.tar.gz".format(zlib_version)],
+            sha256 = zlib_sha256,
         )
 
     if "io_bazel_rules_go" not in native.existing_rules():

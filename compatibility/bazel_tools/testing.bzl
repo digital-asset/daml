@@ -6,8 +6,7 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-
-latest_stable = "1.0.0"
+load("//:versions.bzl", "latest_stable_version")
 
 # Indexed first by test tool version and then by sandbox version.
 # Note that at this point the granularity for disabling tests
@@ -59,7 +58,7 @@ def get_excluded_tests(test_tool_version, sandbox_version):
     return excluded_test_tool_tests.get(test_tool_version, default = {}).get(sandbox_version, default = [])
 
 def extra_tags(sdk_version, platform_version):
-    if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable]):
+    if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable_version]):
         # These tests are the ones that we check on each PR since they
         # are the most useful ones and hopefully fast enough.
         return ["head-quick"]
