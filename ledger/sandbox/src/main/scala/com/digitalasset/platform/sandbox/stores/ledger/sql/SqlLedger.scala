@@ -154,7 +154,9 @@ private final class SqlLedger(
     new AtomicReference[Option[Configuration]](configAtInitialization)
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[RejectionReason, Unit] = {
+  private def checkTimeModel(
+      ledgerTime: Instant,
+      recordTime: Instant): Either[RejectionReason, Unit] = {
     currentConfiguration
       .get()
       .fold[Either[RejectionReason, Unit]](
