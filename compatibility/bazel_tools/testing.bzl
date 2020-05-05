@@ -6,8 +6,7 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-
-latest_stable = "1.0.0"
+load("//:versions.bzl", "latest_stable_version")
 
 # Indexed first by test tool version and then by sandbox version.
 # Note that at this point the granularity for disabling tests
@@ -16,9 +15,23 @@ latest_stable = "1.0.0"
 # for details.
 excluded_test_tool_tests = {
     "1.0.0": {
+        "1.1.0-snapshot.20200430.4057.0.681c862d": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
         "0.0.0": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200424.3917.0.16093690": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1": [
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
@@ -30,11 +43,97 @@ excluded_test_tool_tests = {
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
+        "1.0.1-snapshot.20200424.3917.0.16093690": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200430.4057.0.681c862d": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
     },
-    "1.1.0-snapshot.20200422.3991.0.6391ee9f": {
+    "1.0.1-snapshot.20200424.3917.0.16093690": {
+        "1.0.0": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200417.3908.1.722bac90": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200430.4057.0.681c862d": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
         "0.0.0": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
+        ],
+    },
+    "1.0.1": {
+        "1.0.0": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200417.3908.1.722bac90": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200430.4057.0.681c862d": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
+        "0.0.0": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
+    },
+    "1.1.0-snapshot.20200422.3991.0.6391ee9f": {
+        "1.0.1-snapshot.20200424.3917.0.16093690": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200430.4057.0.681c862d": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "0.0.0": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+    },
+    "1.1.0-snapshot.20200430.4057.0.681c862d": {
+        "1.0.0": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200417.3908.1.722bac90": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
@@ -59,7 +158,7 @@ def get_excluded_tests(test_tool_version, sandbox_version):
     return excluded_test_tool_tests.get(test_tool_version, default = {}).get(sandbox_version, default = [])
 
 def extra_tags(sdk_version, platform_version):
-    if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable]):
+    if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable_version]):
         # These tests are the ones that we check on each PR since they
         # are the most useful ones and hopefully fast enough.
         return ["head-quick"]
@@ -149,7 +248,7 @@ def sdk_platform_test(sdk_version, platform_version):
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
-        tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+        tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
     )
 
     client_server_test(

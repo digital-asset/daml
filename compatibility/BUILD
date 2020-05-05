@@ -10,6 +10,7 @@ load(
     "daml_script_test",
 )
 load("//sandbox-migration:util.bzl", "migration_test")
+load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
 
 config_setting(
     name = "ghci_data",
@@ -17,26 +18,6 @@ config_setting(
         "ghci_data": "True",
     },
 )
-
-sdk_versions = [
-    "1.0.0",
-    "1.0.1-snapshot.20200417.3908.1.722bac90",
-    "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-    "0.0.0",
-]
-
-platform_versions = [
-    "1.0.0",
-    "1.0.1-snapshot.20200417.3908.1.722bac90",
-    "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-    "0.0.0",
-]
-
-# TODO Generate this automatically.
-stable_platform_versions = [
-    "1.0.0",
-    "0.0.0",
-]
 
 [
     sh_binary(
@@ -90,7 +71,7 @@ test_suite(
 migration_test(
     name = "migration-stable",
     tags = ["head-quick"],
-    versions = stable_platform_versions,
+    versions = stable_versions,
 ) if not is_windows else None
 
 migration_test(
