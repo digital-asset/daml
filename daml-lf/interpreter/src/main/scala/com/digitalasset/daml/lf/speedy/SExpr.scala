@@ -86,7 +86,7 @@ object SExpr {
   final case class SEApp(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KArg(args))
-      machine.ctrl = fun
+      machine.ctrl_expr = fun
     }
   }
 
@@ -134,7 +134,7 @@ object SExpr {
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KMatch(alts))
-      machine.ctrl = scrut
+      machine.ctrl_expr = scrut
     }
 
     override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
@@ -171,7 +171,7 @@ object SExpr {
         val b = bounds(bounds.size - i)
         machine.pushKont(KPushTo(machine.env, b))
       }
-      machine.ctrl = bounds.head
+      machine.ctrl_expr = bounds.head
     }
   }
 
@@ -199,7 +199,7 @@ object SExpr {
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushLocation(loc)
-      machine.ctrl = expr
+      machine.ctrl_expr = expr
     }
   }
 
@@ -213,7 +213,7 @@ object SExpr {
   final case class SECatch(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KCatch(handler, fin, machine.env.size))
-      machine.ctrl = body
+      machine.ctrl_expr = body
     }
   }
 

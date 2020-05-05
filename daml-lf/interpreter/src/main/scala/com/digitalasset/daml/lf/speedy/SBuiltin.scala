@@ -934,9 +934,9 @@ object SBuiltin {
                     // set the control appropriately which will crash the machine
                     // correctly later.
                     if (coinst.template != templateId)
-                      machine.ctrl = SEWronglyTypeContractId(acoid, templateId, coinst.template)
+                      machine.ctrl_expr = SEWronglyTypeContractId(acoid, templateId, coinst.template)
                     else
-                      machine.ctrl = SEImportValue(coinst.arg.value)
+                      machine.ctrl_expr = SEImportValue(coinst.arg.value)
                   },
                 ),
               )
@@ -1017,7 +1017,7 @@ object SBuiltin {
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(V.ValueOptional(Some(V.ValueContractId(cid))))
+                  machine.ctrl_expr = SEImportValue(V.ValueOptional(Some(V.ValueContractId(cid))))
                   true
                 case SKeyLookupResult.NotFound =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
@@ -1092,7 +1092,7 @@ object SBuiltin {
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(V.ValueContractId(cid))
+                  machine.ctrl_expr = SEImportValue(V.ValueContractId(cid))
                   true
                 case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))

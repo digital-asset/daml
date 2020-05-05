@@ -30,7 +30,8 @@ object Speedy {
       var returnDepth: Int,
       //var maxReturnDepth: Int, //Instrumentation
       /* The control is what the machine should be evaluating. */
-      var ctrl: SExpr,
+      var ctrl_expr: SExpr,
+      var ctrl_value: SValue,
       /* The environment: an array of values */
       var env: Env,
       /* Kont, or continuation specifies what should be done next
@@ -148,16 +149,20 @@ object Speedy {
         try {
           while (!isFinal) {
             //if (returnDepth > maxReturnDepth) maxReturnDepth = returnDepth;
-            returnDepth = 0
-            ctrl.execute(this) // make a single step
-          }
-          ctrl match {
-            case SEValue(value) => {
-              //println(s"maxReturnDepth = $maxReturnDepth")
-              result = SResultFinalValue(value) //stop
+            if (ctrl_value != null) {
+              val value = ctrl_value
+              ctrl_value = null
+              popKont.execute(value, this)
+            } else {
+              val expr = ctrl_expr
+              ctrl_expr = null
+              expr.execute(this)
             }
-            case _ =>
-              throw SErrorCrash(s"Unexpected ctrl on final machine $ctrl")
+          }
+          if (ctrl_value != null) {
+            result = SResultFinalValue(ctrl_value)
+          } else {
+              throw SErrorCrash(s"Unexpected ctrl on final machine $ctrl_expr")
           }
         } catch {
           case SpeedyHungry(res: SResult) => result = res //stop
@@ -184,7 +189,7 @@ object Speedy {
         val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
         kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
-        ctrl = kcatch.handler
+        ctrl_expr = kcatch.handler
         true
       } else
         false
@@ -201,7 +206,7 @@ object Speedy {
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               pushKont(KCacheVal(eval, Nil))
-              ctrl = body
+              ctrl_expr = body
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
                 crash(
@@ -227,65 +232,12 @@ object Speedy {
       * is empty, and the control expression is a value
       */
     def isFinal(): Boolean = {
-      if (kontStack.isEmpty) {
-        ctrl match {
-          case SEValue(_) => true
-          case _ => false
-        }
-      } else
-        false
+      kontStack.isEmpty && ctrl_value != null
     }
 
     // Return a value to the waiting continutaion
-    def returnValue(value: SValue): Unit = {
-      returnDepth += 1
-      if (kontStack.isEmpty) {
-        ctrl = SEValue(value) // The final resulting value
-      } else {
-        if (returnDepth < limitReturnDepth) {
-          val kont = popKont()
-          kont.execute(value, this)
-        } else {
-          ctrl = SEValue(value) // force the current step to end
-        }
-      }
-    }
-
-    /**
-      Unwind all KPop and KLocation continuations from the kont-stack.
-      For KPop - we do the required popEnv.
-      Execute the first continutaion found which is not KPop/KLocation.
-      Or, if kont-stack becomes empty, set the machine.ctrl to the final value.
-
-      This function has the same semantics as `returnValue` but avoids consuming JVM stack
-      for sequences of KPop/KLocation.  We only use this function from the `execute`
-      method of KPop/KLocation, so not every call to returnDepth has the pay the price of
-      the extra matching on the Kont class which is done here.
-      Even so, this function has a small negative impact on performance.
-      */
-    def unwindKontStackThenReturnValue(value: SValue): Unit = {
-      var kont: Kont = null
-      var again: Boolean = true
-      while (again) {
-        if (kontStack.isEmpty) {
-          again = false
-        } else {
-          popKont() match {
-            case KLocation(_) => ()
-            case KPop(count) =>
-              popEnv(count)
-            case properContinution => {
-              again = false
-              kont = properContinution
-            }
-          }
-        }
-      }
-      if (kont != null) {
-        kont.execute(value, this)
-      } else {
-        ctrl = SEValue(value) // The final resulting value
-      }
+    @inline def returnValue(value: SValue): Unit = {
+      ctrl_value = value // The final resulting value
     }
 
     def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
@@ -301,7 +253,7 @@ object Speedy {
           env.addAll(args)
 
           // And start evaluating the body of the closure.
-          ctrl = expr
+          ctrl_expr = expr
 
         case PBuiltin(b) =>
           try {
@@ -323,16 +275,17 @@ object Speedy {
       if (!isFinal) {
         crash("toSValue: machine not final")
       } else {
-        ctrl match {
-          case SEValue(v) => v
-          case _ => crash("machine did not evaluate to a value")
-        }
+        ctrl_value
       }
 
     def print(count: Int) = {
       println(s"Step: $count")
       println("Control:")
-      println(s"  ${ctrl}")
+      if (ctrl_value != null) {
+        println(s"  ${ctrl_value}")
+      } else {
+        println(s"  ${ctrl_expr}")
+      }
       println("Environment:")
       env.forEach { v =>
         println("  " + v.toString)
@@ -474,7 +427,8 @@ object Speedy {
       Machine(
         returnDepth = 0,
         //maxReturnDepth = 0,
-        ctrl = null,
+        ctrl_expr = null,
+        ctrl_value = null,
         env = emptyEnv,
         kontStack = new util.ArrayList[Kont](128),
         lastLocation = None,
@@ -557,7 +511,7 @@ object Speedy {
         seeding: InitialSeeding,
         globalCids: Set[V.AbsoluteContractId],
     ): Machine =
-      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = sexpr)
+      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl_expr = sexpr)
   }
 
   //
@@ -585,7 +539,7 @@ object Speedy {
   final case class KPop(count: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       machine.popEnv(count)
-      machine.unwindKontStackThenReturnValue(v)
+      machine.returnValue(v)
     }
   }
 
@@ -618,7 +572,7 @@ object Speedy {
             machine.pushKont(KPushTo(extendedArgs, arg))
             i = i + 1
           }
-          machine.ctrl = newArgs(0)
+          machine.ctrl_expr = newArgs(0)
 
         case _ =>
           crash(s"Applying non-PAP: $v")
@@ -717,11 +671,10 @@ object Speedy {
           crash("Match on non-matchable value")
       }
 
-      machine.ctrl = altOpt
+      machine.ctrl_expr = altOpt
         .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-        .body,
+        .body
     }
-
   }
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
@@ -733,7 +686,7 @@ object Speedy {
   final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       to.add(v)
-      machine.ctrl = next
+      machine.ctrl_expr = next
     }
   }
 
@@ -758,14 +711,14 @@ object Speedy {
     */
   final case class KCatch(handler: SExpr, fin: SExpr, envSize: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
-      machine.ctrl = fin
+      machine.ctrl_expr = fin
     }
   }
 
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(location: Location) extends Kont {
     def execute(v: SValue, machine: Machine) = {
-      machine.unwindKontStackThenReturnValue(v)
+      machine.returnValue(v)
     }
   }
 
