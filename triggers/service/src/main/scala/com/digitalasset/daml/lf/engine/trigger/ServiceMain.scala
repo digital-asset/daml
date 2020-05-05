@@ -246,7 +246,8 @@ object Server {
                     triggers = triggers + (uuid -> TriggerActorWithParty(ref, party))
                     val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
                     triggersByParty = triggersByParty + (party -> newTriggerSet)
-                    complete(successResponse(uuid.toString))
+                    val triggerIdResult = JsObject(Map() + ("triggerId" -> JsString(uuid.toString)))
+                    complete(successResponse(triggerIdResult))
                 }
             }
           },

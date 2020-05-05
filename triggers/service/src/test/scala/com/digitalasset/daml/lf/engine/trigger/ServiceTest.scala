@@ -130,7 +130,8 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 
   def parseTriggerId(resp: HttpResponse): Future[String] = {
     for {
-      JsString(triggerId) <- parseResult(resp)
+      JsObject(fields) <- parseResult(resp)
+      Some(JsString(triggerId)) = fields.get("triggerId")
     } yield triggerId
   }
 
