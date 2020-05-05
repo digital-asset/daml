@@ -123,7 +123,7 @@ object Ordering extends scala.math.Ordering[SValue] {
         val c1 = crypto.Hash.ordering.compare(hash1, hash2)
         if (c1 != 0)
           c1
-        else if (suffix1.isEmpty != suffix2.isEmpty)
+        else if (suffix1.isEmpty == suffix2.isEmpty)
           Bytes.ordering.compare(suffix1, suffix2)
         else
           throw SErrorCrash("Conflicting discriminators between a local and global contract id")

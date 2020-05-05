@@ -443,8 +443,7 @@ class OrderingSpec
   // The tests are here as this is difficult to test outside daml-lf/interpreter.
   "txn Value Ordering" should {
     import Value.{AbsoluteContractId => Cid}
-    // SContractId V1 ordering is neither reflexive nor transitive so
-    // arbitrary generation of them is unsafe to use
+    // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
     implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidV0Gen)
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
@@ -462,9 +461,11 @@ class OrderingSpec
       }
     }
 
-    "match global AbsoluteContractId ordering" in forAll(comparableAbsCoidsGen, minSuccessful(100)) {
-      case (a, b) =>
-        Cid.`AbsCid Order`.order(a, b) should ===(cidOrd.order(a, b))
+    "match global AbsoluteContractId ordering" in forEvery(Table("gen", comparableAbsCoidsGen: _*)) {
+      coidGen =>
+        forAll(coidGen, coidGen, minSuccessful(50)) { (a, b) =>
+          Cid.`AbsCid Order`.order(a, b) should ===(cidOrd.order(a, b))
+        }
     }
   }
 
