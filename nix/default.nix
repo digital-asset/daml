@@ -203,6 +203,7 @@ in rec {
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
     grep = pkgs.gnugrep;
+    bc = pkgs.bc;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
