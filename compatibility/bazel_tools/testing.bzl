@@ -184,5 +184,6 @@ def sdk_platform_test(sdk_version, platform_version):
         daml = daml_assistant,
         sandbox = sandbox,
         sandbox_args = sandbox_args,
+        size = "large",
         tags = extra_tags(sdk_version, platform_version),
     )

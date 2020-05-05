@@ -17,6 +17,7 @@ import Control.Exception.Safe (catchJust, mask, onException)
 import Control.Monad (guard)
 import qualified Data.Text.IO as T
 import Safe (readMay)
+import System.Environment (getEnvironment)
 import System.Exit (exitFailure)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
@@ -74,16 +75,20 @@ getSandboxProc SandboxConfig{..} portFile = do
                 , "--crt", sandboxCertificates </> "server.crt"
                 ]
         else pure []
-    pure $ proc sandboxBinary $ concat
-        [ sandboxArgs
-        , [ "--port=0", "--port-file", portFile ]
-        , tlsArgs
-        , [ timeArg ]
-        , [ "--client-auth=" <> clientAuthArg auth | Just auth <- [mbClientAuth] ]
-        , [ "--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSharedSecret] ]
-        , [ "--ledgerid=" <> ledgerId | Just ledgerId <- [mbLedgerId] ]
-        , dars
-        ]
+    let args = concat
+          [ sandboxArgs
+          , [ "--port=0", "--port-file", portFile ]
+          , tlsArgs
+          , [ timeArg ]
+          , [ "--client-auth=" <> clientAuthArg auth | Just auth <- [mbClientAuth] ]
+          , [ "--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSharedSecret] ]
+          , [ "--ledgerid=" <> ledgerId | Just ledgerId <- [mbLedgerId] ]
+          , dars
+          ]
+    env <- getEnvironment
+    pure $ (proc sandboxBinary args)
+      -- Reducing memory consumption to allow multiple parallel test executions.
+      { env = Just $ ("_JAVA_OPTIONS", "-Xss4m -Xms128m -Xmx1g") : env }
   where timeArg = case timeMode of
             WallClock -> "--wall-clock-time"
             Static -> "--static-time"
