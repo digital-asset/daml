@@ -7,9 +7,7 @@ import java.io.File
 import java.nio.file.Files
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.`X-Forwarded-Proto`
-import akka.http.scaladsl.model.{HttpHeader, HttpMethods, HttpRequest, StatusCode, StatusCodes, Uri}
-import com.daml.http.HttpServiceTestFixture.LeakPasswords
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.daml.http.Statement.discard
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
@@ -71,46 +69,6 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
     "can 'parse' quoted sample" in {
       Forwarded("for=192.168.0.1;proto = \"https\" ;by=192.168.0.42").proto should ===(
         Some("https"))
-    }
-
-    import spray.json._, json.JsonProtocol._
-    Seq(
-      (
-        "without header",
-        Seq.empty[HttpHeader],
-        StatusCodes.Unauthorized: StatusCode,
-        "errors" -> Seq(Endpoints.nonHttpsErrorMessage).toJson),
-      (
-        "with old-style Forwarded",
-        Seq(`X-Forwarded-Proto`("https")),
-        StatusCodes.OK,
-        "result" -> JsArray(Vector())),
-      (
-        "with new-style Forwarded",
-        Seq(Forwarded("for=192.168.0.1;proto = \"https\" ;by=192.168.0.42")),
-        StatusCodes.OK,
-        "result" -> JsArray(Vector())),
-    ) foreach {
-      case (lbl, extraHeaders, expectedStatus, expectedOutput) =>
-        s"is checked $lbl" in HttpServiceTestFixture.withHttpService(
-          testId,
-          List.empty,
-          jdbcConfig,
-          staticContentConfig,
-          leakPasswords = LeakPasswords.No) { (uri, _, _, _) =>
-          getRequest(
-            uri = uri.withPath(Uri.Path("/v1/query")),
-            headers = headersWithAuth ++ extraHeaders)
-            .map {
-              case (status, output) =>
-                discard { status shouldBe expectedStatus }
-                discard { assertStatus(output, expectedStatus) }
-                inside(output) {
-                  case JsObject(fields) =>
-                    (fields: Iterable[(String, JsValue)]) should contain(expectedOutput)
-                }
-            }: Future[Assertion]
-        }
     }
   }
 }

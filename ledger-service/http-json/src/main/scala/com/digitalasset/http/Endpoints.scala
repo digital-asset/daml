@@ -383,7 +383,10 @@ class Endpoints(
 
   private[this] def ensureHttpsForwarded(req: HttpRequest): Unauthorized \/ Unit =
     if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
-    else -\/(Unauthorized(nonHttpsErrorMessage))
+    else {
+      logger.warn(nonHttpsErrorMessage)
+      \/-(())
+    }
 
   private[this] def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
     headers exists {
