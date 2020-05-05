@@ -95,13 +95,11 @@ Contract ID uniqueness
 ----------------------
 
 During interpretation local contract IDs are created without suffix.
-Ledger implementations are responsible for enforcing 
-uniqueness of contract IDs on the whole ledger.
-This can be done by enforcing global uniqueness of the seeds or by appropriately suffixing the contract IDs.
-No other requirement (except the 95 bytes size
-limit) is assumed for those suffices.
-
-This guard against the submitter choosing low-entropy submission seeds. 
+Ledger implementations are responsible for enforcing uniqueness of
+contract IDs on the whole ledger.  This can be done by enforcing
+global uniqueness of the seeds or by appropriately suffixing the
+contract IDs.  No other requirement (except the 95 bytes size limit)
+is assumed for those suffices.
 
 The simplest approach consists to suffix all local contract ID with a
 uniquely global transaction ID. Alternatively central commiter ledger
@@ -147,23 +145,17 @@ Transaction seed construction
 
 From the submission, a so-called *transaction seed* is derived as follows::
 
-  deriveTransactionSeed(submissionSeed, participandId, submissionTime, submitters) :=
-     HMAC(submissionSeed, participantId ∥ submissionTime ∥ nₛ ∥ submitters)
+  deriveTransactionSeed(submissionSeed, participantId, submissionTime) :=
+     HMAC(submissionSeed, participantId ∥ submissionTime)
 
 where
 
 * ``submissionSeed`` is the submission seed;
-* ``participandId`` is the participant ID;
+* ``participandId`` is US-ASCII encoding of the participant ID
+  prefixed with is size encoded as a 32 bits big-endian integer;
 * ``submissionTime`` is the submission time in micro second encoded as
   a 64 bytes big-endian integer;
-* ``nₛ`` is the number of submitters encoded as a 32 big-endian bits
-  integer;
-* ``submitters`` is the concatenation of the submitter IDs sorted
-  lexicographically.
 
-Strings such as participant IDs or submitter IDs are interpreted as
-their US-ASCII encoding prefixed with their size encoded as a
-32 bits big-endian integer.
   
      
 Derivation of seeds for root nodes the transaction
@@ -197,10 +189,9 @@ where
 * ``nₛ`` is the number of stakeholder's of the contract encoded as a
   32 bits big-endian integer;
 * ``stackholders`` is the concatenation of the stakeholders IDs sorted
-  lexicographically.
-
-IDs of stakeholder are interpreted as their US-ASCII encoding prefixed
-with there size encoded as a 32 bits  big-endian integer.
+  lexicographically. IDs of stakeholder are interpreted as their
+  US-ASCII encoding prefixed with there size encoded as a 32 bits
+  big-endian integer.
   
 Submission
 ^^^^^^^^^^
@@ -215,10 +206,15 @@ The submission performs the following steps:
   interpretation. The submitter can restart the interpretation, which will pick
   another submission seed.
 * If the transaction succeeds, the output is a *raw transaction*
-* All local contract IDs in the raw transaction are suffixed with a
-  ledger specific suffix. This yields the *ready transaction*.
-* The ready transaction is then sent on the write path, along with the
-  submission seed and the submission time.
+
+
+Depending of the ledger implementation, the local contract IDs are
+suffixed with a suffix in a latter step. This yields the *ready
+transaction*. For ledgers that do not require suffixing, raw and ready
+transaction coincide. Ready transactions are the source of true to
+describe the state if the ledger.
+
+
 
 Validation
 ^^^^^^^^^^
@@ -228,14 +224,14 @@ transaction, the submission seed, and the submission time as
 inputs. Transaction seed is derived in the same way as for
 submission.
 
-Reinterpretation for a partial transaction validation takes
-the partial transaction, the seed of the partial transaction root
-nodes, and the submission time as inputs.
+Reinterpretation for a partial transaction validation takes the
+partial transaction, the seeds of the partial transaction root nodes,
+and the submission time as inputs.
 
 In both cases when a contract ID must be allocated, the discriminator
-is computed and check for freshness in the same way. The resulting
-transactions are then compare with the original ones ignoring the
-suffix of the local contract IDs.
+is computed and check for freshness in the same way as for
+submission. The resulting transactions are then compared with the
+original ones ignoring the suffix of the local contract IDs.
 
 
 .. Local Variables:
