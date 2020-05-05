@@ -304,7 +304,8 @@ object Server {
           val party = actorWithParty.party
           val newTriggerSet = triggersByParty.get(party).get - id
           triggersByParty = triggersByParty + (party -> newTriggerSet)
-          complete(successResponse(s"Trigger $id has been stopped."))
+          val stoppedTriggerId = JsObject(Map() + ("triggerId" -> JsString(id.toString)))
+          complete(successResponse(stoppedTriggerId))
         }
       },
     )

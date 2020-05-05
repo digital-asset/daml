@@ -165,8 +165,8 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       _ <- result should equal(JsArray(JsString(triggerId)))
 
       resp <- stopTrigger(uri, triggerId)
-      JsString(result) <- parseResult(resp)
-      _ <- result should equal(s"Trigger $triggerId has been stopped.")
+      stoppedTriggerId <- parseTriggerId(resp)
+      _ <- stoppedTriggerId should equal(triggerId)
     } yield succeed
   }
 
