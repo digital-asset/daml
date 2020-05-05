@@ -289,7 +289,8 @@ object Server {
             {
               val triggerList =
                 triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList
-              complete(successResponse(triggerList))
+              val result = JsObject(("triggerIds", triggerList.toJson))
+              complete(successResponse(result))
             }
           }
         }
