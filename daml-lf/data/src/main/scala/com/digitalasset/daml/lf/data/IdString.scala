@@ -265,7 +265,7 @@ private[data] final class IdStringImpl extends IdString {
     new ConcatenableMatchingStringModule("DAML LF Ledger String", "._:-#/ ".contains(_), 255)
 
   override type ParticipantId = String
-  override val ParticipantId: LedgerString.type = LedgerString
+  override val ParticipantId = LedgerString
 
   /**
     * Legacy contractIds.
