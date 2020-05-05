@@ -152,8 +152,9 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   it should "start a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
     for {
       resp <- uploadDar(uri, darPath)
-      JsString(result) <- parseResult(resp)
-      _ <- result should startWith("DAR uploaded")
+      JsObject(fields) <- parseResult(resp)
+      Some(JsString(mainPackageId)) = fields.get("mainPackageId")
+      _ <- mainPackageId should not be empty
 
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
       triggerId <- parseTriggerId(resp)
