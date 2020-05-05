@@ -31,6 +31,7 @@ import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 import com.daml.lf.CompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
@@ -57,7 +58,6 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
-import spray.json.{JsObject, JsString}
 
 case class LedgerConfig(
     host: String,
@@ -246,7 +246,7 @@ object Server {
                     triggers = triggers + (uuid -> TriggerActorWithParty(ref, party))
                     val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
                     triggersByParty = triggersByParty + (party -> newTriggerSet)
-                    val triggerIdResult = JsObject(Map() + ("triggerId" -> JsString(uuid.toString)))
+                    val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
                     complete(successResponse(triggerIdResult))
                 }
             }
@@ -270,8 +270,7 @@ object Server {
                             case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
                           }
                           addDar(compiledPackages, dar)
-                          val mainPackageId =
-                            JsObject(Map() + ("mainPackageId" -> JsString(dar.main._1)))
+                          val mainPackageId = JsObject(("mainPackageId", dar.main._1.name.toJson))
                           complete(successResponse(mainPackageId))
                         } catch {
                           case err: ParseError =>
@@ -297,14 +296,14 @@ object Server {
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("stop" / JavaUUID) { id =>
-          val actorWithParty = triggers.get(id).get
+        pathPrefix("stop" / JavaUUID) { uuid =>
+          val actorWithParty = triggers.get(uuid).get
           actorWithParty.ref ! TriggerActor.Stop
-          triggers = triggers - id
+          triggers = triggers - uuid
           val party = actorWithParty.party
-          val newTriggerSet = triggersByParty.get(party).get - id
+          val newTriggerSet = triggersByParty.get(party).get - uuid
           triggersByParty = triggersByParty + (party -> newTriggerSet)
-          val stoppedTriggerId = JsObject(Map() + ("triggerId" -> JsString(id.toString)))
+          val stoppedTriggerId = JsObject(("triggerId", uuid.toString.toJson))
           complete(successResponse(stoppedTriggerId))
         }
       },
