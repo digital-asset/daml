@@ -302,7 +302,8 @@ exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-up
 package(default_visibility = ["//visibility:public"])
 genrule(
   name = "site",
-  srcs = ["_config.yml"] + glob(["**/*"], exclude = ["_config.yml"]),
+  srcs = ["_config.yml"] + glob(["**/*"],
+          exclude = ["_config.yml", "LICENSE", "WORKSPACE", "BUILD.bazel", "README.md"]),
   outs = ["cheat-sheet.tar.gz"],
   tools = ["@jekyll_nix//:bin/jekyll"],
   cmd = '''

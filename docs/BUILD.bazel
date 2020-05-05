@@ -403,9 +403,9 @@ genrule(
         fi
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-        # unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
-        # # Remove JAR metadata
-        # rm -r html/app-dev/bindings-java/javadocs/META-INF
+        unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
+        # Remove JAR metadata
+        rm -r html/app-dev/bindings-java/javadocs/META-INF
 
         # Copy generated documentation for typescript libraries
         mkdir -p html/app-dev/bindings-ts/daml-react
@@ -417,7 +417,7 @@ genrule(
 
         # Get the daml cheat sheet
         mkdir -p html/cheat-sheet
-        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html
+        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
