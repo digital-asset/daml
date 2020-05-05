@@ -57,6 +57,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
+import spray.json.{JsObject, JsString}
 
 case class LedgerConfig(
     host: String,
@@ -268,8 +269,9 @@ object Server {
                             case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
                           }
                           addDar(compiledPackages, dar)
-                          complete(
-                            successResponse(s"DAR uploaded, main package id: ${dar.main._1}"))
+                          val mainPackageId =
+                            JsObject(Map() + ("mainPackageId" -> JsString(dar.main._1)))
+                          complete(successResponse(mainPackageId))
                         } catch {
                           case err: ParseError =>
                             complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
