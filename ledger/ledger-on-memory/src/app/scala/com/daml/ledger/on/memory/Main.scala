@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
 import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.resources.{ProgramResource, ResourceOwner}
@@ -49,7 +50,7 @@ object Main {
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          metricRegistry(participantConfig, config))
+          new Metrics(metricRegistry(participantConfig, config)))
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
@@ -58,7 +59,7 @@ object Main {
       new InMemoryLedgerReaderWriter.Owner(
         initialLedgerId = config.ledgerId,
         participantId = participantConfig.participantId,
-        metricRegistry = metricRegistry(participantConfig, config),
+        metrics = new Metrics(metricRegistry(participantConfig, config)),
         stateValueCache = caching.Cache.from(config.stateValueCache),
         dispatcher = dispatcher,
         state = state,

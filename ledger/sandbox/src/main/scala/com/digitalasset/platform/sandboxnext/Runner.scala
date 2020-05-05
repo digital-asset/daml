@@ -27,7 +27,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.PartyConfiguration
@@ -131,7 +130,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
-                  metricRegistry = metrics,
+                  metrics = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   resetOnStartup = isReset,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
@@ -141,8 +140,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   engine = engine
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-                readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
-                writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
+                readService = new TimedReadService(ledger, metrics)
+                writeService = new TimedWriteService(ledger, metrics)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
                 _ <- if (isReset) {
@@ -207,7 +206,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = readService,
                   writeService = writeService,
                   authService = authService,
-                  transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
+                  transformIndexService = new TimedIndexService(_, metrics),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   otherServices = List(resetService),
@@ -263,9 +262,4 @@ object Runner {
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
   private val MaximumStateValueCacheSize: caching.Size = 128L * 1024 * 1024
-
-  private val ServicePrefix = MetricName.DAML :+ "services"
-  private val IndexServicePrefix = ServicePrefix :+ "index"
-  private val ReadServicePrefix = ServicePrefix :+ "read"
-  private val WriteServicePrefix = ServicePrefix :+ "write"
 }

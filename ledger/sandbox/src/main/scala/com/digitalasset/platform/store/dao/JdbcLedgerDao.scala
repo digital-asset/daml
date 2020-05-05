@@ -12,7 +12,6 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
@@ -31,6 +30,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{AbsoluteContractId, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.events.EventIdFormatter.split
@@ -899,7 +899,7 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
     owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = false, metrics)
@@ -910,7 +910,7 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
@@ -923,7 +923,7 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
@@ -938,7 +938,7 @@ object JdbcLedgerDao {
       maxConnections: Int,
       eventsPageSize: Int,
       validate: Boolean,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)

@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.codahale.metrics.{Meter, MetricRegistry}
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
@@ -11,6 +10,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,7 +19,7 @@ final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     contractStore: ContractStore,
     maxRetries: Int,
-    metricRegistry: MetricRegistry,
+    metrics: Metrics,
 ) extends CommandExecutor {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -76,7 +76,7 @@ final class LedgerTimeAwareCommandExecutor(
                     s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime")
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
                 } else if (retriesLeft > 0) {
-                  Metrics.retryMeter.mark()
+                  metrics.daml.execution.retry.mark()
                   logger.debug(
                     s"Restarting the computation with new ledger effective time $maxUsedTime")
                   loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
@@ -110,9 +110,4 @@ final class LedgerTimeAwareCommandExecutor(
   // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceInputTime(cmd: Commands, newTime: Option[Time.Timestamp]): Commands =
     newTime.fold(cmd)(t => cmd.copy(commands = cmd.commands.copy(ledgerEffectiveTime = t)))
-
-  object Metrics {
-    val retryMeter: Meter = metricRegistry.meter(MetricPrefix :+ "retry")
-  }
-
 }

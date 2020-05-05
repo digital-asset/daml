@@ -16,6 +16,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
@@ -214,7 +215,7 @@ class SqlLedgerSpec
           queueDepth = queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,
-          metrics = metrics,
+          metrics = new Metrics(metrics),
         )
         .acquire()(system.dispatcher)
     }

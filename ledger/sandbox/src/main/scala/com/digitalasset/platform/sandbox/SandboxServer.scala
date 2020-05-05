@@ -23,7 +23,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.MetricName
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
@@ -107,7 +107,7 @@ object SandboxServer {
 
   final class SandboxState(
       materializer: Materializer,
-      metrics: MetricRegistry,
+      metrics: Metrics,
       packageStore: InMemoryPackageStore,
       // nested resource so we can release it independently when restarting
       apiServerResource: Resource[ApiServer],
@@ -123,7 +123,7 @@ object SandboxServer {
     private[SandboxServer] def reset(
         newApiServer: (
             Materializer,
-            MetricRegistry,
+            Metrics,
             InMemoryPackageStore,
             Port,
         ) => Resource[ApiServer]
@@ -143,12 +143,12 @@ object SandboxServer {
 final class SandboxServer(
     config: SandboxConfig,
     materializer: Materializer,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 ) extends AutoCloseable {
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(config, materializer, new MetricRegistry)
+    this(config, materializer, new Metrics(new MetricRegistry))
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -196,7 +196,7 @@ final class SandboxServer(
 
   private def buildAndStartApiServer(
       materializer: Materializer,
-      metrics: MetricRegistry,
+      metrics: Metrics,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Port],
@@ -273,14 +273,8 @@ final class SandboxServer(
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
-        writeService = new TimedWriteService(
-          indexAndWriteService.writeService,
-          metrics,
-          MetricName.DAML :+ "services" :+ "write"),
-        indexService = new TimedIndexService(
-          indexAndWriteService.indexService,
-          metrics,
-          MetricName.DAML :+ "services" :+ "write"),
+        writeService = new TimedWriteService(indexAndWriteService.writeService, metrics),
+        indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
         authorizer = authorizer,
         engine = SandboxServer.engine,
         timeProvider = timeProvider,

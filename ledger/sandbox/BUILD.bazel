@@ -226,6 +226,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/test-common",

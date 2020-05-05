@@ -4,9 +4,9 @@
 package com.daml.platform.indexer
 
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.{Resource, ResourceOwner}
 
@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext
 final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 )(implicit materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 

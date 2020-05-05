@@ -5,8 +5,8 @@ package com.daml.platform.apiserver
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.ServerInterceptor
@@ -21,7 +21,7 @@ final class LedgerApiServer(
     address: Option[String],
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
-    metrics: MetricRegistry,
+    metrics: Metrics,
 )(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[ApiServer] {
 

@@ -3,10 +3,10 @@
 
 package com.daml.platform.apiserver
 
-import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.metrics.MetricName
+import com.codahale.metrics.Timer
+import com.daml.metrics.Metrics
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
-import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor, Status}
+import io.grpc._
 
 import scala.collection.concurrent.TrieMap
 
@@ -27,11 +27,11 @@ import scala.collection.concurrent.TrieMap
   *
   * e.g. "org.example.SomeService/someMethod" becomes "daml.lapi.some_service.some_method"
   */
-final class MetricsInterceptor(metrics: MetricRegistry) extends ServerInterceptor {
+final class MetricsInterceptor(metrics: Metrics) extends ServerInterceptor {
 
   // Cache the result of calling MetricsInterceptor.nameFor, which practically has a
   // limited co-domain and whose cost we don't want to pay every time an endpoint is hit
-  private val fullServiceToMetricNameCache = TrieMap.empty[String, MetricName]
+  private val fullServiceToMetricNameCache = TrieMap.empty[String, Timer]
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -39,11 +39,11 @@ final class MetricsInterceptor(metrics: MetricRegistry) extends ServerIntercepto
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
     val fullMethodName = call.getMethodDescriptor.getFullMethodName
-    val metricName = fullServiceToMetricNameCache.getOrElseUpdate(
+    val timer = fullServiceToMetricNameCache.getOrElseUpdate(
       fullMethodName,
-      MetricsNaming.nameFor(fullMethodName))
-    val timer = metrics.timer(metricName).time()
-    next.startCall(new TimedServerCall(call, timer), headers)
+      metrics.daml.lapi.forMethod(MetricsNaming.nameFor(fullMethodName)))
+    val timerCtx = timer.time
+    next.startCall(new TimedServerCall(call, timerCtx), headers)
   }
 
   private final class TimedServerCall[ReqT, RespT](
