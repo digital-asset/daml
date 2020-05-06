@@ -25,12 +25,18 @@ import DA.Daml.LF.Verify.Context
 data ConstraintExpr
   -- | Boolean value.
   = CBool !Bool
+  -- | Integer value.
+  | CInt !Integer
+  -- | Real value.
+  | CReal !Rational
   -- | Reference to an expression variable.
   | CVar !ExprVarName
   -- | Sum of two expressions.
   | CAdd !ConstraintExpr !ConstraintExpr
   -- | Subtraction of two expressions.
   | CSub !ConstraintExpr !ConstraintExpr
+  -- | Equals operator.
+  | CEq !ConstraintExpr !ConstraintExpr
   -- | Boolean and operator.
   | CAnd !ConstraintExpr !ConstraintExpr
   -- | Boolean not operator.
@@ -42,9 +48,12 @@ data ConstraintExpr
 
 instance Show ConstraintExpr where
   show (CBool b) = show b
+  show (CInt i) = show i
+  show (CReal i) = show i
   show (CVar x) = T.unpack $ unExprVarName x
   show (CAdd e1 e2) = show e1 ++ " + " ++ show e2
   show (CSub e1 e2) = show e1 ++ " - " ++ show e2
+  show (CEq e1 e2) = show e1 ++ " == " ++ show e2
   show (CAnd e1 e2) = show e1 ++ " and " ++ show e2
   show (CNot e) = "not " ++ show e
   show (CIf e1 e2 e3) = "if " ++ show e1 ++ " then " ++ show e2 ++ " else " ++ show e3
@@ -63,12 +72,18 @@ instance ConstrExpr BoolExpr where
 instance ConstrExpr Expr where
   toCExp (EVar x) = CVar x
   toCExp (ERecProj _ f (EVar x)) = CVar $ recProj2Var x f
-  toCExp (ETmApp (ETmApp (ETyApp (EBuiltin b) _) e1) e2) = case b of
-    BEAddNumeric -> CAdd (toCExp e1) (toCExp e2)
-    BESubNumeric -> CSub (toCExp e1) (toCExp e2)
-    _ -> error ("Builtin: " ++ show b)
+  toCExp (ETmApp (ETmApp op e1) e2) = case op of
+    (EBuiltin (BEEqual _)) -> CEq (toCExp e1) (toCExp e2)
+    (EBuiltin BEAddInt64) -> CAdd (toCExp e1) (toCExp e2)
+    (EBuiltin BESubInt64) -> CSub (toCExp e1) (toCExp e2)
+    (ETyApp (EBuiltin BEAddNumeric) _) -> CAdd (toCExp e1) (toCExp e2)
+    (ETyApp (EBuiltin BESubNumeric) _) -> CSub (toCExp e1) (toCExp e2)
+    _ -> error ("Builtin: " ++ show op)
   toCExp (ELocation _ e) = toCExp e
   toCExp (EBuiltin (BEBool b)) = CBool b
+  toCExp (EBuiltin (BEInt64 i)) = CInt $ toInteger i
+  -- TODO
+  -- toCExp (EBuiltin (BENumeric i)) = CReal i
   toCExp e = error ("Conversion: " ++ show e)
 
 instance ConstrExpr a => ConstrExpr (Cond a) where
@@ -172,6 +187,8 @@ cexp2sexp :: [(ExprVarName,S.SExpr)]
   -- ^ The constraint expression to convert.
   -> IO S.SExpr
 cexp2sexp _vars (CBool b) = return $ S.bool b
+cexp2sexp _vars (CInt i) = return $ S.int i
+cexp2sexp _vars (CReal i) = return $ S.real i
 cexp2sexp vars (CVar x) = case lookup x vars of
   Just exp -> return exp
   Nothing -> error ("Impossible: variable not found " ++ show x)
@@ -183,6 +200,10 @@ cexp2sexp vars (CSub ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
   return $ S.sub se1 se2
+cexp2sexp vars (CEq ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.eq se1 se2
 cexp2sexp vars (CAnd ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
