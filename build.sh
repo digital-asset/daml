@@ -18,7 +18,7 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-ps -aux
+ps aux
 
 # Bazel test only builds targets that are dependencies of a test suite
 # so do a full build first.
