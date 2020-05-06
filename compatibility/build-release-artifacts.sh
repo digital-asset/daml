@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.."
 
 eval "$(./dev-env/bin/dade-assist)"
 
+ps aux
+
 # We allow overwriting this since on CI we build this in a separate step and upload it first
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
