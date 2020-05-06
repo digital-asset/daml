@@ -57,13 +57,13 @@ function toCsv(dictData) {
 }
 
 async function fetchData() {
-  const data1 = await fetch(url("daml.*.{mean,count,min,max}"));
-  const data2 = await fetch(url("daml.*.*.{mean,count,min,max}"));
-  const data3 = await fetch(url("daml.*.*.*.{mean,count,min,max}"));
-  const data4 = await fetch(url("daml.*.*.*.*.{mean,count,min,max}"));
-  const data5 = await fetch(url("daml.*.*.*.*.*.{mean,count,min,max}"));
-  const data6 = await fetch(url("daml.*.*.*.*.*.*.{mean,count,min,max}"));
-  return [...data1, ...data2, ...data3, ...data4, ...data5, ...data6];
+  const maxDepth = 7;
+  const depths = Array.from(Array(maxDepth), (_, i) => i + 1);
+  const urls = depths
+    .map(depth => Array.from(Array(depth), () => "*").join("."))
+    .map(stars => `daml.${stars}.{mean,count,min,max}`);
+  const nestedData = await Promise.all(urls.map(fetch));
+  return Array.prototype.concat(...nestedData);
 }
 
 async function run() {
