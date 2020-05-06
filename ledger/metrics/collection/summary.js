@@ -60,10 +60,25 @@ function toCsv(dictData) {
 
 async function fetchData() {
   const maxDepth = 7;
+  const roots = ["daml", "jvm"];
+
+   // [1, 2, 3, ...]
   const depths = Array.from(Array(maxDepth), (_, i) => i + 1);
-  const urls = depths
-    .map(depth => Array.from(Array(depth), () => "*").join("."))
-    .map(stars => `daml.${stars}.{mean,count,min,max}`);
+
+  // ["*", "*.*", "*.*.*", ...]
+  const stars = depths.map(depth =>
+    Array.from(Array(depth), () => "*").join(".")
+  );
+
+  // Array of all URLs to fetch
+  const urls = roots.reduce(
+    (acc, root) =>
+      acc.concat(
+        stars.map(path => url(`${root}.${path}.{mean,count,min,max}`))
+      ),
+    []
+  );
+
   const nestedData = await Promise.all(urls.map(fetch));
   return Array.prototype.concat(...nestedData);
 }
