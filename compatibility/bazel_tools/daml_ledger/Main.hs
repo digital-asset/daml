@@ -95,7 +95,9 @@ withTools tests = do
 newtype SdkVersion = SdkVersion String
   deriving Eq
 instance IsOption SdkVersion where
-  defaultValue = SdkVersion (error "SDK version has to be set explicitly using --sdk-version")
+  defaultValue = SdkVersion "0.0.0"
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
   parseValue = Just . SdkVersion
   optionName = Tagged "sdk-version"
   optionHelp = Tagged "The SDK version number"
