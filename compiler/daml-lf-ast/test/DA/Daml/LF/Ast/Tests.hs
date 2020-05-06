@@ -16,6 +16,8 @@ import Test.Tasty.HUnit
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.Type
+import DA.Daml.LF.Ast.Alpha
+import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version
@@ -58,11 +60,13 @@ numericTests = testGroup "Numeric"
 substitutionTests :: TestTree
 substitutionTests = testGroup "substitution"
     [ testCase "TForall" $ do
-        let subst = Map.fromList [(beta11, vBeta1)]
+        let beta1 = TypeVarName "beta1"
+            beta11 = TypeVarName "beta11"
+            subst = Map.fromList [(beta11, TVar beta1)]
             ty1 = TForall (beta11, KStar) $ TForall (beta1, KStar) $
-                TBuiltin BTArrow `TApp` vBeta11 `TApp` vBeta1
+                TBuiltin BTArrow `TApp` TVar beta11 `TApp` TVar beta1
             ty2 = substitute subst ty1
-        assertBool "wrong substitution" (alphaEquiv ty1 ty2)
+        assertBool "wrong substitution" (alphaType ty1 ty2)
 
     , testCase "freeVars/TypeLevelNat" $ do
         let x = TypeVarName "x"
@@ -70,15 +74,20 @@ substitutionTests = testGroup "substitution"
         let yRenamed = TypeVarName "yRenamed"
         let typeWithNatAndFreeY = TNat TypeLevelNat10 :-> TVar y
         let subst = Map.fromList [(x, typeWithNatAndFreeY)]
-        assertBool "bad substitution" $ alphaEquiv
+        assertBool "bad substitution" $ alphaType
           (substitute subst (TForall (y,       KStar) $ TVar x              :-> TVar y))
                             (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed)
+
+    , testCase "ETmLam" $ do
+        let x1 = ExprVarName "x1"
+            x11 = ExprVarName "x11"
+            subst = exprSubst x11 (EVar x1)
+            e1 = ETmLam (x11, TInt64) $ ETmLam (x1, TInt64) $
+                EBuiltin BEAddInt64 `ETmApp` EVar x11 `ETmApp` EVar x1
+            e2 = substExpr subst e1
+        assertBool "wrong substitution" (alphaExpr e1 e2)
+
     ]
-  where
-    beta1 = TypeVarName "beta1"
-    beta11 = TypeVarName "beta11"
-    vBeta1 = TVar beta1
-    vBeta11 = TVar beta11
 
 
 typeSynTests :: TestTree
