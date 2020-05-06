@@ -299,8 +299,8 @@ class Runner(
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case SResultFinalValue(_) =>
-          Right(machine.toSValue)
+        case SResultFinalValue(v) =>
+          Right(v)
         case SResultError(err) =>
           logger.error(Pretty.prettyError(err, machine.ptx).render(80))
           Left(err)
