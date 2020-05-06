@@ -114,7 +114,7 @@ object Script {
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       scriptId: Identifier): Either[String, Script] = {
-    val scriptExpr = SEVal(LfDefRef(scriptId), None)
+    val scriptExpr = SEVal(LfDefRef(scriptId))
     val scriptTy = compiledPackages
       .getPackage(scriptId.packageId)
       .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
