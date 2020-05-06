@@ -431,6 +431,6 @@ simplifyExpr world = fst . cata go
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
-simplifyModule :: World -> Version -> Module -> Module
-simplifyModule world _version m =
+simplifyModule :: World -> Module -> Module
+simplifyModule world m =
     over moduleExpr (simplifyExpr (extendWorldSelf m world)) m

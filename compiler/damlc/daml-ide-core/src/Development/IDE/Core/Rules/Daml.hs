@@ -260,7 +260,7 @@ generateRawDalfRule =
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                            return ([], Just $ LF.simplifyModule world lfVersion v)
+                            return ([], Just $ LF.simplifyModule world v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -407,8 +407,14 @@ generateSerializedDalfRule options =
                                 Right rawDalf -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
-                                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
-                                    rawDalf <- pure $ LF.simplifyModule world lfVersion rawDalf
+                                    let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
+                                        world = LF.initWorldSelf pkgs selfPkg
+                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) rawDalf
+                                        -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
+                                        -- across modules when doing incremental builds. The reason is that our Shake rules
+                                        -- use ABI changes to determine whether to rebuild the module, so if an implementaion
+                                        -- changes without a corresponding ABI change, we would end up with an outdated
+                                        -- implementation.
                                     case Serializability.inferModule world lfVersion rawDalf of
                                         Left err -> pure ([ideErrorPretty file err], Nothing)
                                         Right dalf -> do
