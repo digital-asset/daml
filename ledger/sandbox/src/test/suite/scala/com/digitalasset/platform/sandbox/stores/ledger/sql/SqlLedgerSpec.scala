@@ -4,9 +4,9 @@
 package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.nio.file.Paths
-import java.time.{Duration, Instant}
+import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.DarReader
@@ -211,7 +211,6 @@ class SqlLedgerSpec
             .withPackages(Instant.EPOCH, None, packages)
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
-          initialConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1)),
           queueDepth = queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,

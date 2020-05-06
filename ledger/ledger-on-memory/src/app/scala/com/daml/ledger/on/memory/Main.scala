@@ -18,6 +18,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver.ApiServerConfig
+import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
@@ -65,6 +66,9 @@ object Main {
         state = state,
         engine = engine,
       )
+
+    override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
+      LedgerConfiguration.defaultLocalLedger
 
     override val defaultExtraConfig: ExtraConfig = ExtraConfig.default
 

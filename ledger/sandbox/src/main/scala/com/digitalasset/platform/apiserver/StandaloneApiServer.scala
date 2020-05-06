@@ -26,7 +26,6 @@ import com.daml.platform.configuration.{
   LedgerConfiguration,
   PartyConfiguration,
   ServerRole,
-  SubmissionConfiguration
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
@@ -45,7 +44,6 @@ final class StandaloneApiServer(
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
-    submissionConfig: SubmissionConfiguration,
     ledgerConfig: LedgerConfiguration,
     readService: ReadService,
     writeService: WriteService,
@@ -91,10 +89,6 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      ledgerConfiguration = ledgerConfig.copy(
-        // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
-        initialConfiguration = initialConditions.config,
-      )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
@@ -106,10 +100,9 @@ final class StandaloneApiServer(
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static),
-        ledgerConfiguration = ledgerConfiguration,
+        ledgerConfiguration = ledgerConfig,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
-        submissionConfig = submissionConfig,
         optTimeServiceBackend = timeServiceBackend,
         metrics = metrics,
         healthChecks = healthChecks,

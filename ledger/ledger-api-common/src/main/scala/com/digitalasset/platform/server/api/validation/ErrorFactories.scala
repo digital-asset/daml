@@ -43,6 +43,9 @@ trait ErrorFactories {
   def unauthenticated(): StatusRuntimeException =
     grpcError(Status.UNAUTHENTICATED)
 
+  def missingLedgerConfig(): StatusRuntimeException =
+    grpcError(Status.UNAVAILABLE.withDescription("The ledger configuration is not available."))
+
   def resourceExhausted(description: String): StatusRuntimeException =
     grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))
 

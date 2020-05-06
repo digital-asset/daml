@@ -79,6 +79,9 @@ object ResourceOwner {
   def failed(throwable: Throwable): ResourceOwner[Nothing] =
     new FutureResourceOwner(() => Future.failed(throwable))
 
+  def forValue[T](acquire: () => T): ResourceOwner[T] =
+    new FutureResourceOwner(() => Future.successful(acquire()))
+
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.fromTry(acquire()))
 

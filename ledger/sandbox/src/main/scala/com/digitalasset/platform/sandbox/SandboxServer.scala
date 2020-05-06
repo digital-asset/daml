@@ -5,7 +5,7 @@ package com.daml.platform.sandbox
 
 import java.io.File
 import java.nio.file.Files
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -25,7 +25,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -265,11 +265,7 @@ final class SandboxServer(
         () => resetAndRestartServer(),
         authorizer,
       )
-      ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = defaultConfiguration,
-        // In SandboxServer, there is no delay between indexer and ledger
-        initialConfigurationSubmitDelay = Duration.ZERO,
-      )
+      ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
@@ -285,7 +281,6 @@ final class SandboxServer(
           // sandbox-classic always allocates party implicitly
           implicitPartyAllocation = true,
         ),
-        submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,
         metrics = metrics,
         healthChecks = healthChecks,

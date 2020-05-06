@@ -5,7 +5,7 @@ package com.daml.platform.sandbox
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.api.util.TimeProvider
 import com.daml.lf.data.ImmArray
 import com.daml.ledger.api.domain.LedgerId
@@ -30,28 +30,27 @@ object LedgerResource {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
-      initialConfig: Configuration,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
   )(implicit executionContext: ExecutionContext): Resource[Ledger] =
     new OwnedResource(
-      ResourceOwner.successful(
-        new InMemoryLedger(
-          ledgerId,
-          participantId,
-          timeProvider,
-          acs,
-          packages,
-          entries,
-          initialConfig)))
+      ResourceOwner.forValue(
+        () =>
+          new InMemoryLedger(
+            ledgerId,
+            participantId,
+            timeProvider,
+            acs,
+            packages,
+            entries,
+        )))
 
   def postgres(
       testClass: Class[_],
       ledgerId: LedgerId,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
-      initialConfig: Configuration,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
   )(
@@ -71,7 +70,6 @@ object LedgerResource {
           acs = InMemoryActiveLedgerState.empty,
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
-          initialConfig = initialConfig,
           queueDepth = 128,
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,

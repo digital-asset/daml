@@ -33,8 +33,7 @@ import com.daml.platform.apiserver.services._
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration,
-  SubmissionConfiguration
+  PartyConfiguration
 }
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
 import com.daml.platform.services.time.TimeProviderType
@@ -74,7 +73,6 @@ object ApiServices {
       ledgerConfiguration: LedgerConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
-      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: Metrics,
       healthChecks: HealthChecks,
@@ -97,17 +95,28 @@ object ApiServices {
 
     override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
       Resource(
-        indexService
-          .getLedgerId()
-          .map(ledgerId => createServices(ledgerId)(mat.system.dispatcher)))(services =>
-        Future {
-          services.foreach {
-            case closeable: AutoCloseable => closeable.close()
-            case _ => ()
+        for {
+          ledgerId <- identityService.getLedgerId()
+          ledgerConfigProvider = LedgerConfigProvider.create(
+            configManagementService,
+            writeService,
+            timeProvider,
+            ledgerConfiguration)
+          services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
+          _ <- ledgerConfigProvider.ready
+        } yield (ledgerConfigProvider, services)
+      ) {
+        case (ledgerConfigProvider, services) =>
+          Future {
+            services.foreach {
+              case closeable: AutoCloseable => closeable.close()
+              case _ => ()
+            }
+            ledgerConfigProvider.close()
           }
-      }).map(ApiServicesBundle(_))
+      }.map(x => ApiServicesBundle(x._2))
 
-    private def createServices(ledgerId: LedgerId)(
+    private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
@@ -130,13 +139,12 @@ object ApiServices {
         writeService,
         submissionService,
         partyManagementService,
-        ledgerConfiguration.initialConfiguration.timeModel,
         timeProvider,
         timeProviderType,
+        ledgerConfigProvider,
         seedService,
         commandExecutor,
         ApiSubmissionService.Configuration(
-          submissionConfig.maxDeduplicationTime,
           partyConfig.implicitPartyAllocation,
         ),
         metrics,
@@ -168,7 +176,6 @@ object ApiServices {
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.retentionPeriod,
-          submissionConfig.maxDeduplicationTime,
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LocalServices(
@@ -179,6 +186,7 @@ object ApiServices {
           apiTransactionService.getFlatTransactionById
         ),
         timeProvider,
+        ledgerConfigProvider,
       )
 
       val apiActiveContractsService =
