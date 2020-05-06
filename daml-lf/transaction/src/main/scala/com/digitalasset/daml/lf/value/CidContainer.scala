@@ -71,30 +71,6 @@ object CidMapper {
     }
 }
 
-sealed abstract class CidConsumer[-A, In] {
-
-  def foreachCid(f: In => Unit): A => Unit
-
-}
-
-object CidConsumer {
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private val _trivialConsumer: CidConsumer[Any, Any] =
-    new CidConsumer[Any, Any] {
-      override def foreachCid(f: Any => Unit): Any => Unit = _ => ()
-    }
-
-  def trivialConsumer[X]: CidConsumer[Any, X] =
-    _trivialConsumer.asInstanceOf[CidConsumer[Any, X]]
-
-  private[value] def basicConsumerInstance[Cid]: CidConsumer[Cid, Cid] =
-    new CidConsumer[Cid, Cid] {
-      override def foreachCid(f: Cid => Unit): Cid => Unit = f
-    }
-
-}
-
 trait CidContainer[+A] {
 
   import CidMapper._
@@ -146,14 +122,6 @@ trait CidContainer[+A] {
   ): B =
     data.assertRight(ensureNoRelCid.left.map(message))
 
-  final def cids[Cid](
-      implicit consumer: CidConsumer[A, Cid]
-  ): Set[Cid] = {
-    val cids = Set.newBuilder[Cid]
-    consumer.foreachCid(cids += _)(self)
-    cids.result()
-  }
-
 }
 
 trait CidContainer1[F[_]] {
@@ -186,14 +154,6 @@ trait CidContainer1[F[_]] {
       implicit resolver1: CidSuffixer[A1, A2],
   ): CidSuffixer[F[A1], F[A2]] =
     cidMapperInstance
-
-  final def cidConsumerInstance[A, Cid](
-      implicit consumer: CidConsumer[A, Cid]
-  ): CidConsumer[F[A], Cid] =
-    new CidConsumer[F[A], Cid] {
-      override def foreachCid(f: Cid => Unit): F[A] => Unit =
-        foreach1(consumer.foreachCid(f))
-    }
 
 }
 
@@ -248,17 +208,6 @@ trait CidContainer3[F[_, _, _]] {
       suffixer3: CidSuffixer[C1, C2],
   ): CidSuffixer[F[A1, B1, C1], F[A2, B2, C2]] =
     cidMapperInstance
-
-  final def cidConsumerInstance[A, B, C, In](
-      implicit Consumer1: CidConsumer[A, In],
-      Consumer2: CidConsumer[B, In],
-      Consumer3: CidConsumer[C, In],
-  ): CidConsumer[F[A, B, C], In] =
-    new CidConsumer[F[A, B, C], In] {
-      override def foreachCid(f: In => Unit): F[A, B, C] => Unit = {
-        foreach3(Consumer1.foreachCid(f), Consumer2.foreachCid(f), Consumer3.foreachCid(f))
-      }
-    }
 
 }
 
