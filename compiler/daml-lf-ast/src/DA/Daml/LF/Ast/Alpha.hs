@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 -- | Alpha equivalence of types and expressions.
 module DA.Daml.LF.Ast.Alpha
     ( alphaType
@@ -341,3 +344,4 @@ alphaType = alphaType' initialAlphaEnv
 
 alphaExpr :: Expr -> Expr -> Bool
 alphaExpr = alphaExpr' initialAlphaEnv
+
