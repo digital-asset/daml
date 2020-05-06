@@ -84,7 +84,7 @@ partyToText = primitive @"BEToText"
 -- exists on a given ledger is to involve it in a contract.
 --
 -- This function, together with `partyToText`, forms an isomorphism between
--- valid party strings and and parties. In other words, the following equations hold:
+-- valid party strings and parties. In other words, the following equations hold:
 --
 -- ```
 -- ∀ p. partyFromText (partyToText p) = Some p
