@@ -4,6 +4,7 @@
 package com.daml.ledger.on.sql
 
 import java.sql.Connection
+import java.util.concurrent.Executors
 
 import com.daml.ledger.on.sql.queries._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -21,24 +22,26 @@ import scala.util.{Failure, Success}
 final class Database(
     queries: Connection => Queries,
     readerConnectionPool: DataSource,
+    readerExecutionContext: ExecutionContext,
     writerConnectionPool: DataSource,
+    writerExecutionContext: ExecutionContext,
     metrics: Metrics,
 ) {
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[T],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] =
+  )(implicit logCtx: LoggingContext): Future[T] =
     inTransaction(name, readerConnectionPool)(connection =>
-      body(new TimedQueries(queries(connection), metrics)))
+      Future(body(new TimedQueries(queries(connection), metrics)))(readerExecutionContext).flatten)
 
   def inWriteTransaction[T](name: String)(
       body: Queries => Future[T],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] =
+  )(implicit logCtx: LoggingContext): Future[T] =
     inTransaction(name, writerConnectionPool)(connection =>
-      body(new TimedQueries(queries(connection), metrics)))
+      Future(body(new TimedQueries(queries(connection), metrics)))(writerExecutionContext).flatten)
 
   private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
+  )(implicit logCtx: LoggingContext): Future[T] = {
     val connection = Timed.value(
       metrics.daml.ledger.database.transactions.acquireConnection(name),
       connectionPool.getConnection())
@@ -48,10 +51,10 @@ final class Database(
           .andThen {
             case Success(_) => connection.commit()
             case Failure(_) => connection.rollback()
-          }
+          }(writerExecutionContext)
           .andThen {
             case _ => connection.close()
-          }
+          }(writerExecutionContext)
       }
     )
   }
@@ -110,11 +113,19 @@ object Database {
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+        readerExecutorService <- ResourceOwner.forExecutorService(() =>
+          Executors.newCachedThreadPool())
+        readerExecutionContext = ExecutionContext.fromExecutorService(readerExecutorService)
+        writerExecutorService <- ResourceOwner.forExecutorService(() =>
+          Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
+        writerExecutionContext = ExecutionContext.fromExecutorService(writerExecutorService)
       } yield
         new UninitializedDatabase(
           system,
           readerConnectionPool,
+          readerExecutionContext,
           writerConnectionPool,
+          writerExecutionContext,
           adminConnectionPool,
           metrics,
         )
@@ -130,11 +141,17 @@ object Database {
         readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+        readerWriterExecutorService <- ResourceOwner.forExecutorService(() =>
+          Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
+        readerWriterExecutionContext = ExecutionContext.fromExecutorService(
+          readerWriterExecutorService)
       } yield
         new UninitializedDatabase(
           system,
           readerWriterConnectionPool,
+          readerWriterExecutionContext,
           readerWriterConnectionPool,
+          readerWriterExecutionContext,
           adminConnectionPool,
           metrics,
         )
@@ -182,7 +199,9 @@ object Database {
   class UninitializedDatabase(
       system: RDBMS,
       readerConnectionPool: DataSource,
+      readerExecutionContext: ExecutionContext,
       writerConnectionPool: DataSource,
+      writerExecutionContext: ExecutionContext,
       adminConnectionPool: DataSource,
       metrics: Metrics,
   ) {
@@ -200,7 +219,14 @@ object Database {
 
     def migrate(): Database = {
       flyway.migrate()
-      new Database(system.queries, readerConnectionPool, writerConnectionPool, metrics)
+      new Database(
+        system.queries,
+        readerConnectionPool,
+        readerExecutionContext,
+        writerConnectionPool,
+        writerExecutionContext,
+        metrics,
+      )
     }
 
     def migrateAndReset()(
