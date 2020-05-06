@@ -753,14 +753,20 @@ object WebsocketServiceIntegrationTest {
     def interpret[T, V](steps: FCC[T, V])(implicit ec: ExecutionContext): Sink[T, Future[V]] =
       Sink
         .foldAsync(steps) { (steps, t: T) =>
-          def go(steps: FCC[T, V]): Future[FCC[T, V]] =
+          // step through steps until performing exactly one listen,
+          // then step through any further steps until encountering
+          // either the end or the next listen
+          def go(steps: FCC[T, V], listened: Boolean): Future[FCC[T, V]] =
             steps.resume fold ({
-              case Listen(f) => Future(f(t))
-              case Emit(run) => run flatMap go
+              case listen @ Listen(f) =>
+                if (listened) Future successful (Free roll listen) else go(f(t), true)
+              case Emit(run) => run flatMap (go(_, listened))
             }, v =>
-              Future.failed(
-                new IllegalStateException(s"unexpected element $t, script terminated with $v")))
-          go(steps)
+              if (listened) Future successful (Free point v)
+              else
+                Future.failed(
+                  new IllegalStateException(s"unexpected element $t, script terminated with $v")))
+          go(steps, false)
         }
         .mapMaterializedValue(_.flatMap(_.foldMap(Lambda[Consume[T, ?] ~> Future] {
           case Listen(f) =>
