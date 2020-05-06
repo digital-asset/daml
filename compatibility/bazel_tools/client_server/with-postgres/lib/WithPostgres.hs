@@ -3,7 +3,7 @@
 
 module WithPostgres (withPostgres) where
 
-import Control.Exception
+import Control.Exception.Safe
 import Data.Text (Text)
 import qualified Data.Text as T
 import System.Directory.Extra
@@ -67,6 +67,13 @@ withPostgres f =
             callProcess
                 "external/postgresql_nix/bin/pg_ctl"
                 ["-w", "-D", dataDir, "-l", logFile, "start"]
+            `catchIO` (\e -> do
+                postgresLog <- readFileUTF8 logFile
+                hPutStrLn stderr $ unlines
+                    [ "Postgres failed to start, log output:"
+                    , postgresLog
+                    ]
+                throwIO e)
         stopPostgres dataDir =
             callProcess
                 "external/postgresql_nix/bin/pg_ctl"
