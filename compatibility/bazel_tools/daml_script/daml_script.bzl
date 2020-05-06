@@ -5,6 +5,7 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("//bazel_tools:versions.bzl", "version_to_name")
 
 def daml_script_dar(sdk_version):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
@@ -12,11 +13,11 @@ def daml_script_dar(sdk_version):
     )
     native.genrule(
         name = "script-example-dar-{sdk_version}".format(
-            sdk_version = sdk_version,
+            sdk_version = version_to_name(sdk_version),
         ),
         srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"],
         outs = ["script-example-{sdk_version}.dar".format(
-            sdk_version = sdk_version,
+            sdk_version = version_to_name(sdk_version),
         )],
         tools = [daml],
         cmd = """\
@@ -51,15 +52,15 @@ $(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
 
 def daml_script_test(compiler_version, runner_version):
     compiled_dar = "//:script-example-dar-{version}".format(
-        version = compiler_version,
+        version = version_to_name(compiler_version),
     )
     daml_runner = "@daml-sdk-{version}//:daml".format(
         version = runner_version,
     )
     client_server_test(
         name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
-            compiler_version = compiler_version,
-            runner_version = runner_version,
+            compiler_version = version_to_name(compiler_version),
+            runner_version = version_to_name(runner_version),
         ),
         client = daml_runner,
         client_args = [
