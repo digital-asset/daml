@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.."
 
 eval "$(./dev-env/bin/dade-assist)"
 
-free -h
+vm_stat
 ipcs -a
 
 # We allow overwriting this since on CI we build this in a separate step and upload it first

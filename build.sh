@@ -18,7 +18,7 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-free -h
+vm_stat
 ipcs -a
 
 # Bazel test only builds targets that are dependencies of a test suite
