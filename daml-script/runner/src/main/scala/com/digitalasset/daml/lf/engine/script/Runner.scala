@@ -43,7 +43,6 @@ import com.google.protobuf.duration.Duration
 import ParticipantsJsonProtocol.AbsoluteContractIdFormat
 
 import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
 
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
 
@@ -301,25 +300,23 @@ class Runner(
       )
 
     @tailrec
-    def stepToValue(): Try[SValue] =
-      if (machine.isFinal)
-        Success(machine.returnValue)
+    def stepToValue(): Future[SValue] =
+      if (machine.isFinal())
+        Future.successful(machine.toSValue)
       else
         machine.run() match {
           case SResultFinalValue(_) =>
             stepToValue()
           case SResultError(err) =>
             logger.error(Pretty.prettyError(err, machine.ptx).render(80))
-            Failure(err)
+            Future.failed(err)
           case res =>
-            Failure(new RuntimeException(s"Unexpected speedy result $res"))
+            Future.failed(new RuntimeException(s"Unexpected speedy result $res"))
         }
 
     def run(expr: SExpr): Future[SValue] = {
-      machine.returnValue = null
-      machine.ctrl = expr
-      Future
-        .fromTry(stepToValue())
+      machine.ctrl = Speedy.CtrlExpr(expr)
+      stepToValue()
         .flatMap {
           case SVariant(_, "Free", _, v) => {
             v match {
@@ -505,7 +502,8 @@ class Runner(
     }
 
     for {
-      result <- stepToValue().fold(Future.failed, Future.successful)
+      _ <- Future.unit
+      result <- stepToValue()
       expr <- result match {
         // Unwrap Script newtype and apply to ()
         case SRecord(_, _, vals) if vals.size == 1 => {
