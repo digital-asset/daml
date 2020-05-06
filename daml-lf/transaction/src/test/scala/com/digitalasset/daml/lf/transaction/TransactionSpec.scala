@@ -87,6 +87,32 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
   }
 
+  "foreachInExecutionOrder" - {
+    "should traverse the transaction in execution order" in {
+
+      val tx = mkTransaction(
+        HashMap(
+          V.NodeId(0) -> dummyCreateNode("cid0"),
+          V.NodeId(1) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(2))),
+          V.NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
+          V.NodeId(3) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(V.NodeId(0), V.NodeId(1), V.NodeId(3)),
+      )
+
+      val trace = List.newBuilder[String]
+
+      tx.foreachInExecutionOrder(
+        { case (nid, _) => trace += s"exerciseBegin(${nid.index})"; () },
+        { case (nid, _) => trace += s"leaf(${nid.index})"; () },
+        { case (nid, _) => trace += s"exerciseEnd(${nid.index})"; () },
+      )
+
+      trace.result().mkString(", ") shouldBe
+        "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), exerciseEnd(1), leaf(3)"
+    }
+  }
+
   /* TODO SC Gen for well-formed Transaction needed first
   "equalForest" - {
     "is reflexive" in forAll(genTransaction) { tx =>

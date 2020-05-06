@@ -334,6 +334,40 @@ final case class GenTransaction[Nid, +Cid, +Val](
   def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
     GenTransaction.foreach3(fNid, fCid, fVal)(self)
 
+  // This method visits to all nodes of the transaction in execution order.
+  // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
+  def foreachInExecutionOrder(
+      exerciseBegin: (Nid, Node.NodeExercises[Nid, Cid, Val]) => Unit,
+      leaf: (Nid, Node.LeafOnlyNode[Cid, Val]) => Unit,
+      exerciseEnd: (Nid, Node.NodeExercises[Nid, Cid, Val]) => Unit,
+  ): Unit = {
+    @tailrec
+    def loop(
+        currNodes: FrontStack[Nid],
+        stack: FrontStack[((Nid, Node.NodeExercises[Nid, Cid, Val]), FrontStack[Nid])],
+    ): Unit =
+      currNodes match {
+        case FrontStackCons(nid, rest) =>
+          nodes(nid) match {
+            case exe: NodeExercises[Nid, Cid, Val] =>
+              exerciseBegin(nid, exe)
+              loop(FrontStack(exe.children), (((nid, exe), rest)) +: stack)
+            case node: Node.LeafOnlyNode[Cid, Val] =>
+              leaf(nid, node)
+              loop(rest, stack)
+          }
+        case FrontStack() =>
+          stack match {
+            case FrontStackCons(((nid, exe), brothers), rest) =>
+              exerciseEnd(nid, exe)
+              loop(brothers, rest)
+            case FrontStack() =>
+          }
+      }
+
+    loop(FrontStack(roots), FrontStack.empty)
+  }
+
 }
 
 object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
