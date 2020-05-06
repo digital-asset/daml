@@ -32,7 +32,7 @@ function toDict(rawData) {
     const words = row.tags.name.split(".");
     const target = words.slice(undefined, -1).join(".");
     const stat = words[words.length - 1];
-    const data = row.datapoints[0][0];
+    const data = row.datapoints[row.datapoints.length - 1][0];
     result[target] = result[target] || {};
     result[target][stat] = data;
   });
