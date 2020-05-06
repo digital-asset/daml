@@ -249,6 +249,7 @@ expr2cid :: MonadEnv m ph
   -> m Cid
 expr2cid (EVar x) = return $ CidVar x
 expr2cid (ERecProj _ f (EVar x)) = return $ CidRec x f
+expr2cid (EStructProj f (EVar x)) = return $ CidRec x f
 expr2cid _ = throwError ExpectCid
 
 -- TODO: Could we alternatively just declare the variables that occur in the updates and drop the skolems?
@@ -745,11 +746,17 @@ recExpFields (EVar x) = do
     then return $ zip (head fss) (map (EVar . fieldName2VarName) $ head fss)
     else throwError $ UnboundVar x
 recExpFields (ERecCon _ fs) = return fs
+recExpFields (EStructCon fs) = return fs
 recExpFields (ERecUpd _ f recExp fExp) = do
   fs <- recExpFields recExp
   unless (isJust $ find (\(n, _) -> n == f) fs) (throwError $ UnknownRecField f)
   return $ (f, fExp) : [(n, e) | (n, e) <- fs, n /= f]
 recExpFields (ERecProj _ f e) = do
+  fields <- recExpFields e
+  case lookup f fields of
+    Just e' -> recExpFields e'
+    Nothing -> throwError $ UnknownRecField f
+recExpFields (EStructProj f e) = do
   fields <- recExpFields e
   case lookup f fields of
     Just e' -> recExpFields e'

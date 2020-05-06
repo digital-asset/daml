@@ -72,6 +72,7 @@ instance ConstrExpr BoolExpr where
 instance ConstrExpr Expr where
   toCExp (EVar x) = CVar x
   toCExp (ERecProj _ f (EVar x)) = CVar $ recProj2Var x f
+  toCExp (EStructProj f (EVar x)) = CVar $ recProj2Var x f
   toCExp (ETmApp (ETmApp op e1) e2) = case op of
     (EBuiltin (BEEqual _)) -> CEq (toCExp e1) (toCExp e2)
     (EBuiltin BEAddInt64) -> CAdd (toCExp e1) (toCExp e2)

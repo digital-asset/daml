@@ -189,6 +189,7 @@ genExpr = \case
   EVar name -> genForVar name
   EVal w -> genForVal w
   ERecProj tc f e -> genForRecProj tc f e
+  EStructProj f e -> genForStructProj f e
   ELocation _ expr -> genExpr expr
   EUpdate (UCreate tem arg) -> genForCreate tem arg
   EUpdate (UExercise tem ch cid par arg) -> genForExercise tem ch cid par arg
@@ -284,6 +285,28 @@ genForRecProj tc f body = do
       skol <- lookupRec x f
       if skol
         then return $ updateOutExpr (ERecProj tc f (EVar x)) bodyOut
+        else error ("Impossible: expected skolem record: " ++ show x ++ "." ++ show f)
+    expr -> do
+      fs <- recExpFields expr
+      case lookup f fs of
+        Just expr -> genExpr expr
+        Nothing -> throwError $ UnknownRecField f
+
+-- | Analyse a struct projection expression.
+genForStructProj :: (GenPhase ph, MonadEnv m ph)
+  => FieldName
+  -- ^ The field which is projected.
+  -> Expr
+  -- ^ The record expression which is projected.
+  -> m (Output ph)
+genForStructProj f body = do
+  bodyOut <- genExpr body
+  case _oExpr bodyOut of
+    -- TODO: I think we can reduce duplication a bit more here
+    EVar x -> do
+      skol <- lookupRec x f
+      if skol
+        then return $ updateOutExpr (EStructProj f (EVar x)) bodyOut
         else error ("Impossible: expected skolem record: " ++ show x ++ "." ++ show f)
     expr -> do
       fs <- recExpFields expr
