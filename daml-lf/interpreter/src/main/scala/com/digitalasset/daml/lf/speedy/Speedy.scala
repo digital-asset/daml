@@ -187,6 +187,7 @@ object Speedy {
         val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
         kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
+        returnValue = null
         ctrl = kcatch.handler
         true
       } else
