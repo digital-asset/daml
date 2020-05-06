@@ -358,6 +358,7 @@ class Runner(
           SEValue(STimestamp(clientTime)): SExpr,
           createdExpr))
     machine.ctrl = initialState
+    machine.returnValue = null
     Machine.stepToValue(machine)
     val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
@@ -411,6 +412,7 @@ class Runner(
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.ctrl =
           SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state))
+        machine.returnValue = null
         Machine.stepToValue(machine)
         val newState = handleStepResult(machine.toSValue, submit)
         SEValue(newState)

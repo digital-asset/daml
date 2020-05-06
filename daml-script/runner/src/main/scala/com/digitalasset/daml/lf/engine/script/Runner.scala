@@ -310,6 +310,7 @@ class Runner(
 
     def run(expr: SExpr): Future[SValue] = {
       machine.ctrl = expr
+      machine.returnValue = null
       stepToValue()
         .fold(Future.failed, Future.successful)
         .flatMap {
