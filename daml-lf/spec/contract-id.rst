@@ -10,7 +10,8 @@ Goals
 * Allows ordering contract IDs and make DAML semantics depend on this
   order, e.g., for comparison builtin and maps using IDs as keys.
 * Eliminate all contract ID translations for central commiter ledger
-* Allows ledgers to store arbitrary information about the contract and the creating transaction in the contract ID if necessary.
+* Allows ledgers to store arbitrary information about the contract and
+  the creating transaction in the contract ID if necessary.
 
 Requirements
 ^^^^^^^^^^^^
@@ -45,18 +46,18 @@ Contract Identifiers
 A *contract identifier* (or contract ID for short) is a sequence of
 bytes defined as follows ::
 
-  ContractID := verisionPrefix ∥ discriminator ∥ suffix  
+  ContractID := versionPrefix ∥ discriminator ∥ suffix
 
 where
 
 * ``∥`` is the concatenation operation; 
-* ``verisionPrefix`` is 1 byte (equal to 0) used to version the
+* ``versionPrefix`` is 1 byte (equal to 0) used to version the
   contract ID scheme;
 * ``discriminator`` is a sequence of 32 bytes. It is like a random
   UUID, but generated from an initial seed (called *submission seed*)
   via a fixed `derivation scheme <Allocation scheme for
   discriminators_>`_ that supports validation (see below).
-* ``suffix`` is a sequence of 0 to 95 bytes used to enforce global
+* ``suffix`` is a sequence of 0 to 94 bytes used to enforce global
   uniqueness of the contract ID in a distributed ledger.
 
 Discriminator freshness
@@ -98,7 +99,7 @@ During interpretation local contract IDs are created without suffix.
 Ledger implementations are responsible for enforcing uniqueness of
 contract IDs on the whole ledger.  This can be done by enforcing
 global uniqueness of the seeds or by appropriately suffixing the
-contract IDs.  No other requirement (except the 95 bytes size limit)
+contract IDs.  No other requirement (except the 94 bytes size limit)
 is assumed for those suffices.
 
 The simplest approach consists to suffix all local contract ID with a
