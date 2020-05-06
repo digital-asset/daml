@@ -790,8 +790,8 @@ object SBuiltin {
 
       machine.addLocalContract(coid, templateId, createArg)
       machine.ptx = newPtx
-      machine.returnValue = SContractId(coid)
       checkAborted(machine.ptx)
+      machine.returnValue = SContractId(coid)
     }
   }
 
@@ -871,8 +871,8 @@ object SBuiltin {
           case Left(err) => crash(err)
           case Right(x) => x
         })
-      machine.returnValue = SUnit
       checkAborted(machine.ptx)
+      machine.returnValue = SUnit
     }
   }
 
@@ -959,8 +959,8 @@ object SBuiltin {
         key,
         byKey,
       )
-      machine.returnValue = SUnit
       checkAborted(machine.ptx)
+      machine.returnValue = SUnit
     }
   }
 
@@ -1034,8 +1034,8 @@ object SBuiltin {
         ),
         mbCoid,
       )
-      machine.returnValue = SV.Unit
       checkAborted(machine.ptx)
+      machine.returnValue = SV.Unit
     }
   }
 
