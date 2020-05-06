@@ -155,7 +155,7 @@ authenticatedUploadTest sdkVersion getTools = do
                 , "--host", "localhost", "--port", show port
                 ]
     | sdkVersion == SdkVersion "0.0.0"
-       -- TODO Once we have releases supporting this this should be extended.
+       -- TODO Once we have releases supporting this should be extended.
     ]
   where
     sharedSecret = "TheSharedSecret"
