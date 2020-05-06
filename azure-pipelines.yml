@@ -189,6 +189,8 @@ jobs:
       - template: ci/report-start.yml
       - checkout: self
       - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -202,6 +204,8 @@ jobs:
       - template: ci/report-start.yml
       - checkout: self
       - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -215,6 +219,8 @@ jobs:
       - template: ci/report-start.yml
       - checkout: self
       - template: ci/compatibility-windows.yml
+        parameters:
+          test_flags: '--quick'
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
       - task: PublishBuildArtifacts@1
