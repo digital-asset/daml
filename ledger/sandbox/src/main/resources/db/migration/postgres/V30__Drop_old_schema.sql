@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V29: Drop old schema
+-- V30: Drop old schema
 --
 -- Also removes checkpoints as part of the data migration, if there are any still lingering around.
 --
