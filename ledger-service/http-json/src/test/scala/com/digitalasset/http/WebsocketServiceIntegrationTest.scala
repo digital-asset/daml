@@ -13,7 +13,7 @@ import com.daml.http.util.TestUtil
 import HttpServiceTestFixture.UseTls
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, Functor, \/, \/-, ~>}
 import scalaz.std.option._
 import scalaz.syntax.apply._
 import scalaz.syntax.tag._
@@ -21,7 +21,7 @@ import scalaz.syntax.std.option._
 import spray.json.{JsNull, JsString, JsValue}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class WebsocketServiceIntegrationTest
@@ -738,5 +738,67 @@ object WebsocketServiceIntegrationTest {
   private object EventsBlock {
     import DefaultJsonProtocol._
     implicit val EventsBlockFormat: RootJsonFormat[EventsBlock] = jsonFormat2(EventsBlock.apply)
+  }
+
+  sealed abstract class Consume[-T, +V]
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  object Consume {
+    import scalaz.Free
+    import scalaz.std.scalaFuture._
+    type FCC[T, V] = Free[Consume[T, ?], V]
+    final case class Listen[-T, +V](f: T => V) extends Consume[T, V]
+    final case class Emit[+V](run: Future[V]) extends Consume[Any, V]
+
+    def interpret[T, V](steps: FCC[T, V])(implicit ec: ExecutionContext): Sink[T, Future[V]] =
+      Sink
+        .foldAsync(steps) { (steps, t: T) =>
+          def go(steps: FCC[T, V]): Future[FCC[T, V]] =
+            steps.resume fold ({
+              case Listen(f) => Future(f(t))
+              case Emit(run) => run flatMap go
+            }, v =>
+              Future.failed(
+                new IllegalStateException(s"unexpected element $t, script terminated with $v")))
+          go(steps)
+        }
+        .mapMaterializedValue(_.flatMap(_.foldMap(Lambda[Consume[T, ?] ~> Future] {
+          case Listen(f) =>
+            Future.failed(
+              new IllegalStateException(s"script terminated early, expected another value"))
+          case Emit(run) => run
+        })))
+
+    implicit def `consume functor`[T](implicit ec: ExecutionContext): Functor[Consume[T, ?]] =
+      new Functor[Consume[T, ?]] {
+        override def map[A, B](fa: Consume[T, A])(f: A => B): Consume[T, B] = fa match {
+          case Listen(g) => Listen(g andThen f)
+          case Emit(run) => Emit(run map f)
+        }
+      }
+
+    implicit final class `Consume Ops`[T, V](private val steps: FCC[T, V]) extends AnyVal {
+      def withFilter(p: V => Boolean): Free[Consume[T, ?], V] =
+        steps flatMap { v =>
+          if (p(v)) Free point v
+          else
+            Free liftF Emit(Future failed new IllegalStateException("script cancelled by filter"))
+        }
+    }
+
+    /**
+      * {{{
+      *   val mySyntax = Consume.syntax[StreamElemType]
+      *   import mySyntax._
+      *
+      * }}}
+      */
+    def syntax[T]: Syntax[T] = new Syntax
+
+    final class Syntax[T] {
+      def readOne: FCC[T, T] = Free liftF Listen(identity)
+      def liftF[V](run: Future[V]): FCC[T, V] = Free liftF Emit(run)
+      def point[V](v: V): FCC[T, V] = Free point v
+    }
   }
 }
