@@ -78,6 +78,10 @@ instance ConstrExpr Expr where
     (EBuiltin BESubInt64) -> CSub (toCExp e1) (toCExp e2)
     (ETyApp (EBuiltin BEAddNumeric) _) -> CAdd (toCExp e1) (toCExp e2)
     (ETyApp (EBuiltin BESubNumeric) _) -> CSub (toCExp e1) (toCExp e2)
+    (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "+"))) _) _) ->
+      CAdd (toCExp e1) (toCExp e2)
+    (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "-"))) _) _) ->
+      CSub (toCExp e1) (toCExp e2)
     _ -> error ("Builtin: " ++ show op)
   toCExp (ELocation _ e) = toCExp e
   toCExp (EBuiltin (BEBool b)) = CBool b
