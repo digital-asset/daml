@@ -12,6 +12,7 @@ da_haskell_library(
         "extra",
         "filepath",
         "process",
+        "safe-exceptions",
         "text",
     ],
     visibility = ["//visibility:public"],

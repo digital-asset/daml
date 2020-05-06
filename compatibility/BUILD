@@ -70,11 +70,17 @@ test_suite(
 
 migration_test(
     name = "migration-stable",
-    tags = ["head-quick"],
+    # Exclusive due to hardcoded postgres ports.
+    tags = [
+        "exclusive",
+        "head-quick",
+    ],
     versions = stable_versions,
 ) if not is_windows else None
 
 migration_test(
     name = "migration-all",
+    # Exclusive due to hardcoded postgres ports.
+    tags = ["exclusive"],
     versions = platform_versions,
 ) if not is_windows else None
