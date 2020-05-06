@@ -54,6 +54,7 @@ object Node {
   object GenNode
       extends WithTxValue3[GenNode]
       with value.CidContainer3WithDefaultCidResolver[GenNode] {
+
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
         f2: A2 => B2,
@@ -135,6 +136,63 @@ object Node {
           key = KeyWithMaintainers.map1(f3)(key),
           result = result.map(f2),
         )
+    }
+
+    override private[lf] def foreach3[A, B, C](
+        f1: A => Unit,
+        f2: B => Unit,
+        f3: C => Unit,
+    ): GenNode[A, B, C] => Unit = {
+      case NodeCreate(
+          coid,
+          coinst,
+          optLocation @ _,
+          signatories @ _,
+          stakeholders @ _,
+          key,
+          ) =>
+        f2(coid)
+        value.Value.ContractInst.foreach1(f3)(coinst)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+      case NodeFetch(
+          coid,
+          templateId @ _,
+          optLocationd @ _,
+          actingPartiesd @ _,
+          signatoriesd @ _,
+          stakeholdersd @ _,
+          key,
+          ) =>
+        f2(coid)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+      case NodeExercises(
+          targetCoid,
+          templateId @ _,
+          choiceId @ _,
+          optLocation @ _,
+          consuming @ _,
+          actingParties @ _,
+          chosenValue,
+          stakeholders @ _,
+          signatories @ _,
+          controllers @ _,
+          children @ _,
+          exerciseResult,
+          key,
+          ) =>
+        f2(targetCoid)
+        f3(chosenValue)
+        exerciseResult.foreach(f3)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+        children.foreach(f1)
+      case NodeLookupByKey(
+          templateId @ _,
+          optLocation @ _,
+          key,
+          result,
+          ) =>
+        KeyWithMaintainers.foreach1(f3)(key)
+        result.foreach(f2)
     }
   }
 
@@ -271,6 +329,10 @@ object Node {
         f: A => B,
     ): KeyWithMaintainers[A] => KeyWithMaintainers[B] =
       x => x.copy(key = f(x.key))
+
+    override private[lf] def foreach1[A](f: A => Unit): KeyWithMaintainers[A] => Unit =
+      x => f(x.key)
+
   }
 
   final def isReplayedBy[Cid: Equal, Val: Equal](

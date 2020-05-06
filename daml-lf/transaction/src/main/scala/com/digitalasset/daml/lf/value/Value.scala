@@ -165,6 +165,32 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     go
   }
 
+  private[lf] override def foreach1[Cid](f: Cid => Unit): Value[Cid] => Unit = {
+
+    def go(v0: Value[Cid]): Unit =
+      v0 match {
+        case ValueContractId(coid) =>
+          f(coid)
+        case ValueRecord(id @ _, fs) =>
+          fs.foreach { case (_, value) => go(value) }
+        case ValueStruct(fs) =>
+          fs.foreach { case (_, value) => go(value) }
+        case ValueVariant(id @ _, variant @ _, value) =>
+          go(value)
+        case _: ValueCidlessLeaf =>
+        case ValueList(vs) =>
+          vs.foreach(go)
+        case ValueOptional(x) =>
+          x.foreach(go)
+        case ValueTextMap(x) =>
+          x.foreach { case (_, value) => go(value) }
+        case ValueGenMap(entries) =>
+          entries.foreach { case (k, v) => go(k); go(v) }
+      }
+
+    go
+  }
+
   /** the maximum nesting level for DAML-LF serializable values. we put this
     * limitation to be able to reliably implement stack safe programs with it.
     * right now it's 100 to be conservative -- it's in the same order of magnitude
@@ -211,6 +237,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     ): CidMapper.RelCidResolver[VersionedValue[A1], VersionedValue[A2]] =
       cidMapperInstance
 
+    override private[lf] def foreach1[A](f: A => Unit): VersionedValue[A] => Unit =
+      x => Value.foreach1(f)(x.value)
   }
 
   /** The parent of all [[Value]] cases that cannot possibly have a Cid.
@@ -295,6 +323,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     override private[lf] def map1[A, B](f: A => B): ContractInst[A] => ContractInst[B] =
       x => x.copy(arg = f(x.arg))
 
+    override private[lf] def foreach1[A](f: A => Unit): ContractInst[A] => Unit =
+      x => f(x.arg)
   }
 
   type NodeIdx = Int
@@ -414,6 +444,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, AbsoluteContractId.V1] =
       CidMapper.basicMapperInstance[ContractId, AbsoluteContractId.V1]
 
+    implicit val cidConsumer: CidConsumer[ContractId, ContractId] =
+      CidConsumer.basicConsumerInstance
+
   }
 
   /** The constructor is private so that we make sure that only this object constructs
@@ -424,6 +457,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   object NodeId {
     implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
       CidMapper.trivialMapper
+
+    implicit def cidConsumer[In]: CidConsumer[NodeId, In] =
+      CidConsumer.trivialConsumer
   }
 
   /*** Keys cannot contain contract ids */

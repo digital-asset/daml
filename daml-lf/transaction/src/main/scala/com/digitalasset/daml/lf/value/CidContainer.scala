@@ -41,10 +41,14 @@ object CidMapper {
   type CidSuffixer[-A1, +A2] =
     CidMapper[A1, A2, Value.ContractId, Value.AbsoluteContractId.V1]
 
-  def trivialMapper[X, In, Out]: CidMapper[X, X, In, Out] =
-    new CidMapper[X, X, In, Out] {
-      override def map(f: In => Out): X => X = identity
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private val _trivialMapper: CidMapper[Any, Any, Nothing, Any] =
+    new CidMapper[Any, Any, Nothing, Any] {
+      override def map(f: Nothing => Any): Any => Any = identity
     }
+
+  def trivialMapper[X, In, Out]: CidMapper[X, X, In, Out] =
+    _trivialMapper.asInstanceOf[CidMapper[X, X, In, Out]]
 
   private[value] def basicMapperInstance[Cid1, Cid2]: CidMapper[Cid1, Cid2, Cid1, Cid2] =
     new CidMapper[Cid1, Cid2, Cid1, Cid2] {
@@ -64,6 +68,29 @@ object CidMapper {
         case acoid: Value.AbsoluteContractId => acoid
         case rcoid: Value.RelativeContractId => Value.AbsoluteContractId.V0(f(rcoid))
       }
+    }
+}
+
+sealed abstract class CidConsumer[-A, In] {
+
+  def foreachCid(f: In => Unit): A => Unit
+
+}
+
+object CidConsumer {
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private val _trivialConsumer: CidConsumer[Any, Any] =
+    new CidConsumer[Any, Any] {
+      override def foreachCid(f: Any => Unit): Any => Unit = _ => ()
+    }
+
+  def trivialConsumer[X]: CidConsumer[Any, X] =
+    _trivialConsumer.asInstanceOf[CidConsumer[Any, X]]
+
+  private[value] def basicConsumerInstance[Cid]: CidConsumer[Cid, Cid] =
+    new CidConsumer[Cid, Cid] {
+      override def foreachCid(f: Cid => Unit): Cid => Unit = f
     }
 
 }
@@ -119,6 +146,14 @@ trait CidContainer[+A] {
   ): B =
     data.assertRight(ensureNoRelCid.left.map(message))
 
+  final def cids[Cid](
+      implicit consumer: CidConsumer[A, Cid]
+  ): Set[Cid] = {
+    val cids = Set.newBuilder[Cid]
+    consumer.foreachCid(cids += _)(self)
+    cids.result()
+  }
+
 }
 
 trait CidContainer1[F[_]] {
@@ -126,6 +161,8 @@ trait CidContainer1[F[_]] {
   import CidMapper._
 
   private[lf] def map1[A, B](f: A => B): F[A] => F[B]
+
+  private[lf] def foreach1[A](f: A => Unit): F[A] => Unit
 
   protected final def cidMapperInstance[A1, A2, In, Out](
       implicit mapper: CidMapper[A1, A2, In, Out]
@@ -150,6 +187,14 @@ trait CidContainer1[F[_]] {
   ): CidSuffixer[F[A1], F[A2]] =
     cidMapperInstance
 
+  final def cidConsumerInstance[A, Cid](
+      implicit consumer: CidConsumer[A, Cid]
+  ): CidConsumer[F[A], Cid] =
+    new CidConsumer[F[A], Cid] {
+      override def foreachCid(f: Cid => Unit): F[A] => Unit =
+        foreach1(consumer.foreachCid(f))
+    }
+
 }
 
 trait CidContainer1WithDefaultCidResolver[F[_]] extends CidContainer1[F] {
@@ -172,6 +217,12 @@ trait CidContainer3[F[_, _, _]] {
       f2: B1 => B2,
       f3: C1 => C2,
   ): F[A1, B1, C1] => F[A2, B2, C2]
+
+  private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): F[A, B, C] => Unit
 
   protected final def cidMapperInstance[A1, B1, C1, A2, B2, C2, In, Out](
       implicit mapper1: CidMapper[A1, A2, In, Out],
@@ -197,6 +248,17 @@ trait CidContainer3[F[_, _, _]] {
       suffixer3: CidSuffixer[C1, C2],
   ): CidSuffixer[F[A1, B1, C1], F[A2, B2, C2]] =
     cidMapperInstance
+
+  final def cidConsumerInstance[A, B, C, In](
+      implicit Consumer1: CidConsumer[A, In],
+      Consumer2: CidConsumer[B, In],
+      Consumer3: CidConsumer[C, In],
+  ): CidConsumer[F[A, B, C], In] =
+    new CidConsumer[F[A, B, C], In] {
+      override def foreachCid(f: In => Unit): F[A, B, C] => Unit = {
+        foreach3(Consumer1.foreachCid(f), Consumer2.foreachCid(f), Consumer3.foreachCid(f))
+      }
+    }
 
 }
 
