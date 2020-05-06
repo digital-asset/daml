@@ -7,9 +7,7 @@ module DA.Daml.LF.Simplifier(
     ) where
 
 import Control.Lens hiding (para)
-import Data.Functor.Foldable
-import Data.Maybe
-import qualified Data.Set as Set
+import Data.Functor.Foldable (cata, embed)
 import qualified Data.Text as T
 import qualified Safe
 import qualified Safe.Exact as Safe
@@ -18,8 +16,7 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
-
-type VarSet = Set.Set ExprVarName
+import DA.Daml.LF.Ast.FreeVars
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -43,63 +40,10 @@ data TypeClassInfo
   | TCDictionary Expr
 
 data Info = Info
-  { freeVars :: VarSet
+  { freeVars :: FreeVars
   , safety   :: Safety
   , tcinfo   :: TypeClassInfo
   }
-
--- | @'cata' freeVarsStep@ maps an 'Expr' to its free term variables.
-freeVarsStep :: ExprF VarSet -> VarSet
-freeVarsStep = \case
-  EVarF x -> Set.singleton x
-  EValF _ -> mempty
-  EBuiltinF _ -> mempty
-  ERecConF _ fs -> foldMap snd fs
-  ERecProjF _ _ s -> s
-  ERecUpdF _ _ s1 s2 -> s1 <> s2
-  EVariantConF _ _ s -> s
-  EEnumConF _ _ -> Set.empty
-  EStructConF fs -> foldMap snd fs
-  EStructProjF _ s -> s
-  EStructUpdF _ s1 s2 -> s1 <> s2
-  ETmAppF s1 s2 -> s1 <> s2
-  ETyAppF s _ -> s
-  ETmLamF (x, _) s -> x `Set.delete` s
-  ETyLamF _ s -> s
-  ECaseF s as -> s <> foldMap snd as
-  ELetF b s -> fvBinding b s
-  ENilF _ -> mempty
-  EConsF _ s1 s2 -> s1 <> s2
-  ENoneF _ -> mempty
-  ESomeF _ s -> s
-  EToAnyF _ s -> s
-  EFromAnyF _ s -> s
-  ETypeRepF _ -> mempty
-  EUpdateF u ->
-    case u of
-      UPureF _ s -> s
-      UBindF b s -> fvBinding b s
-      UCreateF _ s -> s
-      UExerciseF _ _ s1 s2 s3 -> s1 <> fromMaybe Set.empty s2 <> s3
-      UFetchF _ s1 -> s1
-      UGetTimeF -> mempty
-      UEmbedExprF _ s -> s
-      UFetchByKeyF rbk -> retrieveByKeyFKey rbk
-      ULookupByKeyF rbk -> retrieveByKeyFKey rbk
-  EScenarioF e ->
-    case e of
-      SPureF _ s -> s
-      SBindF b s -> fvBinding b s
-      SCommitF _ s1 s2 -> s1 <> s2
-      SMustFailAtF _ s1 s2 -> s1 <> s2
-      SPassF s -> s
-      SGetTimeF -> mempty
-      SGetPartyF s -> s
-      SEmbedExprF _ s -> s
-  ELocationF _ e -> e
-  where
-    fvBinding :: BindingF VarSet -> VarSet -> VarSet
-    fvBinding (BindingF (x, _) s1) s2 = s1 <> (x `Set.delete` s2)
 
 decrSafety :: Safety -> Safety
 decrSafety = \case
@@ -356,28 +300,17 @@ simplifyExpr world = fst . cata go
     go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
 
-      -- selective inlining
-      -- EValF x
-        -- | Right dv <- lookupValue x lfWorld
-        -- , shouldInline dv
-        -- -> (dvalBody dv, cata info (dvalBody dv))
-
       ETmAppF (_, i1) (_, i2)
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
           , TCDictionary e2 <- tcinfo i2
-          , Just e' <- getProjectedTypeclassField world (substExpr (exprSubst x e2) e1)
+          , Just e' <- getProjectedTypeclassField world
+              (substExpr (exprSubst' x e2 (freeVars i2)) e1)
+                  -- (freeVars i2) is a safe over-approximation
+                  -- of the free variables in e2, because e2 is
+                  -- a repeated beta-reduction of a closed expression
+                  -- (the dictionary function) applied to subterms of
+                  -- the argument whose free variables are tracked in i2.
           -> cata go e'
-
-      -- -- immediately applied type lambdas
-      -- ETyAppF (ETyLam (x, _k) e, s) t
-      --   -> (substExpr (typeSubst x t) e, s) -- s doesn't track type variables
-
-      -- -- immediately applied term lambdas
-      -- ETmAppF (ETmLam (x, _t) e1, s1) (e2, s2)
-      --   | shouldApply e2
-      --   , Info fv1 st1 _tc1 <- s1
-      --   , Info fv2 _st2 _tc2 <- s2
-      --   -> (substExpr (exprSubst x e2) e1, Info (fv1 <> fv2) (decrSafety st1) TCNeither)
 
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
@@ -414,7 +347,7 @@ simplifyExpr world = fst . cata go
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
       ELetF (BindingF (x, _) e1) e2
         | Safe _ <- safety (snd e1)
-        , x `Set.notMember` freeVars (snd e2) -> e2
+        , not (isFreeExprVar x (freeVars (snd e2))) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
       -- NOTE(MH): The reason for the choice of `s1` and `s2` is as follows:
@@ -426,7 +359,7 @@ simplifyExpr world = fst . cata go
         go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
           s1 = Info fv (sf `min` Safe 0) TCNeither
-          s2 = Info (Set.insert x fv) sf TCNeither
+          s2 = Info (freeExprVar x <> fv) sf TCNeither
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
