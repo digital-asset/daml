@@ -42,8 +42,6 @@ import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
 import ParticipantsJsonProtocol.AbsoluteContractIdFormat
 
-import scala.annotation.tailrec
-
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
 
 case class Participant(participant: String)
@@ -299,24 +297,21 @@ class Runner(
         Set.empty,
       )
 
-    @tailrec
-    def stepToValue(): Future[SValue] =
-      if (machine.isFinal())
-        Future.successful(machine.toSValue)
-      else
-        machine.run() match {
-          case SResultFinalValue(_) =>
-            stepToValue()
-          case SResultError(err) =>
-            logger.error(Pretty.prettyError(err, machine.ptx).render(80))
-            Future.failed(err)
-          case res =>
-            Future.failed(new RuntimeException(s"Unexpected speedy result $res"))
-        }
+    def stepToValue(): Either[RuntimeException, SValue] =
+      machine.run() match {
+        case SResultFinalValue(_) =>
+          Right(machine.toSValue)
+        case SResultError(err) =>
+          logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+          Left(err)
+        case res =>
+          Left(new RuntimeException(s"Unexpected speedy result $res"))
+      }
 
     def run(expr: SExpr): Future[SValue] = {
       machine.ctrl = Speedy.CtrlExpr(expr)
       stepToValue()
+        .fold(Future.failed, Future.successful)
         .flatMap {
           case SVariant(_, "Free", _, v) => {
             v match {
@@ -502,8 +497,8 @@ class Runner(
     }
 
     for {
-      _ <- Future.unit
-      result <- stepToValue()
+      _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
+      result <- stepToValue().fold(Future.failed, Future.successful)
       expr <- result match {
         // Unwrap Script newtype and apply to ()
         case SRecord(_, _, vals) if vals.size == 1 => {
