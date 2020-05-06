@@ -6,6 +6,7 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:versions.bzl", "version_to_name")
 load("//:versions.bzl", "latest_stable_version")
 
 # Indexed first by test tool version and then by sandbox version.
@@ -228,8 +229,8 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
-        sdk_version = sdk_version,
-        platform_version = platform_version,
+        sdk_version = version_to_name(sdk_version),
+        platform_version = version_to_name(platform_version),
     )
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
     client_server_test(
@@ -274,8 +275,8 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
-        sdk_version = sdk_version,
-        platform_version = platform_version,
+        sdk_version = version_to_name(sdk_version),
+        platform_version = version_to_name(platform_version),
     )
     daml_ledger_test(
         name = name,
