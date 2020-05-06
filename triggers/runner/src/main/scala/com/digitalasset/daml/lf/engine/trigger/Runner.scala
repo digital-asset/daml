@@ -357,7 +357,8 @@ class Runner(
           SEValue(SParty(Party.assertFromString(party))),
           SEValue(STimestamp(clientTime)): SExpr,
           createdExpr))
-    machine.ctrl = Speedy.CtrlExpr(initialState)
+    machine.ctrl = initialState
+    machine.returnValue = null
     Machine.stepToValue(machine)
     val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
@@ -409,8 +410,9 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.ctrl = Speedy.CtrlExpr(
-          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
+        machine.ctrl =
+          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state))
+        machine.returnValue = null
         Machine.stepToValue(machine)
         val newState = handleStepResult(machine.toSValue, submit)
         SEValue(newState)

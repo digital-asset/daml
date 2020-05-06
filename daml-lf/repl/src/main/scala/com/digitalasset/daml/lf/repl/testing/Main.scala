@@ -14,7 +14,7 @@ import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.types.Ledger
-import com.daml.lf.speedy.SExpr.LfDefRef
+import com.daml.lf.speedy.SExpr.{LfDefRef, SEValue}
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.LanguageVersion
@@ -431,7 +431,7 @@ object Repl {
             println(s"time: ${diff}ms")
             if (!errored) {
               val result = machine.ctrl match {
-                case Speedy.CtrlValue(sv) =>
+                case SEValue(sv) =>
                   prettyValue(true)(sv.toValue).render(128)
                 case x => x.toString
               }
