@@ -13,7 +13,8 @@ cd "$(dirname "$0")/.."
 
 eval "$(./dev-env/bin/dade-assist)"
 
-ps aux
+free -h
+ipcs -a
 
 # We allow overwriting this since on CI we build this in a separate step and upload it first
 # before fetching it in another step.
