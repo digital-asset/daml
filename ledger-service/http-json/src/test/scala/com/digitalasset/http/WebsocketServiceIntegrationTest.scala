@@ -781,7 +781,8 @@ object WebsocketServiceIntegrationTest {
         steps flatMap { v =>
           if (p(v)) Free point v
           else
-            Free liftF Emit(Future failed new IllegalStateException("script cancelled by filter"))
+            Free liftF Emit(
+              Future failed new IllegalStateException(s"script cancelled by match error on $v"))
         }
     }
 
