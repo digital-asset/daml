@@ -41,6 +41,8 @@ import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
 
+import com.google.protobuf.empty.Empty
+
 sealed trait TriggerMsg
 final case class CompletionMsg(c: Completion) extends TriggerMsg
 final case class TransactionMsg(t: Transaction) extends TriggerMsg
@@ -264,6 +266,9 @@ class Runner(
       }
     }
 
+  // This function produces a pair of a source of trigger messages
+  // and a function to call in the event of a command submission
+  // failure.
   private def msgSource(
       client: LedgerClient,
       offset: LedgerOffset,
@@ -271,15 +276,31 @@ class Runner(
       party: String,
       filter: TransactionFilter)(implicit materializer: Materializer)
     : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
-    // We use the queue to post failures that occur directly on command submission as opposed to
-    // appearing asynchronously on the completion stream
-    val (completionQueue, completionQueueSource) =
+
+    // A queue for command submission failures together with a source
+    // from which messages posted to the queue can be consumed.
+    val (completionQueue, completionQueueSource): (
+        SourceQueue[Completion],
+        Source[Completion, NotUsed]) =
       Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
-    val transactionSource =
+    // This function, given a command ID and a runtime exception,
+    // posts to the completion queue.
+    def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
+      val _ = completionQueue.offer(
+        Completion(
+          commandId,
+          Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
+    }
+
+    // The transaction source (ledger).
+    val transactionSource: Source[TriggerMsg, NotUsed] =
       client.transactionClient
         .getTransactions(offset, None, filter, verbose = true)
-        .map[TriggerMsg](TransactionMsg)
-    val completionSource =
+        .map(TransactionMsg)
+
+    // Command completion source (ledger completion stream +
+    // synchronous sumbmission failures).
+    val completionSource: Source[TriggerMsg, NotUsed] =
       client.commandClient
         .completionSource(List(party), offset)
         .mapConcat({
@@ -287,21 +308,21 @@ class Runner(
           case CompletionElement(c) => List(c)
         })
         .merge(completionQueueSource)
-        .map[TriggerMsg](CompletionMsg)
-    val source = heartbeat match {
+        .map(CompletionMsg)
+
+    // Hearbeats source (we produce these repetitvely on a timer with
+    // the given delay interval).
+    val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
-        transactionSource
-          .merge(completionSource)
-          .merge(Source.tick[TriggerMsg](interval, interval, HeartbeatMsg()))
-      case None => transactionSource.merge(completionSource)
+        Source
+          .tick[TriggerMsg](interval, interval, HeartbeatMsg())
+          .mapMaterializedValue(_ => NotUsed)
+      case None => Source.empty[TriggerMsg]
     }
-    def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
-      val _ = completionQueue.offer(
-        Completion(
-          commandId,
-          Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
-    }
-    (source, postSubmitFailure)
+
+    val triggerMsgSource = transactionSource.merge(completionSource).merge(heartbeatSource)
+
+    (triggerMsgSource, postSubmitFailure)
   }
 
   private def getTriggerSink(
@@ -396,8 +417,8 @@ class Runner(
       }))(Keep.right[NotUsed, Future[SExpr]])
   }
 
-  // Query the ACS. This allows you to separate the initialization of the initial state
-  // from the first run. This is only intended for tests.
+  // Query the ACS. This allows you to separate the initialization of
+  // the initial state from the first run.
   def queryACS()(
       implicit materializer: Materializer,
       executionContext: ExecutionContext): Future[(Seq[CreatedEvent], LedgerOffset)] = {
@@ -419,14 +440,15 @@ class Runner(
   )(implicit materializer: Materializer, executionContext: ExecutionContext): (T, Future[SExpr]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
-    def submit(req: SubmitRequest) = {
-      val f = client.commandClient
+    def submit(req: SubmitRequest): Unit = {
+      val f: Future[Empty] = client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(timeProviderType)))
         .submitSingleCommand(req)
       f.failed.foreach({
         case s: StatusRuntimeException =>
           postFailure(req.getCommands.commandId, s)
-        case e => logger.error(s"Unexpected exception: $e")
+        case e =>
+          logger.error(s"Unexpected exception: $e")
       })
     }
     source
