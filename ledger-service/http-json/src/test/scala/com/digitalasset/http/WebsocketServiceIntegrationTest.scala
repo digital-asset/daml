@@ -431,50 +431,43 @@ class WebsocketServiceIntegrationTest
 
       def resp(
           cid1: domain.ContractId,
-          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
-        Sink.foldAsync(NothingYet: StreamState) {
-
-          case (
-              NothingYet,
-              ContractDelta(Vector((cid, c)), Vector(), None)
-              ) =>
-            (cid: String) shouldBe (cid1.unwrap: String)
-            postArchiveCommand(templateId, cid2, encoder, uri).flatMap {
+          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            ContractDelta(Vector((cid, c)), Vector(), None) <- readOne
+            _ = (cid: String) shouldBe (cid1.unwrap: String)
+            ctid <- liftF(postArchiveCommand(templateId, cid2, encoder, uri).flatMap {
               case (statusCode, _) =>
                 statusCode.isSuccess shouldBe true
                 postArchiveCommand(templateId, cid1, encoder, uri).map {
                   case (statusCode, _) =>
                     statusCode.isSuccess shouldBe true
-                    GotAcs(cid)
+                    cid
                 }
-            }: Future[StreamState]
+            })
 
-          case (GotAcs(ctid), ContractDelta(Vector(), _, Some(offset))) =>
-            Future.successful(GotLive(offset, ctid))
+            ContractDelta(Vector(), _, Some(offset)) <- readOne
+            (off, archivedCid) = (offset, ctid)
 
-          case (
-              GotLive(off, archivedCid),
-              ContractDelta(Vector(), Vector(observeArchivedCid), Some(lastSeenOffset))
-              ) =>
-            Future {
+            ContractDelta(Vector(), Vector(observeArchivedCid), Some(lastSeenOffset)) <- readOne
+            (liveStartOffset, msgCount) = {
               (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
               (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
-              ShouldHaveEnded(off, 0, lastSeenOffset)
+              (off, 0)
             }
 
-          case (
-              ShouldHaveEnded(liveStartOffset, msgCount, lastSeenOffset),
-              ContractDelta(Vector(), Vector(), Some(currentOffset))
-              ) =>
-            Future {
-              // don't count empty events block if lastSeenOffset does not change
-              ShouldHaveEnded(
-                liveStartOffset = liveStartOffset,
-                msgCount = if (lastSeenOffset == currentOffset) msgCount else msgCount + 1,
-                lastSeenOffset = currentOffset
-              )
-            }
-        }
+            ContractDelta(Vector(), Vector(), Some(currentOffset)) <- readOne
+
+          } yield
+          // don't count empty events block if lastSeenOffset does not change
+          ShouldHaveEnded(
+            liveStartOffset = liveStartOffset,
+            msgCount = if (lastSeenOffset == currentOffset) msgCount else msgCount + 1,
+            lastSeenOffset = currentOffset
+          ))
+      }
 
       for {
         r1 <- f1
