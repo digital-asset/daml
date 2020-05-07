@@ -359,7 +359,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Nil → () ))",
         // ExpCaseCons
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Cons x y → () ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x x → x ))",
+        E"Λ (τ : ⋆). λ (e: List τ) → (( case e of Cons x x → () ))",
         // ExpCaseFalse & ExpCaseTrue
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of True → () ))",
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of False → () ))",
