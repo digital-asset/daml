@@ -51,11 +51,27 @@ object SExpr {
     */
   final case class SEVal(
       ref: SDefinitionRef,
-      var cached: Option[(SValue, List[Location])],
   ) extends SExpr {
-    def execute(machine: Machine): Unit = {
+
+    // The variable `_cached` is used to cache the evaluation of the
+    // LF value defined by `ref` once it has been computed.  Hence we
+    // avoid both the lookup in the package definition HashMap and the
+    // full reevaluation of the body of the definition.
+    // Here we take advantage of the Java memory model
+    // (https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7)
+    // that guarantees the write of `_cache` (in the method
+    // `setCached`) is done atomically.
+    // This is similar how hashcode evaluation is cached in String
+    // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
+    private var _cached: Option[(SValue, List[Location])] = None
+
+    def cached: Option[(SValue, List[Location])] = _cached
+
+    def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
+      _cached = Some((sValue, stack_trace))
+
+    def execute(machine: Machine): Unit =
       machine.lookupVal(this)
-    }
   }
 
   /** Reference to a builtin function */

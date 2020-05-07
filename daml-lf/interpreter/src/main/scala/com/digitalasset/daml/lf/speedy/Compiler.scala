@@ -209,7 +209,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
-      case EVal(ref) => SEVal(LfDefRef(ref), None)
+      case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
@@ -1236,7 +1236,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
       }
       SEApp(
-        SEVal(ChoiceDefRef(tmplId, choiceId), None),
+        SEVal(ChoiceDefRef(tmplId, choiceId)),
         Array(SEValue.bool(byKey), actors, contractId, argument))
     }
 

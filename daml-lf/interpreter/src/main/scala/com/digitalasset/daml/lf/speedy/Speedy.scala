@@ -685,9 +685,9 @@ object Speedy {
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
   final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
-    def execute(sv: SValue, machine: Machine) = {
+    def execute(sv: SValue, machine: Machine): Unit = {
       machine.pushStackTrace(stack_trace)
-      v.cached = Some((sv, stack_trace))
+      v.setCached(sv, stack_trace)
       machine.returnValue = sv
     }
   }
