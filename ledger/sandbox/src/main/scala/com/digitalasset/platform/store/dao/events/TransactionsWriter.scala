@@ -117,13 +117,6 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     val disclosureForTransactionTree =
       computeDisclosureForTransactionTree(transactionId, transaction, blinding)
 
-    // Remove witnesses for the flat transactions from the full disclosure
-    // This minimizes the data we save and allows us to use the union of the
-    // witnesses for flat transactions and its complement to filter parties
-    // for the transactions tree stream
-    val disclosureComplement =
-      Relation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
-
     // Prepare batch inserts for flat transactions
     val flatTransactionWitnessesBatch =
       WitnessesTable.ForFlatTransactions.prepareBatchInsert(
@@ -132,8 +125,8 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
 
     // Prepare batch inserts for all witnesses except those for flat transactions
     val complementWitnessesBatch =
-      WitnessesTable.Complement.prepareBatchInsert(
-        witnesses = disclosureComplement,
+      WitnessesTable.ForTransactionTrees.prepareBatchInsert(
+        witnesses = disclosureForTransactionTree,
       )
 
     eventBatches.foreach(_.execute())

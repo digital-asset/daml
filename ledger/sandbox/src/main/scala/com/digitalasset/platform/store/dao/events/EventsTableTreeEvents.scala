@@ -103,7 +103,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "array_agg(event_witness) as event_witnesses"
 
   private val treeEventsTable =
-    "participant_events natural join (select event_id, event_witness from participant_event_flat_transaction_witnesses union select event_id, event_witness from participant_event_witnesses_complement) as participant_event_witnesses"
+    "participant_events natural join participant_event_transaction_tree_witnesses"
 
   private val groupByColumns = Seq(
     "event_offset",
