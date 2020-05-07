@@ -192,10 +192,7 @@ object Database {
         .placeholders(Map("table.prefix" -> TablePrefix).asJava)
         .table(TablePrefix + Flyway.configure().getTable)
         .dataSource(adminConnectionPool)
-        .locations(
-          "classpath:/com/daml/ledger/on/sql/migrations/common",
-          s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}",
-        )
+        .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
         .load()
 
     def migrate(): Database = {
