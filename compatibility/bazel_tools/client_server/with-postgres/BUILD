@@ -11,6 +11,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "network",
         "process",
         "safe-exceptions",
         "text",

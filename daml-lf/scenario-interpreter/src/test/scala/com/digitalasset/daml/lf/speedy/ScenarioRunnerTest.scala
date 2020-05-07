@@ -23,8 +23,12 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
         transactionSeed = None
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
-      sr.run()
-      m.ctrl shouldBe Speedy.CtrlValue(SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX")))
+      sr.run() match {
+        case Right((_, _, _, value)) =>
+          value shouldBe SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX"))
+        case res =>
+          sys.error(s"unexpected result $res")
+      }
     }
   }
 

@@ -124,13 +124,13 @@ object SValue {
     override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
   }
 
-  /** A partially (or fully) applied primitive.
-    * This is constructed when an argument is applied. When it becomes fully
-    * applied (args.size == arity), the machine will apply the arguments to the primitive.
-    * If the primitive is a closure, the arguments are pushed to the environment and the
-    * closure body is entered.
+  /** A partially applied primitive.
+    * An SPAP is *never* fully applied. This is asserted on construction.
     */
   final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
+    if (args.size >= arity) {
+      throw SErrorCrash(s"SPAP: unexpected args.size >= arity")
+    }
     override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
   }
 

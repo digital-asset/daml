@@ -29,6 +29,9 @@ sealed trait Event[+Nid, +Cid, +Val]
     Event.map3(identity[Nid], f, g)(this)
   final def mapNodeId[Nid2](f: Nid => Nid2): Event[Nid2, Cid, Val] =
     Event.map3(f, identity[Cid], identity[Val])(this)
+
+  final def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
+    Event.foreach3(fNid, fCid, fVal)(self)
 }
 
 /** Event for created contracts, follows ledger api event protocol

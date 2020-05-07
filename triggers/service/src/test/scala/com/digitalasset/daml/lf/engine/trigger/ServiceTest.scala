@@ -130,8 +130,20 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 
   def parseTriggerId(resp: HttpResponse): Future[String] = {
     for {
-      JsString(triggerId) <- parseResult(resp)
+      JsObject(fields) <- parseResult(resp)
+      Some(JsString(triggerId)) = fields.get("triggerId")
     } yield triggerId
+  }
+
+  def parseTriggerIds(resp: HttpResponse): Future[Vector[String]] = {
+    for {
+      JsObject(fields) <- parseResult(resp)
+      Some(JsArray(ids)) = fields.get("triggerIds")
+      triggerIds = ids map {
+        case JsString(id) => id
+        case _ => fail("""Non-string element of "triggerIds" field""")
+      }
+    } yield triggerIds
   }
 
   it should "fail to start non-existent trigger" in withHttpService(Some(dar)) {
@@ -160,12 +172,12 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       triggerId <- parseTriggerId(resp)
 
       resp <- listTriggers(uri, "Alice")
-      result <- parseResult(resp)
-      _ <- result should equal(JsArray(JsString(triggerId)))
+      result <- parseTriggerIds(resp)
+      _ <- result should equal(Vector(triggerId))
 
       resp <- stopTrigger(uri, triggerId)
-      JsString(result) <- parseResult(resp)
-      _ <- result should equal(s"Trigger $triggerId has been stopped.")
+      stoppedTriggerId <- parseTriggerId(resp)
+      _ <- stoppedTriggerId should equal(triggerId)
     } yield succeed
   }
 
@@ -174,43 +186,43 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       for {
         // no triggers running initially
         resp <- listTriggers(uri, "Alice")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray())
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector())
         // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
         resp <- listTriggers(uri, "Alice")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray(JsString(aliceTrigger)))
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector(aliceTrigger))
         // start trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
         resp <- listTriggers(uri, "Bob")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray(JsString(bobTrigger1)))
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector(bobTrigger1))
         // start another trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
         resp <- listTriggers(uri, "Bob")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray(JsString(bobTrigger1), JsString(bobTrigger2)))
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
         // stop Alice's trigger
         resp <- stopTrigger(uri, aliceTrigger)
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Alice")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray())
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector())
         resp <- listTriggers(uri, "Bob")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray(JsString(bobTrigger1), JsString(bobTrigger2)))
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
         // stop Bob's triggers
         resp <- stopTrigger(uri, bobTrigger1)
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2)
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Bob")
-        result <- parseResult(resp)
-        _ <- result should equal(JsArray())
+        result <- parseTriggerIds(resp)
+        _ <- result should equal(Vector())
       } yield succeed
   }
 
@@ -237,19 +249,20 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         }
         // Query ACS until we see a B contract
         // format: off
-      _ <- Future {
-        val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
-        eventually {
-          val acs = client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq)
-            .map(acsPages => acsPages.flatMap(_.activeContracts))
-          // Once we switch to scalatest 3.1, we should no longer need the Await.result here since eventually
-          // handles Future results.
-          val r = Await.result(acs, Duration.Inf)
-          assert(r.length == 1)
+        _ <- Future {
+          val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
+          eventually {
+            val acs = client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq)
+              .map(acsPages => acsPages.flatMap(_.activeContracts))
+            // Once we switch to scalatest 3.1, we should no longer need the Await.result here since eventually
+            // handles Future results.
+            val r = Await.result(acs, Duration.Inf)
+            assert(r.length == 1)
+          }
         }
-      }
-      // format: on
+        // format: on
         resp <- stopTrigger(uri, triggerId)
-      } yield assert(resp.status.isSuccess)
+        _ <- assert(resp.status.isSuccess)
+      } yield succeed
   }
 }

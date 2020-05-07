@@ -561,7 +561,7 @@ strings as *package identifiers*.  ::
           cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]+           -- V0ContractId
 
   V1 Contract identifiers:
-          cidV1  ∈  00([0-9a-f][0-9a-f]){32,96}    -- V1ContractId
+          cidV1  ∈  00([0-9a-f][0-9a-f]){32,94}    -- V1ContractId
 
   Contract identifiers:
           cid := cidV0 | cidV1                      -- ContractId
@@ -573,8 +573,10 @@ those interactions. Depending on its configuration, a DAML-LF engine
 can produce V0 or V1 contract identifiers.  When configured to produce
 V0 contract identifiers, a DAML-LF compliant engine must refuse to
 load any DAML-LF >= 1.dev archives.  On the contrary, when configured
-to produce V1 contract ids, a DAML-LF compliant engine must accept to
-load any non-deprecated DAML-LF version.
+to produce V1 contract IDs, a DAML-LF compliant engine must accept to
+load any non-deprecated DAML-LF version. V1 Contract IDs allocation
+scheme is described in the `V1 Contract ID allocation
+scheme specification <./contract-id.rst>`_.
 
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
@@ -794,11 +796,11 @@ module. The following feature flags are available:
  | ForbidPartyLiterals                       | Party literals are not allowed in a DAML-LF module.      |
  |                                           | (See `Party Literal restriction`_ for more details)      |
  +-------------------------------------------+----------------------------------------------------------+
- | DontDivulgeContractIdsInCreateArguments   | Contract ids captured in ``create`` arguments are not    |
+ | DontDivulgeContractIdsInCreateArguments   | contract IDs captured in ``create`` arguments are not    |
  |                                           | divulged, ``fetch`` is authorized if and only if the     |
  |                                           | authorizing parties contain at least one stakeholder of  |
- |                                           | the fetched contract id.                                 |
- |                                           | The contract id on which a choice is exercised           |
+ |                                           | the fetched contract ID.                                 |
+ |                                           | The contract ID on which a choice is exercised           |
  |                                           | is divulged to all parties that witness the choice.      |
  +-------------------------------------------+----------------------------------------------------------+
  | DontDiscloseNonConsumingChoicesToObservers| When a non-consuming choice of a contract is exercised,  |
@@ -2594,7 +2596,7 @@ updates.
 
 ..
   FIXME: https://github.com/digital-asset/daml/issues/2256
-    Handle contract ids
+    Handle contract IDs
 
 
 * ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
@@ -3095,7 +3097,7 @@ ContractId functions
 
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
-  Returns the given contract id unchanged at a different type.
+  Returns the given contract ID unchanged at a different type.
 
   [*Available in versions >= 1.5*]
 

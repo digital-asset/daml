@@ -284,6 +284,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
       false
     else
       go(FrontStack(roots.zip(other.roots)))
+
   }
 
   /** Whether `other` is the result of reinterpreting this transaction.
@@ -329,6 +330,10 @@ final case class GenTransaction[Nid, +Cid, +Val](
           case lk: Node.NodeLookupByKey[_, Val] => f(z, lk.key.key)
         }
     }
+
+  def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
+    GenTransaction.foreach3(fNid, fCid, fVal)(self)
+
 }
 
 object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
