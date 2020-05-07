@@ -67,6 +67,9 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                # This is to avoid undeclared inputs errors on Windows with the
+                # mingw toolchain. It is specific to the `daml` repository.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-ghc-build.patch",
                 # This fixes a ghc-lib specific build issue and is not upstreamable.
                 # This might also be fixed by using `stack_snapshot` in the future.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",

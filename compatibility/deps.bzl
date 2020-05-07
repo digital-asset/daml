@@ -50,6 +50,7 @@ def daml_deps():
                 "@daml//bazel_tools:haskell-strict-source-names.patch",
                 "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                "@daml//bazel_tools:haskell-windows-ghc-build.patch",
                 "@daml//bazel_tools:haskell-pgmc.patch",
             ],
             patch_args = ["-p1"],
