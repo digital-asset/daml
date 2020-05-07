@@ -8,6 +8,7 @@ import java.time.Instant
 import anorm.SqlParser.{binaryStream, str}
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
@@ -22,6 +23,7 @@ private[dao] sealed abstract class ContractsReader(
     val committedContracts: PostCommitValidationData,
     dispatcher: DbDispatcher,
     executionContext: ExecutionContext,
+    metrics: Metrics,
 ) extends ContractStore {
 
   import ContractsReader._
@@ -52,6 +54,25 @@ private[dao] sealed abstract class ContractsReader(
       }
       .map(_.get)(executionContext)
 
+  // The contracts table _does not_ store agreement texts as they are
+  // unnecessary for interpretation and validation. The contracts returned
+  // from this table will _always_ have an empty agreement text.
+  private val contractRowParser: RowParser[Contract] =
+    str("contract_id") ~ str("template_id") ~ binaryStream("create_argument") map {
+      case contractId ~ templateId ~ createArgument =>
+        Contract(
+          template = Identifier.assertFromString(templateId),
+          arg = Timed.value(
+            metrics.daml.index.db.translateCreateArgument,
+            deserialize(
+              stream = createArgument,
+              errorContext = s"Failed to deserialize create argument for contract $contractId",
+            )
+          ),
+          agreementText = ""
+        )
+    }
+
 }
 
 object ContractsReader {
@@ -60,11 +81,12 @@ object ContractsReader {
       dispatcher: DbDispatcher,
       executionContext: ExecutionContext,
       dbType: DbType,
+      metrics: Metrics,
   ): ContractsReader = {
     val table = ContractsTable(dbType)
     dbType match {
-      case DbType.Postgres => new Postgresql(table, dispatcher, executionContext)
-      case DbType.H2Database => new H2Database(table, dispatcher, executionContext)
+      case DbType.Postgres => new Postgresql(table, dispatcher, executionContext, metrics)
+      case DbType.H2Database => new H2Database(table, dispatcher, executionContext, metrics)
     }
   }
 
@@ -72,7 +94,8 @@ object ContractsReader {
       table: ContractsTable,
       dispatcher: DbDispatcher,
       executionContext: ExecutionContext,
-  ) extends ContractsReader(table, dispatcher, executionContext) {
+      metrics: Metrics,
+  ) extends ContractsReader(table, dispatcher, executionContext, metrics) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: Key,
@@ -84,29 +107,14 @@ object ContractsReader {
       table: ContractsTable,
       dispatcher: DbDispatcher,
       executionContext: ExecutionContext,
-  ) extends ContractsReader(table, dispatcher, executionContext) {
+      metrics: Metrics,
+  ) extends ContractsReader(table, dispatcher, executionContext, metrics) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: Key,
     ): SimpleSql[Row] =
       SQL"select participant_contracts.contract_id from #$contractsTable where array_contains(create_stakeholders, $submitter) and contract_witness = $submitter and create_key_hash = ${key.hash}"
   }
-
-  // The contracts table _does not_ store agreement texts as they are
-  // unnecessary for interpretation and validation. The contracts returned
-  // from this table will _always_ have an empty agreement text.
-  private val contractRowParser: RowParser[Contract] =
-    str("contract_id") ~ str("template_id") ~ binaryStream("create_argument") map {
-      case contractId ~ templateId ~ createArgument =>
-        Contract(
-          template = Identifier.assertFromString(templateId),
-          arg = deserialize(
-            stream = createArgument,
-            errorContext = s"Failed to deserialize create argument for contract $contractId",
-          ),
-          agreementText = ""
-        )
-    }
 
   private val contractsTable = "participant_contracts natural join participant_contract_witnesses"
 

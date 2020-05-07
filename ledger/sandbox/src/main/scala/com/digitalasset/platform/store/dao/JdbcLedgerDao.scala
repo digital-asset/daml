@@ -84,6 +84,7 @@ private class JdbcLedgerDao(
     executionContext: ExecutionContext,
     eventsPageSize: Int,
     performPostCommitValidation: Boolean,
+    metrics: Metrics,
 )(implicit logCtx: LoggingContext)
     extends LedgerDao {
 
@@ -871,7 +872,7 @@ private class JdbcLedgerDao(
     new TransactionsReader(dbDispatcher, executionContext, eventsPageSize)
 
   private val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, executionContext, dbType)
+    ContractsReader(dbDispatcher, executionContext, dbType, metrics)
 
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(dbDispatcher)
@@ -952,6 +953,7 @@ object JdbcLedgerDao {
         ExecutionContext.fromExecutor(executor),
         eventsPageSize,
         validate,
+        metrics
       )
 
   sealed trait Queries {
