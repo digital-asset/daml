@@ -335,7 +335,7 @@ class WebsocketServiceIntegrationTest
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
-      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] = {
+      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
         Consume.interpret(
@@ -431,7 +431,7 @@ class WebsocketServiceIntegrationTest
 
       def resp(
           cid1: domain.ContractId,
-          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] = {
+          cid2: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
         Consume.interpret(
@@ -659,16 +659,10 @@ object WebsocketServiceIntegrationTest {
 
   private case class SimpleScenario(id: String, path: Uri.Path, input: Source[Message, NotUsed])
 
-  private sealed abstract class StreamState extends Product with Serializable
-  private case object NothingYet extends StreamState
-  private final case class GotAcs(firstCid: String) extends StreamState
-  private final case class GotLive(liveStartOff: domain.Offset, firstCid: String)
-      extends StreamState
   private final case class ShouldHaveEnded(
       liveStartOffset: domain.Offset,
       msgCount: Int,
       lastSeenOffset: domain.Offset)
-      extends StreamState
 
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
