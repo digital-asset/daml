@@ -459,14 +459,17 @@ class WebsocketServiceIntegrationTest
               (off, 0)
             }
 
-            ContractDelta(Vector(), Vector(), Some(currentOffset)) <- readOne
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + lastSeenOffset).size - 1
 
           } yield
           // don't count empty events block if lastSeenOffset does not change
           ShouldHaveEnded(
             liveStartOffset = liveStartOffset,
-            msgCount = if (lastSeenOffset == currentOffset) msgCount else msgCount + 1,
-            lastSeenOffset = currentOffset
+            msgCount = msgCount + hbCount,
+            lastSeenOffset = lastSeenOffset
           ))
       }
 
