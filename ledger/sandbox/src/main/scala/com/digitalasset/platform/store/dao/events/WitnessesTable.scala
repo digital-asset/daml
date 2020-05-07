@@ -67,12 +67,11 @@ private[events] object WitnessesTable {
 
   /**
     * Concrete [[WitnessesTable]] to store which party can see which
-    * event in a transaction tree, diffed by the items that are going
-    * to be eventually stored in [[ForFlatTransactions]]
+    * event in a transaction tree.
     */
-  private[events] object Complement
+  private[events] object ForTransactionTrees
       extends EventWitnessesTable(
-        tableName = "participant_event_witnesses_complement",
+        tableName = "participant_event_transaction_tree_witnesses",
       )
 
   /**
