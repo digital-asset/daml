@@ -37,6 +37,9 @@ function bazel() {
 
 
 bazel shutdown
+cd compatibility
+bazel shutdown
+cd ..
 bazel fetch @nodejs_dev_env//...
 bazel build `
   `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
