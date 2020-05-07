@@ -4,7 +4,10 @@
 {-# LANGUAGE DataKinds #-}
 
 -- | Static verification of DAML packages.
-module DA.Daml.LF.Verify ( main ) where
+module DA.Daml.LF.Verify
+  ( main
+  , verify
+  ) where
 
 import Data.Text
 import Options.Applicative
@@ -25,15 +28,38 @@ main = do
       fieldName = FieldName (pack optFieldName)
   solver <- locateRunfiles "z3_nix/bin/z3"
   pkgs <- readPackages [optInputDar]
+  verify pkgs solver choiceTmpl choiceName fieldTmpl fieldName >>= print
+
+-- | Execute the full verification pipeline.
+verify :: [(PackageId, (Package, Maybe PackageName))]
+  -- ^ The packages to load.
+  -> FilePath
+  -- ^ The solver to use.
+  -> TypeConName
+  -- ^ The template in which the given choice is defined.
+  -> ChoiceName
+  -- ^ The choice to be verified.
+  -> TypeConName
+  -- ^ The template in which the given field is defined.
+  -> FieldName
+  -- ^ The field to be verified.
+  -> IO Result
+verify pkgs solver choiceTmpl choiceName fieldTmpl fieldName = do
   putStrLn "Start value gathering"
   case runEnv (genPackages pkgs) (emptyEnv :: Env 'ValueGathering) of
-    Left err-> putStrLn "Value phase finished with error: " >> print err
+    Left err-> do
+      putStrLn "Value phase finished with error: "
+      print err
+      return Unknown
     Right env1 -> do
       putStrLn "Start value solving"
       let env2 = solveValueReferences env1
       putStrLn "Start choice gathering"
       case runEnv (genPackages pkgs) env2 of
-        Left err -> putStrLn "Choice phase finished with error: " >> print err
+        Left err -> do
+          putStrLn "Choice phase finished with error: "
+          print err
+          return Unknown
         Right env3 -> do
           putStrLn "Start choice solving"
           let env4 = solveChoiceReferences env3

@@ -8,12 +8,12 @@ module DA.Daml.LF.Verify.Solve
   ( constructConstr
   , solveConstr
   , ConstraintSet(..)
+  , Result(..)
   ) where
 
 import Data.Bifunctor
 import Data.Maybe (fromJust, maybeToList)
-import Data.List (lookup)
-import Data.Set (toList, fromList)
+import Data.List (lookup, union, intersect)
 import qualified Data.Text as T
 import qualified SimpleSMT as S
 
@@ -96,6 +96,23 @@ instance ConstrExpr a => ConstrExpr (Cond a) where
   toCExp (Conditional b x Nothing) = CWhen (toCExp b) (toCExp x)
   toCExp (Conditional b x (Just y)) = CIf (toCExp b) (toCExp x) (toCExp y)
 
+-- | Gather all free variables in a constraint expression.
+gatherFreeVars :: ConstraintExpr
+  -- ^ The constraint expression to traverse.
+  -> [ExprVarName]
+gatherFreeVars (CBool _) = []
+gatherFreeVars (CInt _) = []
+gatherFreeVars (CReal _) = []
+gatherFreeVars (CVar x) = [x]
+gatherFreeVars (CAdd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CSub e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CEq e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CAnd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CNot e) = gatherFreeVars e
+gatherFreeVars (CIf e1 e2 e3) = gatherFreeVars e1 `union`
+  gatherFreeVars e2 `union` gatherFreeVars e3
+gatherFreeVars (CWhen e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+
 -- | Gather the variable names bound within a skolem variable.
 skol2var :: Skolem
   -- ^ The skolem variable to handle.
@@ -161,10 +178,19 @@ filterCondUpd tem f (Conditional b x (Just y)) =
   in ( map (CWhen cb) cxcre ++ map (CWhen (CNot cb)) cycre
      , map (CWhen cb) cxarc ++ map (CWhen (CNot cb)) cyarc )
 
+-- | Filter the given set of skolems, to only include those that occur in the
+-- given constraint expressions. Remove duplicates in the process.
+filterVars :: [ExprVarName]
+  -- ^ The list of skolems to filter.
+  -> [ConstraintExpr]
+  -- ^ The constraint expressions in which the skolems should occur.
+  -> [ExprVarName]
+filterVars vars cexprs =
+  let freevars = foldl (\fv e -> fv `union` gatherFreeVars e) [] cexprs
+  in freevars `intersect` vars
+
 -- | Constructs a constraint set from the generator environment, together with
 -- the template name, the choice and field to be verified.
--- TODO: The choice and field don't actually need to be in the same template.
--- Take two templates as arguments.
 constructConstr :: Env 'Solving
   -- ^ The generator environment to convert.
   -> TypeConName
@@ -241,6 +267,24 @@ declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
     var2str :: ExprVarName -> String
     var2str (ExprVarName x) = T.unpack x
 
+-- | Data type denoting the outcome of the solver.
+data Result
+  = Success
+  -- ^ The total field amount remains preserved.
+  | Fail [(S.SExpr, S.Value)]
+  -- ^ The total field amound does not remain the same. A counter example is
+  -- provided.
+  | Unknown
+  -- ^ The result is inconclusive.
+
+instance Show Result where
+  show Success = "Success!"
+  show (Fail cs) = "Fail. Counter example:" ++ foldl (flip step) "" cs
+    where
+      step :: (S.SExpr, S.Value) -> String -> String
+      step (var, val) str = ("\n" ++) $ S.ppSExpr var $ (" = " ++) $ S.ppSExpr (S.value val) str
+  show Unknown = "Inconclusive."
+
 -- | Solve a give constraint set. Prints 'unsat' when the constraint set is
 -- valid. It asserts that the set of created and archived contracts are not
 -- equal.
@@ -248,17 +292,17 @@ solveConstr :: FilePath
   -- ^ The path to the constraint solver.
   -> ConstraintSet
   -- ^ The constraint set to solve.
-  -> IO ()
+  -> IO Result
 solveConstr spath ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
-  vars <- declareVars sol $ filterDups _cVars
+  vars <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
   cre <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cCres
   arc <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cArcs
   S.assert sol (S.not (cre `S.eq` arc))
-  S.check sol >>= print
-  where
-    -- TODO: Filter vars beforehand
-    -- TODO: Where does this "_" come from?
-    filterDups :: [ExprVarName] -> [ExprVarName]
-    filterDups = filter (\(ExprVarName x) -> x /= "_") . toList . fromList
+  S.check sol >>= \case
+    S.Sat -> do
+      counter <- S.getExprs sol $ map snd vars
+      return $ Fail counter
+    S.Unsat -> return Success
+    S.Unknown -> return Unknown
