@@ -98,10 +98,11 @@ jobs:
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
           BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
+          TEST_SHA=$(cat ci/cron/perf/test_sha)
           OUT="$(Build.StagingDirectory)/perf-results.json"
-          if git diff --exit-code $BASELINE -- daml-lf/scenario-interpreter/src/perf >&2; then
+          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
               # no changes, all good
-              ci/cron/compare-perf.sh $BASELINE > $OUT
+              ci/cron/perf/compare.sh $BASELINE > $OUT
           else
               # the tests have changed, we need to figure out what to do with
               # the baseline.

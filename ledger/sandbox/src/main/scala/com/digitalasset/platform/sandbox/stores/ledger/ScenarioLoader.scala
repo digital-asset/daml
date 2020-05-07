@@ -127,7 +127,7 @@ object ScenarioLoader {
     ScenarioRunner(speedyMachine).run match {
       case Left(e) =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
-      case Right((_, _, l)) => l
+      case Right((_, _, l, _)) => l
     }
   }
 

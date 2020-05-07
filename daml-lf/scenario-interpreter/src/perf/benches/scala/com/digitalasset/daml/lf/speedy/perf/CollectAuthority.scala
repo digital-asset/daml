@@ -51,7 +51,7 @@ class CollectAuthorityState {
     val machine = buildMachine(expr)
     ScenarioRunner(machine).run() match {
       case Left((err, _)) => sys.error(prettyError(err, machine.ptx).render(80))
-      case Right((_, steps, _)) => steps
+      case Right((_, steps, _, _)) => steps
     }
   }
 }

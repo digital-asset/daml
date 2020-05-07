@@ -114,7 +114,7 @@ object Script {
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       scriptId: Identifier): Either[String, Script] = {
-    val scriptExpr = SEVal(LfDefRef(scriptId), None)
+    val scriptExpr = SEVal(LfDefRef(scriptId))
     val scriptTy = compiledPackages
       .getPackage(scriptId.packageId)
       .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
@@ -309,7 +309,7 @@ class Runner(
       }
 
     def run(expr: SExpr): Future[SValue] = {
-      machine.ctrl = Speedy.CtrlExpr(expr)
+      machine.setExpressionToEvaluate(expr)
       stepToValue()
         .fold(Future.failed, Future.successful)
         .flatMap {

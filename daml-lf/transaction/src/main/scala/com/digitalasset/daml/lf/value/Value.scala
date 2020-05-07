@@ -133,6 +133,15 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
     go(false, BackStack.empty, FrontStack((this, 0))).toImmArray
   }
 
+  def foreach1(f: Cid => Unit) =
+    Value.foreach1(f)(self)
+
+  def cids[Cid2 >: Cid] = {
+    val cids = Set.newBuilder[Cid2]
+    foreach1(cids += _)
+    cids.result()
+  }
+
 }
 
 object Value extends CidContainer1WithDefaultCidResolver[Value] {
@@ -219,6 +228,11 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       copy(version =
         latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
     }
+
+    def foreach1(f: Cid => Unit) =
+      VersionedValue.foreach1(f)(self)
+
+    def cids[Cid2 >: Cid]: Set[Cid2] = value.cids
   }
 
   object VersionedValue extends CidContainer1[VersionedValue] {
@@ -443,10 +457,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       CidMapper.basicCidResolverInstance
     implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, AbsoluteContractId.V1] =
       CidMapper.basicMapperInstance[ContractId, AbsoluteContractId.V1]
-
-    implicit val cidConsumer: CidConsumer[ContractId, ContractId] =
-      CidConsumer.basicConsumerInstance
-
   }
 
   /** The constructor is private so that we make sure that only this object constructs
@@ -457,9 +467,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   object NodeId {
     implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
       CidMapper.trivialMapper
-
-    implicit def cidConsumer[In]: CidConsumer[NodeId, In] =
-      CidConsumer.trivialConsumer
   }
 
   /*** Keys cannot contain contract ids */

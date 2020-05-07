@@ -74,13 +74,14 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
         ),
         ImmArray(V.NodeId(0), V.NodeId(2)),
       )
-      val cids = tx.cids(
-        GenTransaction.cidConsumerInstance(
-          V.NodeId.cidConsumer,
-          V.ContractId.cidConsumer,
-          V.cidConsumerInstance(V.ContractId.cidConsumer))
-      )
-      cids shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
+
+      def collectCids(tx: Transaction): Set[V.ContractId] = {
+        val cids = Set.newBuilder[V.ContractId]
+        tx.foreach3(_ => (), cids += _, cids ++= _.cids)
+        cids.result()
+      }
+
+      collectCids(tx) shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
 
     }
 

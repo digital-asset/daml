@@ -363,6 +363,10 @@ haskell_register_ghc_nixpkgs(
         "-fexternal-dynamic-refs",
     ] + (["-g3"] if enable_ghc_dwarf else ([
         "-optl-unexported_symbols_list=*",
+        "-optc-mmacosx-version-min=10.14",
+        "-opta-mmacosx-version-min=10.14",
+        "-optl-mmacosx-version-min=10.14",
+        "-optP-mmacosx-version-min=10.14",
     ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],

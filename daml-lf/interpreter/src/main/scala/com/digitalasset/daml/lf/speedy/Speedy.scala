@@ -23,8 +23,14 @@ object Speedy {
 
   /** The speedy CEK machine. */
   final case class Machine(
-      /* The control is what the machine should be evaluating. */
-      var ctrl: Ctrl,
+      /* The control is what the machine should be evaluating. If this is not
+       * null, then `returnValue` must be null.
+       */
+      var ctrl: SExpr,
+      /* `returnValue` contains the result once the expression in `ctrl` has
+       * been fully evaluated. If this is not null, then `ctrl` must be null.
+       */
+      var returnValue: SValue,
       /* The environment: an array of values */
       var env: Env,
       /* Kont, or continuation specifies what should be done next
@@ -127,6 +133,16 @@ object Speedy {
       case _ =>
     }
 
+    /** Reuse an existing speedy machine to evaluate a new expression.
+      Do not use if the machine is partway though an existing evaluation.
+      i.e. run() has returned an `SResult` requiring a callback.
+      */
+    def setExpressionToEvaluate(expr: SExpr): Unit = {
+      ctrl = expr
+      kontStack = initialKontStack()
+      env = emptyEnv
+    }
+
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
       // Note: We have an outer and inner while loop.
@@ -135,20 +151,22 @@ object Speedy {
       // wrap the exception handler on each of these steps. This is a performace gain.
       // However, we still need the outer loop because of the case:
       //    case _:SErrorDamlException if tryHandleException =>
-      // where we must continue interation.
+      // where we must continue iteration.
       var result: SResult = null
       while (result == null) {
         // note: exception handler is outside while loop
         try {
-          while (!isFinal) {
-            ctrl.execute(this) // make a single step
-          }
-          ctrl match {
-            case CtrlValue(value) => {
-              result = SResultFinalValue(value) //stop
+          // normal exit from this loop is when KFinished.execute throws SpeedyHungry
+          while (true) {
+            if (returnValue != null) {
+              val value = returnValue
+              returnValue = null
+              popKont.execute(value, this)
+            } else {
+              val expr = ctrl
+              ctrl = null
+              expr.execute(this)
             }
-            case _ =>
-              throw SErrorCrash(s"Unexpected ctrl on final machine $ctrl")
           }
         } catch {
           case SpeedyHungry(res: SResult) => result = res //stop
@@ -175,24 +193,24 @@ object Speedy {
         val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
         kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
-        ctrl = CtrlExpr(kcatch.handler)
+        ctrl = kcatch.handler
         true
       } else
         false
     }
 
-    def lookupVal(eval: SEVal): Ctrl = {
+    def lookupVal(eval: SEVal): Unit = {
       eval.cached match {
         case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
-          CtrlValue(v)
+          returnValue = v
 
         case None =>
           val ref = eval.ref
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               pushKont(KCacheVal(eval, Nil))
-              CtrlExpr(body)
+              ctrl = body
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
                 crash(
@@ -205,7 +223,7 @@ object Speedy {
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.getPackage(ref.packageId).isDefined)
-                      this.ctrl = lookupVal(eval)
+                      lookupVal(eval)
                     }
                   ),
                 )
@@ -213,44 +231,44 @@ object Speedy {
       }
     }
 
-    /** Returns true when the machine has finished evaluation.
-      * The machine is considered final when the kont stack
-      * is empty, and the value is not a fully applied PAP.
-      */
-    def isFinal(): Boolean =
-      if (!kontStack.isEmpty)
-        // Kont stack not empty, can always reduce further.
-        false
-      else
-        ctrl match {
-          case CtrlValue(v) =>
-            v match {
-              // control is a PAP, but fully applied so it
-              // can be reduced further.
-              case pap: SPAP if pap.args.size == pap.arity => false
-              case _ => true
-            }
-          case _ =>
-            false
-        }
+    def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
+      prim match {
+        case PClosure(expr, vars) =>
+          // Pop the arguments once we're done evaluating the body.
+          pushKont(KPop(args.size + vars.size))
 
-    def toValue: V[V.ContractId] =
-      toSValue.toValue
+          // Add all the variables we closed over
+          vars.foreach(env.add)
 
-    def toSValue: SValue =
-      if (!isFinal) {
-        crash("toSValue: machine not final")
-      } else {
-        ctrl match {
-          case CtrlValue(v) => v
-          case _ => crash("machine did not evaluate to a value")
-        }
+          // Add the arguments
+          env.addAll(args)
+
+          // And start evaluating the body of the closure.
+          ctrl = expr
+
+        case PBuiltin(b) =>
+          try {
+            b.execute(args, this)
+          } catch {
+            // We turn arithmetic exceptions into a daml exception
+            // that can be caught.
+            case e: ArithmeticException =>
+              throw DamlEArithmeticError(e.getMessage)
+          }
       }
+    }
 
     def print(count: Int) = {
       println(s"Step: $count")
-      println("Control:")
-      println(s"  ${ctrl}")
+      if (returnValue != null) {
+        println("Control: null")
+        println("Return:")
+        println(s"  ${returnValue}")
+      } else {
+        println("Control:")
+        println(s"  ${ctrl}")
+        println("Return: null")
+      }
       println("Environment:")
       env.forEach { v =>
         println("  " + v.toString)
@@ -278,6 +296,105 @@ object Speedy {
       )
     }
 
+    // This translates a well-typed LF value (typically coming from the ledger)
+    // to speedy value and set the control of with the result.
+    // All the contract IDs contained in the value are considered global.
+    // Raises an exception if missing a package.
+
+    def importValue(value: V[V.ContractId]): Unit = {
+      def go(value0: V[V.ContractId]): SValue =
+        value0 match {
+          case V.ValueList(vs) => SList(vs.map[SValue](go))
+          case V.ValueContractId(coid) =>
+            addGlobalCid(coid)
+            SContractId(coid)
+          case V.ValueInt64(x) => SInt64(x)
+          case V.ValueNumeric(x) => SNumeric(x)
+          case V.ValueText(t) => SText(t)
+          case V.ValueTimestamp(t) => STimestamp(t)
+          case V.ValueParty(p) => SParty(p)
+          case V.ValueBool(b) => SBool(b)
+          case V.ValueDate(x) => SDate(x)
+          case V.ValueUnit => SUnit
+          case V.ValueRecord(Some(id), fs) =>
+            val fields = Name.Array.ofDim(fs.length)
+            val values = new util.ArrayList[SValue](fields.length)
+            fs.foreach {
+              case (optk, v) =>
+                optk match {
+                  case None =>
+                    crash("SValue.fromValue: record missing field name")
+                  case Some(k) =>
+                    fields(values.size) = k
+                    val _ = values.add(go(v))
+                }
+            }
+            SRecord(id, fields, values)
+          case V.ValueRecord(None, _) =>
+            crash("SValue.fromValue: record missing identifier")
+          case V.ValueStruct(fs) =>
+            val fields = Name.Array.ofDim(fs.length)
+            val values = new util.ArrayList[SValue](fields.length)
+            fs.foreach {
+              case (k, v) =>
+                fields(values.size) = k
+                val _ = values.add(go(v))
+            }
+            SStruct(fields, values)
+          case V.ValueVariant(None, _variant @ _, _value @ _) =>
+            crash("SValue.fromValue: variant without identifier")
+          case V.ValueEnum(None, constructor @ _) =>
+            crash("SValue.fromValue: enum without identifier")
+          case V.ValueOptional(mbV) =>
+            SOptional(mbV.map(go))
+          case V.ValueTextMap(map) =>
+            STextMap(map.mapValue(go).toHashMap)
+          case V.ValueGenMap(entries) =>
+            SGenMap(
+              entries.iterator.map { case (k, v) => go(k) -> go(v) }
+            )
+          case V.ValueVariant(Some(id), variant, arg) =>
+            compiledPackages.getPackage(id.packageId) match {
+              case Some(pkg) =>
+                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                  case DDataType(_, _, data: DataVariant) =>
+                    SVariant(id, variant, data.constructorRank(variant), go(arg))
+                  case _ =>
+                    crash(s"definition for variant $id not found")
+                }
+              case None =>
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    id.packageId,
+                    pkg => {
+                      compiledPackages = pkg
+                      returnValue = go(value)
+                    }
+                  ))
+            }
+          case V.ValueEnum(Some(id), constructor) =>
+            compiledPackages.getPackage(id.packageId) match {
+              case Some(pkg) =>
+                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                  case DDataType(_, _, data: DataEnum) =>
+                    SEnum(id, constructor, data.constructorRank(constructor))
+                  case _ =>
+                    crash(s"definition for variant $id not found")
+                }
+              case None =>
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    id.packageId,
+                    pkg => {
+                      compiledPackages = pkg
+                      returnValue = go(value)
+                    }
+                  ))
+            }
+        }
+      returnValue = go(value)
+    }
+
   }
 
   object Machine {
@@ -292,8 +409,9 @@ object Speedy {
     ) =
       Machine(
         ctrl = null,
+        returnValue = null,
         env = emptyEnv,
-        kontStack = new util.ArrayList[Kont](128),
+        kontStack = initialKontStack(),
         lastLocation = None,
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
@@ -305,7 +423,7 @@ object Speedy {
         localContracts = Map.empty,
         globalDiscriminators = globalCids.collect {
           case V.AbsoluteContractId.V1(discriminator, _) => discriminator
-        }
+        },
       )
 
     def newBuilder(
@@ -374,186 +492,7 @@ object Speedy {
         seeding: InitialSeeding,
         globalCids: Set[V.AbsoluteContractId],
     ): Machine =
-      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = CtrlExpr(sexpr))
-  }
-
-  /** Control specifies the thing that the machine should be reducing.
-    * If the control is fully evaluated then the top-most continuation
-    * is executed.
-    */
-  sealed trait Ctrl {
-
-    /** Execute a single step to reduce the control */
-    def execute(machine: Machine): Unit
-  }
-
-  /** A special control object to guard against misbehaving operations.
-    * It is set by default, so for example if an action forgets to set the
-    * control we won't loop but rather we'll crash.
-    */
-  final case class CtrlCrash(before: Ctrl) extends Ctrl {
-    def execute(machine: Machine) =
-      crash(s"CtrlCrash: control set to crash after evaluting: $before")
-  }
-
-  final case class CtrlExpr(expr: SExpr) extends Ctrl {
-    def execute(machine: Machine) =
-      machine.ctrl = expr.execute(machine)
-  }
-
-  final case class CtrlValue(value: SValue) extends Ctrl {
-    def execute(machine: Machine): Unit = value match {
-      case pap: SPAP if pap.args.size == pap.arity =>
-        pap.prim match {
-          case PClosure(expr, vars) =>
-            // Pop the arguments once we're done evaluating the body.
-            machine.pushKont(KPop(pap.arity + vars.size))
-
-            // Add all the variables we closed over
-            vars.foreach(machine.env.add)
-
-            // Add the arguments
-            machine.env.addAll(pap.args)
-
-            // And start evaluating the body of the closure.
-            machine.ctrl = CtrlExpr(expr)
-
-          case PBuiltin(b) =>
-            try {
-              b.execute(pap.args, machine)
-            } catch {
-              // We turn arithmetic exceptions into a daml exception
-              // that can be caught.
-              case e: ArithmeticException =>
-                throw DamlEArithmeticError(e.getMessage)
-            }
-        }
-      case _ =>
-        machine.ctrl = this
-        machine.popKont.execute(value, machine)
-    }
-  }
-
-  object CtrlValue extends SValueContainer[CtrlValue]
-
-  /** When we fetch a contract id from upstream we cannot crash in the
-    * that upstream calls. Rather, we set the control to this and then crash
-    * when executing.
-    */
-  final case class CtrlWronglyTypeContractId(
-      acoid: V.AbsoluteContractId,
-      expected: TypeConName,
-      actual: TypeConName,
-  ) extends Ctrl {
-    override def execute(machine: Machine): Unit = {
-      throw DamlEWronglyTypedContract(acoid, expected, actual)
-    }
-  }
-
-  object Ctrl {
-    def fromPrim(prim: Prim, arity: Int): Ctrl =
-      CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
-  }
-
-  // This translates a well-typed LF value (typically coming from the ledger)
-  // to speedy value and set the control of with the result.
-  // All the contract IDs contained in the value are considered global.
-  // Raises an exception if missing a package.
-  final case class CtrlImportValue(value: V[V.ContractId]) extends Ctrl {
-    override def execute(machine: Machine): Unit = {
-      def go(value0: V[V.ContractId]): SValue =
-        value0 match {
-          case V.ValueList(vs) => SList(vs.map[SValue](go))
-          case V.ValueContractId(coid) =>
-            machine.addGlobalCid(coid)
-            SContractId(coid)
-          case V.ValueInt64(x) => SInt64(x)
-          case V.ValueNumeric(x) => SNumeric(x)
-          case V.ValueText(t) => SText(t)
-          case V.ValueTimestamp(t) => STimestamp(t)
-          case V.ValueParty(p) => SParty(p)
-          case V.ValueBool(b) => SBool(b)
-          case V.ValueDate(x) => SDate(x)
-          case V.ValueUnit => SUnit
-          case V.ValueRecord(Some(id), fs) =>
-            val fields = Name.Array.ofDim(fs.length)
-            val values = new util.ArrayList[SValue](fields.length)
-            fs.foreach {
-              case (optk, v) =>
-                optk match {
-                  case None =>
-                    crash("SValue.fromValue: record missing field name")
-                  case Some(k) =>
-                    fields(values.size) = k
-                    val _ = values.add(go(v))
-                }
-            }
-            SRecord(id, fields, values)
-          case V.ValueRecord(None, _) =>
-            crash("SValue.fromValue: record missing identifier")
-          case V.ValueStruct(fs) =>
-            val fields = Name.Array.ofDim(fs.length)
-            val values = new util.ArrayList[SValue](fields.length)
-            fs.foreach {
-              case (k, v) =>
-                fields(values.size) = k
-                val _ = values.add(go(v))
-            }
-            SStruct(fields, values)
-          case V.ValueVariant(None, _variant @ _, _value @ _) =>
-            crash("SValue.fromValue: variant without identifier")
-          case V.ValueEnum(None, constructor @ _) =>
-            crash("SValue.fromValue: enum without identifier")
-          case V.ValueOptional(mbV) =>
-            SOptional(mbV.map(go))
-          case V.ValueTextMap(map) =>
-            STextMap(map.mapValue(go).toHashMap)
-          case V.ValueGenMap(entries) =>
-            SGenMap(
-              entries.iterator.map { case (k, v) => go(k) -> go(v) }
-            )
-          case V.ValueVariant(Some(id), variant, arg) =>
-            machine.compiledPackages.getPackage(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataVariant) =>
-                    SVariant(id, variant, data.constructorRank(variant), go(arg))
-                  case _ =>
-                    crash(s"definition for variant $id not found")
-                }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      machine.compiledPackages = pkg
-                      machine.ctrl = this
-                    }
-                  ))
-            }
-          case V.ValueEnum(Some(id), constructor) =>
-            machine.compiledPackages.getPackage(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataEnum) =>
-                    SEnum(id, constructor, data.constructorRank(constructor))
-                  case _ =>
-                    crash(s"definition for variant $id not found")
-                }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      machine.compiledPackages = pkg
-                      machine.ctrl = this
-                    }
-                  ))
-            }
-        }
-
-      machine.ctrl = CtrlValue(go(value))
-    }
+      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = sexpr)
   }
 
   //
@@ -567,6 +506,15 @@ object Speedy {
   //
   // Kontinuation
   //
+  // Whilst the machine is running, we ensure the kontStack is *never* empty.
+  // We do this by pushing a KFinished continutaion on the initially empty stack, which
+  // returns the final result (by raising it as a SpeedyHungry exception).
+
+  def initialKontStack(): util.ArrayList[Kont] = {
+    val kontStack = new util.ArrayList[Kont](128)
+    kontStack.add(KFinished)
+    kontStack
+  }
 
   /** Kont, or continuation. Describes the next step for the machine
     * after an expression has been evaluated into a 'SValue'.
@@ -577,10 +525,18 @@ object Speedy {
     def execute(v: SValue, machine: Machine): Unit
   }
 
+  /** Final continuation; machine has computed final value */
+  final case object KFinished extends Kont {
+    def execute(v: SValue, _machine: Machine) = {
+      throw SpeedyHungry(SResultFinalValue(v))
+    }
+  }
+
   /** Pop 'count' arguments from the environment. */
   final case class KPop(count: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       machine.popEnv(count)
+      machine.returnValue = v
     }
   }
 
@@ -613,7 +569,7 @@ object Speedy {
             machine.pushKont(KPushTo(extendedArgs, arg))
             i = i + 1
           }
-          machine.ctrl = CtrlExpr(newArgs(0))
+          machine.ctrl = newArgs(0)
 
         case _ =>
           crash(s"Applying non-PAP: $v")
@@ -627,7 +583,12 @@ object Speedy {
   final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       args.add(v) // Add last argument
-      machine.ctrl = CtrlValue(SPAP(prim, args, arity))
+      if (args.size == arity) {
+        machine.enterFullyAppliedFunction(prim, args)
+      } else {
+        // args.size < arity (we already dealt with args.size > args in Karg)
+        machine.returnValue = SPAP(prim, args, arity)
+      }
     }
   }
 
@@ -707,13 +668,10 @@ object Speedy {
           crash("Match on non-matchable value")
       }
 
-      machine.ctrl = CtrlExpr(
-        altOpt
-          .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-          .body,
-      )
+      machine.ctrl = altOpt
+        .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
+        .body
     }
-
   }
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
@@ -725,7 +683,7 @@ object Speedy {
   final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       to.add(v)
-      machine.ctrl = CtrlExpr(next)
+      machine.ctrl = next
     }
   }
 
@@ -736,9 +694,10 @@ object Speedy {
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
   final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
-    def execute(sv: SValue, machine: Machine) = {
+    def execute(sv: SValue, machine: Machine): Unit = {
       machine.pushStackTrace(stack_trace)
-      v.cached = Some((sv, stack_trace))
+      v.setCached(sv, stack_trace)
+      machine.returnValue = sv
     }
   }
 
@@ -748,20 +707,20 @@ object Speedy {
     * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
     */
   final case class KCatch(handler: SExpr, fin: SExpr, envSize: Int) extends Kont {
-
     def execute(v: SValue, machine: Machine) = {
-      machine.ctrl = CtrlExpr(fin)
+      machine.ctrl = fin
     }
   }
 
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(location: Location) extends Kont {
     def execute(v: SValue, machine: Machine) = {
-      machine.ctrl = CtrlValue(v)
+      machine.returnValue = v
     }
   }
 
-  /** Internal exception thrown when a continuation result needs to be returned. */
+  /** Internal exception thrown when a continuation result needs to be returned.
+    Or machine execution has reached a final value. */
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
   def deriveTransactionSeed(

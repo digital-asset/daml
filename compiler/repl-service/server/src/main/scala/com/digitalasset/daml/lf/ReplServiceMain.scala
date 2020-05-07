@@ -201,8 +201,7 @@ class ReplService(
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
-        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
-      None)
+        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))))
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }

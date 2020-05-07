@@ -53,27 +53,26 @@ final case class TypedExpr(expr: Expr, ty: TypeConApp)
 final case class Trigger(
     expr: TypedExpr,
     triggerIds: TriggerIds,
-    filters: Filters, // We store Filters rather than TransactionFilter since
-    // the latter is party-specific.
+    filters: Filters, // We store Filters rather than
+    // TransactionFilter since the latter is
+    // party-specific.
     heartbeat: Option[FiniteDuration]
 )
 
 // Utilities for interacting with the speedy machine.
 object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.Machine): Unit = {
-    while (!machine.isFinal) {
-      machine.run() match {
-        case SResultFinalValue(_) => ()
-        case SResultError(err) => {
-          logger.error(Pretty.prettyError(err, machine.ptx).render(80))
-          throw err
-        }
-        case res => {
-          val errMsg = s"Unexpected speedy result: $res"
-          logger.error(errMsg)
-          throw new RuntimeException(errMsg)
-        }
+  def stepToValue(machine: Speedy.Machine): SValue = {
+    machine.run() match {
+      case SResultFinalValue(v) => v
+      case SResultError(err) => {
+        logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+        throw err
+      }
+      case res => {
+        val errMsg = s"Unexpected speedy result: $res"
+        logger.error(errMsg)
+        throw new RuntimeException(errMsg)
       }
     }
   }
@@ -145,8 +144,7 @@ object Trigger extends StrictLogging {
       seeding = InitialSeeding.NoSeed,
       Set.empty,
     )
-    Machine.stepToValue(machine)
-    machine.toSValue match {
+    Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
       case value => Left(s"Expected Optional but got $value.")
@@ -170,8 +168,7 @@ object Trigger extends StrictLogging {
         seeding = InitialSeeding.NoSeed,
         Set.empty,
       )
-    Machine.stepToValue(machine)
-    machine.toSValue match {
+    Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
           .map(pkgId => (pkgId, compiledPackages.getPackage(pkgId).get))
@@ -210,15 +207,20 @@ class Runner(
     applicationId: ApplicationId,
     party: String,
 ) extends StrictLogging {
-  private val compiler = Compiler(compiledPackages.packages)
-  private val converter = Converter(compiledPackages, trigger.triggerIds)
-  // This is a map from the command ids used on the ledger API to the command ids used internally
-  // in the trigger which are just incremented at each step.
+  // Compiles LF expressions into Speedy expressions.
+  private val compiler: Compiler = Compiler(compiledPackages.packages)
+  // Converts between various objects and SValues.
+  private val converter: Converter = Converter(compiledPackages, trigger.triggerIds)
+  // This is a map from the command IDs used on the ledger API to the
+  // command IDs used internally in the trigger which are just
+  // incremented at each step. This map can grow without bound. TODO :
+  // limit the size.
   private var commandIdMap: Map[UUID, String] = Map.empty
-  // This is the set of command ids emitted by the trigger.
-  // We track this to detect collisions.
+  // This is the set of command IDs emitted by the trigger.  We track
+  // this to detect collisions.
   private var usedCommandIds: Set[String] = Set.empty
-  private var transactionFilter = TransactionFilter(Seq((party, trigger.filters)).toMap)
+  private var transactionFilter: TransactionFilter =
+    TransactionFilter(Seq((party, trigger.filters)).toMap)
 
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
@@ -325,67 +327,89 @@ class Runner(
     (triggerMsgSource, postSubmitFailure)
   }
 
+  // A sink for trigger messages representing a process for the
+  // accumulated state changes resulting from application of the
+  // messages given the starting state represented by the ACS
+  // argument.
   private def getTriggerSink(
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
   ): Sink[TriggerMsg, Future[SExpr]] = {
     logger.info(s"Trigger is running as ${party}")
-    val update =
+
+    // Compile the trigger initialState and Update LF functions to
+    // speedy expressions.
+    val update: SExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
-    val getInitialState =
+    val getInitialState: SExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
-
-    var machine = Speedy.Machine.fromSExpr(
+    // Prepare a speedy machine for evaluting expressions.
+    var machine: Speedy.Machine = Speedy.Machine.fromSExpr(
       sexpr = null,
       compiledPackages = compiledPackages,
       submissionTime = Timestamp.now(),
       seeding = InitialSeeding.NoSeed,
       Set.empty,
     )
+    // Convert the ACS to a speedy expression.
     val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
     })
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-    val initialState =
+    // Setup an application expression of initialState on the ACS.
+    val initialState: SExpr =
       SEApp(
         getInitialState,
         Array(
           SEValue(SParty(Party.assertFromString(party))),
           SEValue(STimestamp(clientTime)): SExpr,
           createdExpr))
-    machine.ctrl = Speedy.CtrlExpr(initialState)
-    Machine.stepToValue(machine)
-    val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
+    // Evaluate it.
+    machine.setExpressionToEvaluate(initialState)
+    val value = Machine.stepToValue(machine)
+    val evaluatedInitialState: SValue = handleStepResult(value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
+
+    // The flow that we return:
+    //  - Maps incoming trigger messages to new trigger messages
+    //    replacing ledger command IDs with the IDs used internally;
+    //  - Folds over the trigger messages via the speedy machine
+    //    thereby accumulating the state changes.
+    // The materialized value of the flow is the (future) final state
+    // of this process.
     Flow[TriggerMsg]
       .mapConcat[TriggerMsg]({
         case CompletionMsg(c) =>
           try {
             commandIdMap.get(UUID.fromString(c.commandId)) match {
-              case None => List()
+              case None =>
+                List()
               case Some(internalCommandId) =>
                 List(CompletionMsg(c.copy(commandId = internalCommandId)))
             }
           } catch {
-            // This happens for invalid UUIDs which we might get for completions not emitted by the trigger.
+            // This happens for invalid UUIDs which we might get for
+            // completions not emitted by the trigger.
             case e: IllegalArgumentException => List()
           }
         case TransactionMsg(t) =>
           try {
             commandIdMap.get(UUID.fromString(t.commandId)) match {
-              case None => List(TransactionMsg(t.copy(commandId = "")))
+              case None =>
+                List(TransactionMsg(t.copy(commandId = "")))
               case Some(internalCommandId) =>
                 List(TransactionMsg(t.copy(commandId = internalCommandId)))
             }
           } catch {
-            // This happens for invalid UUIDs which we might get for transactions not emitted by the trigger.
+            // This happens for invalid UUIDs which we might get for
+            // transactions not emitted by the trigger.
             case e: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
           }
-        case x @ HeartbeatMsg() => List(x)
+        case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
       .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
         val messageVal = message match {
@@ -409,10 +433,10 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.ctrl = Speedy.CtrlExpr(
+        machine.setExpressionToEvaluate(
           SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
-        Machine.stepToValue(machine)
-        val newState = handleStepResult(machine.toSValue, submit)
+        val value = Machine.stepToValue(machine)
+        val newState = handleStepResult(value, submit)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
   }
@@ -432,7 +456,10 @@ class Runner(
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
-  // Run the trigger given the state of the ACS.
+  // Run the trigger given the state of the ACS. The msgFlow argument
+  // passed from ServiceMain is a kill switch. Other choices are
+  // possible demonstrated in the tests where a
+  // Flow[TriggerMsg].take() is provided.
   def runWithACS[T](
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,

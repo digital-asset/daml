@@ -6,6 +6,7 @@ module WithPostgres (withPostgres) where
 import Control.Exception.Safe
 import Data.Text (Text)
 import qualified Data.Text as T
+import Network.Socket
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
@@ -15,7 +16,7 @@ import System.Process
 -- We make this a separate executable since it should only
 -- depend on released artifacts so we cannot easily use sandbox as a library.
 
-postgresConfig :: Int -> Text
+postgresConfig :: PortNumber -> Text
 postgresConfig port = T.unlines
     [ "unix_socket_directories = '/tmp'"
     , "shared_buffers = 12MB"
@@ -34,12 +35,11 @@ dbUser = "test"
 dbName :: Text
 dbName = "test"
 
--- | Hardcoded for now since those tests are exclusive anyway.
-dbPort :: Int
-dbPort = 4321
-
-jdbcUrl :: Text
-jdbcUrl = "jdbc:postgresql://localhost:" <> T.pack (show dbPort) <> "/" <> dbName <> "?user=" <> dbName
+jdbcUrl :: PortNumber -> Text
+jdbcUrl port =
+    "jdbc:postgresql://localhost:" <>
+    T.pack (show port) <>
+    "/" <> dbName <> "?user=" <> dbName
 
 -- Launch a temporary postgres instance and provide a jdbc url to access that database.
 withPostgres :: (Text -> IO a) -> IO a
@@ -59,10 +59,11 @@ withPostgres f =
         , "-E", "UNICODE"
         , "-A", "trust"
         ]
-    writeFileUTF8 (dataDir </> "postgresql.conf") (T.unpack $ postgresConfig dbPort)
+    port <- getFreePort
+    writeFileUTF8 (dataDir </> "postgresql.conf") (T.unpack $ postgresConfig port)
     bracket_ (startPostgres dataDir logFile) (stopPostgres dataDir) $ do
-      createDatabase
-      f jdbcUrl
+      createDatabase port
+      f (jdbcUrl port)
   where startPostgres dataDir logFile =
             callProcess
                 "external/postgresql_nix/bin/pg_ctl"
@@ -78,7 +79,36 @@ withPostgres f =
             callProcess
                 "external/postgresql_nix/bin/pg_ctl"
                 ["-w", "-D", dataDir, "-m", "immediate", "stop"]
-        createDatabase =
+        createDatabase port =
             callProcess
                 "external/postgresql_nix/bin/createdb"
-                ["-h", "localhost", "-U", T.unpack dbUser, "-p", show dbPort, T.unpack dbName]
+                [ "-h", "localhost"
+                , "-U", T.unpack dbUser
+                , "-p", show port
+                , T.unpack dbName
+                ]
+
+
+-- | This is somewhat racy since the port could be allocated
+-- by another process in between the kernel providing it here
+-- and postgres starting. However, it is better than simply
+-- hardcoding the port. Postgres doesn’t seem to have an easy
+-- option for starting on an arbitrary free port while
+-- providing the actual port to us.
+getFreePort :: IO PortNumber
+getFreePort = do
+    addr : _ <- getAddrInfo
+        (Just socketHints)
+        (Just "127.0.0.1")
+        (Just "0")
+    bracket
+        (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
+        close
+        (\s -> do bind s (addrAddress addr)
+                  name <- getSocketName s
+                  case name of
+                      SockAddrInet p _ -> pure p
+                      _ -> fail $ "Expected a SockAddrInet but got " <> show name)
+
+socketHints :: AddrInfo
+socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
