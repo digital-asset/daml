@@ -121,13 +121,13 @@ object Database {
         writerExecutionContext = ExecutionContext.fromExecutorService(writerExecutorService)
       } yield
         new UninitializedDatabase(
-          system,
-          readerConnectionPool,
-          readerExecutionContext,
-          writerConnectionPool,
-          writerExecutionContext,
-          adminConnectionPool,
-          metrics,
+          system = system,
+          readerConnectionPool = readerConnectionPool,
+          readerExecutionContext = readerExecutionContext,
+          writerConnectionPool = writerConnectionPool,
+          writerExecutionContext = writerExecutionContext,
+          adminConnectionPool = adminConnectionPool,
+          metrics = metrics,
         )
   }
 
@@ -147,13 +147,13 @@ object Database {
           readerWriterExecutorService)
       } yield
         new UninitializedDatabase(
-          system,
-          readerWriterConnectionPool,
-          readerWriterExecutionContext,
-          readerWriterConnectionPool,
-          readerWriterExecutionContext,
-          adminConnectionPool,
-          metrics,
+          system = system,
+          readerConnectionPool = readerWriterConnectionPool,
+          readerExecutionContext = readerWriterExecutionContext,
+          writerConnectionPool = readerWriterConnectionPool,
+          writerExecutionContext = readerWriterExecutionContext,
+          adminConnectionPool = adminConnectionPool,
+          metrics = metrics,
         )
   }
 
@@ -220,12 +220,12 @@ object Database {
     def migrate(): Database = {
       flyway.migrate()
       new Database(
-        system.queries,
-        readerConnectionPool,
-        readerExecutionContext,
-        writerConnectionPool,
-        writerExecutionContext,
-        metrics,
+        queries = system.queries,
+        readerConnectionPool = readerConnectionPool,
+        readerExecutionContext = readerExecutionContext,
+        writerConnectionPool = writerConnectionPool,
+        writerExecutionContext = writerExecutionContext,
+        metrics = metrics,
       )
     }
 
