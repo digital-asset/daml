@@ -761,9 +761,9 @@ object WebsocketServiceIntegrationTest {
               case listen @ Listen(f, _) =>
                 if (listened) Future successful (Free roll listen) else go(f(t), true)
               case drain: Drain[s, T, FCC[T, V]] =>
-                Future {
-                  Free.roll(if (listened) drain
-                  else drain.copy(init = drain.next(drain.init, t)))
+                Future successful Free.roll {
+                  if (listened) drain
+                  else drain.copy(init = drain.next(drain.init, t))
                 }
               case Emit(run) => run flatMap (go(_, listened))
             }, v =>
