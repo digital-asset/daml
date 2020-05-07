@@ -355,6 +355,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpCaseVariant
         E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → ((  case e of Cons h t -> () ))",
         E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Mod:Tree:Node x -> () ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x x → x ))",
         // ExpCaseNil
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Nil → () ))",
         // ExpCaseCons
