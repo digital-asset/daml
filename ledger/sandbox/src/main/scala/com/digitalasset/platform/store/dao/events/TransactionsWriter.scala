@@ -11,10 +11,14 @@ import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, Submitter
 import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.metrics.Metrics
 import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.DbType
 
-private[dao] final class TransactionsWriter(dbType: DbType) {
+private[dao] final class TransactionsWriter(
+    dbType: DbType,
+    metrics: Metrics,
+) {
 
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)

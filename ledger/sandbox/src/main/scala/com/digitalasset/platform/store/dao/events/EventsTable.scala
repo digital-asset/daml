@@ -8,9 +8,9 @@ import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, str}
 import anorm.{RowParser, ~}
+import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
@@ -22,12 +22,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.metrics.Timed
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
-import com.daml.platform.index.TransactionConversion
-import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.Conversions.{identifier, instant, offset}
-import com.daml.platform.store.serialization.ValueSerializer.{deserializeValue => deserialize}
 import com.google.protobuf.timestamp.Timestamp
 
 /**
@@ -44,7 +42,7 @@ private[events] object EventsTable
 
 private[events] trait EventsTable {
 
-  case class Entry[E](
+  case class Entry[+E](
       eventOffset: Offset,
       transactionId: String,
       ledgerEffectiveTime: Instant,
@@ -55,13 +53,42 @@ private[events] trait EventsTable {
 
   object Entry {
 
+    private def deserialize[E](
+        rawEntries: Vector[Entry[Raw[E]]],
+        verbose: Boolean,
+        timer: Timer,
+    ): Vector[Entry[E]] =
+      Timed.value(
+        timer,
+        rawEntries.map(entry => entry.copy(event = entry.event.applyDeserialization(verbose))))
+
     private def instantToTimestamp(t: Instant): Timestamp =
       Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
-    private def flatTransaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
+    private def permanent(entries: Vector[Entry[Raw.FlatEvent]]): Set[String] = {
+      entries.foldLeft(Set.empty[String]) { (contractIds, entry) =>
+        if (entry.event.isCreated || !contractIds.contains(entry.event.contractId)) {
+          contractIds + entry.event.contractId
+        } else {
+          contractIds - entry.event.contractId
+        }
+      }
+    }
+
+    private def removeTransient(
+        entries: Vector[Entry[Raw.FlatEvent]]): Vector[Entry[Raw.FlatEvent]] = {
+      val toKeep = permanent(entries)
+      entries.filter(entry => toKeep(entry.event.contractId))
+    }
+
+    private def flatTransaction(
+        events: Vector[Entry[Raw.FlatEvent]],
+        verbose: Boolean,
+        deserializationTimer: Timer,
+    ): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
-        val flatEvents =
-          TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        val withoutTransients = removeTransient(events)
+        val flatEvents = deserialize(withoutTransients, verbose, deserializationTimer).map(_.event)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(
@@ -76,19 +103,22 @@ private[events] trait EventsTable {
         else None
       }
 
-    def toGetTransactionsResponse(
-        events: Vector[Entry[Event]],
+    def toGetTransactionsResponse(verbose: Boolean, deserializationTimer: Timer)(
+        events: Vector[Entry[Raw.FlatEvent]],
     ): List[GetTransactionsResponse] =
-      flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
+      flatTransaction(events, verbose, deserializationTimer).toList.map(tx =>
+        GetTransactionsResponse(Seq(tx)))
 
-    def toGetFlatTransactionResponse(
-        events: List[Entry[Event]],
+    def toGetFlatTransactionResponse(verbose: Boolean, deserializationTimer: Timer)(
+        events: Vector[Entry[Raw.FlatEvent]],
     ): Option[GetFlatTransactionResponse] =
-      flatTransaction(events).map(tx => GetFlatTransactionResponse(Some(tx)))
+      flatTransaction(events, verbose, deserializationTimer).map(tx =>
+        GetFlatTransactionResponse(Some(tx)))
 
-    def toGetActiveContractsResponse(
-        events: Vector[Entry[Event]],
-    ): Vector[GetActiveContractsResponse] =
+    def toGetActiveContractsResponse(verbose: Boolean, deserializationTimer: Timer)(
+        rawEvents: Vector[Entry[Raw.FlatEvent]],
+    ): Vector[GetActiveContractsResponse] = {
+      val events = deserialize(rawEvents, verbose, deserializationTimer)
       events.map {
         case entry if entry.event.isCreated =>
           GetActiveContractsResponse(
@@ -102,8 +132,15 @@ private[events] trait EventsTable {
             s"Non-create event ${entry.event.eventId} fetched as part of the active contracts"
           )
       }
+    }
 
-    private def treeOf(events: Seq[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
+    private def treeOf(
+        rawEvents: Vector[Entry[Raw.TreeEvent]],
+        verbose: Boolean,
+        deserializationTimer: Timer,
+    ): (Map[String, TreeEvent], Vector[String]) = {
+
+      val events = deserialize(rawEvents, verbose, deserializationTimer)
 
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
@@ -128,10 +165,14 @@ private[events] trait EventsTable {
 
     }
 
-    private def transactionTree(events: Seq[Entry[TreeEvent]]): Option[ApiTransactionTree] =
+    private def transactionTree(
+        events: Vector[Entry[Raw.TreeEvent]],
+        verbose: Boolean,
+        deserializationTimer: Timer,
+    ): Option[ApiTransactionTree] =
       events.headOption.map(
         first => {
-          val (eventsById, rootEventIds) = treeOf(events)
+          val (eventsById, rootEventIds) = treeOf(events, verbose, deserializationTimer)
           ApiTransactionTree(
             transactionId = first.transactionId,
             commandId = first.commandId,
@@ -145,15 +186,17 @@ private[events] trait EventsTable {
         }
       )
 
-    def toGetTransactionTreesResponse(
-        events: Vector[Entry[TreeEvent]],
+    def toGetTransactionTreesResponse(verbose: Boolean, deserializationTimer: Timer)(
+        events: Vector[Entry[Raw.TreeEvent]],
     ): List[GetTransactionTreesResponse] =
-      transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
+      transactionTree(events, verbose, deserializationTimer).toList.map(tx =>
+        GetTransactionTreesResponse(Seq(tx)))
 
-    def toGetTransactionResponse(
-        events: List[Entry[TreeEvent]],
+    def toGetTransactionResponse(verbose: Boolean, deserializationTimer: Timer)(
+        events: Vector[Entry[Raw.TreeEvent]],
     ): Option[GetTransactionResponse] =
-      transactionTree(events).map(tx => GetTransactionResponse(Some(tx)))
+      transactionTree(events, verbose, deserializationTimer).map(tx =>
+        GetTransactionResponse(Some(tx)))
 
   }
 
@@ -194,106 +237,5 @@ private[events] trait EventsTable {
 
   protected type ArchiveEventRow = SharedRow
   protected val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
-
-  protected def createdEvent(
-      eventId: String,
-      contractId: String,
-      templateId: Identifier,
-      createArgument: InputStream,
-      createSignatories: Array[String],
-      createObservers: Array[String],
-      createAgreementText: Option[String],
-      createKeyValue: Option[InputStream],
-      eventWitnesses: Array[String],
-      verbose: Boolean,
-  ): CreatedEvent =
-    CreatedEvent(
-      eventId = eventId,
-      contractId = contractId,
-      templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
-      contractKey = createKeyValue.map(
-        key =>
-          LfEngineToApi.assertOrRuntimeEx(
-            failureContext = s"attempting to deserialize persisted key to value",
-            LfEngineToApi
-              .lfVersionedValueToApiValue(
-                verbose = verbose,
-                value = deserialize(key),
-              ),
-        )
-      ),
-      createArguments = Some(
-        LfEngineToApi.assertOrRuntimeEx(
-          failureContext = s"attempting to deserialize persisted create argument to record",
-          LfEngineToApi
-            .lfVersionedValueToApiRecord(
-              verbose = verbose,
-              recordValue = deserialize(createArgument),
-            ),
-        )
-      ),
-      witnessParties = eventWitnesses,
-      signatories = createSignatories,
-      observers = createObservers,
-      agreementText = createAgreementText.orElse(Some("")),
-    )
-
-  protected def exercisedEvent(
-      eventId: String,
-      contractId: String,
-      templateId: Identifier,
-      exerciseConsuming: Boolean,
-      exerciseChoice: String,
-      exerciseArgument: InputStream,
-      exerciseResult: Option[InputStream],
-      exerciseActors: Array[String],
-      exerciseChildEventIds: Array[String],
-      eventWitnesses: Array[String],
-      verbose: Boolean,
-  ): ExercisedEvent =
-    ExercisedEvent(
-      eventId = eventId,
-      contractId = contractId,
-      templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
-      choice = exerciseChoice,
-      choiceArgument = Some(
-        LfEngineToApi.assertOrRuntimeEx(
-          failureContext = s"attempting to deserialize persisted exercise argument to value",
-          LfEngineToApi
-            .lfVersionedValueToApiValue(
-              verbose = verbose,
-              value = deserialize(exerciseArgument),
-            ),
-        )
-      ),
-      actingParties = exerciseActors,
-      consuming = exerciseConsuming,
-      witnessParties = eventWitnesses,
-      childEventIds = exerciseChildEventIds,
-      exerciseResult = exerciseResult.map(
-        key =>
-          LfEngineToApi.assertOrRuntimeEx(
-            failureContext = s"attempting to deserialize persisted exercise result to value",
-            LfEngineToApi
-              .lfVersionedValueToApiValue(
-                verbose = verbose,
-                value = deserialize(key),
-              ),
-        )
-      ),
-    )
-
-  protected def archivedEvent(
-      eventId: String,
-      contractId: String,
-      templateId: Identifier,
-      eventWitnesses: Array[String],
-  ): ArchivedEvent =
-    ArchivedEvent(
-      eventId = eventId,
-      contractId = contractId,
-      templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
-      witnessParties = eventWitnesses,
-    )
 
 }
