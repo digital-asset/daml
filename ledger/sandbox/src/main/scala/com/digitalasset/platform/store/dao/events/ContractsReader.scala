@@ -63,7 +63,7 @@ private[dao] sealed abstract class ContractsReader(
         Contract(
           template = Identifier.assertFromString(templateId),
           arg = Timed.value(
-            metrics.daml.index.db.translateCreateArgument,
+            metrics.daml.index.db.lookupActiveContractValueTranslation,
             deserialize(
               stream = createArgument,
               errorContext = s"Failed to deserialize create argument for contract $contractId",
