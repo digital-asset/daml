@@ -332,10 +332,11 @@ class Runner(
   // messages given the starting state represented by the ACS
   // argument.
   private def getTriggerSink(
+      name: String,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
   ): Sink[TriggerMsg, Future[SExpr]] = {
-    logger.info(s"Trigger is running as ${party}")
+    logger.info(s"Trigger ${name} is running as ${party}")
 
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
@@ -461,6 +462,7 @@ class Runner(
   // possible demonstrated in the tests where a
   // Flow[TriggerMsg].take() is provided.
   def runWithACS[T](
+      name: String,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
@@ -480,7 +482,7 @@ class Runner(
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
-      .toMat(getTriggerSink(acs, submit))(Keep.both)
+      .toMat(getTriggerSink(name, acs, submit))(Keep.both)
       .run()
   }
 }
@@ -515,7 +517,7 @@ object Runner extends StrictLogging {
     for {
       (acs, offset) <- runner.queryACS()
       finalState <- runner
-        .runWithACS(acs, offset)
+        .runWithACS("foo", acs, offset)
         ._2
     } yield finalState
   }

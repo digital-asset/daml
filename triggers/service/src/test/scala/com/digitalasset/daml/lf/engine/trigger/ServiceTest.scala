@@ -225,7 +225,6 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         _ <- result should equal(Vector())
       } yield succeed
   }
-
   it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       for {
