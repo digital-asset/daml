@@ -332,10 +332,11 @@ class Runner(
   // messages given the starting state represented by the ACS
   // argument.
   private def getTriggerSink(
+      name: String,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
   ): Sink[TriggerMsg, Future[SExpr]] = {
-    logger.info(s"Trigger is running as ${party}")
+    logger.info(s"Trigger ${name} is running as ${party}")
 
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
@@ -458,13 +459,15 @@ class Runner(
 
   // Run the trigger given the state of the ACS. The msgFlow argument
   // passed from ServiceMain is a kill switch. Other choices are
-  // possible demonstrated in the tests where a
-  // Flow[TriggerMsg].take() is provided.
+  // possible e.g. 'Flow[TriggerMsg].take()' and this fact is made use
+  // of in the test-suite.
   def runWithACS[T](
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): (T, Future[SExpr]) = {
+      name: String = "")(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext): (T, Future[SExpr]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     def submit(req: SubmitRequest): Unit = {
@@ -480,7 +483,7 @@ class Runner(
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
-      .toMat(getTriggerSink(acs, submit))(Keep.both)
+      .toMat(getTriggerSink(name, acs, submit))(Keep.both)
       .run()
   }
 }
@@ -514,9 +517,7 @@ object Runner extends StrictLogging {
       new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, party)
     for {
       (acs, offset) <- runner.queryACS()
-      finalState <- runner
-        .runWithACS(acs, offset)
-        ._2
+      finalState <- runner.runWithACS(acs, offset)._2
     } yield finalState
   }
 }
