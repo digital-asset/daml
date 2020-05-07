@@ -146,6 +146,7 @@ jobs:
       - template: ci/report-end.yml
 
   - job: Windows
+    condition: false
     dependsOn:
       - check_for_release
     variables:
