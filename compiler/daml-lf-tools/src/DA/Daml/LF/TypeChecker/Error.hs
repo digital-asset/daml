@@ -102,6 +102,7 @@ data Error
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
   | EEmptyCase
+  | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
   | EImportCycle           ![ModuleName] -- TODO: implement check for this error
   | ETypeSynCycle          ![TypeSynName]
@@ -260,6 +261,8 @@ instance Pretty Error where
     EExpectedListType foundType ->
       "expected list type, but found: " <> pretty foundType
     EEmptyCase -> "empty case"
+    EClashingPatternVariables varName ->
+      "the variable " <> pretty varName <> " is used more than once in the pattern"
     EExpectedTemplatableType tpl ->
       "expected monomorphic record type in template definition, but found:"
       <-> pretty tpl

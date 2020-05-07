@@ -413,11 +413,12 @@ introCasePattern scrutType patn cont = case patn of
   CPNil -> do
     _ :: Type <- match _TList (EExpectedListType scrutType) scrutType
     cont
-  CPCons headVar tailVar -> do
-    elemType <- match _TList (EExpectedListType scrutType) scrutType
-    -- NOTE(MH): The second 'introExprVar' will catch the bad case @headVar ==
-    -- tailVar@.
-    introExprVar headVar elemType $ introExprVar tailVar (TList elemType) cont
+  CPCons headVar tailVar
+    | headVar == tailVar ->
+        throwWithContext (EClashingPatternVariables headVar)
+    | otherwise -> do
+        elemType <- match _TList (EExpectedListType scrutType) scrutType
+        introExprVar headVar elemType $ introExprVar tailVar (TList elemType) cont
   CPDefault -> cont
   CPSome bodyVar -> do
     bodyType <- match _TOptional (EExpectedOptionalType scrutType) scrutType
