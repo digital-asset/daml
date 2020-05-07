@@ -168,19 +168,21 @@ filterCondUpd tem f (Conditional b x (Just y)) =
 constructConstr :: Env 'Solving
   -- ^ The generator environment to convert.
   -> TypeConName
-  -- ^ The template name to be verified.
+  -- ^ The template name of the choice to be verified.
   -> ChoiceName
   -- ^ The choice name to be verified.
+  -> TypeConName
+  -- ^ The template name of the field to be verified.
   -> FieldName
   -- ^ The field name to be verified.
   -> ConstraintSet
-constructConstr env tem ch f =
-  case lookupChoInHMap (_envschs env) tem ch of
+constructConstr env chtem ch ftem f =
+  case lookupChoInHMap (_envschs env) chtem ch of
     Just (self, this, arg, updSubst) ->
       let upds = _ussUpdate $ updSubst (EVar self) (EVar this) (EVar arg)
           vars = concatMap skol2var (_envsskol env)
           (cres, arcs) = foldl
-            (\(cs,as) upd -> let (cs',as') = filterCondUpd tem f upd in (cs ++ cs',as ++ as'))
+            (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem f upd in (cs ++ cs',as ++ as'))
             ([],[]) upds
       in ConstraintSet vars cres arcs
     Nothing -> error "Choice not found"

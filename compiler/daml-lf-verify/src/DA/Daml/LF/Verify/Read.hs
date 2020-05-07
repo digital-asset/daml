@@ -24,15 +24,35 @@ import Options.Applicative
 import DA.Daml.LF.Ast
 
 data Options = Options
-    { optInputDars :: [FilePath]
+    { optInputDar :: FilePath
+    , optChoiceTmpl :: String
+    , optChoiceName :: String
+    , optFieldTmpl :: String
+    , optFieldName :: String
     }
 
 optionsParser :: Parser Options
 optionsParser = Options
-    <$> some ( argument str
-        (  metavar "DAR-FILES"
-        <> help "DAR files to analyse"
-        ) )
+    <$> argument str
+        (  metavar "DAR-FILE"
+        <> help "DAR file to analyse"
+        )
+    <*> argument str
+        (  metavar "CHOICE-TEMPLATE"
+        <> help "Template of the choice to analyse"
+        )
+    <*> argument str
+        (  metavar "CHOICE-NAME"
+        <> help "Name of the choice to analyse"
+        )
+    <*> argument str
+        (  metavar "FIELD-TEMPLATE"
+        <> help "Template of the field to verify"
+        )
+    <*> argument str
+        (  metavar "FIELD-NAME"
+        <> help "Name of the field to verify"
+        )
 
 optionsParserInfo :: ParserInfo Options
 optionsParserInfo = info (optionsParser <**> helper)
