@@ -49,6 +49,9 @@ object Node {
       *
       */
     def requiredAuthorizers: Set[Party]
+
+    def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
+      GenNode.foreach3(fNid, fCid, fVal)(self)
   }
 
   object GenNode
@@ -315,6 +318,9 @@ object Node {
     @deprecated("Use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] =
       KeyWithMaintainers.map1(f)(this)
+
+    def foreach1(f: Val => Unit): Unit =
+      KeyWithMaintainers.foreach1(f)(self)
   }
 
   object KeyWithMaintainers extends value.CidContainer1WithDefaultCidResolver[KeyWithMaintainers] {
