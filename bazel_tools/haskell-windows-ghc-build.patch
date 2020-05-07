@@ -1,8 +1,8 @@
 diff --git a/haskell/ghc.BUILD.tpl b/haskell/ghc.BUILD.tpl
-index d2c88208..bc0b6290 100644
+index d2c88208..d5c82db0 100644
 --- a/haskell/ghc.BUILD.tpl
 +++ b/haskell/ghc.BUILD.tpl
-@@ -19,14 +19,4221 @@ package(default_visibility = ["//visibility:public"])
+@@ -19,14 +19,4217 @@ package(default_visibility = ["//visibility:public"])
  
  filegroup(
      name = "bin",
@@ -1055,7 +1055,6 @@ index d2c88208..bc0b6290 100644
 +        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libssp.dll.a",
 +        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libssp_nonshared.a",
 +        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.a",
-+        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.dll.a",
 +        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.dll.a-gdb.py",
 +        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libsupc++.a",
 +        "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/lto-wrapper.exe",
@@ -1072,7 +1071,6 @@ index d2c88208..bc0b6290 100644
 +        "mingw/lib/libmpc.a",
 +        "mingw/lib/libmpfr.a",
 +        "mingw/lib/libz.a",
-+        "mingw/lib/libz.dll.a",
 +        "mingw/lib/pkgconfig/isl.pc",
 +        "mingw/lib/pkgconfig/libidn2.pc",
 +        "mingw/lib/pkgconfig/minizip.pc",
@@ -3854,7 +3852,6 @@ index d2c88208..bc0b6290 100644
 +        "mingw/x86_64-w64-mingw32/lib/libpstorec.a",
 +        "mingw/x86_64-w64-mingw32/lib/libpstorsvc.a",
 +        "mingw/x86_64-w64-mingw32/lib/libpthread.a",
-+        "mingw/x86_64-w64-mingw32/lib/libpthread.dll.a",
 +        "mingw/x86_64-w64-mingw32/lib/libqasf.a",
 +        "mingw/x86_64-w64-mingw32/lib/libqcap.a",
 +        "mingw/x86_64-w64-mingw32/lib/libqdv.a",
@@ -4161,7 +4158,6 @@ index d2c88208..bc0b6290 100644
 +        "mingw/x86_64-w64-mingw32/lib/libwinipsec.a",
 +        "mingw/x86_64-w64-mingw32/lib/libwinmm.a",
 +        "mingw/x86_64-w64-mingw32/lib/libwinpthread.a",
-+        "mingw/x86_64-w64-mingw32/lib/libwinpthread.dll.a",
 +        "mingw/x86_64-w64-mingw32/lib/libwinrnr.a",
 +        "mingw/x86_64-w64-mingw32/lib/libwinscard.a",
 +        "mingw/x86_64-w64-mingw32/lib/libwinspool.a",
