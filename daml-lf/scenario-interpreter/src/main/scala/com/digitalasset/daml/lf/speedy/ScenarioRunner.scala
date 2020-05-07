@@ -31,7 +31,7 @@ final case class ScenarioRunner(
 
   import scala.util.{Try, Success, Failure}
 
-  def run(): Either[(SError, Ledger), (Double, Int, Ledger)] =
+  def run(): Either[(SError, Ledger), (Double, Int, Ledger, SValue)] =
     Try(runUnsafe) match {
       case Failure(SRunnerException(err)) =>
         Left((err, ledger))
@@ -41,18 +41,19 @@ final case class ScenarioRunner(
         Right(res)
     }
 
-  private def runUnsafe(): (Double, Int, Ledger) = {
+  private def runUnsafe(): (Double, Int, Ledger, SValue) = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
     // and so that we don't need to worry about stack usage.
     val startTime = System.nanoTime()
     var steps = 0
-    while (!machine.isFinal) {
+    var finalValue: SValue = null
+    while (finalValue == null) {
       //machine.print(steps)
       steps += 1 // this counts the number of external `Need` interactions
       val res: SResult = machine.run()
       res match {
-        case SResultFinalValue(_) =>
-          ()
+        case SResultFinalValue(v) =>
+          finalValue = v
         case SResultError(err) =>
           throw SRunnerException(err)
 
@@ -91,7 +92,7 @@ final case class ScenarioRunner(
     }
     val endTime = System.nanoTime()
     val diff = (endTime - startTime) / 1000.0 / 1000.0
-    (diff, steps, ledger)
+    (diff, steps, ledger, finalValue)
   }
 
   private def crash(reason: String) =

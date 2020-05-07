@@ -61,19 +61,17 @@ final case class Trigger(
 // Utilities for interacting with the speedy machine.
 object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.Machine): Unit = {
-    while (!machine.isFinal) {
-      machine.run() match {
-        case SResultFinalValue(_) => ()
-        case SResultError(err) => {
-          logger.error(Pretty.prettyError(err, machine.ptx).render(80))
-          throw err
-        }
-        case res => {
-          val errMsg = s"Unexpected speedy result: $res"
-          logger.error(errMsg)
-          throw new RuntimeException(errMsg)
-        }
+  def stepToValue(machine: Speedy.Machine): SValue = {
+    machine.run() match {
+      case SResultFinalValue(v) => v
+      case SResultError(err) => {
+        logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+        throw err
+      }
+      case res => {
+        val errMsg = s"Unexpected speedy result: $res"
+        logger.error(errMsg)
+        throw new RuntimeException(errMsg)
       }
     }
   }
@@ -145,8 +143,7 @@ object Trigger extends StrictLogging {
       seeding = InitialSeeding.NoSeed,
       Set.empty,
     )
-    Machine.stepToValue(machine)
-    machine.toSValue match {
+    Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
       case value => Left(s"Expected Optional but got $value.")
@@ -170,8 +167,7 @@ object Trigger extends StrictLogging {
         seeding = InitialSeeding.NoSeed,
         Set.empty,
       )
-    Machine.stepToValue(machine)
-    machine.toSValue match {
+    Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
           .map(pkgId => (pkgId, compiledPackages.getPackage(pkgId).get))
@@ -357,10 +353,9 @@ class Runner(
           SEValue(SParty(Party.assertFromString(party))),
           SEValue(STimestamp(clientTime)): SExpr,
           createdExpr))
-    machine.ctrl = initialState
-    machine.returnValue = null
-    Machine.stepToValue(machine)
-    val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
+    machine.setExpressionToEvaluate(initialState)
+    val value = Machine.stepToValue(machine)
+    val evaluatedInitialState = handleStepResult(value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     Flow[TriggerMsg]
       .mapConcat[TriggerMsg]({
@@ -410,11 +405,10 @@ class Runner(
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.ctrl =
-          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state))
-        machine.returnValue = null
-        Machine.stepToValue(machine)
-        val newState = handleStepResult(machine.toSValue, submit)
+        machine.setExpressionToEvaluate(
+          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
+        val value = Machine.stepToValue(machine)
+        val newState = handleStepResult(value, submit)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
   }

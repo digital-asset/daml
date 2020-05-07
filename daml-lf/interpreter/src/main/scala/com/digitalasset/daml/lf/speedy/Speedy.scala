@@ -133,6 +133,11 @@ object Speedy {
       case _ =>
     }
 
+    def setExpressionToEvaluate(expr: SExpr): Unit = {
+      ctrl = expr
+      returnValue = null
+    }
+
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
       // Note: We have an outer and inner while loop.
@@ -258,18 +263,7 @@ object Speedy {
               throw DamlEArithmeticError(e.getMessage)
           }
       }
-
     }
-
-    def toValue: V[V.ContractId] =
-      toSValue.toValue
-
-    def toSValue: SValue =
-      if (!isFinal) {
-        crash("toSValue: machine not final")
-      } else {
-        returnValue
-      }
 
     def print(count: Int) = {
       println(s"Step: $count")
