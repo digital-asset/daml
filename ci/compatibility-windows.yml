@@ -13,13 +13,13 @@ steps:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-  - bash: ci/configure-bazel.sh
-    displayName: 'Configure Bazel for compatibility workspace'
-    env:
-      BAZEL_CONFIG_DIR: compatibility
-      IS_FORK: $(System.PullRequest.IsFork)
-      # to upload to the bazel cache
-      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+  # - bash: ci/configure-bazel.sh
+  #   displayName: 'Configure Bazel for compatibility workspace'
+  #   env:
+  #     BAZEL_CONFIG_DIR: compatibility
+  #     IS_FORK: $(System.PullRequest.IsFork)
+  #     # to upload to the bazel cache
+  #     GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
   - powershell: '.\compatibility\build-release-artifacts-windows.ps1'
     displayName: 'Build release artifacts'
   - powershell: '.\compatibility\test-windows.ps1  ${{ parameters.test_flags }}'

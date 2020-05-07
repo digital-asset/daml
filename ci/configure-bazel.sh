@@ -36,6 +36,8 @@ MINGW*)
   ;;
 esac
 
+git clean -fxd -e .bazelrc -e .bazelrc.local -e compatibility/.bazelrc
+
 cd "$(dirname "$0")"/..
 
 step "configuring bazel"
