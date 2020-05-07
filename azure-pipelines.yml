@@ -579,7 +579,7 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
     dependsOn:
       - git_sha
       - collect_build_data
