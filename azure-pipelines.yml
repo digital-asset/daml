@@ -215,6 +215,8 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: 'windows-pool'
+      demands:
+        - broken
     steps:
       - template: ci/report-start.yml
       - checkout: self

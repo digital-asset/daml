@@ -38,7 +38,7 @@ function bazel() {
 
 bazel shutdown
 bazel clean --expunge
-git clean -fxd
+git clean -fxd -e .bazelrc -e .bazelrc.local -e compatibility/.bazelrc -e compatibility/bazelrc.local
 cd compatibility
 bazel shutdown
 bazel clean --expunge
