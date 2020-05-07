@@ -23,11 +23,11 @@ main() {
 
   git checkout $current >&2
 
-  local factor=$(echo "$current_perf / $baseline_perf" | bc -l)
-  local speedup=$(printf "%.1f" $(echo "($factor - 1) * 100" | bc -l))
-  local progress=$(printf "%05.2f%%" $(echo "100 / (l(5) / l($factor))" | bc -l))
+  local speedup=$(printf "%.2f" $(echo "$baseline_perf / $current_perf" | bc -l))
+  local progress_5x=$(printf "%05.2f%%" $(echo "100 * l($speedup) / l(5)" | bc -l))
+  local progress_10x=$(printf "%05.2f%%" $(echo "100 * l($speedup) / l(10)" | bc -l))
 
-  echo '{"current-perf": '$current_perf', "baseline-perf": '$baseline_perf', "improvement": '$speedup', "progress_towards_5x": "'$progress'", "current-sha": "'$current'", "baseline-sha": "'$BASELINE'"}'
+  echo '{"current-perf": '$current_perf', "baseline-perf": '$baseline_perf', "speedup": "'$speedup'x", "progress_towards_5x": "'$progress_5x'", "progress_towards_10x": "'$progress_10x'", "current-sha": "'$current'", "baseline-sha": "'$BASELINE'"}'
 }
 
 main
