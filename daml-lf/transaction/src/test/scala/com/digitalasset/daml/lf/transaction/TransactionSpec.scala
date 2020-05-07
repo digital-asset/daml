@@ -87,7 +87,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
   }
 
-  "foreachInExecutionOrder" - {
+  "foldInExecutionOrder" - {
     "should traverse the transaction in execution order" in {
 
       val tx = mkTransaction(
@@ -100,15 +100,13 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
         ImmArray(V.NodeId(0), V.NodeId(1), V.NodeId(3)),
       )
 
-      val trace = List.newBuilder[String]
-
-      tx.foreachInExecutionOrder(
-        { case (nid, _) => trace += s"exerciseBegin(${nid.index})"; () },
-        { case (nid, _) => trace += s"leaf(${nid.index})"; () },
-        { case (nid, _) => trace += s"exerciseEnd(${nid.index})"; () },
+      val result = tx.foldInExecutionOrder(List.empty[String])(
+        (acc, nid, _) => s"exerciseBegin(${nid.index})" :: acc,
+        (acc, nid, _) => s"leaf(${nid.index})" :: acc,
+        (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
       )
 
-      trace.result().mkString(", ") shouldBe
+      result.reverse.mkString(", ") shouldBe
         "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), exerciseEnd(1), leaf(3)"
     }
   }

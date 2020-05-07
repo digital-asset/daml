@@ -368,6 +368,22 @@ final case class GenTransaction[Nid, +Cid, +Val](
     loop(FrontStack(roots), FrontStack.empty)
   }
 
+  // This method visits to all nodes of the transaction in execution order.
+  // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
+  def foldInExecutionOrder[A](z: A)(
+      exerciseBegin: (A, Nid, Node.NodeExercises[Nid, Cid, Val]) => A,
+      leaf: (A, Nid, Node.LeafOnlyNode[Cid, Val]) => A,
+      exerciseEnd: (A, Nid, Node.NodeExercises[Nid, Cid, Val]) => A,
+  ): A = {
+    var acc = z
+    foreachInExecutionOrder(
+      (nid, node) => acc = exerciseBegin(acc, nid, node),
+      (nid, node) => acc = leaf(acc, nid, node),
+      (nid, node) => acc = exerciseEnd(acc, nid, node),
+    )
+    acc
+  }
+
 }
 
 object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
