@@ -410,26 +410,21 @@ object Repl {
                 submissionTime = Time.Timestamp.now(),
                 transactionSeed = None
               )
-            var count = 0
             val startTime = System.nanoTime()
             var finished: SValue = null
             var errored = false
-            while (finished == null && !errored) {
-              machine.run match {
-                case SResultError(err) =>
-                  println(prettyError(err, machine.ptx).render(128))
-                  errored = true
-                case SResultFinalValue(v) =>
-                  finished = v
-                case other =>
-                  sys.error("unimplemented callback: " + other.toString)
-              }
-              count += 1
+            machine.run match {
+              case SResultError(err) =>
+                println(prettyError(err, machine.ptx).render(128))
+                errored = true
+              case SResultFinalValue(v) =>
+                finished = v
+              case other =>
+                sys.error("unimplemented callback: " + other.toString)
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000
-            machine.print(count)
-            println(s"steps: $count")
+            machine.print(1)
             println(s"time: ${diff}ms")
             if (!errored) {
               val result = prettyValue(true)(finished.toValue).render(128)
