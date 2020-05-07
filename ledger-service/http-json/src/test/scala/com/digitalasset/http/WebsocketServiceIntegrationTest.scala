@@ -335,65 +335,64 @@ class WebsocketServiceIntegrationTest
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
-      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
-        Sink
-          .foldAsync(NothingYet: StreamState) {
-            case (NothingYet, ContractDelta(Vector((ctid, _)), Vector(), None)) =>
-              (ctid: String) shouldBe (iouCid.unwrap: String)
+      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume.interpret(
+          for {
+            ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
+            _ = (ctid: String) shouldBe (iouCid.unwrap: String)
+            _ <- liftF(
               TestUtil.postJsonRequest(
                 uri.withPath(Uri.Path("/v1/exercise")),
                 exercisePayload(ctid),
                 headersWithAuth) map {
                 case (statusCode, _) =>
                   statusCode.isSuccess shouldBe true
-                  GotAcs(ctid)
-              }
+              })
 
-            case (GotAcs(ctid), ContractDelta(Vector(), _, Some(offset))) =>
-              Future.successful(GotLive(offset, ctid))
+            ContractDelta(Vector(), _, Some(offset)) <- readOne
 
-            case (
-                GotLive(preOffset, consumedCtid),
-                evtsWrapper @ ContractDelta(
-                  Vector((fstId, fst), (sndId, snd)),
-                  Vector(observeConsumed),
-                  Some(lastSeenOffset)
-                )) =>
-              Future {
-                observeConsumed.contractId should ===(consumedCtid)
-                Set(fstId, sndId, consumedCtid) should have size 3
-                inside(evtsWrapper) {
-                  case JsObject(obj) =>
-                    inside(obj get "events") {
-                      case Some(
-                          JsArray(
-                            Vector(
-                              Archived(_, _),
-                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
-                        Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                          Set(
-                            (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                            (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                          ))
-                    }
-                }
-                ShouldHaveEnded(preOffset, 2, lastSeenOffset)
+            (preOffset, consumedCtid) = (offset, ctid)
+            evtsWrapper @ ContractDelta(
+              Vector((fstId, fst), (sndId, snd)),
+              Vector(observeConsumed),
+              Some(lastSeenOffset)
+            ) <- readOne
+            (liveStartOffset, msgCount) = {
+              observeConsumed.contractId should ===(consumedCtid)
+              Set(fstId, sndId, consumedCtid) should have size 3
+              inside(evtsWrapper) {
+                case JsObject(obj) =>
+                  inside(obj get "events") {
+                    case Some(
+                        JsArray(
+                          Vector(
+                            Archived(_, _),
+                            Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                            Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
+                      Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                        Set(
+                          (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                          (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                        ))
+                  }
               }
+              (preOffset, 2)
+            }
 
-            case (
-                ShouldHaveEnded(liveStartOffset, msgCount, lastSeenOffset),
-                ContractDelta(Vector(), Vector(), Some(currentOffset))
-                ) =>
-              Future {
-                // don't count empty events block if lastSeenOffset does not change
-                ShouldHaveEnded(
-                  liveStartOffset = liveStartOffset,
-                  msgCount = if (lastSeenOffset == currentOffset) msgCount else msgCount + 1,
-                  lastSeenOffset = currentOffset
-                )
-              }
-          }
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map {
+              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
+            }.toSet + lastSeenOffset).size - 1
+          } yield
+          // don't count empty events block if lastSeenOffset does not change
+          ShouldHaveEnded(
+            liveStartOffset = liveStartOffset,
+            msgCount = msgCount + hbCount,
+            lastSeenOffset = lastSeenOffset
+          ))
+      }
 
       for {
         creation <- initialCreate
@@ -803,11 +802,24 @@ object WebsocketServiceIntegrationTest {
         }
     }
 
-    /**
+    /** This example script reads two elements unconditionally, checking whether
+      * the first element is "good" and that the second element has `true` as its
+      * first member, then performs a future, then drains any remaining elements
+      * from the stream, yielding a result that uses elements of all three reads.
+      *
       * {{{
-      *   val mySyntax = Consume.syntax[StreamElemType]
+      *   val mySyntax = Consume.syntax[Foo] // Foo = stream element type
       *   import mySyntax._
       *
+      *   val sink: Sink[Foo, Future[Bar]] = Consume.interpret(for {
+      *     a <- readOne
+      *     if aGoodFoo(a) // abort if false
+      *
+      *     Foo(true, b) <- readOne // abort if pattern doesn't match
+      *     _ <- liftF(Future { q(a, b) /* complete this future before continuing */ })
+      *
+      *     rest <- drain // Seq[Foo] of remainder; use only if you expect more elements
+      *   } yield Bar(a, b, rest)
       * }}}
       */
     def syntax[T]: Syntax[T] = new Syntax
