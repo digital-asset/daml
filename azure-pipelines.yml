@@ -260,6 +260,30 @@ jobs:
           fi
         name: out
 
+  - job: check_perf_test
+    pool:
+      name: linux-pool
+    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    steps:
+    - bash: |
+        TEST_SHA=$(cat ci/cron/perf/test_sha)
+        LAST_CHANGES=$(git log -n1 --format=%H daml-lf/scenario-interpreter/src/perf)
+        CURRENT_SHA=$(git rev-parse HEAD)
+        if [ "$TEST_SHA" != "$LAST_CHANGES" ]; then
+            if [ "$LAST_CHANGES" = "$CURRENT_SHA" ]; then
+                curl -XPOST \
+                     -i \
+                     -H 'Content-Type: application/json' \
+                     --data "{\"text\":\"<!here> Perf tests seem to have changed. Please manually check:\n\`\`\`\ngit diff $TEST_SHA $LAST_CHANGES -- daml-lf/scenario-interpreter/src/perf\n\`\`\`\nand update accordingly. If the change is benign, update \`ci/cron/perf/test_sha\` to \`$LAST_CHANGES\`. With no intervention, you will no longer get performance reports.\"}" \
+                     $(Slack.team-daml)
+            else
+                echo "Changes detected, but not from this commit."
+            fi
+        else
+            echo "No change detected."
+        fi
+      displayName: check perf changes
+
   - job: release
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
