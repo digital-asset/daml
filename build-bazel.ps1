@@ -1,3 +1,4 @@
+pwd
 cd ..
 ls
 .\daml\dev-env\windows\bin\dadew.ps1 install
