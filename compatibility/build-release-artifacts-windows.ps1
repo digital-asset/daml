@@ -37,8 +37,11 @@ function bazel() {
 
 
 bazel shutdown
+bazel clean --expunge
+git clean -fxd
 cd compatibility
 bazel shutdown
+bazel clean --expunge
 cd ..
 bazel fetch @nodejs_dev_env//...
 bazel build `

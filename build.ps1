@@ -48,9 +48,12 @@ function bazel() {
 # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
 # which is a workaround for this problem.
 bazel shutdown
+bazel clean --expunge
+git clean -fxd
 
 cd compatibility
 bazel shutdown
+bazel clean --expunge
 cd ..
 
 # Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
