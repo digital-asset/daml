@@ -2,18 +2,18 @@ workspace(name = "compatibility")
 
 # We import the main workspace for nix stuff and some shared Bazel rules.
 # This is mainly so we don’t have to symlink a bunch of files.
-# Note that you should never depend on targets from @daml.
+# Note that you should never depend on targets from @com_github_digital_asset_daml.
 local_repository(
-    name = "daml",
+    name = "com_github_digital_asset_daml",
     path = "..",
 )
 
-load("@daml//bazel_tools:os_info.bzl", "os_info")
+load("@com_github_digital_asset_daml//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
 
 load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows", "os_name")
-load("@daml//bazel_tools:build_environment.bzl", "build_environment")
+load("@com_github_digital_asset_daml//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
@@ -25,11 +25,11 @@ load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
 rules_haskell_dependencies()
 
-load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
+load("@com_github_digital_asset_daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 
 dadew(name = "dadew")
 
-load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
+load("@com_github_digital_asset_daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
 
 dadew_sh_posix_configure() if is_windows else None
 
@@ -51,17 +51,17 @@ load(
 load("//:versions.bzl", "sdk_versions", "version_sha256s")
 
 common_nix_file_deps = [
-    "@daml//nix:bazel.nix",
-    "@daml//nix:nixpkgs.nix",
-    "@daml//nix:nixpkgs/default.nix",
-    "@daml//nix:nixpkgs/default.src.json",
+    "@com_github_digital_asset_daml//nix:bazel.nix",
+    "@com_github_digital_asset_daml//nix:nixpkgs.nix",
+    "@com_github_digital_asset_daml//nix:nixpkgs/default.nix",
+    "@com_github_digital_asset_daml//nix:nixpkgs/default.src.json",
 ]
 
 nix_ghc_deps = common_nix_file_deps + [
-    "@daml//nix:ghc.nix",
-    "@daml//nix:with-packages-wrapper.nix",
-    "@daml//nix:overrides/ghc-8.6.5.nix",
-    "@daml//nix:overrides/ghc-8.6.3-binary.nix",
+    "@com_github_digital_asset_daml//nix:ghc.nix",
+    "@com_github_digital_asset_daml//nix:with-packages-wrapper.nix",
+    "@com_github_digital_asset_daml//nix:overrides/ghc-8.6.5.nix",
+    "@com_github_digital_asset_daml//nix:overrides/ghc-8.6.3-binary.nix",
 ]
 
 dev_env_nix_repos = {
@@ -70,18 +70,18 @@ dev_env_nix_repos = {
 
 nixpkgs_local_repository(
     name = "nixpkgs",
-    nix_file = "@daml//nix:nixpkgs.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:nixpkgs.nix",
     nix_file_deps = [
-        "@daml//nix:nixpkgs/default.nix",
-        "@daml//nix:nixpkgs/default.src.json",
+        "@com_github_digital_asset_daml//nix:nixpkgs/default.nix",
+        "@com_github_digital_asset_daml//nix:nixpkgs/default.src.json",
     ],
 )
 
 nixpkgs_cc_configure(
-    nix_file = "@daml//nix:bazel-cc-toolchain.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
-        "@daml//nix:bazel-cc-toolchain.nix",
-        "@daml//nix:tools/bazel-cc-toolchain/default.nix",
+        "@com_github_digital_asset_daml//nix:bazel-cc-toolchain.nix",
+        "@com_github_digital_asset_daml//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,
 )
@@ -96,7 +96,7 @@ filegroup(
     srcs = ["lib/locale/locale-archive"],
 )
 """,
-    nix_file = "@daml//nix:bazel.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if is_linux else None
@@ -111,7 +111,7 @@ haskell_register_ghc_nixpkgs(
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
-    nix_file = "@daml//nix:bazel.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
     version = "8.6.5",
@@ -130,7 +130,7 @@ filegroup(
 )
 """,
     fail_not_supported = False,
-    nix_file = "@daml//nix:bazel.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
@@ -139,7 +139,7 @@ nixpkgs_package(
     name = "openssl_nix",
     attribute_path = "openssl",
     fail_not_supported = False,
-    nix_file = "@daml//nix:bazel.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
@@ -161,7 +161,7 @@ dev_env_tool(
 nixpkgs_package(
     name = "hlint_nix",
     attribute_path = "hlint",
-    nix_file = "@daml//nix:bazel.nix",
+    nix_file = "@com_github_digital_asset_daml//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
 )

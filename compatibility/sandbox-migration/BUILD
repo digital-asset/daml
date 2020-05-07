@@ -1,4 +1,4 @@
-load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("@com_github_digital_asset_daml//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
 load(":util.bzl", "migration_test")
 
 genrule(

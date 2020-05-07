@@ -29,7 +29,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load(
-    "@daml//:deps.bzl",
+    "@com_github_digital_asset_daml//:deps.bzl",
     "buildifier_sha256",
     "buildifier_version",
     "rules_haskell_sha256",
@@ -47,10 +47,10 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                "@daml//bazel_tools:haskell-strict-source-names.patch",
-                "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
-                "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                "@daml//bazel_tools:haskell-pgmc.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-strict-source-names.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-pgmc.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -75,7 +75,7 @@ def daml_deps():
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
             name = "com_github_madler_zlib",
-            build_file = "@daml//3rdparty/c:zlib.BUILD",
+            build_file = "@com_github_digital_asset_daml//3rdparty/c:zlib.BUILD",
             strip_prefix = "zlib-{}".format(zlib_version),
             urls = ["https://github.com/madler/zlib/archive/{}.tar.gz".format(zlib_version)],
             sha256 = zlib_sha256,

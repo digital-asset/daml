@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "@daml//bazel_tools/client_server:client_server_test.bzl",
+    "@com_github_digital_asset_daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
