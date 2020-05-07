@@ -411,14 +411,12 @@ object Repl {
                 transactionSeed = None
               )
             val startTime = System.nanoTime()
-            var finished: SValue = null
-            var errored = false
-            machine.run match {
+            val valueOpt = machine.run match {
               case SResultError(err) =>
                 println(prettyError(err, machine.ptx).render(128))
-                errored = true
+                None
               case SResultFinalValue(v) =>
-                finished = v
+                Some(v)
               case other =>
                 sys.error("unimplemented callback: " + other.toString)
             }
@@ -426,10 +424,12 @@ object Repl {
             val diff = (endTime - startTime) / 1000 / 1000
             machine.print(1)
             println(s"time: ${diff}ms")
-            if (!errored) {
-              val result = prettyValue(true)(finished.toValue).render(128)
-              println("result:")
-              println(result)
+            valueOpt match {
+              case None => ()
+              case Some(value) =>
+                val result = prettyValue(true)(value.toValue).render(128)
+                println("result:")
+                println(result)
             }
           case Some(_) =>
             println("Error: " + id + " not a value.")
