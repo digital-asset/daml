@@ -159,7 +159,9 @@ jobs:
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - powershell: '.\build-bazel.ps1'
       - bash: |
+          cd daml
           set -euo pipefail
           git checkout $(release_sha)
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
