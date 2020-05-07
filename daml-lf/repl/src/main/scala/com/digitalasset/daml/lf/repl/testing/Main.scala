@@ -14,7 +14,7 @@ import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.types.Ledger
-import com.daml.lf.speedy.SExpr.{LfDefRef, SEValue}
+import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.LanguageVersion
@@ -169,7 +169,7 @@ object Repl {
       .newBuilder(PureCompiledPackages(packages).right.get, Time.Timestamp.MinValue, nextSeed())
       .fold(err => sys.error(err.toString), identity)
     def run(expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) =
+      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger, SValue)]) =
       (build(expr), ScenarioRunner(build(expr)).run())
   }
 
@@ -410,33 +410,26 @@ object Repl {
                 submissionTime = Time.Timestamp.now(),
                 transactionSeed = None
               )
-            var count = 0
             val startTime = System.nanoTime()
-            var errored = false
-            while (!machine.isFinal && !errored) {
-              machine.run match {
-                case SResultError(err) =>
-                  println(prettyError(err, machine.ptx).render(128))
-                  errored = true
-                case SResultFinalValue(_) => ()
-                case other =>
-                  sys.error("unimplemented callback: " + other.toString)
-              }
-              count += 1
+            val valueOpt = machine.run match {
+              case SResultError(err) =>
+                println(prettyError(err, machine.ptx).render(128))
+                None
+              case SResultFinalValue(v) =>
+                Some(v)
+              case other =>
+                sys.error("unimplemented callback: " + other.toString)
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000
-            machine.print(count)
-            println(s"steps: $count")
+            machine.print(1)
             println(s"time: ${diff}ms")
-            if (!errored) {
-              val result = machine.ctrl match {
-                case SEValue(sv) =>
-                  prettyValue(true)(sv.toValue).render(128)
-                case x => x.toString
-              }
-              println("result:")
-              println(result)
+            valueOpt match {
+              case None => ()
+              case Some(value) =>
+                val result = prettyValue(true)(value.toValue).render(128)
+                println("result:")
+                println(result)
             }
           case Some(_) =>
             println("Error: " + id + " not a value.")
@@ -472,7 +465,7 @@ object Repl {
           case Left((err, ledger @ _)) =>
             println(prettyError(err, machine.ptx).render(128))
             (false, state)
-          case Right((diff @ _, steps @ _, ledger)) =>
+          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
             // NOTE(JM): cannot print this, output used in tests.
             //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
             println(prettyLedger(ledger).render(128))
@@ -508,7 +501,7 @@ object Repl {
                 prettyLoc(machine.lastLocation).render(128) +
                 ": " + prettyError(err, machine.ptx).render(128))
             failures += 1
-          case Right((diff, steps, ledger @ _)) =>
+          case Right((diff, steps, ledger @ _, value @ _)) =>
             successes += 1
             totalTime += diff
             totalSteps += steps
