@@ -4,7 +4,7 @@
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 load("@rules_sh//sh:posix.bzl", "posix")
 
-def _create_build_content(rule_name, tools, win_paths, nix_paths):
+def _create_build_content(rule_name, tools, tool_dependencies, win_paths, nix_paths):
     content = """
 # DO NOT EDIT: automatically generated BUILD file for dev_env_tool.bzl: {rule_name}
 package(default_visibility = ["//visibility:public"])
@@ -17,15 +17,17 @@ filegroup(
 
     for i in range(0, len(tools)):
         content += """
-filegroup(
+sh_binary(
     name = "{tool}",
     srcs = select({{
         ":windows": ["{win_path}"],
         "//conditions:default": ["{nix_path}"],
     }}),
+    data = {dependencies},
 )
-            """.format(
+""".format(
             tool = tools[i],
+            dependencies = [":{}".format(dep.strip()) for dep in tool_dependencies[i].split(",") if dep.strip()] if i < len(tool_dependencies) else [],
             win_path = win_paths[i],
             nix_path = nix_paths[i],
         )
@@ -120,6 +122,7 @@ def _dev_env_tool_impl(ctx):
     build_content = _create_build_content(
         rule_name = ctx.name,
         tools = ctx.attr.tools,
+        tool_dependencies = ctx.attr.tool_dependencies,
         win_paths = [
             "%s/%s" % (ctx.attr.prefix, path)
             for path in ctx.attr.win_paths
@@ -136,6 +139,10 @@ dev_env_tool = repository_rule(
     attrs = {
         "tools": attr.string_list(
             mandatory = True,
+        ),
+        "tool_dependencies": attr.string_list(
+            mandatory = False,
+            default = [],
         ),
         "win_tool": attr.string(
             mandatory = True,

@@ -826,6 +826,12 @@ dev_env_tool(
         "bin/pg_ctl",
         "bin/postgres",
     ],
+    tool_dependencies = [
+        "postgres",
+        "postgres",
+        "postgres",
+        "",
+    ],
     tools = [
         "createdb",
         "dropdb",

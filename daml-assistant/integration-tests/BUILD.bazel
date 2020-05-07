@@ -27,8 +27,10 @@ genrule(
       set -euo pipefail
       TMP_DIR=$$(mktemp -d)
       MVN_DB="$$TMP_DIR/m2"
+      MVN=($(locations @mvn_dev_env//:mvn))
+      MVN="$${{MVN[0]}}"
       install_mvn() {{
-          $(location @mvn_dev_env//:mvn) -q install:install-file \
+          "$$MVN" -q install:install-file \
           -Dmaven.repo.local=$$MVN_DB \
           "-DgroupId=$$1" \
           "-DartifactId=$$2" \
@@ -62,7 +64,7 @@ genrule(
         "com.daml" "ledger-api-auth-client" \
         $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \
         $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
-      $(location @mvn_dev_env//:mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
+      "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
       tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB) \
         --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name
     """.format(mvn = mvn_version),
