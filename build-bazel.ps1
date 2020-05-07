@@ -1,5 +1,5 @@
 cd ..
-ls
+ls -R
 .\a\dev-env\windows\bin\dadew.ps1 install
 Set-StrictMode -Version latest
 .\a\dev-env\windows\bin\dadew.ps1 sync
