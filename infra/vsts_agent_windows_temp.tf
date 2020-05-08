@@ -2,25 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 locals {
-  vsts_token   = "${secret_resource.vsts-token.value}"
-  vsts_account = "digitalasset"
-  vsts_pool    = "windows-pool"
+  vsts_token_temp   = "${secret_resource.vsts-token.value}"
+  vsts_account_temp = "digitalasset"
+  vsts_pool_temp    = "test-temp-pool"
 }
 
-resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
+resource "google_compute_region_instance_group_manager" "vsts-agent-windows-temp" {
   provider = "google-beta"
-  name     = "vsts-agent-windows"
+  name     = "vsts-agent-windows-temp"
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
   # -5 for the random postfix:
-  base_instance_name = "vsts-win"
+  base_instance_name = "temp-win"
 
   region      = "${local.region}"
-  target_size = 6
+  target_size = 1
 
   version {
-    name              = "vsts-agent-windows"
-    instance_template = "${google_compute_instance_template.vsts-agent-windows.self_link}"
+    name              = "vsts-agent-windows-temp"
+    instance_template = "${google_compute_instance_template.vsts-agent-windows-temp.self_link}"
   }
 
   update_policy {
@@ -36,8 +36,8 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
   }
 }
 
-resource "google_compute_instance_template" "vsts-agent-windows" {
-  name_prefix  = "vsts-agent-windows-"
+resource "google_compute_instance_template" "vsts-agent-windows-temp" {
+  name_prefix  = "vsts-agent-windows-temp-"
   machine_type = "n1-standard-8"
   labels       = "${local.labels}"
 
@@ -128,8 +128,10 @@ net start winrm
 
 echo "== Installing the VSTS agent"
 
+Set-Content -Path 'D:\a\.capabilities' -Value 'assignment=default'
+
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
-choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
+choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token_temp} /Pool:${local.vsts_pool_temp} /Url:https://dev.azure.com/${local.vsts_account_temp}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
 echo OK
 SYSPREP_SPECIALIZE
 
