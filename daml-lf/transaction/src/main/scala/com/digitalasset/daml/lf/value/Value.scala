@@ -392,7 +392,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
     }
 
-    final class V1(val discriminator: crypto.Hash, val suffix: Bytes) extends AbsoluteContractId {
+    final class V1 private(val discriminator: crypto.Hash, val suffix: Bytes) extends AbsoluteContractId {
       lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"AbsoluteContractId($coid)"
