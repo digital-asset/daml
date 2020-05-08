@@ -821,12 +821,14 @@ dev_env_tool(
     nix_label = "@postgresql_nix",
     nix_paths = [
         "bin/createdb",
+        "bin/dropdb",
         "bin/initdb",
         "bin/pg_ctl",
         "bin/postgres",
     ],
     tools = [
         "createdb",
+        "dropdb",
         "initdb",
         "pg_ctl",
         "postgres",
@@ -845,6 +847,7 @@ dev_env_tool(
     },
     win_paths = [
         "bin/createdb.exe",
+        "bin/dropdb.exe",
         "bin/initdb.exe",
         "bin/pg_ctl.exe",
         "bin/postgres.exe",

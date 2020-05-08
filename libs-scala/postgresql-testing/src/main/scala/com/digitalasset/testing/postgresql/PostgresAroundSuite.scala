@@ -17,4 +17,9 @@ trait PostgresAroundSuite extends PostgresAround {
     database = Some(createNewRandomDatabase())
     postgresDatabase
   }
+
+  protected def dropDatabase(): Unit = {
+    dropDatabase(postgresDatabase)
+    database = None
+  }
 }

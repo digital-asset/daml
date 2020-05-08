@@ -103,8 +103,9 @@ trait PostgresAround {
     createNewDatabase(UUID.randomUUID().toString)
 
   protected def createNewDatabase(name: String): PostgresDatabase = {
-    createTestDatabase(name)
-    PostgresDatabase(hostName, fixture.port, userName, name)
+    val database = PostgresDatabase(hostName, fixture.port, userName, name)
+    createDatabase(database)
+    database
   }
 
   private def initializeDatabase(): Unit = run(
@@ -141,16 +142,28 @@ trait PostgresAround {
     ()
   }
 
-  private def createTestDatabase(name: String): Unit = run(
+  private def createDatabase(database: PostgresDatabase): Unit = run(
     "create the database",
     Tool.createdb,
-    "-h",
-    hostName,
-    "-U",
-    userName,
-    "-p",
-    fixture.port.toString,
-    name,
+    "--host",
+    database.hostName,
+    "--port",
+    database.port.toString,
+    "--username",
+    database.userName,
+    database.databaseName,
+  )
+
+  protected def dropDatabase(database: PostgresDatabase): Unit = run(
+    "drop a database",
+    Tool.dropdb,
+    "--host",
+    database.hostName,
+    "--port",
+    database.port.toString,
+    "--username",
+    database.userName,
+    database.databaseName,
   )
 
   private def run(description: String, tool: Tool, args: String*): Unit = {
