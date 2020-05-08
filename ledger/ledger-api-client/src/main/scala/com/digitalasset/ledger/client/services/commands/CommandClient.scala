@@ -58,7 +58,7 @@ final class CommandClient(
       submit(token)(submitRequest)
 
   private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
-    logger.debug(s"Invoking grpc-submission on commandId=${submitRequest.commands.map(_.commandId).getOrElse("no-command-id")}")
+    logger.debug("Invoking grpc-submission on commandId={}", submitRequest.commands.map(_.commandId).getOrElse("no-command-id"))
     LedgerClient
       .stub(commandSubmissionService, token)
       .submit(submitRequest)
