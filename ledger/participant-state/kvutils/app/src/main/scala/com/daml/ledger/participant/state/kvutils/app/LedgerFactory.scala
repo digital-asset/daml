@@ -78,7 +78,7 @@ trait ConfigProvider[ExtraConfig] {
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def metrics(
+  def createMetrics(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
   ): Metrics =
@@ -146,7 +146,7 @@ object LedgerFactory {
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          metrics(participantConfig, config),
+          createMetrics(participantConfig, config),
         )
 
     def owner(

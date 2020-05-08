@@ -47,7 +47,10 @@ object Main {
       for {
         readerWriter <- owner(config, participantConfig, engine)
       } yield
-        new KeyValueParticipantState(readerWriter, readerWriter, metrics(participantConfig, config))
+        new KeyValueParticipantState(
+          readerWriter,
+          readerWriter,
+          createMetrics(participantConfig, config))
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
@@ -56,7 +59,7 @@ object Main {
       new InMemoryLedgerReaderWriter.Owner(
         initialLedgerId = config.ledgerId,
         participantId = participantConfig.participantId,
-        metrics = metrics(participantConfig, config),
+        metrics = createMetrics(participantConfig, config),
         stateValueCache = caching.Cache.from(config.stateValueCache),
         dispatcher = dispatcher,
         state = state,

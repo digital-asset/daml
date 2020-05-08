@@ -55,7 +55,7 @@ final class Runner[T <: ReadWriteService, Extra](
 
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
-            val metrics = factory.metrics(participantConfig, config)
+            val metrics = factory.createMetrics(participantConfig, config)
             metrics.registry.registerAll(new JvmMetricSet)
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
