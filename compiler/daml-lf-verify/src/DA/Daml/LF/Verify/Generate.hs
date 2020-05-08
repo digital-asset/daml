@@ -14,7 +14,6 @@ module DA.Daml.LF.Verify.Generate
 import Control.Monad.Error.Class (catchError, throwError)
 import Data.Maybe (listToMaybe)
 import qualified Data.NameMap as NM
-import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
@@ -377,9 +376,10 @@ genForExercise tem ch cid par arg = do
   cidOut <- genExpr cid
   arout <- genExpr arg
   updSubst <- lookupChoice tem ch
-  -- TODO: Temporary solution
+  -- TODO: Temporary solution. To be fixed urgently.
   this <- lookupCid (_oExpr cidOut) `catchError`
-    (\_ -> trace ("Not found: " ++ show (_oExpr cidOut)) $ return $ ExprVarName "this")
+    -- (\_ -> trace ("Not found: " ++ show (_oExpr cidOut)) $ return $ ExprVarName "this")
+    (\_ -> return $ ExprVarName "this")
   -- TODO: Should we further eval after subst? But how to eval an update set?
   let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
   return (Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet)

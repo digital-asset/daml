@@ -9,6 +9,7 @@ module DA.Daml.LF.Verify
   , verify
   ) where
 
+import Control.Monad (when)
 import Data.Text
 import Options.Applicative
 
@@ -19,6 +20,9 @@ import DA.Daml.LF.Verify.Read
 import DA.Daml.LF.Verify.Context
 import DA.Bazel.Runfiles
 
+getSolver :: IO FilePath
+getSolver = locateRunfiles "z3_nix/bin/z3"
+
 main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
@@ -26,15 +30,14 @@ main = do
       choiceName = ChoiceName (pack optChoiceName)
       fieldTmpl = TypeConName [pack optFieldTmpl]
       fieldName = FieldName (pack optFieldName)
-  solver <- locateRunfiles "z3_nix/bin/z3"
-  pkgs <- readPackages [optInputDar]
-  verify pkgs solver choiceTmpl choiceName fieldTmpl fieldName >>= print
+  result <- verify optInputDar True choiceTmpl choiceName fieldTmpl fieldName
+  print result
 
 -- | Execute the full verification pipeline.
-verify :: [(PackageId, (Package, Maybe PackageName))]
-  -- ^ The packages to load.
-  -> FilePath
-  -- ^ The solver to use.
+verify :: FilePath
+  -- ^ The DAR file to load.
+  -> Bool
+  -- ^ Enable print outs.
   -> TypeConName
   -- ^ The template in which the given choice is defined.
   -> ChoiceName
@@ -44,27 +47,29 @@ verify :: [(PackageId, (Package, Maybe PackageName))]
   -> FieldName
   -- ^ The field to be verified.
   -> IO Result
-verify pkgs solver choiceTmpl choiceName fieldTmpl fieldName = do
-  putStrLn "Start value gathering"
+verify dar verbose choiceTmpl choiceName fieldTmpl fieldName = do
+  pkgs <- readPackages [dar]
+  solver <- getSolver
+  when verbose $ putStrLn "Start value gathering"
   case runEnv (genPackages pkgs) (emptyEnv :: Env 'ValueGathering) of
     Left err-> do
       putStrLn "Value phase finished with error: "
       print err
       return Unknown
     Right env1 -> do
-      putStrLn "Start value solving"
+      when verbose $ putStrLn "Start value solving"
       let env2 = solveValueReferences env1
-      putStrLn "Start choice gathering"
+      when verbose $ putStrLn "Start choice gathering"
       case runEnv (genPackages pkgs) env2 of
         Left err -> do
           putStrLn "Choice phase finished with error: "
           print err
           return Unknown
         Right env3 -> do
-          putStrLn "Start choice solving"
+          when verbose $ putStrLn "Start choice solving"
           let env4 = solveChoiceReferences env3
-          putStrLn "Start constraint solving phase"
+          when verbose $ putStrLn "Start constraint solving phase"
           let cset = constructConstr env4 choiceTmpl choiceName fieldTmpl fieldName
-          putStr "Create: " >> print (_cCres cset)
-          putStr "Archive: " >> print (_cArcs cset)
+          when verbose $ putStr "Create: " >> print (_cCres cset)
+          when verbose $ putStr "Archive: " >> print (_cArcs cset)
           solveConstr solver cset

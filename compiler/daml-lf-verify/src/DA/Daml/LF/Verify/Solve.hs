@@ -276,6 +276,7 @@ data Result
   -- provided.
   | Unknown
   -- ^ The result is inconclusive.
+  deriving Eq
 
 instance Show Result where
   show Success = "Success!"
