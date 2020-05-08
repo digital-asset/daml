@@ -3,10 +3,10 @@
 
 package com.daml.testing.postgresql
 
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
-trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
-  self: org.scalatest.Suite =>
+trait PostgresAroundEach extends PostgresAroundSuite with BeforeAndAfterEach {
+  self: Suite =>
 
   override protected def beforeEach(): Unit = {
     // we start pg before running the rest because _generally_ the database

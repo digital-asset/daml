@@ -21,11 +21,6 @@ trait PostgresAround {
   @volatile
   private var fixture: PostgresFixture = _
 
-  @volatile
-  private var _jdbcUrl: Option[JdbcUrl] = None
-
-  protected def postgresJdbcUrl: JdbcUrl = _jdbcUrl.get
-
   private val started: AtomicBoolean = new AtomicBoolean(false)
 
   protected def startEphemeralPostgres(): Unit = {
@@ -49,7 +44,6 @@ trait PostgresAround {
         lockedPort.unlock()
         stopPostgres()
         deleteRecursively(tempDir)
-        _jdbcUrl = None
         fixture = null
         throw e
     }
@@ -60,7 +54,6 @@ trait PostgresAround {
     stopPostgres()
     deleteRecursively(fixture.tempDir)
     logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
-    _jdbcUrl = None
     fixture = null
   }
 
@@ -106,10 +99,8 @@ trait PostgresAround {
     }
   }
 
-  protected def createNewDatabase(): JdbcUrl = {
-    _jdbcUrl = Some(createNewDatabase(UUID.randomUUID().toString))
-    postgresJdbcUrl
-  }
+  protected def createNewRandomDatabase(): JdbcUrl =
+    createNewDatabase(UUID.randomUUID().toString)
 
   protected def createNewDatabase(name: String): JdbcUrl = {
     createTestDatabase(name)
