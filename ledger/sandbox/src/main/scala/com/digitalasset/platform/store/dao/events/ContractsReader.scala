@@ -8,6 +8,7 @@ import java.time.Instant
 
 import anorm.SqlParser.{binaryStream, str}
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
+import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
@@ -34,6 +35,9 @@ private[dao] sealed abstract class ContractsReader(
   private val lookupActiveContractDeserializationTimer =
     metrics.daml.index.db.deserialization(lookupActiveContract)
 
+  private val contractRowParser: RowParser[(String, InputStream)] =
+    str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
+
   protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
 
   override def lookupActiveContract(
@@ -47,16 +51,11 @@ private[dao] sealed abstract class ContractsReader(
       }
       .map(_.map {
         case (templateId, createArgument) =>
-          Contract(
-            template = Identifier.assertFromString(templateId),
-            arg = Timed.value(
-              lookupActiveContractDeserializationTimer,
-              deserialize(
-                stream = createArgument,
-                errorContext = s"Failed to deserialize create argument for contract $contractId",
-              ),
-            ),
-            agreementText = ""
+          toContract(
+            contractId = contractId,
+            templateId = templateId,
+            createArgument = createArgument,
+            deserializationTimer = lookupActiveContractDeserializationTimer,
           )
       })(executionContext)
 
@@ -74,12 +73,6 @@ private[dao] sealed abstract class ContractsReader(
         committedContracts.lookupMaximumLedgerTime(ids)
       }
       .map(_.get)(executionContext)
-
-  // The contracts table _does not_ store agreement texts as they are
-  // unnecessary for interpretation and validation. The contracts returned
-  // from this table will _always_ have an empty agreement text.
-  private val contractRowParser: RowParser[(String, InputStream)] =
-    str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
 
 }
 
@@ -125,5 +118,26 @@ object ContractsReader {
   }
 
   private val contractsTable = "participant_contracts natural join participant_contract_witnesses"
+
+  // The contracts table _does not_ store agreement texts as they are
+  // unnecessary for interpretation and validation. The contracts returned
+  // from this table will _always_ have an empty agreement text.
+  private def toContract(
+      contractId: ContractId,
+      templateId: String,
+      createArgument: InputStream,
+      deserializationTimer: Timer,
+  ): Contract =
+    Contract(
+      template = Identifier.assertFromString(templateId),
+      arg = Timed.value(
+        timer = deserializationTimer,
+        value = deserialize(
+          stream = createArgument,
+          errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
+        ),
+      ),
+      agreementText = ""
+    )
 
 }
