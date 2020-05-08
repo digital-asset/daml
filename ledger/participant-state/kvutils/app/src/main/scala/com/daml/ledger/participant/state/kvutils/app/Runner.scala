@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.resources.akka.AkkaResourceOwner
@@ -55,14 +55,13 @@ final class Runner[T <: ReadWriteService, Extra](
 
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
-            val metricRegistry = factory.metricRegistry(participantConfig, config)
-            val metrics = new Metrics(metricRegistry)
-            metricRegistry.registerAll(new JvmMetricSet)
+            val metrics = factory.metrics(participantConfig, config)
+            metrics.registry.registerAll(new JvmMetricSet)
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
                 reporter =>
                   ResourceOwner
-                    .forCloseable(() => reporter.register(metricRegistry))
+                    .forCloseable(() => reporter.register(metrics.registry))
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire())
               ledger <- factory

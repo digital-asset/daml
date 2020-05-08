@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
-import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
@@ -78,11 +78,11 @@ trait ConfigProvider[ExtraConfig] {
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def metricRegistry(
+  def metrics(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
-  ): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(participantConfig.participantId)
+  ): Metrics =
+    new Metrics(SharedMetricRegistries.getOrCreate(participantConfig.participantId))
 }
 
 trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
@@ -146,7 +146,7 @@ object LedgerFactory {
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          new Metrics(metricRegistry(participantConfig, config)),
+          metrics(participantConfig, config),
         )
 
     def owner(
