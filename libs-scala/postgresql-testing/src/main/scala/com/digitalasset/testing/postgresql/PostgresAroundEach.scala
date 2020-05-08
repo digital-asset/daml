@@ -14,6 +14,7 @@ trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
     // ScenarioLoadingITPostgres at least. we could much with the mixin
     // order but this was easier...
     startEphemeralPostgres()
+    createNewDatabase()
     super.beforeEach()
   }
 

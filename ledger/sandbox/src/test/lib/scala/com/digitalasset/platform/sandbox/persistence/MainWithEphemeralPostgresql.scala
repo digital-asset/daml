@@ -9,6 +9,7 @@ import com.daml.testing.postgresql.PostgresAround
 object MainWithEphemeralPostgresql extends PostgresAround {
   def main(args: Array[String]): Unit = {
     startEphemeralPostgres()
+    createNewDatabase()
     sys.addShutdownHook(stopAndCleanUpPostgres())
     SandboxMain.main(args ++ Array("--sql-backend-jdbcurl", postgresJdbcUrl.url))
   }

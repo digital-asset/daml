@@ -15,6 +15,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
         .getOrElse(sys.exit(1))
 
     startEphemeralPostgres()
+    createNewDatabase()
     sys.addShutdownHook(stopAndCleanUpPostgres())
     val config = originalConfig.copy(
       participants = originalConfig.participants.map(_.copy(serverJdbcUrl = postgresJdbcUrl.url)),

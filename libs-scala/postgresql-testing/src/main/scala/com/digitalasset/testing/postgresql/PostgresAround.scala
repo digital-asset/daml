@@ -7,6 +7,7 @@ import java.io.StringWriter
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.daml.testing.postgresql.PostgresAround._
@@ -21,9 +22,9 @@ trait PostgresAround {
   private var fixture: PostgresFixture = _
 
   @volatile
-  private var _jdbcUrl: JdbcUrl = _
+  private var _jdbcUrl: Option[JdbcUrl] = None
 
-  protected def postgresJdbcUrl: JdbcUrl = _jdbcUrl
+  protected def postgresJdbcUrl: JdbcUrl = _jdbcUrl.get
 
   private val started: AtomicBoolean = new AtomicBoolean(false)
 
@@ -42,15 +43,13 @@ trait PostgresAround {
       createConfigFile()
       startPostgres()
       lockedPort.unlock()
-      createTestDatabase(databaseName)
-      _jdbcUrl = JdbcUrl(s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName")
       logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
         lockedPort.unlock()
         stopPostgres()
         deleteRecursively(tempDir)
-        _jdbcUrl = null
+        _jdbcUrl = None
         fixture = null
         throw e
     }
@@ -61,7 +60,7 @@ trait PostgresAround {
     stopPostgres()
     deleteRecursively(fixture.tempDir)
     logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
-    _jdbcUrl = null
+    _jdbcUrl = None
     fixture = null
   }
 
@@ -105,6 +104,11 @@ trait PostgresAround {
       )
       logger.info("PostgreSQL has stopped.")
     }
+  }
+
+  protected def createNewDatabase(): JdbcUrl = {
+    _jdbcUrl = Some(createNewDatabase(UUID.randomUUID().toString))
+    postgresJdbcUrl
   }
 
   protected def createNewDatabase(name: String): JdbcUrl = {

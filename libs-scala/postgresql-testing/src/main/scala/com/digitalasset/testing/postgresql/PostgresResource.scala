@@ -15,7 +15,7 @@ object PostgresResource {
       ): Resource[JdbcUrl] =
         Resource(Future {
           startEphemeralPostgres()
-          postgresJdbcUrl
+          createNewDatabase()
         })(_ => Future(stopAndCleanUpPostgres()))
     }
 }

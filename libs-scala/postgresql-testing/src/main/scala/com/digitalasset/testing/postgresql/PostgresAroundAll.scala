@@ -14,6 +14,7 @@ trait PostgresAroundAll extends PostgresAround with BeforeAndAfterAll {
     // ScenarioLoadingITPostgres at least. we could much with the mixin
     // order but this was easier...
     startEphemeralPostgres()
+    createNewDatabase()
     super.beforeAll()
   }
 
