@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.event.{
   ExercisedEvent => PbExercisedEvent
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
+import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.ValueSerializer
 
@@ -21,34 +22,56 @@ sealed trait Raw[+E] {
 
 object Raw {
 
+  private def toApiValue(
+      value: InputStream,
+      verbose: Boolean,
+      failureContext: => String,
+  ): ApiValue =
+    LfEngineToApi.assertOrRuntimeEx(
+      failureContext = failureContext,
+      LfEngineToApi
+        .lfVersionedValueToApiValue(
+          verbose = verbose,
+          value = ValueSerializer.deserializeValue(value),
+        ),
+    )
+
+  private def toApiRecord(
+      value: InputStream,
+      verbose: Boolean,
+      failureContext: => String,
+  ): ApiRecord =
+    LfEngineToApi.assertOrRuntimeEx(
+      failureContext = failureContext,
+      LfEngineToApi
+        .lfVersionedValueToApiRecord(
+          verbose = verbose,
+          recordValue = ValueSerializer.deserializeValue(value),
+        ),
+    )
+
   private[events] sealed abstract class Created[E] private[Raw] (
       raw: PbCreatedEvent,
       createArgument: InputStream,
       createKeyValue: Option[InputStream],
   ) extends Raw[E] {
-    protected def wrap(event: PbCreatedEvent): E
+    protected def wrapInEvent(event: PbCreatedEvent): E
     final override def applyDeserialization(verbose: Boolean): E =
-      wrap(
+      wrapInEvent(
         raw.copy(
           contractKey = createKeyValue.map(
             key =>
-              LfEngineToApi.assertOrRuntimeEx(
+              toApiValue(
+                value = key,
+                verbose = verbose,
                 failureContext = s"attempting to deserialize persisted key to value",
-                LfEngineToApi
-                  .lfVersionedValueToApiValue(
-                    verbose = verbose,
-                    value = ValueSerializer.deserializeValue(key),
-                  ),
             )
           ),
           createArguments = Some(
-            LfEngineToApi.assertOrRuntimeEx(
+            toApiRecord(
+              value = createArgument,
+              verbose = verbose,
               failureContext = s"attempting to deserialize persisted create argument to record",
-              LfEngineToApi
-                .lfVersionedValueToApiRecord(
-                  verbose = verbose,
-                  recordValue = ValueSerializer.deserializeValue(createArgument),
-                ),
             )
           ),
         )
@@ -93,7 +116,7 @@ object Raw {
         with FlatEvent {
       override val isCreated: Boolean = true
       override val contractId: String = raw.contractId
-      override protected def wrap(event: PbCreatedEvent): PbFlatEvent =
+      override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
         PbFlatEvent(PbFlatEvent.Event.Created(event))
     }
 
@@ -109,7 +132,7 @@ object Raw {
           createKeyValue: Option[InputStream],
           eventWitnesses: Array[String],
       ): Raw.FlatEvent.Created =
-        new Created(
+        new Raw.FlatEvent.Created(
           raw = Raw.Created(
             eventId = eventId,
             contractId = contractId,
@@ -140,7 +163,7 @@ object Raw {
           templateId: Identifier,
           eventWitnesses: Array[String],
       ): Raw.FlatEvent.Archived =
-        new Archived(
+        new Raw.FlatEvent.Archived(
           raw = PbArchivedEvent(
             eventId = eventId,
             contractId = contractId,
@@ -163,7 +186,7 @@ object Raw {
         createKeyValue: Option[InputStream],
     ) extends Raw.Created[PbTreeEvent](raw, createArgument, createKeyValue)
         with TreeEvent {
-      override protected def wrap(event: PbCreatedEvent): PbTreeEvent =
+      override protected def wrapInEvent(event: PbCreatedEvent): PbTreeEvent =
         PbTreeEvent(PbTreeEvent.Kind.Created(event))
     }
 
@@ -179,7 +202,7 @@ object Raw {
           createKeyValue: Option[InputStream],
           eventWitnesses: Array[String],
       ): Raw.TreeEvent.Created =
-        new Created(
+        new Raw.TreeEvent.Created(
           raw = Raw.Created(
             eventId = eventId,
             contractId = contractId,
@@ -203,27 +226,25 @@ object Raw {
         PbTreeEvent(
           PbTreeEvent.Kind.Exercised(
             base.copy(
-              choiceArgument = Some(
-                LfEngineToApi.assertOrRuntimeEx(
-                  failureContext = s"attempting to deserialize persisted exercise argument to value",
-                  LfEngineToApi
-                    .lfVersionedValueToApiValue(
+              choiceArgument =
+                Some(
+                  toApiValue(
+                    value = exerciseArgument,
+                    verbose = verbose,
+                    failureContext =
+                      s"attempting to deserialize persisted exercise argument to value",
+                  )
+                ),
+              exerciseResult =
+                exerciseResult.map(
+                  result =>
+                    toApiValue(
+                      value = result,
                       verbose = verbose,
-                      value = ValueSerializer.deserializeValue(exerciseArgument),
-                    ),
-                )
-              ),
-              exerciseResult = exerciseResult.map(
-                key =>
-                  LfEngineToApi.assertOrRuntimeEx(
-                    failureContext = s"attempting to deserialize persisted exercise result to value",
-                    LfEngineToApi
-                      .lfVersionedValueToApiValue(
-                        verbose = verbose,
-                        value = ValueSerializer.deserializeValue(key),
-                      ),
-                )
-              ),
+                      failureContext =
+                        s"attempting to deserialize persisted exercise result to value",
+                  )
+                ),
             )
           ))
     }
@@ -241,7 +262,7 @@ object Raw {
           exerciseChildEventIds: Array[String],
           eventWitnesses: Array[String],
       ): Raw.TreeEvent.Exercised =
-        new Exercised(
+        new Raw.TreeEvent.Exercised(
           base = PbExercisedEvent(
             eventId = eventId,
             contractId = contractId,
