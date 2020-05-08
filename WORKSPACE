@@ -820,16 +820,18 @@ dev_env_tool(
     ],
     nix_label = "@postgresql_nix",
     nix_paths = [
-        "bin/initdb",
         "bin/createdb",
+        "bin/dropdb",
+        "bin/initdb",
         "bin/pg_ctl",
         "bin/postgres",
     ],
     tools = [
         "createdb",
+        "dropdb",
         "initdb",
         "pg_ctl",
-        "postgresql",
+        "postgres",
     ],
     win_include = [
         "mingw64/bin",
@@ -844,8 +846,9 @@ dev_env_tool(
         "mingw64/share": "share",
     },
     win_paths = [
-        "bin/initdb.exe",
         "bin/createdb.exe",
+        "bin/dropdb.exe",
+        "bin/initdb.exe",
         "bin/pg_ctl.exe",
         "bin/postgres.exe",
     ],

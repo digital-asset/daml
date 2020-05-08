@@ -5,9 +5,9 @@ package com.daml.platform.sandbox.services.identity
 
 import java.util.UUID
 
-import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
+import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -97,7 +97,7 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
   override protected def config: SandboxConfig =
     super.config
       .copy(
-        jdbcUrl = Some(postgresFixture.jdbcUrl),
+        jdbcUrl = Some(postgresDatabase.url),
         ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic)(id =>
           LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id))))
       )

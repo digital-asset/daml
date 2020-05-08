@@ -5,11 +5,11 @@ package com.daml.platform.sandbox
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.ImmArray
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
+import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.ImmArray
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
@@ -60,10 +60,10 @@ object LedgerResource {
   ): Resource[Ledger] =
     new OwnedResource(
       for {
-        postgres <- PostgresResource.owner()
+        database <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
           serverRole = ServerRole.Testing(testClass),
-          jdbcUrl = postgres.jdbcUrl,
+          jdbcUrl = database.url,
           ledgerId = LedgerIdMode.Static(ledgerId),
           participantId = participantId,
           timeProvider = timeProvider,
