@@ -371,15 +371,6 @@ private[kvutils] class ProcessTransactionSubmission(
 
     val ledgerEffectiveTime = transactionEntry.txEntry.getLedgerEffectiveTime
 
-    // Helper to read the _current_ contract state.
-    // NOTE(JM): Important to fetch from the state that is currently being built up since
-    // we mark some contracts as archived and may later change their disclosure and do not
-    // want to "unarchive" them.
-    def getContractState(key: DamlStateKey): Commit[DamlContractState] =
-      get(key).map {
-        _.getOrElse(throw Err.MissingInputState(key)).getContractState
-      }
-
     sequence2(
       // Set a deduplication entry
       set(
@@ -633,4 +624,12 @@ object ProcessTransactionSubmission {
     val submissionSeed: Option[crypto.Hash] = Conversions.parseOptHash(txEntry.getSubmissionSeed)
   }
 
+  // Helper to read the _current_ contract state.
+  // NOTE(JM): Important to fetch from the state that is currently being built up since
+  // we mark some contracts as archived and may later change their disclosure and do not
+  // want to "unarchive" them.
+  def getContractState(key: DamlStateKey): Commit[DamlContractState] =
+    get(key).map {
+      _.getOrElse(throw Err.MissingInputState(key)).getContractState
+    }
 }
