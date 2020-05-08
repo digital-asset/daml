@@ -108,17 +108,17 @@ class ValueSpec
 
   "AbsoluteContractID.V1.build" - {
 
-    "reject to long suffix" in {
+    "rejects to long suffix" in {
 
       def suffix(size: Int) =
         Bytes.fromByteArray(Array.iterate(0.toByte, size)(b => (b + 1).toByte))
 
       val hash = crypto.Hash.hashPrivateKey("some hash")
-      AbsoluteContractId.V1.assertBuild(hash, suffix(0)) shouldBe 'right
-      AbsoluteContractId.V1.assertBuild(hash, suffix(94)) shouldBe 'right
-      AbsoluteContractId.V1.assertBuild(hash, suffix(95)) shouldBe 'left
-      AbsoluteContractId.V1.assertBuild(hash, suffix(96)) shouldBe 'left
-      AbsoluteContractId.V1.assertBuild(hash, suffix(127)) shouldBe 'left
+      AbsoluteContractId.V1.build(hash, suffix(0)) shouldBe 'right
+      AbsoluteContractId.V1.build(hash, suffix(94)) shouldBe 'right
+      AbsoluteContractId.V1.build(hash, suffix(95)) shouldBe 'left
+      AbsoluteContractId.V1.build(hash, suffix(96)) shouldBe 'left
+      AbsoluteContractId.V1.build(hash, suffix(127)) shouldBe 'left
 
     }
 
