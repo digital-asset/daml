@@ -225,7 +225,10 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox = "@daml-sdk-{platform_version}//:daml".format(
         platform_version = platform_version,
     )
-    sandbox_args = ["sandbox"]
+
+    # We need to use weak seeding to avoid our tests timing out
+    # if the CI machine does not have enough entropy.
+    sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
