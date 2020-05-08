@@ -33,7 +33,6 @@ jobs:
           pool: 'macOS-pool'
     pool:
       name: $(pool)
-      demands: assignment -equals default
     steps:
       - checkout: self
       - template: ../compatibility.yml
