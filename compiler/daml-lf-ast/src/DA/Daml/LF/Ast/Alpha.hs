@@ -22,10 +22,10 @@ data AlphaEnv = AlphaEnv
     -- ^ Maps bound type variables from the right-hand-side to
     -- the depth of the binder which introduced them.
   , boundExprVarsLhs :: !(Map.Map ExprVarName Int)
-    -- ^ Maps bound type variables from the left-hand-side  to
+    -- ^ Maps bound expr variables from the left-hand-side  to
     -- the depth of the binder which introduced them.
   , boundExprVarsRhs :: !(Map.Map ExprVarName Int)
-    -- ^ Maps bound type variables from the right-hand-side to
+    -- ^ Maps bound expr variables from the right-hand-side to
     -- the depth of the binder which introduced them.
   }
 
@@ -344,4 +344,3 @@ alphaType = alphaType' initialAlphaEnv
 
 alphaExpr :: Expr -> Expr -> Bool
 alphaExpr = alphaExpr' initialAlphaEnv
-
