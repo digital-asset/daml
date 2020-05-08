@@ -25,6 +25,7 @@ jobs:
   - job: git_sha
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - bash: |
           set -euo pipefail
@@ -48,6 +49,7 @@ jobs:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -75,6 +77,7 @@ jobs:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/check-changelog.sh $(fork_sha)
@@ -90,6 +93,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -121,6 +125,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'macOS-pool'
+      demands: assignment -equals default
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -156,6 +161,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -185,6 +191,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: linux-pool
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -200,6 +207,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: macos-pool
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -215,6 +223,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: 'windows-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -237,6 +246,7 @@ jobs:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - bash: |
           set -euo pipefail
@@ -263,6 +273,7 @@ jobs:
   - job: check_perf_test
     pool:
       name: linux-pool
+      demands: assignment -equals default
     condition: eq(variables['Build.Reason'], 'IndividualCI')
     steps:
     - bash: |
@@ -430,6 +441,7 @@ jobs:
       - compatibility_windows
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     variables:
       Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
       Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
@@ -585,6 +597,7 @@ jobs:
       - collect_build_data
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     variables:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]

@@ -104,6 +104,7 @@ VSTS_TOKEN=${vsts_token}
 
 mkdir -p ~/agent
 cd ~/agent
+echo 'assignment=default' > .capabilities
 
 echo Determining matching VSTS agent...
 VSTS_AGENT_RESPONSE=$(curl -sSfL \

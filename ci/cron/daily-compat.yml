@@ -33,6 +33,7 @@ jobs:
           pool: 'macOS-pool'
     pool:
       name: $(pool)
+      demands: assignment -equals default
     steps:
       - checkout: self
       - template: ../compatibility.yml
@@ -56,6 +57,7 @@ jobs:
     timeoutInMinutes: 240
     pool:
       name: windows-pool
+      demands: assignment -equals default
     steps:
       - checkout: self
       - template: ../compatibility-windows.yml
@@ -84,6 +86,7 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
