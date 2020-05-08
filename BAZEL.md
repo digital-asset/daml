@@ -992,6 +992,20 @@ Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc
 
 This will also mean that changes made locally will need to be rebuilt, but it's likely that this will still result in a net positive gain on your build time.
 
+If you are still rebuilding after this, you probably also have a
+poisoned Nix cache. To clear that run through the following steps:
+
+    bazel clean --expunge # clean the build cache
+    rm -r .bazel-cache    # clean the local cache
+    rm dev-env/var/gc-roots/* # Remove dev-env GC roots
+    rm result* # Remove GC roots you might have from previous nix-build invocations.
+    nix-store --gc --print-roots # View all garbage collection roots
+    # Verify that there is nothing from our repo or some Bazel cache.
+    # If you are not sure ask in #team-daml
+    nix-store --gc # Run garbage collection
+    nix-build nix -A tools -A cached --no-out-link # Build the nix derivations (they should be fetched from the cache)
+    bazel build //... # You should now see things being fetched from the cache
+
 ### Working in environments with low or intermittent connectivity
 
 Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
