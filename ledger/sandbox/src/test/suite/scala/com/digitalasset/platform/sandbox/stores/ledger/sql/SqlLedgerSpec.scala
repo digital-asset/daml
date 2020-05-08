@@ -202,7 +202,7 @@ class SqlLedgerSpec
       SqlLedger
         .owner(
           serverRole = ServerRole.Testing(getClass),
-          jdbcUrl = postgresFixture.jdbcUrl,
+          jdbcUrl = postgresJdbcUrl.url,
           ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,
           timeProvider = TimeProvider.UTC,

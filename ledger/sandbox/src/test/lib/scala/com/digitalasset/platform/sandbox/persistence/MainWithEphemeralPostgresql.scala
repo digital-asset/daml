@@ -10,6 +10,6 @@ object MainWithEphemeralPostgresql extends PostgresAround {
   def main(args: Array[String]): Unit = {
     startEphemeralPostgres()
     sys.addShutdownHook(stopAndCleanUpPostgres())
-    SandboxMain.main(args ++ Array("--sql-backend-jdbcurl", postgresFixture.jdbcUrl))
+    SandboxMain.main(args ++ Array("--sql-backend-jdbcurl", postgresJdbcUrl.url))
   }
 }

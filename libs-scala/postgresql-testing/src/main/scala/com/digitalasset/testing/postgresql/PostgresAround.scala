@@ -6,7 +6,7 @@ package com.daml.testing.postgresql
 import java.io.StringWriter
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.daml.testing.postgresql.PostgresAround._
@@ -18,7 +18,12 @@ import scala.util.control.NonFatal
 
 trait PostgresAround {
   @volatile
-  protected var postgresFixture: PostgresFixture = _
+  private var fixture: PostgresFixture = _
+
+  @volatile
+  private var _jdbcUrl: JdbcUrl = _
+
+  protected def postgresJdbcUrl: JdbcUrl = _jdbcUrl
 
   private val started: AtomicBoolean = new AtomicBoolean(false)
 
@@ -26,12 +31,11 @@ trait PostgresAround {
     logger.info("Starting an ephemeral PostgreSQL instance...")
     val tempDir = Files.createTempDirectory("postgres_test")
     val dataDir = tempDir.resolve("data")
-    val confFile = Paths.get(dataDir.toString, "postgresql.conf")
+    val confFile = dataDir.resolve("postgresql.conf")
+    val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
     val lockedPort = FreePort.find()
     val port = lockedPort.port
-    val jdbcUrl = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
-    val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
-    postgresFixture = PostgresFixture(jdbcUrl, port, tempDir, dataDir, confFile, logFile)
+    fixture = PostgresFixture(port, tempDir, dataDir, confFile, logFile)
 
     try {
       initializeDatabase()
@@ -39,13 +43,15 @@ trait PostgresAround {
       startPostgres()
       lockedPort.unlock()
       createTestDatabase(databaseName)
+      _jdbcUrl = JdbcUrl(s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName")
       logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
         lockedPort.unlock()
         stopPostgres()
         deleteRecursively(tempDir)
-        postgresFixture = null
+        _jdbcUrl = null
+        fixture = null
         throw e
     }
   }
@@ -53,8 +59,10 @@ trait PostgresAround {
   protected def stopAndCleanUpPostgres(): Unit = {
     logger.info("Stopping and cleaning up PostgreSQL...")
     stopPostgres()
-    deleteRecursively(postgresFixture.tempDir)
+    deleteRecursively(fixture.tempDir)
     logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
+    _jdbcUrl = null
+    fixture = null
   }
 
   protected def startPostgres(): Unit = {
@@ -69,9 +77,9 @@ trait PostgresAround {
         Tool.pg_ctl,
         "-w",
         "-D",
-        postgresFixture.dataDir.toString,
+        fixture.dataDir.toString,
         "-l",
-        postgresFixture.logFile.toString,
+        fixture.logFile.toString,
         "start",
       )
     } catch {
@@ -90,7 +98,7 @@ trait PostgresAround {
         Tool.pg_ctl,
         "-w",
         "-D",
-        postgresFixture.dataDir.toString,
+        fixture.dataDir.toString,
         "-m",
         "immediate",
         "stop",
@@ -99,10 +107,9 @@ trait PostgresAround {
     }
   }
 
-  protected def createNewDatabase(name: String): PostgresFixture = {
+  protected def createNewDatabase(name: String): JdbcUrl = {
     createTestDatabase(name)
-    val jdbcUrl = s"jdbc:postgresql://$hostName:${postgresFixture.port}/$name?user=$userName"
-    postgresFixture.copy(jdbcUrl = jdbcUrl)
+    JdbcUrl(s"jdbc:postgresql://$hostName:${fixture.port}/$name?user=$userName")
   }
 
   private def initializeDatabase(): Unit = run(
@@ -114,7 +121,7 @@ trait PostgresAround {
     "UNICODE",
     "-A",
     "trust",
-    postgresFixture.dataDir.toString.replaceAllLiterally("\\", "/"),
+    fixture.dataDir.toString.replaceAllLiterally("\\", "/"),
   )
 
   private def createConfigFile(): Unit = {
@@ -133,9 +140,9 @@ trait PostgresAround {
           |log_min_duration_statement = 0
           |log_connections = on
           |listen_addresses = '$hostName'
-          |port = ${postgresFixture.port}
-        """.stripMargin
-    Files.write(postgresFixture.confFile, configText.getBytes(StandardCharsets.UTF_8))
+          |port = ${fixture.port}
+          """.stripMargin
+    Files.write(fixture.confFile, configText.getBytes(StandardCharsets.UTF_8))
     ()
   }
 
@@ -147,7 +154,7 @@ trait PostgresAround {
     "-U",
     userName,
     "-p",
-    postgresFixture.port.toString,
+    fixture.port.toString,
     name,
   )
 
@@ -161,7 +168,7 @@ trait PostgresAround {
         IOUtils.copy(process.getInputStream, stdout, StandardCharsets.UTF_8)
         val stderr = new StringWriter
         IOUtils.copy(process.getErrorStream, stderr, StandardCharsets.UTF_8)
-        val logs = Files.readAllLines(postgresFixture.logFile).asScala
+        val logs = Files.readAllLines(fixture.logFile).asScala
         throw new ProcessFailedException(
           description = description,
           command = command,
@@ -174,7 +181,7 @@ trait PostgresAround {
       case e: ProcessFailedException =>
         throw e
       case NonFatal(e) =>
-        val logs = Files.readAllLines(postgresFixture.logFile).asScala
+        val logs = Files.readAllLines(fixture.logFile).asScala
         throw new ProcessFailedException(
           description = description,
           command = command,

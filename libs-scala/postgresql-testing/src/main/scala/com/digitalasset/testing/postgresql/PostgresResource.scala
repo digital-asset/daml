@@ -8,14 +8,14 @@ import com.daml.resources.{Resource, ResourceOwner}
 import scala.concurrent.{ExecutionContext, Future}
 
 object PostgresResource {
-  def owner(): ResourceOwner[PostgresFixture] =
-    new ResourceOwner[PostgresFixture] with PostgresAround {
+  def owner(): ResourceOwner[JdbcUrl] =
+    new ResourceOwner[JdbcUrl] with PostgresAround {
       override def acquire()(
           implicit executionContext: ExecutionContext
-      ): Resource[PostgresFixture] =
+      ): Resource[JdbcUrl] =
         Resource(Future {
           startEphemeralPostgres()
-          postgresFixture
+          postgresJdbcUrl
         })(_ => Future(stopAndCleanUpPostgres()))
     }
 }
