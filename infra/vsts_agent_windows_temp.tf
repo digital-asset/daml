@@ -128,8 +128,8 @@ net start winrm
 
 echo "== Installing the VSTS agent"
 
-New-Item -ItemType Directory -Path 'D:\a'
-Set-Content -Path 'D:\a\.capabilities' -Value 'assignment=default'
+New-Item -ItemType Directory -Path 'C:\agent'
+Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=default'
 
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
 choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token_temp} /Pool:${local.vsts_pool_temp} /Url:https://dev.azure.com/${local.vsts_account_temp}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
