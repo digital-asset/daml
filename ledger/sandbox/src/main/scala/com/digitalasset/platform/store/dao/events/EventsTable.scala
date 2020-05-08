@@ -53,17 +53,20 @@ private[events] trait EventsTable {
 
   object Entry {
 
-    private def deserialize[E](verbose: Boolean)(entry: Entry[Raw[E]]): Entry[E] =
-      entry.copy(event = entry.event.applyDeserialization(verbose))
+    private def eventOnly[E](verbose: Boolean)(entry: Entry[Raw[E]]): E =
+      entry.event.applyDeserialization(verbose)
 
-    private def deserialize[E](
-        rawEntries: Vector[Entry[Raw[E]]],
+    private def fullEntry[E](verbose: Boolean)(entry: Entry[Raw[E]]): Entry[E] =
+      entry.copy(event = eventOnly(verbose)(entry))
+
+    private def deserialize[E1, E2](
+        rawEntries: Vector[Entry[Raw[E1]]],
         verbose: Boolean,
         timer: Timer,
-    ): Vector[Entry[E]] =
+    )(deserializeEntry: Boolean => Entry[Raw[E1]] => E2): Vector[E2] =
       Timed.value(
         timer = timer,
-        value = rawEntries.map(deserialize(verbose)),
+        value = rawEntries.map(deserializeEntry(verbose)),
       )
 
     private def instantToTimestamp(t: Instant): Timestamp =
@@ -92,7 +95,7 @@ private[events] trait EventsTable {
     ): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
         val withoutTransients = removeTransient(events)
-        val flatEvents = deserialize(withoutTransients, verbose, deserializationTimer).map(_.event)
+        val flatEvents = deserialize(withoutTransients, verbose, deserializationTimer)(eventOnly)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(
@@ -122,7 +125,7 @@ private[events] trait EventsTable {
     def toGetActiveContractsResponse(verbose: Boolean, deserializationTimer: Timer)(
         rawEvents: Vector[Entry[Raw.FlatEvent]],
     ): Vector[GetActiveContractsResponse] = {
-      val events = deserialize(rawEvents, verbose, deserializationTimer)
+      val events = deserialize(rawEvents, verbose, deserializationTimer)(fullEntry)
       events.map {
         case entry if entry.event.isCreated =>
           GetActiveContractsResponse(
@@ -144,7 +147,7 @@ private[events] trait EventsTable {
         deserializationTimer: Timer,
     ): (Map[String, TreeEvent], Vector[String]) = {
 
-      val events = deserialize(rawEvents, verbose, deserializationTimer)
+      val events = deserialize(rawEvents, verbose, deserializationTimer)(fullEntry)
 
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
