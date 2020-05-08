@@ -16,8 +16,22 @@ import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.ValueSerializer
 
+/**
+  * An event as it's fetched from the participant index, before
+  * the deserialization the values contained therein. Allows to
+  * wrap events from the database while delaying deserialization
+  * so that it doesn't happen on the database thread pool.
+  */
 sealed trait Raw[+E] {
+
+  /**
+    * Fill the blanks left in the raw event by running
+    * the deserialization on contained values.
+    *
+    * @param verbose If true, field names of records will be included
+    */
   def applyDeserialization(verbose: Boolean): E
+
 }
 
 object Raw {
@@ -25,10 +39,10 @@ object Raw {
   private def toApiValue(
       value: InputStream,
       verbose: Boolean,
-      failureContext: => String,
+      attribute: => String,
   ): ApiValue =
     LfEngineToApi.assertOrRuntimeEx(
-      failureContext = failureContext,
+      failureContext = s"attempting to deserialize persisted $attribute to value",
       LfEngineToApi
         .lfVersionedValueToApiValue(
           verbose = verbose,
@@ -39,10 +53,10 @@ object Raw {
   private def toApiRecord(
       value: InputStream,
       verbose: Boolean,
-      failureContext: => String,
+      attribute: => String,
   ): ApiRecord =
     LfEngineToApi.assertOrRuntimeEx(
-      failureContext = failureContext,
+      failureContext = s"attempting to deserialize persisted $attribute to record",
       LfEngineToApi
         .lfVersionedValueToApiRecord(
           verbose = verbose,
@@ -50,6 +64,11 @@ object Raw {
         ),
     )
 
+  /**
+    * Since created events can be both a flat event or a tree event
+    * we share common code between the two variants here. What's left
+    * out is wrapping the result in the proper envelope.
+    */
   private[events] sealed abstract class Created[E] private[Raw] (
       raw: PbCreatedEvent,
       createArgument: InputStream,
@@ -64,14 +83,14 @@ object Raw {
               toApiValue(
                 value = key,
                 verbose = verbose,
-                failureContext = s"attempting to deserialize persisted key to value",
+                attribute = "create key",
             )
           ),
           createArguments = Some(
             toApiRecord(
               value = createArgument,
               verbose = verbose,
-              failureContext = s"attempting to deserialize persisted create argument to record",
+              attribute = "create argument",
             )
           ),
         )
@@ -101,6 +120,11 @@ object Raw {
       )
   }
 
+  /**
+    * Defines a couple of methods on flat events to allow the events
+    * to be manipulated before running deserialization (specifically,
+    * removing transient contracts).
+    */
   sealed trait FlatEvent extends Raw[PbFlatEvent] {
     def isCreated: Boolean
     def contractId: String
@@ -147,6 +171,9 @@ object Raw {
         )
     }
 
+    /**
+      * Archived events don't actually have anything to deserialize
+      */
     final class Archived private[Raw] (
         raw: PbArchivedEvent,
     ) extends FlatEvent {
@@ -226,25 +253,21 @@ object Raw {
         PbTreeEvent(
           PbTreeEvent.Kind.Exercised(
             base.copy(
-              choiceArgument =
-                Some(
+              choiceArgument = Some(
+                toApiValue(
+                  value = exerciseArgument,
+                  verbose = verbose,
+                  attribute = "exercise argument",
+                )
+              ),
+              exerciseResult = exerciseResult.map(
+                result =>
                   toApiValue(
-                    value = exerciseArgument,
+                    value = result,
                     verbose = verbose,
-                    failureContext =
-                      s"attempting to deserialize persisted exercise argument to value",
-                  )
-                ),
-              exerciseResult =
-                exerciseResult.map(
-                  result =>
-                    toApiValue(
-                      value = result,
-                      verbose = verbose,
-                      failureContext =
-                        s"attempting to deserialize persisted exercise result to value",
-                  )
-                ),
+                    attribute = "exercise result",
+                )
+              ),
             )
           ))
     }
