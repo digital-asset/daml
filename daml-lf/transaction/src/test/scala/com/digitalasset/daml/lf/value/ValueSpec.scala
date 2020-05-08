@@ -4,12 +4,11 @@
 package com.daml.lf
 package value
 
-import data.{FrontStack, ImmArray, Ref, Unnatural}
+import data.{Bytes, FrontStack, ImmArray, Ref, Unnatural}
 import Value._
 import Ref.{Identifier, Name}
 import ValueGenerators.{absCoidGen, idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
-
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Inside, Matchers}
@@ -102,6 +101,24 @@ class ValueSpec
         value.resolveRelCid(resolver).version shouldBe ValueVersions.minVersion
         contract.resolveRelCid(resolver).arg.version shouldBe ValueVersions.minVersion
       }
+
+    }
+
+  }
+
+  "AbsoluteContractID.V1.build" - {
+
+    "reject to long suffix" in {
+
+      def suffix(size: Int) =
+        Bytes.fromByteArray(Array.iterate(0.toByte, size)(b => (b + 1).toByte))
+
+      val hash = crypto.Hash.hashPrivateKey("some hash")
+      AbsoluteContractId.V1.assertBuild(hash, suffix(0)) shouldBe 'right
+      AbsoluteContractId.V1.assertBuild(hash, suffix(94)) shouldBe 'right
+      AbsoluteContractId.V1.assertBuild(hash, suffix(95)) shouldBe 'left
+      AbsoluteContractId.V1.assertBuild(hash, suffix(96)) shouldBe 'left
+      AbsoluteContractId.V1.assertBuild(hash, suffix(127)) shouldBe 'left
 
     }
 
