@@ -128,6 +128,7 @@ net start winrm
 
 echo "== Installing the VSTS agent"
 
+New-Item -ItemType Directory -Path 'D:\a'
 Set-Content -Path 'D:\a\.capabilities' -Value 'assignment=default'
 
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
