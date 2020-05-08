@@ -35,9 +35,6 @@ function bazel() {
     Write-Output "<< bazel $args (ok)"
 }
 
-try {
-
-bazel clean --expunge
 
 bazel shutdown
 bazel fetch @nodejs_dev_env//...
@@ -48,10 +45,3 @@ bazel build `
 
 cp -Force bazel-bin\release\sdk-release-tarball.tar.gz compatibility/head_sdk
 cp -Force bazel-bin\ledger\ledger-api-test-tool\ledger-api-test-tool_deploy.jar compatibility/head_sdk
-
-}
-
-finally {
-  bazel clean --expunge
-  git clean -fxd .bazelrc.local head_sdk
-}

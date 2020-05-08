@@ -17,13 +17,6 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
-bazel clean --expunge
-bazel_clean() {
-  bazel clean --expunge
-  git clean -fxd -e .bazelrc.local head_sdk
-}
-trap bazel_clean EXIT
-
 bazel build \
   //release:sdk-release-tarball \
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar

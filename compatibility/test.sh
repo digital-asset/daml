@@ -13,13 +13,6 @@ cd "$(dirname "$0")"
 
 eval "$(../dev-env/bin/dade-assist)"
 
-bazel clean --expunge
-bazel_clean() {
-  bazel clean --expunge
-  git clean -fxd -e .bazelrc.local head_sdk
-}
-trap bazel_clean EXIT
-
 # Git, symlinks and windows do not play well together
 # so we have to copy over the Bazel config. We just do
 # it unconditionally since it should be cheap enough.
