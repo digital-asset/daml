@@ -13,7 +13,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 class ProcessTransactionSubmissionSpec extends WordSpec with Matchers with Inside {
   "ProcessTransactionSubmission" should {
-    "not exhaust the stack when read chains are very long" in {
+    "exhaust the stack when read chains are very long" in {
       def readChain(n: Int): Commit[Unit] = {
         val oneRead =
           ProcessTransactionSubmission.getContractState(DamlStateKey.getDefaultInstance).map { _ =>
