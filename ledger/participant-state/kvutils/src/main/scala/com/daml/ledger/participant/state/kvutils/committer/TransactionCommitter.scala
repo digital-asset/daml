@@ -61,7 +61,7 @@ private[kvutils] class TransactionCommitter(
     "validate_ledger_time" -> validateLedgerTime,
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
-    "authorize_and_build_result" -> authorizeAndBlind
+    "authorize_and_blind" -> authorizeAndBlind
   )
 
   // -------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ private[kvutils] class TransactionCommitter(
             buildRejectionLogEntry(
               transactionEntry,
               RejectionReason.SubmitterCannotActViaParticipant(
-                s"Party '${transactionEntry.submitter}' not hosted by participant $commitContext.getParticipantId")
+                s"Party '${transactionEntry.submitter}' not hosted by participant ${commitContext.getParticipantId}")
             )
           )
       case None =>
