@@ -50,8 +50,8 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
 
   protected def target: PostgreSQLTarget = PostgreSQLTarget(
     connectUrl = postgresJdbcUrl.url,
-    user = "test",
-    password = "",
+    user = PostgresAround.userName,
+    password = PostgresAround.password,
     outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,

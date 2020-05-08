@@ -199,8 +199,9 @@ object PostgresAround {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val hostName = InetAddress.getLoopbackAddress.getHostName
-  private val userName = "test"
-  private val databaseName = "test"
+
+  val userName = "test"
+  val password = ""
 
   private class ProcessFailedException(
       description: String,
