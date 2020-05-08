@@ -18,6 +18,8 @@ import scalaz.syntax.order._
 import scalaz.syntax.semigroup._
 import scalaz.syntax.std.option._
 
+import scala.util.hashing.MurmurHash3
+
 /** Values   */
 sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
   import Value._
@@ -360,16 +362,28 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     */
   sealed abstract class ContractId
 
-  sealed abstract class AbsoluteContractId extends ContractId with Product with Serializable {
+  sealed abstract class AbsoluteContractId extends ContractId {
     def coid: String
   }
 
   object AbsoluteContractId {
-    final case class V0(coid: Ref.ContractIdString) extends AbsoluteContractId {
+    final class V0(val coid: Ref.ContractIdString) extends AbsoluteContractId {
       override def toString: String = s"AbsoluteContractId($coid)"
+
+      override def hashCode(): Int = coid.hashCode()
+
+      override def equals(obj: Any): Boolean = obj match {
+        case that: V0 => this.coid == that.coid
+        case _ => false
+      }
+
     }
 
     object V0 {
+      def apply(coid: Ref.ContractIdString): V0 = new V0(coid)
+
+      def unapply(arg: V0): Option[Ref.ContractIdString] = Some(arg.coid)
+
       def fromString(s: String): Either[String, V0] =
         Ref.ContractIdString.fromString(s).map(V0(_))
 
@@ -378,14 +392,47 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
     }
 
-    final case class V1(discriminator: crypto.Hash, suffix: Bytes = Bytes.Empty)
-        extends AbsoluteContractId {
+    final class V1(val discriminator: crypto.Hash, val suffix: Bytes) extends AbsoluteContractId {
       lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"AbsoluteContractId($coid)"
+
+      // We copy how hashcode evaluation is cached in String
+      // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
+      private var _hashCode = 0
+
+      override def hashCode(): Int =
+        if (_hashCode != 0)
+          _hashCode
+        else {
+          val hash = MurmurHash3.mixLast(discriminator.hashCode(), suffix.hashCode())
+          _hashCode = if (hash == 0) 1 else hash
+          _hashCode
+        }
+
+      override def equals(obj: Any): Boolean = obj match {
+        case that: V1 =>
+          this.discriminator == that.discriminator && this.suffix == that.suffix
+        case _ => false
+      }
+
     }
 
     object V1 {
+      def apply(discriminator: crypto.Hash): V1 = new V1(discriminator, Bytes.Empty)
+
+      def unapply(arg: V1): Option[(crypto.Hash, Bytes)] =
+        Some((arg.discriminator, arg.suffix))
+
+      def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
+        Either.cond(
+          suffix.length <= 94,
+          new V1(discriminator, suffix),
+          s"suffix $suffix to long"
+        )
+
+      def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =
+        assertRight(build(discriminator, suffix))
 
       val prefix: Bytes = Bytes.assertFromString("00")
 
@@ -399,8 +446,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
               if (bytes.startsWith(prefix) && bytes.length >= suffixStart)
                 crypto.Hash
                   .fromBytes(bytes.slice(prefix.length, suffixStart))
-                  .map(
-                    V1(_, bytes.slice(suffixStart, bytes.length))
+                  .flatMap(
+                    V1.build(_, bytes.slice(suffixStart, bytes.length))
                   )
               else
                 Left(s"""cannot parse V1 ContractId "$s""""))
