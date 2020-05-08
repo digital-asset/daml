@@ -157,7 +157,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).run(
           entryId,
-          //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPartyAllocationEntry,
@@ -179,7 +178,6 @@ class KeyValueCommitting private[daml] (
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .run(
             entryId,
-            //TODO replace this call with an explicit maxRecordTime from the request once available
             estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getTransactionEntry,

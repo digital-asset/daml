@@ -9,6 +9,7 @@ import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
+import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
 import com.daml.lf.archive.Decode
@@ -45,14 +46,14 @@ private[kvutils] class TransactionCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
     inStaticTimeMode: Boolean
-) extends Committer[DamlTransactionEntry, TransactionCommitter.DamlTransactionEntrySummary] {
+) extends Committer[DamlTransactionEntry, DamlTransactionEntrySummary] {
   override protected val committerName = "transaction"
 
   override protected def init(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntry,
-  ): TransactionCommitter.DamlTransactionEntrySummary =
-    TransactionCommitter.DamlTransactionEntrySummary(transactionEntry)
+  ): DamlTransactionEntrySummary =
+    DamlTransactionEntrySummary(transactionEntry)
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submitter" -> authorizeSubmitter,
@@ -67,7 +68,7 @@ private[kvutils] class TransactionCommitter(
   // -------------------------------------------------------------------------------
 
   private def contractIsActiveAndVisibleToSubmitter(
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       contractState: DamlContractState,
   ): Boolean = {
     val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
@@ -197,10 +198,10 @@ private[kvutils] class TransactionCommitter(
           )
           .fold(
             err =>
-              reject[TransactionCommitter.DamlTransactionEntrySummary](
+              reject[DamlTransactionEntrySummary](
                 commitContext.getRecordTime,
                 buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
-            _ => StepContinue[TransactionCommitter.DamlTransactionEntrySummary](transactionEntry)
+            _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
           )
       })
 
@@ -240,8 +241,8 @@ private[kvutils] class TransactionCommitter(
 
   private def validateContractKeyUniqueness(
       recordTime: Timestamp,
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
-      keys: Set[DamlStateKey]): StepResult[TransactionCommitter.DamlTransactionEntrySummary] = {
+      transactionEntry: DamlTransactionEntrySummary,
+      keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
     val allUnique = transactionEntry.absoluteTransaction
       .fold((true, keys)) {
         case (
@@ -284,10 +285,9 @@ private[kvutils] class TransactionCommitter(
     */
   private def validateContractKeyCausalMonotonicity(
       recordTime: Timestamp,
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey],
-      damlState: Map[DamlStateKey, DamlStateValue])
-    : StepResult[TransactionCommitter.DamlTransactionEntrySummary] = {
+      damlState: Map[DamlStateKey, DamlStateValue]): StepResult[DamlTransactionEntrySummary] = {
     val causalKeyMonotonicity = keys.forall { key =>
       val state = damlState(key)
       val keyActiveAt =
@@ -333,9 +333,9 @@ private[kvutils] class TransactionCommitter(
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(
       commitContext: CommitContext,
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
-  ): StepResult[TransactionCommitter.DamlTransactionEntrySummary] = {
+  ): StepResult[DamlTransactionEntrySummary] = {
     val effects = InputsAndEffects.computeEffects(transactionEntry.absoluteTransaction)
 
     val cid2nid: Value.AbsoluteContractId => Value.NodeId =
@@ -454,7 +454,7 @@ private[kvutils] class TransactionCommitter(
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
   private def lookupContract(
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap)(
       coid: Value.AbsoluteContractId,
   ): Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]] = {
@@ -477,7 +477,7 @@ private[kvutils] class TransactionCommitter(
   // are stored in the [[DamlLogEntry]], which we find by looking up
   // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
   private def lookupPackage(
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap,
   )(pkgId: PackageId): Option[Ast.Package] = {
     val stateKey = packageStateKey(pkgId)
@@ -514,7 +514,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def lookupKey(
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap,
       knownKeys: Map[DamlContractKey, Value.AbsoluteContractId],
   )(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
@@ -544,7 +544,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def buildRejectionLogEntry(
-      transactionEntry: TransactionCommitter.DamlTransactionEntrySummary,
+      transactionEntry: DamlTransactionEntrySummary,
       reason: RejectionReason,
   ): DamlTransactionRejectionEntry.Builder = {
     logger.trace(
