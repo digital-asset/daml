@@ -360,9 +360,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed abstract class ContractId
+  sealed abstract class ContractId extends Equals
 
-  sealed abstract class AbsoluteContractId extends ContractId {
+  sealed abstract class AbsoluteContractId extends ContractId with Equals {
     def coid: String
   }
 
@@ -382,7 +382,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     object V0 {
       def apply(coid: Ref.ContractIdString): V0 = new V0(coid)
 
-      def unapply(arg: V0): Option[Ref.ContractIdString] = Some(arg.coid)
+      def unapply(arg: V0): Some[Ref.ContractIdString] = Some(arg.coid)
 
       def fromString(s: String): Either[String, V0] =
         Ref.ContractIdString.fromString(s).map(V0(_))
@@ -399,7 +399,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
       // We copy how hashcode evaluation is cached in String
       // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
-      private var _hashCode = 0
+      private[this] var _hashCode = 0
 
       override def hashCode(): Int =
         if (_hashCode != 0)
@@ -421,7 +421,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     object V1 {
       def apply(discriminator: crypto.Hash): V1 = new V1(discriminator, Bytes.Empty)
 
-      def unapply(arg: V1): Option[(crypto.Hash, Bytes)] =
+      def unapply(arg: V1): Some[(crypto.Hash, Bytes)] =
         Some((arg.discriminator, arg.suffix))
 
       def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
