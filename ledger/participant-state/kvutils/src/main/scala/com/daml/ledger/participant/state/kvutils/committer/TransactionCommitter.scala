@@ -27,6 +27,8 @@ import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
 import scala.collection.JavaConverters._
 
+import TransactionCommitter._
+
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
 //
 // Command deduplication is always based on wall clock time and not ledger time. In static time mode,
@@ -343,13 +345,6 @@ private[kvutils] class TransactionCommitter(
 
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
 
-    // Helper to read the _current_ contract state.
-    // NOTE(JM): Important to fetch from the state that is currently being built up since
-    // we mark some contracts as archived and may later change their disclosure and do not
-    // want to "unarchive" them.
-    def getContractState(key: DamlStateKey): DamlContractState =
-      commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
-
     // Set a deduplication entry
     commitContext.set(
       dedupKey,
@@ -391,7 +386,7 @@ private[kvutils] class TransactionCommitter(
 
     // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
     effects.consumedContracts.foreach { key =>
-      val cs = getContractState(key)
+      val cs = getContractState(commitContext, key)
       commitContext.set(
         key,
         DamlStateValue.newBuilder
@@ -408,7 +403,7 @@ private[kvutils] class TransactionCommitter(
     blindingInfo.globalDivulgence.foreach {
       case (coid, parties) =>
         val key = contractIdToStateKey(coid)
-        val cs = getContractState(key)
+        val cs = getContractState(commitContext, key)
         val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
         val newDivulgences: Set[String] = parties.toSet[String] -- divulged
         if (newDivulgences.nonEmpty) {
@@ -610,4 +605,12 @@ private[kvutils] object TransactionCommitter {
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: Option[crypto.Hash] = Conversions.parseOptHash(submission.getSubmissionSeed)
   }
+
+  // Helper to read the _current_ contract state.
+  // NOTE(JM): Important to fetch from the state that is currently being built up since
+  // we mark some contracts as archived and may later change their disclosure and do not
+  // want to "unarchive" them.
+  def getContractState(commitContext: CommitContext, key: DamlStateKey): DamlContractState =
+    commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
+
 }
