@@ -12,6 +12,6 @@ private[dao] trait JdbcLedgerDaoBackendPostgresql
     with PostgresAroundAll { this: Suite =>
 
   override protected val dbType: DbType = DbType.Postgres
-  override protected def jdbcUrl: String = postgresJdbcUrl.url
+  override protected def jdbcUrl: String = postgresDatabase.url
 
 }

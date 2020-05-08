@@ -8,11 +8,11 @@ import com.daml.resources.{Resource, ResourceOwner}
 import scala.concurrent.{ExecutionContext, Future}
 
 object PostgresResource {
-  def owner(): ResourceOwner[JdbcUrl] =
-    new ResourceOwner[JdbcUrl] with PostgresAround {
+  def owner(): ResourceOwner[PostgresDatabase] =
+    new ResourceOwner[PostgresDatabase] with PostgresAround {
       override def acquire()(
           implicit executionContext: ExecutionContext
-      ): Resource[JdbcUrl] =
+      ): Resource[PostgresDatabase] =
         Resource(Future {
           startEphemeralPostgres()
           createNewRandomDatabase()

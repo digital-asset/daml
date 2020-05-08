@@ -60,10 +60,10 @@ object LedgerResource {
   ): Resource[Ledger] =
     new OwnedResource(
       for {
-        jdbcUrl <- PostgresResource.owner()
+        database <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
           serverRole = ServerRole.Testing(testClass),
-          jdbcUrl = jdbcUrl.url,
+          jdbcUrl = database.url,
           ledgerId = LedgerIdMode.Static(ledgerId),
           participantId = participantId,
           timeProvider = timeProvider,

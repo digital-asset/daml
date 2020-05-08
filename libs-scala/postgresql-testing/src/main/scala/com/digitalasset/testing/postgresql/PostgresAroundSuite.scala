@@ -9,12 +9,12 @@ trait PostgresAroundSuite extends PostgresAround {
   self: Suite =>
 
   @volatile
-  private var _jdbcUrl: Option[JdbcUrl] = None
+  private var database: Option[PostgresDatabase] = None
 
-  protected def postgresJdbcUrl: JdbcUrl = _jdbcUrl.get
+  protected def postgresDatabase: PostgresDatabase = database.get
 
-  protected def createNewDatabase(): JdbcUrl = {
-    _jdbcUrl = Some(createNewRandomDatabase())
-    postgresJdbcUrl
+  protected def createNewDatabase(): PostgresDatabase = {
+    database = Some(createNewRandomDatabase())
+    postgresDatabase
   }
 }

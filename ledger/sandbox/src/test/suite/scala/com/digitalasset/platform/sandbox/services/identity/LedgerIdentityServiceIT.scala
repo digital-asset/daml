@@ -97,7 +97,7 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
   override protected def config: SandboxConfig =
     super.config
       .copy(
-        jdbcUrl = Some(postgresJdbcUrl.url),
+        jdbcUrl = Some(postgresDatabase.url),
         ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic)(id =>
           LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id))))
       )

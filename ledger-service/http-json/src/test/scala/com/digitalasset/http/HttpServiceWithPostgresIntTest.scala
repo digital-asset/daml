@@ -20,7 +20,7 @@ class HttpServiceWithPostgresIntTest
   // has to be lazy because postgresFixture is NOT initialized yet
   private lazy val jdbcConfig_ = JdbcConfig(
     driver = "org.postgresql.Driver",
-    url = postgresJdbcUrl.url,
+    url = postgresDatabase.url,
     user = "test",
     password = "",
     createSchema = true)

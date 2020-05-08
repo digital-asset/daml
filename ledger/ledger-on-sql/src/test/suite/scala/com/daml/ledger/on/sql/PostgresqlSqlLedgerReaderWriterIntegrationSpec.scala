@@ -15,8 +15,8 @@ class PostgresqlSqlLedgerReaderWriterIntegrationSpec
 
   override protected def jdbcUrl(id: String): String = {
     if (!databases.contains(id)) {
-      val jdbcUrl = createNewDatabase(id)
-      databases += id -> jdbcUrl.url
+      val database = createNewDatabase(id)
+      databases += id -> database.url
     }
     databases(id)
   }

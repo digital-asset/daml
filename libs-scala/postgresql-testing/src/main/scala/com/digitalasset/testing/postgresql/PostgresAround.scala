@@ -99,12 +99,12 @@ trait PostgresAround {
     }
   }
 
-  protected def createNewRandomDatabase(): JdbcUrl =
+  protected def createNewRandomDatabase(): PostgresDatabase =
     createNewDatabase(UUID.randomUUID().toString)
 
-  protected def createNewDatabase(name: String): JdbcUrl = {
+  protected def createNewDatabase(name: String): PostgresDatabase = {
     createTestDatabase(name)
-    JdbcUrl(s"jdbc:postgresql://$hostName:${fixture.port}/$name?user=$userName")
+    PostgresDatabase(hostName, fixture.port, userName, name)
   }
 
   private def initializeDatabase(): Unit = run(

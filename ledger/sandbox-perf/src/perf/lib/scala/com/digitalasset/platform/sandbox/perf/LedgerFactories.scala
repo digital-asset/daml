@@ -47,7 +47,7 @@ object LedgerFactories {
           case `mem` =>
             ResourceOwner.successful(None)
           case `sql` =>
-            PostgresResource.owner().map(jdbcUrl => Some(jdbcUrl.url))
+            PostgresResource.owner().map(database => Some(database.url))
         }
         server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
         channel <- GrpcClientResource.owner(server.port)

@@ -15,11 +15,11 @@ object MainWithEphemeralPostgresql extends PostgresAround {
         .getOrElse(sys.exit(1))
 
     startEphemeralPostgres()
-    val jdbcUrl = createNewRandomDatabase()
+    val database = createNewRandomDatabase()
     sys.addShutdownHook(stopAndCleanUpPostgres())
     val config = originalConfig.copy(
-      participants = originalConfig.participants.map(_.copy(serverJdbcUrl = jdbcUrl.url)),
-      extra = ExtraConfig(jdbcUrl = Some(jdbcUrl.url)),
+      participants = originalConfig.participants.map(_.copy(serverJdbcUrl = database.url)),
+      extra = ExtraConfig(jdbcUrl = Some(database.url)),
     )
     new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(config)).run()
   }
