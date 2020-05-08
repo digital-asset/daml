@@ -30,6 +30,11 @@ template body
 
     Can include:
 
+    :ref:`template-local definitions <daml-ref-template-let>`
+        ``let`` keyword
+
+        Lets you make definitions that have access to the contract arguments and are available in the rest of the template definition.
+
     :ref:`signatories <daml-ref-signatories>`
         ``signatory`` keyword
 

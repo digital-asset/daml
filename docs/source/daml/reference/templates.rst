@@ -39,6 +39,20 @@ Template parameters
 
 .. Template has an *associated* data type with the same name?
 
+.. _daml-ref-template-let:
+
+Template-local Definitions
+**************************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start template let snippet
+   :end-before: -- end template let snippet
+
+- ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
+- Template parameters as well as ``this`` are in scope, but ``self`` is not.
+- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block. 
+
 .. _daml-ref-signatories:
 
 Signatory parties
