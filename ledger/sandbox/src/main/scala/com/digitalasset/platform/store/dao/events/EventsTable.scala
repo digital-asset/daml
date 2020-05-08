@@ -53,14 +53,18 @@ private[events] trait EventsTable {
 
   object Entry {
 
+    private def deserialize[E](verbose: Boolean)(entry: Entry[Raw[E]]): Entry[E] =
+      entry.copy(event = entry.event.applyDeserialization(verbose))
+
     private def deserialize[E](
         rawEntries: Vector[Entry[Raw[E]]],
         verbose: Boolean,
         timer: Timer,
     ): Vector[Entry[E]] =
       Timed.value(
-        timer,
-        rawEntries.map(entry => entry.copy(event = entry.event.applyDeserialization(verbose))))
+        timer = timer,
+        value = rawEntries.map(deserialize(verbose)),
+      )
 
     private def instantToTimestamp(t: Instant): Timestamp =
       Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
