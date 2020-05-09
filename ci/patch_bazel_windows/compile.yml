@@ -1,0 +1,99 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+- name: final_job_name
+
+jobs:
+
+- job: patch_bazel_pre_check
+  pool:
+    name: linux-pool
+  steps:
+  - checkout: self
+  - bash: |
+      set -euo pipefail
+
+      CACHE_KEY="$(md5sum $(find ci/patch_bazel_windows -type f) | md5sum | awk '{print $1}')"
+      TARGET="patch_bazel_windows/bazel-$CACHE_KEY.zip"
+      TARGET_URL="https://daml-binaries.da-ext.net/$TARGET"
+
+      if [ "200" = "$(curl -Is "$TARGET_URL" | awk '{print $2}')" ]; then
+          SHOULD_RUN=false
+      else
+          SHOULD_RUN=true
+      fi
+      echo "##vso[task.setvariable variable=cache_key;isOutput=true]$CACHE_KEY"
+      echo "##vso[task.setvariable variable=should_run;isOutput=true]$SHOULD_RUN"
+      echo "##vso[task.setvariable variable=target;isOutput=true]$TARGET"
+      echo "##vso[task.setvariable variable=target_url;isOutput=true]$TARGET_URL"
+    name: out
+
+- job: patch_bazel_compile
+  dependsOn:
+    - patch_bazel_pre_check
+  variables:
+    cache_key: $[ dependencies.patch_bazel_pre_check.outputs['out.cache_key'] ]
+    bazel_base_version: 2.1.0
+  condition: and(succeeded(), eq(dependencies.patch_bazel_pre_check.outputs['out.should_run'], 'true'))
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - bash: |
+      git clone https://github.com/bazelbuild/bazel.git
+      cd bazel
+      git checkout $(bazel_base_version)
+      git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn < ../ci/patch_bazel_windows/patch-bazel
+  - powershell: |
+      choco install msys2 --noprogress --yes
+      choco install zip --noprogress --yes
+  - powershell: |
+      C:\tools\msys64\usr\bin\pacman -S zip --noconfirm
+  - bash: |
+      set -euo pipefail
+      cd bazel
+      bazel build src/main/cpp:client src:package-zip_jdk_minimal -c opt --stamp --embed_label $(bazel_base_version)-patched-$(cache_key)
+      /c/tools/msys64/msys2_shell.cmd -defterm -no-start -here -c "cat bazel-bin/src/main/cpp/client.exe bazel-bin/src/package_jdk_minimal.zip > bazel.exe && zip -A bazel.exe"
+      mkdir '$(Build.StagingDirectory)\patched-bazel'
+      zip bazel.zip bazel.exe
+      cp bazel.zip '$(Build.StagingDirectory)\patched-bazel'
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.StagingDirectory)/patched-bazel
+      artifactName: patched-bazel
+
+- job: ${{ parameters.final_job_name }}
+  dependsOn:
+    - patch_bazel_compile
+    - patch_bazel_pre_check
+  variables:
+    cache_key: $[ dependencies.patch_bazel_pre_check.outputs['out.cache_key'] ]
+    target: $[ dependencies.patch_bazel_pre_check.outputs['out.target'] ]
+    target_url: $[ dependencies.patch_bazel_pre_check.outputs['out.target_url'] ]
+  condition: and(succeeded(), eq(dependencies.patch_bazel_pre_check.outputs['out.should_run'], 'true'))
+  pool:
+    name: linux-pool
+  steps:
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: patched-bazel
+      path: $(Build.StagingDirectory)/patched-bazel
+  - bash: |
+      set -euo pipefail
+
+      SOURCE='$(Build.StagingDirectory)/patched-bazel/bazel.zip'
+
+      GCS_KEY=$(mktemp)
+      cleanup() {
+          rm -rf $GCS_KEY
+      }
+      trap cleanup EXIT
+      # This will break on external PRs.
+      echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+      gcloud auth activate-service-account --key-file=$GCS_KEY
+      BOTO_CONFIG=/dev/null gsutil cp "$SOURCE" "gs://daml-binaries/$(target)"
+      echo "\"url\": \"$(target_url)\""
+      echo "\"hash\": \"$(sha256sum "$(Build.StagingDirectory)/patched-bazel/bazel.zip" | awk '{print $1}')\""
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
