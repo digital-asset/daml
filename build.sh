@@ -32,7 +32,13 @@ function start_postgresql() {
   mkdir -p "$POSTGRESQL_DATA_DIR"
   bazel run -- @postgresql_dev_env//:initdb --auth=trust --encoding=UNICODE --locale=en_US.UTF-8 --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
   envsubst -no-unset -i ci/postgresql.conf -o "$POSTGRESQL_DATA_DIR/postgresql.conf"
-  bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start
+  bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start || {
+    if [[ -f "$POSTGRESQL_LOG_FILE" ]]; then
+      echo >&2 'PostgreSQL logs:'
+      cat >&2 "$POSTGRESQL_LOG_FILE"
+    fi
+    return 1
+  }
 }
 function stop_postgresql() {
   if [[ -e "$POSTGRESQL_DATA_DIR" ]]; then
