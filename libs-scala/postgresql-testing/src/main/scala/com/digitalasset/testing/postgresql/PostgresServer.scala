@@ -3,14 +3,11 @@
 
 package com.daml.testing.postgresql
 
-import java.nio.file.Path
-
 import com.daml.ports.Port
 
-final case class PostgresFixture(
+final case class PostgresServer(
+    hostName: String,
     port: Port,
-    tempDir: Path,
-    dataDir: Path,
-    confFile: Path,
-    logFile: Path,
+    userName: String,
+    password: String,
 )

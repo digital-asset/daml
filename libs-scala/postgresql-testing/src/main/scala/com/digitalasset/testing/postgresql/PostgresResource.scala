@@ -14,8 +14,8 @@ object PostgresResource {
           implicit executionContext: ExecutionContext
       ): Resource[PostgresDatabase] =
         Resource(Future {
-          startEphemeralPostgres()
+          connectToPostgresqlServer()
           createNewRandomDatabase()
-        })(_ => Future(stopAndCleanUpPostgres()))
+        })(_ => Future(disconnectFromPostgresqlServer()))
     }
 }
