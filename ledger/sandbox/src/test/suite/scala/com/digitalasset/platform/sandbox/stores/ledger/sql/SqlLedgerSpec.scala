@@ -10,7 +10,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.health.{Healthy, Unhealthy}
+import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.DarReader
@@ -143,32 +143,6 @@ class SqlLedgerSpec
         ledger <- createSqlLedger()
       } yield {
         ledger.currentHealth() should be(Healthy)
-      }
-    }
-
-    "be unhealthy if the underlying database is inaccessible 3 or more times in a row" in {
-      for {
-        ledger <- createSqlLedger()
-      } yield {
-        withClue("before shutting down postgres,") {
-          ledger.currentHealth() should be(Healthy)
-        }
-
-        stopPostgres()
-
-        eventually {
-          withClue("after shutting down postgres,") {
-            ledger.currentHealth() should be(Unhealthy)
-          }
-        }
-
-        startPostgres()
-
-        eventually {
-          withClue("after starting up postgres,") {
-            ledger.currentHealth() should be(Healthy)
-          }
-        }
       }
     }
   }

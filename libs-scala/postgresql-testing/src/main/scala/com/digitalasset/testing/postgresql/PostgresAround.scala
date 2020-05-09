@@ -57,7 +57,7 @@ trait PostgresAround {
     fixture = null
   }
 
-  protected def startPostgres(): Unit = {
+  private def startPostgres(): Unit = {
     if (!started.compareAndSet(false, true)) {
       throw new IllegalStateException(
         "Attempted to start PostgreSQL, but it has already been started.",
@@ -82,7 +82,7 @@ trait PostgresAround {
     }
   }
 
-  protected def stopPostgres(): Unit = {
+  private def stopPostgres(): Unit = {
     if (started.compareAndSet(true, false)) {
       logger.info("Stopping PostgreSQL...")
       run(
