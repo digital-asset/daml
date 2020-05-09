@@ -359,9 +359,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed abstract class ContractId extends Equals
+  sealed abstract class ContractId extends Product with Serializable
 
-  sealed abstract class AbsoluteContractId extends ContractId with Product with Serializable {
+  sealed abstract class AbsoluteContractId extends ContractId {
     def coid: String
   }
 

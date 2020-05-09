@@ -116,11 +116,10 @@ class ValueSpec
       val hash = crypto.Hash.hashPrivateKey("some hash")
       import AbsoluteContractId.V1.build
       build(hash, suffix(0)) shouldBe 'right
-      // ...
-      AbsoluteContractId.V1.build(hash, suffix(94)) shouldBe 'right
-      AbsoluteContractId.V1.build(hash, suffix(95)) shouldBe 'left
-      AbsoluteContractId.V1.build(hash, suffix(96)) shouldBe 'left
-      AbsoluteContractId.V1.build(hash, suffix(127)) shouldBe 'left
+      build(hash, suffix(94)) shouldBe 'right
+      build(hash, suffix(95)) shouldBe 'left
+      build(hash, suffix(96)) shouldBe 'left
+      build(hash, suffix(127)) shouldBe 'left
 
     }
 
