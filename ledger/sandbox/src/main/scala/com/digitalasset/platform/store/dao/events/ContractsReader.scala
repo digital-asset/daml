@@ -30,11 +30,6 @@ private[dao] sealed abstract class ContractsReader(
 
   import ContractsReader._
 
-  private val lookupActiveContract = "lookup_active_contract"
-
-  private val lookupActiveContractDeserializationTimer =
-    metrics.daml.index.db.deserialization(lookupActiveContract)
-
   private val contractRowParser: RowParser[(String, InputStream)] =
     str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
 
@@ -45,7 +40,7 @@ private[dao] sealed abstract class ContractsReader(
       contractId: ContractId,
   ): Future[Option[Contract]] =
     dispatcher
-      .executeSql(lookupActiveContract) { implicit connection =>
+      .executeSql(metrics.daml.index.db.lookupActiveContractDao) { implicit connection =>
         SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
           .as(contractRowParser.singleOpt)
       }
@@ -55,7 +50,8 @@ private[dao] sealed abstract class ContractsReader(
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
-            deserializationTimer = lookupActiveContractDeserializationTimer,
+            deserializationTimer =
+              metrics.daml.index.db.lookupActiveContractDao.deserializationTimer,
           )
       })(executionContext)
 
@@ -63,13 +59,13 @@ private[dao] sealed abstract class ContractsReader(
       submitter: Party,
       key: Key,
   ): Future[Option[ContractId]] =
-    dispatcher.executeSql("lookup_contract_by_key") { implicit connection =>
+    dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
       lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
     }
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
     dispatcher
-      .executeSql("lookup_maximum_ledger_time") { implicit connection =>
+      .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDao) { implicit connection =>
         committedContracts.lookupMaximumLedgerTime(ids)
       }
       .map(_.get)(executionContext)

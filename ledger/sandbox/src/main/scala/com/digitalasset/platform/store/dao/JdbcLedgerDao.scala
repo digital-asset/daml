@@ -101,7 +101,7 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher
-      .executeSql("get_ledger_id") { implicit conn =>
+      .executeSql(metrics.daml.index.db.getLedgerId) { implicit conn =>
         SQL_SELECT_LEDGER_ID
           .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
       }
@@ -109,7 +109,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
   override def lookupLedgerEnd(): Future[Offset] =
-    dbDispatcher.executeSql("get_ledger_end") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd) { implicit conn =>
       SQL_SELECT_LEDGER_END
         .as(offset("ledger_end").single)
     }
@@ -117,7 +117,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
 
   override def lookupInitialLedgerEnd(): Future[Option[Offset]] =
-    dbDispatcher.executeSql("get_initial_ledger_end") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.getInitialLedgerEnd) { implicit conn =>
       SQL_SELECT_INITIAL_LEDGER_END
         .as(offset("ledger_end").?.single)
     }
@@ -126,7 +126,7 @@ private class JdbcLedgerDao(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
   override def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit] =
-    dbDispatcher.executeSql("initialize_ledger_parameters") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) { implicit conn =>
       val _ = SQL_INITIALIZE
         .on("LedgerId" -> ledgerId.unwrap, "LedgerEnd" -> ledgerEnd)
         .execute()
@@ -179,7 +179,8 @@ private class JdbcLedgerDao(
     SQL_SELECT_CURRENT_CONFIGURATION.as(currentConfigurationParser)
 
   override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
+    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(implicit conn =>
+      selectLedgerConfiguration)
 
   private val acceptType = "accept"
   private val rejectType = "reject"
@@ -229,7 +230,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
-        "load_configuration_entries",
+        metrics.daml.index.db.loadConfigurationEntries,
         Some(
           s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
@@ -257,60 +258,62 @@ private class JdbcLedgerDao(
       configuration: Configuration,
       rejectionReason: Option[String]
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_configuration_entry", Some(s"submissionId=$submissionId")) {
-      implicit conn =>
-        val optCurrentConfig = selectLedgerConfiguration
-        val optExpectedGeneration: Option[Long] =
-          optCurrentConfig.map { case (_, c) => c.generation + 1 }
-        val finalRejectionReason: Option[String] =
-          optExpectedGeneration match {
-            case Some(expGeneration)
-                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
-              // If we're not storing a rejection and the new generation is not succ of current configuration, then
-              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-              // pattern as with transactions.
-              Some(
-                s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}")
+    dbDispatcher.executeSql(
+      metrics.daml.index.db.storeConfigurationEntryDao,
+      Some(s"submissionId=$submissionId"),
+    ) { implicit conn =>
+      val optCurrentConfig = selectLedgerConfiguration
+      val optExpectedGeneration: Option[Long] =
+        optCurrentConfig.map { case (_, c) => c.generation + 1 }
+      val finalRejectionReason: Option[String] =
+        optExpectedGeneration match {
+          case Some(expGeneration)
+              if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+            // If we're not storing a rejection and the new generation is not succ of current configuration, then
+            // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+            // pattern as with transactions.
+            Some(
+              s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}")
 
-            case _ =>
-              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
-              // generation.
-              rejectionReason
-          }
-
-        updateLedgerEnd(offset)
-        val configurationBytes = Configuration.encode(configuration).toByteArray
-        val typ = if (finalRejectionReason.isEmpty) {
-          acceptType
-        } else {
-          rejectType
+          case _ =>
+            // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
+            // generation.
+            rejectionReason
         }
 
-        Try({
-          SQL_INSERT_CONFIGURATION_ENTRY
-            .on(
-              "ledger_offset" -> offset,
-              "recorded_at" -> recordedAt,
-              "submission_id" -> submissionId,
-              "participant_id" -> participantId,
-              "typ" -> typ,
-              "rejection_reason" -> finalRejectionReason.orNull,
-              "configuration" -> configurationBytes
-            )
-            .execute()
+      updateLedgerEnd(offset)
+      val configurationBytes = Configuration.encode(configuration).toByteArray
+      val typ = if (finalRejectionReason.isEmpty) {
+        acceptType
+      } else {
+        rejectType
+      }
 
-          if (typ == acceptType) {
-            updateCurrentConfiguration(configurationBytes)
-          }
+      Try({
+        SQL_INSERT_CONFIGURATION_ENTRY
+          .on(
+            "ledger_offset" -> offset,
+            "recorded_at" -> recordedAt,
+            "submission_id" -> submissionId,
+            "participant_id" -> participantId,
+            "typ" -> typ,
+            "rejection_reason" -> finalRejectionReason.orNull,
+            "configuration" -> configurationBytes
+          )
+          .execute()
 
-          PersistenceResponse.Ok
-        }).recover {
-          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-            logger.warn(
-              s"Ignoring duplicate configuration submission, submissionId=$submissionId, participantId=$participantId")
-            conn.rollback()
-            PersistenceResponse.Duplicate
-        }.get
+        if (typ == acceptType) {
+          updateCurrentConfiguration(configurationBytes)
+        }
+
+        PersistenceResponse.Ok
+      }).recover {
+        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+          logger.warn(
+            s"Ignoring duplicate configuration submission, submissionId=$submissionId, participantId=$participantId")
+          conn.rollback()
+          PersistenceResponse.Duplicate
+      }.get
 
     }
   }
@@ -331,7 +334,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       partyEntry: PartyLedgerEntry,
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_party_entry") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDao) { implicit conn =>
       updateLedgerEnd(offset)
 
       partyEntry match {
@@ -438,7 +441,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
-        "load_party_entries",
+        metrics.daml.index.db.loadPartyEntries,
         Some(
           s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
@@ -470,7 +473,7 @@ private class JdbcLedgerDao(
       divulged: Iterable[DivulgedContract],
   ): Future[PersistenceResponse] =
     dbDispatcher
-      .executeSql("store_ledger_entry") { implicit conn =>
+      .executeSql(metrics.daml.index.db.storeTransactionDao) { implicit conn =>
         val error =
           postCommitValidation.validate(
             transaction = transaction,
@@ -506,7 +509,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       reason: RejectionReason,
   ): Future[PersistenceResponse] =
-    dbDispatcher.executeSql("store_rejection") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDao) { implicit conn =>
       for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
         stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
         prepareRejectionInsert(info, offset, recordTime, reason).execute()
@@ -521,7 +524,7 @@ private class JdbcLedgerDao(
   ): Future[Unit] = {
     dbDispatcher
       .executeSql(
-        "store_initial_state_from_scenario",
+        metrics.daml.index.db.storeInitialStateFromScenario,
         Some(s"saving ${ledgerEntries.size} ledger entries")) { implicit conn =>
         ledgerEntries.foreach {
           case (offset, entry) =>
@@ -605,7 +608,7 @@ private class JdbcLedgerDao(
       Future.successful(List.empty)
     else
       dbDispatcher
-        .executeSql("load_parties") { implicit conn =>
+        .executeSql(metrics.daml.index.db.loadParties) { implicit conn =>
           SQL_SELECT_MULTIPLE_PARTIES
             .on("parties" -> parties)
             .as(PartyDataParser.*)
@@ -614,7 +617,7 @@ private class JdbcLedgerDao(
 
   override def listKnownParties(): Future[List[PartyDetails]] =
     dbDispatcher
-      .executeSql("load_all_parties") { implicit conn =>
+      .executeSql(metrics.daml.index.db.loadAllParties) { implicit conn =>
         SQL_SELECT_ALL_PARTIES
           .as(PartyDataParser.*)
       }
@@ -651,7 +654,7 @@ private class JdbcLedgerDao(
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
     dbDispatcher
-      .executeSql("load_packages") { implicit conn =>
+      .executeSql(metrics.daml.index.db.loadPackages) { implicit conn =>
         SQL_SELECT_PACKAGES
           .as(PackageDataParser.*)
       }
@@ -665,7 +668,7 @@ private class JdbcLedgerDao(
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
     dbDispatcher
-      .executeSql("load_archive", Some(s"pkg id: $packageId")) { implicit conn =>
+      .executeSql(metrics.daml.index.db.loadArchive, Some(s"pkg id: $packageId")) { implicit conn =>
         SQL_SELECT_PACKAGE
           .on(
             "package_id" -> packageId
@@ -692,7 +695,7 @@ private class JdbcLedgerDao(
       optEntry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(
-      "store_package_entry",
+      metrics.daml.index.db.storePackageEntryDao,
       Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
       updateLedgerEnd(offset)
 
@@ -767,7 +770,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
-        "load_package_entries",
+        metrics.daml.index.db.loadPackageEntries,
         Some(
           s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
@@ -803,7 +806,7 @@ private class JdbcLedgerDao(
       submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDao) { implicit conn =>
       val key = deduplicationKey(commandId, submitter)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
@@ -832,11 +835,12 @@ private class JdbcLedgerDao(
     """.stripMargin)
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
-    dbDispatcher.executeSql("remove_expired_deduplication_data") { implicit conn =>
-      SQL_DELETE_EXPIRED_COMMANDS
-        .on("currentTime" -> currentTime)
-        .execute()
-      ()
+    dbDispatcher.executeSql(metrics.daml.index.db.removeExpiredDeduplicationDataDao) {
+      implicit conn =>
+        SQL_DELETE_EXPIRED_COMMANDS
+          .on("currentTime" -> currentTime)
+          .execute()
+        ()
     }
 
   private val SQL_DELETE_COMMAND = SQL("""
@@ -856,12 +860,12 @@ private class JdbcLedgerDao(
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
       submitter: Party): Future[Unit] =
-    dbDispatcher.executeSql("stop_deduplicating_command") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDao) { implicit conn =>
       stopDeduplicatingCommandSync(commandId, submitter)
     }
 
   override def reset(): Future[Unit] =
-    dbDispatcher.executeSql("truncate_all_tables") { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables) { implicit conn =>
       val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
     }
 
@@ -875,7 +879,7 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, executionContext, dbType, metrics)
 
   override val completions: CommandCompletionsReader =
-    new CommandCompletionsReader(dbDispatcher)
+    new CommandCompletionsReader(dbDispatcher, metrics)
 
   private val postCommitValidation =
     if (performPostCommitValidation)
