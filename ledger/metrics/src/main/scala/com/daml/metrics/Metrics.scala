@@ -273,6 +273,8 @@ class Metrics(val registry: MetricRegistry) {
         val stopDeduplicatingCommand: Timer =
           registry.timer(prefix :+ "stop_deduplicating_command")
 
+        def deserialization(description: String): Timer =
+          registry.timer(prefix :+ description :+ "deserialization")
         def wait(description: String): Timer = registry.timer(prefix :+ description :+ "wait")
         def exec(description: String): Timer = registry.timer(prefix :+ description :+ "exec")
         val waitAll: Timer = wait("all")

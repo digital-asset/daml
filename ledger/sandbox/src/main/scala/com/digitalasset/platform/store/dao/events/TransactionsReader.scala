@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -29,7 +30,27 @@ private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     executionContext: ExecutionContext,
     pageSize: Int,
+    metrics: Metrics,
 ) {
+
+  // Metrics names
+  private val getFlatTransactions: String = "get_flat_transactions"
+  private val lookupFlatTransactionById: String = "lookup_flat_transaction_by_id"
+  private val getTransactionTrees: String = "get_transaction_trees"
+  private val lookupTransactionTreeById: String = "lookup_transaction_tree_by_id"
+  private val getActiveContracts: String = "get_active_contracts"
+
+  // Timers for deserialization on per-query basis
+  private val getFlatTransactionsDeserializationTimer =
+    metrics.daml.index.db.deserialization(getFlatTransactions)
+  private val lookupFlatTransactionByIdDeserializationTimer =
+    metrics.daml.index.db.deserialization(lookupFlatTransactionById)
+  private val getTransactionTreesDeserializationTimer =
+    metrics.daml.index.db.deserialization(getTransactionTrees)
+  private val lookupTransactionTreeByIdDeserializationTimer =
+    metrics.daml.index.db.deserialization(lookupTransactionTreeById)
+  private val getActiveContractsDeserializationTimer =
+    metrics.daml.index.db.deserialization(getActiveContracts)
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -55,14 +76,17 @@ private[dao] final class TransactionsReader(
               rowOffset = offset,
             )
             .withFetchSize(Some(pageSize))
-        dispatcher.executeSql("get_flat_transactions") { implicit connection =>
-          query.asVectorOf(EventsTable.flatEventParser(verbose = verbose))
+        dispatcher.executeSql(getFlatTransactions) { implicit connection =>
+          query.asVectorOf(EventsTable.rawFlatEventParser)
         }
       }
 
     groupContiguous(events)(by = _.transactionId)
       .flatMapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionsResponse(events)
+        val response = EventsTable.Entry.toGetTransactionsResponse(
+          verbose = verbose,
+          deserializationTimer = getFlatTransactionsDeserializationTimer,
+        )(events)
         Source(response.map(r => offsetFor(r) -> r))
       }
   }
@@ -74,12 +98,17 @@ private[dao] final class TransactionsReader(
     val query = EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
     dispatcher
       .executeSql(
-        description = "lookup_flat_transaction_by_id",
+        description = lookupFlatTransactionById,
         extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
       ) { implicit connection =>
-        query.as(EventsTable.flatEventParser(verbose = true).*)
+        query.asVectorOf(EventsTable.rawFlatEventParser)
       }
-      .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
+      .map(
+        EventsTable.Entry.toGetFlatTransactionResponse(
+          verbose = true,
+          deserializationTimer = lookupFlatTransactionByIdDeserializationTimer,
+        )
+      )(executionContext)
   }
 
   def getTransactionTrees(
@@ -100,14 +129,17 @@ private[dao] final class TransactionsReader(
               rowOffset = offset,
             )
             .withFetchSize(Some(pageSize))
-        dispatcher.executeSql("get_transaction_trees") { implicit connection =>
-          query.asVectorOf(EventsTable.treeEventParser(verbose = verbose))
+        dispatcher.executeSql(getTransactionTrees) { implicit connection =>
+          query.asVectorOf(EventsTable.rawTreeEventParser)
         }
       }
 
     groupContiguous(events)(by = _.transactionId)
       .flatMapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
+        val response = EventsTable.Entry.toGetTransactionTreesResponse(
+          verbose = verbose,
+          deserializationTimer = getTransactionTreesDeserializationTimer,
+        )(events)
         Source(response.map(r => offsetFor(r) -> r))
       }
   }
@@ -119,12 +151,16 @@ private[dao] final class TransactionsReader(
     val query = EventsTable.prepareLookupTransactionTreeById(transactionId, requestingParties)
     dispatcher
       .executeSql(
-        description = "lookup_transaction_tree_by_id",
+        description = lookupTransactionTreeById,
         extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
       ) { implicit connection =>
-        query.as(EventsTable.treeEventParser(verbose = true).*)
+        query.asVectorOf(EventsTable.rawTreeEventParser)
       }
-      .map(EventsTable.Entry.toGetTransactionResponse)(executionContext)
+      .map(
+        EventsTable.Entry.toGetTransactionResponse(
+          verbose = true,
+          deserializationTimer = lookupTransactionTreeByIdDeserializationTimer,
+        ))(executionContext)
   }
 
   def getActiveContracts(
@@ -143,14 +179,19 @@ private[dao] final class TransactionsReader(
               rowOffset = offset,
             )
             .withFetchSize(Some(pageSize))
-        dispatcher.executeSql("get_active_contracts") { implicit connection =>
-          query.asVectorOf(EventsTable.flatEventParser(verbose = verbose))
+        dispatcher.executeSql(getActiveContracts) { implicit connection =>
+          query.asVectorOf(EventsTable.rawFlatEventParser)
         }
       }
 
     groupContiguous(events)(by = _.transactionId)
       .flatMapConcat { events =>
-        Source(EventsTable.Entry.toGetActiveContractsResponse(events))
+        Source(
+          EventsTable.Entry.toGetActiveContractsResponse(
+            verbose = verbose,
+            deserializationTimer = getActiveContractsDeserializationTimer,
+          )(events)
+        )
       }
   }
 

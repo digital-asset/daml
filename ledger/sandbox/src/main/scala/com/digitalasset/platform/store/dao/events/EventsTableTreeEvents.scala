@@ -6,12 +6,11 @@ package com.daml.platform.store.dao.events
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
-import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
-  private def createdTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
+  private val createdTreeEventParser: RowParser[Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
@@ -20,26 +19,21 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = TreeEvent(
-            TreeEvent.Kind.Created(
-              createdEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                createArgument = createArgument,
-                createSignatories = createSignatories,
-                createObservers = createObservers,
-                createAgreementText = createAgreementText,
-                createKeyValue = createKeyValue,
-                eventWitnesses = eventWitnesses,
-                verbose = verbose,
-              )
-            )
+          event = Raw.TreeEvent.Created(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            createArgument = createArgument,
+            createSignatories = createSignatories,
+            createObservers = createObservers,
+            createAgreementText = createAgreementText,
+            createKeyValue = createKeyValue,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private def exercisedTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
+  private val exercisedTreeEventParser: RowParser[Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         Entry(
@@ -48,34 +42,23 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = TreeEvent(
-            TreeEvent.Kind.Exercised(
-              exercisedEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                exerciseConsuming = exerciseConsuming,
-                exerciseChoice = exerciseChoice,
-                exerciseArgument = exerciseArgument,
-                exerciseResult = exerciseResult,
-                exerciseActors = exerciseActors,
-                exerciseChildEventIds = exerciseChildEventIds,
-                eventWitnesses = eventWitnesses,
-                verbose = verbose,
-              )
-            )
+          event = Raw.TreeEvent.Exercised(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            exerciseConsuming = exerciseConsuming,
+            exerciseChoice = exerciseChoice,
+            exerciseArgument = exerciseArgument,
+            exerciseResult = exerciseResult,
+            exerciseActors = exerciseActors,
+            exerciseChildEventIds = exerciseChildEventIds,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private val verboseTreeEventParser: RowParser[Entry[TreeEvent]] =
-    createdTreeEventParser(verbose = true) | exercisedTreeEventParser(verbose = true)
-
-  private val succinctTreeEventParser: RowParser[Entry[TreeEvent]] =
-    createdTreeEventParser(verbose = false) | exercisedTreeEventParser(verbose = false)
-
-  def treeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
-    if (verbose) verboseTreeEventParser else succinctTreeEventParser
+  val rawTreeEventParser: RowParser[Entry[Raw.TreeEvent]] =
+    createdTreeEventParser | exercisedTreeEventParser
 
   private val selectColumns = Seq(
     "event_offset",
