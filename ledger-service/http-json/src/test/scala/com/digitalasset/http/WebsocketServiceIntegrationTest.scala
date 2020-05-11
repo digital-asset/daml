@@ -16,10 +16,12 @@ import org.scalacheck.Gen
 import org.scalatest._
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
+import scalaz.std.vector._
 import scalaz.syntax.apply._
 import scalaz.syntax.tag._
+import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
-import spray.json.{JsNull, JsString, JsValue}
+import spray.json.{JsNull, JsObject, JsString, JsValue}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -522,6 +524,54 @@ class WebsocketServiceIntegrationTest
         }: Future[Assertion]
   }
 
+  private def trialSplitSeq(
+      serviceUri: Uri,
+      ss: SplitSeq[BigDecimal]): Consume.FCC[IouSplitResult, Assertion] = {
+    val dslSyntax = Consume.syntax[IouSplitResult]
+    import dslSyntax._, SplitSeq._
+    def go(archivedCid: domain.ContractId, ss: SplitSeq[BigDecimal]) = ss match {
+      case Leaf(x) =>
+        for {
+          \/-((Vector((cid, amt)), Vector(archival))) <- readOne
+        } yield {
+          archival should ===(archivedCid)
+          cid should !==(archivedCid)
+          amt should ===(x)
+        }
+      case Node(x, l, r) => ??? // TODO SC
+    }
+
+    val initialPayload = {
+      import spray.json._, json.JsonProtocol._
+      Map("payload" -> Map("amount" -> ss.x)).toJson
+    }
+    for {
+      (StatusCodes.OK, _) <- liftF(
+        TestUtil.postJsonRequest(
+          serviceUri.withPath(Uri.Path("/v1/create")),
+          initialPayload,
+          headersWithAuth))
+      \/-((Vector((genesisCid, amt)), Vector())) <- readOne
+      _ = amt should ===(ss.x)
+      last <- ss match {
+        case Leaf(_) => point(1 shouldBe 1)
+        case Node(_, l, r) => ??? // TODO SC
+      }
+    } yield last
+  }
+
+  private def iouSplitResult(jsv: JsValue): IouSplitResult = jsv match {
+    case ContractDelta(creates, archives, _) =>
+      creates traverse {
+        case (cid, JsObject(fields)) =>
+          fields get "amount" collect {
+            case JsString(amt) => (domain.ContractId(cid), BigDecimal(amt))
+          }
+        case _ => None
+      } map ((_, archives map (_.contractId))) toRightDisjunction jsv
+    case _ => -\/(jsv)
+  }
+
   "ContractKeyStreamRequest" - {
     import spray.json._, json.JsonProtocol._
     val baseVal =
@@ -730,8 +780,13 @@ object WebsocketServiceIntegrationTest {
     implicit val EventsBlockFormat: RootJsonFormat[EventsBlock] = jsonFormat2(EventsBlock.apply)
   }
 
+  type IouSplitResult =
+    JsValue \/ (Vector[(domain.ContractId, BigDecimal)], Vector[domain.ContractId])
+
   sealed abstract class SplitSeq[+X] extends Product with Serializable {
     import SplitSeq._
+    def x: X
+
     def fold[Z](leaf: X => Z, node: (X, Z, Z) => Z): Z = {
       def go(self: SplitSeq[X]): Z = self match {
         case Leaf(x) => leaf(x)
@@ -743,6 +798,7 @@ object WebsocketServiceIntegrationTest {
     def map[B](f: X => B): SplitSeq[B] =
       fold[SplitSeq[B]](x => Leaf(f(x)), (x, l, r) => Node(f(x), l, r))
   }
+
   object SplitSeq {
     final case class Leaf[+X](x: X) extends SplitSeq[X]
     final case class Node[+X](x: X, l: SplitSeq[X], r: SplitSeq[X]) extends SplitSeq[X]
@@ -754,11 +810,14 @@ object WebsocketServiceIntegrationTest {
 
     private def genSplit(x: Amount, size: Int): Gen[SplitSeq[Amount]] =
       if (size > 1 && x > 1)
-        Gen.frequency((1, Gen const Leaf(x)), (8, Gen.chooseNum(1: Amount, x) flatMap { split =>
-          Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
-            case (l, r) => Node(x, l, r)
-          }
-        }))
+        Gen.frequency(
+          (1, Gen const Leaf(x)),
+          (8 min size, Gen.chooseNum(1: Amount, x) flatMap { split =>
+            Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
+              case (l, r) => Node(x, l, r)
+            }
+          })
+        )
       else Gen const Leaf(x)
   }
 }
