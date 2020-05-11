@@ -15,15 +15,9 @@ import com.daml.metrics.Metrics
 import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.DbType
 
-private[dao] final class TransactionsWriter(
-    dbType: DbType,
-    metrics: Metrics,
-) {
+private[dao] object TransactionsWriter {
 
-  private val contractsTable = ContractsTable(dbType)
-  private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
-
-  private[dao] final class PreparedInsert(
+  final class PreparedInsert private[TransactionsWriter] (
       eventBatches: EventsTable.PreparedBatches,
       flatTransactionWitnessesBatch: Option[BatchSql],
       complementWitnessesBatch: Option[BatchSql],
@@ -53,6 +47,16 @@ private[dao] final class TransactionsWriter(
       insertWitnessesBatch.foreach(_.execute())
     }
   }
+
+}
+
+private[dao] final class TransactionsWriter(
+    dbType: DbType,
+    metrics: Metrics,
+) {
+
+  private val contractsTable = ContractsTable(dbType)
+  private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
 
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
@@ -133,7 +137,7 @@ private[dao] final class TransactionsWriter(
       offset: Offset,
       transaction: Transaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): PreparedInsert = {
+  ): TransactionsWriter.PreparedInsert = {
 
     val eventBatches = EventsTable.prepareBatchInsert(
       submitterInfo = submitterInfo,
@@ -185,7 +189,7 @@ private[dao] final class TransactionsWriter(
       blinding = blinding,
     )
 
-    new PreparedInsert(
+    new TransactionsWriter.PreparedInsert(
       eventBatches = eventBatches,
       flatTransactionWitnessesBatch = flatTransactionWitnessesBatch,
       complementWitnessesBatch = complementWitnessesBatch,
