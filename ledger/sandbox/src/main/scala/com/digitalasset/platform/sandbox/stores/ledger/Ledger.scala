@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.{GenTransaction, LegacyContractIdSchemeEmulation}
 import com.daml.lf.transaction.Transaction.NodeId
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.AbsoluteContractId
@@ -60,12 +60,18 @@ object Ledger {
   type DisclosureForIndex = Map[EventId, Set[Party]]
   type GlobalDivulgence = Relation[AbsoluteContractId, Party]
 
-  def convertToCommittedTransaction(transactionId: TransactionId, transaction: SubmittedTransaction)
-    : (TransactionForIndex, DisclosureForIndex, GlobalDivulgence) = {
+  def convertToCommittedTransaction(
+      emulateLegacyContractIdScheme: Boolean,
+      transactionId: TransactionId,
+      transaction: SubmittedTransaction
+  ): (TransactionForIndex, DisclosureForIndex, GlobalDivulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones
     val committedTransaction: GenTransaction.WithTxValue[NodeId, AbsoluteContractId] =
-      transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId))
+      if (emulateLegacyContractIdScheme)
+        LegacyContractIdSchemeEmulation.translateTransaction(transactionId, transaction)
+      else
+        transaction.assertNoRelCid(_ => "Unexpected relative contract ID")
 
     // here we just need to align the type for blinding
     val blindingInfo = Blinding.blind(committedTransaction)

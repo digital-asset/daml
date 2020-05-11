@@ -212,6 +212,7 @@ class SqlLedgerSpec
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
           queueDepth = queueDepth,
+          emulateLegacyContractIdScheme = true,
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),

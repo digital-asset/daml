@@ -60,6 +60,7 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
+      emulateLegacyContractIdScheme: Boolean,
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
       metrics: Metrics,
@@ -75,6 +76,7 @@ object SandboxIndexAndWriteService {
         packages = templateStore,
         initialLedgerEntries = ledgerEntries,
         queueDepth = queueDepth,
+        emulateLegacyContractIdScheme = emulateLegacyContractIdScheme,
         startMode = startMode,
         eventsPageSize = eventsPageSize,
         metrics = metrics,
@@ -89,6 +91,7 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
+      emulateLegacyContractIdScheme: Boolean,
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
@@ -98,6 +101,7 @@ object SandboxIndexAndWriteService {
         participantId,
         timeProvider,
         acs,
+        emulateLegacyContractIdScheme,
         templateStore,
         ledgerEntries,
       )

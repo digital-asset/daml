@@ -90,6 +90,7 @@ class InMemoryLedger(
     participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
+    emulateLegacyContractIdScheme: Boolean,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
 ) extends Ledger {
@@ -305,7 +306,11 @@ class InMemoryLedger(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
           val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-            Ledger.convertToCommittedTransaction(transactionId, transaction)
+            Ledger
+              .convertToCommittedTransaction(
+                emulateLegacyContractIdScheme,
+                transactionId,
+                transaction)
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,

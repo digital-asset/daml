@@ -57,7 +57,7 @@ object ScenarioLoader {
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
     val (scenarioLedger, scenarioRef) =
       buildScenarioLedger(packages, compiledPackages, scenario, submissionSeed)
@@ -114,7 +114,7 @@ object ScenarioLoader {
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   ): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
@@ -138,9 +138,9 @@ object ScenarioLoader {
   private def getSpeedyMachine(
       scenarioExpr: Ast.Expr,
       compiledPackages: CompiledPackages,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   ): Speedy.Machine =
-    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), submissionSeed) match {
+    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), Some(submissionSeed)) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
       case Right(build) => build(scenarioExpr)
     }

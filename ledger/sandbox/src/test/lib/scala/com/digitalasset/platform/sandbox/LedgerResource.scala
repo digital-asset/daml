@@ -26,6 +26,9 @@ import com.daml.testing.postgresql.PostgresResource
 import scala.concurrent.ExecutionContext
 
 object LedgerResource {
+
+  private val emulateLegacyContractIdScheme = false
+
   def inMemory(
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -35,16 +38,16 @@ object LedgerResource {
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
   )(implicit executionContext: ExecutionContext): Resource[Ledger] =
     new OwnedResource(
-      ResourceOwner.forValue(
-        () =>
-          new InMemoryLedger(
-            ledgerId,
-            participantId,
-            timeProvider,
-            acs,
-            packages,
-            entries,
-        )))
+      ResourceOwner.forValue(() =>
+        new InMemoryLedger(
+          ledgerId = ledgerId,
+          participantId = participantId,
+          timeProvider = timeProvider,
+          acs0 = acs,
+          emulateLegacyContractIdScheme = emulateLegacyContractIdScheme,
+          packageStoreInit = packages,
+          ledgerEntries = entries,
+      )))
 
   def postgres(
       testClass: Class[_],
@@ -71,6 +74,7 @@ object LedgerResource {
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,
+          emulateLegacyContractIdScheme = emulateLegacyContractIdScheme,
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),

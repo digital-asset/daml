@@ -126,7 +126,7 @@ final class SandboxServer(
   val participantId: ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
-  private val seedingService = config.seeding.map(SeedService(_))
+  private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
 
   // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
   // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
@@ -154,11 +154,11 @@ final class SandboxServer(
       _.reset(
         (materializer, metrics, packageStore, port) =>
           buildAndStartApiServer(
-            materializer,
-            metrics,
-            packageStore,
-            SqlStartMode.AlwaysReset,
-            Some(port),
+            materializer = materializer,
+            metrics = metrics,
+            packageStore = packageStore,
+            startMode = SqlStartMode.AlwaysReset,
+            currentPort = Some(port),
         )))
 
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
@@ -194,7 +194,7 @@ final class SandboxServer(
             packageStore,
             engine.compiledPackages(),
             scenario,
-            seedingService.map(_.nextSeed()),
+            seedingService.nextSeed(),
           )
         (acs, records, Some(ledgerTime))
     }
@@ -224,6 +224,8 @@ final class SandboxServer(
           (ts, Some(ts))
       }
 
+    val emulateLegacyContractIdScheme = config.seeding.isEmpty
+
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
@@ -236,6 +238,7 @@ final class SandboxServer(
           ledgerEntries,
           startMode,
           config.commandConfig.maxParallelSubmissions,
+          emulateLegacyContractIdScheme,
           packageStore,
           config.eventsPageSize,
           metrics,
@@ -249,6 +252,7 @@ final class SandboxServer(
           timeProvider,
           acs,
           ledgerEntries,
+          emulateLegacyContractIdScheme,
           packageStore,
           metrics,
         )
@@ -290,7 +294,7 @@ final class SandboxServer(
         optTimeServiceBackend = timeServiceBackendO,
         metrics = metrics,
         healthChecks = healthChecks,
-        seedService = seedingService,
+        seedService = Some(seedingService),
       )(materializer, executionSequencerFactory, logCtx)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
