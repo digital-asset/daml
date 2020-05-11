@@ -21,9 +21,9 @@ fi
 bazel build //... --build_tag_filters "$tag_filter"
 
 # Set up a shared PostgreSQL instance.
-export POSTGRESQL_ROOT_DIR="/${TMPDIR:-/tmp}/daml/postgresql"
-export POSTGRESQL_DATA_DIR="/${POSTGRESQL_ROOT_DIR}/data"
-export POSTGRESQL_LOG_FILE="/${POSTGRESQL_ROOT_DIR}/postgresql.log"
+export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
+export POSTGRESQL_DATA_DIR="${POSTGRESQL_ROOT_DIR}/data"
+export POSTGRESQL_LOG_FILE="${POSTGRESQL_ROOT_DIR}/postgresql.log"
 export POSTGRESQL_HOST='localhost'
 export POSTGRESQL_PORT=54321
 export POSTGRESQL_USERNAME='test'
