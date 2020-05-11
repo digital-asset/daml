@@ -6,7 +6,7 @@
   "architecture": {
     "64bit": {
       "url": "https://purelyfunctional.org/downloads/bazel.zip",
-      "hash": "2eb9b69ff1738596758614288315e493f2f2bcc38b13ce6ce3c96ff30e1e8050"
+      "hash": "424d978ae322b57a2e9b6bb2598ca33df2a93f2cc823786298e1bbba8a512a57"
     }
   },
   "depends": [
