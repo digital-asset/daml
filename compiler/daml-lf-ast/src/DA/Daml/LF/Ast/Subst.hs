@@ -8,8 +8,8 @@ module DA.Daml.LF.Ast.Subst
     , typeSubst'
     , exprSubst
     , exprSubst'
-    , substExpr
-    , substType
+    , applySubstInExpr
+    , applySubstInType
     ) where
 
 import DA.Daml.LF.Ast
@@ -67,16 +67,16 @@ typeSubst x t = typeSubst' x t (freeVarsInType t)
 exprSubst :: ExprVarName -> Expr -> Subst
 exprSubst x e = exprSubst' x e (freeVarsInExpr e)
 
-substType :: Subst -> Type -> Type
-substType Subst{..} =
+applySubstInType :: Subst -> Type -> Type
+applySubstInType Subst{..} =
     Type.substituteAux (freeTypeVars substExhausted) substTypes
 
-substTypeConApp :: Subst -> TypeConApp -> TypeConApp
-substTypeConApp subst (TypeConApp qtcon ts) =
-    TypeConApp qtcon (map (substType subst) ts)
+applySubstInTypeConApp :: Subst -> TypeConApp -> TypeConApp
+applySubstInTypeConApp subst (TypeConApp qtcon ts) =
+    TypeConApp qtcon (map (applySubstInType subst) ts)
 
 substFields :: Subst -> [(FieldName, Expr)] -> [(FieldName, Expr)]
-substFields subst = map (second (substExpr subst))
+substFields subst = map (second (applySubstInExpr subst))
 
 substWithBoundExprVar :: Subst -> ExprVarName -> (Subst -> ExprVarName -> t) -> t
 substWithBoundExprVar subst@Subst{..} x f
@@ -110,8 +110,8 @@ substWithBoundTypeVar subst@Subst{..} x f
                 }
         in f subst' x
 
-substExpr :: Subst -> Expr -> Expr
-substExpr subst@Subst{..} = \case
+applySubstInExpr :: Subst -> Expr -> Expr
+applySubstInExpr subst@Subst{..} = \case
     EVar x ->
         case Map.lookup x substExprs of
             Just e -> e
@@ -119,84 +119,84 @@ substExpr subst@Subst{..} = \case
     e@(EVal _) -> e
     e@(EBuiltin _) -> e
     ERecCon t fs -> ERecCon
-        (substTypeConApp subst t)
+        (applySubstInTypeConApp subst t)
         (substFields subst fs)
     ERecProj t f e -> ERecProj
-        (substTypeConApp subst t)
+        (applySubstInTypeConApp subst t)
         f
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     ERecUpd t f e1 e2 -> ERecUpd
-        (substTypeConApp subst t)
+        (applySubstInTypeConApp subst t)
         f
-        (substExpr subst e1)
-        (substExpr subst e2)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     EVariantCon t v e -> EVariantCon
-        (substTypeConApp subst t)
+        (applySubstInTypeConApp subst t)
         v
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     e@(EEnumCon _ _) -> e
     EStructCon fs -> EStructCon
         (substFields subst fs)
     EStructProj f e -> EStructProj
         f
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     EStructUpd f e1 e2 -> EStructUpd
         f
-        (substExpr subst e1)
-        (substExpr subst e2)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     ETmApp e1 e2 -> ETmApp
-        (substExpr subst e1)
-        (substExpr subst e2)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     ETyApp e t -> ETyApp
-        (substExpr subst e)
-        (substType subst t)
+        (applySubstInExpr subst e)
+        (applySubstInType subst t)
     ETmLam (x,t) e ->
         substWithBoundExprVar subst x $ \ subst' x' ->
-            ETmLam (x', substType subst t) (substExpr subst' e)
+            ETmLam (x', applySubstInType subst t) (applySubstInExpr subst' e)
     ETyLam (x,k) e ->
         substWithBoundTypeVar subst x $ \ subst' x' ->
-            ETyLam (x', k) (substExpr subst' e)
+            ETyLam (x', k) (applySubstInExpr subst' e)
     ECase e alts -> ECase
-        (substExpr subst e)
-        (map (substAlternative subst) alts)
+        (applySubstInExpr subst e)
+        (map (applySubstInAlternative subst) alts)
     ELet (Binding (x, t) e1) e2 ->
         substWithBoundExprVar subst x $ \ subst' x' ->
-            ELet (Binding (x', substType subst t) (substExpr subst e1))
-                (substExpr subst' e2)
+            ELet (Binding (x', applySubstInType subst t) (applySubstInExpr subst e1))
+                (applySubstInExpr subst' e2)
     ENil t -> ENil
-        (substType subst t)
+        (applySubstInType subst t)
     ECons t e1 e2 -> ECons
-        (substType subst t)
-        (substExpr subst e1)
-        (substExpr subst e2)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     ENone t -> ENone
-        (substType subst t)
+        (applySubstInType subst t)
     ESome t e -> ESome
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     EToAny t e -> EToAny
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     EFromAny t e -> EFromAny
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     ETypeRep t -> ETypeRep
-        (substType subst t)
+        (applySubstInType subst t)
     EUpdate u -> EUpdate
-        (substUpdate subst u)
+        (applySubstInUpdate subst u)
     EScenario s -> EScenario
-        (substScenario subst s)
+        (applySubstInScenario subst s)
     ELocation l e -> ELocation
         l
-        (substExpr subst e)
+        (applySubstInExpr subst e)
 
-substAlternative :: Subst -> CaseAlternative -> CaseAlternative
-substAlternative subst (CaseAlternative p e) =
-    substWithPattern subst p $ \ subst' p' ->
-        CaseAlternative p' (substExpr subst' e)
+applySubstInAlternative :: Subst -> CaseAlternative -> CaseAlternative
+applySubstInAlternative subst (CaseAlternative p e) =
+    applySubstWithPattern subst p $ \ subst' p' ->
+        CaseAlternative p' (applySubstInExpr subst' e)
 
-substWithPattern :: Subst -> CasePattern -> (Subst -> CasePattern -> t) -> t
-substWithPattern subst p f = case p of
+applySubstWithPattern :: Subst -> CasePattern -> (Subst -> CasePattern -> t) -> t
+applySubstWithPattern subst p f = case p of
     CPVariant t v x ->
         substWithBoundExprVar subst x $ \ subst' x' ->
             f subst' (CPVariant t v x')
@@ -214,60 +214,60 @@ substWithPattern subst p f = case p of
             f subst' (CPSome x')
     CPDefault -> f subst p
 
-substUpdate :: Subst -> Update -> Update
-substUpdate subst = \case
+applySubstInUpdate :: Subst -> Update -> Update
+applySubstInUpdate subst = \case
     UPure t e -> UPure
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     UBind (Binding (x, t) e1) e2 ->
         substWithBoundExprVar subst x $ \ subst' x' ->
-            UBind (Binding (x', substType subst t) (substExpr subst e1))
-                (substExpr subst' e2)
+            UBind (Binding (x', applySubstInType subst t) (applySubstInExpr subst e1))
+                (applySubstInExpr subst' e2)
     UCreate templateName e -> UCreate
         templateName
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     UExercise templateName choiceName e1 e2M e3 -> UExercise
         templateName
         choiceName
-        (substExpr subst e1)
-        (substExpr subst <$> e2M)
-        (substExpr subst e3)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst <$> e2M)
+        (applySubstInExpr subst e3)
     UFetch templateName e -> UFetch
         templateName
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     e@UGetTime -> e
     UEmbedExpr t e -> UEmbedExpr
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     ULookupByKey (RetrieveByKey templateName e) -> ULookupByKey $ RetrieveByKey
         templateName
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     UFetchByKey (RetrieveByKey templateName e) -> UFetchByKey $ RetrieveByKey
         templateName
-        (substExpr subst e)
+        (applySubstInExpr subst e)
 
-substScenario :: Subst -> Scenario -> Scenario
-substScenario subst = \case
+applySubstInScenario :: Subst -> Scenario -> Scenario
+applySubstInScenario subst = \case
     SPure t e -> SPure
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     SBind (Binding (x,t) e1) e2 ->
         substWithBoundExprVar subst x $ \ subst' x' ->
-            SBind (Binding (x', substType subst t) (substExpr subst e1))
-                (substExpr subst' e2)
+            SBind (Binding (x', applySubstInType subst t) (applySubstInExpr subst e1))
+                (applySubstInExpr subst' e2)
     SCommit t e1 e2 -> SCommit
-        (substType subst t)
-        (substExpr subst e1)
-        (substExpr subst e2)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     SMustFailAt t e1 e2 -> SMustFailAt
-        (substType subst t)
-        (substExpr subst e1)
-        (substExpr subst e2)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     SPass e -> SPass
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     e@SGetTime -> e
     SGetParty e -> SGetParty
-        (substExpr subst e)
+        (applySubstInExpr subst e)
     SEmbedExpr t e -> SEmbedExpr
-        (substType subst t)
-        (substExpr subst e)
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)

@@ -228,21 +228,13 @@ typeclassStep world = \case
     ETyAppF tci ty ->
         case tci of
             TCProjection (ETyLam (x,_) e) ->
-                TCProjection (substExpr (typeSubst x ty) e)
+                TCProjection (applySubstInExpr (typeSubst x ty) e)
             TCDictionary (ETyLam (x,_) e) ->
-                TCDictionary (substExpr (typeSubst x ty) e)
+                TCDictionary (applySubstInExpr (typeSubst x ty) e)
             _ ->
                 TCNeither
 
     _ -> TCNeither
-
-
--- -- | Should I apply this argument immediately in a lambda?
--- shouldApply :: Expr -> Bool
--- shouldApply = \case
---     EBuiltin _ -> True
--- --    EStructCon _ -> True
---     _ -> False
 
 infoStep :: World -> ExprF Info -> Info
 infoStep world e = Info
@@ -259,9 +251,9 @@ getProjectedTypeclassField world = \case
         EStructCon fs <- getTypeClassDictionary world e
         lookup f fs
 
-    ETmApp e (EBuiltin BEUnit) -> do
+    ETmApp e EUnit -> do
         ETmLam (x,_) e' <- getProjectedTypeclassField world e
-        Just (substExpr (exprSubst x (EBuiltin BEUnit)) e')
+        Just (applySubstInExpr (exprSubst x EUnit) e')
 
     _ ->
         Nothing
@@ -284,11 +276,11 @@ getTypeClassDictionary world = \case
 
     ETyApp e t -> do
         ETyLam (x,_) e' <- getTypeClassDictionary world e
-        Just (substExpr (typeSubst x t) e')
+        Just (applySubstInExpr (typeSubst x t) e')
 
     ETmApp e1 e2 -> do
         ETmLam (x,_) e1' <- getTypeClassDictionary world e1
-        Just (substExpr (exprSubst x e2) e1')
+        Just (applySubstInExpr (exprSubst x e2) e1')
 
     _ ->
         Nothing
@@ -304,7 +296,7 @@ simplifyExpr world = fst . cata go
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
           , TCDictionary e2 <- tcinfo i2
           , Just e' <- getProjectedTypeclassField world
-              (substExpr (exprSubst' x e2 (freeVars i2)) e1)
+              (applySubstInExpr (exprSubst' x e2 (freeVars i2)) e1)
                   -- (freeVars i2) is a safe over-approximation
                   -- of the free variables in e2, because e2 is
                   -- a repeated beta-reduction of a closed expression

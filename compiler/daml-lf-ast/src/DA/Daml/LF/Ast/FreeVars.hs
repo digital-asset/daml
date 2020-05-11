@@ -101,7 +101,19 @@ freeVarsStep = \case
   where
 
     goCase :: (CasePattern, FreeVars) -> FreeVars
-    goCase = snd -- overapproximation is fine and cheap
+    goCase = uncurry goPattern
+
+    goPattern :: CasePattern -> FreeVars -> FreeVars
+    goPattern = \case
+        CPVariant _ _ x -> bindExprVar x
+        CPEnum _ _ -> id
+        CPUnit -> id
+        CPBool _ -> id
+        CPNil -> id
+        CPCons x1 x2 -> bindExprVar x1 . bindExprVar x2
+        CPNone -> id
+        CPSome x -> bindExprVar x
+        CPDefault -> id
 
     goBinding :: BindingF FreeVars -> FreeVars -> FreeVars
     goBinding (BindingF (x, t) e1) e2 =

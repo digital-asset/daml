@@ -30,13 +30,11 @@ data AlphaEnv = AlphaEnv
   }
 
 onMaybe :: (a -> a -> Bool) -> Maybe a -> Maybe a -> Bool
-onMaybe f = \case
-    Just e1 -> \case
-        Just e2 -> f e1 e2
-        Nothing -> False
-    Nothing -> \case
-        Just _ -> False
-        Nothing -> True
+onMaybe f me1 me2 = case (me1, me2) of
+    (Nothing, Nothing) -> True
+    (Nothing, Just _) -> False
+    (Just _, Nothing) -> False
+    (Just e1, Just e2) -> f e1 e2
 
 onList :: (a -> a -> Bool) -> [a] -> [a] -> Bool
 onList f xs ys = length xs == length ys

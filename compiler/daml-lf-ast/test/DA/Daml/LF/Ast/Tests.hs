@@ -145,7 +145,7 @@ substitutionTests = testGroup "substitution"
           (substitute subst (TForall (y,       KStar) $ TVar x              :-> TVar y))
                             (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed)
 
-    , testCase "substExpr" $ do
+    , testCase "applySubstInExpr" $ do
         let x = ExprVarName "x"
             x1 = ExprVarName "x1"
             y = ExprVarName "y"
@@ -157,25 +157,25 @@ substitutionTests = testGroup "substitution"
 
             assertExprSubst x e a b =
                 let subst = exprSubst x e
-                    test = alphaExpr (substExpr subst a) b
+                    test = alphaExpr (applySubstInExpr subst a) b
                     msg = unlines
                         ["substitution test failed:"
                         , "\tsubst = exprSubst (" <> show x <> ") (" <> show e <> ")"
                         , "\toriginal = " <> show a
                         , "\texpected = " <> show b
-                        , "\tgot = " <> show (substExpr subst a)
+                        , "\tgot = " <> show (applySubstInExpr subst a)
                         ]
                 in assertBool msg test
 
             assertTypeSubst x t a b =
                 let subst = typeSubst x t
-                    test = alphaExpr (substExpr subst a) b
+                    test = alphaExpr (applySubstInExpr subst a) b
                     msg = unlines
                         ["substitution test failed:"
                         , "\tsubst = typeSubst (" <> show x <> ") (" <> show t <> ")"
                         , "\toriginal = " <> show a
                         , "\texpected = " <> show b
-                        , "\tgot = " <> show (substExpr subst a)
+                        , "\tgot = " <> show (applySubstInExpr subst a)
                         ]
                 in assertBool msg test
 
