@@ -33,7 +33,7 @@ register_toolchains(
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-    "nixpkgs_cc_configure",
+    "nixpkgs_cc_configure_hermetic",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
@@ -98,10 +98,9 @@ common_nix_file_deps = [
 ]
 
 # Use Nix provisioned cc toolchain
-nixpkgs_cc_configure(
+nixpkgs_cc_configure_hermetic(
     nix_file = "//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
-        "//nix:bazel-cc-toolchain.nix",
         "//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,

@@ -77,6 +77,10 @@ build:darwin --host_platform=@rules_haskell//haskell/platforms:darwin_x86_64_nix
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 
+# Required for hermetic nixpkgs cc toolchain.
+build:linux --incompatible_enable_cc_toolchain_resolution
+build:darwin --incompatible_enable_cc_toolchain_resolution
+
 # Bazel 1.0 disabled the bash test-runner on Windows. However, some of our
 # test-cases are implemented as bash scripts and rely on the bash test-runner.
 build:windows --noincompatible_windows_native_test_wrapper

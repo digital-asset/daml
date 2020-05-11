@@ -89,6 +89,9 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = [
+                # Remove once https://github.com/tweag/rules_nixpkgs/pull/128
+                # has been merged
+                "@com_github_digital_asset_daml//bazel_tools:nixpkgs-hermetic-cc-toolchain.patch",
                 # On CI and locally we observe occasional segmantation faults
                 # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
                 # can cause such segmentation faults. Since Nix 2.3.2 it is
