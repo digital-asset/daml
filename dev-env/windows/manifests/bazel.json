@@ -5,8 +5,8 @@
   "bin": "bazel.exe",
   "architecture": {
     "64bit": {
-      "url": "https://purelyfunctional.org/downloads/bazel.zip",
-      "hash": "424d978ae322b57a2e9b6bb2598ca33df2a93f2cc823786298e1bbba8a512a57"
+      "url": "https://purelyfunctional.org/downloads/ducttape-bazel.zip",
+      "hash": "4e6c8d92550ecb05a43b9aa2b97fc33db69dbe69803f96b109f562bef8f52f6f"
     }
   },
   "depends": [
