@@ -28,6 +28,7 @@ private[dao] final class TransactionsWriter(
       flatTransactionWitnessesBatch: Option[BatchSql],
       complementWitnessesBatch: Option[BatchSql],
       contractBatches: ContractsTable.PreparedBatches,
+      deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
   ) {
     def write()(implicit connection: Connection): Unit = {
@@ -35,17 +36,20 @@ private[dao] final class TransactionsWriter(
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
-      for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
-        val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
-        assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
-        // Delete the witnesses first to respect the foreign key constraint of the underlying storage
-        deleteWitnessesBatch.get.execute()
+      // Delete the witnesses of contracts that being removed first, to
+      // respect the foreign key constraint of the underlying storage
+      deleteWitnessesBatch.map(_.execute())
+      for ((_, deleteContractsBatch) <- contractBatches.deletions) {
         deleteContractsBatch.execute()
       }
-
       for ((_, insertContractsBatch) <- contractBatches.insertions) {
         insertContractsBatch.execute()
       }
+
+      // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
+      // Compute and insert new witnesses regardless of whether the current transaction adds new
+      // contracts because it may be the case that we are only adding new witnesses to existing
+      // contracts (e.g. via divulging a contract with fetch).
       insertWitnessesBatch.foreach(_.execute())
     }
   }
@@ -166,10 +170,13 @@ private[dao] final class TransactionsWriter(
       divulgedContracts = divulgedContracts,
     )
 
-    // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
-    // Compute and insert new witnesses regardless of whether the current transaction adds new
-    // contracts because it may be the case that we are only adding new witnesses to existing
-    // contracts (e.g. via divulging a contract with fetch).
+    val deleteWitnessesBatch =
+      for ((deleted, _) <- contractBatches.deletions) yield {
+        val deletedWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
+        assert(deletedWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
+        deletedWitnessesBatch.get
+      }
+
     val insertWitnessesBatch = prepareWitnessesBatch(
       toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
       toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
@@ -183,6 +190,7 @@ private[dao] final class TransactionsWriter(
       flatTransactionWitnessesBatch = flatTransactionWitnessesBatch,
       complementWitnessesBatch = complementWitnessesBatch,
       contractBatches = contractBatches,
+      deleteWitnessesBatch = deleteWitnessesBatch,
       insertWitnessesBatch = insertWitnessesBatch,
     )
 
