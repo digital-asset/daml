@@ -124,7 +124,7 @@ jobs:
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      vmImage: macOS-10.14
+      name: macOS-pool
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -205,7 +205,7 @@ jobs:
       - check_for_release
     timeoutInMinutes: 60
     pool:
-      vmImage: macOS-10.14
+      name: macOS-pool
     steps:
       - template: ci/report-start.yml
       - checkout: self
