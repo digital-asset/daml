@@ -730,21 +730,35 @@ object WebsocketServiceIntegrationTest {
     implicit val EventsBlockFormat: RootJsonFormat[EventsBlock] = jsonFormat2(EventsBlock.apply)
   }
 
-  sealed abstract class SplitSeq[+X] extends Product with Serializable
+  sealed abstract class SplitSeq[+X] extends Product with Serializable {
+    import SplitSeq._
+    def fold[Z](leaf: X => Z, node: (X, Z, Z) => Z): Z = {
+      def go(self: SplitSeq[X]): Z = self match {
+        case Leaf(x) => leaf(x)
+        case Node(x, l, r) => node(x, go(l), go(r))
+      }
+      go(this)
+    }
+
+    def map[B](f: X => B): SplitSeq[B] =
+      fold[SplitSeq[B]](x => Leaf(f(x)), (x, l, r) => Node(f(x), l, r))
+  }
   object SplitSeq {
     final case class Leaf[+X](x: X) extends SplitSeq[X]
     final case class Node[+X](x: X, l: SplitSeq[X], r: SplitSeq[X]) extends SplitSeq[X]
 
-    val gen: Gen[SplitSeq[Long]] =
-      Gen.posNum[Long] flatMap (x => Gen.sized(genSplit(x, _)))
+    type Amount = Long
 
-    private def genSplit(x: Long, size: Int): Gen[SplitSeq[Long]] =
-      if (size > 1 && x > 1) Gen.frequency((1, Gen const Leaf(x)), (8, Gen.chooseNum(1, x) flatMap {
-        split =>
+    val gen: Gen[SplitSeq[Amount]] =
+      Gen.posNum[Amount] flatMap (x => Gen.sized(genSplit(x, _)))
+
+    private def genSplit(x: Amount, size: Int): Gen[SplitSeq[Amount]] =
+      if (size > 1 && x > 1)
+        Gen.frequency((1, Gen const Leaf(x)), (8, Gen.chooseNum(1: Amount, x) flatMap { split =>
           Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
             case (l, r) => Node(x, l, r)
           }
-      }))
+        }))
       else Gen const Leaf(x)
   }
 }
