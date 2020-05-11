@@ -537,15 +537,17 @@ private class JdbcLedgerDao(
                   for (submitter <- tx.submittingParty; appId <- tx.applicationId;
                     cmdId <- tx.commandId)
                     yield SubmitterInfo(submitter, appId, cmdId, Instant.EPOCH)
-                transactionsWriter.write(
-                  submitterInfo = submitterInfo,
-                  workflowId = tx.workflowId,
-                  transactionId = tx.transactionId,
-                  ledgerEffectiveTime = tx.ledgerEffectiveTime,
-                  offset = offset,
-                  transaction = tx.transaction.mapNodeId(splitOrThrow),
-                  divulgedContracts = Nil,
-                )
+                transactionsWriter
+                  .prepare(
+                    submitterInfo = submitterInfo,
+                    workflowId = tx.workflowId,
+                    transactionId = tx.transactionId,
+                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
+                    offset = offset,
+                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    divulgedContracts = Nil,
+                  )
+                  .write()
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
