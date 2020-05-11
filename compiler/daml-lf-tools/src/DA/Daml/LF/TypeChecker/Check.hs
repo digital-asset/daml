@@ -45,6 +45,7 @@ import           Safe.Exact (zipExactMay)
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
+import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
@@ -600,7 +601,7 @@ checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
   exprType <- typeOf expr
   typX <- expandTypeSynonyms typ
-  unless (alphaEquiv exprType typX) $
+  unless (alphaType exprType typX) $
     throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 
