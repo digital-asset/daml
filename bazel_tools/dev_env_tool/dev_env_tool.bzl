@@ -4,33 +4,48 @@
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 load("@rules_sh//sh:posix.bzl", "posix")
 
-def _create_build_content(rule_name, tools, tool_dependencies, win_paths, nix_paths):
+def _create_build_content(rule_name, is_windows, tools, tool_dependencies, win_paths, nix_paths):
     content = """
 # DO NOT EDIT: automatically generated BUILD file for dev_env_tool.bzl: {rule_name}
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "all",
     srcs = glob(["**"]),
 )
-        """.format(rule_name = rule_name)
+""".format(rule_name = rule_name)
 
     for i in range(0, len(tools)):
-        content += """
-sh_binary(
+        if is_windows:
+            content += """
+filegroup(
     name = "{tool}",
-    srcs = select({{
-        ":windows": ["{win_path}"],
-        "//conditions:default": ["{nix_path}"],
-    }}),
+    srcs = ["{path}"],
+)
+
+sh_binary(
+    name = "{tool}.exe",
+    srcs = [":{tool}"],
     data = {dependencies},
 )
 """.format(
-            tool = tools[i],
-            dependencies = [":{}".format(dep.strip()) for dep in tool_dependencies[i].split(",") if dep.strip()] if i < len(tool_dependencies) else [],
-            win_path = win_paths[i],
-            nix_path = nix_paths[i],
-        )
+                tool = tools[i],
+                dependencies = [":{}.exe".format(dep.strip()) for dep in tool_dependencies[i].split(",") if dep.strip()] if i < len(tool_dependencies) else [],
+                path = win_paths[i],
+            )
+        else:
+            content += """
+sh_binary(
+    name = "{tool}",
+    srcs = ["{path}"],
+    data = {dependencies},
+)
+""".format(
+                tool = tools[i],
+                dependencies = [":{}".format(dep.strip()) for dep in tool_dependencies[i].split(",") if dep.strip()] if i < len(tool_dependencies) else [],
+                path = nix_paths[i],
+            )
 
     content += """
 config_setting(
@@ -97,7 +112,8 @@ dadew = repository_rule(
 )
 
 def _dev_env_tool_impl(ctx):
-    if get_cpu_value(ctx) == "x64_windows":
+    is_windows = get_cpu_value(ctx) == "x64_windows"
+    if is_windows:
         ps = ctx.which("powershell")
         dadew = _dadew_where(ctx, ps)
         find = _dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\find.exe"
@@ -121,6 +137,7 @@ def _dev_env_tool_impl(ctx):
     build_path = ctx.path("BUILD")
     build_content = _create_build_content(
         rule_name = ctx.name,
+        is_windows = is_windows,
         tools = ctx.attr.tools,
         tool_dependencies = ctx.attr.tool_dependencies,
         win_paths = [
