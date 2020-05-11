@@ -23,6 +23,33 @@ private[dao] final class TransactionsWriter(
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
 
+  private[dao] final class PreparedInsert(
+      eventBatches: EventsTable.PreparedBatches,
+      flatTransactionWitnessesBatch: Option[BatchSql],
+      complementWitnessesBatch: Option[BatchSql],
+      contractBatches: ContractsTable.PreparedBatches,
+      insertWitnessesBatch: Option[BatchSql],
+  ) {
+    def write()(implicit connection: Connection): Unit = {
+      eventBatches.foreach(_.execute())
+      flatTransactionWitnessesBatch.foreach(_.execute())
+      complementWitnessesBatch.foreach(_.execute())
+
+      for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
+        val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
+        assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
+        // Delete the witnesses first to respect the foreign key constraint of the underlying storage
+        deleteWitnessesBatch.get.execute()
+        deleteContractsBatch.execute()
+      }
+
+      for ((_, insertContractsBatch) <- contractBatches.insertions) {
+        insertContractsBatch.execute()
+      }
+      insertWitnessesBatch.foreach(_.execute())
+    }
+  }
+
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
       transaction: Transaction,
@@ -94,7 +121,7 @@ private[dao] final class TransactionsWriter(
     insertWitnessesBatch
   }
 
-  def write(
+  def prepare(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
@@ -102,7 +129,7 @@ private[dao] final class TransactionsWriter(
       offset: Offset,
       transaction: Transaction,
       divulgedContracts: Iterable[DivulgedContract],
-  )(implicit connection: Connection): Unit = {
+  ): PreparedInsert = {
 
     val eventBatches = EventsTable.prepareBatchInsert(
       submitterInfo = submitterInfo,
@@ -133,27 +160,11 @@ private[dao] final class TransactionsWriter(
         witnesses = disclosureForTransactionTree,
       )
 
-    eventBatches.foreach(_.execute())
-    flatTransactionWitnessesBatch.foreach(_.execute())
-    complementWitnessesBatch.foreach(_.execute())
-
     val contractBatches = contractsTable.prepareBatchInsert(
       ledgerEffectiveTime = ledgerEffectiveTime,
       transaction = transaction,
       divulgedContracts = divulgedContracts,
     )
-
-    for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
-      val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
-      assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
-      // Delete the witnesses first to respect the foreign key constraint of the underlying storage
-      deleteWitnessesBatch.get.execute()
-      deleteContractsBatch.execute()
-    }
-
-    for ((_, insertContractsBatch) <- contractBatches.insertions) {
-      insertContractsBatch.execute()
-    }
 
     // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
     // Compute and insert new witnesses regardless of whether the current transaction adds new
@@ -166,7 +177,14 @@ private[dao] final class TransactionsWriter(
       transaction = transaction,
       blinding = blinding,
     )
-    insertWitnessesBatch.foreach(_.execute())
+
+    new PreparedInsert(
+      eventBatches = eventBatches,
+      flatTransactionWitnessesBatch = flatTransactionWitnessesBatch,
+      complementWitnessesBatch = complementWitnessesBatch,
+      contractBatches = contractBatches,
+      insertWitnessesBatch = insertWitnessesBatch,
+    )
 
   }
 
