@@ -118,6 +118,14 @@ object Speedy {
       kontStack.remove(kontStack.size - 1)
     }
 
+    @inline def topKont: Kont = {
+      kontStack.get(kontStack.size - 1)
+    }
+
+    @inline def pushKont_KPop(count: Int): Unit = {
+      topKont.envPopsRequired += count
+    }
+
     /* env manipulation... */
 
     @inline def envDepth(): Int = env.size()
@@ -146,7 +154,7 @@ object Speedy {
 
     @inline def pushLocation(loc: Location): Unit = {
       locationStack.push(loc)
-      pushKont(KLocationPop)
+      topKont.locationPopsRequired += 1
     }
 
     /** Return a stack trace.
@@ -211,7 +219,10 @@ object Speedy {
             if (returnValue != null) {
               val value = returnValue
               returnValue = null
-              popKont.execute(value, this)
+              val kont = popKont()
+              if (kont.envPopsRequired > 0) popEnv(kont.envPopsRequired)
+              if (kont.locationPopsRequired > 0) locationStack.popN(kont.locationPopsRequired)
+              kont.execute(value, this)
             } else {
               val expr = ctrl
               ctrl = null
@@ -284,7 +295,7 @@ object Speedy {
       prim match {
         case PClosure(expr, vars) =>
           // Pop the arguments once we're done evaluating the body.
-          pushKont(KPop(args.size + vars.size))
+          pushKont_KPop(args.size + vars.size)
 
           // Add all the variables we closed over
           vars.foreach(pushEnv)
@@ -563,7 +574,7 @@ object Speedy {
 
   def initialKontStack(): util.ArrayList[Kont] = {
     val kontStack = new util.ArrayList[Kont](128)
-    kontStack.add(KFinished)
+    kontStack.add(KFinished())
     kontStack
   }
 
@@ -572,33 +583,20 @@ object Speedy {
     */
   sealed trait Kont {
 
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+
     /** Execute the continuation. */
     def execute(v: SValue, machine: Machine): Unit
   }
 
   /** Final continuation; machine has computed final value */
-  final case object KFinished extends Kont {
+  final case class KFinished() extends Kont {
     def execute(v: SValue, machine: Machine) = {
       if (enableInstrumentation) {
         machine.track.print()
       }
       throw SpeedyHungry(SResultFinalValue(v))
-    }
-  }
-
-  /** A continuation to pop a location from the locationStack. */
-  final case object KLocationPop extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      machine.locationStack.pop()
-      machine.returnValue = v
-    }
-  }
-
-  /** Pop 'count' arguments from the environment. */
-  final case class KPop(count: Int) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      machine.popEnv(count)
-      machine.returnValue = v
     }
   }
 
@@ -671,7 +669,7 @@ object Speedy {
           alts.find { alt =>
             alt.pattern match {
               case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                machine.pushKont(KPop(1))
+                machine.pushKont_KPop(1)
                 machine.pushEnv(arg)
                 true
               case SCPDefault => true
@@ -691,7 +689,7 @@ object Speedy {
             alt.pattern match {
               case SCPNil if lst.isEmpty => true
               case SCPCons if !lst.isEmpty =>
-                machine.pushKont(KPop(2))
+                machine.pushKont_KPop(2)
                 val Some((head, tail)) = lst.pop
                 machine.pushEnv(head)
                 machine.pushEnv(SList(tail))
@@ -716,7 +714,7 @@ object Speedy {
                 mbVal match {
                   case None => false
                   case Some(x) =>
-                    machine.pushKont(KPop(1))
+                    machine.pushKont_KPop(1)
                     machine.pushEnv(x)
                     true
                 }
@@ -791,6 +789,7 @@ object Speedy {
     private val arr = new util.ArrayList[Location]()
     def push(x: Location): Unit = { arr.add(x); () }
     def pop(): Unit = { arr.remove(arr.size - 1); () }
+    def popN(n: Int): Unit = arr.subList(arr.size - n, arr.size).clear
     def top(): Option[Location] = arr.size match {
       case 0 => None
       case size => Some(arr.get(size - 1))

@@ -28,12 +28,10 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var ewronglytypedcontractid: Int,
       // kont classification (ctrlValue)
       var kfinished: Int,
-      var kpop: Int,
       var karg: Int,
       var kfun: Int,
       var kpushto: Int,
       var kcacheval: Int,
-      var klocation: Int,
       var kmatch: Int,
       var kcatch: Int,
   ) {
@@ -55,12 +53,10 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- eimportvalue", eimportvalue),
         ("CtrlValue:", ctrlValue),
         ("- kfinished", kfinished),
-        ("- kpop", kpop),
         ("- karg", karg),
         ("- kfun", kfun),
         ("- kpushto", kpushto),
         ("- kcacheval", kcacheval),
-        ("- klocation", klocation),
         ("- kmatch", kmatch),
         ("- kcatch", kcatch),
       ).map { case (tag, n) => s"$tag : $n" }.mkString("\n")
@@ -68,7 +64,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
   }
 
   def newEmptyCounts(): Counts = {
-    Counts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    Counts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
   }
 
   def classifyMachine(machine: Machine, counts: Counts): Unit = {
@@ -104,15 +100,13 @@ object Classify { // classify the machine state w.r.t what step occurs next
 
   def classifyKont(kont: Kont, counts: Counts): Unit = {
     kont match {
-      case KPop(_) => counts.kpop += 1
       case KArg(_) => counts.karg += 1
       case KFun(_, _, _) => counts.kfun += 1
       case KPushTo(_, _) => counts.kpushto += 1
       case KCacheVal(_) => counts.kcacheval += 1
-      case KLocationPop => counts.klocation += 1
       case KMatch(_) => counts.kmatch += 1
       case KCatch(_, _, _) => counts.kcatch += 1
-      case KFinished => counts.kfinished += 1
+      case KFinished() => counts.kfinished += 1
     }
   }
 

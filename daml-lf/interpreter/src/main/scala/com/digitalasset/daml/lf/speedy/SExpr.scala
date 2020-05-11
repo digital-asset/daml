@@ -177,7 +177,7 @@ object SExpr {
   final case class SELet(bounds: Array[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       // Pop the block once we're done evaluating the body
-      machine.pushKont(KPop(bounds.size))
+      machine.pushKont_KPop(bounds.size)
 
       // Evaluate the body after we've evaluated the binders
       machine.pushKont(KPushTo(machine.env, body))

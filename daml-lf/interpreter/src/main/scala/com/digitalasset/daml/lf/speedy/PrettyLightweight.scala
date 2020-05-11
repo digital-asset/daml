@@ -35,16 +35,14 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
   }
 
   def ppKont(k: Kont): String = k match {
-    case KPop(n) => s"KPop($n)"
     case KArg(es) => s"KArg(${commas(es.map(pp))})"
     case KFun(prim, extendedArgs, arity) =>
       s"KFun(${pp(prim)}/$arity,[${commas(extendedArgs.asScala.map(pp))}])"
     case KPushTo(_, e) => s"KPushTo(_, ${pp(e)})"
     case KCacheVal(_) => "KCacheVal"
-    case KLocationPop => "KLocationPop"
     case KMatch(_) => "KMatch"
     case KCatch(_, _, _) => "KCatch" //never seen
-    case KFinished => "KFinished"
+    case KFinished() => "KFinished"
   }
 
   def ppVarRef(n: Int): String = {
