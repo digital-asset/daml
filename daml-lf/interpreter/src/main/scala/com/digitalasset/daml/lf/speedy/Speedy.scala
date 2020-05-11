@@ -123,7 +123,7 @@ object Speedy {
     }
 
     @inline def pushKont_KPop(count: Int): Unit = {
-      topKont.envPopsRequired += count
+      topKont.increaseEnvPops(count)
     }
 
     /* env manipulation... */
@@ -154,7 +154,7 @@ object Speedy {
 
     @inline def pushLocation(loc: Location): Unit = {
       locationStack.push(loc)
-      topKont.locationPopsRequired += 1
+      topKont.incrementLocationPops()
     }
 
     /** Return a stack trace.
@@ -219,10 +219,7 @@ object Speedy {
             if (returnValue != null) {
               val value = returnValue
               returnValue = null
-              val kont = popKont()
-              if (kont.envPopsRequired > 0) popEnv(kont.envPopsRequired)
-              if (kont.locationPopsRequired > 0) locationStack.popN(kont.locationPopsRequired)
-              kont.execute(value, this)
+              popKont().execute(value, this)
             } else {
               val expr = ctrl
               ctrl = null
@@ -583,8 +580,8 @@ object Speedy {
     */
   sealed trait Kont {
 
-    var envPopsRequired: Int = 0
-    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit
+    def incrementLocationPops(): Unit
 
     /** Execute the continuation. */
     def execute(v: SValue, machine: Machine): Unit
@@ -592,7 +589,15 @@ object Speedy {
 
   /** Final continuation; machine has computed final value */
   final case class KFinished() extends Kont {
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
     def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
       if (enableInstrumentation) {
         machine.track.print()
       }
@@ -602,7 +607,15 @@ object Speedy {
 
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   final case class KArg(newArgs: Array[SExpr]) extends Kont with SomeArrayEquals {
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
     def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
       v match {
         case SPAP(prim, args, arity) =>
           val missing = arity - args.size
@@ -641,7 +654,15 @@ object Speedy {
     * If the PAP is fully applied the machine will push the arguments to the environment
     * and start evaluating the function body. */
   final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
     def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
       args.add(v) // Add last argument
       if (args.size == arity) {
         machine.enterFullyAppliedFunction(prim, args)
@@ -654,7 +675,15 @@ object Speedy {
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   final case class KMatch(alts: Array[SCaseAlt]) extends Kont with SomeArrayEquals {
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
     def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
       val altOpt = v match {
         case SBool(b) =>
           alts.find { alt =>
@@ -741,7 +770,15 @@ object Speedy {
     * direy into the environment.
     */
   final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
     def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
       to.add(v)
       machine.ctrl = next
     }
@@ -754,9 +791,17 @@ object Speedy {
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
   final case class KCacheVal(eval: SEVal) extends Kont {
-    def execute(value: SValue, machine: Machine): Unit = {
-      eval.setCached(value)
-      machine.returnValue = value
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
+    def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
+      eval.setCached(v)
+      machine.returnValue = v
     }
   }
 
@@ -766,7 +811,15 @@ object Speedy {
     * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
     */
   final case class KCatch(handler: SExpr, fin: SExpr, envSize: Int) extends Kont {
+
+    var envPopsRequired: Int = 0
+    var locationPopsRequired: Int = 0
+    def increaseEnvPops(count: Int): Unit = envPopsRequired += count
+    def incrementLocationPops(): Unit = locationPopsRequired += 1
     def execute(v: SValue, machine: Machine) = {
+      if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
+      if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
+
       machine.ctrl = fin
     }
   }
