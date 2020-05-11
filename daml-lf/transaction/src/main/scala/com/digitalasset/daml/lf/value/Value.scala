@@ -4,6 +4,7 @@
 package com.daml.lf
 package value
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import data.ScalazEqual._
@@ -358,9 +359,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed abstract class ContractId
+  sealed abstract class ContractId extends Product with Serializable
 
-  sealed abstract class AbsoluteContractId extends ContractId with Product with Serializable {
+  sealed abstract class AbsoluteContractId extends ContractId {
     def coid: String
   }
 
@@ -378,14 +379,26 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
     }
 
-    final case class V1(discriminator: crypto.Hash, suffix: Bytes = Bytes.Empty)
-        extends AbsoluteContractId {
+    final case class V1 private (discriminator: crypto.Hash, suffix: Bytes)
+        extends AbsoluteContractId
+        with data.NoCopy {
       lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"AbsoluteContractId($coid)"
     }
 
     object V1 {
+      def apply(discriminator: Hash): V1 = new V1(discriminator, Bytes.Empty)
+
+      def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
+        Either.cond(
+          suffix.length <= 94,
+          new V1(discriminator, suffix),
+          s"the suffix is too long, expected at most 94 bytes, but got ${suffix.length}"
+        )
+
+      def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =
+        assertRight(build(discriminator, suffix))
 
       val prefix: Bytes = Bytes.assertFromString("00")
 
@@ -399,8 +412,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
               if (bytes.startsWith(prefix) && bytes.length >= suffixStart)
                 crypto.Hash
                   .fromBytes(bytes.slice(prefix.length, suffixStart))
-                  .map(
-                    V1(_, bytes.slice(suffixStart, bytes.length))
+                  .flatMap(
+                    V1.build(_, bytes.slice(suffixStart, bytes.length))
                   )
               else
                 Left(s"""cannot parse V1 ContractId "$s""""))

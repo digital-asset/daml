@@ -102,20 +102,20 @@ trait CidContainer[+A] {
 
   // Sets the suffix of any the V1 AbsoluteContractId `coid` of the container that are not already suffixed.
   // Uses `f(coid.discriminator)` as suffix.
-  // Fails if encounters relative contract id or a V0 contract id.
   final def suffixCid[B](f: crypto.Hash => Bytes)(
       implicit suffixer: CidSuffixer[A, B]
-  ): Either[Value.ContractId, B] =
-    suffixer.traverse[Value.ContractId] {
+  ): Either[String, B] = {
+    suffixer.traverse[String] {
       case Value.AbsoluteContractId.V1(discriminator, Bytes.Empty) =>
-        Right(Value.AbsoluteContractId.V1(discriminator, f(discriminator)))
+        Value.AbsoluteContractId.V1.build(discriminator, f(discriminator))
       case acoid @ Value.AbsoluteContractId.V1(_, _) =>
         Right(acoid)
       case acoid @ Value.AbsoluteContractId.V0(_) =>
-        Left(acoid)
+        Left(s"expect a Contract ID V1, found $acoid")
       case rcoid @ Value.RelativeContractId(_) =>
-        Left(rcoid)
+        Left(s"expect a Contract Id V1, found $rcoid")
     }(self)
+  }
 
   final def assertNoRelCid[B](message: Value.ContractId => String)(
       implicit checker: NoRelCidChecker[A, B]
