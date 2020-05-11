@@ -134,6 +134,11 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeClosureConvert(sexpr: SExpr): SExpr =
+    validate(closureConvert(Map.empty, 0, sexpr))
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompileDefn(
       identifier: Identifier,
       defn: Definition,
