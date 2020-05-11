@@ -11,7 +11,7 @@ module DA.Daml.LF.Verify.Generate
   , Phase(..)
   ) where
 
-import Control.Monad.Error.Class (catchError, throwError)
+import Control.Monad.Error.Class (throwError)
 import Data.Maybe (listToMaybe)
 import qualified Data.NameMap as NM
 
@@ -114,7 +114,7 @@ genValue :: (GenPhase ph, MonadEnv m ph)
   -- ^ The value to be analysed and added.
   -> m ()
 genValue pac mod val = do
-  expOut <- genExpr (dvalBody val)
+  expOut <- genExpr True (dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
@@ -140,12 +140,12 @@ genChoice tem (this',this) temFs TemplateChoice{..} = do
   extVarEnv arg
   argFs <- recTypFields (snd chcArgBinder)
   extRecEnv arg argFs
-  expOut <- genExpr
+  expOut <- genExpr True
     $ substituteTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]) chcUpdate
   let out = if chcConsuming
         then addArchiveUpd tem fields expOut
         else expOut
-  extChEnv tem chcName self this arg (_oUpdate out)
+  extChEnv tem chcName self this arg (_oUpdate out) chcReturnType
   where
     fields = map (\f -> (f, ERecProj (TypeConApp tem []) f (EVar this))) temFs
 
@@ -178,42 +178,60 @@ genTemplate pac mod Template{..} = do
 -- | Analyse an expression, and produce an Output storing its (partial)
 -- evaluation result and the set of performed updates.
 genExpr :: (GenPhase ph, MonadEnv m ph)
-  => Expr
+  => Bool
+  -- ^ Argument denoting whether updates should be analysed.
+  -> Expr
   -- ^ The expression to be analysed.
   -> m (Output ph)
-genExpr = \case
-  ETmApp fun arg -> genForTmApp fun arg
-  ETyApp expr typ -> genForTyApp expr typ
-  ELet bind body -> genForLet bind body
-  EVar name -> genForVar name
-  EVal w -> genForVal w
-  ERecProj tc f e -> genForRecProj tc f e
-  EStructProj f e -> genForStructProj f e
-  ELocation _ expr -> genExpr expr
-  EUpdate (UCreate tem arg) -> genForCreate tem arg
-  EUpdate (UExercise tem ch cid par arg) -> genForExercise tem ch cid par arg
-  EUpdate (UBind bind expr) -> genForBind bind expr
-  EUpdate (UPure _ expr) -> genExpr expr
-  ECase e cs -> genForCase e cs
+genExpr updFlag = \case
+  ETmApp fun arg -> genForTmApp updFlag fun arg
+  ETyApp expr typ -> genForTyApp updFlag expr typ
+  ELet bind body -> genForLet updFlag bind body
+  EVar name -> genForVar updFlag name
+  EVal w -> genForVal updFlag w
+  ERecProj tc f e -> genForRecProj updFlag tc f e
+  EStructProj f e -> genForStructProj updFlag f e
+  ELocation _ expr -> genExpr updFlag expr
+  ECase e cs -> genForCase updFlag e cs
+  EUpdate upd -> if updFlag
+    then fst <$> genUpdate upd
+    else return $ emptyOut $ EUpdate upd
   -- TODO: Extend additional cases
   e -> return $ emptyOut e
 
+-- | Analyse an update expression, and produce both an Output and its result type.
+genUpdate :: (GenPhase ph, MonadEnv m ph)
+  => Update
+  -- ^ The update expression to be analysed.
+  -> m (Output ph, Type)
+genUpdate = \case
+  UCreate tem arg -> genForCreate tem arg
+  UExercise tem ch cid par arg -> genForExercise tem ch cid par arg
+  UBind bind expr -> genForBind bind expr
+  UPure typ expr -> do
+    out <- genExpr True expr
+    return (out, typ)
+  -- TODO: Extend additional cases
+  _ -> error $ "Update not implemented yet"
+
 -- | Analyse a term application expression.
 genForTmApp :: (GenPhase ph, MonadEnv m ph)
-  => Expr
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> Expr
   -- ^ The function expression.
   -> Expr
   -- ^ The argument expression.
   -> m (Output ph)
-genForTmApp fun arg = do
-  funOut <- genExpr fun
-  arout <- genExpr arg
+genForTmApp updFlag fun arg = do
+  funOut <- genExpr updFlag fun
+  arout <- genExpr updFlag arg
   case _oExpr funOut of
     -- TODO: Should we rename here?
     ETmLam bndr body -> do
       let subst = singleExprSubst (fst bndr) (_oExpr arout)
           resExpr = substituteTm subst body
-      resOut <- genExpr resExpr
+      resOut <- genExpr updFlag resExpr
       return $ combineOut resOut
         $ combineOut funOut arout
     fun' -> return $ updateOutExpr (ETmApp fun' (_oExpr arout))
@@ -221,63 +239,73 @@ genForTmApp fun arg = do
 
 -- | Analyse a type application expression.
 genForTyApp :: (GenPhase ph, MonadEnv m ph)
-  => Expr
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> Expr
   -- ^ The function expression.
   -> Type
   -- ^ The argument type.
   -> m (Output ph)
-genForTyApp expr typ = do
-  exprOut <- genExpr expr
+genForTyApp updFlag expr typ = do
+  exprOut <- genExpr updFlag expr
   case _oExpr exprOut of
     ETyLam bndr body -> do
       let subst = singleTypeSubst (fst bndr) typ
           resExpr = substituteTy subst body
-      resOut <- genExpr resExpr
+      resOut <- genExpr updFlag resExpr
       return $ combineOut resOut exprOut
     expr' -> return $ updateOutExpr (ETyApp expr' typ) exprOut
 
 -- | Analyse a let binding expression.
 genForLet :: (GenPhase ph, MonadEnv m ph)
-  => Binding
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> Binding
   -- ^ The binding to be bound.
   -> Expr
   -- ^ The expression in which the binding should be available.
   -> m (Output ph)
-genForLet bind body = do
-  bindOut <- genExpr (bindingBound bind)
+genForLet updFlag bind body = do
+  bindOut <- genExpr updFlag (bindingBound bind)
   let subst = singleExprSubst (fst $ bindingBinder bind) (_oExpr bindOut)
       resExpr = substituteTm subst body
-  resOut <- genExpr resExpr
+  resOut <- genExpr updFlag resExpr
   return $ combineOut resOut bindOut
 
 -- | Analyse an expression variable.
 genForVar :: (GenPhase ph, MonadEnv m ph)
-  => ExprVarName
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> ExprVarName
   -- ^ The expression variable to be analysed.
   -> m (Output ph)
-genForVar name = lookupVar name >> return (emptyOut (EVar name))
+genForVar _updFlag name = lookupVar name >> return (emptyOut (EVar name))
 
 -- | Analyse a value reference.
 genForVal :: (GenPhase ph, MonadEnv m ph)
-  => Qualified ExprValName
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> Qualified ExprValName
   -- ^ The value reference to be analysed.
   -> m (Output ph)
-genForVal w = getEnv >>= \case
+genForVal _updFlag w = getEnv >>= \case
   EnvVG{} -> return $ Output (EVal w) (emptyUpdateSet{_usvgValue = [Determined w]})
   EnvCG{} -> lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
   EnvS{} -> error "Impossible: genForVal can't be used in the solving phase"
 
 -- | Analyse a record projection expression.
 genForRecProj :: (GenPhase ph, MonadEnv m ph)
-  => TypeConApp
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> TypeConApp
   -- ^ The type constructor of the record which is projected.
   -> FieldName
   -- ^ The field which is projected.
   -> Expr
   -- ^ The record expression which is projected.
   -> m (Output ph)
-genForRecProj tc f body = do
-  bodyOut <- genExpr body
+genForRecProj updFlag tc f body = do
+  bodyOut <- genExpr updFlag body
   case _oExpr bodyOut of
     -- TODO: I think we can reduce duplication a bit more here
     EVar x -> do
@@ -288,18 +316,20 @@ genForRecProj tc f body = do
     expr -> do
       fs <- recExpFields expr
       case lookup f fs of
-        Just expr -> genExpr expr
+        Just expr -> genExpr updFlag expr
         Nothing -> throwError $ UnknownRecField f
 
 -- | Analyse a struct projection expression.
 genForStructProj :: (GenPhase ph, MonadEnv m ph)
-  => FieldName
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> FieldName
   -- ^ The field which is projected.
   -> Expr
   -- ^ The record expression which is projected.
   -> m (Output ph)
-genForStructProj f body = do
-  bodyOut <- genExpr body
+genForStructProj updFlag f body = do
+  bodyOut <- genExpr updFlag body
   case _oExpr bodyOut of
     -- TODO: I think we can reduce duplication a bit more here
     EVar x -> do
@@ -310,25 +340,27 @@ genForStructProj f body = do
     expr -> do
       fs <- recExpFields expr
       case lookup f fs of
-        Just expr -> genExpr expr
+        Just expr -> genExpr updFlag expr
         Nothing -> throwError $ UnknownRecField f
 
 -- | Analyse a case expression.
 -- TODO: Atm only boolean cases are supported
 genForCase :: (GenPhase ph, MonadEnv m ph)
-  => Expr
+  => Bool
+  -- ^ Flag denoting whether updates should be analysed.
+  -> Expr
   -- ^ The expression to match on.
   -> [CaseAlternative]
   -- ^ The list of alternatives.
   -> m (Output ph)
-genForCase exp cs = do
-  expOut <- genExpr exp
+genForCase updFlag exp cs = do
+  expOut <- genExpr updFlag exp
   case findBool True of
     Just tru -> do
-      truOut <- genExpr tru
+      truOut <- genExpr updFlag tru
       case findBool False of
         Just fal -> do
-          falOut <- genExpr fal
+          falOut <- genExpr updFlag fal
           let resExp = ECase (_oExpr expOut)
                 [ CaseAlternative (CPBool True) (_oExpr truOut)
                 , CaseAlternative (CPBool False) (_oExpr falOut) ]
@@ -347,19 +379,22 @@ genForCase exp cs = do
     findBool b1 = listToMaybe $ [e | CaseAlternative (CPBool b2) e <- cs, b1 == b2]
 
 -- | Analyse a create update expression.
+-- Returns both the generator output and the return type.
 genForCreate :: (GenPhase ph, MonadEnv m ph)
   => Qualified TypeConName
   -- ^ The template of which a new instance is being created.
   -> Expr
   -- ^ The argument expression.
-  -> m (Output ph)
+  -> m (Output ph, Type)
 genForCreate tem arg = do
-  arout <- genExpr arg
+  arout <- genExpr True arg
   fs <- recExpFields (_oExpr arout)
-  return (Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs))
+  return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
+         , TCon tem )
   -- TODO: We could potentially filter here to only store the interesting fields?
 
 -- | Analyse an exercise update expression.
+-- Returns both the generator output and the return type of the choice.
 genForExercise :: (GenPhase ph, MonadEnv m ph)
   => Qualified TypeConName
   -- ^ The template on which a choice is being exercised.
@@ -371,36 +406,74 @@ genForExercise :: (GenPhase ph, MonadEnv m ph)
   -- ^ The party which exercises the choice.
   -> Expr
   -- ^ The arguments with which the choice is being exercised.
-  -> m (Output ph)
+  -> m (Output ph, Type)
 genForExercise tem ch cid par arg = do
-  cidOut <- genExpr cid
-  arout <- genExpr arg
-  updSubst <- lookupChoice tem ch
-  -- TODO: Temporary solution. To be fixed urgently.
-  this <- lookupCid (_oExpr cidOut) `catchError`
-    -- (\_ -> trace ("Not found: " ++ show (_oExpr cidOut)) $ return $ ExprVarName "this")
-    (\_ -> return $ ExprVarName "this")
+  cidOut <- genExpr True cid
+  arout <- genExpr True arg
+  (updSubst, resType) <- lookupChoice tem ch
+  this <- fst <$> lookupCid (_oExpr cidOut)
   -- TODO: Should we further eval after subst? But how to eval an update set?
   let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
-  return (Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet)
+  return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+         , resType )
 
 -- | Analyse a bind update expression.
--- TODO: Handle arbitrary update outputs, not just simple fetches
+-- Returns both the generator output and the return type.
 genForBind :: (GenPhase ph, MonadEnv m ph)
   => Binding
   -- ^ The binding being bound with this update.
   -> Expr
   -- ^ The expression in which this binding is being made available.
-  -> m (Output ph)
+  -> m (Output ph, Type)
 genForBind bind body = do
-  bindOut <- genExpr (bindingBound bind)
-  case _oExpr bindOut of
+  bindOut <- genExpr False (bindingBound bind)
+  bindUpd <- case _oExpr bindOut of
     EUpdate (UFetch tc cid) -> do
-      fs <- recTypConFields $ qualObject tc
-      extRecEnv (fst $ bindingBinder bind) (map fst fs)
-      cidOut <- genExpr cid
-      extCidEnv (_oExpr cidOut) (fst $ bindingBinder bind)
-    _ -> return ()
+      bindCids (TContractId (TCon tc)) cid (EVar $ fst $ bindingBinder bind)
+      return emptyUpdateSet
+      -- fs <- recTypConFields $ qualObject tc
+      -- extRecEnv (fst $ bindingBinder bind) (map fst fs)
+      -- cidOut <- genExpr updFlag cid
+      -- extCidEnv (_oExpr cidOut) (fst $ bindingBinder bind)
+    EUpdate upd -> do
+      (updOut, updTyp) <- genUpdate upd
+      this <- genRenamedVar (ExprVarName "this")
+      bindCids updTyp (EVar $ fst $ bindingBinder bind) (EVar this)
+      return $ _oUpdate updOut
+    _ -> return emptyUpdateSet
   extVarEnv (fst $ bindingBinder bind)
-  bodyOut <- genExpr body
-  return $ combineOut bodyOut bindOut
+  bodyOut <- genExpr False body
+  case _oExpr bodyOut of
+    EUpdate bodyUpd -> do
+      (bodyUpdOut, bodyTyp) <- genUpdate bodyUpd
+      return ( Output
+                 (_oExpr bodyUpdOut)
+                 (_oUpdate bindOut
+                   `concatUpdateSet` bindUpd
+                   `concatUpdateSet` _oUpdate bodyOut
+                   `concatUpdateSet` _oUpdate bodyUpdOut)
+             , bodyTyp )
+    _ -> error "Impossible: The body of a bind should be an update expression"
+
+bindCids :: (GenPhase ph, MonadEnv m ph)
+  => Type
+  -- ^ The type of the contract id's being bound.
+  -> Expr
+  -- ^ The contract id's being bound.
+  -- TODO: Make this a maybe ExprVarName
+  -> Expr
+  -- ^ The variables to bind them to.
+  -> m ()
+bindCids (TContractId (TCon tc)) cid (EVar this) = do
+  fs <- recTypConFields $ qualObject tc
+  extRecEnv this (map fst fs)
+  cidOut <- genExpr True cid
+  extCidEnv (_oExpr cidOut) this
+bindCids (TCon tc) cid (EVar this) = do
+  fs <- recTypConFields $ qualObject tc
+  extRecEnv this (map fst fs)
+  cidOut <- genExpr True cid
+  extCidEnv (_oExpr cidOut) this
+bindCids (TBuiltin BTUnit) _ _ = return ()
+-- TODO: Extend additional cases, like tuples.
+bindCids _ _ _ = error "Binding contract id's for this particular type has not been implemented yet"

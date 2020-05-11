@@ -19,6 +19,7 @@ module DA.Daml.LF.Verify.Context
   , MonadEnv
   , UpdateSet(..)
   , Upd(..)
+  , ChoiceData(..)
   , UpdChoice(..)
   , Skolem(..)
   , getEnv
@@ -252,6 +253,20 @@ expr2cid (ERecProj _ f (EVar x)) = return $ CidRec x f
 expr2cid (EStructProj f (EVar x)) = return $ CidRec x f
 expr2cid _ = throwError ExpectCid
 
+-- | Data type containing the data stored for a choice definition.
+data ChoiceData (ph :: Phase) = ChoiceData
+  { _cdSelf :: ExprVarName
+    -- ^ The variable denoting `self`.
+  , _cdThis :: ExprVarName
+    -- ^ The variable denoting `this`.
+  , _cdArgs :: ExprVarName
+    -- ^ The variable denoting `args`.
+  , _cdUpds :: Expr -> Expr -> Expr -> UpdateSet ph
+    -- ^ Function from self, this and args to the updates performed by this choice.
+  , _cdType :: Type
+    -- ^ The return type of this choice.
+  }
+
 -- TODO: Could we alternatively just declare the variables that occur in the updates and drop the skolems?
 -- | The environment for the DAML-LF verifier
 data Env (ph :: Phase) where
@@ -262,8 +277,9 @@ data Env (ph :: Phase) where
       -- ^ The bound values.
     , _envvgdats :: !(HM.HashMap TypeConName DefDataType)
       -- ^ The set of data constructors.
-    , _envvgcids :: !(HM.HashMap Cid ExprVarName)
-      -- ^ The set of fetched cid's mapped to their variable name.
+    , _envvgcids :: !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
+      -- ^ The set of fetched cid's mapped to their current variable name, along
+      -- with a list of any potential old variable names.
     } -> Env 'ValueGathering
   EnvCG ::
     { _envcgskol :: ![Skolem]
@@ -272,11 +288,11 @@ data Env (ph :: Phase) where
       -- ^ The bound values.
     , _envcgdats :: !(HM.HashMap TypeConName DefDataType)
       -- ^ The set of data constructors.
-    , _envcgcids :: !(HM.HashMap Cid ExprVarName)
-      -- ^ The set of fetched cid's mapped to their variable name.
-    , _envcgchs :: !(HM.HashMap UpdChoice
-        (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering))
-      -- ^ The set of relevant choices, mapping to functions from self, this and args to its updates.
+    , _envcgcids :: !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
+      -- ^ The set of fetched cid's mapped to their current variable name, along
+      -- with a list of any potential old variable names.
+    , _envcgchs :: !(HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering))
+      -- ^ The set of relevant choices.
     } -> Env 'ChoiceGathering
   EnvS ::
     { _envsskol :: ![Skolem]
@@ -285,11 +301,11 @@ data Env (ph :: Phase) where
       -- ^ The bound values.
     , _envsdats :: !(HM.HashMap TypeConName DefDataType)
       -- ^ The set of data constructors.
-    , _envscids :: !(HM.HashMap Cid ExprVarName)
-      -- ^ The set of fetched cid's mapped to their variable name.
-    , _envschs :: !(HM.HashMap UpdChoice
-        (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'Solving))
-      -- ^ The set of relevant choices, mapping to functions from self, this and args to its updates.
+    , _envscids :: !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
+      -- ^ The set of fetched cid's mapped to their current variable name, along
+      -- with a list of any potential old variable names.
+    , _envschs :: !(HM.HashMap UpdChoice (ChoiceData 'Solving))
+      -- ^ The set of relevant choices.
     } -> Env 'Solving
 
 -- | Combine two environments.
@@ -398,13 +414,15 @@ extChEnv :: MonadEnv m ph
   -- ^ Variable to bind the choice argument to.
   -> UpdateSet ph
   -- ^ The updates performed by the new choice.
+  -> Type
+  -- ^ The result type of the new choice.
   -> m ()
-extChEnv tc ch self this arg upd =
+extChEnv tc ch self this arg upd typ =
   let substUpd sExp tExp aExp = substituteTm (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
   in getEnv >>= \case
     EnvVG{} -> error "Impossible: extChEnv is not used in the value gathering phase"
-    env@EnvCG{..} -> putEnv env{_envcgchs = HM.insert (UpdChoice tc ch) (self,this,arg,substUpd) _envcgchs}
-    env@EnvS{..} -> putEnv env{_envschs = HM.insert (UpdChoice tc ch) (self,this,arg,substUpd) _envschs}
+    env@EnvCG{..} -> putEnv env{_envcgchs = HM.insert (UpdChoice tc ch) (ChoiceData self this arg substUpd typ) _envcgchs}
+    env@EnvS{..} -> putEnv env{_envschs = HM.insert (UpdChoice tc ch) (ChoiceData self this arg substUpd typ) _envschs}
 
 -- | Extend the environment with a list of new data type definitions.
 extDatsEnv :: MonadEnv m ph
@@ -425,11 +443,16 @@ extCidEnv :: MonadEnv m ph
   -- ^ The variable name to which the fetched contract is bound.
   -> m ()
 extCidEnv exp var = do
+  prev <- do
+    { (cur, old) <- lookupCid exp
+    ; return $ cur : old }
+    `catchError` (\_ -> return [])
   cid <- expr2cid exp
+  let new = (var, prev)
   getEnv >>= \case
-    env@EnvVG{..} -> putEnv env{_envvgcids = HM.insert cid var _envvgcids}
-    env@EnvCG{..} -> putEnv env{_envcgcids = HM.insert cid var _envcgcids}
-    env@EnvS{..} -> putEnv env{_envscids = HM.insert cid var _envscids}
+    env@EnvVG{..} -> putEnv env{_envvgcids = HM.insert cid new _envvgcids}
+    env@EnvCG{..} -> putEnv env{_envcgcids = HM.insert cid new _envcgcids}
+    env@EnvS{..} -> putEnv env{_envscids = HM.insert cid new _envscids}
 
 -- TODO: Is one layer of recursion enough?
 -- | Recursively skolemise the given record fields, when they have a record
@@ -494,13 +517,13 @@ lookupVal val = do
 
 -- | Lookup a choice name in the environment. Returns a function which, once
 -- self, this and args have been instantiated, returns the set of updates it
--- performs.
+-- performs. Also returns the return type of the choice.
 lookupChoice :: MonadEnv m ph
   => Qualified TypeConName
   -- ^ The template name in which this choice is defined.
   -> ChoiceName
   -- ^ The choice name to lookup.
-  -> m (Expr -> Expr -> Expr -> UpdateSet ph)
+  -> m (Expr -> Expr -> Expr -> UpdateSet ph, Type)
 lookupChoice tem ch = do
   chs <- getEnv >>= \case
     EnvVG{..} -> return HM.empty
@@ -508,7 +531,7 @@ lookupChoice tem ch = do
     EnvS{..} -> return _envschs
   case lookupChoInHMap chs (qualObject tem) ch of
     Nothing -> throwError (UnknownChoice ch)
-    Just (_,_,_,upd) -> return upd
+    Just ChoiceData{..} -> return (_cdUpds, _cdType)
 
 -- | Lookup a data type definition in the environment.
 lookupDataCon :: MonadEnv m ph
@@ -525,11 +548,11 @@ lookupDataCon tc = do
     Just def -> return def
 
 -- | Lookup a contract id in the environment. Returns the variable its fetched
--- contract is bound to.
+-- contract is bound to, along with a list of any previous bindings.
 lookupCid :: MonadEnv m ph
   => Expr
   -- ^ The contract id to lookup.
-  -> m ExprVarName
+  -> m (ExprVarName, [ExprVarName])
 lookupCid exp = do
   cid <- expr2cid exp
   cids <- getEnv >>= \case
@@ -554,14 +577,13 @@ lookupValInHMap hmap val = listToMaybe $ HM.elems
 -- | Helper function to lookup a choice in a HashMap. Returns the variables for
 -- self, this and args used, as well as a function which, given the values for
 -- self, this and args, produces the list of updates performed by this choice.
-lookupChoInHMap :: HM.HashMap UpdChoice
-    (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet ph)
+lookupChoInHMap :: HM.HashMap UpdChoice (ChoiceData ph)
   -- ^ The HashMap in which to look.
   -> TypeConName
   -- ^ The template in which the choice is defined.
   -> ChoiceName
   -- ^ The choice name to lookup.
-  -> Maybe (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet ph)
+  -> Maybe (ChoiceData ph)
 -- TODO: This TypeConName should be qualified
 -- TODO: The type con name really should be taken into account here
 lookupChoInHMap hmap _tem cho = listToMaybe $ HM.elems
@@ -616,54 +638,55 @@ solveChoiceReferences EnvCG{..} =
   in EnvS _envcgskol valhmap _envcgdats _envcgcids chshmap
   where
     lookup_ref :: UpdChoice
-      -> HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
-      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+      -> HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
+      -> ChoiceData 'ChoiceGathering
     lookup_ref UpdChoice{..} hmap = fromMaybe (error "Impossible: Undefined choice ref while solving")
       (lookupChoInHMap hmap (qualObject _choTemp) _choName)
 
-    get_refs :: (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
-      -> ([Cond UpdChoice], (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering))
+    get_refs :: (ChoiceData 'ChoiceGathering)
+      -> ([Cond UpdChoice], ChoiceData 'ChoiceGathering)
     -- TODO: This is gonna result in a ton of substitutions
-    get_refs (self,this,args,updfunc0) =
+    get_refs chdat@ChoiceData{..} =
       -- TODO: This seems to be a rather common pattern. Abstract to reduce duplication.
-      let chos = _uscgChoice $ updfunc0 (EVar self) (EVar this) (EVar args)
+      let chos = _uscgChoice $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
           updfunc1 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            let upds@UpdateSetCG{..} = updfunc0 selfexp thisexp argsexp
+            let upds@UpdateSetCG{..} = _cdUpds selfexp thisexp argsexp
             in upds{_uscgChoice = []}
-      in (chos, (self,this,args,updfunc1))
+      in (chos, chdat{_cdUpds = updfunc1})
 
-    ext_upds :: (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
-      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
-      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
-    ext_upds (self,this,args,updfunc1) (_,_,_,updfunc2) =
-      let updfunc3 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            updfunc1 selfexp thisexp argsexp `concatUpdateSet` updfunc2 selfexp thisexp argsexp
-      in (self,this,args,updfunc3)
+    ext_upds :: ChoiceData 'ChoiceGathering
+      -> ChoiceData 'ChoiceGathering
+      -> ChoiceData 'ChoiceGathering
+    ext_upds chdat1 chdat2 =
+      let updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
+            (_cdUpds chdat1) selfexp thisexp argsexp `concatUpdateSet`
+              (_cdUpds chdat2) selfexp thisexp argsexp
+      in chdat1{_cdUpds = updfunc}
 
-    intro_cond :: Cond (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet ph)
-      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet ph)
+    intro_cond :: Cond (ChoiceData ph)
+      -> ChoiceData ph
     intro_cond (Determined x) = x
-    intro_cond (Conditional cond (self,this,args,updfunc1) y) =
-      let updfunc3 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            introCond (Conditional cond (updfunc1 selfexp thisexp argsexp)
-              ((\(_,_,_,updfunc2) -> updfunc2 selfexp thisexp argsexp) <$> y))
-      in (self,this,args,updfunc3)
+    intro_cond (Conditional cond chdatx y) =
+      let updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
+            introCond (Conditional cond ((_cdUpds chdatx) selfexp thisexp argsexp)
+              ((\chdaty -> (_cdUpds chdaty) selfexp thisexp argsexp) <$> y))
+      in chdatx{_cdUpds = updfunc}
 
-    inlineChoices :: HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'Solving)
+    inlineChoices :: HM.HashMap UpdChoice (ChoiceData 'Solving)
       -> (Expr, UpdateSet 'ChoiceGathering)
       -> (Expr, UpdateSet 'Solving)
     inlineChoices chshmap (exp, UpdateSetCG{..}) =
       let lookupRes = map
             (intro_cond . fmap (\ch -> fromMaybe (error "Impossible: missing choice while solving") (HM.lookup ch chshmap)))
             _uscgChoice
-          chupds = concatMap (\(self,this,args,upds) -> _ussUpdate $ upds (EVar self) (EVar this) (EVar args)) lookupRes
+          chupds = concatMap (\ChoiceData{..} -> _ussUpdate $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)) lookupRes
       in (exp, UpdateSetS (_uscgUpdate ++ chupds))
 
-    convertChHMap :: HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
-      -> HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'Solving)
-    convertChHMap = HM.map (\(self,this,args,updfunc) ->
-      (self,this,args, \(selfExp :: Expr) (thisExp :: Expr) (argsExp :: Expr) ->
-        updateSetCG2S $ updfunc selfExp thisExp argsExp))
+    convertChHMap :: HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
+      -> HM.HashMap UpdChoice (ChoiceData 'Solving)
+    convertChHMap = HM.map (\chdat@ChoiceData{..} ->
+      chdat{_cdUpds = \(selfExp :: Expr) (thisExp :: Expr) (argsExp :: Expr) ->
+        updateSetCG2S $ _cdUpds selfExp thisExp argsExp})
 
     updateSetCG2S :: UpdateSet 'ChoiceGathering -> UpdateSet 'Solving
     updateSetCG2S UpdateSetCG{..} = if null _uscgChoice
