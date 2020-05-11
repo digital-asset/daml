@@ -177,8 +177,9 @@ private[dao] final class TransactionsWriter(
     val deleteWitnessesBatch =
       for ((deleted, _) <- contractBatches.deletions) yield {
         val deletedWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
-        assert(deletedWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
-        deletedWitnessesBatch.get
+        deletedWitnessesBatch.getOrElse(
+          throw new IllegalArgumentException("No witness found for contracts marked for deletion")
+        )
       }
 
     val insertWitnessesBatch = prepareWitnessesBatch(
