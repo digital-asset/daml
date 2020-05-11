@@ -9,8 +9,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   configurationStateKey
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
-import com.daml.ledger.participant.state.kvutils.committing.Common.getCurrentConfiguration
+import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.metrics.Metrics
 

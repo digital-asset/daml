@@ -11,10 +11,14 @@ import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, Submitter
 import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.metrics.Metrics
 import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.DbType
 
-private[dao] final class TransactionsWriter(dbType: DbType) {
+private[dao] final class TransactionsWriter(
+    dbType: DbType,
+    metrics: Metrics,
+) {
 
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
@@ -117,13 +121,6 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     val disclosureForTransactionTree =
       computeDisclosureForTransactionTree(transactionId, transaction, blinding)
 
-    // Remove witnesses for the flat transactions from the full disclosure
-    // This minimizes the data we save and allows us to use the union of the
-    // witnesses for flat transactions and its complement to filter parties
-    // for the transactions tree stream
-    val disclosureComplement =
-      Relation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
-
     // Prepare batch inserts for flat transactions
     val flatTransactionWitnessesBatch =
       WitnessesTable.ForFlatTransactions.prepareBatchInsert(
@@ -132,8 +129,8 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
 
     // Prepare batch inserts for all witnesses except those for flat transactions
     val complementWitnessesBatch =
-      WitnessesTable.Complement.prepareBatchInsert(
-        witnesses = disclosureComplement,
+      WitnessesTable.ForTransactionTrees.prepareBatchInsert(
+        witnesses = disclosureForTransactionTree,
       )
 
     eventBatches.foreach(_.execute())

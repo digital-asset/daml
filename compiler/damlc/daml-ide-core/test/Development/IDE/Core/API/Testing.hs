@@ -508,7 +508,7 @@ expectTextOnHover cursorRange expectedInfo = do
     hoverPredicate = case expectedInfo of
         NoInfo -> null
         Contains t -> any (T.isInfixOf t)
-        NotContaining t -> all (not . T.isInfixOf t)
+        NotContaining t -> not . any (T.isInfixOf t)
         HasType t -> any (T.isSuffixOf $ ": " <> t) . concatMap T.lines
 
 -- | Expect a certain section to take fewer than the specified number of seconds.

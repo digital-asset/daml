@@ -9,9 +9,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
   PackageCommitter,
-  PartyAllocationCommitter
+  PartyAllocationCommitter,
+  TransactionCommitter
 }
-import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -157,7 +157,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).run(
           entryId,
-          //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPartyAllocationEntry,
@@ -176,12 +175,13 @@ class KeyValueCommitting private[daml] (
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        new ProcessTransactionSubmission(defaultConfig, engine, metrics, inStaticTimeMode)
+        new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .run(
             entryId,
+            estimateMaximumRecordTime(recordTime),
             recordTime,
-            participantId,
             submission.getTransactionEntry,
+            participantId,
             inputState,
           )
 

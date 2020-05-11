@@ -15,7 +15,7 @@ object SandboxBackend {
 
   trait Postgresql { this: AbstractSandboxFixture =>
     override protected final def database: Option[ResourceOwner[DbInfo]] =
-      Some(PostgresResource.owner().map(resource => DbInfo(resource.jdbcUrl, DbType.Postgres)))
+      Some(PostgresResource.owner().map(database => DbInfo(database.url, DbType.Postgres)))
   }
 
   trait H2Database { this: AbstractSandboxFixture =>

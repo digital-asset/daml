@@ -25,14 +25,8 @@ schedules:
 jobs:
   - job: compatibility
     timeoutInMinutes: 240
-    strategy:
-      matrix:
-        linux:
-          pool: 'linux-pool'
-        macos:
-          pool: 'macOS-pool'
     pool:
-      name: $(pool)
+      name: linux-pool
     steps:
       - checkout: self
       - template: ../compatibility.yml
@@ -52,10 +46,36 @@ jobs:
                $(Slack.team-daml)
         displayName: report
         condition: always()
+
+  - job: compatibility
+    timeoutInMinutes: 240
+    pool:
+      vmImage: macos-10.14
+    steps:
+      - checkout: self
+      - template: ../compatibility.yml
+      - bash: |
+          set -euo pipefail
+          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
+          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
+              MESSAGE=":fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:"
+          else
+              MESSAGE="$(Agent.JobName) passed: $COMMIT_LINK"
+          fi
+          curl -XPOST \
+               -i \
+               -H 'Content-type: application/json' \
+               --data "{\"text\":\"$MESSAGE\n\"}" \
+               $(Slack.team-daml)
+        displayName: report
+        condition: always()
+
   - job: compatibility_windows
     timeoutInMinutes: 240
     pool:
       name: windows-pool
+      demands: assignment -equals default
     steps:
       - checkout: self
       - template: ../compatibility-windows.yml
@@ -84,6 +104,7 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
