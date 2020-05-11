@@ -108,8 +108,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case KArg(_) => counts.karg += 1
       case KFun(_, _, _) => counts.kfun += 1
       case KPushTo(_, _) => counts.kpushto += 1
-      case KCacheVal(_, _) => counts.kcacheval += 1
-      case KLocation(_) => counts.klocation += 1
+      case KCacheVal(_) => counts.kcacheval += 1
+      case KLocationPop => counts.klocation += 1
       case KMatch(_) => counts.kmatch += 1
       case KCatch(_, _, _) => counts.kcatch += 1
       case KFinished => counts.kfinished += 1

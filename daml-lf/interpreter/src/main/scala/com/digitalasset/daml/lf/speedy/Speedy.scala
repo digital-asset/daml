@@ -74,8 +74,6 @@ object Speedy {
        * once the control has been evaluated.
        */
       var kontStack: util.ArrayList[Kont],
-      /* The last encountered location */
-      var lastLocation: Option[Location],
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -100,6 +98,8 @@ object Speedy {
       var steps: Int,
       /* Used when enableInstrumentation is true */
       var track: Instrumentation,
+      /* Used to a provide lastLocation and stackTrace */
+      val locationStack: LocationStack,
   ) {
 
     /* kont manipulation... */
@@ -144,51 +144,19 @@ object Speedy {
       env.subList(env.size - count, env.size).clear
     }
 
-    /** Push a single location to the continuation stack for the sake of
-        maintaining a stack trace. */
-    def pushLocation(loc: Location): Unit = {
-      lastLocation = Some(loc)
-      val last_index = kontStack.size() - 1
-      val last_kont = if (last_index >= 0) Some(kontStack.get(last_index)) else None
-      last_kont match {
-        // NOTE(MH): If the top of the continuation stack is the monadic token,
-        // we push location information under it to account for the implicit
-        // lambda binding the token.
-        case Some(KArg(Array(SEValue.Token))) => {
-          // Can't call pushKont here, because we don't push at the top of the stack.
-          kontStack.add(last_index, KLocation(loc))
-          if (enableInstrumentation) {
-            track.countPushesKont += 1
-            if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
-          }
-        }
-        // NOTE(MH): When we use a cached top level value, we need to put the
-        // stack trace it produced back on the continuation stack to get
-        // complete stack trace at the use site. Thus, we store the stack traces
-        // of top level values separately during their execution.
-        case Some(KCacheVal(v, stack_trace)) =>
-          kontStack.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
-        case _ => pushKont(KLocation(loc))
-      }
+    @inline def pushLocation(loc: Location): Unit = {
+      locationStack.push(loc)
+      pushKont(KLocationPop)
     }
 
-    /** Push an entire stack trace to the continuation stack. The first
-        element of the list will be pushed last. */
-    def pushStackTrace(locs: List[Location]): Unit =
-      locs.reverse.foreach(pushLocation)
-
-    /** Compute a stack trace from the locations in the continuation stack.
+    /** Return a stack trace.
         The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
-      val s = new util.ArrayList[Location]
-      kontStack.forEach { k =>
-        k match {
-          case KLocation(location) => { s.add(location); () }
-          case _ => ()
-        }
-      }
-      ImmArray(s.asScala)
+      locationStack.freeze()
     }
+
+    /* The last encountered location */
+    def lastLocation: Option[Location] = locationStack.top()
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
@@ -283,15 +251,14 @@ object Speedy {
 
     def lookupVal(eval: SEVal): Unit = {
       eval.cached match {
-        case Some((v, stack_trace)) =>
-          pushStackTrace(stack_trace)
+        case Some(v) =>
           returnValue = v
 
         case None =>
           val ref = eval.ref
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
-              pushKont(KCacheVal(eval, Nil))
+              pushKont(KCacheVal(eval))
               ctrl = body
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
@@ -494,7 +461,6 @@ object Speedy {
         returnValue = null,
         env = emptyEnv,
         kontStack = initialKontStack(),
-        lastLocation = None,
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
         commitLocation = None,
@@ -508,6 +474,7 @@ object Speedy {
         },
         steps = 0,
         track = Instrumentation(),
+        locationStack = LocationStack(),
       )
 
     def newBuilder(
@@ -616,6 +583,14 @@ object Speedy {
         machine.track.print()
       }
       throw SpeedyHungry(SResultFinalValue(v))
+    }
+  }
+
+  /** A continuation to pop a location from the locationStack. */
+  final case object KLocationPop extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      machine.locationStack.pop()
+      machine.returnValue = v
     }
   }
 
@@ -780,11 +755,10 @@ object Speedy {
     * accessed. In older compilers which did not use the builtin record and struct
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
-  final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
-    def execute(sv: SValue, machine: Machine): Unit = {
-      machine.pushStackTrace(stack_trace)
-      v.setCached(sv, stack_trace)
-      machine.returnValue = sv
+  final case class KCacheVal(eval: SEVal) extends Kont {
+    def execute(value: SValue, machine: Machine): Unit = {
+      eval.setCached(value)
+      machine.returnValue = value
     }
   }
 
@@ -799,13 +773,6 @@ object Speedy {
     }
   }
 
-  /** A location frame stores a location annotation found in the AST. */
-  final case class KLocation(location: Location) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      machine.returnValue = v
-    }
-  }
-
   /** Internal exception thrown when a continuation result needs to be returned.
     Or machine execution has reached a final value. */
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
@@ -817,5 +784,20 @@ object Speedy {
   ): InitialSeeding =
     InitialSeeding(
       submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, submissionTime)))
+
+  /* LocationStack */
+
+  final case class LocationStack() {
+    private val arr = new util.ArrayList[Location]()
+    def push(x: Location): Unit = { arr.add(x); () }
+    def pop(): Unit = { arr.remove(arr.size - 1); () }
+    def top(): Option[Location] = arr.size match {
+      case 0 => None
+      case size => Some(arr.get(size - 1))
+    }
+    def freeze(): ImmArray[Location] = {
+      ImmArray(arr.asScala)
+    }
+  }
 
 }

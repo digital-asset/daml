@@ -40,8 +40,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case KFun(prim, extendedArgs, arity) =>
       s"KFun(${pp(prim)}/$arity,[${commas(extendedArgs.asScala.map(pp))}])"
     case KPushTo(_, e) => s"KPushTo(_, ${pp(e)})"
-    case KCacheVal(_, _) => "KCacheVal"
-    case KLocation(_) => "KLocation"
+    case KCacheVal(_) => "KCacheVal"
+    case KLocationPop => "KLocationPop"
     case KMatch(_) => "KMatch"
     case KCatch(_, _, _) => "KCatch" //never seen
     case KFinished => "KFinished"
