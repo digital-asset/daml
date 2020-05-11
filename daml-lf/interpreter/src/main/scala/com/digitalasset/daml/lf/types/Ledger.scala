@@ -181,9 +181,7 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       enrichedTx: EnrichedTransaction,
-  ): RichTransaction = {
-    def makeAbs(cid: Value.RelativeContractId) =
-      Ref.ContractIdString.assertFromString(relativeToContractIdString(commitPrefix, cid))
+  ): RichTransaction =
     RichTransaction(
       committer = committer,
       effectiveAt = effectiveAt,
@@ -191,7 +189,7 @@ object Ledger {
       nodes = enrichedTx.nodes.map {
         case (nodeId, node) =>
           ScenarioNodeId(commitPrefix, nodeId) -> node
-            .resolveRelCid(makeAbs)
+            .assertNoRelCid(_ => "Unexpected relative contract ID.")
             .mapNodeId(ScenarioNodeId(commitPrefix, _))
       }(breakOut),
       explicitDisclosure = enrichedTx.explicitDisclosure.map {
@@ -205,7 +203,6 @@ object Ledger {
       globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
       failedAuthorizations = enrichedTx.failedAuthorizations,
     )
-  }
 
   /** Scenario step representing the actions executed in a scenario. */
   sealed trait ScenarioStep
