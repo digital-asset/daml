@@ -7,13 +7,21 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 
 final class DatabaseMetrics private[metrics] (
     registry: MetricRegistry,
-    base: MetricName,
+    prefix: MetricName,
     val name: String,
 ) {
 
-  val overallTimer: Timer = registry.timer(base :+ name)
-  val waitTimer: Timer = registry.timer(base :+ name :+ "wait")
-  val executionTimer: Timer = registry.timer(base :+ name :+ "exec")
-  val deserializationTimer: Timer = registry.timer(base :+ name :+ "deserialization")
+  val waitTimer: Timer = registry.timer(prefix :+ name :+ "wait")
+  val executionTimer: Timer = registry.timer(prefix :+ name :+ "exec")
+  val deserializationTimer: Timer = registry.timer(prefix :+ name :+ "deserialization")
+
+}
+
+object DatabaseMetrics {
+
+  private[metrics] def apply(registry: MetricRegistry, prefix: MetricName)(
+      name: String,
+  ): DatabaseMetrics =
+    new DatabaseMetrics(registry, prefix, name)
 
 }

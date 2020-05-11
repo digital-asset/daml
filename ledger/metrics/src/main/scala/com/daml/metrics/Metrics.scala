@@ -274,7 +274,7 @@ class Metrics(val registry: MetricRegistry) {
         val stopDeduplicatingCommand: Timer =
           registry.timer(prefix :+ "stop_deduplicating_command")
 
-        private val createDatabaseMetrics = new DatabaseMetricsFactory(registry, prefix)
+        private val createDatabaseMetrics = DatabaseMetrics(registry, prefix)
 
         private val overall = createDatabaseMetrics("all")
         val waitAll: Timer = overall.waitTimer
