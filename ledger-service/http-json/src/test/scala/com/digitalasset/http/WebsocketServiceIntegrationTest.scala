@@ -12,6 +12,7 @@ import com.daml.http.json.{DomainJsonEncoder, SprayJson}
 import com.daml.http.util.TestUtil
 import HttpServiceTestFixture.UseTls
 import com.typesafe.scalalogging.StrictLogging
+import org.scalacheck.Gen
 import org.scalatest._
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
@@ -727,5 +728,23 @@ object WebsocketServiceIntegrationTest {
   private object EventsBlock {
     import DefaultJsonProtocol._
     implicit val EventsBlockFormat: RootJsonFormat[EventsBlock] = jsonFormat2(EventsBlock.apply)
+  }
+
+  sealed abstract class SplitSeq[+X] extends Product with Serializable
+  object SplitSeq {
+    final case class Leaf[+X](x: X) extends SplitSeq[X]
+    final case class Node[+X](x: X, l: SplitSeq[X], r: SplitSeq[X]) extends SplitSeq[X]
+
+    val gen: Gen[SplitSeq[Long]] =
+      Gen.posNum[Long] flatMap (x => Gen.sized(genSplit(x, _)))
+
+    private def genSplit(x: Long, size: Int): Gen[SplitSeq[Long]] =
+      if (size > 1 && x > 1) Gen.frequency((1, Gen const Leaf(x)), (8, Gen.chooseNum(1, x) flatMap {
+        split =>
+          Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
+            case (l, r) => Node(x, l, r)
+          }
+      }))
+      else Gen const Leaf(x)
   }
 }
