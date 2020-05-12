@@ -54,6 +54,11 @@ jobs:
       set -euo pipefail
       cd bazel
       bazel build src/main/cpp:client src:package-zip_jdk_minimal -c opt --stamp --embed_label $(bazel_base_version)-patched-$(cache_key)
+      # Note (MK) For some reason, the `zip` from chocolatey seems to result in 
+      # a “zip file structure invalid” error. I’ve tried adding msys to PATH so the Bazel
+      # rules pick up `zip` from msys but that broke other things. So for now
+      # we skip the final Bazel rule to build the self-extracting exe and instead
+      # call `zip` from msys separately.
       /c/tools/msys64/msys2_shell.cmd -defterm -no-start -here -c "cat bazel-bin/src/main/cpp/client.exe bazel-bin/src/package_jdk_minimal.zip > bazel.exe && zip -A bazel.exe"
       mkdir '$(Build.StagingDirectory)\patched-bazel'
       zip bazel.zip bazel.exe
