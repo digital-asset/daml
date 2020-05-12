@@ -5,13 +5,13 @@
   "bin": "bazel.exe",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/bazelbuild/bazel/releases/download/2.1.0/bazel-2.1.0-windows-x86_64.zip",
-      "hash": "0c8492b49310f73cdfbc4df9173b5f2cd2aa547d8dfbe46b47b93f3d712e5864"
+      "url": "https://daml-binaries.da-ext.net/patch_bazel_windows/bazel-fd12df4ebdd9cfe98bd623c5a827a288.zip",
+      "hash": "e1d742eeb0752d74af5257edf1d7bc0a332ddb3a76420aef137bc33738ecc165"
     }
   },
   "depends": [
     "msys2",
-    "vcredist-14.0.23026"
+    "vcredist-14.24.28127.4"
   ],
   "env_set": {
     "BAZEL_SH": "$(appdir msys2)\\current\\usr\\bin\\bash.exe"

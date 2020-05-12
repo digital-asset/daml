@@ -149,9 +149,14 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - template: ci/patch_bazel_windows/compile.yml
+    parameters:
+      final_job_name: patch_bazel_windows
+
   - job: Windows
     dependsOn:
       - check_for_release
+      - patch_bazel_windows
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -218,6 +223,7 @@ jobs:
   - job: compatibility_windows
     dependsOn:
       - check_for_release
+      - patch_bazel_windows
     timeoutInMinutes: 60
     pool:
       name: 'windows-pool'
