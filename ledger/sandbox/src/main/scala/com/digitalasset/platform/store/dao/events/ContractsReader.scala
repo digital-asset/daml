@@ -50,8 +50,7 @@ private[dao] sealed abstract class ContractsReader(
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
-            deserializationTimer =
-              metrics.daml.index.db.lookupActiveContractDao.deserializationTimer,
+            deserializationTimer = metrics.daml.index.db.lookupActiveContractDao.translationTimer,
           )
       })(executionContext)
 
