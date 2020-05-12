@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.caching
+package com.daml.caching
 
-case class Configuration(maximumWeight: Size)
+final case class Configuration(maximumWeight: Long) extends AnyVal
 
 object Configuration {
-  def none: Configuration = Configuration(maximumWeight = 0)
+  val none: Configuration = Configuration(maximumWeight = 0)
 }

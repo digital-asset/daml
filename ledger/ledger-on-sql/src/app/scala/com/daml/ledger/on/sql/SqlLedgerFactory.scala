@@ -6,6 +6,7 @@ package com.daml.ledger.on.sql
 import java.time.Duration
 
 import akka.stream.Materializer
+import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -13,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   ReadWriteService
 }
-import com.daml.ledger.participant.state.kvutils.caching
+import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
