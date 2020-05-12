@@ -24,9 +24,14 @@ until nc -z $LEDGER_HOST $LEDGER_PORT; do
 done
 echo "Connected to sandbox."
 
-bazel run //triggers/service:trigger-service -- \
+bazel run //triggers/service:trigger-service-binary -- \
   --ledger-host $LEDGER_HOST --ledger-port $LEDGER_PORT --wall-clock-time &
 TRIGGER_SERVICE_PID=$!
+
+# A smoke test:
+#  curl -X GET \
+#    -H "Content-type: application/json" -H "Accept: application/json" \
+#    "http://localhost:8080/test"
 
 kill_everything() {
   kill $TRIGGER_SERVICE_PID || true
