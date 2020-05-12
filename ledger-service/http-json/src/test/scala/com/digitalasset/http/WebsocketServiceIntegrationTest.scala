@@ -313,11 +313,13 @@ class WebsocketServiceIntegrationTest
   // this test code, e.g. in a browser with a JavaScript client, so will leave this
   // mystery to be explored another time.
 
-  private val baseExercisePayload = {
-    import spray.json._
-    """{"templateId": "Iou:Iou",
-        "choice": "Iou_Split",
-        "argument": {"splitAmount": 42.42}}""".parseJson.asJsObject
+  private def exercisePayload(cid: domain.ContractId, amount: BigDecimal = BigDecimal("42.42")) = {
+    import spray.json._, json.JsonProtocol._
+    Map(
+      "templateId" -> "Iou:Iou".toJson,
+      "contractId" -> cid.toJson,
+      "choice" -> "Iou_Split".toJson,
+      "argument" -> Map("splitAmount" -> amount).toJson).toJson
   }
 
   "query should receive deltas as contracts are archived/created" in withHttpService {
@@ -325,10 +327,6 @@ class WebsocketServiceIntegrationTest
       import spray.json._
 
       val initialCreate = initialIouCreate(uri)
-
-      def exercisePayload(cid: String) =
-        baseExercisePayload.copy(
-          fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
 
       val query =
         """[
@@ -347,7 +345,7 @@ class WebsocketServiceIntegrationTest
             _ <- liftF(
               TestUtil.postJsonRequest(
                 uri.withPath(Uri.Path("/v1/exercise")),
-                exercisePayload(ctid),
+                exercisePayload(domain.ContractId(ctid)),
                 headersWithAuth) map {
                 case (statusCode, _) =>
                   statusCode.isSuccess shouldBe true
@@ -529,21 +527,42 @@ class WebsocketServiceIntegrationTest
       ss: SplitSeq[BigDecimal]): Consume.FCC[IouSplitResult, Assertion] = {
     val dslSyntax = Consume.syntax[IouSplitResult]
     import dslSyntax._, SplitSeq._
-    def go(archivedCid: domain.ContractId, ss: SplitSeq[BigDecimal]) = ss match {
+    def go(
+        createdCid: domain.ContractId,
+        ss: SplitSeq[BigDecimal]): Consume.FCC[IouSplitResult, Assertion] = ss match {
       case Leaf(x) =>
+        point(1 shouldBe 1)
+      case Node(x, l, r) =>
         for {
-          \/-((Vector((cid, amt)), Vector(archival))) <- readOne
-        } yield {
-          archival should ===(archivedCid)
-          cid should !==(archivedCid)
-          amt should ===(x)
-        }
-      case Node(x, l, r) => ??? // TODO SC
+          (StatusCodes.OK, _) <- liftF(
+            TestUtil.postJsonRequest(
+              serviceUri.withPath(Uri.Path("/v1/exercise")),
+              exercisePayload(createdCid, l.x),
+              headersWithAuth))
+
+          \/-((Vector((cid1, amt1), (cid2, amt2)), Vector(archival))) <- readOne
+          (lCid, rCid) = {
+            archival should ===(createdCid)
+            Set(amt1, amt2) should ===(Set(l.x, r.x))
+            if (amt1 == l.x) (cid1, cid2) else (cid2, cid1)
+          }
+
+          _ <- go(lCid, l)
+          last <- go(rCid, r)
+        } yield last
     }
 
     val initialPayload = {
       import spray.json._, json.JsonProtocol._
-      Map("payload" -> Map("amount" -> ss.x)).toJson
+      Map(
+        "templateId" -> "Iou:Iou".toJson,
+        "payload" -> Map(
+          "observers" -> List[String]().toJson,
+          "issuer" -> "Alice".toJson,
+          "amount" -> ss.x.toJson,
+          "currency" -> "USD".toJson,
+          "owner" -> "Alice".toJson).toJson
+      ).toJson
     }
     for {
       (StatusCodes.OK, _) <- liftF(
@@ -553,10 +572,7 @@ class WebsocketServiceIntegrationTest
           headersWithAuth))
       \/-((Vector((genesisCid, amt)), Vector())) <- readOne
       _ = amt should ===(ss.x)
-      last <- ss match {
-        case Leaf(_) => point(1 shouldBe 1)
-        case Node(_, l, r) => ??? // TODO SC
-      }
+      last <- go(genesisCid, ss)
     } yield last
   }
 
