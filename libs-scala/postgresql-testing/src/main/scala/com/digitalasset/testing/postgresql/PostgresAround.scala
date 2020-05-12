@@ -56,7 +56,7 @@ trait PostgresAround {
     val configPath = dataDir.resolve("postgresql.conf")
     val logFile = Files.createFile(root.resolve("postgresql.log"))
     val lockedPort = FreePort.find()
-    val hostName = InetAddress.getLoopbackAddress.getHostName
+    val hostName = InetAddress.getLoopbackAddress.getHostAddress
     val port = lockedPort.port
     val userName = "test"
     val password = ""
