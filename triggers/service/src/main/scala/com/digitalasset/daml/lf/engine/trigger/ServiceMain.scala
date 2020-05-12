@@ -25,9 +25,8 @@ import java.util.zip.ZipInputStream
 
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration._
-import scala.io.StdIn
 import scala.util.{Failure, Success}
 import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
@@ -48,6 +47,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
+import scala.sys.ShutdownHookThread
 
 case class LedgerConfig(
     host: String,
@@ -295,8 +295,24 @@ object ServiceMain {
           )
         val system: ActorSystem[Server.Message] =
           ActorSystem(Server("localhost", 8080, ledgerConfig, dar), "TriggerService")
-        StdIn.readLine()
-        system ! Server.Stop
+        // Timeout chosen at random, change freely if you see issues.
+        implicit val timeout: Timeout = 15.seconds
+        implicit val scheduler: Scheduler = system.scheduler
+        implicit val ec: ExecutionContext = system.executionContext
+
+        // Shutdown gracefully on SIGINT.
+        val serviceF: Future[ServerBinding] =
+          system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
+        val _: ShutdownHookThread = sys.addShutdownHook {
+          system ! Server.Stop
+          serviceF.onComplete {
+            case Success(_) =>
+              system.log.info("Server is offline, the system will now terminate")
+            case Failure(ex) =>
+              system.log.info("Failure encountered shutting down the server: " + ex.toString)
+          }
+          val _: Future[ServerBinding] = Await.ready(serviceF, 5.seconds)
+        }
     }
   }
 }

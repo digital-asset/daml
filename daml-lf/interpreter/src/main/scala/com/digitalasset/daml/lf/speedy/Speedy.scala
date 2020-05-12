@@ -513,7 +513,7 @@ object Speedy {
     def newBuilder(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
-        transactionSeed: Option[crypto.Hash],
+        submissionSeed: Option[crypto.Hash],
     ): Either[SError, Expr => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right(
@@ -522,7 +522,7 @@ object Speedy {
             SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
             compiledPackages,
             submissionTime,
-            InitialSeeding(transactionSeed),
+            InitialSeeding(submissionSeed),
             Set.empty
         ))
     }

@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.daml.lf.CompiledPackages
+import com.daml.lf.{CompiledPackages, crypto}
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
 import com.daml.lf.language.Ast
@@ -56,8 +56,11 @@ object ScenarioLoader {
   def fromScenario(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
-    val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
+      scenario: String,
+      submissionSeed: Option[crypto.Hash],
+  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
+    val (scenarioLedger, scenarioRef) =
+      buildScenarioLedger(packages, compiledPackages, scenario, submissionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
@@ -110,31 +113,34 @@ object ScenarioLoader {
   private def buildScenarioLedger(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String): (L.Ledger, Ref.DefinitionRef) = {
+      scenario: String,
+      submissionSeed: Option[crypto.Hash],
+  ): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(Ref.DefinitionRef, Ast.Definition)] =
-      getCandidateScenarios(packages, scenarioQualName)
+    val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages)
+    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages, submissionSeed)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
   }
 
   private def getScenarioLedger(
       scenarioRef: Ref.DefinitionRef,
-      speedyMachine: Speedy.Machine): L.Ledger = {
-    ScenarioRunner(speedyMachine).run match {
+      speedyMachine: Speedy.Machine,
+  ): L.Ledger =
+    ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
       case Right((_, _, l, _)) => l
     }
-  }
 
   private def getSpeedyMachine(
       scenarioExpr: Ast.Expr,
-      compiledPackages: CompiledPackages): Speedy.Machine =
-    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), None) match {
+      compiledPackages: CompiledPackages,
+      submissionSeed: Option[crypto.Hash],
+  ): Speedy.Machine =
+    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), submissionSeed) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
       case Right(build) => build(scenarioExpr)
     }

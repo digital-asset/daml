@@ -9,12 +9,12 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
+import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}

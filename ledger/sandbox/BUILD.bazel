@@ -38,6 +38,7 @@ compile_deps = [
     "//ledger/participant-state-metrics",
     "//ledger/participant-state/kvutils",
     "//libs-scala/build-info",
+    "//libs-scala/caching",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
     "//libs-scala/ports",

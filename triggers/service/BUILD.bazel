@@ -10,8 +10,10 @@ load(
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 da_scala_library(
-    name = "trigger-service-lib",
+    name = "trigger-service",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    # Uncomment this if/when the target is published to maven.
+    # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -46,11 +48,11 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "trigger-service",
+    name = "trigger-service-binary",
     main_class = "com.daml.lf.engine.trigger.ServiceMain",
     visibility = ["//visibility:public"],
     deps = [
-        ":trigger-service-lib",
+        ":trigger-service",
     ],
 )
 
@@ -60,7 +62,7 @@ da_scala_test(
     data = [":test-model.dar"],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
-        ":trigger-service-lib",
+        ":trigger-service",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -111,3 +113,5 @@ EOF
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
+
+exports_files(["release/trigger-service-logback.xml"])

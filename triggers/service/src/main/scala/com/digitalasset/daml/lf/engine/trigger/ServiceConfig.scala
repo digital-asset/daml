@@ -53,7 +53,7 @@ object ServiceConfig {
     parser.parse(
       args,
       ServiceConfig(
-        darPath = null,
+        darPath = None,
         ledgerHost = null,
         ledgerPort = 0,
         timeProviderType = TimeProviderType.Static,

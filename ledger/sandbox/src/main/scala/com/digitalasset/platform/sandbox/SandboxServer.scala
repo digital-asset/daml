@@ -76,35 +76,6 @@ object SandboxServer {
       }
     } yield server
 
-  // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
-    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
-    // [[ScenarioLoader]] needs all the packages to be already compiled --
-    // make sure that that's the case
-    if (config.eagerPackageLoading || config.scenario.nonEmpty) {
-      for (pkgId <- packageStore.listLfPackagesSync().keys) {
-        val pkg = packageStore.getLfPackageSync(pkgId).get
-        engine
-          .preloadPackage(pkgId, pkg)
-          .consume(
-            { _ =>
-              sys.error("Unexpected request of contract")
-            },
-            packageStore.getLfPackageSync, { _ =>
-              sys.error("Unexpected request of contract key")
-            }
-          )
-      }
-    }
-    config.scenario match {
-      case None => (InMemoryActiveLedgerState.empty, ImmArray.empty, None)
-      case Some(scenario) =>
-        val (acs, records, ledgerTime) =
-          ScenarioLoader.fromScenario(packageStore, engine.compiledPackages(), scenario)
-        (acs, records, Some(ledgerTime))
-    }
-  }
-
   final class SandboxState(
       materializer: Materializer,
       metrics: Metrics,
@@ -155,6 +126,7 @@ final class SandboxServer(
   val participantId: ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
+  private val seedingService = config.seeding.map(SeedService(_))
 
   // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
   // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
@@ -192,6 +164,40 @@ final class SandboxServer(
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
     // the reset will never be handled by the old one.
     apiServicesClosed
+  }
+
+  // if requested, initialize the ledger state with the given scenario
+  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
+    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
+    // [[ScenarioLoader]] needs all the packages to be already compiled --
+    // make sure that that's the case
+    if (config.eagerPackageLoading || config.scenario.nonEmpty) {
+      for (pkgId <- packageStore.listLfPackagesSync().keys) {
+        val pkg = packageStore.getLfPackageSync(pkgId).get
+        engine
+          .preloadPackage(pkgId, pkg)
+          .consume(
+            { _ =>
+              sys.error("Unexpected request of contract")
+            },
+            packageStore.getLfPackageSync, { _ =>
+              sys.error("Unexpected request of contract key")
+            }
+          )
+      }
+    }
+    config.scenario match {
+      case None => (InMemoryActiveLedgerState.empty, ImmArray.empty, None)
+      case Some(scenario) =>
+        val (acs, records, ledgerTime) =
+          ScenarioLoader.fromScenario(
+            packageStore,
+            engine.compiledPackages(),
+            scenario,
+            seedingService.map(_.nextSeed()),
+          )
+        (acs, records, Some(ledgerTime))
+    }
   }
 
   private def buildAndStartApiServer(
@@ -284,7 +290,7 @@ final class SandboxServer(
         optTimeServiceBackend = timeServiceBackendO,
         metrics = metrics,
         healthChecks = healthChecks,
-        seedService = config.seeding.map(SeedService(_)),
+        seedService = seedingService,
       )(materializer, executionSequencerFactory, logCtx)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(

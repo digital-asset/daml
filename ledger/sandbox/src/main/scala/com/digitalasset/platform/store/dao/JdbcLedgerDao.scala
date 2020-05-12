@@ -471,7 +471,17 @@ private class JdbcLedgerDao(
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  ): Future[PersistenceResponse] =
+  ): Future[PersistenceResponse] = {
+    val preparedTransactionInsert =
+      transactionsWriter.prepare(
+        submitterInfo = submitterInfo,
+        workflowId = workflowId,
+        transactionId = transactionId,
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        offset = offset,
+        transaction = transaction,
+        divulgedContracts = divulged,
+      )
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDao) { implicit conn =>
         val error =
@@ -481,15 +491,7 @@ private class JdbcLedgerDao(
             divulged = divulged.iterator.map(_.contractId).toSet,
           )
         if (error.isEmpty) {
-          transactionsWriter.write(
-            submitterInfo = submitterInfo,
-            workflowId = workflowId,
-            transactionId = transactionId,
-            ledgerEffectiveTime = ledgerEffectiveTime,
-            offset = offset,
-            transaction = transaction,
-            divulgedContracts = divulged,
-          )
+          preparedTransactionInsert.write()
           submitterInfo
             .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
             .foreach(_.execute())
@@ -502,6 +504,7 @@ private class JdbcLedgerDao(
         updateLedgerEnd(offset)
         Ok
       }
+  }
 
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
@@ -534,15 +537,17 @@ private class JdbcLedgerDao(
                   for (submitter <- tx.submittingParty; appId <- tx.applicationId;
                     cmdId <- tx.commandId)
                     yield SubmitterInfo(submitter, appId, cmdId, Instant.EPOCH)
-                transactionsWriter.write(
-                  submitterInfo = submitterInfo,
-                  workflowId = tx.workflowId,
-                  transactionId = tx.transactionId,
-                  ledgerEffectiveTime = tx.ledgerEffectiveTime,
-                  offset = offset,
-                  transaction = tx.transaction.mapNodeId(splitOrThrow),
-                  divulgedContracts = Nil,
-                )
+                transactionsWriter
+                  .prepare(
+                    submitterInfo = submitterInfo,
+                    workflowId = tx.workflowId,
+                    transactionId = tx.transactionId,
+                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
+                    offset = offset,
+                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    divulgedContracts = Nil,
+                  )
+                  .write()
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
