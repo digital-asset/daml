@@ -73,10 +73,7 @@ abstract class ScenarioLoadingITBase
     val occurrence = if (present) 1 else 0
     val _ = events.collect {
       case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _, _, _) =>
-        // the absolute contract ids are opaque -- they have no specified format. however, for now
-        // we like to keep it consistent between the DAML studio and the sandbox. Therefore verify
-        // that they have the same format.
-        ce.contractId should fullyMatch regex "#[0-9]+:[0-9]+"
+        ce.contractId should fullyMatch regex "00([0-9a-f][0-9a-f]){32,94}"
         ce
     }.size should equal(occurrence)
   }
