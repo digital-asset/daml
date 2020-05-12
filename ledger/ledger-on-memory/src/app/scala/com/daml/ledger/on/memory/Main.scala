@@ -12,7 +12,8 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   Runner
 }
-import com.daml.ledger.participant.state.kvutils.caching
+import com.daml.caching
+import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
