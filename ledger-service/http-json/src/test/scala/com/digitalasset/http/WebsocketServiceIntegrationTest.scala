@@ -522,6 +522,20 @@ class WebsocketServiceIntegrationTest
         }: Future[Assertion]
   }
 
+  "query on a bunch of random splits should yield consistent results" in withHttpService {
+    (uri, _, _) =>
+      val splitSample = SplitSeq.gen.map(_ map (BigDecimal(_))).sample.get
+      val query =
+        """[
+          {"templateIds": ["Iou:Iou"]}
+        ]"""
+      singleClientQueryStream(uri, query)
+        .via(parseResp)
+        .map(iouSplitResult)
+        .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
+        .runWith(Consume.interpret(trialSplitSeq(uri, splitSample)))
+  }
+
   private def trialSplitSeq(
       serviceUri: Uri,
       ss: SplitSeq[BigDecimal]): Consume.FCC[IouSplitResult, Assertion] = {
