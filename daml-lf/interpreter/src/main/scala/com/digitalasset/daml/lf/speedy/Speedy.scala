@@ -74,6 +74,8 @@ object Speedy {
        * once the control has been evaluated.
        */
       var kontStack: util.ArrayList[Kont],
+      /* The last encountered location */
+      var _lastLocation: Option[Location],
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -153,6 +155,7 @@ object Speedy {
     }
 
     @inline def pushLocation(loc: Location): Unit = {
+      _lastLocation = Some(loc)
       locationStack.push(loc)
       topKont.incrementLocationPops()
     }
@@ -164,7 +167,7 @@ object Speedy {
     }
 
     /* The last encountered location */
-    def lastLocation: Option[Location] = locationStack.top()
+    def lastLocation: Option[Location] = _lastLocation
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
@@ -469,6 +472,7 @@ object Speedy {
         returnValue = null,
         env = emptyEnv,
         kontStack = initialKontStack(),
+        _lastLocation = None,
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
         commitLocation = None,
