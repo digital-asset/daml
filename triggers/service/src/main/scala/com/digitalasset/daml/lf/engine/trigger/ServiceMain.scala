@@ -168,18 +168,25 @@ object Server {
           }
         )
       },
-      // List triggers currently running for the given party
       get {
-        path("list") {
-          entity(as[ListParams]) { params =>
-            {
-              val triggerList =
-                triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList
-              val result = JsObject(("triggerIds", triggerList.toJson))
-              complete(successResponse(result))
+        // Convenience endpoint for tests (roughly follow
+        // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
+        concat(
+          path("health") {
+            complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
+          },
+          // List triggers currently running for the given party
+          path("list") {
+            entity(as[ListParams]) { params =>
+              {
+                val triggerList =
+                  triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList
+                val result = JsObject(("triggerIds", triggerList.toJson))
+                complete(successResponse(result))
+              }
             }
           }
-        }
+        )
       },
       // Stop a trigger given its UUID
       delete {
@@ -294,7 +301,7 @@ object ServiceMain {
             config.commandTtl,
           )
         val system: ActorSystem[Server.Message] =
-          ActorSystem(Server("localhost", 8080, ledgerConfig, dar), "TriggerService")
+          ActorSystem(Server("localhost", config.httpPort, ledgerConfig, dar), "TriggerService")
         // Timeout chosen at random, change freely if you see issues.
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler
