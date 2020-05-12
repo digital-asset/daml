@@ -842,7 +842,7 @@ object WebsocketServiceIntegrationTest {
       if (size > 1 && x > 1)
         Gen.frequency(
           (1, Gen const Leaf(x)),
-          (8 min size, Gen.chooseNum(1: Amount, x) flatMap { split =>
+          (8 min size, Gen.chooseNum(1: Amount, x - 1) flatMap { split =>
             Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
               case (l, r) => Node(x, l, r)
             }
