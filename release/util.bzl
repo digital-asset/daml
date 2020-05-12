@@ -15,6 +15,7 @@ def sdk_tarball(name, version):
             "//navigator/backend:src/main/resources/logback.xml",
             "//extractor:src/main/resources/logback.xml",
             "//ledger-service/http-json:release/json-api-logback.xml",
+            "//triggers/service:release/trigger-service-logback.xml",
             "//language-support/java/codegen:src/main/resources/logback.xml",
             "//triggers/runner:src/main/resources/logback.xml",
             "//daml-script/runner:src/main/resources/logback.xml",
@@ -69,6 +70,7 @@ def sdk_tarball(name, version):
           mkdir -p $$OUT/daml-sdk
           cp $(location //daml-assistant/daml-sdk:sdk_deploy.jar) $$OUT/daml-sdk/daml-sdk.jar
           cp -L $(location //ledger-service/http-json:release/json-api-logback.xml) $$OUT/daml-sdk/
+          cp -L $(location //triggers/service:release/trigger-service-logback.xml) $$OUT/daml-sdk/
           cp -L $(location //ledger/sandbox:src/main/resources/logback.xml) $$OUT/daml-sdk/sandbox-logback.xml
           cp -L $(location //navigator/backend:src/main/resources/logback.xml) $$OUT/daml-sdk/navigator-logback.xml
           cp -L $(location //extractor:src/main/resources/logback.xml) $$OUT/daml-sdk/extractor-logback.xml
