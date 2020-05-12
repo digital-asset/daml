@@ -22,6 +22,12 @@ excluded_test_tool_tests = {
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
+        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
         "0.0.0": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
@@ -58,6 +64,12 @@ excluded_test_tool_tests = {
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
+        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
     },
     "1.0.1-snapshot.20200424.3917.0.16093690": {
         "1.0.0": [
@@ -73,6 +85,10 @@ excluded_test_tool_tests = {
             "ContractKeysIT",
         ],
         "1.1.0-snapshot.20200430.4057.0.681c862d": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
+        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
         ],
@@ -98,6 +114,10 @@ excluded_test_tool_tests = {
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
         ],
+        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
         "0.0.0": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
@@ -118,6 +138,12 @@ excluded_test_tool_tests = {
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
+        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
         "0.0.0": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
@@ -126,6 +152,20 @@ excluded_test_tool_tests = {
         ],
     },
     "1.1.0-snapshot.20200430.4057.0.681c862d": {
+        "1.0.0": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200417.3908.1.722bac90": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+    },
+    "1.1.0-snapshot.20200506.4107.0.7e448d81": {
         "1.0.0": [
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
@@ -209,6 +249,51 @@ def daml_ledger_test(
         **kwargs
     )
 
+def create_daml_app_test(
+        name,
+        daml,
+        sandbox,
+        json_api,
+        daml_types,
+        daml_react,
+        daml_ledger,
+        sandbox_args = [],
+        json_api_args = [],
+        data = [],
+        **kwargs):
+    native.sh_test(
+        name = name,
+        # See the comment on daml_ledger_test for why
+        # we need the sh_test.
+        srcs = ["//bazel_tools:create_daml_app_test.sh"],
+        args = [
+                   "$(rootpath //bazel_tools/create-daml-app:runner)",
+                   #"--daml",
+                   "$(rootpath %s)" % daml,
+                   #"--sandbox",
+                   "$(rootpath %s)" % sandbox,
+                   #"--json-api",
+                   "$(rootpath %s)" % json_api,
+                   "$(rootpath %s)" % daml_types,
+                   "$(rootpath %s)" % daml_ledger,
+                   "$(rootpath %s)" % daml_react,
+                   "$(rootpath @nodejs//:yarn)",
+               ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]) +
+               _concat([["--json-api-arg", arg] for arg in json_api_args]),
+        data = data + depset(direct = [
+            "//bazel_tools/create-daml-app:runner",
+            "@nodejs//:yarn",
+            # Deduplicate if daml and sandbox come from the same release.
+            daml,
+            sandbox,
+            json_api,
+            daml_types,
+            daml_react,
+            daml_ledger,
+        ]).to_list(),
+        **kwargs
+    )
+
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components
     daml_assistant = "@daml-sdk-{sdk_version}//:daml".format(
@@ -226,9 +311,15 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = platform_version,
     )
 
+    json_api = "@daml-sdk-{platform_version}//:daml".format(
+        platform_version = platform_version,
+    )
+
     # We need to use weak seeding to avoid our tests timing out
     # if the CI machine does not have enough entropy.
     sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
+
+    json_api_args = ["json-api"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -289,4 +380,19 @@ def sdk_platform_test(sdk_version, platform_version):
         sandbox_args = sandbox_args,
         size = "large",
         tags = extra_tags(sdk_version, platform_version),
+    )
+    create_daml_app_test(
+        name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
+        daml = daml_assistant,
+        sandbox = sandbox,
+        json_api = json_api,
+        daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
+        daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
+        daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
+        sandbox_args = sandbox_args,
+        json_api_args = json_api_args,
+        size = "large",
+        # Yarn gets really unhappy on Windows if it is called in parallel
+        # so we mark this exclusive for now.
+        tags = extra_tags(sdk_version, platform_version) + (["exclusive"] if is_windows else []),
     )

@@ -73,6 +73,9 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , "        \"macos\": " <> renderDigest macosHash <> ","
         , "        \"windows\": " <> renderDigest windowsHash <> ","
         , "        \"test_tool\": " <> renderDigest testToolHash <> ","
+        , "        \"daml_types\": " <> renderDigest damlTypesHash <> ","
+        , "        \"daml_ledger\": " <> renderDigest damlLedgerHash <> ","
+        , "        \"daml_react\": " <> renderDigest damlReactHash <> ","
         , "    },"
         ]
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
@@ -88,13 +91,23 @@ data Checksums = Checksums
   , macosHash :: Digest SHA256
   , windowsHash :: Digest SHA256
   , testToolHash :: Digest SHA256
+  , damlTypesHash :: Digest SHA256
+  , damlLedgerHash :: Digest SHA256
+  , damlReactHash :: Digest SHA256
   }
 
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
     putStrLn ("Requesting hashes for " <> SemVer.toString ver)
-    [linuxHash, macosHash, windowsHash, testToolHash] <-
-        forConcurrently [sdkUrl "linux", sdkUrl "macos", sdkUrl "windows", testToolUrl] $ \url -> do
+    [ linuxHash, macosHash, windowsHash, testToolHash,
+      damlTypesHash, damlLedgerHash, damlReactHash ] <-
+        forConcurrently
+            [ sdkUrl "linux", sdkUrl "macos", sdkUrl "windows"
+            , testToolUrl
+            , tsLib "types"
+            , tsLib "ledger"
+            , tsLib "react"
+            ] $ \url -> do
         req <- parseRequestThrow url
         bs <- httpLbs req
         let !hash = hashlazy (getResponseBody bs)
@@ -107,6 +120,9 @@ getChecksums ver = do
         testToolUrl =
             "https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/" <>
             SemVer.toString ver <> "/ledger-api-test-tool-" <> SemVer.toString ver <> ".jar"
+        tsLib name =
+            "https://registry.npmjs.org/@daml/" <> name <>
+            "/-/" <> name <> "-" <> SemVer.toString ver <> ".tgz"
 
 optsParser :: Parser Opts
 optsParser = Opts

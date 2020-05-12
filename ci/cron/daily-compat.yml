@@ -23,7 +23,17 @@ schedules:
   always: true
 
 jobs:
+  - job: compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../compatibility_ts_libs.yml
+
   - job: compatibility
+    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 240
     strategy:
       matrix:
@@ -54,6 +64,7 @@ jobs:
         condition: always()
 
   - job: compatibility_windows
+    dependsOn: compatibility_ts_libs
     timeoutInMinutes: 240
     pool:
       name: windows-pool
