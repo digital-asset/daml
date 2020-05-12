@@ -51,6 +51,56 @@ xcode-select --install
 
 This will open a graphical dialog to install the XCode Command-Line Tools.
 
+## Vagrant
+
+To easily manage the guest VM from scripts, we will be using [Vagrant](https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.7_x86_64.dmg).
+
+Alternatively, installing with Homebrew:
+
+```
+brew cask install vagrant
+```
+
+These instructions have been tested with 2.2.9.
+
+## Hypervisor Selection
+
+We provide two options for the hypervisor: VirtualBox (open-source) and VMWare Fusion (commercial license). This 
+resulted from our testing on large Mac Mini nodes (6 Core, 64Gb, 500Gb drives) where we found VirtualBox to be
+less stable when attempting to use > 6 virtual cores or 32Gb or more of memory. The Guest OS would hang on boot, or 
+experience slow processing or network to the extent that it became unusable. 
+
+## VMWare Fusion
+
+Purchase a license for 
+
+* [VMware Fusion Pro 11.5.3](http://www.vmware.com/products/fusion.html)
+* [Vagrant VMware Desktop Provider 2.0.3](https://www.vagrantup.com/vmware/)
+
+Download the installer packages for this software. Install VMWare Fusion per vendor instructions and accept
+the security settings in Catalina. 
+
+In a Terminal, ensure you have vagrant 2.2.9 and upgrade if necessary or you will receive error from vagrant plugin
+on VM creation.
+
+```bash
+vagrant --version
+brew cask install vagrant
+```
+
+You will need to install the vagrant plugin and license
+
+```bash
+vagrant plugin install vagrant-vmware-desktop
+vagrant plugin license vagrant-vmware-desktop ~/license.lic
+```
+
+To verify the license installation, run:
+
+```bash
+vagrant plugin list
+```
+
 ## VirtualBox
 
 Download and install
@@ -71,22 +121,10 @@ The extension pack has to be manually added after the installation of
 VirtualBox; this can be done through the UI, or running:
 
 ```bash
-sudo VBoxManage extpack install /path/to/download/Oracle_VM_VirtualBox_Extension_Pack-6.1.4.vbox-extpack
+sudo VBoxManage extpack install /path/to/download/Oracle_VM_VirtualBox_Extension_Pack-6.1.6.vbox-extpack
 ```
 
-These instructions have been tested against 6.1.4.
-
-## Vagrant
-
-To easily manage the guest VM from scripts, we will be using [Vagrant](https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.7_x86_64.dmg).
-
-Alternatively, installing with Homebrew:
-
-```
-brew cask install vagrant
-```
-
-These instructions have been tested with 2.2.7.
+These instructions have been tested against 6.1.6.
 
 ## rbenv
 
@@ -156,8 +194,18 @@ After all the tools are installed (and the macOS installer has finished
 downloading), you can create the base image ("Vagrant box") using the following
 command:
 
+## VMWare Fusion Variant
+
 ```bash
-sudo macinbox --box-format virtualbox --disk 400 --memory 32000 --cpu 6 --user-script user-script.sh
+sudo macinbox --box-format vmware_desktop --disk 250 --memory 57344 --cpu 10 --user-script user-script.sh
+```
+
+## VirtualBox variant
+
+NOTE: Limited use of hardware due to possible bugs in VirtualBox.
+
+```bash
+sudo macinbox --box-format virtualbox --disk 250 --memory 32000 --cpu 5 --user-script user-script.sh
 ```
 
 The disk size given here (in GB) will be the disk size used by the individual
@@ -170,6 +218,9 @@ progressively incrementing the size each time we had a "disk is full" error.
 32GB of RAM and 4 CPU cores are the values I arrived at by running our existing
 build against various virtual instance types on Linux and Windows (see
 [#4520](https://github.com/digital-asset/daml/pull/4520)).
+
+250Gb disk, 56Gb memory and 10 virtual cores was arrived at from testing on Mac Mini 2018 nodes with 6 core 
+processors.
 
 The provided "user script", which can be inspected in the current directory,
 adds a `synthetic.conf` file as part of the base macOS image we are creating,
