@@ -118,7 +118,8 @@ fetchByKey
 
 - ``fetchByKey`` function.
 - The same as ``fetch``, but fetches the contract instance with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
-- As well as the authorization that ``fetch`` requires, you also need authorization from one of the ``maintainers`` of the key.
+- Like ``fetch``, ``fetchByKey`` needs to be authorized by at least one stakeholder of the contract.
+- Fails if no contract can be found.
 
 .. _daml-ref-lookup-by-key:
 
@@ -131,8 +132,8 @@ lookupByKey
 
 - ``lookupByKey`` function.
 - Use this to confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
-- If it does exist, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. If it returns ``None``, this guarantees that no contract has this key. This does **not** cause the transaction to abort.
-- **All** of the maintainers of the key must authorize the lookup (by either being signatories or by submitting the command to lookup), otherwise this will fail.
+- If the submitting party is a stakeholder of a matching contract, ``lookupByKey`` returns the ``ContractId`` of the contract; otherwise, it returns ``None``. Transactions may fail due to contention because the key changes between the lookup and committing the transaction, or becasue the submitter didn't know about the existence of a matching contract.
+- **All** of the maintainers of the key must authorize the lookup (by either being signatories or by submitting the command to lookup).
 
 .. _daml-ref-abort:
 

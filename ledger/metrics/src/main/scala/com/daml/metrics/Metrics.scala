@@ -244,6 +244,7 @@ class Metrics(val registry: MetricRegistry) {
       val uploadPackages: Timer = registry.timer(prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(prefix :+ "publish_configuration")
 
+      // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
 
         val prefix: MetricName = index.prefix :+ "db"
@@ -273,10 +274,59 @@ class Metrics(val registry: MetricRegistry) {
         val stopDeduplicatingCommand: Timer =
           registry.timer(prefix :+ "stop_deduplicating_command")
 
-        def wait(description: String): Timer = registry.timer(prefix :+ description :+ "wait")
-        def exec(description: String): Timer = registry.timer(prefix :+ description :+ "exec")
-        val waitAll: Timer = wait("all")
-        val execAll: Timer = exec("all")
+        private val createDatabaseMetrics: String => DatabaseMetrics =
+          DatabaseMetrics(registry, prefix)(_)
+
+        private val overall = createDatabaseMetrics("all")
+        val waitAll: Timer = overall.waitTimer
+        val execAll: Timer = overall.executionTimer
+
+        val getCompletions: DatabaseMetrics = createDatabaseMetrics("get_completions")
+        val getLedgerId: DatabaseMetrics = createDatabaseMetrics("get_ledger_id")
+        val getLedgerEnd: DatabaseMetrics = createDatabaseMetrics("get_ledger_end")
+        val getInitialLedgerEnd: DatabaseMetrics = createDatabaseMetrics("get_initial_ledger_end")
+        val initializeLedgerParameters: DatabaseMetrics = createDatabaseMetrics(
+          "initialize_ledger_parameters")
+        val lookupConfiguration: DatabaseMetrics = createDatabaseMetrics("lookup_configuration")
+        val loadConfigurationEntries: DatabaseMetrics = createDatabaseMetrics(
+          "load_configuration_entries")
+        val storeConfigurationEntryDao: DatabaseMetrics = createDatabaseMetrics(
+          "store_configuration_entry") // FIXME Base name conflicts with storeConfigurationEntry
+        val storePartyEntryDao
+          : DatabaseMetrics = createDatabaseMetrics("store_party_entry") // FIXME Base name conflicts with storePartyEntry
+        val loadPartyEntries: DatabaseMetrics = createDatabaseMetrics("load_party_entries")
+        val storeTransactionDao
+          : DatabaseMetrics = createDatabaseMetrics("store_ledger_entry") // FIXME Base name conflicts with storeTransaction
+        val storeRejectionDao
+          : DatabaseMetrics = createDatabaseMetrics("store_rejection") // FIXME Base name conflicts with storeRejection
+        val storeInitialStateFromScenario: DatabaseMetrics = createDatabaseMetrics(
+          "store_initial_state_from_scenario")
+        val loadParties: DatabaseMetrics = createDatabaseMetrics("load_parties")
+        val loadAllParties: DatabaseMetrics = createDatabaseMetrics("load_all_parties")
+        val loadPackages: DatabaseMetrics = createDatabaseMetrics("load_packages")
+        val loadArchive: DatabaseMetrics = createDatabaseMetrics("load_archive")
+        val storePackageEntryDao
+          : DatabaseMetrics = createDatabaseMetrics("store_package_entry") // FIXME Base name conflicts with storePackageEntry
+        val loadPackageEntries: DatabaseMetrics = createDatabaseMetrics("load_package_entries")
+        val deduplicateCommandDao
+          : DatabaseMetrics = createDatabaseMetrics("deduplicate_command") // FIXME Base name conflicts with deduplicateCommand
+        val removeExpiredDeduplicationDataDao: DatabaseMetrics = createDatabaseMetrics(
+          "remove_expired_deduplication_data") // FIXME Base name conflicts with removeExpiredDeduplicationData
+        val stopDeduplicatingCommandDao: DatabaseMetrics = createDatabaseMetrics(
+          "stop_deduplicating_command") // FIXME Base name conflicts with stopDeduplicatingCommand
+        val truncateAllTables: DatabaseMetrics = createDatabaseMetrics("truncate_all_tables")
+        val lookupActiveContractDao: DatabaseMetrics = createDatabaseMetrics(
+          "lookup_active_contract") // FIXME Base name conflicts with lookupActiveContract
+        val lookupContractByKey: DatabaseMetrics = createDatabaseMetrics("lookup_contract_by_key")
+        val lookupMaximumLedgerTimeDao: DatabaseMetrics = createDatabaseMetrics(
+          "lookup_maximum_ledger_time") // FIXME Base name conflicts with lookupActiveContract
+        val getFlatTransactions: DatabaseMetrics = createDatabaseMetrics("get_flat_transactions")
+        val lookupFlatTransactionById: DatabaseMetrics = createDatabaseMetrics(
+          "lookup_flat_transaction_by_id")
+        val getTransactionTrees: DatabaseMetrics = createDatabaseMetrics("get_transaction_trees")
+        val lookupTransactionTreeById: DatabaseMetrics = createDatabaseMetrics(
+          "lookup_transaction_tree_by_id")
+        val getActiveContracts: DatabaseMetrics = createDatabaseMetrics("get_active_contracts")
 
       }
     }

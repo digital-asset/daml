@@ -32,6 +32,7 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -55,6 +56,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -95,6 +97,7 @@ jobs:
     timeoutInMinutes: 10
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -161,6 +164,7 @@ jobs:
     timeoutInMinutes: 10
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |

@@ -154,17 +154,22 @@ object ValueGenerators {
   val absCoidV0Gen: Gen[AbsoluteContractId.V0] =
     Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
   private val genAbsCidV1: Gen[AbsoluteContractId.V1] =
-    Gen.zip(genHash, genBytes) map { case (h, b) => AbsoluteContractId.V1(h, b) }
+    Gen.zip(genHash, genBytes) map { case (h, b) => AbsoluteContractId.V1.assertBuild(h, b) }
 
   def absCoidGen: Gen[AbsoluteContractId] = Gen.oneOf(absCoidV0Gen, genAbsCidV1)
 
   /** Universes of totally-ordered AbsoluteContractIds. */
   def comparableAbsCoidsGen: Seq[Gen[AbsoluteContractId]] =
     Seq(
-      Gen.oneOf(absCoidV0Gen, Gen.zip(genAbsCidV1, arbitrary[Byte]) map {
-        case (b1, b) => b1.copy(suffix = b1.suffix ++ Bytes.fromByteArray(Array(b)))
-      }),
-      Gen.oneOf(absCoidV0Gen, genAbsCidV1 map (_.copy(suffix = Bytes.Empty))),
+      Gen.oneOf(
+        absCoidV0Gen,
+        Gen.zip(genAbsCidV1, arbitrary[Byte]) map {
+          case (b1, b) =>
+            AbsoluteContractId.V1
+              .assertBuild(b1.discriminator, b1.suffix ++ Bytes.fromByteArray(Array(b)))
+        }
+      ),
+      Gen.oneOf(absCoidV0Gen, genAbsCidV1 map (cid => AbsoluteContractId.V1(cid.discriminator))),
     )
 
   def coidGen: Gen[ContractId] =

@@ -68,7 +68,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   private val tmplId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Contract"))
 
   private def contractId(discriminator: crypto.Hash, suffix: Bytes): Value.AbsoluteContractId =
-    Value.AbsoluteContractId.V1(discriminator, suffix)
+    Value.AbsoluteContractId.V1.assertBuild(discriminator, suffix)
 
   private def keyRecord(party: Ref.Party, idx: Int) =
     Value.ValueRecord(
