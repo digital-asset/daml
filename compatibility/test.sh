@@ -18,10 +18,11 @@ eval "$(../dev-env/bin/dade-assist)"
 # it unconditionally since it should be cheap enough.
 cp ../.bazelrc .bazelrc
 
-bazel build //...
 if [ "${1:-}" = "--quick" ]; then
+    bazel build //...
     bazel test //:head-quick
 else
+    # bazel test //... will also build targets that are not tests.
     bazel test //...
 fi
 

@@ -18,9 +18,7 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-# Bazel test only builds targets that are dependencies of a test suite
-# so do a full build first.
-bazel build //... --build_tag_filters "$tag_filter"
+# bazel test //... will also build targets that are not tests.
 bazel test //... --build_tag_filters "$tag_filter" --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
