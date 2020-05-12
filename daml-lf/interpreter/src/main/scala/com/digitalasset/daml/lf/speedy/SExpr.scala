@@ -142,7 +142,7 @@ object SExpr {
       }
 
       val sValues = convertToSValues(fv, machine.getEnv)
-      machine.returnValue = SPAP(PClosure(body, sValues), new util.ArrayList[SValue](), arity)
+      machine.returnValue = SPAP(PClosure(None, body, sValues), new util.ArrayList[SValue](), arity)
     }
   }
 

@@ -31,14 +31,14 @@ final case class ScenarioRunner(
 
   import scala.util.{Try, Success, Failure}
 
-  def run(): Either[(SError, Ledger), (Double, Int, Ledger, SValue)] =
+  def run(): (Speedy.Machine, Either[(SError, Ledger), (Double, Int, Ledger, SValue)]) =
     Try(runUnsafe) match {
       case Failure(SRunnerException(err)) =>
-        Left((err, ledger))
+        (machine, Left((err, ledger)))
       case Failure(other) =>
         throw other
       case Success(res) =>
-        Right(res)
+        (machine, Right(res))
     }
 
   private def runUnsafe(): (Double, Int, Ledger, SValue) = {

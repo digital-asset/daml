@@ -113,6 +113,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case KMatch(_) => counts.kmatch += 1
       case KCatch(_, _, _) => counts.kcatch += 1
       case KFinished => counts.kfinished += 1
+      case KLabel(_) => ()
+      case KCloseEvent(_) => ()
     }
   }
 

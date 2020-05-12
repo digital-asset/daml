@@ -4,7 +4,9 @@
 package com.daml.lf
 package speedy
 
+import java.time.Instant
 import java.util
+import java.util.ArrayList
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -25,6 +27,11 @@ object Speedy {
   val enableInstrumentation: Boolean = false
   val enableLightweightStepTracing: Boolean = false
 
+  /** Event occurring during profiling, either opening or closing the closure
+    * with the given label.
+    */
+  final case class ProfilerEvent(open: Boolean, label: Option[SDefinitionRef], time: Instant)
+
   /** Instrumentation counters. */
   final case class Instrumentation(
       var classifyCounts: Classify.Counts,
@@ -32,6 +39,8 @@ object Speedy {
       var countPushesEnv: Int,
       var maxDepthKont: Int,
       var maxDepthEnv: Int,
+      var profilerStart: Instant,
+      var profilerEvents: ArrayList[ProfilerEvent],
   ) {
     def print(): Unit = {
       println("--------------------")
@@ -54,6 +63,8 @@ object Speedy {
         countPushesEnv = 0,
         maxDepthKont = 0,
         maxDepthEnv = 0,
+        profilerStart = Instant.now(),
+        profilerEvents = new ArrayList(),
       )
     }
   }
@@ -190,6 +201,13 @@ object Speedy {
       ImmArray(s.asScala)
     }
 
+    /** Register an opening event during profiling. */
+    def openEvent(label: Option[SDefinitionRef]): Unit = {
+      val time = Instant.now()
+      val _ = track.profilerEvents.add(ProfilerEvent(true, label, time))
+      pushKont(KCloseEvent(label))
+    }
+
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
         case V.AbsoluteContractId.V1(discriminator, _)
@@ -292,6 +310,7 @@ object Speedy {
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               pushKont(KCacheVal(eval, Nil))
+              pushKont(KLabel(ref))
               ctrl = body
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
@@ -315,7 +334,8 @@ object Speedy {
 
     def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
       prim match {
-        case PClosure(expr, vars) =>
+        case PClosure(label, expr, vars) =>
+          openEvent(label)
           // Pop the arguments once we're done evaluating the body.
           pushKont(KPop(args.size + vars.size))
 
@@ -802,6 +822,25 @@ object Speedy {
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(location: Location) extends Kont {
     def execute(v: SValue, machine: Machine) = {
+      machine.returnValue = v
+    }
+  }
+
+  final case class KLabel(label: SDefinitionRef) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      v match {
+        case SPAP(PClosure(_, expr, closure), args, arity) =>
+          machine.returnValue = SPAP(PClosure(Some(label), expr, closure), args, arity)
+        case _ =>
+          machine.returnValue = v
+      }
+    }
+  }
+
+  final case class KCloseEvent(label: Option[SDefinitionRef]) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      val time = Instant.now()
+      val _ = machine.track.profilerEvents.add(ProfilerEvent(false, label, time))
       machine.returnValue = v
     }
   }

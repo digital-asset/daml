@@ -88,8 +88,8 @@ sealed trait SValue {
       case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
-          case PClosure(expr, vars) =>
-            PClosure(expr, vars.map(_.mapContractId(f)))
+          case PClosure(label, expr, vars) =>
+            PClosure(label, expr, vars.map(_.mapContractId(f)))
           case other => other
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
@@ -120,8 +120,8 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
-    override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
+  final case class PClosure(label: Option[SExpr.SDefinitionRef], expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
+    override def toString: String = s"PClosure(${label}, $expr, ${closure.mkString("[", ",", "]")})"
   }
 
   /** A partially applied primitive.

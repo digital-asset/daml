@@ -45,6 +45,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case KMatch(_) => "KMatch"
     case KCatch(_, _, _) => "KCatch" //never seen
     case KFinished => "KFinished"
+    case KLabel(label) => s"KLabel(${label})"
+    case KCloseEvent(label) => s"KCloseEvent(${label})"
   }
 
   def ppVarRef(n: Int): String = {
@@ -85,8 +87,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def pp(prim: Prim): String = prim match {
     case PBuiltin(b) => s"$b"
-    case PClosure(expr, fvs) =>
-      s"clo[${commas(fvs.map(pp))}]:${pp(expr)}"
+    case PClosure(label, expr, fvs) =>
+      s"clo[${label}: ${commas(fvs.map(pp))}]:${pp(expr)}"
   }
 
   def commas(xs: Seq[String]): String = xs.mkString(",")

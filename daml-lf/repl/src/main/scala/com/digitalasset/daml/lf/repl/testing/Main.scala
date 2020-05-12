@@ -21,12 +21,16 @@ import com.daml.lf.language.LanguageVersion
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
+import java.time.Instant
+import java.time.temporal.ChronoUnit.NANOS
+import java.util.ArrayList
 
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
 import org.jline.reader.impl.history.DefaultHistory
 
+import scala.collection.mutable.HashMap
 import scala.collection.immutable.ListMap
 import scala.collection.JavaConverters._
 
@@ -35,6 +39,8 @@ object Main extends App {
   // the locale, but in practice it often seems to _not_ do that.
   val out = new PrintStream(System.out, true, "UTF-8")
   System.setOut(out)
+
+  case class ProfileConfig(scenarioId: String, inputFile: String, outputFile: String)
 
   def usage(): Unit = {
     println(
@@ -78,6 +84,8 @@ object Main extends App {
         if (!Repl.testAll(allowDev, file)._1) System.exit(1)
       case List("test", id, file) =>
         if (!Repl.test(allowDev, id, file)._1) System.exit(1)
+      case List("profile", scenarioId, inputFile, outputFile) =>
+        if (!Repl.profile(allowDev, ProfileConfig(scenarioId = scenarioId, inputFile = inputFile, outputFile = outputFile))._1) System.exit(1)
       case List("validate", file) =>
         if (!Repl.validate(allowDev, file)._1) System.exit(1)
       case List(possibleFile) =>
@@ -140,6 +148,9 @@ object Repl {
   def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
     load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
 
+  def profile(allowDev: Boolean, config: Main.ProfileConfig): (Boolean, State) =
+    load(config.inputFile) fMap cmdValidate fMap (state => cmdProfile(state, config))
+
   def validate(allowDev: Boolean, file: String): (Boolean, State) =
     load(file) fMap cmdValidate
 
@@ -170,7 +181,7 @@ object Repl {
       .fold(err => sys.error(err.toString), identity)
     def run(expr: Expr)
       : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger, SValue)]) =
-      (build(expr), ScenarioRunner(build(expr)).run())
+      ScenarioRunner(build(expr)).run()
   }
 
   case class Command(help: String, action: (State, Seq[String]) => State)
@@ -513,6 +524,24 @@ object Repl {
     (failures == 0, state)
   }
 
+  def cmdProfile(state: State, config: Main.ProfileConfig): (Boolean, State) = {
+    buildExpr(state, Seq(config.scenarioId))
+      .map { expr =>
+        val (machine, errOrLedger) =
+          state.scenarioRunner.run(expr)
+        errOrLedger match {
+          case Left((err, ledger @ _)) =>
+            println(prettyError(err, machine.ptx).render(128))
+            (false, state)
+          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+            println("Collecting profile finished. Writing it now...")
+            SpeedscopeJson.write(config, machine.track.profilerStart, machine.track.profilerEvents)
+            (true, state)
+        }
+      }
+      .getOrElse((false, state))
+  }
+
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
 
   def idToRef(state: State, id: String): LfDefRef = {
@@ -581,4 +610,59 @@ object Repl {
 
   private def assertRight[X](e: Either[String, X]): X =
     e.fold(err => throw new RuntimeException(err), identity)
+
+  object SpeedscopeJson {
+    import java.io.{BufferedWriter, FileWriter}
+    import spray.json._
+
+    val schemaURI = "https://www.speedscope.app/file-format-schema.json"
+
+    case class Event(`type`: String, at: Long, frame: Int)
+    case class Profile(`type`: String, name: String, unit: String, startValue: Long, endValue: Long, events: List[Event])
+    case class Frame(name: String)
+    case class Shared(frames: List[Frame])
+    case class File(`$schema`: String, profiles: List[Profile], shared: Shared, activeProfileIndex: Int, exporter: String, name: String)
+
+    object JsonProtocol extends DefaultJsonProtocol {
+      implicit val eventFormat = jsonFormat3(Event.apply)
+      implicit val profileFormat = jsonFormat6(Profile.apply)
+      implicit val frameFormat = jsonFormat1(Frame.apply)
+      implicit val sharedFormat = jsonFormat1(Shared.apply)
+      implicit val fileFormat = jsonFormat6(File.apply)
+    }
+
+    def eventsToFile(config: Main.ProfileConfig, start: Instant, speedyEvents: ArrayList[Speedy.ProfilerEvent]): File = {
+      var frames = new ArrayList[Frame]()
+      var frameIndices = new HashMap[String, Int]()
+      var endValue = 0L
+      val events = speedyEvents.asScala.toList.map { case Speedy.ProfilerEvent(open, label, time) =>
+        val eventType = if (open) "O" else "C"
+        val labelStr = label.toString()
+        val frameIndex = frameIndices.get(labelStr) match {
+          case Some(index) => index
+          case None =>
+            val index = frames.size()
+            frames.add(Frame(labelStr))
+            frameIndices.put(labelStr, index)
+            index
+        }
+        val at = NANOS.between(start, time)
+        if (at > endValue) {
+          endValue = at
+        }
+        Event(`type` = eventType, at = at, frame = frameIndex)
+      }
+      val profile = Profile(`type` = "evented", name = config.scenarioId, unit = "nanoseconds", startValue = 0, endValue = endValue, events = events)
+      val shared = Shared(frames.asScala.toList)
+      File(`$schema` = schemaURI, profiles = List(profile), shared = shared, activeProfileIndex = 0, exporter = "daml-lf-repl", name = config.inputFile)
+    }
+
+    def write(config: Main.ProfileConfig, start: Instant, speedyEvents: ArrayList[Speedy.ProfilerEvent]): Unit = {
+      import JsonProtocol.fileFormat
+      val file = eventsToFile(config, start, speedyEvents)
+      val writer = new BufferedWriter(new FileWriter(config.outputFile))
+      writer.write(file.toJson.compactPrint)
+      writer.close()
+    }
+  }
 }
