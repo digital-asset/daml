@@ -1132,15 +1132,17 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
                  [ "daml 1.2"
                  , "module Foo where"
                  , "boom = fail \"BOOM\""
+                 , "middle : Scenario ()"
+                 , "middle = boom"
                  , "test : Scenario ()"
-                 , "test = boom"
+                 , "test = middle"
                  ]
 
           foo <- makeFile "Foo.daml" fooContent
           let vr = VRScenario foo "test"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
-          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1.*- test.*Foo:5:1"
+          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1.*- middle.*Foo:5:1.*- test.*Foo:7:1"
     , testCase' "debug is lazy" $ do
         let goodScenario =
                 [ "daml 1.2"

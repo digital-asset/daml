@@ -124,6 +124,10 @@ object Speedy {
       kontStack.get(kontStack.size - 1)
     }
 
+    @inline def oneUnderTopKont: Kont = {
+      kontStack.get(kontStack.size - 2)
+    }
+
     @inline def pushKont_KPop(count: Int): Unit = {
       topKont.increaseEnvPops(count)
     }
@@ -156,12 +160,26 @@ object Speedy {
 
     @inline def pushLocation(loc: Location): Unit = {
       _lastLocation = Some(loc)
-      locationStack.push(loc)
-      topKont.incrementLocationPops()
+      topKont match {
+
+        case k: KCacheVal =>
+          k.stack_trace.push(loc)
+
+        case KArg(Array(SEValue.Token)) =>
+          locationStack.push(loc)
+          oneUnderTopKont.incrementLocationPops()
+
+        case kont =>
+          locationStack.push(loc)
+          kont.incrementLocationPops()
+      }
     }
 
-    /** Return a stack trace.
-        The last seen location will come last. */
+    /** Push an entire stack trace to the machine's locationStack. */
+    def pushStackTrace(locs: LocationStack): Unit =
+      locs.freeze().foreach(pushLocation)
+
+    /** Return a stack trace. The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
       locationStack.freeze()
     }
@@ -262,14 +280,15 @@ object Speedy {
 
     def lookupVal(eval: SEVal): Unit = {
       eval.cached match {
-        case Some(v) =>
+        case Some((v, stack_trace)) =>
+          pushStackTrace(stack_trace)
           returnValue = v
 
         case None =>
           val ref = eval.ref
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
-              pushKont(KCacheVal(eval))
+              pushKont(KCacheVal(eval, LocationStack()))
               ctrl = body
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
@@ -794,7 +813,7 @@ object Speedy {
     * accessed. In older compilers which did not use the builtin record and struct
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
-  final case class KCacheVal(eval: SEVal) extends Kont {
+  final case class KCacheVal(eval: SEVal, stack_trace: LocationStack) extends Kont {
 
     var envPopsRequired: Int = 0
     var locationPopsRequired: Int = 0
@@ -804,7 +823,8 @@ object Speedy {
       if (envPopsRequired > 0) machine.popEnv(envPopsRequired)
       if (locationPopsRequired > 0) machine.locationStack.popN(locationPopsRequired)
 
-      eval.setCached(v)
+      machine.pushStackTrace(stack_trace)
+      eval.setCached(v, stack_trace)
       machine.returnValue = v
     }
   }

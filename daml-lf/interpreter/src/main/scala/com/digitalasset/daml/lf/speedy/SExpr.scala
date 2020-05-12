@@ -63,12 +63,12 @@ object SExpr {
     // `setCached`) is done atomically.
     // This is similar how hashcode evaluation is cached in String
     // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
-    private var _cached: Option[SValue] = None
+    private var _cached: Option[(SValue, LocationStack)] = None
 
-    def cached: Option[SValue] = _cached
+    def cached: Option[(SValue, LocationStack)] = _cached
 
-    def setCached(sValue: SValue): Unit =
-      _cached = Some(sValue)
+    def setCached(sValue: SValue, stack_trace: LocationStack): Unit =
+      _cached = Some((sValue, stack_trace))
 
     def execute(machine: Machine): Unit =
       machine.lookupVal(this)
