@@ -110,7 +110,7 @@ object Trigger extends StrictLogging {
       }
     }
 
-    val compiler = Compiler(compiledPackages.packages)
+    val compiler = compiledPackages.compiler
     for {
       pkg <- compiledPackages
         .getPackage(triggerId.packageId)
@@ -208,7 +208,7 @@ class Runner(
     party: String,
 ) extends StrictLogging {
   // Compiles LF expressions into Speedy expressions.
-  private val compiler: Compiler = Compiler(compiledPackages.packages)
+  private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = Converter(compiledPackages, trigger.triggerIds)
   // This is a map from the command IDs used on the ledger API to the
@@ -508,7 +508,7 @@ object Runner extends StrictLogging {
       party: String
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap).right.get
+    val compiledPackages = PureCompiledPackages(darMap, Compiler.NoProfile).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
       case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
       case Right(trigger) => trigger

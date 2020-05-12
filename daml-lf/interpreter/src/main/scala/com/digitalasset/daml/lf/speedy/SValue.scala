@@ -88,8 +88,8 @@ sealed trait SValue {
       case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
-          case PClosure(expr, vars) =>
-            PClosure(expr, vars.map(_.mapContractId(f)))
+          case PClosure(label, expr, vars) =>
+            PClosure(label, expr, vars.map(_.mapContractId(f)))
           case other => other
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
@@ -120,7 +120,19 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
+  /** A closure consisting of an expression together with the values the
+    * expression is closing over.
+    * The [[label]] field is only used during profiling. During non-profiling
+    * runs it is always set to [[null]].
+    * During profiling, whenever a closure whose [[label]] has been set is
+    * entered, we write an "open event" with the label and when the closure is
+    * left, we write a "close event" with the same label.
+    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * [[AnyRef]] for the label.
+    */
+  final case class PClosure(label: AnyRef, expr: SExpr, closure: Array[SValue])
+      extends Prim
+      with SomeArrayEquals {
     override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
   }
 

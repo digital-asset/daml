@@ -37,7 +37,7 @@ class CollectAuthorityState {
     val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
     buildMachine = Speedy.Machine
       .newBuilder(
-        PureCompiledPackages(packagesMap).right.get,
+        PureCompiledPackages(packagesMap, Compiler.NoProfile).right.get,
         Time.Timestamp.MinValue,
         seeding(),
       )

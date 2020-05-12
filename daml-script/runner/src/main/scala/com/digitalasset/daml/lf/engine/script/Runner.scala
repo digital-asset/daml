@@ -26,7 +26,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -207,7 +207,7 @@ object Runner {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap).right.get
+    val compiledPackages = PureCompiledPackages(darMap, Compiler.NoProfile).right.get
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
@@ -281,6 +281,7 @@ class Runner(
       override def packages = compiledPackages.packages
       def packageIds = compiledPackages.packageIds
       override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
+      override def profilingMode = Compiler.NoProfile
     }
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)

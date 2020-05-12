@@ -19,15 +19,21 @@ trait CompiledPackages {
   def packageIds: Set[PackageId]
   def definitions: PartialFunction[SDefinitionRef, SExpr] =
     Function.unlift(this.getDefinition)
+
+  def profilingMode: Compiler.ProfilingMode
+
+  def compiler: Compiler = Compiler(packages, profilingMode)
 }
 
 final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
     defns: Map[SDefinitionRef, SExpr],
+    profiling: Compiler.ProfilingMode,
 ) extends CompiledPackages {
   override def packageIds: Set[PackageId] = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
   override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
+  override def profilingMode = profiling
 }
 
 object PureCompiledPackages {
@@ -38,12 +44,15 @@ object PureCompiledPackages {
   private[lf] def apply(
       packages: Map[PackageId, Package],
       defns: Map[SDefinitionRef, SExpr],
+      profiling: Compiler.ProfilingMode
   ): PureCompiledPackages =
-    new PureCompiledPackages(packages, defns)
+    new PureCompiledPackages(packages, defns, profiling)
 
-  def apply(packages: Map[PackageId, Package]): Either[String, PureCompiledPackages] =
+  def apply(
+      packages: Map[PackageId, Package],
+      profiling: Compiler.ProfilingMode): Either[String, PureCompiledPackages] =
     Compiler
-      .compilePackages(packages)
-      .map(new PureCompiledPackages(packages, _))
+      .compilePackages(packages, profiling)
+      .map(new PureCompiledPackages(packages, _, profiling))
 
 }

@@ -30,6 +30,13 @@ private[lf] object Compiler {
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
 
+  // NOTE(MH): We make this an enum type to avoid boolean blindness. In fact,
+  // other profiling modes like "only trace the ledger interactions" might also
+  // be useful.
+  sealed abstract class ProfilingMode
+  case object NoProfile extends ProfilingMode
+  case object FullProfile extends ProfilingMode
+
   private val SEGetTime = SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltin) =
@@ -54,9 +61,10 @@ private[lf] object Compiler {
     */
   def compilePackages(
       packages: Map[PackageId, Package],
+      profiling: ProfilingMode,
       validation: Boolean = true,
   ): Either[String, Map[SDefinitionRef, SExpr]] = {
-    val compiler = Compiler(packages)
+    val compiler = Compiler(packages, profiling)
     try {
       Right(
         packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
@@ -71,7 +79,9 @@ private[lf] object Compiler {
 
 }
 
-private[lf] final case class Compiler(packages: PackageId PartialFunction Package) {
+private[lf] final case class Compiler(
+    packages: PackageId PartialFunction Package,
+    profiling: Compiler.ProfilingMode) {
 
   import Compiler._
 
@@ -122,6 +132,25 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
   /** Environment mapping names into stack positions */
   private var env = Env()
 
+  private val withLabel: (AnyRef, SExpr) => SExpr =
+    profiling match {
+      case NoProfile => { (_, expr) =>
+        expr
+      }
+      case FullProfile => { (label, expr) =>
+        expr match {
+          case SELabelClosure(_, expr1) => SELabelClosure(label, expr1)
+          case _ => SELabelClosure(label, expr)
+        }
+      }
+    }
+
+  private def withOptLabel(optLabel: Option[AnyRef], expr: SExpr): SExpr =
+    optLabel match {
+      case Some(label) => withLabel(label, expr)
+      case None => expr
+    }
+
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): SExpr =
@@ -145,7 +174,8 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
   ): List[(SDefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
-        List(LfDefRef(identifier) -> unsafeCompile(body))
+        val ref = LfDefRef(identifier)
+        List(ref -> withLabel(ref, unsafeCompile(body)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
@@ -153,7 +183,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         tmpl.choices.toList.map {
           case (cname, choice) =>
             ChoiceDefRef(identifier, cname) ->
-              compileChoice(identifier, tmpl, choice)
+              compileChoice(identifier, tmpl, cname, choice)
         }
 
       case _ =>
@@ -217,9 +247,15 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl => SEBuiltinRecursiveDefinition.FoldL
-          case BFoldr => SEBuiltinRecursiveDefinition.FoldR
-          case BEqualList => SEBuiltinRecursiveDefinition.EqualList
+          case BFoldl =>
+            val ref = SEBuiltinRecursiveDefinition.FoldL
+            withLabel(ref, ref)
+          case BFoldr =>
+            val ref = SEBuiltinRecursiveDefinition.FoldR
+            withLabel(ref, ref)
+          case BEqualList =>
+            val ref = SEBuiltinRecursiveDefinition.EqualList
+            withLabel(ref, ref)
           case BCoerceContractId => SEAbs.identity
           // Numeric Comparisons
           case BLessNumeric => SBLessNumeric
@@ -463,7 +499,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           SELet(
             bindings.map {
               case Binding(optBinder, _, bound) =>
-                val bound2 = translate(bound)
+                val bound2 = withOptLabel(optBinder, translate(bound))
                 env = env.addExprVar(optBinder)
                 bound2
             }.toArray,
@@ -547,34 +583,37 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
               )
               SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
                 env = env.incrPos // key with maintainers
-                SEAbs(1) {
-                  env = env.incrPos // token
-                  env = env.addExprVar(template.param)
-                  // TODO should we evaluate this before we even construct
-                  // the update expression? this might be better for the user
-                  val signatories = translate(template.signatories)
-                  val observers = translate(template.observers)
-                  SELet(
-                    SBUFetchKey(retrieveByKey.templateId)(
-                      SEVar(2), // key with maintainers
-                      SEVar(1) // token
-                    ),
-                    SBUFetch(retrieveByKey.templateId)(
-                      SEVar(1), /* coid */
-                      SEVar(2) /* token */
-                    ),
-                    SBUInsertFetchNode(retrieveByKey.templateId, byKey = true)(
-                      SEVar(2), // coid
-                      signatories,
-                      observers,
-                      SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
-                      SEVar(3) // token
-                    ),
-                  ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
-                    SEVar(3), // contract id
-                    SEVar(2) // contract
-                  )
-                }
+                withLabel(
+                  s"<fetch_by_key ${retrieveByKey.templateId}",
+                  SEAbs(1) {
+                    env = env.incrPos // token
+                    env = env.addExprVar(template.param)
+                    // TODO should we evaluate this before we even construct
+                    // the update expression? this might be better for the user
+                    val signatories = translate(template.signatories)
+                    val observers = translate(template.observers)
+                    SELet(
+                      SBUFetchKey(retrieveByKey.templateId)(
+                        SEVar(2), // key with maintainers
+                        SEVar(1) // token
+                      ),
+                      SBUFetch(retrieveByKey.templateId)(
+                        SEVar(1), /* coid */
+                        SEVar(2) /* token */
+                      ),
+                      SBUInsertFetchNode(retrieveByKey.templateId, byKey = true)(
+                        SEVar(2), // coid
+                        signatories,
+                        observers,
+                        SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
+                        SEVar(3) // token
+                      ),
+                    ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
+                      SEVar(3), // contract id
+                      SEVar(2) // contract
+                    )
+                  }
+                )
               }
             }
         }
@@ -613,7 +652,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       case _ if arity == 0 =>
         translate(expr0)
       case _ =>
-        SEAbs(arity, translate(expr0))
+        withLabel(AnonymousClosure, SEAbs(arity, translate(expr0)))
     }
 
   @tailrec
@@ -658,16 +697,19 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           env = env.incrPos // update
           env = env.incrPos // $beginCommit
           SELet(party, update) in
-            SEAbs(1) {
-              SELet(
-                // stack: <party> <update> <token>
-                SBSBeginCommit(optLoc)(SEVar(3), SEVar(1)),
-                // stack: <party> <update> <token> ()
-                SEApp(SEVar(3), Array(SEVar(2))),
-                // stack: <party> <update> <token> () result
-              ) in
-                SBSEndCommit(false)(SEVar(1), SEVar(3))
-            }
+            withLabel(
+              "<submit>",
+              SEAbs(1) {
+                SELet(
+                  // stack: <party> <update> <token>
+                  SBSBeginCommit(optLoc)(SEVar(3), SEVar(1)),
+                  // stack: <party> <update> <token> ()
+                  SEApp(SEVar(3), Array(SEVar(2))),
+                  // stack: <party> <update> <token> () result
+                ) in
+                  SBSEndCommit(false)(SEVar(1), SEVar(3))
+              }
+            )
         }
 
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
@@ -680,12 +722,15 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           val party = translate(partyE)
           env = env.incrPos // $beginCommit
           val update = translate(updateE)
-          SEAbs(1) {
-            SELet(
-              SBSBeginCommit(optLoc)(party, SEVar(1)),
-              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
-            ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
-          }
+          withLabel(
+            "<submit_must_fail>",
+            SEAbs(1) {
+              SELet(
+                SBSBeginCommit(optLoc)(party, SEVar(1)),
+                SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
+              ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
+            }
+          )
         }
 
       case ScenarioGetTime =>
@@ -694,17 +739,23 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       case ScenarioGetParty(e) =>
         withEnv { _ =>
           env = env.incrPos // token
-          SEAbs(1) {
-            SBSGetParty(translate(e), SEVar(1))
-          }
+          withLabel(
+            "<get_party>",
+            SEAbs(1) {
+              SBSGetParty(translate(e), SEVar(1))
+            }
+          )
         }
 
       case ScenarioPass(relTimeE) =>
         withEnv { _ =>
           env = env.incrPos // token
-          SEAbs(1) {
-            SBSPass(translate(relTimeE), SEVar(1))
-          }
+          withLabel(
+            "<pass>",
+            SEAbs(1) {
+              SBSPass(translate(relTimeE), SEVar(1))
+            }
+          )
         }
 
       case ScenarioEmbedExpr(_, e) =>
@@ -779,7 +830,11 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
     encodeKeyWithMaintainers(translate(tmplKey.body), tmplKey)
 
   /** Compile a choice into a top-level function for exercising that choice */
-  private def compileChoice(tmplId: TypeConName, tmpl: Template, choice: TemplateChoice): SExpr =
+  private def compileChoice(
+      tmplId: TypeConName,
+      tmpl: Template,
+      cname: ChoiceName,
+      choice: TemplateChoice): SExpr =
     // Compiles a choice into:
     // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choice arg> <token> ->
     //   let targ = fetch <cid>
@@ -817,30 +872,33 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           // allow access to the self contract id
           env = env.addExprVar(choice.selfBinder, selfBinderPos)
           val update = translate(choice.update)
-          SEAbs(5) {
-            SELet(
-              // stack: <byKey flag> <actors> <cid> <choice arg> <token>
-              SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
-              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
-              SBUBeginExercise(tmplId, choice.name, choice.consuming)(
-                SEVar(3), // <choice arg>
-                SEVar(4), // <cid>
-                SEVar(5), // <actors>
-                SEVar(6), // <byKey flag>
-                signatories,
-                observers,
-                controllers,
-                mbKey,
-                SEVar(2),
-              ),
-              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> ()
-              SEApp(update, Array(SEVar(3))),
-              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value>
-              SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
-            ) in
-              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
-              SEVar(2)
-          }
+          withLabel(
+            s"<exercise ${tmplId}:${cname}>",
+            SEAbs(5) {
+              SELet(
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token>
+                SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
+                SBUBeginExercise(tmplId, choice.name, choice.consuming)(
+                  SEVar(3), // <choice arg>
+                  SEVar(4), // <cid>
+                  SEVar(5), // <actors>
+                  SEVar(6), // <byKey flag>
+                  signatories,
+                  observers,
+                  controllers,
+                  mbKey,
+                  SEVar(2),
+                ),
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> ()
+                SEApp(update, Array(SEVar(3))),
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value>
+                SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
+              ) in
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
+                SEVar(2)
+            }
+          )
         },
       ),
     )
@@ -1001,6 +1059,9 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           closureConvert(remaps, bound, fin),
         )
 
+      case SELabelClosure(label, expr) =>
+        SELabelClosure(label, closureConvert(remaps, bound, expr))
+
       case x: SEWronglyTypeContractId =>
         throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
 
@@ -1054,6 +1115,8 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           go(body)
           go(handler)
           go(fin)
+        case SELabelClosure(_, expr) =>
+          go(expr)
         case x: SEWronglyTypeContractId =>
           throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
         case x: SEImportValue =>
@@ -1134,6 +1197,8 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           go(fin)
         case SELocation(_, body) =>
           go(body)
+        case SELabelClosure(_, expr) =>
+          go(expr)
         case x: SEWronglyTypeContractId =>
           throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
         case x: SEImportValue =>
@@ -1155,21 +1220,24 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
       }
       SELet(coid) in
-        SEAbs(1) {
-          SELet(
-            SBUFetch(tmplId)(
-              SEVar(2), /* coid */
-              SEVar(1) /* token */
-            ),
-            SBUInsertFetchNode(tmplId, byKey = false)(
-              SEVar(3), /* coid */
-              signatories,
-              observers,
-              key,
-              SEVar(2) /* token */
-            ),
-          ) in SEVar(2) /* fetch result */
-        }
+        withLabel(
+          s"<fetch ${tmplId}>",
+          SEAbs(1) {
+            SELet(
+              SBUFetch(tmplId)(
+                SEVar(2), /* coid */
+                SEVar(1) /* token */
+              ),
+              SBUInsertFetchNode(tmplId, byKey = false)(
+                SEVar(3), /* coid */
+                signatories,
+                observers,
+                key,
+                SEVar(2) /* token */
+              ),
+            ) in SEVar(2) /* fetch result */
+          }
+        )
     }
   }
 
@@ -1201,20 +1269,23 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       }
 
       SELet(arg) in
-        SEAbs(1) {
-          // We check precondition in a separated builtin to prevent
-          // further evaluation of agreement, signatories, observers and key
-          // in case of failed precondition.
-          SELet(SBCheckPrecond(tmplId)(SEVar(2), precond)) in
-            SBUCreate(tmplId)(
-              SEVar(3), /* argument */
-              agreement,
-              signatories,
-              observers,
-              key,
-              SEVar(2) /* token */
-            )
-        }
+        withLabel(
+          s"<create ${tmplId}>",
+          SEAbs(1) {
+            // We check precondition in a separated builtin to prevent
+            // further evaluation of agreement, signatories, observers and key
+            // in case of failed precondition.
+            SELet(SBCheckPrecond(tmplId)(SEVar(2), precond)) in
+              SBUCreate(tmplId)(
+                SEVar(3), /* argument */
+                agreement,
+                signatories,
+                observers,
+                key,
+                SEVar(2) /* token */
+              )
+          }
+        )
     }
   }
 
@@ -1265,22 +1336,25 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       )
       SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
         env = env.incrPos // key with maintainers
-        SEAbs(1) {
-          env = env.incrPos // token
-          SELet(
-            SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
-            SEApp(
-              compileExercise(
-                tmplId = tmplId,
-                contractId = SEVar(1),
-                choiceId = choiceId,
-                byKey = true,
-                optActors = optActors,
-                argument = argument),
-              Array(SEVar(2)),
-            ),
-          ) in SEVar(1)
-        }
+        withLabel(
+          s"<exercise_by_key ${tmplId}:${choiceId}>",
+          SEAbs(1) {
+            env = env.incrPos // token
+            SELet(
+              SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
+              SEApp(
+                compileExercise(
+                  tmplId = tmplId,
+                  contractId = SEVar(1),
+                  choiceId = choiceId,
+                  byKey = true,
+                  optActors = optActors,
+                  argument = argument),
+                Array(SEVar(2)),
+              ),
+            ) in SEVar(1)
+          }
+        )
       }
     }
   }
@@ -1293,23 +1367,26 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
   ): SExpr = {
 
     withEnv { _ =>
-      SEAbs(1) {
-        env = env.incrPos // token
-        SELet(
-          SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
-          SEApp(
-            compileExercise(
-              tmplId = tmplId,
-              contractId = SEVar(1),
-              choiceId = choiceId,
-              optActors = None,
-              byKey = false,
-              argument = SEValue(choiceArg),
+      withLabel(
+        s"<create_and_exercise ${tmplId}:${choiceId}>",
+        SEAbs(1) {
+          env = env.incrPos // token
+          SELet(
+            SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
+            SEApp(
+              compileExercise(
+                tmplId = tmplId,
+                contractId = SEVar(1),
+                choiceId = choiceId,
+                optActors = None,
+                byKey = false,
+                argument = SEValue(choiceArg),
+              ),
+              Array(SEVar(2)),
             ),
-            Array(SEVar(2)),
-          ),
-        ) in SEVar(1)
-      }
+          ) in SEVar(1)
+        }
+      )
     }
   }
 
@@ -1323,20 +1400,23 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
       )
       SELet(encodeKeyWithMaintainers(key, templateKey)) in {
         env = env.incrPos // keyWithM
-        SEAbs(1) {
-          env = env.incrPos // token
-          SELet(
-            SBULookupKey(templateId)(
-              SEVar(2), // key with maintainers
-              SEVar(1) // token
-            ),
-            SBUInsertLookupNode(templateId)(
-              SEVar(3), // key with maintainers
-              SEVar(1), // mb contract id
-              SEVar(2) // token
-            ),
-          ) in SEVar(2) // mb contract id
-        }
+        withLabel(
+          s"<lookup_by_key ${templateId}>",
+          SEAbs(1) {
+            env = env.incrPos // token
+            SELet(
+              SBULookupKey(templateId)(
+                SEVar(2), // key with maintainers
+                SEVar(1) // token
+              ),
+              SBUInsertLookupNode(templateId)(
+                SEVar(3), // key with maintainers
+                SEVar(1), // mb contract id
+                SEVar(2) // token
+              ),
+            ) in SEVar(2) // mb contract id
+          }
+        )
       }
     }
   }
