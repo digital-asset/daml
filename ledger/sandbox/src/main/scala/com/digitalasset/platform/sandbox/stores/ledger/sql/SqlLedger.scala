@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
-import com.daml.lf.transaction.LegacyContractIdSchemeEmulation
+import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -56,7 +56,7 @@ object SqlLedger {
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      emulateLegacyContractIdScheme: Boolean,
+      transactionCommitter: TransactionCommitter,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
       metrics: Metrics,
@@ -75,7 +75,7 @@ object SqlLedger {
             packages,
             initialLedgerEntries,
             queueDepth,
-            emulateLegacyContractIdScheme,
+            transactionCommitter,
         ))
     } yield ledger
 }
@@ -89,7 +89,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
-    emulateLegacyContractIdScheme: Boolean,
+    transactionCommitter: TransactionCommitter,
 )(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
@@ -174,18 +174,13 @@ private final class SqlLedger(
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction0: SubmittedTransaction): Future[SubmissionResult] =
+      transaction: SubmittedTransaction,
+  ): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
       val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
-
-      val transaction =
-        if (emulateLegacyContractIdScheme)
-          LegacyContractIdSchemeEmulation.translateTransaction(transactionId, transaction0)
-        else
-          transaction0.assertNoRelCid(_ => "Unexpected relative contract ID")
 
       checkTimeModel(ledgerTime, recordTime)
         .fold(
@@ -204,7 +199,7 @@ private final class SqlLedger(
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
               offset,
-              transaction,
+              transactionCommitter.commitTransaction(transactionId, transaction),
               Nil,
           )
         )
@@ -362,7 +357,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      emulateLegacyContractIdScheme: Boolean,
+      transactionCommitter: TransactionCommitter,
   )(implicit mat: Materializer): Future[SqlLedger] = {
     implicit val ec: ExecutionContext = DEC
 
@@ -404,7 +399,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         timeProvider,
         packages,
         queueDepth,
-        emulateLegacyContractIdScheme,
+        transactionCommitter,
       )
   }
 

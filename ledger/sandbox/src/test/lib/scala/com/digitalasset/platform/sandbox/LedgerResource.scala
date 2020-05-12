@@ -10,6 +10,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.ImmArray
+import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
@@ -27,8 +28,6 @@ import scala.concurrent.ExecutionContext
 
 object LedgerResource {
 
-  private val emulateLegacyContractIdScheme = false
-
   def inMemory(
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -44,7 +43,7 @@ object LedgerResource {
           participantId = participantId,
           timeProvider = timeProvider,
           acs0 = acs,
-          emulateLegacyContractIdScheme = emulateLegacyContractIdScheme,
+          transactionCommitter = StandardTransactionCommitter,
           packageStoreInit = packages,
           ledgerEntries = entries,
       )))
@@ -74,7 +73,7 @@ object LedgerResource {
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,
-          emulateLegacyContractIdScheme = emulateLegacyContractIdScheme,
+          transactionCommitter = StandardTransactionCommitter,
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),

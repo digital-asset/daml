@@ -21,6 +21,11 @@ import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.{
+  LegacyTransactionCommitter,
+  StandardTransactionCommitter,
+  TransactionCommitter
+}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -224,7 +229,9 @@ final class SandboxServer(
           (ts, Some(ts))
       }
 
-    val emulateLegacyContractIdScheme = config.seeding.isEmpty
+    val transactionCommitter =
+      config.seeding
+        .fold[TransactionCommitter](LegacyTransactionCommitter)(_ => StandardTransactionCommitter)
 
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
@@ -238,7 +245,7 @@ final class SandboxServer(
           ledgerEntries,
           startMode,
           config.commandConfig.maxParallelSubmissions,
-          emulateLegacyContractIdScheme,
+          transactionCommitter,
           packageStore,
           config.eventsPageSize,
           metrics,
@@ -252,7 +259,7 @@ final class SandboxServer(
           timeProvider,
           acs,
           ledgerEntries,
-          emulateLegacyContractIdScheme,
+          transactionCommitter,
           packageStore,
           metrics,
         )

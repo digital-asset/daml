@@ -15,6 +15,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
@@ -212,7 +213,7 @@ class SqlLedgerSpec
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
           queueDepth = queueDepth,
-          emulateLegacyContractIdScheme = true,
+          transactionCommitter = LegacyTransactionCommitter,
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),

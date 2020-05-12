@@ -3,15 +3,34 @@
 
 package com.daml.lf.transaction
 
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 
-object LegacyContractIdSchemeEmulation {
-
-  def translateTransaction(
+// Convert a SubmittedTransaction to CommittedTransaction
+abstract class TransactionCommitter extends {
+  def commitTransaction(
       transactionId: Ref.LedgerString,
-      transaction: Transaction.Transaction,
-  ): Transaction.AbsTransaction = {
+      transaction: SubmittedTransaction
+  ): CommittedTransaction
+}
+
+// Standard committer using Contract ID V1
+object StandardTransactionCommitter extends TransactionCommitter {
+  override def commitTransaction(
+      transactionId: Ref.LedgerString,
+      transaction: SubmittedTransaction
+  ): CommittedTransaction =
+    transaction.assertNoRelCid(_ => "Unexpected relative contract ID")
+}
+
+// Committer emulating Contract ID legacy scheme
+object LegacyTransactionCommitter extends TransactionCommitter {
+
+  def commitTransaction(
+      transactionId: Ref.LedgerString,
+      transaction: SubmittedTransaction,
+  ): CommittedTransaction = {
 
     val prefix = "#" + transactionId + ":"
 
