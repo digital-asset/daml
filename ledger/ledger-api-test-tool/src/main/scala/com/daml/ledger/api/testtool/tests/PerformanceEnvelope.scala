@@ -33,7 +33,7 @@ import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import org.slf4j.Logger
 
@@ -424,6 +424,28 @@ object PerformanceEnvelope {
     reporter("median", med.toDouble)
     reporter("stddev", stddev)
     s"Sample size of ${sample.length}: avg=${"%.0f" format avg} ms, median=$med ms, stdev=${"%.0f" format stddev} ms"
+  }
+
+  class TransactionSizeScaleTest(val logger: Logger, val envelope: Envelope)(session: LedgerSession)
+      extends LedgerTestSuite(session)
+      with PerformanceEnvelope {
+
+    val maxInflight = 10
+
+    test(
+      "perf-envelope-transaction-size",
+      s"Verify that ledger passes the ${envelope.name} transaction size envelope",
+      allocate(SingleParty, SingleParty),
+    ) { participants =>
+      waitForParties(participants.participants)
+
+      sendPings(
+        participants.participants.head,
+        participants.participants(1),
+        List("transaction-size"),
+        payload = Random.alphanumeric.take(envelope.transactionSizeKb * 1024).mkString("")
+      ).map(_ => ())
+    }
   }
 
 }
