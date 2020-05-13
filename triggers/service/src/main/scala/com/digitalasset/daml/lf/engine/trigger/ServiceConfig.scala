@@ -17,7 +17,25 @@ case class ServiceConfig(
     ledgerPort: Int,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
+    init: Boolean,
+    jdbcConfig: Option[JdbcConfig] = None,
+//    initConfig: InitConfig,
 )
+
+final case class JdbcConfig(
+    driver: String,
+    url: String,
+    user: String,
+    password: String,
+//    createSchema: Boolean = false
+)
+//case class InitConfig(
+//    operatorUsername: String,
+//    operatorPassword: String,
+//    serviceUsername: String,
+//    servicePassword: String,
+//    databaseName: String,
+//)
 
 object ServiceConfig {
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
@@ -54,6 +72,14 @@ object ServiceConfig {
         c.copy(commandTtl = Duration.ofSeconds(t))
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
+
+    opt[String]("jdbcConfig")
+        .action((t, c) => c.copy(jdbcConfig = t))
+        .text("JDBC config string.")
+
+    cmd("init")
+      .action((_, c) => c.copy(init = true))
+      .text("Initialize a PostgreSQL database for service recovery.")
   }
   def parse(args: Array[String]): Option[ServiceConfig] =
     parser.parse(
@@ -65,6 +91,7 @@ object ServiceConfig {
         ledgerPort = 0,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
+        init = false
       ),
     )
 }

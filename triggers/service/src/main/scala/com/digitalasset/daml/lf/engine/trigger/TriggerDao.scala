@@ -59,4 +59,3 @@ object TriggerDao {
       *> createDarTable.update.run).void
   }
 }
-

@@ -15,8 +15,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.Route
-import akka.stream.{Materializer}
-import akka.stream.scaladsl.{Source}
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 import java.io.ByteArrayInputStream
 import java.time.Duration
@@ -25,28 +25,23 @@ import java.util.zip.ZipInputStream
 
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
+import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
 import com.daml.lf.language.Ast._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
 import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
+
 import scala.sys.ShutdownHookThread
 
 case class LedgerConfig(
@@ -282,6 +277,22 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
+        val triggerDao = config.jdbcConfig.map(c => TriggerDao(c.driver, c.url, c.user, c.password))
+        (triggerDao, config.jdbcConfig) match {
+          case (Some(dao), Some(c)) if config.init =>
+            // logger.info("Creating DB schema...")
+            Try(dao.transact(TriggerDao.initialize(dao.logHandler)).unsafeRunSync()) match {
+              case Success(()) =>
+                // logger.info("DB schema created. Terminating process...")
+                // terminate()
+                System.exit(0)
+              case Failure(e) =>
+                // logger.error("Failed creating DB schema", e)
+                // terminate()
+                System.exit(1)
+            }
+          case _ =>
+        }
         val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
           case darPath =>
             val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
