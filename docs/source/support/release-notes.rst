@@ -8,7 +8,7 @@ This page contains release notes for the SDK.
 
 .. _release-1.1.0:
 
-1.1.0 - 2020-05-13
+1.1.1 - 2020-05-13
 ------------------
 
 Summary
