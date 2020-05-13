@@ -18,6 +18,8 @@ step() {
 cd "$(dirname "$0")/.."
 
 
+echo "abc"
+
 ls -l /nix
 
 if [[ ! -e /nix ]]; then
