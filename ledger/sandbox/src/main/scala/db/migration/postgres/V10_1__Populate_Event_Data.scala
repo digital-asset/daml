@@ -13,7 +13,7 @@ import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.ledger.EventId
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.serialization.TransactionSerializer
+import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V10_1__Populate_Event_Data extends BaseJavaMigration {
