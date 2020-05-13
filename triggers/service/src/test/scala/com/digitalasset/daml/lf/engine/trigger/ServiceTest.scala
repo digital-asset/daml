@@ -70,7 +70,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   def startTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(Uri.Path("/start")),
+      uri = uri.withPath(Uri.Path("/v1/start")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"identifier": "$id", "party": "$party"}"""
@@ -82,7 +82,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   def listTriggers(uri: Uri, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/list")),
+      uri = uri.withPath(Uri.Path(s"/v1/list")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"party": "$party"}"""
@@ -94,7 +94,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   def stopTrigger(uri: Uri, id: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/stop/$id")),
+      uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
     )
     Http().singleRequest(req)
   }
@@ -108,7 +108,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         Map("filename" -> file.toString)))
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(Uri.Path(s"/upload_dar")),
+      uri = uri.withPath(Uri.Path(s"/v1/upload_dar")),
       entity = multipartForm.toEntity
     )
     Http().singleRequest(req)
