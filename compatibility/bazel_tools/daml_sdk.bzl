@@ -56,6 +56,20 @@ def _daml_sdk_impl(ctx):
         output = "extracted-test-tool",
     )
 
+    for lib in ["types", "ledger", "react"]:
+        tarball_name = "daml_{}_tarball".format(lib)
+        if getattr(ctx.attr, tarball_name):
+            ctx.symlink(
+                getattr(ctx.attr, tarball_name),
+                "daml-{}.tgz".format(lib),
+            )
+        else:
+            ctx.download(
+                output = "daml-{}.tgz".format(lib),
+                url = "https://registry.npmjs.org/@daml/{}/-/{}-{}.tgz".format(lib, lib, ctx.attr.version),
+                sha256 = getattr(ctx.attr, "daml_{}_sha256".format(lib)),
+            )
+
     ctx.symlink(out_dir.get_child("daml").get_child("daml" + (".exe" if is_windows else "")), "sdk/bin/daml")
     ctx.file(
         "sdk/daml-config.yaml",
@@ -107,6 +121,7 @@ filegroup(
     name = "dar-files",
     srcs = glob(["extracted-test-tool/ledger/test-common/**"]),
 )
+exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz"])
 """,
     )
     return None
@@ -120,6 +135,12 @@ _daml_sdk = repository_rule(
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
         "test_tool_sha256": attr.string(mandatory = False),
         "test_tool": attr.label(allow_single_file = True, mandatory = False),
+        "daml_types_tarball": attr.label(allow_single_file = True, mandatory = False),
+        "daml_ledger_tarball": attr.label(allow_single_file = True, mandatory = False),
+        "daml_react_tarball": attr.label(allow_single_file = True, mandatory = False),
+        "daml_types_sha256": attr.string(mandatory = False),
+        "daml_ledger_sha256": attr.string(mandatory = False),
+        "daml_react_sha256": attr.string(mandatory = False),
     },
 )
 
@@ -130,12 +151,15 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         test_tool = ledger_api_test_tool,
+        daml_types_tarball = daml_types_tarball,
+        daml_ledger_tarball = daml_ledger_tarball,
+        daml_react_tarball = daml_react_tarball,
         **kwargs
     )

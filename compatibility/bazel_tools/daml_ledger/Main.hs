@@ -4,7 +4,7 @@
 module Main (main) where
 
 import Control.Applicative (many)
-import Control.Monad (unless, void)
+import DA.Test.Process
 import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
@@ -12,11 +12,8 @@ import Data.Tagged (Tagged (..))
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
-import System.Exit (ExitCode(..), exitFailure)
 import System.FilePath ((</>), takeBaseName)
-import System.IO (hPutStrLn, stderr)
 import System.IO.Extra (withTempDir,writeFileUTF8)
-import System.Process (CreateProcess,proc,readCreateProcessWithExitCode)
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
 import Test.Tasty.HUnit (testCaseSteps, testCase)
@@ -252,21 +249,3 @@ writeMinimalProject (SdkVersion sdkVersion) = do
     , "module Main where"
     , "template T with p : Party where signatory p"
     ]
-
-callProcessSilent :: FilePath -> [String] -> IO ()
-callProcessSilent cmd args =
-  void $ run (proc cmd args)
-
-callProcessForStdout :: FilePath -> [String] -> IO String
-callProcessForStdout cmd args =
-  run (proc cmd args)
-
-run :: CreateProcess -> IO String
-run cp = do
-  (exitCode, out, err) <- readCreateProcessWithExitCode cp ""
-  unless (exitCode == ExitSuccess) $ do
-    hPutStrLn stderr $ "Failure: Command \"" <> show cp <> "\" exited with " <> show exitCode
-    hPutStrLn stderr $ unlines ["stdout: ", out]
-    hPutStrLn stderr $ unlines ["stderr: ", err]
-    exitFailure
-  return out

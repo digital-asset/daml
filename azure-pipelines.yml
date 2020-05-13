@@ -56,14 +56,14 @@ jobs:
           set -euo pipefail
 
           has_changed () {
-              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1/"
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
           }
 
           fail_if_missing_std_change_label () {
               curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
           }
 
-          if has_changed "infra" || has_changed "LATEST"; then
+          if has_changed "infra/" || has_changed "LATEST"; then
               fail_if_missing_std_change_label
           fi
         env:
@@ -189,9 +189,24 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - job: compatibility_ts_libs
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility_ts_libs.yml
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
   - job: compatibility_linux
     dependsOn:
       - check_for_release
+      - compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
       name: linux-pool
@@ -208,6 +223,7 @@ jobs:
   - job: compatibility_macos
     dependsOn:
       - check_for_release
+      - compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
       name: macOS-pool
@@ -223,6 +239,7 @@ jobs:
   - job: compatibility_windows
     dependsOn:
       - check_for_release
+      - compatibility_ts_libs
       - patch_bazel_windows
     timeoutInMinutes: 60
     pool:

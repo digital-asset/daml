@@ -170,6 +170,7 @@ conformance_test(
         "--verbose",
         "--perf-tests=PerformanceEnvelope.Beta.Throughput",
         "--perf-tests=PerformanceEnvelope.Beta.Latency",
+        "--perf-tests=PerformanceEnvelope.Beta.TransactionSize",
     ],
 )
 
