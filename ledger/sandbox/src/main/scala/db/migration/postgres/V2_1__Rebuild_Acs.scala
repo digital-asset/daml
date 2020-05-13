@@ -30,6 +30,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
 import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
+import db.migration.translation.{ContractSerializer, TransactionSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
