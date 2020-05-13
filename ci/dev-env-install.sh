@@ -17,6 +17,9 @@ step() {
 
 cd "$(dirname "$0")/.."
 
+
+ls -l /nix
+
 if [[ ! -e /nix ]]; then
   step "Installing Nix"
 
