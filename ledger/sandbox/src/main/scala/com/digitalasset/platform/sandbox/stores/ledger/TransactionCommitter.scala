@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 
 // Convert a SubmittedTransaction to CommittedTransaction
-abstract class TransactionCommitter extends {
+abstract class TransactionCommitter {
   def commitTransaction(
       transactionId: Ref.LedgerString,
       transaction: SubmittedTransaction
