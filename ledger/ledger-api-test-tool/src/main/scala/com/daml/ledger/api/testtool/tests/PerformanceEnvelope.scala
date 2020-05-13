@@ -356,9 +356,9 @@ object PerformanceEnvelope {
 
       def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
         sendPings(
-          participants.participants.head,
-          participants.participants(1),
-          (1 to num).map(x => s"$description-$x").toList,
+          from = participants.participants.head,
+          to = participants.participants(1),
+          workflowIds = (1 to num).map(x => s"$description-$x").toList,
           payload = description)
       for {
         _ <- runTest(numWarmupPings, "throughput-warmup")
@@ -398,9 +398,9 @@ object PerformanceEnvelope {
       waitForParties(participants.participants)
 
       sendPings(
-        participants.participants.head,
-        participants.participants(1),
-        (1 to (numPings + numWarmupPings)).map(x => s"latency-$x").toList,
+        from = participants.participants.head,
+        to = participants.participants(1),
+        workflowIds = (1 to (numPings + numWarmupPings)).map(x => s"latency-$x").toList,
         payload = "latency").map {
         case (_, latencies) =>
           val sample = latencies.drop(numWarmupPings).map(_.toMillis).sorted
@@ -440,9 +440,9 @@ object PerformanceEnvelope {
       waitForParties(participants.participants)
 
       sendPings(
-        participants.participants.head,
-        participants.participants(1),
-        List("transaction-size"),
+        from = participants.participants.head,
+        to = participants.participants(1),
+        workflowIds = List("transaction-size"),
         payload = Random.alphanumeric.take(envelope.transactionSizeKb * 1024).mkString("")
       ).map(_ => ())
     }
