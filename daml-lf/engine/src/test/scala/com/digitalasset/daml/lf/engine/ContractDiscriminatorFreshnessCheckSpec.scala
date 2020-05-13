@@ -130,7 +130,7 @@ class ContractDiscriminatorFreshnessCheckSpec
           commandsReference = "test",
         ),
         participantId = participant,
-        submissionSeed = Some(submissionSeed),
+        submissionSeed = submissionSeed,
       )
       .consume(pcs, pkgs, keys)
 

@@ -163,7 +163,7 @@ object KVTest {
 
   def runCommand(
       submitter: Party,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       additionalContractDataTy: String,
       cmds: Command*,
   ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
@@ -198,7 +198,7 @@ object KVTest {
 
   def runSimpleCommand(
       submitter: Party,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       cmds: Command*,
   ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
@@ -206,7 +206,7 @@ object KVTest {
   def submitTransaction(
       submitter: Party,
       transaction: (Transaction.AbsTransaction, Transaction.Metadata),
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
@@ -226,7 +226,7 @@ object KVTest {
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
           workflowId = None,
           submissionTime = txMetaData.submissionTime,
-          submissionSeed = submissionSeed,
+          submissionSeed = Some(submissionSeed),
           optUsedPackages = Some(txMetaData.usedPackages),
           optNodeSeeds = None,
           optByKeyNodes = None,

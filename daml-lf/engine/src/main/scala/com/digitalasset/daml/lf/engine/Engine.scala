@@ -79,7 +79,7 @@ final class Engine {
   def submit(
       cmds: Commands,
       participantId: ParticipantId,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   ): Result[(Tx.Transaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
@@ -108,7 +108,7 @@ final class Engine {
                     .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
                 (pkgIds + pkgId) union transitiveDeps
               }
-              tx -> meta.copy(submissionSeed = submissionSeed, usedPackages = deps)
+              tx -> meta.copy(submissionSeed = Some(submissionSeed), usedPackages = deps)
           }
       }
   }
@@ -167,7 +167,7 @@ final class Engine {
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   ): Result[Unit] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
@@ -389,15 +389,11 @@ object Engine {
   def apply(): Engine = new Engine()
 
   def initialSeeding(
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       participant: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
   ): InitialSeeding =
-    submissionSeed match {
-      case None =>
-        InitialSeeding.NoSeed
-      case Some(seed) =>
-        InitialSeeding.TransactionSeed(
-          crypto.Hash.deriveTransactionSeed(seed, participant, submissionTime))
-    }
+    InitialSeeding.TransactionSeed(
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
+
 }

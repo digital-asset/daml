@@ -368,13 +368,16 @@ object Speedy {
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
     def clearCommit: Unit = {
-      val freshSeed = ptx.context.nextChildrenSeed
-        .map(crypto.Hash.deriveTransactionSeed(_, scenarioServiceParticipant, ptx.submissionTime))
+      val freshSeed =
+        crypto.Hash.deriveTransactionSeed(
+          ptx.context.nextChildrenSeed,
+          scenarioServiceParticipant,
+          ptx.submissionTime)
       committers = Set.empty
       commitLocation = None
       ptx = PartialTransaction.initial(
         submissionTime = ptx.submissionTime,
-        InitialSeeding(freshSeed),
+        InitialSeeding.TransactionSeed(freshSeed),
       )
     }
 
@@ -513,7 +516,7 @@ object Speedy {
     def newBuilder(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
-        submissionSeed: Option[crypto.Hash],
+        submissionSeed: crypto.Hash,
     ): Either[SError, Expr => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right(
@@ -522,7 +525,7 @@ object Speedy {
             SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
             compiledPackages,
             submissionTime,
-            InitialSeeding(submissionSeed),
+            InitialSeeding.TransactionSeed(submissionSeed),
             Set.empty
         ))
     }
@@ -548,7 +551,7 @@ object Speedy {
         compiledPackages: CompiledPackages,
         scenario: Boolean,
         submissionTime: Time.Timestamp,
-        transactionSeed: Option[crypto.Hash],
+        initialSeeding: InitialSeeding,
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
@@ -561,7 +564,7 @@ object Speedy {
         sexpr,
         compiledPackages,
         submissionTime,
-        InitialSeeding(transactionSeed),
+        initialSeeding,
         Set.empty,
       )
     }
@@ -811,11 +814,11 @@ object Speedy {
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
   def deriveTransactionSeed(
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       participant: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
   ): InitialSeeding =
-    InitialSeeding(
-      submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, submissionTime)))
+    InitialSeeding.TransactionSeed(
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
 
 }

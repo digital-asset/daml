@@ -96,12 +96,9 @@ object Main extends App {
   ))
 object Repl {
 
-  private val nextSeed = {
+  private val nextSeed =
     // We use a static seed to get reproducible run
-    val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
-    () =>
-      Some(seeding())
-  }
+    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
 
   def repl(): Unit = repl(initialState())
   def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
@@ -408,7 +405,7 @@ object Repl {
                 compiledPackages = PureCompiledPackages(state.packages).right.get,
                 scenario = false,
                 submissionTime = Time.Timestamp.now(),
-                transactionSeed = None
+                initialSeeding = InitialSeeding.NoSeed,
               )
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {

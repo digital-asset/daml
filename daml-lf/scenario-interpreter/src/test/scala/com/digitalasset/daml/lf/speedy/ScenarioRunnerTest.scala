@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.ScenarioGetParty
@@ -20,7 +20,8 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
         compiledPackages = PureCompiledPackages(Map.empty).right.get,
         scenario = true,
         submissionTime = Time.Timestamp.now(),
-        transactionSeed = None
+        initialSeeding =
+          InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("ScenarioRunnerTest")),
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run() match {

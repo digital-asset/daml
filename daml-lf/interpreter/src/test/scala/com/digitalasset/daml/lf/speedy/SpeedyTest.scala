@@ -248,15 +248,13 @@ class SpeedyTest extends WordSpec with Matchers {
 
 object SpeedyTest {
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SpeedyTest")
-
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
       compiledPackages = packages,
       scenario = false,
       submissionTime = Time.Timestamp.now(),
-      transactionSeed = Some(txSeed),
+      initialSeeding = InitialSeeding.NoSeed,
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {

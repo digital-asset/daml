@@ -39,7 +39,8 @@ class CollectAuthorityState {
       .newBuilder(
         PureCompiledPackages(packagesMap).right.get,
         Time.Timestamp.MinValue,
-        Some(seeding()))
+        seeding(),
+      )
       .fold(err => sys.error(err.toString), identity)
     expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
     // NOTE(MH): We run the machine once to initialize all data that is shared
