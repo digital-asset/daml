@@ -1,0 +1,37 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "@daml//bazel_tools:haskell.bzl",
+    "da_haskell_binary",
+    "da_haskell_library",
+)
+
+da_haskell_binary(
+    name = "runner",
+    srcs = ["Main.hs"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "mtl",
+        "unix-compat",
+        "process",
+        "tagged",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/test_utils",
+        "@rules_haskell//tools/runfiles",
+    ],
+)
