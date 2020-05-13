@@ -104,6 +104,7 @@ object ValueGenerators {
             else (variantId: Identifier) => Some(variantId))
       value <- Gen.lzy(valueGen(nesting))
     } yield ValueVariant(toOption(id), variantName, value)
+
   def variantGen: Gen[ValueVariant[ContractId]] = variantGen(0)
 
   private def recordGen(nesting: Int): Gen[ValueRecord[ContractId]] =
@@ -118,16 +119,19 @@ object ValueGenerators {
       labelledValues <- Gen.listOf(nameGen.flatMap(label =>
         Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
     } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
+
   def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
 
   private def valueOptionalGen(nesting: Int): Gen[ValueOptional[ContractId]] =
     Gen.option(valueGen(nesting)).map(v => ValueOptional(v))
+
   def valueOptionalGen: Gen[ValueOptional[ContractId]] = valueOptionalGen(0)
 
   private def valueListGen(nesting: Int): Gen[ValueList[ContractId]] =
     for {
       values <- Gen.listOf(Gen.lzy(valueGen(nesting)))
     } yield ValueList[ContractId](FrontStack(values))
+
   def valueListGen: Gen[ValueList[ContractId]] = valueListGen(0)
 
   private def valueMapGen(nesting: Int) =
@@ -136,6 +140,7 @@ object ValueGenerators {
         k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
       } yield k -> v)
     } yield ValueTextMap[ContractId](SortedLookupList(Map(list: _*)))
+
   def valueMapGen: Gen[ValueTextMap[ContractId]] = valueMapGen(0)
 
   private def valueGenMapGen(nesting: Int) =
@@ -150,11 +155,15 @@ object ValueGenerators {
   private val genHash: Gen[crypto.Hash] =
     Gen
       .containerOfN[Array, Byte](crypto.Hash.underlyingHashLength, arbitrary[Byte]) map crypto.Hash.assertFromByteArray
-  private val genBytes: Gen[Bytes] = arbitrary[Array[Byte]] map Bytes.fromByteArray
+  private val genSuffixes: Gen[Bytes] = for {
+    sz <- Gen.chooseNum(0, AbsoluteContractId.V1.maxSuffixLength)
+    ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
+  } yield Bytes fromByteArray ab
+
   val absCoidV0Gen: Gen[AbsoluteContractId.V0] =
     Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
   private val genAbsCidV1: Gen[AbsoluteContractId.V1] =
-    Gen.zip(genHash, genBytes.filter(_.length <= AbsoluteContractId.V1.maxSuffixLength)) map {
+    Gen.zip(genHash, genSuffixes) map {
       case (h, b) => AbsoluteContractId.V1.assertBuild(h, b)
     }
 
@@ -170,9 +179,8 @@ object ValueGenerators {
             AbsoluteContractId.V1
               .assertBuild(
                 b1.discriminator,
-                b1.suffix
-                  .slice(0, b1.suffix.length min (AbsoluteContractId.V1.maxSuffixLength - 1)) ++ Bytes
-                  .fromByteArray(Array(b)))
+                if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b)
+              )
         }
       ),
       Gen.oneOf(absCoidV0Gen, genAbsCidV1 map (cid => AbsoluteContractId.V1(cid.discriminator))),
