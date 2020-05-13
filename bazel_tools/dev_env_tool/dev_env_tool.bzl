@@ -4,7 +4,7 @@
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 load("@rules_sh//sh:posix.bzl", "posix")
 
-def _create_build_content(rule_name, is_windows, tools, tool_dependencies, win_paths, nix_paths):
+def _create_build_content(rule_name, is_windows, tools, required_tools, win_paths, nix_paths):
     content = """
 # DO NOT EDIT: automatically generated BUILD file for dev_env_tool.bzl: {rule_name}
 
@@ -31,7 +31,7 @@ sh_binary(
 )
 """.format(
                 tool = tools[i],
-                dependencies = [":{}.exe".format(dep.strip()) for dep in tool_dependencies[i].split(",") if dep.strip()] if i < len(tool_dependencies) else [],
+                dependencies = [":{}.exe".format(dep) for dep in required_tools.get(tools[i], [])],
                 path = win_paths[i],
             )
         else:
@@ -43,7 +43,7 @@ sh_binary(
 )
 """.format(
                 tool = tools[i],
-                dependencies = [":{}".format(dep.strip()) for dep in tool_dependencies[i].split(",") if dep.strip()] if i < len(tool_dependencies) else [],
+                dependencies = [":{}".format(dep) for dep in required_tools.get(tools[i], [])],
                 path = nix_paths[i],
             )
 
@@ -139,7 +139,7 @@ def _dev_env_tool_impl(ctx):
         rule_name = ctx.name,
         is_windows = is_windows,
         tools = ctx.attr.tools,
-        tool_dependencies = ctx.attr.tool_dependencies,
+        required_tools = ctx.attr.required_tools,
         win_paths = [
             "%s/%s" % (ctx.attr.prefix, path)
             for path in ctx.attr.win_paths
@@ -157,9 +157,9 @@ dev_env_tool = repository_rule(
         "tools": attr.string_list(
             mandatory = True,
         ),
-        "tool_dependencies": attr.string_list(
+        "required_tools": attr.string_list_dict(
             mandatory = False,
-            default = [],
+            default = {},
         ),
         "win_tool": attr.string(
             mandatory = True,
