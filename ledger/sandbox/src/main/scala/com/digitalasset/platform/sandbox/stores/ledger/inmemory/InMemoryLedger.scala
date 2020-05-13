@@ -24,7 +24,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{Node, TransactionCommitter}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -90,6 +90,7 @@ class InMemoryLedger(
     participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
+    transactionCommitter: TransactionCommitter,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
 ) extends Ledger {
@@ -305,7 +306,12 @@ class InMemoryLedger(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
           val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-            Ledger.convertToCommittedTransaction(transactionId, transaction)
+            Ledger
+              .convertToCommittedTransaction(
+                transactionCommitter,
+                transactionId,
+                transaction,
+              )
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,

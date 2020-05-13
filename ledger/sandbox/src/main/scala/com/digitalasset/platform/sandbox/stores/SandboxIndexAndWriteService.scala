@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
@@ -60,6 +61,7 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
       metrics: Metrics,
@@ -75,6 +77,7 @@ object SandboxIndexAndWriteService {
         packages = templateStore,
         initialLedgerEntries = ledgerEntries,
         queueDepth = queueDepth,
+        transactionCommitter = transactionCommitter,
         startMode = startMode,
         eventsPageSize = eventsPageSize,
         metrics = metrics,
@@ -89,6 +92,7 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
+      transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
@@ -98,6 +102,7 @@ object SandboxIndexAndWriteService {
         participantId,
         timeProvider,
         acs,
+        transactionCommitter,
         templateStore,
         ledgerEntries,
       )

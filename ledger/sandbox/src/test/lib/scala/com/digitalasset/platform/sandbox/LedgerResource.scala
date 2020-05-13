@@ -10,6 +10,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.ImmArray
+import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
@@ -26,6 +27,7 @@ import com.daml.testing.postgresql.PostgresResource
 import scala.concurrent.ExecutionContext
 
 object LedgerResource {
+
   def inMemory(
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -35,16 +37,16 @@ object LedgerResource {
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
   )(implicit executionContext: ExecutionContext): Resource[Ledger] =
     new OwnedResource(
-      ResourceOwner.forValue(
-        () =>
-          new InMemoryLedger(
-            ledgerId,
-            participantId,
-            timeProvider,
-            acs,
-            packages,
-            entries,
-        )))
+      ResourceOwner.forValue(() =>
+        new InMemoryLedger(
+          ledgerId = ledgerId,
+          participantId = participantId,
+          timeProvider = timeProvider,
+          acs0 = acs,
+          transactionCommitter = StandardTransactionCommitter,
+          packageStoreInit = packages,
+          ledgerEntries = entries,
+      )))
 
   def postgres(
       testClass: Class[_],
@@ -71,6 +73,7 @@ object LedgerResource {
           packages = packages,
           initialLedgerEntries = ImmArray.empty,
           queueDepth = 128,
+          transactionCommitter = StandardTransactionCommitter,
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),

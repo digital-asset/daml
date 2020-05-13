@@ -19,12 +19,12 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -56,6 +56,7 @@ object SqlLedger {
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
       metrics: Metrics,
@@ -74,6 +75,7 @@ object SqlLedger {
             packages,
             initialLedgerEntries,
             queueDepth,
+            transactionCommitter,
         ))
     } yield ledger
 }
@@ -87,6 +89,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
+    transactionCommitter: TransactionCommitter,
 )(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
@@ -171,7 +174,8 @@ private final class SqlLedger(
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Future[SubmissionResult] =
+      transaction: SubmittedTransaction,
+  ): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -195,7 +199,7 @@ private final class SqlLedger(
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
               offset,
-              transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
+              transactionCommitter.commitTransaction(transactionId, transaction),
               Nil,
           )
         )
@@ -353,6 +357,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
   )(implicit mat: Materializer): Future[SqlLedger] = {
     implicit val ec: ExecutionContext = DEC
 
@@ -394,6 +399,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         timeProvider,
         packages,
         queueDepth,
+        transactionCommitter,
       )
   }
 
