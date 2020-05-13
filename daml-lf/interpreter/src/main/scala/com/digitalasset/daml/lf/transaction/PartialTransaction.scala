@@ -384,7 +384,7 @@ case class PartialTransaction(
         copy(
           context = ec.parent.addChild(nodeId),
           nodes = nodes.updated(nodeId, exerciseNode),
-          nodeSeeds = nodeSeeds :+ (nodeId -> (nodeSeed)),
+          nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
         )
       case None =>
         noteAbort(Tx.EndExerciseInRootContext)
@@ -425,7 +425,7 @@ case class PartialTransaction(
 sealed abstract class InitialSeeding extends Product with Serializable
 
 object InitialSeeding {
-  // NoSeed may be used to initiale machines that are not intended to create transactions
+  // NoSeed may be used to initialize machines that are not intended to create transactions
   // e.g. trigger and script runners, tests
   final case object NoSeed extends InitialSeeding
   final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
