@@ -28,12 +28,7 @@ import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
-import com.daml.platform.store.serialization.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
