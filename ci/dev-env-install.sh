@@ -5,7 +5,7 @@
 # shellcheck disable=SC2174
 
 # Installs nix on a fresh machine
-set -euo pipefail
+set -euox pipefail
 
 ## Functions ##
 
