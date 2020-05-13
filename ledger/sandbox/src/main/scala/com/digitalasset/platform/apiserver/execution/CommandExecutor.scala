@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait CommandExecutor {
   def execute(
       commands: ApiCommands,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,

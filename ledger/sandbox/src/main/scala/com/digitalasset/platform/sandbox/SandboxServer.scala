@@ -301,7 +301,7 @@ final class SandboxServer(
         optTimeServiceBackend = timeServiceBackendO,
         metrics = metrics,
         healthChecks = healthChecks,
-        seedService = Some(seedingService),
+        seedService = seedingService,
       )(materializer, executionSequencerFactory, logCtx)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(

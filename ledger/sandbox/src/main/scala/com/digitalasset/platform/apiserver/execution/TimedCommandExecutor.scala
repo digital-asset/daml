@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.api.domain
-import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ErrorCause
@@ -18,7 +18,7 @@ class TimedCommandExecutor(
 
   override def execute(
       commands: domain.Commands,
-      submissionSeed: Option[Hash],
+      submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,

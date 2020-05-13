@@ -106,7 +106,7 @@ final class StandaloneApiServer(
         optTimeServiceBackend = timeServiceBackend,
         metrics = metrics,
         healthChecks = healthChecks,
-        seedService = config.seeding.map(SeedService(_)),
+        seedService = SeedService(config.seeding),
       )(materializer, executionSequencerFactory, logCtx)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

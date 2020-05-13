@@ -40,12 +40,12 @@ final class StoreBackedCommandExecutor(
 
   override def execute(
       commands: ApiCommands,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    consume(commands.submitter, engine.submit(commands.commands, participant, submissionSeed))
+    consume(commands.submitter, engine.submit(commands.commands, participant, Some(submissionSeed)))
       .map { submission =>
         (for {
           result <- submission
@@ -64,7 +64,7 @@ final class StoreBackedCommandExecutor(
               commands.commands.ledgerEffectiveTime,
               commands.workflowId.map(_.unwrap),
               meta.submissionTime,
-              submissionSeed,
+              Some(submissionSeed),
               Some(meta.usedPackages),
               Some(meta.nodeSeeds),
               Some(meta.byKeyNodes),
