@@ -1188,34 +1188,30 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
       env = env.addExprVar(tmpl.param) // argument
-
-      val key = tmpl.key match {
-        case None => SEValue.None
-        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
-      }
-
-      env = env.incrPos // key
       env = env.incrPos // token
-
       val precond = translate(tmpl.precond)
 
       env = env.incrPos // unit returned by SBCheckPrecond
       val agreement = translate(tmpl.agreementText)
       val signatories = translate(tmpl.signatories)
       val observers = translate(tmpl.observers)
+      val key = tmpl.key match {
+        case None => SEValue.None
+        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
+      }
 
-      SELet(arg, key) in
+      SELet(arg) in
         SEAbs(1) {
           // We check precondition in a separated builtin to prevent
-          // further evaluation of agreement, signatories and observers
+          // further evaluation of agreement, signatories, observers and key
           // in case of failed precondition.
-          SELet(SBCheckPrecond(tmplId)(SEVar(3), precond)) in
+          SELet(SBCheckPrecond(tmplId)(SEVar(2), precond)) in
             SBUCreate(tmplId)(
-              SEVar(4), /* argument */
+              SEVar(3), /* argument */
               agreement,
               signatories,
               observers,
-              SEVar(3), /* key */
+              key,
               SEVar(2) /* token */
             )
         }
