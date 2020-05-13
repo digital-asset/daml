@@ -401,7 +401,8 @@ object PerformanceEnvelope {
         from = participants.participants.head,
         to = participants.participants(1),
         workflowIds = (1 to (numPings + numWarmupPings)).map(x => s"latency-$x").toList,
-        payload = "latency").map {
+        payload = "latency"
+      ).map {
         case (_, latencies) =>
           val sample = latencies.drop(numWarmupPings).map(_.toMillis).sorted
           require(sample.length == numPings)
