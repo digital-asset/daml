@@ -154,7 +154,7 @@ object ValueGenerators {
   val absCoidV0Gen: Gen[AbsoluteContractId.V0] =
     Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
   private val genAbsCidV1: Gen[AbsoluteContractId.V1] =
-    Gen.zip(genHash, genBytes.filter(_.length <= 94)) map {
+    Gen.zip(genHash, genBytes.filter(_.length <= AbsoluteContractId.V1.maxSuffixLength)) map {
       case (h, b) => AbsoluteContractId.V1.assertBuild(h, b)
     }
 
@@ -170,7 +170,9 @@ object ValueGenerators {
             AbsoluteContractId.V1
               .assertBuild(
                 b1.discriminator,
-                b1.suffix.slice(0, b1.suffix.length min 93) ++ Bytes.fromByteArray(Array(b)))
+                b1.suffix
+                  .slice(0, b1.suffix.length min (AbsoluteContractId.V1.maxSuffixLength - 1)) ++ Bytes
+                  .fromByteArray(Array(b)))
         }
       ),
       Gen.oneOf(absCoidV0Gen, genAbsCidV1 map (cid => AbsoluteContractId.V1(cid.discriminator))),
