@@ -22,11 +22,11 @@ object PartialTransaction {
   final class Context private (
       val exeContext: Option[ExercisesContext], // empty if root context
       val children: BackStack[Value.NodeId],
-      protected val childrenSeeds: Int => Option[crypto.Hash]
+      protected val childrenSeeds: Int => crypto.Hash
   ) {
     def addChild(child: Value.NodeId): Context =
       new Context(exeContext, children :+ child, childrenSeeds)
-    def nextChildrenSeed: Option[crypto.Hash] =
+    def nextChildrenSeed: crypto.Hash =
       childrenSeeds(children.length)
   }
 
@@ -34,28 +34,32 @@ object PartialTransaction {
 
     def apply(initialSeeds: InitialSeeding): Context =
       initialSeeds match {
-        case InitialSeeding.NoSeed =>
-          new Context(None, BackStack.empty, _ => None)
         case InitialSeeding.TransactionSeed(seed) =>
           new Context(None, BackStack.empty, childrenSeeds(seed))
         case InitialSeeding.RootNodeSeeds(seeds) =>
           new Context(
             None,
             BackStack.empty,
-            i => if (0 <= i && i < seeds.length) seeds(i) else None
+            i =>
+              (if (0 <= i && i < seeds.length) seeds(i) else None)
+                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided"))
           )
+        case InitialSeeding.NoSeed =>
+          new Context(
+            None,
+            BackStack.empty,
+            _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
       }
 
     def apply(exeContext: ExercisesContext) =
       new Context(
         Some(exeContext),
         BackStack.empty,
-        exeContext.parent.nextChildrenSeed
-          .fold[Int => Option[crypto.Hash]](_ => None)(childrenSeeds),
+        childrenSeeds(exeContext.parent.nextChildrenSeed),
       )
 
     private def childrenSeeds(seed: crypto.Hash)(i: Int) =
-      Some(crypto.Hash.deriveNodeSeed(seed, i))
+      crypto.Hash.deriveNodeSeed(seed, i)
 
   }
 
@@ -231,10 +235,8 @@ case class PartialTransaction(
     } else {
       val nodeSeed = context.nextChildrenSeed
       val discriminator =
-        nodeSeed.map(crypto.Hash.deriveContractDiscriminator(_, submissionTime, stakeholders))
-      val cid = discriminator.fold[Value.ContractId](
-        Value.RelativeContractId(Value.NodeId(nextNodeIdx))
-      )(Value.AbsoluteContractId.V1(_))
+        crypto.Hash.deriveContractDiscriminator(nodeSeed, submissionTime, stakeholders)
+      val cid = Value.AbsoluteContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
         cid,
         coinst,
@@ -248,7 +250,7 @@ case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
-        nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nid -> s)),
+        nodeSeeds = nodeSeeds :+ (nid -> nodeSeed),
       )
 
       // if we have a contract key being added, include it in the list of
@@ -382,7 +384,7 @@ case class PartialTransaction(
         copy(
           context = ec.parent.addChild(nodeId),
           nodes = nodes.updated(nodeId, exerciseNode),
-          nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nodeId -> s)),
+          nodeSeeds = nodeSeeds :+ (nodeId -> (nodeSeed)),
         )
       case None =>
         noteAbort(Tx.EndExerciseInRootContext)
@@ -423,12 +425,8 @@ case class PartialTransaction(
 sealed abstract class InitialSeeding extends Product with Serializable
 
 object InitialSeeding {
-  def apply(transactionSeed: Option[crypto.Hash]): InitialSeeding =
-    transactionSeed match {
-      case None => NoSeed
-      case Some(hash) => TransactionSeed(hash)
-    }
-
+  // NoSeed may be used to initiale machines that are not intended to create transactions
+  // e.g. trigger and script runners, tests
   final case object NoSeed extends InitialSeeding
   final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
   final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding

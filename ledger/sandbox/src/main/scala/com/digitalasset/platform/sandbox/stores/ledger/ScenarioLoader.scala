@@ -140,7 +140,7 @@ object ScenarioLoader {
       compiledPackages: CompiledPackages,
       submissionSeed: crypto.Hash,
   ): Speedy.Machine =
-    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), Some(submissionSeed)) match {
+    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), submissionSeed) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
       case Right(build) => build(scenarioExpr)
     }

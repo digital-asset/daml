@@ -28,7 +28,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       compiledPackages = PureCompiledPackages(Map.empty).right.get,
       scenario = false,
       submissionTime = Time.Timestamp.now(),
-      transactionSeed = None,
+      initialSeeding = InitialSeeding.NoSeed,
     )
     machine.run() match {
       case SResultFinalValue(v) => v
@@ -141,7 +141,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
         compiledPackages = PureCompiledPackages(Map.empty).right.get,
         scenario = false,
         submissionTime = Time.Timestamp.now(),
-        transactionSeed = None,
+        initialSeeding = InitialSeeding.NoSeed,
       )
     }
     "interpret" in {
@@ -240,7 +240,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
         compiledPackages = pkgs1,
         scenario = false,
         submissionTime = Time.Timestamp.now(),
-        transactionSeed = None
+        initialSeeding = InitialSeeding.NoSeed,
       )
       val result = machine.run()
       result match {
@@ -261,7 +261,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
         compiledPackages = pkgs1,
         scenario = false,
         submissionTime = Time.Timestamp.now(),
-        transactionSeed = None
+        initialSeeding = InitialSeeding.NoSeed,
       )
       val result = machine.run()
       result match {

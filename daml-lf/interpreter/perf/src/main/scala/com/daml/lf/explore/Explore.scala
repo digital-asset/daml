@@ -64,7 +64,7 @@ object PlaySpeedy {
       sexpr,
       compiledPackages,
       Time.Timestamp.now(),
-      InitialSeeding(Some(txSeed)),
+      InitialSeeding.TransactionSeed(txSeed),
       Set.empty,
     )
   }

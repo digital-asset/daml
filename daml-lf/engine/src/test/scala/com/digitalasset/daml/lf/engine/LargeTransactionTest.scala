@@ -26,7 +26,7 @@ import scala.language.implicitConversions
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private def hash(s: String, i: Int) =
-    Some(crypto.Hash.hashPrivateKey(s + ":" + i.toString))
+    crypto.Hash.hashPrivateKey(s + ":" + i.toString)
 
   private val participant = Ref.ParticipantId.assertFromString("participant")
 
@@ -204,7 +204,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       submitter: Party,
       cmd: Command,
       cmdReference: String,
-      seed: Option[crypto.Hash]
+      seed: crypto.Hash
   ): Tx.Transaction = {
     engine
       .submit(

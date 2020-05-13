@@ -45,7 +45,7 @@ final class StoreBackedCommandExecutor(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    consume(commands.submitter, engine.submit(commands.commands, participant, Some(submissionSeed)))
+    consume(commands.submitter, engine.submit(commands.commands, participant, submissionSeed))
       .map { submission =>
         (for {
           result <- submission
