@@ -1533,6 +1533,73 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
   }
 
+  "contract key" should {
+    val now = Time.Timestamp.now()
+    val submissionSeed = crypto.Hash.hashPrivateKey("contract key")
+    val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, now)
+
+    "be evaluated only when executing create" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyWhenExecutingCreate")
+      val createArg =
+        ValueRecord(
+          Some(templateId),
+          ImmArray((Some[Name]("owner"), ValueParty(alice))),
+        )
+      val exerciseArg =
+        ValueRecord(
+          Some(Identifier(basicTestsPkgId, "BasicTests:DontExecuteCreate")),
+          ImmArray.empty,
+        )
+
+      val Right((cmds, globalCids)) = preprocessor
+        .preprocessCommands(ImmArray(CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)))
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(txSeed),
+          globalCids = globalCids,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+      result shouldBe 'right
+    }
+
+    "be evaluated after ensure clause" in {
+      val templateId =
+        Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyAfterEnsureClause")
+      val createArg =
+        ValueRecord(
+          Some(templateId),
+          ImmArray((Some[Name]("owner"), ValueParty(alice)))
+        )
+
+      val Right((cmds, globalCids)) = preprocessor
+        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(txSeed),
+          globalCids = globalCids,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+      result shouldBe 'left
+      val Left(err) = result
+      err.msg should not include ("Boom")
+      err.msg should include ("precondition violation")
+    }
+  }
 }
 
 object EngineTest {
