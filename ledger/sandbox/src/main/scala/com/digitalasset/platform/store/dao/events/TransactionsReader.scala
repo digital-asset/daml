@@ -68,7 +68,7 @@ private[dao] final class TransactionsReader(
       .flatMapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionsResponse(
           verbose = verbose,
-          deserializationTimer = dbMetrics.getFlatTransactions.deserializationTimer,
+          deserializationTimer = dbMetrics.getFlatTransactions.translationTimer,
         )(events)
         Source(response.map(r => offsetFor(r) -> r))
       }
@@ -89,7 +89,7 @@ private[dao] final class TransactionsReader(
       .map(
         EventsTable.Entry.toGetFlatTransactionResponse(
           verbose = true,
-          deserializationTimer = dbMetrics.lookupFlatTransactionById.deserializationTimer,
+          deserializationTimer = dbMetrics.lookupFlatTransactionById.translationTimer,
         )
       )(executionContext)
   }
@@ -121,7 +121,7 @@ private[dao] final class TransactionsReader(
       .flatMapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionTreesResponse(
           verbose = verbose,
-          deserializationTimer = dbMetrics.getTransactionTrees.deserializationTimer,
+          deserializationTimer = dbMetrics.getTransactionTrees.translationTimer,
         )(events)
         Source(response.map(r => offsetFor(r) -> r))
       }
@@ -142,7 +142,7 @@ private[dao] final class TransactionsReader(
       .map(
         EventsTable.Entry.toGetTransactionResponse(
           verbose = true,
-          deserializationTimer = dbMetrics.lookupTransactionTreeById.deserializationTimer,
+          deserializationTimer = dbMetrics.lookupTransactionTreeById.translationTimer,
         ))(executionContext)
   }
 
@@ -172,7 +172,7 @@ private[dao] final class TransactionsReader(
         Source(
           EventsTable.Entry.toGetActiveContractsResponse(
             verbose = verbose,
-            deserializationTimer = dbMetrics.getActiveContracts.deserializationTimer,
+            deserializationTimer = dbMetrics.getActiveContracts.translationTimer,
           )(events)
         )
       }

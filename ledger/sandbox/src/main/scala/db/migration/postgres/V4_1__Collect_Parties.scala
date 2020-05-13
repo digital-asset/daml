@@ -14,7 +14,7 @@ import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeL
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.ledger.EventId
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.serialization.TransactionSerializer
+import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V4_1__Collect_Parties extends BaseJavaMigration {

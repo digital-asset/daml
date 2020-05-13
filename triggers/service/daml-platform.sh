@@ -8,6 +8,7 @@ set -m
 LEDGER_HOST=localhost
 LEDGER_PORT=6865
 LEDGER_ID="TRIGGER_SERVICE_TEST"
+TRIGGER_SERVICE_HTTP_PORT=8088
 
 bazel run //ledger/sandbox:sandbox-binary -- \
   -a $LEDGER_HOST -p $LEDGER_PORT --ledgerid $LEDGER_ID -w &
@@ -25,13 +26,13 @@ done
 echo "Connected to sandbox."
 
 bazel run //triggers/service:trigger-service-binary -- \
-  --ledger-host $LEDGER_HOST --ledger-port $LEDGER_PORT --wall-clock-time &
+  --http-port $TRIGGER_SERVICE_HTTP_PORT --ledger-host $LEDGER_HOST --ledger-port $LEDGER_PORT --wall-clock-time &
 TRIGGER_SERVICE_PID=$!
 
 # A smoke test:
 #  curl -X GET \
-#    -H "Content-type: application/json" -H "Accept: application/json" \
-#    "http://localhost:8080/test"
+#    -H "Content-type: application/health+json" -H "Accept: application/json" \
+#    "http://localhost:$TRIGGER_SERVICE_PORT/health"
 
 kill_everything() {
   kill $TRIGGER_SERVICE_PID || true

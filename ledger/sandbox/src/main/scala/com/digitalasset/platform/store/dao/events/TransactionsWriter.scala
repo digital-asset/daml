@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, Submitter
 import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.DbType
 
@@ -21,7 +21,7 @@ private[dao] object TransactionsWriter {
       eventBatches: EventsTable.PreparedBatches,
       flatTransactionWitnessesBatch: Option[BatchSql],
       complementWitnessesBatch: Option[BatchSql],
-      contractBatches: ContractsTable.PreparedBatches,
+      contractBatches: ContractsTable#PreparedBatches,
       deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
   ) {
@@ -139,7 +139,7 @@ private[dao] final class TransactionsWriter(
       divulgedContracts: Iterable[DivulgedContract],
   ): TransactionsWriter.PreparedInsert = {
 
-    val eventBatches = EventsTable.prepareBatchInsert(
+    val rawEventBatches = EventsTable.prepareBatchInsert(
       submitterInfo = submitterInfo,
       workflowId = workflowId,
       transactionId = transactionId,
@@ -168,14 +168,14 @@ private[dao] final class TransactionsWriter(
         witnesses = disclosureForTransactionTree,
       )
 
-    val contractBatches = contractsTable.prepareBatchInsert(
+    val rawContractBatches = contractsTable.prepareBatchInsert(
       ledgerEffectiveTime = ledgerEffectiveTime,
       transaction = transaction,
       divulgedContracts = divulgedContracts,
     )
 
     val deleteWitnessesBatch =
-      for ((deleted, _) <- contractBatches.deletions) yield {
+      for ((deleted, _) <- rawContractBatches.deletions) yield {
         val deletedWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
         deletedWitnessesBatch.getOrElse(
           throw new IllegalArgumentException("No witness found for contracts marked for deletion")
@@ -183,12 +183,21 @@ private[dao] final class TransactionsWriter(
       }
 
     val insertWitnessesBatch = prepareWitnessesBatch(
-      toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
-      toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
-      transient = contractBatches.transientContracts,
+      toBeInserted = rawContractBatches.insertions.fold(Set.empty[ContractId])(_._1),
+      toBeDeleted = rawContractBatches.deletions.fold(Set.empty[ContractId])(_._1),
+      transient = rawContractBatches.transientContracts,
       transaction = transaction,
       blinding = blinding,
     )
+
+    val (serializedEventBatches, serializedContractBatches) =
+      Timed.value(
+        metrics.daml.index.db.storeTransactionDao.translationTimer,
+        (rawEventBatches.applySerialization(), rawContractBatches.applySerialization())
+      )
+
+    val eventBatches = serializedEventBatches.applyBatching()
+    val contractBatches = serializedContractBatches.applyBatching()
 
     new TransactionsWriter.PreparedInsert(
       eventBatches = eventBatches,

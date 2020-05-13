@@ -11,7 +11,7 @@ import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
-import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
+import com.daml.platform.store.dao.events.RawBatch.PartialParameters
 
 import scala.util.{Failure, Success, Try}
 
@@ -19,38 +19,18 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
   protected val insertContractQuery: String
 
-  private def insertContractQuery(
-      contractId: ContractId,
-      templateId: Identifier,
-      createArgument: Value,
-      createLedgerEffectiveTime: Option[Instant],
-      stakeholders: Set[Party],
-      key: Option[Key],
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "contract_id" -> contractId,
-      "template_id" -> templateId,
-      "create_argument" -> serialize(
-        value = createArgument,
-        errorContext = s"Cannot serialize create argument for $contractId",
-      ),
-      "create_ledger_effective_time" -> createLedgerEffectiveTime,
-      "create_stakeholders" -> stakeholders.toArray[String],
-      "create_key_hash" -> key.map(_.hash),
-    )
-
   private val deleteContractQuery =
     s"delete from participant_contracts where contract_id = {contract_id}"
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
   private case class AccumulatingBatches(
-      insertions: Map[ContractId, Vector[NamedParameter]],
+      insertions: Map[ContractId, PartialParameters],
       deletions: Map[ContractId, Vector[NamedParameter]],
       transientContracts: Set[ContractId],
   ) {
 
-    def insert(contractId: ContractId, insertion: Vector[NamedParameter]): AccumulatingBatches =
+    def insert(contractId: ContractId, insertion: PartialParameters): AccumulatingBatches =
       copy(insertions = insertions.updated(contractId, insertion))
 
     // If the batch contains the contractId, remove the insertion.
@@ -63,6 +43,20 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
         )
       else
         copy(deletions = deletions.updated(contractId, deletion))
+
+    private def prepareRawNonEmpty(
+        query: String,
+        contractIdToParameters: Map[ContractId, PartialParameters],
+    ): Option[(Set[ContractId], RawBatch)] = {
+      if (contractIdToParameters.nonEmpty) {
+        val contractIds = contractIdToParameters.keySet
+        val parameters = contractIdToParameters.valuesIterator.toVector
+        val batch = new RawBatch(query, parameters)
+        Some(contractIds -> batch)
+      } else {
+        None
+      }
+    }
 
     private def prepareNonEmpty(
         query: String,
@@ -78,20 +72,54 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       }
     }
 
-    def prepare: ContractsTable.PreparedBatches =
-      ContractsTable.PreparedBatches(
-        insertions = prepareNonEmpty(insertContractQuery, insertions),
+    def prepare: RawBatches =
+      new RawBatches(
+        insertions = prepareRawNonEmpty(insertContractQuery, insertions),
         deletions = prepareNonEmpty(deleteContractQuery, deletions),
         transientContracts = transientContracts,
       )
 
   }
 
+  final class RawBatches private[ContractsTable] (
+      val insertions: Option[(Set[ContractId], RawBatch)],
+      val deletions: Option[(Set[ContractId], BatchSql)],
+      val transientContracts: Set[ContractId],
+  ) {
+    def applySerialization(): SerializedBatches =
+      new SerializedBatches(
+        insertions = insertions.map { case (ids, rawBatch) => (ids, rawBatch.applySerialization()) },
+        deletions = deletions,
+        transientContracts = transientContracts,
+      )
+  }
+
+  final class SerializedBatches private[ContractsTable] (
+      val insertions: Option[(Set[ContractId], Vector[Vector[NamedParameter]])],
+      val deletions: Option[(Set[ContractId], BatchSql)],
+      val transientContracts: Set[ContractId],
+  ) {
+    def applyBatching(): PreparedBatches =
+      new PreparedBatches(
+        insertions = insertions.map {
+          case (ids, params) => (ids, BatchSql(insertContractQuery, params.head, params.tail: _*))
+        },
+        deletions = deletions,
+        transientContracts = transientContracts,
+      )
+  }
+
+  final class PreparedBatches(
+      val insertions: Option[(Set[ContractId], BatchSql)],
+      val deletions: Option[(Set[ContractId], BatchSql)],
+      val transientContracts: Set[ContractId],
+  )
+
   def prepareBatchInsert(
       ledgerEffectiveTime: Instant,
       transaction: Transaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): ContractsTable.PreparedBatches = {
+  ): RawBatches = {
 
     // Add the locally created contracts, ensuring that _transient_
     // contracts are not inserted in the first place
@@ -101,7 +129,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
           case (batches, (_, node: Create)) =>
             batches.insert(
               contractId = node.coid,
-              insertion = insertContractQuery(
+              insertion = new RawBatch.Contract(
                 contractId = node.coid,
                 templateId = node.coinst.template,
                 createArgument = node.coinst.arg,
@@ -126,7 +154,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     val divulgedContractsInsertions =
       divulgedContracts.iterator.collect {
         case contract if !locallyCreatedContracts.insertions.contains(contract.contractId) =>
-          contract.contractId -> insertContractQuery(
+          contract.contractId -> new RawBatch.Contract(
             contractId = contract.contractId,
             templateId = contract.contractInst.template,
             createArgument = contract.contractInst.arg,
@@ -190,11 +218,5 @@ private[events] object ContractsTable {
     new IllegalArgumentException(
       s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
-
-  final case class PreparedBatches private (
-      insertions: Option[(Set[ContractId], BatchSql)],
-      deletions: Option[(Set[ContractId], BatchSql)],
-      transientContracts: Set[ContractId],
-  )
 
 }

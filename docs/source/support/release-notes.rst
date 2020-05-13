@@ -6,6 +6,220 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-1.1.0:
+
+1.1.0 - 2020-05-13
+------------------
+
+Summary
+~~~~~~~
+
+- New package management endpoints on the JSON API
+
+- Better TLS Support for the JSON API
+
+  - Action required if you start the JSON API using daml json-api and
+    do not run it behind a reverse proxy.
+
+What’s New
+~~~~~~~~~~
+
+New Package Management Endpoints on the JSON API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+The Ledger API’s package management service allows uploading,
+downloading and listing of DAML packages available on a DAML Ledger.
+For situations where connecting to the Ledger API is not possible or
+is inconvenient, these services are now available through the JSON
+API as well.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+The JSON API has three new endpoints
+
+-  ``GET /v1/packages`` -- returns all package IDs
+-  ``GET /v1/packages/<package ID>`` -- downloads a given DALF package
+-  ``POST /v1/packages`` -- uploads a DAR file to the ledger
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This is a purely additive change. Users who connect to gRPC from
+their applications for the sole purpose of managing DAML packages may
+switch over to the new endpoints to eliminate dependencies on gRPC or
+Ledger API language bindings.
+
+Better TLS Support for the JSON API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+In addition to the numerous new TLS options introduced in SDK 1.0.0,
+the JSON API can now also connect to the Ledger API via TLS. To
+protect against insecure connections which may leak access tokens, it
+also adds a warning if not run behind a reverse proxy that terminates
+TLS connections. This warning will become an error in a future
+release.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  The JSON API accepts new command line parameters ``--pem``, ``--crt``,
+   ``--cacrt``, and ``--tls``, which configure it to connect to the Ledger
+   API using TLS.
+-  By default, the JSON API now checks that connections are made
+   through a reverse-proxy providing HTTPS, ensuring that JWT tokens
+   don't leak. To disable this check, such as for development, pass
+   ``--allow-insecure-tokens``. A failed check currently results in a
+   warning.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+``daml start`` automatically sets this flag so there is no migration
+needed. If you are starting the JSON API manually, we advise you to
+add the flag ``--allow-insecure-tokens`` for development environments,
+and to run the JSON API behind a TLS-enabled reverse proxy in
+production.
+
+Minor Improvements
+~~~~~~~~~~~~~~~~~~
+
+-  Faster Sandbox reset via the ResetService.
+-  ``daml trigger`` and  ``daml script`` now default to wall clock time if 
+   neither ``--wall-clock-time`` or ``--static-time`` is passed.
+-  daml script now has an ``--output-file`` option that can be used to
+   specify a file the result of the script should be  written to.
+   Similar to ``--input-file`` the result will be output in the DAML-LF
+   JSON encoding.
+-  You can now disable implicit party allocation of the Sandbox by
+   passing the flag ``--implicit-party-allocation=false``. This makes it
+   easier to test as you would against another ledger which does not
+   support this feature.
+-  The ``daml ledger`` commands no longer require the Bearer prefix in
+   the access token file. This matches the behavior of DAML Script
+   and other SDK tools.
+-  Added ``--max-commands-in-flight`` to Sandbox CLI configs. This limits
+   the maximum number of unconfirmed commands in flight in
+   CommandService.
+
+
+Improvements to Early Access Features
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-  ``daml damlc visual`` now works properly in projects consisting of
+   multiple packages.
+-  Fix a bug where ``exerciseByKey`` was not properly recognized by
+   daml damlc visual.
+-  DAML REPL now produces better error messages on calls to ``error``
+   and ``abort``.
+
+
+Bug Fixes
+~~~~~~~~~
+
+-  Fix a bug where scenarios with names containing special characters
+   resulted in a crash in the scenario service.
+-  The Sandbox properly respects the ``--log-level`` CLI parameter
+-  The sandbox now properly delays command submissions using
+   ``minLedgerTimeAbs`` or ``minLedgerTimeRel``. See `issue
+   #5480 <https://github.com/digital-asset/daml/issues/5480>`__.
+-  Migrating from Sandbox 0.13.55 to Sandbox Classic 1.0.0 could have
+   introduced contracts falsely reported as active when in fact they
+   are not. Migrating to Sandbox Classic 1.1.0 will fix the issue.
+   See `issue
+   #5659 <https://github.com/digital-asset/daml/issues/5659>`__.
+
+Changes to Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These changes only affect ledger integrators and operators that
+consume the metrics emitted by the DAML Integration Kit. We have
+introduced new metrics and adjusted the naming of existing metrics to
+be consolidated. If you have built a dashboard for a ledger built
+using the integration kit, then you will need to adapt that
+dashboard. The changes are as follows.
+
+We have introduced these new metrics:
+
+-  a timing metric for the commit at ``daml.kvutils.writer.commit``.
+-  a metric for command validation upon submission,
+   ``daml.commands.validation``.
+-  ``daml.commands.submissions`` is a new timer that measures all
+   submissions.
+-  ``daml.commands.valid_submissions`` is a new meter that counts valid
+   ``(unique, interpretable)`` submissions.
+-  ``daml.kvutils.reader.parse_updates`` is a new timer that measures the
+   translation time of ledger log entries when serving state updates
+   to the indexer.
+-  ``daml.kvutils.reader.open_envelope`` is a new timer that measures the
+   deserialization time of ledger log entries when serving state
+   updates to the indexer.
+-  ``daml.ledger.log.append`` is a new timer that measures the time for
+   writing new log entries.
+-  ``daml.ledger.state.read`` is a new timer that measures reading from
+   the ledger state.
+-  ``daml.ledger.state.write`` is a new timer that measures writing to
+   the ledger state.
+
+- We have renamed these metrics:
+
+  -  ``daml.lapi.command_submission_service.failed_command_interpretations``
+     has been renamed to ``daml.commands.failed_command_interpretations``.
+  -  ``daml.lapi.command_submission_service.deduplicated_commands`` has
+     been renamed to ``daml.commands.deduplicated_commands``.
+  -  ``daml.lapi.command_submission_service.delayed_submissions`` has been
+     renamed to ``daml.commands.delayed_submissions``.
+  -  ``daml.lapi.command_submission_service.submitted_transactions`` has
+     been renamed to ``daml.services.write.submit_transaction``.
+
+- The metrics registry should now be passed using the new
+  ``com.daml.metrics.Metrics`` type, which wraps/replaces
+  ``com.codahale.metrics.MetricsRegistry``.
+- ``maxDeduplicationTime`` configuration (the maximum time window during
+  which commands can be deduplicated) has moved from
+  ``SubmissionConfiguration`` to the ``Configuration`` class.
+- Engine is now mandatory in several  participant api server related
+  constructors to avoid running multiple interpretation engines.
+
+.. _release-1-0-1:
+
+1.0.1 - 2020-04-27
+------------------
+
+This is a bugfix release for SDK 1.0.0. All users of SDK 1.0.0 are
+encouraged to upgrade at their earliest convenience. This release
+fixes 3 issues:
+
+1. Fix an issue with false negative contract key lookups by
+   non-stakeholders (see
+   https://github.com/digital-asset/daml/issues/5562 for
+   details).
+
+   This issue affected the new Sandbox introduced in SDK
+   1.0.0 (but not sandbox-classic) as well as the scenario
+   service. Both Sandbox and the scenario service are fixed.
+
+2. Fix a crash in the scenario service.
+
+   SDK 1.0 introduced a bug where the scenario service would crash if
+   a failing transaction contained transient contracts. In DAML Studio this was shown as the following error:
+
+.. code::
+
+   BErrorClient (ClientIOError (GRPCIOBadStatusCode StatusUnknown (StatusDetails {unStatusDetails = \“\”})))
+
+3. Fix an issue where Sandbox incorrectly rejected certain commands
+   relying on ``getTime`` during validation (see
+   https://github.com/digital-asset/daml/issues/5662 for
+   details). This was only an issue if you set either
+   ``min_ledger_time_rel`` or ``min_ledger_time_abs``.
+
 .. _release-1-0-0:
 
 1.0.0 - 2020-04-15

@@ -76,7 +76,7 @@ object ApiServices {
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: Metrics,
       healthChecks: HealthChecks,
-      seedService: Option[SeedService]
+      seedService: SeedService
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,

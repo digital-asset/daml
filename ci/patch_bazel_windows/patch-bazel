@@ -1,13 +1,32 @@
-diff --git a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
-index 0fa1b5db2e..e6a1494ae5 100644
---- a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
-+++ b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
-@@ -144,7 +144,7 @@ public final class RemoteModule extends BlazeModule {
-     env.getEventBus().register(this);
-     String invocationId = env.getCommandId().toString();
-     String buildRequestId = env.getBuildRequestId();
--    env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
-+    env.getReporter().handle(Event.info(String.format("Invocation id: %s", invocationId)));
+diff --git a/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java b/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
+index 72da2b2f85..72f70bfe58 100644
+--- a/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
++++ b/src/main/java/com/google/devtools/build/lib/rules/cpp/CppCompileAction.java
+@@ -993,6 +993,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
+             Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs().toList());
+       }
+       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
++        System.err.println("DA-DEBUG: isDeclaredIn was false" + input.getExecPath().toString());
+         errors.add(input.getExecPath().toString());
+       }
+     }
+diff --git a/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java b/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
+index 157cd5f36a..fb9dbc723f 100644
+--- a/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
++++ b/src/main/java/com/google/devtools/build/lib/rules/cpp/HeaderDiscovery.java
+@@ -148,6 +148,7 @@ public class HeaderDiscovery {
+         if (execPath.startsWith(execRoot)) {
+           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+         } else {
++          System.err.println("DA-DEBUG: Absolute path " + execPathFragment.getPathString() + " outside of execroot " + execRoot);
+           problems.add(execPathFragment.getPathString());
+           continue;
+         }
+@@ -184,6 +185,7 @@ public class HeaderDiscovery {
  
-     Path logDir =
-         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
+       // Abort if we see files that we can't resolve, likely caused by
+       // undeclared includes or illegal include constructs.
++      System.err.println("DA-DEBUG: Valid system includes: " + permittedSystemIncludePrefixes.toString());
+       problems.add(execPathFragment.getPathString());
+     }
+     if (shouldValidateInclusions) {

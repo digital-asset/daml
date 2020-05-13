@@ -12,6 +12,7 @@ case class ServiceConfig(
     // For convenience, we allow passing in a DAR on startup
     // as opposed to uploading it dynamically.
     darPath: Option[Path],
+    httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
     timeProviderType: TimeProviderType,
@@ -26,6 +27,11 @@ object ServiceConfig {
       .optional()
       .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
       .text("Path to the dar file containing the trigger")
+
+    opt[Int]("http-port")
+      .optional()
+      .action((t, c) => c.copy(httpPort = t))
+      .text("Http port")
 
     opt[String]("ledger-host")
       .required()
@@ -54,6 +60,7 @@ object ServiceConfig {
       args,
       ServiceConfig(
         darPath = None,
+        httpPort = 8088,
         ledgerHost = null,
         ledgerPort = 0,
         timeProviderType = TimeProviderType.Static,
