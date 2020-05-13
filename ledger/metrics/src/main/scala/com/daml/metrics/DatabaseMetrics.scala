@@ -13,7 +13,7 @@ final class DatabaseMetrics private[metrics] (
 
   val waitTimer: Timer = registry.timer(prefix :+ name :+ "wait")
   val executionTimer: Timer = registry.timer(prefix :+ name :+ "exec")
-  val deserializationTimer: Timer = registry.timer(prefix :+ name :+ "deserialization")
+  val translationTimer: Timer = registry.timer(prefix :+ name :+ "translation")
 
 }
 
