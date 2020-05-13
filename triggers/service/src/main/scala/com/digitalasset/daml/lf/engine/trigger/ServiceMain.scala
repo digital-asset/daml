@@ -114,7 +114,7 @@ object Server {
           // Start a new trigger given its identifier and the party it
           // should be running as.  Returns a UUID for the newly
           // started trigger.
-          path("start") {
+          path("v1" / "start") {
             entity(as[StartParams]) {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
@@ -139,7 +139,7 @@ object Server {
           },
           // upload a DAR as a multi-part form request with a single field called
           // "dar".
-          path("upload_dar") {
+          path("v1" / "upload_dar") {
             fileUpload("dar") {
               case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
                 val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
@@ -172,11 +172,11 @@ object Server {
         // Convenience endpoint for tests (roughly follow
         // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
         concat(
-          path("health") {
+          path("v1" / "health") {
             complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
           },
           // List triggers currently running for the given party
-          path("list") {
+          path("v1" / "list") {
             entity(as[ListParams]) { params =>
               {
                 val triggerList =
@@ -190,7 +190,7 @@ object Server {
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("stop" / JavaUUID) { uuid =>
+        pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
           val actorWithParty = triggers.get(uuid).get
           actorWithParty.ref ! TriggerRunner.Stop
           triggers = triggers - uuid
