@@ -14,7 +14,7 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.FileInfo
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{Route, PathMatcher}
 import akka.stream.{Materializer}
 import akka.stream.scaladsl.{Source}
 import akka.util.{ByteString, Timeout}
@@ -105,6 +105,8 @@ object Server {
     val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
     dar.foreach(addDar(compiledPackages, _))
 
+    import PathUtils._
+
     // 'fileUpload' triggers this warning we don't have a fix right
     // now so we disable it.
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -114,7 +116,7 @@ object Server {
           // Start a new trigger given its identifier and the party it
           // should be running as.  Returns a UUID for the newly
           // started trigger.
-          path("v1" / "start") {
+          path(v1("start")) {
             entity(as[StartParams]) {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
@@ -139,7 +141,7 @@ object Server {
           },
           // upload a DAR as a multi-part form request with a single field called
           // "dar".
-          path("v1" / "upload_dar") {
+          path(v1("upload_dar")) {
             fileUpload("dar") {
               case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
                 val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
@@ -172,11 +174,11 @@ object Server {
         // Convenience endpoint for tests (roughly follow
         // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
         concat(
-          path("v1" / "health") {
+          path(v1("health")) {
             complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
           },
           // List triggers currently running for the given party
-          path("v1" / "list") {
+          path(v1("list")) {
             entity(as[ListParams]) { params =>
               {
                 val triggerList =
@@ -190,7 +192,7 @@ object Server {
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
+        pathPrefix(v1("stop") / JavaUUID) { uuid =>
           val actorWithParty = triggers.get(uuid).get
           actorWithParty.ref ! TriggerRunner.Stop
           triggers = triggers - uuid
@@ -321,5 +323,12 @@ object ServiceMain {
           val _: Future[ServerBinding] = Await.ready(serviceF, 5.seconds)
         }
     }
+  }
+}
+
+// Utility to reduce code repetition.
+object PathUtils {
+  def v1(segments: String*): PathMatcher[Unit] = {
+    segments.foldLeft[PathMatcher[Unit]]("v1")(_ / _)
   }
 }
