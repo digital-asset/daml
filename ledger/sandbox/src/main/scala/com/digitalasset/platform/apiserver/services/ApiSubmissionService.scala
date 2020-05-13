@@ -61,7 +61,7 @@ object ApiSubmissionService {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       ledgerConfigProvider: LedgerConfigProvider,
-      seedService: Option[SeedService],
+      seedService: SeedService,
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
@@ -110,7 +110,7 @@ final class ApiSubmissionService private (
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
     ledgerConfigProvider: LedgerConfigProvider,
-    seedService: Option[SeedService],
+    seedService: SeedService,
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
@@ -122,7 +122,7 @@ final class ApiSubmissionService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private def deduplicateAndRecordOnLedger(
-      seed: Option[crypto.Hash],
+      seed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration)(implicit logCtx: LoggingContext): Future[Unit] = {
     val submittedAt = commands.submittedAt
@@ -161,7 +161,7 @@ final class ApiSubmissionService private (
         Future.failed(ErrorFactories.missingLedgerConfig())
       )(
         ledgerConfig =>
-          deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands, ledgerConfig)
+          deduplicateAndRecordOnLedger(seedService.nextSeed(), commands, ledgerConfig)
             .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext))
     }
 
@@ -189,7 +189,7 @@ final class ApiSubmissionService private (
   }
 
   private def recordOnLedger(
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration,
   )(implicit logCtx: LoggingContext): Future[SubmissionResult] =

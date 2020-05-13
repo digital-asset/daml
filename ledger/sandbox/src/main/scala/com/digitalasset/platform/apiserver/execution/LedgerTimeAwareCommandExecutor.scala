@@ -32,7 +32,7 @@ final class LedgerTimeAwareCommandExecutor(
     */
   override def execute(
       commands: Commands,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
@@ -41,7 +41,7 @@ final class LedgerTimeAwareCommandExecutor(
 
   private[this] def loop(
       commands: Commands,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       retriesLeft: Int,
   )(
       implicit ec: ExecutionContext,
