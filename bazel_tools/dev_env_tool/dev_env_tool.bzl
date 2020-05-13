@@ -19,19 +19,13 @@ filegroup(
     for i in range(0, len(tools)):
         if is_windows:
             content += """
+# Running tools with `bazel run` is not supported on Windows.
 filegroup(
     name = "{tool}",
     srcs = ["{path}"],
 )
-
-sh_binary(
-    name = "{tool}.exe",
-    srcs = [":{tool}"],
-    data = {dependencies},
-)
 """.format(
                 tool = tools[i],
-                dependencies = [":{}.exe".format(dep) for dep in required_tools.get(tools[i], [])],
                 path = win_paths[i],
             )
         else:
