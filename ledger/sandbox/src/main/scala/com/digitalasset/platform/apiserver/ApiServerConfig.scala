@@ -22,5 +22,5 @@ case class ApiServerConfig(
     maxInboundMessageSize: Int,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     portFile: Option[Path],
-    seeding: Seeding
+    seeding: Seeding,
 )
