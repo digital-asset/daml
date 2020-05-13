@@ -147,13 +147,33 @@ object ValueGenerators {
 
   private val genRel: Gen[ContractId] =
     Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
-  private val genAbsCidV0: Gen[AbsoluteContractId.V0] =
+  private val genHash: Gen[crypto.Hash] =
+    Gen
+      .containerOfN[Array, Byte](crypto.Hash.underlyingHashLength, arbitrary[Byte]) map crypto.Hash.assertFromByteArray
+  private val genBytes: Gen[Bytes] = arbitrary[Array[Byte]] map Bytes.fromByteArray
+  val absCoidV0Gen: Gen[AbsoluteContractId.V0] =
     Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
+  private val genAbsCidV1: Gen[AbsoluteContractId.V1] =
+    Gen.zip(genHash, genBytes) map { case (h, b) => AbsoluteContractId.V1.assertBuild(h, b) }
 
-  def absCoidGen: Gen[AbsoluteContractId] = genAbsCidV0 // TODO SC gen V1
+  def absCoidGen: Gen[AbsoluteContractId] = Gen.oneOf(absCoidV0Gen, genAbsCidV1)
+
+  /** Universes of totally-ordered AbsoluteContractIds. */
+  def comparableAbsCoidsGen: Seq[Gen[AbsoluteContractId]] =
+    Seq(
+      Gen.oneOf(
+        absCoidV0Gen,
+        Gen.zip(genAbsCidV1, arbitrary[Byte]) map {
+          case (b1, b) =>
+            AbsoluteContractId.V1
+              .assertBuild(b1.discriminator, b1.suffix ++ Bytes.fromByteArray(Array(b)))
+        }
+      ),
+      Gen.oneOf(absCoidV0Gen, genAbsCidV1 map (cid => AbsoluteContractId.V1(cid.discriminator))),
+    )
 
   def coidGen: Gen[ContractId] =
-    Gen.frequency((1, genRel), (3, genAbsCidV0))
+    Gen.frequency((1, genRel), (3, absCoidV0Gen))
 
   def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
@@ -405,7 +425,7 @@ object ValueGenerators {
       disclosed1 <- nodePartiesGen
       disclosed2 <- nodePartiesGen
       divulged <- Gen.mapOf(
-        genAbsCidV0.flatMap(c => genMaybeEmptyParties.map(ps => (c: AbsoluteContractId) -> ps)))
+        absCoidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: AbsoluteContractId) -> ps)))
     } yield BlindingInfo(disclosed1, disclosed2, divulged)
   }
 

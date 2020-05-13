@@ -23,6 +23,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.resources.ResourceOwner
 import org.scalatest.Inside._
@@ -58,7 +59,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -68,7 +69,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       ledgerId: Option[LedgerId] = None,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, new MetricRegistry)
+      participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
     }
 
   override protected def beforeEach(): Unit = {

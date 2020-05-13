@@ -3,11 +3,14 @@
 The host machine needs three things:
 
 1. The [Vagrant base box](../1-create-box/README.md) for macOS.
-2. VirtualBox (with the extension).
+2. a) VirtualBox (with the extension).
+2. or b) VMWare Fusion Pro and Vagrant VMWare Plugin
 3. Vagrant.
 
-You can refer to the instructions in [this README](../1-create-box/README.md),
-or, for a more automated setup, use the following set of commands (which will
+You can refer to the instructions in [this README](../1-create-box/README.md) for installation and choice of a 
+hypervisor.
+
+For VirtualBox, a more automated setup can use the following set of commands (which will
 require a sudoer password at some points):
 
 ```
@@ -28,7 +31,7 @@ scripted. `brew` itself will refuse to run if started as root.
 
 # Running a node
 
-With Vagrant and VirtualBox installed, running a box is as simple as moving to
+With Vagrant and VirtualBox/VMWare installed, running a box is as simple as moving to
 this folder and running
 
 ```

@@ -1,0 +1,28 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Model where
+
+template TProposal
+  with
+    proposer : Party
+    accepter : Party
+    note : Text
+  where
+    signatory proposer
+    observer accepter
+    choice Accept : ContractId T
+      controller accepter
+      do create T with ..
+
+template T
+  with
+    proposer : Party
+    accepter : Party
+    note : Text
+  where
+    signatory [proposer, accepter]
+    choice UnilateralArchive : ()
+      controller proposer
+      do pure ()
+

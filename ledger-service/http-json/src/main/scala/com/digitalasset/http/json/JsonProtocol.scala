@@ -30,6 +30,17 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
 
+  implicit val AbsoluteContractIdFormat: JsonFormat[AbsoluteContractId] =
+    new JsonFormat[AbsoluteContractId] {
+      override def write(obj: AbsoluteContractId) =
+        JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          AbsoluteContractId fromString s fold (deserializationError(_), identity)
+        case _ => deserializationError("ContractId must be a string")
+      }
+    }
+
   implicit val OffsetFormat: JsonFormat[domain.Offset] =
     taggedJsonFormat[String, domain.OffsetTag]
 
@@ -67,14 +78,12 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = true,
         encodeInt64AsString = true)
-      with CodecAbsoluteContractIds
 
   // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = false,
-        encodeInt64AsString = false)
-      with CodecAbsoluteContractIds {
+        encodeInt64AsString = false) {
     private[http] def asLfValueCodec(jv: JsValue): JsValue = jv match {
       case JsObject(fields) => JsObject(fields transform ((_, v) => asLfValueCodec(v)))
       case JsArray(elements) => JsArray(elements map asLfValueCodec)
@@ -84,16 +93,6 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         // will not have a ".0" included in their string representation.  We can't
         // tell the difference here between an int64 and a numeric
         JsString(value.bigDecimal.stripTrailingZeros.toPlainString)
-    }
-  }
-
-  sealed trait CodecAbsoluteContractIds extends ApiCodecCompressed[AbsoluteContractId] {
-    protected override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
-      JsString(obj.coid)
-    protected override final def jsValueToApiContractId(json: JsValue) = json match {
-      case JsString(s) =>
-        AbsoluteContractId fromString s fold (deserializationError(_), identity)
-      case _ => deserializationError("ContractId must be a string")
     }
   }
 

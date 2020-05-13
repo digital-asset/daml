@@ -256,7 +256,11 @@ generateRawDalfRule =
                     -- GHC Core to DAML LF
                     case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
                         Left e -> return ([e], Nothing)
-                        Right v -> return ([], Just $ LF.simplifyModule v)
+                        Right v -> do
+                            WhnfPackage pkg <- use_ GeneratePackageDeps file
+                            pkgs <- getExternalPackages file
+                            let world = LF.initWorldSelf pkgs pkg
+                            return ([], Just $ LF.simplifyModule world v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -402,9 +406,15 @@ generateSerializedDalfRule options =
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
-                                    rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
-                                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
+                                    let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
+                                        world = LF.initWorldSelf pkgs selfPkg
+                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) rawDalf
+                                        -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
+                                        -- across modules when doing incremental builds. The reason is that our Shake rules
+                                        -- use ABI changes to determine whether to rebuild the module, so if an implementaion
+                                        -- changes without a corresponding ABI change, we would end up with an outdated
+                                        -- implementation.
                                     case Serializability.inferModule world lfVersion rawDalf of
                                         Left err -> pure ([ideErrorPretty file err], Nothing)
                                         Right dalf -> do

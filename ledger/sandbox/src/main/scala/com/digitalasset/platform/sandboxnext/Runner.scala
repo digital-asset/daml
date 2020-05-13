@@ -12,13 +12,14 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
+import com.daml.caching
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.kvutils.caching
+import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
@@ -27,7 +28,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.PartyConfiguration
@@ -131,7 +131,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
-                  metricRegistry = metrics,
+                  metrics = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   resetOnStartup = isReset,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
@@ -141,8 +141,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   engine = engine
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-                readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
-                writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
+                readService = new TimedReadService(ledger, metrics)
+                writeService = new TimedWriteService(ledger, metrics)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
                 _ <- if (isReset) {
@@ -202,12 +202,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   partyConfig = PartyConfiguration.default.copy(
                     implicitPartyAllocation = config.implicitPartyAllocation,
                   ),
-                  submissionConfig = config.submissionConfig,
                   ledgerConfig = config.ledgerConfig,
                   readService = readService,
                   writeService = writeService,
                   authService = authService,
-                  transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
+                  transformIndexService = new TimedIndexService(_, metrics),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   otherServices = List(resetService),
@@ -262,10 +261,5 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val MaximumStateValueCacheSize: caching.Size = 128L * 1024 * 1024
-
-  private val ServicePrefix = MetricName.DAML :+ "services"
-  private val IndexServicePrefix = ServicePrefix :+ "index"
-  private val ReadServicePrefix = ServicePrefix :+ "read"
-  private val WriteServicePrefix = ServicePrefix :+ "write"
+  private val MaximumStateValueCacheSize: caching.Cache.Size = 128L * 1024 * 1024
 }

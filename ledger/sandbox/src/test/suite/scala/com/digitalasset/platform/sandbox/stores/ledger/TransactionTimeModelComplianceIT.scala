@@ -3,9 +3,18 @@
 
 package com.daml.platform.sandbox.stores.ledger
 
-import java.time.{Duration, Instant}
+import java.time.{Instant, Duration => JDuration}
+import java.util.UUID
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TimeModel,
+  TransactionMeta
+}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
@@ -53,7 +62,7 @@ class TransactionTimeModelComplianceIT
     implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, participantId, timeProvider, ledgerConfig)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
         newLoggingContext { implicit logCtx =>
           LedgerResource.postgres(
@@ -61,7 +70,6 @@ class TransactionTimeModelComplianceIT
             ledgerId,
             participantId,
             timeProvider,
-            ledgerConfig,
             metrics,
           )
         }
@@ -70,6 +78,23 @@ class TransactionTimeModelComplianceIT
 
   private[this] val submissionSeed = Some(crypto.Hash.hashPrivateKey(this.getClass.getName))
 
+  private[this] def publishConfig(
+      ledger: Ledger,
+      recordTime: Instant,
+      generation: Long,
+      minSkew: JDuration,
+      maxSkew: JDuration) = {
+    val config = Configuration(
+      generation = generation,
+      timeModel = TimeModel(JDuration.ZERO, minSkew, maxSkew).get,
+      maxDeduplicationTime = JDuration.ofSeconds(10),
+    )
+    ledger.publishConfiguration(
+      Time.Timestamp.assertFromInstant(recordTime.plusSeconds(3600)),
+      UUID.randomUUID().toString,
+      config)
+  }
+
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
     val dummyTransaction: Transaction.AbsTransaction =
       GenTransaction(HashMap.empty, ImmArray.empty)
@@ -77,7 +102,7 @@ class TransactionTimeModelComplianceIT
     val submitterInfo = SubmitterInfo(
       submitter = Ref.Party.assertFromString("submitter"),
       applicationId = Ref.LedgerString.assertFromString("appId"),
-      commandId = Ref.LedgerString.assertFromString(commandId),
+      commandId = Ref.LedgerString.assertFromString(commandId + UUID.randomUUID().toString),
       deduplicateUntil = Instant.EPOCH
     )
     val transactionMeta = TransactionMeta(
@@ -120,17 +145,63 @@ class TransactionTimeModelComplianceIT
     completion.status.value.code shouldBe ok
 
   "A Ledger" should {
+    "reject transactions if there is no ledger config" in allFixtures { ledger =>
+      val ledgerTime = recordTime
+
+      for {
+        r1 <- publishTxAt(ledger, ledgerTime, "lt-valid")
+      } yield {
+        expectInvalidLedgerTime(r1)
+      }
+    }
     "accept transactions with ledger time that is right" in allFixtures { ledger =>
       val ledgerTime = recordTime
-      publishTxAt(ledger, ledgerTime, "lt-valid").flatMap(expectValidTx)
+
+      for {
+        _ <- publishConfig(ledger, recordTime, 1, JDuration.ofSeconds(1), JDuration.ofSeconds(1))
+        r1 <- publishTxAt(ledger, ledgerTime, "lt-valid")
+      } yield {
+        expectValidTx(r1)
+      }
     }
     "reject transactions with ledger time that is too low" in allFixtures { ledger =>
-      val ledgerTime = recordTime.minus(ledgerConfig.timeModel.minSkew).minusSeconds(1)
-      publishTxAt(ledger, ledgerTime, "lt-low").flatMap(expectInvalidLedgerTime)
+      val minSkew = JDuration.ofSeconds(1)
+      val maxSkew = JDuration.ofDays(1)
+      val ledgerTime = recordTime.minus(minSkew).minusSeconds(1)
+
+      for {
+        _ <- publishConfig(ledger, recordTime, 1, minSkew, maxSkew)
+        r1 <- publishTxAt(ledger, ledgerTime, "lt-low")
+      } yield {
+        expectInvalidLedgerTime(r1)
+      }
     }
     "reject transactions with ledger time that is too high" in allFixtures { ledger =>
-      val ledgerTime = recordTime.plus(ledgerConfig.timeModel.maxSkew).plusSeconds(1)
-      publishTxAt(ledger, ledgerTime, "lt-high").flatMap(expectInvalidLedgerTime)
+      val minSkew = JDuration.ofDays(1)
+      val maxSkew = JDuration.ofSeconds(1)
+      val ledgerTime = recordTime.plus(maxSkew).plusSeconds(1)
+
+      for {
+        _ <- publishConfig(ledger, recordTime, 1, minSkew, maxSkew)
+        r1 <- publishTxAt(ledger, ledgerTime, "lt-high")
+      } yield {
+        expectInvalidLedgerTime(r1)
+      }
+    }
+    "reject transactions after ledger config changes" in allFixtures { ledger =>
+      val largeSkew = JDuration.ofDays(1)
+      val smallSkew = JDuration.ofSeconds(1)
+      val ledgerTime = recordTime.plus(largeSkew)
+
+      for {
+        _ <- publishConfig(ledger, recordTime, 1, largeSkew, largeSkew)
+        r1 <- publishTxAt(ledger, ledgerTime, "lt-before")
+        _ <- publishConfig(ledger, recordTime, 2, smallSkew, smallSkew)
+        r2 <- publishTxAt(ledger, ledgerTime, "lt-after")
+      } yield {
+        expectValidTx(r1)
+        expectInvalidLedgerTime(r2)
+      }
     }
   }
 
@@ -143,7 +214,6 @@ object TransactionTimeModelComplianceIT {
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(recordTime)
-  private val ledgerConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1))
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
 

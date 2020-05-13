@@ -4,7 +4,6 @@
 package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -25,7 +24,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{Node, TransactionCommitter}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -91,22 +90,15 @@ class InMemoryLedger(
     participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
+    transactionCommitter: TransactionCommitter,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
-    initialConfig: Configuration,
 ) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
-    l.publish(
-      InMemoryConfigEntry(
-        ConfigurationEntry.Accepted(
-          submissionId = UUID.randomUUID.toString,
-          participantId = participantId,
-          configuration = initialConfig,
-        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
@@ -185,7 +177,7 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
+  private var ledgerConfiguration: Option[Configuration] = None
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
@@ -292,6 +284,16 @@ class InMemoryLedger(
       }
     )
 
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
+    ledgerConfiguration
+      .fold[Either[String, Unit]](
+        Left("No ledger configuration available, cannot validate ledger time")
+      )(
+        config => config.timeModel.checkTime(ledgerTime, recordTime)
+      )
+  }
+
   private def handleSuccessfulTx(
       transactionId: LedgerString,
       submitterInfo: SubmitterInfo,
@@ -299,14 +301,17 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Unit = {
     val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
-    val timeModel = ledgerConfiguration.get.timeModel
-    timeModel
-      .checkTime(ledgerTime, recordTime)
+    checkTimeModel(ledgerTime, recordTime)
       .fold(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
           val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-            Ledger.convertToCommittedTransaction(transactionId, transaction)
+            Ledger
+              .convertToCommittedTransaction(
+                transactionCommitter,
+                transactionId,
+                transaction,
+              )
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,

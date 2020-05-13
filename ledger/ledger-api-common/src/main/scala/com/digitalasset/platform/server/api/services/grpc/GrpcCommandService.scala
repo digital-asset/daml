@@ -23,7 +23,7 @@ class GrpcCommandService(
     val ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Duration
+    maxDeduplicationTime: () => Option[Duration]
 ) extends CommandService
     with GrpcApiService
     with ProxyCloseable {

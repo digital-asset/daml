@@ -20,6 +20,7 @@ import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
@@ -192,7 +193,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        metrics = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )(materializer, logCtx)
     } yield participantState
   }
@@ -204,7 +205,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
-      metrics = new MetricRegistry,
+      metrics = new Metrics(new MetricRegistry),
     )
   }
 }
@@ -230,14 +231,13 @@ object RecoveringIndexerIntegrationSpec {
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] = {
-      val metricRegistry = new MetricRegistry
+      val metrics = new Metrics(new MetricRegistry)
       new InMemoryLedgerReaderWriter.SingleParticipantOwner(
         ledgerId,
         participantId,
-        metricRegistry = metricRegistry,
+        metrics = metrics,
         engine = Engine()
-      ).map(readerWriter =>
-        new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
+      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
 

@@ -9,9 +9,10 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 
-private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher) {
+private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher, metrics: Metrics) {
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
@@ -28,7 +29,7 @@ private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher) {
       parties = parties,
     )
     Source
-      .future(dispatcher.executeSql("get_completions") { implicit connection =>
+      .future(dispatcher.executeSql(metrics.daml.index.db.getCompletions) { implicit connection =>
         query.as(CommandCompletionsTable.parser.*)
       })
       .mapConcat(_.map(response => offsetFor(response) -> response))

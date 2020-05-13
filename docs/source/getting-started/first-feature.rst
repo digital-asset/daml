@@ -9,7 +9,7 @@ This will give us a better idea how to develop DAML applications using our templ
 
 At the moment, our app lets us follow users in the network, but we have no way to communicate with them!
 Let's fix that by adding a *direct messaging* feature.
-This should let users that follow each other send messages, repsecting *authorization* and *privacy*.
+This should let users that follow each other send messages, respecting *authorization* and *privacy*.
 This means:
 
     1. You cannot send a message to someone unless they have given you the authority by following you back.

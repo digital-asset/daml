@@ -20,6 +20,7 @@ DAML SDK documentation
    Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
    getting-started/testing
+   Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 .. toctree::
    :titlesonly:

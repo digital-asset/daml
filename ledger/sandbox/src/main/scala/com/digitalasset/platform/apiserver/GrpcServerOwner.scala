@@ -7,20 +7,13 @@ import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit.SECONDS
 
-import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerOwner._
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
 import com.google.protobuf.Message
 import io.grpc.netty.NettyServerBuilder
-import io.grpc.{
-  BindableService,
-  MethodDescriptor,
-  Server,
-  ServerCallHandler,
-  ServerInterceptor,
-  ServerServiceDefinition
-}
+import io.grpc._
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 
@@ -33,7 +26,7 @@ final class GrpcServerOwner(
     maxInboundMessageSize: Int,
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
-    metrics: MetricRegistry,
+    metrics: Metrics,
     eventLoopGroups: ServerEventLoopGroups,
     services: Iterable[BindableService],
 ) extends ResourceOwner[Server] {

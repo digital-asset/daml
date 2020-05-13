@@ -26,7 +26,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
     connectionProviderResource = HikariJdbcConnectionProvider
       .owner(
         ServerRole.Testing(getClass),
-        postgresFixture.jdbcUrl,
+        postgresDatabase.url,
         maxConnections = 4,
         new MetricRegistry,
       )
@@ -55,7 +55,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   "Flyway" should {
     "execute initialisation script" in {
       newLoggingContext { implicit logCtx =>
-        new FlywayMigrations(postgresFixture.jdbcUrl).migrate()(DirectExecutionContext)
+        new FlywayMigrations(postgresDatabase.url).migrate()(DirectExecutionContext)
       }.map { _ =>
         connectionProvider.runSQL { conn =>
           def checkTableExists(table: String) = {
@@ -71,7 +71,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           checkTableExists("participant_contract_witnesses")
           checkTableExists("participant_contracts")
           checkTableExists("participant_event_flat_transaction_witnesses")
-          checkTableExists("participant_event_witnesses_complement")
+          checkTableExists("participant_event_transaction_tree_witnesses")
           checkTableExists("participant_events")
 
           checkTableExists("parties")

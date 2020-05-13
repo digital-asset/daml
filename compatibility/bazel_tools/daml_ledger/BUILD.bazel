@@ -21,6 +21,7 @@ da_haskell_library(
         "tasty",
         "text",
     ],
+    visibility = ["//visibility:public"],
 )
 
 da_haskell_binary(
@@ -42,6 +43,7 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-helper",
+        "//bazel_tools/test_utils",
         "@rules_haskell//tools/runfiles",
     ],
 )

@@ -8,21 +8,20 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.api.util.TimeProvider
+import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
-import com.daml.metrics.Timed
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
@@ -33,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class InMemoryLedgerReaderWriter private (
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
-    metricRegistry: MetricRegistry,
+    metrics: Metrics,
     timeProvider: TimeProvider,
     stateValueCache: Cache[Bytes, DamlStateValue],
     dispatcher: Dispatcher[Index],
@@ -51,7 +50,7 @@ final class InMemoryLedgerReaderWriter private (
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         stateValueCache = stateValueCache,
         engine = engine,
-        metricRegistry = metricRegistry,
+        metrics = metrics,
         inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
     dispatcher.signalNewHead,
@@ -73,7 +72,7 @@ final class InMemoryLedgerReaderWriter private (
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
             Timed.value(
-              Metrics.readLog,
+              metrics.daml.ledger.log.read,
               state
                 .readLog(
                   _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1))
@@ -85,10 +84,7 @@ final class InMemoryLedgerReaderWriter private (
   object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       state.write { (log, state) =>
-        body(
-          new TimedLedgerStateOperations(
-            new InMemoryLedgerStateOperations(log, state),
-            metricRegistry))
+        body(new TimedLedgerStateOperations(new InMemoryLedgerStateOperations(log, state), metrics))
       }
   }
 
@@ -106,10 +102,6 @@ final class InMemoryLedgerReaderWriter private (
 
     override def appendToLog(key: Key, value: Value): Future[Index] =
       Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
-  }
-
-  private object Metrics {
-    val readLog: Timer = metricRegistry.timer(MetricPrefix :+ "log" :+ "read")
   }
 }
 
@@ -129,7 +121,7 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
       engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[InMemoryLedgerReaderWriter] {
@@ -142,7 +134,7 @@ object InMemoryLedgerReaderWriter {
         readerWriter <- new Owner(
           initialLedgerId,
           participantId,
-          metricRegistry,
+          metrics,
           timeProvider,
           stateValueCache,
           dispatcher,
@@ -158,7 +150,7 @@ object InMemoryLedgerReaderWriter {
   final class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       dispatcher: Dispatcher[Index],
@@ -174,7 +166,7 @@ object InMemoryLedgerReaderWriter {
         new InMemoryLedgerReaderWriter(
           ledgerId,
           participantId,
-          metricRegistry,
+          metrics,
           timeProvider,
           stateValueCache,
           dispatcher,

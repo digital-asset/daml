@@ -4,7 +4,7 @@
 module Main (main) where
 
 import Control.Applicative (many)
-import Control.Monad (unless, void)
+import DA.Test.Process
 import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
@@ -12,14 +12,11 @@ import Data.Tagged (Tagged (..))
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
-import System.Exit (ExitCode(..), exitFailure)
 import System.FilePath ((</>), takeBaseName)
-import System.IO (hPutStrLn, stderr)
 import System.IO.Extra (withTempDir,writeFileUTF8)
-import System.Process (CreateProcess,proc,readCreateProcessWithExitCode)
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
-import Test.Tasty.HUnit (testCaseSteps)
+import Test.Tasty.HUnit (testCaseSteps, testCase)
 import qualified Bazel.Runfiles
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
@@ -91,9 +88,13 @@ withTools tests = do
           }
   tests tools
 
+-- | This is the version of daml-helper.
 newtype SdkVersion = SdkVersion String
+  deriving Eq
 instance IsOption SdkVersion where
-  defaultValue = SdkVersion (error "SDK version has to be set explicitly using --sdk-version")
+  defaultValue = SdkVersion "0.0.0"
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
   parseValue = Just . SdkVersion
   optionName = Tagged "sdk-version"
   optionHelp = Tagged "The SDK version number"
@@ -119,33 +120,45 @@ main = do
       , fetchTest sdkVersion getTools
       ]
 
--- | Test `daml ledger upload-dar --access-token-file`
+-- | Test `daml ledger list-parties --access-token-file`
 authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
 authenticatedUploadTest sdkVersion getTools = do
-  let sharedSecret = "TheSharedSecret"
-  let getSandboxConfig = do
+  withSandbox getSandboxConfig $ \getSandboxPort ->  testGroup "authentication" $
+    [ testCase "Bearer prefix" $ do
+          Tools{..} <- getTools
+          port <- getSandboxPort
+          withTempDir $ \deployDir -> do
+            withCurrentDirectory deployDir $ do
+              let tokenFile = deployDir </> "secretToken.jwt"
+              -- The trailing newline is not required but we want to test that it is supported.
+              writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
+              callProcessSilent daml
+                [ "ledger", "list-parties"
+                , "--access-token-file", tokenFile
+                , "--host", "localhost", "--port", show port
+                ]
+    ] <>
+    [ testCase "no Bearer prefix" $ do
+          Tools{..} <- getTools
+          port <- getSandboxPort
+          withTempDir $ \deployDir -> do
+            withCurrentDirectory deployDir $ do
+              let tokenFile = deployDir </> "secretToken.jwt"
+              -- The trailing newline is not required but we want to test that it is supported.
+              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret <> "\n")
+              callProcessSilent daml
+                [ "ledger", "list-parties"
+                , "--access-token-file", tokenFile
+                , "--host", "localhost", "--port", show port
+                ]
+    | sdkVersion == SdkVersion "0.0.0"
+       -- TODO Once we have releases supporting this should be extended.
+    ]
+  where
+    sharedSecret = "TheSharedSecret"
+    getSandboxConfig = do
         cfg <- sandboxConfig <$> getTools
         pure cfg { mbSharedSecret = Just sharedSecret }
-  withSandbox getSandboxConfig $ \getSandboxPort ->
-    testCaseSteps "authenticatedUploadTest" $ \step -> do
-    Tools{..} <- getTools
-    port <- getSandboxPort
-    withTempDir $ \deployDir -> do
-      withCurrentDirectory deployDir $ do
-        writeMinimalProject sdkVersion
-        step "build"
-        callProcessSilent daml ["damlc", "build"]
-        let dar = ".daml/dist/proj1-0.0.1.dar"
-        let tokenFile = deployDir </> "secretToken.jwt"
-        step "upload"
-        -- The trailing newline is not required but we want to test that it is supported.
-        writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
-        callProcessSilent daml
-          [ "ledger", "upload-dar"
-          , "--access-token-file", tokenFile
-          , "--host", "localhost", "--port", show port
-          , dar
-          ]
 
 makeSignedJwt :: String -> String
 makeSignedJwt sharedSecret = do
@@ -236,21 +249,3 @@ writeMinimalProject (SdkVersion sdkVersion) = do
     , "module Main where"
     , "template T with p : Party where signatory p"
     ]
-
-callProcessSilent :: FilePath -> [String] -> IO ()
-callProcessSilent cmd args =
-  void $ run (proc cmd args)
-
-callProcessForStdout :: FilePath -> [String] -> IO String
-callProcessForStdout cmd args =
-  run (proc cmd args)
-
-run :: CreateProcess -> IO String
-run cp = do
-  (exitCode, out, err) <- readCreateProcessWithExitCode cp ""
-  unless (exitCode == ExitSuccess) $ do
-    hPutStrLn stderr $ "Failure: Command \"" <> show cp <> "\" exited with " <> show exitCode
-    hPutStrLn stderr $ unlines ["stdout: ", out]
-    hPutStrLn stderr $ unlines ["stderr: ", err]
-    exitFailure
-  return out

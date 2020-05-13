@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.resources.{Resource, ResourceOwner}
@@ -28,7 +29,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
         eventsPageSize = 100,
-        metrics = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )
 
   protected final var ledgerDao: LedgerDao = _

@@ -9,6 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner
 import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
@@ -22,7 +23,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
         eventsPageSize = 100,
-        metrics = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )
 
   private val ok = io.grpc.Status.Code.OK.value()

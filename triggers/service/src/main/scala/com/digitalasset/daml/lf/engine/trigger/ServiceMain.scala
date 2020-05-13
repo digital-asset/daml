@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
+import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
@@ -14,8 +15,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.Route
-import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import akka.stream.scaladsl.Source
+import akka.stream.{Materializer}
+import akka.stream.scaladsl.{Source}
 import akka.util.{ByteString, Timeout}
 import java.io.ByteArrayInputStream
 import java.time.Duration
@@ -24,15 +25,12 @@ import java.util.zip.ZipInputStream
 
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration._
-import scala.io.StdIn
 import scala.util.{Failure, Success}
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import spray.json._
 import spray.json.DefaultJsonProtocol._
-import com.daml.lf.CompiledPackages
+import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
@@ -46,17 +44,10 @@ import com.daml.lf.engine.{
 import com.daml.lf.language.Ast._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
 import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
+import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
+import scala.sys.ShutdownHookThread
 
 case class LedgerConfig(
     host: String,
@@ -64,112 +55,6 @@ case class LedgerConfig(
     timeProvider: TimeProviderType,
     commandTtl: Duration,
 )
-
-object TriggerActor {
-  sealed trait Message
-  final case object Stop extends Message
-  final case class Failed(error: Throwable) extends Message
-  final case class QueryACSFailed(cause: Throwable) extends Message
-  final case class QueriedACS(
-      runner: Runner,
-      acs: Seq[CreatedEvent],
-      offset: LedgerOffset,
-  ) extends Message
-
-  case class Config(
-      compiledPackages: CompiledPackages,
-      trigger: Trigger,
-      ledgerConfig: LedgerConfig,
-      party: Party,
-  )
-
-  def apply(
-      config: Config,
-  )(implicit esf: ExecutionSequencerFactory, mat: Materializer): Behavior[Message] =
-    Behaviors.setup { ctx =>
-      implicit val ec: ExecutionContext = ctx.executionContext
-      val name = ctx.self.path.name
-      val appId = ApplicationId(name)
-      val clientConfig = LedgerClientConfiguration(
-        applicationId = appId.unwrap,
-        ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-        commandClient = CommandClientConfiguration.default.copy(
-          defaultDeduplicationTime = config.ledgerConfig.commandTtl),
-        sslContext = None,
-      )
-
-      // Waiting for the ACS query to finish so we can build the
-      // initial state.
-      def queryingACS(wasStopped: Boolean): Behaviors.Receive[Message] =
-        Behaviors.receiveMessagePartial[Message] {
-          case QueryACSFailed(cause) =>
-            if (wasStopped) {
-              // Never mind that it failed - we were asked to stop
-              // anyway.
-              Behaviors.stopped;
-            } else {
-              throw new RuntimeException("ACS query failed", cause)
-            }
-          case QueriedACS(runner, acs, offset) =>
-            if (wasStopped) {
-              Behaviors.stopped;
-            } else {
-              val (killSwitch, trigger) = runner.runWithACS(
-                acs,
-                offset,
-                msgFlow = KillSwitches.single[TriggerMsg],
-              )
-              // TODO If we are stopped we will end up causing the
-              // future to complete which will trigger a message that
-              // is sent to a now terminated actor. We should fix this
-              // somehow™.
-              ctx.pipeToSelf(trigger) {
-                case Success(_) => Failed(new RuntimeException("Trigger exited unexpectedly"))
-                case Failure(cause) => Failed(cause)
-              }
-              running(killSwitch)
-            }
-          case Stop =>
-            // We got a stop message but the ACS query hasn't
-            // completed yet.
-            queryingACS(wasStopped = true)
-        }
-
-      // Trigger loop is started, wait until we should stop.
-      def running(killSwitch: KillSwitch) =
-        Behaviors
-          .receiveMessagePartial[Message] {
-            case Stop =>
-              Behaviors.stopped
-          }
-          .receiveSignal {
-            case (_, PostStop) =>
-              killSwitch.shutdown
-              Behaviors.same
-          }
-
-      val acsQuery: Future[QueriedACS] = for {
-        client <- LedgerClient.singleHost(
-          config.ledgerConfig.host,
-          config.ledgerConfig.port,
-          clientConfig)
-        runner = new Runner(
-          config.compiledPackages,
-          config.trigger,
-          client,
-          config.ledgerConfig.timeProvider,
-          appId,
-          config.party.unwrap)
-        (acs, offset) <- runner.queryACS()
-      } yield QueriedACS(runner, acs, offset)
-
-      ctx.pipeToSelf(acsQuery) {
-        case Success(msg) => msg
-        case Failure(cause) => QueryACSFailed(cause)
-      }
-      queryingACS(wasStopped = false)
-    }
-}
 
 object Server {
 
@@ -196,8 +81,8 @@ object Server {
     }
   }
 
-  case class TriggerActorWithParty(
-      ref: ActorRef[TriggerActor.Message],
+  case class TriggerRunnerWithParty(
+      ref: ActorRef[TriggerRunner.Message],
       party: Party,
   )
 
@@ -213,39 +98,42 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    var triggers: Map[UUID, TriggerActorWithParty] = Map.empty
+    var triggers: Map[UUID, TriggerRunnerWithParty] = Map.empty
     var triggersByParty: Map[Party, Set[UUID]] = Map.empty
 
     // Mutable in preparation for dynamic package upload.
     val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
     dar.foreach(addDar(compiledPackages, _))
 
-    // fileUpload seems to trigger that warning and I couldn't find
-    // a way to fix it so we disable the warning.
+    // 'fileUpload' triggers this warning we don't have a fix right
+    // now so we disable it.
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val route = concat(
       post {
         concat(
-          // Start a new trigger given its identifier and the party it should be running as.
-          // Returns a UUID for the newly started trigger.
+          // Start a new trigger given its identifier and the party it
+          // should be running as.  Returns a UUID for the newly
+          // started trigger.
           path("start") {
             entity(as[StartParams]) {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
                   case Left(err) =>
-                    complete((StatusCodes.UnprocessableEntity, err))
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, err))
                   case Right(trigger) =>
                     val party = params.party
                     val uuid = UUID.randomUUID
+                    val ident = uuid.toString
                     val ref = ctx.spawn(
-                      TriggerActor(
-                        TriggerActor.Config(compiledPackages, trigger, ledgerConfig, party)),
-                      uuid.toString,
-                    )
-                    triggers = triggers + (uuid -> TriggerActorWithParty(ref, party))
+                      TriggerRunner(
+                        new TriggerRunner.Config(compiledPackages, trigger, ledgerConfig, party),
+                        ident),
+                      ident + "-monitor")
+                    triggers = triggers + (uuid -> TriggerRunnerWithParty(ref, party))
                     val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
                     triggersByParty = triggersByParty + (party -> newTriggerSet)
-                    complete(uuid.toString)
+                    val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
+                    complete(successResponse(triggerIdResult))
                 }
             }
           },
@@ -260,16 +148,19 @@ object Server {
                     val inputStream = new ByteArrayInputStream(byteString.toArray)
                     DarReader()
                       .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                      case Failure(err) => complete((StatusCodes.UnprocessableEntity, err))
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
                       case Success(encodedDar) =>
                         try {
                           val dar = encodedDar.map {
                             case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
                           }
                           addDar(compiledPackages, dar)
-                          complete(s"DAR uploaded, main package id: ${dar.main._1}")
+                          val mainPackageId = JsObject(("mainPackageId", dar.main._1.name.toJson))
+                          complete(successResponse(mainPackageId))
                         } catch {
-                          case e: ParseError => complete((StatusCodes.UnprocessableEntity, e))
+                          case err: ParseError =>
+                            complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
                         }
                     }
                 }
@@ -282,23 +173,25 @@ object Server {
         path("list") {
           entity(as[ListParams]) { params =>
             {
-              val list =
-                triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList.toJson
-              complete(list)
+              val triggerList =
+                triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList
+              val result = JsObject(("triggerIds", triggerList.toJson))
+              complete(successResponse(result))
             }
           }
         }
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("stop" / JavaUUID) { id =>
-          val actorWithParty = triggers.get(id).get
-          actorWithParty.ref ! TriggerActor.Stop
-          triggers = triggers - id
+        pathPrefix("stop" / JavaUUID) { uuid =>
+          val actorWithParty = triggers.get(uuid).get
+          actorWithParty.ref ! TriggerRunner.Stop
+          triggers = triggers - uuid
           val party = actorWithParty.party
-          val newTriggerSet = triggersByParty.get(party).get - id
+          val newTriggerSet = triggersByParty.get(party).get - uuid
           triggersByParty = triggersByParty + (party -> newTriggerSet)
-          complete(s"Trigger $id has been stopped.")
+          val stoppedTriggerId = JsObject(("triggerId", uuid.toString.toJson))
+          complete(successResponse(stoppedTriggerId))
         }
       },
     )
@@ -402,8 +295,24 @@ object ServiceMain {
           )
         val system: ActorSystem[Server.Message] =
           ActorSystem(Server("localhost", 8080, ledgerConfig, dar), "TriggerService")
-        StdIn.readLine()
-        system ! Server.Stop
+        // Timeout chosen at random, change freely if you see issues.
+        implicit val timeout: Timeout = 15.seconds
+        implicit val scheduler: Scheduler = system.scheduler
+        implicit val ec: ExecutionContext = system.executionContext
+
+        // Shutdown gracefully on SIGINT.
+        val serviceF: Future[ServerBinding] =
+          system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
+        val _: ShutdownHookThread = sys.addShutdownHook {
+          system ! Server.Stop
+          serviceF.onComplete {
+            case Success(_) =>
+              system.log.info("Server is offline, the system will now terminate")
+            case Failure(ex) =>
+              system.log.info("Failure encountered shutting down the server: " + ex.toString)
+          }
+          val _: Future[ServerBinding] = Await.ready(serviceF, 5.seconds)
+        }
     }
   }
 }

@@ -993,6 +993,23 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
+  "parties endpoint returns error if empty party string passed" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val requestedPartyIds: Vector[domain.Party] = domain.Party.subst(Vector(""))
+
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
+            case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest)) =>
+              error should include("DAML LF Party is empty")
+          }
+      }: Future[Assertion]
+  }
+
   "parties endpoint returns empty result with warnings and OK status if nothing found" in withHttpServiceAndClient {
     (uri, _, _, _) =>
       val requestedPartyIds: Vector[domain.Party] =

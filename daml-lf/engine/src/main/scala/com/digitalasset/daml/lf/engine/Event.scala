@@ -29,6 +29,9 @@ sealed trait Event[+Nid, +Cid, +Val]
     Event.map3(identity[Nid], f, g)(this)
   final def mapNodeId[Nid2](f: Nid => Nid2): Event[Nid2, Cid, Val] =
     Event.map3(f, identity[Cid], identity[Val])(this)
+
+  final def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
+    Event.foreach3(fNid, fCid, fVal)(self)
 }
 
 /** Event for created contracts, follows ledger api event protocol
@@ -141,6 +144,43 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
         witnesses = witnesses,
         exerciseResult = exerciseResult.map(f3),
       )
+  }
+
+  override private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): Event[A, B, C] => Unit = {
+    case CreateEvent(
+        contractId,
+        templateId @ _,
+        contractKey,
+        argument,
+        agreementText @ _,
+        signatories @ _,
+        observers @ _,
+        witnesses @ _,
+        ) =>
+      f2(contractId)
+      contractKey.foreach(KeyWithMaintainers.foreach1(f3))
+      f3(argument)
+
+    case ExerciseEvent(
+        contractId,
+        templateId @ _,
+        choice @ _,
+        choiceArgument,
+        actingParties @ _,
+        isConsuming @ _,
+        children,
+        stakeholders @ _,
+        witnesses @ _,
+        exerciseResult,
+        ) =>
+      f2(contractId)
+      f3(choiceArgument)
+      children.foreach(f1)
+      exerciseResult.foreach(f3)
   }
 
   case class Events[Nid, Cid, Val](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid, Val]]) {
@@ -264,6 +304,17 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
         })
     }
 
+    override private[lf] def foreach3[A, B, C](
+        f1: A => Unit,
+        f2: B => Unit,
+        f3: C => Unit,
+    ): Events[A, B, C] => Unit = {
+      case Events(roots, events) =>
+        roots.foreach(f1)
+        events.foreach {
+          case (id, event) => f1(id) -> Event.foreach3(f1, f2, f3)(event)
+        }
+    }
   }
 
 }

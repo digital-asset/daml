@@ -167,8 +167,8 @@ class Context(val contextId: Context.ContextId) {
       Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
     ).map { machine =>
       ScenarioRunner(machine).run() match {
-        case Right((diff @ _, steps @ _, ledger)) =>
-          (ledger, machine, Right(machine.toSValue))
+        case Right((diff @ _, steps @ _, ledger, value)) =>
+          (ledger, machine, Right(value))
         case Left((err, ledger)) =>
           (ledger, machine, Left(err))
       }

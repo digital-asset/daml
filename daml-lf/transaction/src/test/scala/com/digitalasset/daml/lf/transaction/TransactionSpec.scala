@@ -63,6 +63,54 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     }
   }
 
+  "cids" - {
+
+    "collects contract IDs" in {
+      val tx = mkTransaction(
+        HashMap(
+          V.NodeId(0) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(1))),
+          V.NodeId(1) -> dummyExerciseNode("cid1", ImmArray(V.NodeId(2))),
+          V.NodeId(2) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(V.NodeId(0), V.NodeId(2)),
+      )
+
+      def collectCids(tx: Transaction): Set[V.ContractId] = {
+        val cids = Set.newBuilder[V.ContractId]
+        tx.foreach3(_ => (), cids += _, cids ++= _.cids)
+        cids.result()
+      }
+
+      collectCids(tx) shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
+
+    }
+
+  }
+
+  "foldInExecutionOrder" - {
+    "should traverse the transaction in execution order" in {
+
+      val tx = mkTransaction(
+        HashMap(
+          V.NodeId(0) -> dummyCreateNode("cid0"),
+          V.NodeId(1) -> dummyExerciseNode("cid0", ImmArray(V.NodeId(2))),
+          V.NodeId(2) -> dummyExerciseNode("cid1", ImmArray.empty),
+          V.NodeId(3) -> dummyCreateNode("cid2"),
+        ),
+        ImmArray(V.NodeId(0), V.NodeId(1), V.NodeId(3)),
+      )
+
+      val result = tx.foldInExecutionOrder(List.empty[String])(
+        (acc, nid, _) => s"exerciseBegin(${nid.index})" :: acc,
+        (acc, nid, _) => s"leaf(${nid.index})" :: acc,
+        (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
+      )
+
+      result.reverse.mkString(", ") shouldBe
+        "leaf(0), exerciseBegin(1), exerciseBegin(2), exerciseEnd(2), exerciseEnd(1), leaf(3)"
+    }
+  }
+
   /* TODO SC Gen for well-formed Transaction needed first
   "equalForest" - {
     "is reflexive" in forAll(genTransaction) { tx =>
@@ -139,8 +187,8 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
       )
 
       val mapping2: V.ContractId => V.ContractId = Map(
-        cid1 -> cid1.copy(suffix = suffix1),
-        cid2 -> cid2.copy(suffix = suffix2),
+        cid1 -> V.AbsoluteContractId.V1.assertBuild(cid1.discriminator, suffix1),
+        cid2 -> V.AbsoluteContractId.V1.assertBuild(cid2.discriminator, suffix2),
       )
 
       dummyCreateNode("dd").coinst.suffixCid(mapping1)
@@ -165,12 +213,12 @@ object TransactionSpec {
   ): Transaction = GenTransaction(nodes, roots)
 
   def dummyExerciseNode(
-      cid: String,
+      cid: V.ContractId,
       children: ImmArray[V.NodeId],
       hasExerciseResult: Boolean = true,
   ): NodeExercises[V.NodeId, V.ContractId, Value] =
     NodeExercises(
-      targetCoid = toCid(cid),
+      targetCoid = cid,
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
@@ -188,6 +236,11 @@ object TransactionSpec {
       key = None,
     )
 
+  val dummyCid = V.AbsoluteContractId.V1.assertBuild(
+    toCid("dummyCid").discriminator,
+    Bytes.assertFromString("f00d"),
+  )
+
   def dummyCreateNode(cid: String): NodeCreate[V.ContractId, Value] =
     NodeCreate(
       coid = toCid(cid),
@@ -196,8 +249,8 @@ object TransactionSpec {
           Ref.PackageId.assertFromString("-dummyPkg-"),
           Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
         ),
-        V.ValueUnit,
-        ("dummyAgreement"),
+        V.ValueContractId(dummyCid),
+        "dummyAgreement",
       ),
       optLocation = None,
       signatories = Set.empty,
@@ -205,9 +258,9 @@ object TransactionSpec {
       key = None,
     )
 
-  private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
-  private def toCid(s: String): V.AbsoluteContractId.V1 =
+  implicit def toCid(s: String): V.AbsoluteContractId.V1 =
     V.AbsoluteContractId.V1(crypto.Hash.hashPrivateKey(s))
 
 }

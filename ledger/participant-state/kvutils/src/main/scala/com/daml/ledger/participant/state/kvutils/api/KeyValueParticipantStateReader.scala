@@ -6,16 +6,14 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.{Envelope, KVOffset, KeyValueConsumption}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.kvutils
-import com.daml.metrics.Timed
+import com.daml.metrics.{Metrics, Timed}
 
-class KeyValueParticipantStateReader(reader: LedgerReader, metricRegistry: MetricRegistry)(
+class KeyValueParticipantStateReader(reader: LedgerReader, metrics: Metrics)(
     implicit materializer: Materializer)
     extends ReadService {
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
@@ -28,11 +26,11 @@ class KeyValueParticipantStateReader(reader: LedgerReader, metricRegistry: Metri
       .flatMapConcat {
         case LedgerRecord(offset, entryId, envelope) =>
           Timed
-            .value(Metrics.openEnvelope, Envelope.open(envelope))
+            .value(metrics.daml.kvutils.reader.openEnvelope, Envelope.open(envelope))
             .flatMap {
               case Envelope.LogEntryMessage(logEntry) =>
                 Timed.value(
-                  Metrics.parseUpdates, {
+                  metrics.daml.kvutils.reader.parseUpdates, {
                     val logEntryId = DamlLogEntryId.parseFrom(entryId)
                     val updates = KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry)
                     val updateOffset: (Offset, Int) => Offset =
@@ -60,11 +58,4 @@ class KeyValueParticipantStateReader(reader: LedgerReader, metricRegistry: Metri
       reader.ledgerId(),
       LedgerReader.DefaultConfiguration,
       Time.Timestamp.Epoch)
-
-  object Metrics {
-    private val Prefix = kvutils.MetricPrefix :+ "reader"
-
-    val openEnvelope: Timer = metricRegistry.timer(Prefix :+ "open_envelope")
-    val parseUpdates: Timer = metricRegistry.timer(Prefix :+ "parse_updates")
-  }
 }

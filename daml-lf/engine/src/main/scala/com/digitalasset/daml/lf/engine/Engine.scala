@@ -285,9 +285,10 @@ final class Engine {
       machine: Machine,
       time: Time.Timestamp
   ): Result[(Tx.Transaction, Tx.Metadata)] = {
-    while (!machine.isFinal) {
+    var finished: Boolean = false
+    while (!finished) {
       machine.run() match {
-        case SResultFinalValue(_) => ()
+        case SResultFinalValue(_) => finished = true
 
         case SResultError(err) =>
           return ResultError(

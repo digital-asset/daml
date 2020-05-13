@@ -92,21 +92,24 @@ trait FieldValidations {
 
   def validateDeduplicationTime(
       durationO: Option[com.google.protobuf.duration.Duration],
-      maxDeduplicationTime: Duration,
-      fieldName: String): Either[StatusRuntimeException, Duration] = durationO match {
-    case None =>
-      Right(maxDeduplicationTime)
-    case Some(duration) =>
-      val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
-      if (result.isNegative)
-        Left(invalidField(fieldName, "Duration must be positive"))
-      else if (result.compareTo(maxDeduplicationTime) > 0)
-        Left(invalidField(
-          fieldName,
-          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
-      else
-        Right(result)
-  }
+      maxDeduplicationTimeO: Option[Duration],
+      fieldName: String): Either[StatusRuntimeException, Duration] =
+    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, Duration]](
+      Left(missingLedgerConfig()))(maxDeduplicationTime =>
+      durationO match {
+        case None =>
+          Right(maxDeduplicationTime)
+        case Some(duration) =>
+          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+          if (result.isNegative)
+            Left(invalidField(fieldName, "Duration must be positive"))
+          else if (result.compareTo(maxDeduplicationTime) > 0)
+            Left(invalidField(
+              fieldName,
+              s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+          else
+            Right(result)
+    })
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

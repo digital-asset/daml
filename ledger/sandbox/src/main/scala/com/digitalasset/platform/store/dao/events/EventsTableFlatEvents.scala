@@ -6,12 +6,11 @@ package com.daml.platform.store.dao.events
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
-import com.daml.ledger.api.v1.event.Event
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
-  private def createdFlatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
+  private val createdFlatEventParser: RowParser[Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
@@ -20,26 +19,21 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = Event(
-            Event.Event.Created(
-              createdEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                createArgument = createArgument,
-                createSignatories = createSignatories,
-                createObservers = createObservers,
-                createAgreementText = createAgreementText,
-                createKeyValue = createKeyValue,
-                eventWitnesses = eventWitnesses,
-                verbose = verbose,
-              )
-            )
+          event = Raw.FlatEvent.Created(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            createArgument = createArgument,
+            createSignatories = createSignatories,
+            createObservers = createObservers,
+            createAgreementText = createAgreementText,
+            createKeyValue = createKeyValue,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private val archivedFlatEventParser: RowParser[Entry[Event]] =
+  private val archivedFlatEventParser: RowParser[Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
         Entry(
@@ -48,27 +42,17 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
-          event = Event(
-            Event.Event.Archived(
-              archivedEvent(
-                eventId = eventId,
-                contractId = contractId,
-                templateId = templateId,
-                eventWitnesses = eventWitnesses,
-              )
-            )
+          event = Raw.FlatEvent.Archived(
+            eventId = eventId,
+            contractId = contractId,
+            templateId = templateId,
+            eventWitnesses = eventWitnesses,
           )
         )
     }
 
-  private val verboseFlatEventParser: RowParser[Entry[Event]] =
-    createdFlatEventParser(verbose = true) | archivedFlatEventParser
-
-  private val succinctFlatEventParser: RowParser[Entry[Event]] =
-    createdFlatEventParser(verbose = false) | archivedFlatEventParser
-
-  def flatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
-    if (verbose) verboseFlatEventParser else succinctFlatEventParser
+  val rawFlatEventParser: RowParser[Entry[Raw.FlatEvent]] =
+    createdFlatEventParser | archivedFlatEventParser
 
   private val selectColumns =
     Seq(

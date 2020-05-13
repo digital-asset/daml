@@ -4,18 +4,20 @@
 package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.nio.file.Paths
-import java.time.{Duration, Instant}
+import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.lf.archive.DarReader
-import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
@@ -201,7 +203,7 @@ class SqlLedgerSpec
       SqlLedger
         .owner(
           serverRole = ServerRole.Testing(getClass),
-          jdbcUrl = postgresFixture.jdbcUrl,
+          jdbcUrl = postgresDatabase.url,
           ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,
           timeProvider = TimeProvider.UTC,
@@ -210,11 +212,11 @@ class SqlLedgerSpec
             .withPackages(Instant.EPOCH, None, packages)
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
-          initialConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1)),
           queueDepth = queueDepth,
+          transactionCommitter = LegacyTransactionCommitter,
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,
-          metrics = metrics,
+          metrics = new Metrics(metrics),
         )
         .acquire()(system.dispatcher)
     }

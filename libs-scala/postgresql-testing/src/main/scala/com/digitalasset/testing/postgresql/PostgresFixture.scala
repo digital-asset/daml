@@ -7,8 +7,7 @@ import java.nio.file.Path
 
 import com.daml.ports.Port
 
-case class PostgresFixture(
-    jdbcUrl: String,
+final case class PostgresFixture(
     port: Port,
     tempDir: Path,
     dataDir: Path,

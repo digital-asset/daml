@@ -15,9 +15,9 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 set -eou pipefail
 version=$1
 extra_args="${@:2}"
-WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres)
+WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres/with-postgres-exe)
 if [ -z "$WITH_POSTGRES" ]; then
-    WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres.exe)
+    WITH_POSTGRES=$(rlocation compatibility/bazel_tools/client_server/with-postgres/with-postgres.exe)
 fi
 if [ -z "$WITH_POSTGRES" ]; then
     echo "Faild to find with-postgres wrapper"

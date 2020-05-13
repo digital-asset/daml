@@ -14,6 +14,7 @@ import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
 import com.daml.grpc.sampleservice.Responding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -43,27 +44,27 @@ final class MetricsInterceptorSpec
   behavior of "MetricsInterceptor"
 
   it should "count the number of calls to a given endpoint" in {
-    val metrics = new MetricRegistry
+    val metrics = new Metrics(new MetricRegistry)
     serverWithMetrics(metrics, new AkkaImplementation).use { channel =>
       for {
         _ <- Future.sequence(
           (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt))))
       } yield {
         eventually {
-          metrics.timer("daml.lapi.hello_service.single").getCount shouldBe 3
+          metrics.registry.timer("daml.lapi.hello_service.single").getCount shouldBe 3
         }
       }
     }
   }
 
   it should "time calls to an endpoint" in {
-    val metrics = new MetricRegistry
+    val metrics = new Metrics(new MetricRegistry)
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
       } yield {
         eventually {
-          val metric = metrics.timer("daml.lapi.hello_service.single")
+          val metric = metrics.registry.timer("daml.lapi.hello_service.single")
           metric.getCount should be > 0L
 
           val snapshot = metric.getSnapshot
@@ -75,14 +76,14 @@ final class MetricsInterceptorSpec
   }
 
   it should "time calls to a streaming endpoint" in {
-    val metrics = new MetricRegistry
+    val metrics = new Metrics(new MetricRegistry)
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- new StreamConsumer[HelloResponse](observer =>
           HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(reqInt = 3), observer)).all()
       } yield {
         eventually {
-          val metric = metrics.timer("daml.lapi.hello_service.server_streaming")
+          val metric = metrics.registry.timer("daml.lapi.hello_service.server_streaming")
           metric.getCount should be > 0L
 
           val snapshot = metric.getSnapshot
@@ -96,7 +97,7 @@ final class MetricsInterceptorSpec
 
 object MetricsInterceptorSpec {
 
-  def serverWithMetrics(metrics: MetricRegistry, service: BindableService): ResourceOwner[Channel] =
+  def serverWithMetrics(metrics: Metrics, service: BindableService): ResourceOwner[Channel] =
     for {
       server <- serverOwner(new MetricsInterceptor(metrics), service)
       channel <- GrpcClientResource.owner(Port(server.getPort))

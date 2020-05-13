@@ -30,13 +30,10 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       submissionTime = Time.Timestamp.now(),
       transactionSeed = None,
     )
-    while (!machine.isFinal) {
-      machine.run match {
-        case SResultFinalValue(_) => ()
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
+    machine.run() match {
+      case SResultFinalValue(v) => v
+      case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
     }
-    machine.toSValue
   }
 
   "evaluator behaves responsibly" should {
@@ -148,13 +145,11 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       )
     }
     "interpret" in {
-      while (!machine.isFinal) {
-        machine.run match {
-          case SResultFinalValue(_) => ()
-          case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-        }
+      val value = machine.run() match {
+        case SResultFinalValue(v) => v
+        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
-      machine.toSValue match {
+      value match {
         case SValue.SList(lst) =>
           lst.length shouldBe 100000
           val arr = lst.toImmArray

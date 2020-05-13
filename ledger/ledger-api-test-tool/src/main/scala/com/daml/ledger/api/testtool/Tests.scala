@@ -73,6 +73,7 @@ object Tests {
       {
         val throughputKey: String = performanceEnvelopeThroughputTestKey(envelope)
         val latencyKey: String = performanceEnvelopeLatencyTestKey(envelope)
+        val transactionSizeKey: String = performanceEnvelopeTransactionSizeTestKey(envelope)
         List(
           throughputKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
             logger = LoggerFactory.getLogger(throughputKey),
@@ -84,6 +85,10 @@ object Tests {
             envelope = envelope,
             reporter = reporter,
           )(_)),
+          transactionSizeKey -> (new testtool.tests.PerformanceEnvelope.TransactionSizeScaleTest(
+            logger = LoggerFactory.getLogger(transactionSizeKey),
+            envelope = envelope,
+          )(_)),
         )
       }
     }
@@ -93,11 +98,14 @@ object Tests {
     s"PerformanceEnvelope.${envelope.name}.Throughput"
   private[this] def performanceEnvelopeLatencyTestKey(envelope: Envelope): String =
     s"PerformanceEnvelope.${envelope.name}.Latency"
+  private[this] def performanceEnvelopeTransactionSizeTestKey(envelope: Envelope): String =
+    s"PerformanceEnvelope.${envelope.name}.TransactionSize"
 
   private[testtool] val PerformanceTestsKeys =
     Envelope.values.flatMap { envelope =>
       List(
         performanceEnvelopeThroughputTestKey(envelope),
-        performanceEnvelopeLatencyTestKey(envelope))
+        performanceEnvelopeLatencyTestKey(envelope),
+        performanceEnvelopeTransactionSizeTestKey(envelope)),
     }
 }

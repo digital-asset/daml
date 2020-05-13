@@ -93,6 +93,8 @@ common_nix_file_deps = [
     "//nix:nixpkgs.nix",
     "//nix:nixpkgs/default.nix",
     "//nix:nixpkgs/default.src.json",
+    "//nix:grpc-Rename-gettid-functions.patch",
+    "//nix:grpc-Fix-gettid-naming-conflict.patch",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -293,6 +295,14 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+nixpkgs_package(
+    name = "jekyll_nix",
+    attribute_path = "jekyll",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
 load(
     "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
@@ -355,6 +365,10 @@ haskell_register_ghc_nixpkgs(
         "-fexternal-dynamic-refs",
     ] + (["-g3"] if enable_ghc_dwarf else ([
         "-optl-unexported_symbols_list=*",
+        "-optc-mmacosx-version-min=10.14",
+        "-opta-mmacosx-version-min=10.14",
+        "-optl-mmacosx-version-min=10.14",
+        "-optP-mmacosx-version-min=10.14",
     ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
@@ -611,6 +625,7 @@ load(
     "scala_repositories",
 )
 
+# note some dependencies in bazel-jvm-deps.bzl (e.g. silencer_plugin) refer to the current scala version:
 scala_repositories((
     "2.12.11",
     {
@@ -807,16 +822,18 @@ dev_env_tool(
     ],
     nix_label = "@postgresql_nix",
     nix_paths = [
-        "bin/initdb",
         "bin/createdb",
+        "bin/dropdb",
+        "bin/initdb",
         "bin/pg_ctl",
         "bin/postgres",
     ],
     tools = [
         "createdb",
+        "dropdb",
         "initdb",
         "pg_ctl",
-        "postgresql",
+        "postgres",
     ],
     win_include = [
         "mingw64/bin",
@@ -831,8 +848,9 @@ dev_env_tool(
         "mingw64/share": "share",
     },
     win_paths = [
-        "bin/initdb.exe",
         "bin/createdb.exe",
+        "bin/dropdb.exe",
+        "bin/initdb.exe",
         "bin/pg_ctl.exe",
         "bin/postgres.exe",
     ],

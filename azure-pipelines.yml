@@ -25,6 +25,7 @@ jobs:
   - job: git_sha
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - bash: |
           set -euo pipefail
@@ -48,20 +49,21 @@ jobs:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
           set -euo pipefail
 
           has_changed () {
-              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1/"
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
           }
 
           fail_if_missing_std_change_label () {
               curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
           }
 
-          if has_changed "infra" || has_changed "LATEST"; then
+          if has_changed "infra/" || has_changed "LATEST"; then
               fail_if_missing_std_change_label
           fi
         env:
@@ -75,6 +77,7 @@ jobs:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/check-changelog.sh $(fork_sha)
@@ -90,6 +93,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -120,7 +124,7 @@ jobs:
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      name: 'macOS-pool'
+      name: macOS-pool
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -145,9 +149,14 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - template: ci/patch_bazel_windows/compile.yml
+    parameters:
+      final_job_name: patch_bazel_windows
+
   - job: Windows
     dependsOn:
       - check_for_release
+      - patch_bazel_windows
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -156,6 +165,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -179,12 +189,28 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
-  - job: compatibility_linux
+  - job: compatibility_ts_libs
     dependsOn:
       - check_for_release
     timeoutInMinutes: 60
     pool:
       name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility_ts_libs.yml
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: compatibility_linux
+    dependsOn:
+      - check_for_release
+      - compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -197,9 +223,10 @@ jobs:
   - job: compatibility_macos
     dependsOn:
       - check_for_release
+      - compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
-      name: macos-pool
+      name: macOS-pool
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -212,9 +239,12 @@ jobs:
   - job: compatibility_windows
     dependsOn:
       - check_for_release
+      - compatibility_ts_libs
+      - patch_bazel_windows
     timeoutInMinutes: 60
     pool:
       name: 'windows-pool'
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -223,6 +253,11 @@ jobs:
           test_flags: '--quick'
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
 
   - job: check_for_release
     dependsOn:
@@ -232,6 +267,7 @@ jobs:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - bash: |
           set -euo pipefail
@@ -254,6 +290,31 @@ jobs:
               echo "##vso[task.setvariable variable=is_release;isOutput=true]false"
           fi
         name: out
+
+  - job: check_perf_test
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    condition: eq(variables['Build.Reason'], 'IndividualCI')
+    steps:
+    - bash: |
+        TEST_SHA=$(cat ci/cron/perf/test_sha)
+        LAST_CHANGES=$(git log -n1 --format=%H daml-lf/scenario-interpreter/src/perf)
+        CURRENT_SHA=$(git rev-parse HEAD)
+        if [ "$TEST_SHA" != "$LAST_CHANGES" ]; then
+            if [ "$LAST_CHANGES" = "$CURRENT_SHA" ]; then
+                curl -XPOST \
+                     -i \
+                     -H 'Content-Type: application/json' \
+                     --data "{\"text\":\"<!here> Perf tests seem to have changed. Please manually check:\n\`\`\`\ngit diff $TEST_SHA $LAST_CHANGES -- daml-lf/scenario-interpreter/src/perf\n\`\`\`\nand update accordingly. If the change is benign, update \`ci/cron/perf/test_sha\` to \`$LAST_CHANGES\`. With no intervention, you will no longer get performance reports.\"}" \
+                     $(Slack.team-daml)
+            else
+                echo "Changes detected, but not from this commit."
+            fi
+        else
+            echo "No change detected."
+        fi
+      displayName: check perf changes
 
   - job: release
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
@@ -401,6 +462,7 @@ jobs:
       - compatibility_windows
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     variables:
       Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
       Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
@@ -550,12 +612,13 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
     dependsOn:
       - git_sha
       - collect_build_data
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     variables:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]

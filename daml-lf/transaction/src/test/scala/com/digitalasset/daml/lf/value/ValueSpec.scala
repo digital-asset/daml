@@ -4,12 +4,11 @@
 package com.daml.lf
 package value
 
-import data.{FrontStack, ImmArray, Ref, Unnatural}
+import data.{Bytes, FrontStack, ImmArray, Ref, Unnatural}
 import Value._
 import Ref.{Identifier, Name}
-import ValueGenerators.{idGen, nameGen}
+import ValueGenerators.{absCoidGen, idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
-
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Inside, Matchers}
@@ -107,6 +106,25 @@ class ValueSpec
 
   }
 
+  "AbsoluteContractID.V1.build" - {
+
+    "rejects too long suffix" in {
+
+      def suffix(size: Int) =
+        Bytes.fromByteArray(Array.iterate(0.toByte, size)(b => (b + 1).toByte))
+
+      val hash = crypto.Hash.hashPrivateKey("some hash")
+      import AbsoluteContractId.V1.build
+      build(hash, suffix(0)) shouldBe 'right
+      build(hash, suffix(94)) shouldBe 'right
+      build(hash, suffix(95)) shouldBe 'left
+      build(hash, suffix(96)) shouldBe 'left
+      build(hash, suffix(127)) shouldBe 'left
+
+    }
+
+  }
+
   "Equal" - {
     import com.daml.lf.value.ValueGenerators._
     import org.scalacheck.Arbitrary
@@ -118,6 +136,14 @@ class ValueSpec
 
     "results preserve natural == results" in forAll { (a: T, b: T) =>
       scalaz.Equal[T].equal(a, b) shouldBe (a == b)
+    }
+  }
+
+  "AbsoluteContractId" - {
+    type T = AbsoluteContractId
+    implicit val arbT: Arbitrary[T] = Arbitrary(absCoidGen)
+    "Order" - {
+      "obeys Order laws" in checkLaws(SzP.order.laws[T])
     }
   }
 

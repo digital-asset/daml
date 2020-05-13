@@ -4,28 +4,27 @@
 package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1._
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{ImmArray, Time}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -56,11 +55,11 @@ object SqlLedger {
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-      initialConfig: Configuration,
       queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
-      metrics: MetricRegistry,
+      metrics: Metrics,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
@@ -75,8 +74,8 @@ object SqlLedger {
             acs,
             packages,
             initialLedgerEntries,
-            initialConfig,
             queueDepth,
+            transactionCommitter,
         ))
     } yield ledger
 }
@@ -90,6 +89,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
+    transactionCommitter: TransactionCommitter,
 )(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
@@ -157,8 +157,9 @@ private final class SqlLedger(
     new AtomicReference[Option[Configuration]](configAtInitialization)
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant): Either[RejectionReason, Unit] = {
-    val recordTime = timeProvider.getCurrentTime
+  private def checkTimeModel(
+      ledgerTime: Instant,
+      recordTime: Instant): Either[RejectionReason, Unit] = {
     currentConfiguration
       .get()
       .fold[Either[RejectionReason, Unit]](
@@ -173,14 +174,15 @@ private final class SqlLedger(
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): Future[SubmissionResult] =
+      transaction: SubmittedTransaction,
+  ): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
       val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
 
-      checkTimeModel(ledgerTime)
+      checkTimeModel(ledgerTime, recordTime)
         .fold(
           reason =>
             ledgerDao.storeRejection(
@@ -197,7 +199,7 @@ private final class SqlLedger(
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
               offset,
-              transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
+              transactionCommitter.commitTransaction(transactionId, transaction),
               Nil,
           )
         )
@@ -354,8 +356,8 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-      initialConfig: Configuration,
       queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
   )(implicit mat: Materializer): Future[SqlLedger] = {
     implicit val ec: ExecutionContext = DEC
 
@@ -370,7 +372,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
             acs,
             packages,
             initialLedgerEntries,
-            initialConfig)
+          )
         } yield ledgerId
       case SqlStartMode.ContinueIfExists =>
         initialize(
@@ -380,7 +382,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
           acs,
           packages,
           initialLedgerEntries,
-          initialConfig)
+        )
     }
 
     for {
@@ -397,6 +399,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         timeProvider,
         packages,
         queueDepth,
+        transactionCommitter,
       )
   }
 
@@ -410,7 +413,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-      initialConfig: Configuration,
   ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. This is OK since this initialization
@@ -444,7 +446,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
           _ <- ledgerDao.initializeLedger(ledgerId, Offset.begin)
           _ <- initializeLedgerEntries(
             initialLedgerEntries,
-            initialConfig,
             timeProvider,
             packages,
             acs,
@@ -475,7 +476,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
   private def initializeLedgerEntries(
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-      initialConfig: Configuration,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore,
       acs: InMemoryActiveLedgerState,
@@ -498,14 +498,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
     for {
       _ <- copyPackages(packages, timeProvider.getCurrentTime, SandboxOffset.toOffset(ledgerEnd))
-      _ <- ledgerDao.storeConfigurationEntry(
-        offset = SandboxOffset.toOffset(0),
-        recordedAt = timeProvider.getCurrentTime,
-        submissionId = UUID.randomUUID.toString,
-        participantId = participantId,
-        configuration = initialConfig,
-        rejectionReason = None,
-      )
       _ <- ledgerDao.storeInitialState(ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
     } yield ()
   }

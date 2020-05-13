@@ -9,12 +9,13 @@ import java.util
 import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SExpr.SEImportValue
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
 import com.daml.lf.value.TypedValueGenerators.genAddend
-import com.daml.lf.value.ValueGenerators.absCoidGen
+import com.daml.lf.value.ValueGenerators.{absCoidV0Gen, comparableAbsCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.Arbitrary
 import org.scalatest.prop.{
@@ -443,10 +444,12 @@ class OrderingSpec
   // The tests are here as this is difficult to test outside daml-lf/interpreter.
   "txn Value Ordering" should {
     import Value.{AbsoluteContractId => Cid}
-    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidGen)
+    // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidV0Gen)
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None
+
     "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.{injarb, injshrink}
       implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
@@ -458,27 +461,31 @@ class OrderingSpec
         (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
       }
     }
+
+    "match global AbsoluteContractId ordering" in forEvery(Table("gen", comparableAbsCoidsGen: _*)) {
+      coidGen =>
+        forAll(coidGen, coidGen, minSuccessful(50)) { (a, b) =>
+          Cid.`AbsCid Order`.order(a, b) should ===(cidOrd.order(a, b))
+        }
+    }
   }
 
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
   private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-  private def dummyMachine = Speedy.Machine fromExpr (
-    expr = e"NA:na ()",
+  private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
+    sexpr = expr,
     compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
-    scenario = false,
-    Time.Timestamp.now(),
-    Some(txSeed),
+    submissionTime = Time.Timestamp.now(),
+    seeding = InitialSeeding(Some(txSeed)),
+    globalCids = Set.empty,
   )
 
   private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
-    val ctrl = Speedy.CtrlImportValue(v)
-    val machine = dummyMachine
-    machine.ctrl = Speedy.CtrlCrash(ctrl)
-    ctrl.execute(machine)
-    machine.ctrl match {
-      case Speedy.CtrlValue(value) => value
+    val machine = initMachine(SEImportValue(v))
+    machine.run() match {
+      case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")
     }
   }

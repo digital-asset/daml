@@ -1,0 +1,13 @@
+diff --git a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
+index 0fa1b5db2e..e6a1494ae5 100644
+--- a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
++++ b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
+@@ -144,7 +144,7 @@ public final class RemoteModule extends BlazeModule {
+     env.getEventBus().register(this);
+     String invocationId = env.getCommandId().toString();
+     String buildRequestId = env.getBuildRequestId();
+-    env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
++    env.getReporter().handle(Event.info(String.format("Invocation id: %s", invocationId)));
+ 
+     Path logDir =
+         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");

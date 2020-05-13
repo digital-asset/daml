@@ -10,7 +10,6 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -21,12 +20,12 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
   PartyConfiguration,
   ServerRole,
-  SubmissionConfiguration
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
@@ -45,13 +44,12 @@ final class StandaloneApiServer(
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
-    submissionConfig: SubmissionConfiguration,
     ledgerConfig: LedgerConfiguration,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
     transformIndexService: IndexService => IndexService = identity,
-    metrics: MetricRegistry,
+    metrics: Metrics,
     timeServiceBackend: Option[TimeServiceBackend] = None,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
@@ -91,10 +89,6 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      ledgerConfiguration = ledgerConfig.copy(
-        // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
-        initialConfiguration = initialConditions.config,
-      )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
@@ -106,10 +100,9 @@ final class StandaloneApiServer(
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static),
-        ledgerConfiguration = ledgerConfiguration,
+        ledgerConfiguration = ledgerConfig,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
-        submissionConfig = submissionConfig,
         optTimeServiceBackend = timeServiceBackend,
         metrics = metrics,
         healthChecks = healthChecks,

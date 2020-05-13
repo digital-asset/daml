@@ -3,21 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.time.Duration
-
 import akka.stream.Materializer
-import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration,
-  SubmissionConfiguration
+  PartyConfiguration
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.resources.ResourceOwner
@@ -72,24 +70,19 @@ trait ConfigProvider[ExtraConfig] {
   def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
-  def submissionConfig(config: Config[ExtraConfig]): SubmissionConfiguration =
-    SubmissionConfiguration.default
-
   def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
-    LedgerConfiguration.default.copy(
-      initialConfigurationSubmitDelay = Duration.ofSeconds(5)
-    )
+    LedgerConfiguration.defaultRemote
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def metricRegistry(
+  def createMetrics(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
-  ): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(participantConfig.participantId)
+  ): Metrics =
+    new Metrics(SharedMetricRegistries.getOrCreate(participantConfig.participantId))
 }
 
 trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
@@ -153,7 +146,7 @@ object LedgerFactory {
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          metricRegistry(participantConfig, config),
+          createMetrics(participantConfig, config),
         )
 
     def owner(
