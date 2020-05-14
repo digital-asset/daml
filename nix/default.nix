@@ -176,7 +176,22 @@ in rec {
           >&2 echo "Please run bazel inside of the dev-env"
           exit 1
       fi
-      export BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
+
+      # Workaround for Bazel insisting on autodecting cc toolchain.
+      #
+      # We enable `--incompatible_enable_cc_toolchain_resolution` and define a
+      # custom CC toolchain using `nixpkgs_cc_configure_hermetic`. Despite this
+      # Bazel insists on configuring the autodeting cc toolchain which fails if
+      # it cannot find a C compiler in `$PATH` or `$CC`. See
+      # https://github.com/bazelbuild/bazel/issues/5133. We can disable the
+      # autodetection, by setting `BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1`, but
+      # then toolchain resolution fails with
+      #
+      #   cc_toolchain_suite '@local_config_cc//:toolchain' does not contain a toolchain for cpu 'k8'
+      #
+      # Even though the toolchain in `@local_config_cc` would be unused.
+      export CC=${cc}/bin/cc
+
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
