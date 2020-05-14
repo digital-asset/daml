@@ -108,7 +108,7 @@ nixpkgs_cc_configure_hermetic(
         "//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
 
