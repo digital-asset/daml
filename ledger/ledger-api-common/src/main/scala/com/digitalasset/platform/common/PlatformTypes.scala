@@ -45,11 +45,11 @@ object PlatformTypes {
       f: Cid => Cid2): GenTransaction[Nid, Cid2] =
     tx.mapContractIdAndValue(f, _.mapContractId(f))
 
-  def asVersionedValue[Cid <: V.ContractId](
+  def asVersionedValue[Cid <: V.AbsoluteContractId](
       v: V[Cid]): scala.Either[String, V.VersionedValue[Cid]] =
     ValueVersions.asVersionedValue(v)
 
-  def asVersionedValueOrThrow[Cid <: V.ContractId](v: V[Cid]): V.VersionedValue[Cid] = {
+  def asVersionedValueOrThrow[Cid <: V.AbsoluteContractId](v: V[Cid]): V.VersionedValue[Cid] = {
     asVersionedValue(v).fold(
       s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
       identity)
