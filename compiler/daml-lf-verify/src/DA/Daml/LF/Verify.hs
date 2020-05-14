@@ -9,9 +9,12 @@ module DA.Daml.LF.Verify
   , verify
   ) where
 
-import Control.Monad (when)
 import Data.Text
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.String
 import Options.Applicative
+import System.Exit
+import System.IO
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Verify.Generate
@@ -30,14 +33,24 @@ main = do
       choiceName = ChoiceName (pack optChoiceName)
       fieldTmpl = TypeConName [pack optFieldTmpl]
       fieldName = FieldName (pack optFieldName)
-  result <- verify optInputDar True choiceTmpl choiceName fieldTmpl fieldName
+  result <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
   print result
+
+outputError :: Error
+  -- ^ The error message.
+  -> String
+  -- ^ An additional message providing context.
+  -> IO Result
+outputError err msg = do
+  hPutStrLn stderr msg
+  hPutStrLn stderr (show err)
+  exitFailure
 
 -- | Execute the full verification pipeline.
 verify :: FilePath
   -- ^ The DAR file to load.
-  -> Bool
-  -- ^ Enable print outs.
+  -> (String -> IO ())
+  -- ^ Function for debugging printouts.
   -> TypeConName
   -- ^ The template in which the given choice is defined.
   -> ChoiceName
@@ -47,29 +60,36 @@ verify :: FilePath
   -> FieldName
   -- ^ The field to be verified.
   -> IO Result
-verify dar verbose choiceTmpl choiceName fieldTmpl fieldName = do
+verify dar debug choiceTmpl choiceName fieldTmpl fieldName = do
+  -- Read the packages to analyse, and initialise the provided solver.
   pkgs <- readPackages [dar]
   solver <- getSolver
-  when verbose $ putStrLn "Start value gathering"
+  -- Start reading data type and value definitions. References to other
+  -- values are just stored as references at this point.
+  debug "Start value gathering"
   case runEnv (genPackages pkgs) (emptyEnv :: Env 'ValueGathering) of
-    Left err-> do
-      putStrLn "Value phase finished with error: "
-      print err
-      return Unknown
+    Left err-> outputError err "Value phase finished with error: "
     Right env1 -> do
-      when verbose $ putStrLn "Start value solving"
+      -- All value definitions have been handled. Start computing closures of
+      -- the stored value references. After this phase, all value references
+      -- should be inlined.
+      debug "Start value solving"
       let env2 = solveValueReferences env1
-      when verbose $ putStrLn "Start choice gathering"
+      -- Start reading template definitions. References to choices are just
+      -- stored as references at this point.
+      debug "Start choice gathering"
       case runEnv (genPackages pkgs) env2 of
-        Left err -> do
-          putStrLn "Choice phase finished with error: "
-          print err
-          return Unknown
+        Left err -> outputError err "Choice phase finished with error: "
         Right env3 -> do
-          when verbose $ putStrLn "Start choice solving"
+          -- All choice definitions have been handled. Start computing closures
+          -- of the stored choice references. After this phase, all choice
+          -- references should be inlined.
+          debug "Start choice solving"
           let env4 = solveChoiceReferences env3
-          when verbose $ putStrLn "Start constraint solving phase"
+          -- Construct the actual constraints to be solved by the SMT solver.
+          debug "Start constraint solving phase"
           let cset = constructConstr env4 choiceTmpl choiceName fieldTmpl fieldName
-          when verbose $ putStr "Create: " >> print (_cCres cset)
-          when verbose $ putStr "Archive: " >> print (_cArcs cset)
-          solveConstr solver verbose cset
+          debug $ renderString $ layoutCompact ("Create: " <+> pretty (_cCres cset))
+          debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset))
+          -- Pass the constraints to the SMT solver.
+          solveConstr solver debug cset

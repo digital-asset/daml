@@ -66,7 +66,8 @@ data Phase
   -- have been inlined.
 
 -- | Data type denoting a boolean condition expression. This data type was
--- introduced to avoid having to use imported daml-if prelude functions.
+-- introduced as DAML-LF does not have build-in boolean operators, and using
+-- prelude functions gets messy.
 data BoolExpr
   = BExpr Expr
   -- ^ A daml-lf expression.
@@ -89,23 +90,19 @@ instance Functor Cond where
   fmap f (Determined x) = Determined (f x)
   fmap f (Conditional e x y) = Conditional e (f x) (f <$> y)
 
--- | Class covering the types which store conditionals inside.
-class Conditional a where
-  -- | Shift the conditional inside the data type.
-  introCond :: Cond a -> a
-
-instance Conditional (UpdateSet ph) where
-  introCond (Determined upds) = upds
-  introCond (Conditional e updx updy) = case updx of
-    UpdateSetVG{} -> UpdateSetVG
-      (concatCond $ Conditional e (_usvgUpdate updx) (_usvgUpdate <$> updy))
-      (concatCond $ Conditional e (_usvgChoice updx) (_usvgChoice <$> updy))
-      (concatCond $ Conditional e (_usvgValue updx) (_usvgValue <$> updy))
-    UpdateSetCG{} -> UpdateSetCG
-      (concatCond $ Conditional e (_uscgUpdate updx) (_uscgUpdate <$> updy))
-      (concatCond $ Conditional e (_uscgChoice updx) (_uscgChoice <$> updy))
-    UpdateSetS{} -> UpdateSetS
-      (concatCond $ Conditional e (_ussUpdate updx) (_ussUpdate <$> updy))
+-- | Shift the conditional inside the update set.
+introCond :: Cond (UpdateSet ph) -> UpdateSet ph
+introCond (Determined upds) = upds
+introCond (Conditional e updx updy) = case updx of
+  UpdateSetVG{} -> UpdateSetVG
+    (concatCond $ Conditional e (_usvgUpdate updx) (_usvgUpdate <$> updy))
+    (concatCond $ Conditional e (_usvgChoice updx) (_usvgChoice <$> updy))
+    (concatCond $ Conditional e (_usvgValue updx) (_usvgValue <$> updy))
+  UpdateSetCG{} -> UpdateSetCG
+    (concatCond $ Conditional e (_uscgUpdate updx) (_uscgUpdate <$> updy))
+    (concatCond $ Conditional e (_uscgChoice updx) (_uscgChoice <$> updy))
+  UpdateSetS{} -> UpdateSetS
+    (concatCond $ Conditional e (_ussUpdate updx) (_ussUpdate <$> updy))
 
 -- | Flatten nested conditionals into a single level.
 concatCond :: Cond [Cond a] -> [Cond a]
@@ -732,23 +729,39 @@ solveReference :: forall updset ref. (Eq ref, Hashable ref)
   -- ^ The reference to be solved.
   -> (updset, HM.HashMap ref updset)
 solveReference lookup getRefs extUpds introCond vis hmap0 ref0 =
+  -- Lookup updates performed by the given reference, and split in new
+  -- references and reference-free updates.
   let upd0 = lookup ref0 hmap0
       (refs, upd1) = getRefs upd0
+  -- Check for loops. If the references has already been visited, then the
+  -- reference should be flagged as recursive.
   in if ref0 `elem` vis
   -- TODO: Recursion!
     then (upd1, hmap0) -- TODO: At least remove the references?
+    -- When no recursion has been detected, continue inlining the references.
     else let (upd2, hmap1) = foldl handle_ref (upd1, hmap0) refs
       in (upd1, HM.insert ref0 upd2 hmap1)
   where
-    handle_ref :: (updset, HM.HashMap ref updset) -> Cond ref
+    -- | Extend the closure by computing and adding the reference closure for
+    -- the given reference.
+    handle_ref :: (updset, HM.HashMap ref updset)
+      -- ^ The current closure (update set) and the current map for reference to update.
+      -> Cond ref
+      -- ^ The reference to be computed and added.
       -> (updset, HM.HashMap ref updset)
+    -- For a simple reference, the closure is computed straightforwardly.
     handle_ref (upd_i0, hmap_i0) (Determined ref_i) =
       let (upd_i1, hmap_i1) = solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_i0 ref_i
       in (extUpds upd_i0 upd_i1, hmap_i1)
+    -- A conditional reference is more involved, as the conditional needs to be
+    -- preserved in the computed closure (update set).
     handle_ref (upd_i0, hmap_i0) (Conditional cond ref_ia ref_ib) =
+          -- Compute the closure for the true-case.
       let (upd_ia, hmap_ia) = solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_i0 ref_ia
+          -- Compute the closure for the false-case, when this case exists.
           (upd_ib, hmap_ib) = maybe (Nothing, hmap_ia)
             (first Just . solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_ia) ref_ib
+          -- Move the conditional inwards, in the update set.
           upd_i1 = extUpds upd_i0 $ introCond $ Conditional cond upd_ia upd_ib
       in (upd_i1, hmap_ib)
 

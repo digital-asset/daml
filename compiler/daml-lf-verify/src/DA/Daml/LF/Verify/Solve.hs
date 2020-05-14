@@ -11,11 +11,11 @@ module DA.Daml.LF.Verify.Solve
   , Result(..)
   ) where
 
-import Control.Monad (when)
 import Data.Bifunctor
 import Data.Maybe (fromJust, maybeToList)
 import Data.List (lookup, union, intersect, partition, (\\), nub)
 import Data.Tuple.Extra (both)
+import Data.Text.Prettyprint.Doc
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified SimpleSMT as S
@@ -48,19 +48,21 @@ data ConstraintExpr
   | CIf !ConstraintExpr !ConstraintExpr !ConstraintExpr
   -- | If then expression.
   | CWhen !ConstraintExpr !ConstraintExpr
+  deriving Show
 
-instance Show ConstraintExpr where
-  show (CBool b) = show b
-  show (CInt i) = show i
-  show (CReal i) = show i
-  show (CVar x) = T.unpack $ unExprVarName x
-  show (CAdd e1 e2) = show e1 ++ " + " ++ show e2
-  show (CSub e1 e2) = show e1 ++ " - " ++ show e2
-  show (CEq e1 e2) = show e1 ++ " == " ++ show e2
-  show (CAnd e1 e2) = show e1 ++ " and " ++ show e2
-  show (CNot e) = "not " ++ show e
-  show (CIf e1 e2 e3) = "if " ++ show e1 ++ " then " ++ show e2 ++ " else " ++ show e3
-  show (CWhen e1 e2) = "when " ++ show e1 ++ " then " ++ show e2
+instance Pretty ConstraintExpr where
+  pretty (CBool b) = pretty b
+  pretty (CInt i) = pretty i
+  pretty (CReal i) = pretty $ show i
+  pretty (CVar x) = pretty $ unExprVarName x
+  pretty (CAdd e1 e2) = pretty e1 <+> " <+> " <+> pretty e2
+  pretty (CSub e1 e2) = pretty e1 <+> " - " <+> pretty e2
+  pretty (CEq e1 e2) = pretty e1 <+> " == " <+> pretty e2
+  pretty (CAnd e1 e2) = pretty e1 <+> " and " <+> pretty e2
+  pretty (CNot e) = "not " <+> pretty e
+  pretty (CIf e1 e2 e3) = "if " <+> pretty e1 <+> " then " <+> pretty e2
+    <+> " else " <+> pretty e3
+  pretty (CWhen e1 e2) = "when " <+> pretty e1 <+> " then " <+> pretty e2
 
 -- | Class covering the types converteable to constraint expressions.
 class ConstrExpr a where
@@ -184,15 +186,14 @@ filterCondUpd :: TypeConName
   -> Cond Upd
   -- ^ The conditional update expression to convert and filter.
   -> ([ConstraintExpr], [ConstraintExpr])
-filterCondUpd tem syns f (Determined x) = bimap maybeToList maybeToList $ filterUpd tem syns f x
+filterCondUpd tem syns f (Determined x) = both maybeToList $ filterUpd tem syns f x
 filterCondUpd tem syns f (Conditional b x Nothing) =
   let cb = toCExp syns b
-      cx = bimap maybeToList maybeToList $ filterUpd tem syns f x
-  in bimap (map (CWhen cb)) (map (CWhen cb)) cx
+  in both (map (CWhen cb) . maybeToList) $ filterUpd tem syns f x
 filterCondUpd tem syns f (Conditional b x (Just y)) =
   let cb = toCExp syns b
-      (cxcre,cxarc) = bimap maybeToList maybeToList $ filterUpd tem syns f x
-      (cycre,cyarc) = bimap maybeToList maybeToList $ filterUpd tem syns f y
+      (cxcre,cxarc) = both maybeToList $ filterUpd tem syns f x
+      (cycre,cyarc) = both maybeToList $ filterUpd tem syns f y
   -- TODO: We should try to use an if here.
   in ( map (CWhen cb) cxcre ++ map (CWhen (CNot cb)) cycre
      , map (CWhen cb) cxarc ++ map (CWhen (CNot cb)) cyarc )
@@ -243,7 +244,7 @@ constructConstr env chtem ch ftem f =
             (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
             ([],[]) upds
       in ConstraintSet vars cres arcs ctrs
-    Nothing -> error "Choice not found"
+    Nothing -> error ("Choice not found " ++ show ch)
 
 -- | Convert a constraint expression into an SMT expression from the solving library.
 cexp2sexp :: [(ExprVarName,S.SExpr)]
@@ -303,14 +304,14 @@ declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
 -- additional required variables.
 declareCtrs :: S.Solver
   -- ^ The SMT solver.
-  -> Bool
-  -- ^ Flag denoting whether to print verbosely.
+  -> (String -> IO ())
+  -- ^ Function for debugging printouts.
   -> [(ExprVarName,S.SExpr)]
   -- ^ The set of variable names, mapped to their corresponding SMT counterparts.
   -> [(ConstraintExpr, ConstraintExpr)]
   -- ^ The equality constraints to be declared.
   -> IO [(ExprVarName,S.SExpr)]
-declareCtrs sol verbose cvars1 ctrs = do
+declareCtrs sol debug cvars1 ctrs = do
   let edges = map (\(l,r) -> (l,r,gatherFreeVars l ++ gatherFreeVars r)) ctrs
       components = conn_comp edges
       useful_nodes = map fst cvars1
@@ -356,7 +357,7 @@ declareCtrs sol verbose cvars1 ctrs = do
     declare vars (cexp1, cexp2) = do
       sexp1 <- cexp2sexp vars cexp1
       sexp2 <- cexp2sexp vars cexp2
-      when verbose $ putStr "Assert: " >> print (S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
+      debug ("Assert: " ++ (S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 "")))
       S.assert sol (sexp1 `S.eq` sexp2)
 
 -- | Data type denoting the outcome of the solver.
@@ -383,16 +384,16 @@ instance Show Result where
 -- equal.
 solveConstr :: FilePath
   -- ^ The path to the constraint solver.
-  -> Bool
-  -- ^ Flag denoting whether to print verbosely.
+  -> (String -> IO ())
+  -- ^ Function for debugging printouts.
   -> ConstraintSet
   -- ^ The constraint set to solve.
   -> IO Result
-solveConstr spath verbose ConstraintSet{..} = do
+solveConstr spath debug ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
   vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
-  vars2 <- declareCtrs sol verbose vars1 _cCtrs
+  vars2 <- declareCtrs sol debug vars1 _cCtrs
   let vars = vars1 ++ vars2
   cre <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cCres
   arc <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cArcs

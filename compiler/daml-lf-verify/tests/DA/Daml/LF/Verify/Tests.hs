@@ -14,8 +14,6 @@ import DA.Daml.LF.Verify
 import DA.Daml.LF.Verify.Solve
 import DA.Bazel.Runfiles
 
--- TODO: Build the dar files from within bazel, instead of passing them in manually.
-
 mainTest :: IO ()
 mainTest = defaultMain $ testGroup "DA.Daml.LF.Verify"
   [ quickstartTests
@@ -29,7 +27,7 @@ quickstartTests = testGroup "Quickstart"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "Iou_Split"
           field = FieldName "amount"
-      result <- verify quickstartDar False tmpl choice tmpl field
+      result <- verify quickstartDar debug tmpl choice tmpl field
       assertEqual "Verification failed for Iou_Split - amount"
         Success result
   , testCase "Iou_Merge" $ do
@@ -37,7 +35,7 @@ quickstartTests = testGroup "Quickstart"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "Iou_Merge"
           field = FieldName "amount"
-      result <- verify quickstartDar False tmpl choice tmpl field
+      result <- verify quickstartDar debug tmpl choice tmpl field
       assertEqual "Verification failed for Iou_Merge - amount"
         Success result
   ]
@@ -49,7 +47,7 @@ conditionalTests = testGroup "Conditionals"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "SuccA"
           field = FieldName "content"
-      result <- verify condDar False tmpl choice tmpl field
+      result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccA - content"
         Success result
   , testCase "Success B" $ do
@@ -57,7 +55,7 @@ conditionalTests = testGroup "Conditionals"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "SuccB"
           field = FieldName "content"
-      result <- verify condDar False tmpl choice tmpl field
+      result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccB - content"
         Success result
   , testCase "Success C" $ do
@@ -65,7 +63,7 @@ conditionalTests = testGroup "Conditionals"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "SuccC"
           field = FieldName "content"
-      result <- verify condDar False tmpl choice tmpl field
+      result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccC - content"
         Success result
   , testCase "Success D" $ do
@@ -73,7 +71,7 @@ conditionalTests = testGroup "Conditionals"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "SuccD"
           field = FieldName "content"
-      result <- verify condDar False tmpl choice tmpl field
+      result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccD - content"
         Success result
   , testCase "Fail A" $ do
@@ -81,7 +79,7 @@ conditionalTests = testGroup "Conditionals"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "FailA"
           field = FieldName "content"
-      verify condDar False tmpl choice tmpl field >>= \case
+      verify condDar debug tmpl choice tmpl field >>= \case
         Success -> assertFailure "Verification wrongfully passed for FailA - content"
         Unknown -> assertFailure "Verification inconclusive for FailA - content"
         Fail _ -> return ()
@@ -90,8 +88,11 @@ conditionalTests = testGroup "Conditionals"
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "FailB"
           field = FieldName "content"
-      verify condDar False tmpl choice tmpl field >>= \case
+      verify condDar debug tmpl choice tmpl field >>= \case
         Success -> assertFailure "Verification wrongfully passed for FailB - content"
         Unknown -> assertFailure "Verification inconclusive for FailB - content"
         Fail _ -> return ()
   ]
+
+debug :: String -> IO ()
+debug _ = return ()
