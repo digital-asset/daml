@@ -52,6 +52,7 @@ ScriptTest:traceOrder SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
 ScriptExample:initializeFixed SUCCESS
+ScriptTest:testStack SUCCESS
 ScriptTest:testMaxInboundMessageSize SUCCESS
 EOF
 )"
