@@ -20,7 +20,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
@@ -667,10 +667,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         lookupLedgerEntry(offset)
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
-            // Recover the original transaction that can be used as input to Blinding.blind.
-            // Here we do not convert absolute contract IDs back to relative ones,
-            // as this should not affect the blinding.
-            val toCoid: AbsoluteContractId => ContractId = identity
             val unmappedTx: Transaction.Transaction = tx.transaction
               .mapNodeId(EventIdFormatter.split(_).get.nodeId)
 

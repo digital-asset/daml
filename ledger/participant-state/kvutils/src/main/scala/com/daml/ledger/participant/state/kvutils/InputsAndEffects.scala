@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.daml.lf.data.Ref._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.Transaction
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractId, VersionedValue}
+import com.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
@@ -64,12 +64,9 @@ private[kvutils] object InputsAndEffects {
 
     val localContract = tx.localContracts
 
-    def addContractInput(coid: ContractId): Unit =
-      coid match {
-        case acoid: AbsoluteContractId if (!localContract.isDefinedAt(acoid)) =>
-          inputs += contractIdToStateKey(acoid)
-        case _ =>
-      }
+    def addContractInput(coid: AbsoluteContractId): Unit =
+      if (!localContract.isDefinedAt(coid))
+        inputs += contractIdToStateKey(coid)
 
     def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering

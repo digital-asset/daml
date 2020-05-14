@@ -15,7 +15,6 @@ import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{GenTransaction, Node => N}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.AbsoluteContractId
-import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.Contract.ActiveContract
 
 /**
@@ -113,10 +112,9 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties.getOrElse(Set.empty))
-                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
                 AddTransactionState(
                   Some(acc),
-                  contractCheck(absCoid).fold(errs)(errs + _),
+                  contractCheck(nf.coid).fold(errs)(errs + _),
                   parties.union(nodeParties),
                   archivedIds
                 )
@@ -124,15 +122,13 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
-                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
-
                 val activeContract = ActiveContract(
-                  id = absCoid,
+                  id = nc.coid,
                   let = let,
                   transactionId = transactionId,
                   eventId = nodeId,
                   workflowId = workflowId,
-                  contract = nc.coinst.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
+                  contract = nc.coinst,
                   witnesses = disclosure(nodeId),
                   // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
                   // But this field is always empty in transactions with only absolute contract ids.
@@ -167,16 +163,15 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
-                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
                 ats.copy(
-                  errs = contractCheck(absCoid).fold(errs)(errs + _),
+                  errs = contractCheck(ne.targetCoid).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    acc.removeContract(absCoid)
+                    acc.removeContract(ne.targetCoid)
                   } else {
                     acc
                   }),
                   parties = parties.union(nodeParties),
-                  archivedIds = if (ne.consuming) archivedIds + absCoid else archivedIds
+                  archivedIds = if (ne.consuming) archivedIds + ne.targetCoid else archivedIds
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // Check that the stored lookup result matches the current result
