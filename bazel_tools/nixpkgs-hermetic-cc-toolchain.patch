@@ -47,7 +47,7 @@ index 8596633..234c41b 100644
  
  [0.7.0]: https://github.com/tweag/rules_nixpkgs/compare/v0.6.0...v0.7.0
 diff --git a/README.md b/README.md
-index 721f64d..ddd23d2 100644
+index 721f64d..71180c4 100644
 --- a/README.md
 +++ b/README.md
 @@ -176,7 +176,7 @@ Make the content of a Nixpkgs package available in the Bazel workspace.
@@ -97,7 +97,7 @@ index 721f64d..ddd23d2 100644
 +
 +This requires `--incompatible_enable_cc_toolchain_resolution` to be
 +enabled. See https://github.com/bazelbuild/bazel/issues/7260.
-+Alternatively, you can set `--crosstool_top=@<name>_config//:toolchain`.
++Alternatively, you can set `--crosstool_top=@<name>//:toolchain`.
 +
 +Example:
 +
@@ -271,7 +271,7 @@ index 6662530..94678bd 100644
  )
  
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index fb87da4..7334de0 100644
+index fb87da4..57ff187 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
 @@ -1,7 +1,15 @@
@@ -389,7 +389,7 @@ index fb87da4..7334de0 100644
          "quiet": attr.bool(),
          "fail_not_supported": attr.bool(default = True, doc = """
              If set to True (default) this rule will fail on platforms which do not support Nix (e.g. Windows). If set to False calling this rule will succeed but no output will be generated.
-@@ -244,6 +308,303 @@ def nixpkgs_package(*args, **kwargs):
+@@ -244,6 +308,324 @@ def nixpkgs_package(*args, **kwargs):
      else:
          _nixpkgs_package(*args, **kwargs)
  
@@ -585,8 +585,8 @@ index fb87da4..7334de0 100644
 +package(default_visibility = ["//visibility:public"])
 +
 +toolchain(
-+    name = "toolchain",
-+    toolchain = "@{name}_config//:cc-compiler-{cpu}",
++    name = "cc-toolchain-{cpu}",
++    toolchain = "@{cc_toolchain_config}//:cc-compiler-{cpu}",
 +    toolchain_type = "@rules_cc//cc:toolchain_type",
 +    exec_compatible_with = [
 +        "@platforms//cpu:x86_64",
@@ -598,8 +598,23 @@ index fb87da4..7334de0 100644
 +        "@platforms//os:{os}",
 +    ],
 +)
++
++toolchain(
++    name = "cc-toolchain-armeabi-v7a",
++    toolchain = "@{cc_toolchain_config}//:cc-compiler-armeabi-v7a",
++    toolchain_type = "@rules_cc//cc:toolchain_type",
++    exec_compatible_with = [
++        "@platforms//cpu:x86_64",
++        "@platforms//os:{os}",
++        "@io_tweag_rules_nixpkgs//nixpkgs/constraints:support_nix",
++    ],
++    target_compatible_with = [
++        "@platforms//cpu:arm",
++        "@platforms//os:android",
++    ],
++)
 +""".format(
-+            name = repository_ctx.name,
++            cc_toolchain_config = repository_ctx.attr.cc_toolchain_config,
 +            cpu = cpu,
 +            os = {"darwin": "osx"}.get(cpu, "linux"),
 +        ),
@@ -607,10 +622,13 @@ index fb87da4..7334de0 100644
 +
 +_nixpkgs_cc_toolchain = repository_rule(
 +    _nixpkgs_cc_toolchain_impl,
++    attrs = {
++        "cc_toolchain_config": attr.string(),
++    },
 +)
 +
 +def nixpkgs_cc_configure_hermetic(
-+        name = "nixpkgs_cc_toolchain",
++        name = "nixpkgs_config_cc",
 +        attribute_path = "",
 +        nix_file = None,
 +        nix_file_content = "",
@@ -629,7 +647,7 @@ index fb87da4..7334de0 100644
 +    NOTE:
 +    This requires `--incompatible_enable_cc_toolchain_resolution` to be
 +    enabled. See https://github.com/bazelbuild/bazel/issues/7260.
-+    Alternatively, you can set `--crosstool_top=@<name>_config//:toolchain`.
++    Alternatively, you can set `--crosstool_top=@<name>//:toolchain`.
 +
 +    Attrs:
 +      attribute_path: optional, string, Obtain the toolchain from the Nix expression under this attribute path. Requires `nix_file` or `nix_file_content`.
@@ -661,7 +679,7 @@ index fb87da4..7334de0 100644
 +
 +    # Invoke `toolchains/cc.nix` which generates `CC_TOOLCHAIN_INFO`.
 +    nixpkgs_package(
-+        name = "{}_cc".format(name),
++        name = "{}_info".format(name),
 +        nix_file = "@io_tweag_rules_nixpkgs//nixpkgs:toolchains/cc.nix",
 +        nix_file_deps = nix_file_deps,
 +        build_file_content = "exports_files(['CC_TOOLCHAIN_INFO'])",
@@ -675,25 +693,28 @@ index fb87da4..7334de0 100644
 +
 +    # Generate the `cc_toolchain_config` workspace.
 +    _nixpkgs_cc_toolchain_config(
-+        name = "{}_config".format(name),
-+        cc_toolchain_info = "@{}_cc//:CC_TOOLCHAIN_INFO".format(name),
++        name = "{}".format(name),
++        cc_toolchain_info = "@{}_info//:CC_TOOLCHAIN_INFO".format(name),
 +        fail_not_supported = fail_not_supported,
 +    )
 +
 +    # Generate the `cc_toolchain` workspace.
-+    _nixpkgs_cc_toolchain(name = name)
++    _nixpkgs_cc_toolchain(
++        name = "{}_toolchains".format(name),
++        cc_toolchain_config = name,
++    )
 +
 +    maybe(
 +        native.bind,
 +        name = "cc_toolchain",
-+        actual = "@{}_config//:toolchain".format(name),
++        actual = "@{}//:toolchain".format(name),
 +    )
-+    native.register_toolchains("@{}//:toolchain".format(name))
++    native.register_toolchains("@{}_toolchains//:all".format(name))
 +
  def _readlink(repository_ctx, path):
      return repository_ctx.path(path).realpath
  
-@@ -323,6 +684,14 @@ def nixpkgs_cc_configure(
+@@ -323,6 +705,14 @@ def nixpkgs_cc_configure(
          nixopts = []):
      """Use a CC toolchain from Nixpkgs. No-op if not a nix-based platform.
  
@@ -1061,7 +1082,7 @@ index 450810b..d86d6a5 100644
  )
 diff --git a/tests/cc-test.bzl b/tests/cc-test.bzl
 new file mode 100644
-index 0000000..a5db3e9
+index 0000000..c162e25
 --- /dev/null
 +++ b/tests/cc-test.bzl
 @@ -0,0 +1,49 @@
@@ -1108,7 +1129,7 @@ index 0000000..a5db3e9
 +        ),
 +        "_cc_toolchain_info": attr.label(
 +            allow_single_file = True,
-+            default = Label("@nixpkgs_cc_toolchain_cc//:CC_TOOLCHAIN_INFO"),
++            default = Label("@nixpkgs_config_cc_info//:CC_TOOLCHAIN_INFO"),
 +        ),
 +    },
 +    test = True,
