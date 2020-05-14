@@ -197,7 +197,9 @@ def _dadew_sh_posix_config_impl(repository_ctx):
 load("@rules_sh//sh:posix.bzl", "sh_posix_toolchain")
 sh_posix_toolchain(
     name = "dadew_posix",
-    {commands}
+    cmds = {{
+        {commands},
+    }},
 )
 toolchain(
     name = "dadew_posix_toolchain",
@@ -213,8 +215,8 @@ toolchain(
     ],
 )
 """.format(
-        commands = ",\n    ".join([
-            '{cmd} = r"{path}"'.format(cmd = cmd, path = cmd_path).replace("\\", "/")
+        commands = ",\n        ".join([
+            'r"{cmd}": r"{path}"'.format(cmd = cmd, path = cmd_path).replace("\\", "/")
             for (cmd, cmd_path) in commands.items()
             if cmd_path
         ]),
