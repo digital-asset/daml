@@ -3,7 +3,7 @@ set -eu
 
 # Make sure they are in the right repo
 readonly REPO_ROOT="$(bazel info workspace)"
-if [[ "${REPO_ROOT}/dev-env/bin/daml-sdk-head" != "${BASH_SOURCE}" ]];
+if [[ "${REPO_ROOT}/dev-env/bin/daml-sdk-head" != "${BASH_SOURCE[0]}" ]];
 then
   echo "Repo root does not match the script being run."
   echo "Make sure you run this script from a directory within the 'daml' repository "
