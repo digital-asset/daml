@@ -20,7 +20,8 @@ import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   ExerciseByKeyCommand,
-  ExerciseCommand
+  ExerciseCommand,
+  CreateAndExerciseCommand
 }
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
@@ -504,6 +505,30 @@ object Converter {
     }
   }
 
+  private def toCreateAndExercise(
+      triggerIds: TriggerIds,
+      v: SValue): Either[String, CreateAndExerciseCommand] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 => {
+        for {
+          tpl <- toAnyTemplate(vals.get(0))
+          templateId <- extractTemplateId(tpl)
+          templateArg <- toLedgerRecord(tpl)
+          choiceVal <- toAnyChoice(vals.get(1))
+          choiceName <- extractChoiceName(choiceVal)
+          choiceArg <- toLedgerValue(choiceVal)
+        } yield {
+          CreateAndExerciseCommand(
+            Some(toApiIdentifier(templateId)),
+            Some(templateArg),
+            choiceName,
+            Some(choiceArg)
+          )
+        }
+      }
+    }
+  }
+
   private def toCommand(triggerIds: TriggerIds, v: SValue): Either[String, Command] = {
     v match {
       case SVariant(_, "CreateCommand", _, createVal) =>
@@ -518,7 +543,11 @@ object Converter {
         for {
           exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
         } yield Command().withExerciseByKey(exerciseByKey)
-      case _ => Left(s"Expected CreateCommand or ExerciseCommand but got $v")
+      case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
+        for {
+          createAndExercise <- toCreateAndExercise(triggerIds, createAndExerciseVal)
+        } yield Command().withCreateAndExercise(createAndExercise)
+      case _ => Left(s"Expected a Command but got $v")
     }
   }
 
