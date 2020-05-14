@@ -84,11 +84,7 @@ data Cond a
   | Conditional BoolExpr a (Maybe a)
   -- ^ Conditional value, with a (Boolean) condition, a value in case the
   -- condition holds, and possibly a value in case it doesn't.
-  deriving Show
-
-instance Functor Cond where
-  fmap f (Determined x) = Determined (f x)
-  fmap f (Conditional e x y) = Conditional e (f x) (f <$> y)
+  deriving (Show, Functor)
 
 -- | Shift the conditional inside the update set.
 introCond :: Cond (UpdateSet ph) -> UpdateSet ph
@@ -133,7 +129,7 @@ data Upd
     }
   deriving Show
 
--- | Data type denoting an exercised choice update.
+-- | Data type denoting an exercised choice.
 data UpdChoice = UpdChoice
   { _choTemp  :: !(Qualified TypeConName)
     -- ^ Qualified type constructor corresponding to the contract template.
@@ -489,8 +485,8 @@ extRecEnvLvl1 = mapM_ step
       -- TODO: Temporary fix
       `catchError` (\_ -> return ())
 
--- | Lookup an expression variable in the environment. Succeeds if this variable
--- has been skolemised, or throws an error if it hasn't.
+-- | Lookup an expression variable in the environment. Returns `True` if this variable
+-- has been skolemised, or `False` otherwise.
 lookupVar :: MonadEnv m ph
   => ExprVarName
   -- ^ The expression variable to look up.

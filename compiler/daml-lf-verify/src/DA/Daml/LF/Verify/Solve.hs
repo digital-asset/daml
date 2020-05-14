@@ -64,7 +64,7 @@ instance Pretty ConstraintExpr where
     <+> " else " <+> pretty e3
   pretty (CWhen e1 e2) = "when " <+> pretty e1 <+> " then " <+> pretty e2
 
--- | Class covering the types converteable to constraint expressions.
+-- | Class covering the types convertible to constraint expressions.
 class ConstrExpr a where
   -- | Convert the given data type to a constraint expression.
   toCExp :: [(ExprVarName, ExprVarName)]
@@ -148,9 +148,9 @@ data ConstraintSet = ConstraintSet
   { _cVars :: ![ExprVarName]
     -- ^ The variables to be declared.
   , _cCres :: ![ConstraintExpr]
-    -- ^ The field values of all newly created instances.
+    -- ^ The field values of all newly created contracts.
   , _cArcs :: ![ConstraintExpr]
-    -- ^ The field values of all archived instances.
+    -- ^ The field values of all archived contracts.
   , _cCtrs :: ![(ConstraintExpr, ConstraintExpr)]
     -- ^ Additional equality constraints.
   }
@@ -206,7 +206,7 @@ filterVars :: [ExprVarName]
   -- ^ The constraint expressions in which the skolems should occur.
   -> [ExprVarName]
 filterVars vars cexprs =
-  let freevars = foldl (\fv e -> fv `union` gatherFreeVars e) [] cexprs
+  let freevars = foldl' (\fv e -> fv `union` gatherFreeVars e) [] cexprs
   in freevars `intersect` vars
 
 -- | Construct a list of all contract name synonyms, along with their current
