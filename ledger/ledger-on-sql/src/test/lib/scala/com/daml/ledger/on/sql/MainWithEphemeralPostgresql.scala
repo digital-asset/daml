@@ -14,9 +14,9 @@ object MainWithEphemeralPostgresql extends PostgresAround {
         .parse[Unit]("SQL Ledger", _ => (), (), args)
         .getOrElse(sys.exit(1))
 
-    startEphemeralPostgres()
+    connectToPostgresqlServer()
     val database = createNewRandomDatabase()
-    sys.addShutdownHook(stopAndCleanUpPostgres())
+    sys.addShutdownHook(disconnectFromPostgresqlServer())
     val config = originalConfig.copy(
       participants = originalConfig.participants.map(_.copy(serverJdbcUrl = database.url)),
       extra = ExtraConfig(jdbcUrl = Some(database.url)),

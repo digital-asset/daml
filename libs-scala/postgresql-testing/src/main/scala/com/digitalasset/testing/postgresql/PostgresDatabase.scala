@@ -5,13 +5,20 @@ package com.daml.testing.postgresql
 
 import com.daml.ports.Port
 
-final case class PostgresDatabase(
-    hostName: String,
-    port: Port,
-    userName: String,
+final case class PostgresDatabase private[postgresql] (
+    private val server: PostgresServer,
     databaseName: String,
 ) {
-  def url: String = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
+  def hostName: String = server.hostName
+
+  def port: Port = server.port
+
+  def userName: String = server.userName
+
+  def password: String = server.password
+
+  def url: String =
+    s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName&password=$password"
 
   override def toString: String = url
 }

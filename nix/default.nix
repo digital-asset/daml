@@ -204,6 +204,7 @@ in rec {
     xmlstarlet = pkgs.xmlstarlet;
     grep = pkgs.gnugrep;
     bc = pkgs.bc;
+    envsubst = pkgs.envsubst;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;

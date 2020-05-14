@@ -828,6 +828,10 @@ dev_env_tool(
         "bin/pg_ctl",
         "bin/postgres",
     ],
+    required_tools = {
+        "initdb": ["postgres"],
+        "pg_ctl": ["postgres"],
+    },
     tools = [
         "createdb",
         "dropdb",
