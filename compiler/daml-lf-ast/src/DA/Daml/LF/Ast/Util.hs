@@ -116,6 +116,21 @@ mkIf cond0 then0 else0 =
 mkBool :: Bool -> Expr
 mkBool = EBuiltin . BEBool
 
+pattern ETyApps :: Expr -> [Type] -> Expr
+pattern ETyApps fn args <- (view _ETyApps -> (fn, args))
+  where
+    ETyApps = mkETyApps
+
+pattern ETmApps :: Expr -> [Expr] -> Expr
+pattern ETmApps fn args <- (view _ETmApps -> (fn, args))
+  where
+    ETmApps = mkETmApps
+
+pattern EApps :: Expr -> [Arg] -> Expr
+pattern EApps fn args <- (view _EApps -> (fn, args))
+  where
+    EApps = mkEApps
+
 pattern EUnit :: Expr
 pattern EUnit = EBuiltin BEUnit
 

@@ -6,6 +6,7 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
+import Control.Arrow (second)
 import Control.Lens hiding (para)
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.Text as T
@@ -356,6 +357,96 @@ simplifyExpr world = fst . cata go
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
+-- Top-down inliner for simple functions.
+inlineExpr :: World -> Expr -> Expr
+inlineExpr _world = go
+  where
+    mkApp :: Expr -> Expr -> Expr
+    mkApp (ELocation l e1) e2 = ELocation l (ETmApp e1 e2)
+    mkApp e1 e2 = ETmApp e1 e2
+
+    -- Special cases. We split the general cases into a separate function
+    -- 'goExpr' so that GHC's pattern exhaustiveness checker works better.
+    go :: Expr -> Expr
+    go = \case
+        EApps (EVal x) [TyArg _, TyArg _, TyArg _, TmArg f, TmArg g, TmArg h]
+            | qualModule x == ModuleName ["GHC", "Base"]
+            , qualObject x == ExprValName "."
+            -> go (mkApp f (mkApp g h))
+
+        EApps (EVal x) [TyArg _, TyArg _, TyArg t, TmArg f, TmArg g]
+            | qualModule x == ModuleName ["GHC", "Base"]
+            , qualObject x == ExprValName "."
+            , let y = freshenExprVar (freeVarsInExpr f <> freeVarsInExpr g) (ExprVarName "y")
+            -> go (ETmLam (y,t) (mkApp f (mkApp g (EVar y))))
+
+        e -> goExpr e
+
+    -- General cases.
+    goExpr :: Expr -> Expr
+    goExpr = \case
+        e@(EVar _) -> e
+        e@(EVal _) -> e
+        e@(EBuiltin _) -> e
+        ERecCon t fs -> ERecCon t (map (second go) fs)
+        ERecProj t f e -> ERecProj t f (go e)
+        ERecUpd t f e1 e2 -> ERecUpd t f (go e1) (go e2)
+        EVariantCon t v e -> EVariantCon t v (go e)
+        e@(EEnumCon _ _) -> e
+        EStructCon fs -> EStructCon (map (second go) fs)
+        EStructProj f e -> EStructProj f (go e)
+        EStructUpd f e1 e2 -> EStructUpd f (go e1) (go e2)
+        ETmApp e1 e2 -> ETmApp (go e1) (go e2)
+        ETyApp e t -> ETyApp (go e) t
+        ETmLam xt e -> ETmLam xt (go e)
+        ETyLam xk e -> ETyLam xk (go e)
+        ECase e as -> ECase (go e) (map goCaseAlternative as)
+        ELet b e -> ELet (goBinding b) e
+        e@(ENil _) -> e
+        ECons t e1 e2 -> ECons t (go e1) (go e2)
+        ESome t e -> ESome t (go e)
+        e@(ENone _) -> e
+        EToAny t e -> EToAny t (go e)
+        EFromAny t e -> EFromAny t (go e)
+        e@(ETypeRep _) -> e
+        EUpdate u -> EUpdate (goUpdate u)
+        EScenario s -> EScenario (goScenario s)
+        ELocation l e -> ELocation l (go e)
+
+    goBinding :: Binding -> Binding
+    goBinding (Binding xt e) = Binding xt (go e)
+
+    goCaseAlternative :: CaseAlternative -> CaseAlternative
+    goCaseAlternative (CaseAlternative p e) = CaseAlternative p (go e)
+
+    goUpdate :: Update -> Update
+    goUpdate = \case
+        UPure t e -> UPure t (go e)
+        UBind b e -> UBind (goBinding b) (go e)
+        UCreate t e -> UCreate t (go e)
+        UExercise t c e1 e2M e3 -> UExercise t c (go e1) (go <$> e2M) (go e3)
+        UFetch t e -> UFetch t (go e)
+        e@UGetTime -> e
+        UEmbedExpr t e -> UEmbedExpr t (go e)
+        ULookupByKey r -> ULookupByKey (goRetrieveByKey r)
+        UFetchByKey r -> UFetchByKey (goRetrieveByKey r)
+
+    goRetrieveByKey :: RetrieveByKey -> RetrieveByKey
+    goRetrieveByKey (RetrieveByKey t e) = RetrieveByKey t (go e)
+
+    goScenario :: Scenario -> Scenario
+    goScenario = \case
+        SPure t e -> SPure t (go e)
+        SBind b e -> SBind (goBinding b) (go e)
+        SCommit t e1 e2 -> SCommit t (go e1) (go e2)
+        SMustFailAt t e1 e2 -> SMustFailAt t (go e1) (go e2)
+        SPass e -> SPass (go e)
+        e@SGetTime -> e
+        SGetParty e -> SGetParty (go e)
+        SEmbedExpr t e -> SEmbedExpr t (go e)
+
 simplifyModule :: World -> Module -> Module
-simplifyModule world m =
-    over moduleExpr (simplifyExpr (extendWorldSelf m world)) m
+simplifyModule world m0 =
+    let m1 = over moduleExpr (inlineExpr (extendWorldSelf m0 world)) m0 -- top down
+        m2 = over moduleExpr (simplifyExpr (extendWorldSelf m1 world)) m1 -- bottom up
+    in m2
