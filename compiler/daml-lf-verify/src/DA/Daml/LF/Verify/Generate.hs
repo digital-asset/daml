@@ -194,23 +194,26 @@ genExpr updFlag = \case
   ELocation _ expr -> genExpr updFlag expr
   ECase e cs -> genForCase updFlag e cs
   EUpdate upd -> if updFlag
-    then fst <$> genUpdate upd
+    then do
+      (out, _, _) <- genUpdate upd
+      return out
     else return $ emptyOut $ EUpdate upd
   -- TODO: Extend additional cases
   e -> return $ emptyOut e
 
--- | Analyse an update expression, and produce both an Output and its result type.
+-- | Analyse an update expression, and produce both an Output, its return type
+-- and potentially the field values of any created contracts.
 genUpdate :: (GenPhase ph, MonadEnv m ph)
   => Update
   -- ^ The update expression to be analysed.
-  -> m (Output ph, Type)
+  -> m (Output ph, Type, Maybe Expr)
 genUpdate = \case
   UCreate tem arg -> genForCreate tem arg
   UExercise tem ch cid par arg -> genForExercise tem ch cid par arg
   UBind bind expr -> genForBind bind expr
   UPure typ expr -> do
     out <- genExpr True expr
-    return (out, typ)
+    return (out, typ, Nothing)
   -- TODO: Extend additional cases
   _ -> error $ "Update not implemented yet"
 
@@ -385,12 +388,13 @@ genForCreate :: (GenPhase ph, MonadEnv m ph)
   -- ^ The template of which a new instance is being created.
   -> Expr
   -- ^ The argument expression.
-  -> m (Output ph, Type)
+  -> m (Output ph, Type, Maybe Expr)
 genForCreate tem arg = do
   arout <- genExpr True arg
   fs <- recExpFields (_oExpr arout)
   return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
-         , TCon tem )
+         , TCon tem
+         , Just $ EStructCon fs )
   -- TODO: We could potentially filter here to only store the interesting fields?
 
 -- | Analyse an exercise update expression.
@@ -406,7 +410,7 @@ genForExercise :: (GenPhase ph, MonadEnv m ph)
   -- ^ The party which exercises the choice.
   -> Expr
   -- ^ The arguments with which the choice is being exercised.
-  -> m (Output ph, Type)
+  -> m (Output ph, Type, Maybe Expr)
 genForExercise tem ch cid par arg = do
   cidOut <- genExpr True cid
   arout <- genExpr True arg
@@ -415,7 +419,8 @@ genForExercise tem ch cid par arg = do
   -- TODO: Should we further eval after subst? But how to eval an update set?
   let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
   return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
-         , resType )
+         , resType
+         , Nothing ) -- TODO!
 
 -- | Analyse a bind update expression.
 -- Returns both the generator output and the return type.
@@ -424,35 +429,32 @@ genForBind :: (GenPhase ph, MonadEnv m ph)
   -- ^ The binding being bound with this update.
   -> Expr
   -- ^ The expression in which this binding is being made available.
-  -> m (Output ph, Type)
+  -> m (Output ph, Type, Maybe Expr)
 genForBind bind body = do
   bindOut <- genExpr False (bindingBound bind)
   bindUpd <- case _oExpr bindOut of
     EUpdate (UFetch tc cid) -> do
-      bindCids (TContractId (TCon tc)) cid (EVar $ fst $ bindingBinder bind)
+      bindCids (TContractId (TCon tc)) cid (EVar $ fst $ bindingBinder bind) Nothing
       return emptyUpdateSet
-      -- fs <- recTypConFields $ qualObject tc
-      -- extRecEnv (fst $ bindingBinder bind) (map fst fs)
-      -- cidOut <- genExpr updFlag cid
-      -- extCidEnv (_oExpr cidOut) (fst $ bindingBinder bind)
     EUpdate upd -> do
-      (updOut, updTyp) <- genUpdate upd
+      (updOut, updTyp, creFs) <- genUpdate upd
       this <- genRenamedVar (ExprVarName "this")
-      bindCids updTyp (EVar $ fst $ bindingBinder bind) (EVar this)
+      bindCids updTyp (EVar $ fst $ bindingBinder bind) (EVar this) creFs
       return $ _oUpdate updOut
     _ -> return emptyUpdateSet
   extVarEnv (fst $ bindingBinder bind)
   bodyOut <- genExpr False body
   case _oExpr bodyOut of
     EUpdate bodyUpd -> do
-      (bodyUpdOut, bodyTyp) <- genUpdate bodyUpd
+      (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
       return ( Output
                  (_oExpr bodyUpdOut)
                  (_oUpdate bindOut
                    `concatUpdateSet` bindUpd
                    `concatUpdateSet` _oUpdate bodyOut
                    `concatUpdateSet` _oUpdate bodyUpdOut)
-             , bodyTyp )
+             , bodyTyp
+             , creFs )
     _ -> error "Impossible: The body of a bind should be an update expression"
 
 bindCids :: (GenPhase ph, MonadEnv m ph)
@@ -460,20 +462,25 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -- ^ The type of the contract id's being bound.
   -> Expr
   -- ^ The contract id's being bound.
-  -- TODO: Make this a maybe ExprVarName
   -> Expr
   -- ^ The variables to bind them to.
+  -> Maybe Expr
+  -- ^ The field values for any created contracts, if available.
   -> m ()
-bindCids (TContractId (TCon tc)) cid (EVar this) = do
+bindCids (TContractId (TCon tc)) cid (EVar this) fsExp = do
   fs <- recTypConFields $ qualObject tc
   extRecEnv this (map fst fs)
   cidOut <- genExpr True cid
   extCidEnv (_oExpr cidOut) this
-bindCids (TCon tc) cid (EVar this) = do
+  creFs <- maybe (pure []) recExpFields fsExp
+  extCtrRec this creFs
+bindCids (TCon tc) cid (EVar this) fsExp = do
   fs <- recTypConFields $ qualObject tc
   extRecEnv this (map fst fs)
   cidOut <- genExpr True cid
   extCidEnv (_oExpr cidOut) this
-bindCids (TBuiltin BTUnit) _ _ = return ()
+  creFs <- maybe (pure []) recExpFields fsExp
+  extCtrRec this creFs
+bindCids (TBuiltin BTUnit) _ _ _ = return ()
 -- TODO: Extend additional cases, like tuples.
-bindCids _ _ _ = error "Binding contract id's for this particular type has not been implemented yet"
+bindCids _ _ _ _ = error "Binding contract id's for this particular type has not been implemented yet"

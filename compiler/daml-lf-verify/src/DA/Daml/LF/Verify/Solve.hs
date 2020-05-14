@@ -13,7 +13,8 @@ module DA.Daml.LF.Verify.Solve
 
 import Data.Bifunctor
 import Data.Maybe (fromJust, maybeToList)
-import Data.List (lookup, union, intersect)
+import Data.List (lookup, union, intersect, partition, (\\), nub)
+import Data.Tuple.Extra (both)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified SimpleSMT as S
@@ -147,6 +148,8 @@ data ConstraintSet = ConstraintSet
     -- ^ The field values of all newly created instances.
   , _cArcs :: ![ConstraintExpr]
     -- ^ The field values of all archived instances.
+  , _cCtrs :: ![(ConstraintExpr, ConstraintExpr)]
+    -- ^ Additional equality constraints.
   }
   deriving Show
 
@@ -234,10 +237,11 @@ constructConstr env chtem ch ftem f =
       let upds = _ussUpdate $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
           vars = concatMap skol2var (_envsskol env)
           syns = constructSynonyms $ HM.elems $ _envscids env
+          ctrs = map (both (toCExp syns)) $ _envsctrs env
           (cres, arcs) = foldl
             (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
             ([],[]) upds
-      in ConstraintSet vars cres arcs
+      in ConstraintSet vars cres arcs ctrs
     Nothing -> error "Choice not found"
 
 -- | Convert a constraint expression into an SMT expression from the solving library.
@@ -294,6 +298,64 @@ declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
     var2str :: ExprVarName -> String
     var2str (ExprVarName x) = T.unpack x
 
+-- | Assert the additional equality constraints. Binds and returns any
+-- additional required variables.
+declareCtrs :: S.Solver
+  -- ^ The SMT solver.
+  -> [(ExprVarName,S.SExpr)]
+  -- ^ The set of variable names, mapped to their corresponding SMT counterparts.
+  -> [(ConstraintExpr, ConstraintExpr)]
+  -- ^ The equality constraints to be declared.
+  -> IO [(ExprVarName,S.SExpr)]
+declareCtrs sol cvars1 ctrs = do
+  let edges = map (\(l,r) -> (l,r,gatherFreeVars l ++ gatherFreeVars r)) ctrs
+      components = conn_comp edges
+      useful_nodes = map fst cvars1
+      useful_components = filter
+        (\comp -> let comp_vars = concatMap (\(_,_,vars) -> vars) comp
+                  in not $ null $ intersect comp_vars useful_nodes)
+        components
+      useful_equalities = concatMap (map (\(l,r,_) -> (l,r))) useful_components
+      required_vars =
+        ( nub (concatMap (concatMap (\(_,_,vars) -> vars)) useful_components) )
+        \\ useful_nodes
+  cvars2 <- declareVars sol required_vars
+  mapM_ (declare $ cvars1 ++ cvars2) useful_equalities
+  return cvars2
+  where
+    -- | Compute connected components of the equality constraints graph.
+    -- Two edges are adjacent when at least one of their nodes shares a variable.
+    conn_comp :: [(ConstraintExpr,ConstraintExpr,[ExprVarName])]
+      -- ^ The edges of the graph, annotated with the contained variables.
+      -> [[(ConstraintExpr,ConstraintExpr,[ExprVarName])]]
+    conn_comp [] = []
+    conn_comp (edge:edges) = let (comp,rem) = cc_step edges edge
+      in comp : conn_comp rem
+
+    -- | Compute the strongly connected component containing a given edge from
+    -- the graph, as well as the remaining edges which do not belong to this
+    -- component.
+    cc_step :: [(ConstraintExpr,ConstraintExpr,[ExprVarName])]
+      -- ^ The edges of the graph, which do not yet belong to any component.
+      -> (ConstraintExpr,ConstraintExpr,[ExprVarName])
+      -- ^ The current edge for which the component is being computed.
+      -> ( [(ConstraintExpr,ConstraintExpr,[ExprVarName])]
+         -- ^ The computed connected component.
+         , [(ConstraintExpr,ConstraintExpr,[ExprVarName])] )
+         -- ^ The remaining edges which do not belong to the connected component.
+    cc_step [] _ = ([],[])
+    cc_step edges0 (l,r,vars) =
+      let (neighbors,edges1) = partition (\(_,_,vars') -> not $ null $ intersect vars vars') edges0
+      in foldl (\(conn,edges2) edge -> first (conn ++) $ cc_step edges2 edge)
+           ((l,r,vars):neighbors,edges1) neighbors
+
+    declare :: [(ExprVarName,S.SExpr)] -> (ConstraintExpr, ConstraintExpr) -> IO ()
+    declare vars (cexp1, cexp2) = do
+      sexp1 <- cexp2sexp vars cexp1
+      sexp2 <- cexp2sexp vars cexp2
+      putStrLn $ "Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 "")
+      S.assert sol (sexp1 `S.eq` sexp2)
+
 -- | Data type denoting the outcome of the solver.
 data Result
   = Success
@@ -324,7 +386,9 @@ solveConstr :: FilePath
 solveConstr spath ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
-  vars <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
+  vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
+  vars2 <- declareCtrs sol vars1 _cCtrs
+  let vars = vars1 ++ vars2
   cre <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cCres
   arc <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cArcs
   S.assert sol (S.not (cre `S.eq` arc))

@@ -26,7 +26,7 @@ module DA.Daml.LF.Verify.Context
   , runEnv
   , genRenamedVar
   , emptyEnv
-  , extVarEnv, extRecEnv, extValEnv, extChEnv, extDatsEnv, extCidEnv
+  , extVarEnv, extRecEnv, extValEnv, extChEnv, extDatsEnv, extCidEnv, extCtrRec
   , extRecEnvLvl1
   , lookupVar, lookupRec, lookupVal, lookupChoice, lookupDataCon, lookupCid
   , concatEnv
@@ -172,15 +172,15 @@ class GenPhase ph where
 
 instance GenPhase 'ValueGathering where
   emptyUpdateSet = UpdateSetVG [] [] []
-  emptyEnv = EnvVG [] HM.empty HM.empty HM.empty
+  emptyEnv = EnvVG [] HM.empty HM.empty HM.empty []
 
 instance GenPhase 'ChoiceGathering where
   emptyUpdateSet = UpdateSetCG [] []
-  emptyEnv = EnvCG [] HM.empty HM.empty HM.empty HM.empty
+  emptyEnv = EnvCG [] HM.empty HM.empty HM.empty [] HM.empty
 
 instance GenPhase 'Solving where
   emptyUpdateSet = UpdateSetS []
-  emptyEnv = EnvS [] HM.empty HM.empty HM.empty HM.empty
+  emptyEnv = EnvS [] HM.empty HM.empty HM.empty [] HM.empty
 
 -- | Combine two update sets.
 concatUpdateSet :: UpdateSet ph
@@ -280,6 +280,8 @@ data Env (ph :: Phase) where
     , _envvgcids :: !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
       -- ^ The set of fetched cid's mapped to their current variable name, along
       -- with a list of any potential old variable names.
+    , _envvgctrs :: ![(Expr, Expr)]
+      -- ^ Additional equality constraints.
     } -> Env 'ValueGathering
   EnvCG ::
     { _envcgskol :: ![Skolem]
@@ -291,6 +293,8 @@ data Env (ph :: Phase) where
     , _envcgcids :: !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
       -- ^ The set of fetched cid's mapped to their current variable name, along
       -- with a list of any potential old variable names.
+    , _envcgctrs :: ![(Expr, Expr)]
+      -- ^ Additional equality constraints.
     , _envcgchs :: !(HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering))
       -- ^ The set of relevant choices.
     } -> Env 'ChoiceGathering
@@ -304,6 +308,8 @@ data Env (ph :: Phase) where
     , _envscids :: !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
       -- ^ The set of fetched cid's mapped to their current variable name, along
       -- with a list of any potential old variable names.
+    , _envsctrs :: ![(Expr, Expr)]
+      -- ^ Additional equality constraints.
     , _envschs :: !(HM.HashMap UpdChoice (ChoiceData 'Solving))
       -- ^ The set of relevant choices.
     } -> Env 'Solving
@@ -314,15 +320,15 @@ concatEnv :: Env ph
   -> Env ph
   -- ^ The second environment to be combined.
   -> Env ph
-concatEnv (EnvVG vars1 vals1 dats1 cids1) (EnvVG vars2 vals2 dats2 cids2) =
+concatEnv (EnvVG vars1 vals1 dats1 cids1 ctrs1) (EnvVG vars2 vals2 dats2 cids2 ctrs2) =
   EnvVG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-    (cids1 `HM.union` cids2)
-concatEnv (EnvCG vars1 vals1 dats1 cids1 chos1) (EnvCG vars2 vals2 dats2 cids2 chos2) =
+    (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2)
+concatEnv (EnvCG vars1 vals1 dats1 cids1 ctrs1 chos1) (EnvCG vars2 vals2 dats2 cids2 ctrs2 chos2) =
   EnvCG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-    (cids1 `HM.union` cids2) (chos1 `HM.union` chos2)
-concatEnv (EnvS vars1 vals1 dats1 cids1 chos1) (EnvS vars2 vals2 dats2 cids2 chos2) =
+    (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2) (chos1 `HM.union` chos2)
+concatEnv (EnvS vars1 vals1 dats1 cids1 ctrs1 chos1) (EnvS vars2 vals2 dats2 cids2 ctrs2 chos2) =
   EnvS (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-    (cids1 `HM.union` cids2) (chos1 `HM.union` chos2)
+    (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2) (chos1 `HM.union` chos2)
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
   -- (and just uses the first). `unionWith concatUpdateSet` would indeed be better,
   -- but this still makes me nervous as the expr and exprvarnames wouldn't be merged.
@@ -453,6 +459,21 @@ extCidEnv exp var = do
     env@EnvVG{..} -> putEnv env{_envvgcids = HM.insert cid new _envvgcids}
     env@EnvCG{..} -> putEnv env{_envcgcids = HM.insert cid new _envcgcids}
     env@EnvS{..} -> putEnv env{_envscids = HM.insert cid new _envscids}
+
+-- | Extend the environment with additional equality constraints, between a
+-- variable and its field values.
+extCtrRec :: MonadEnv m ph
+  => ExprVarName
+  -- ^ The variable to be asserted.
+  -> [(FieldName, Expr)]
+  -- ^ The fields with their values.
+  -> m ()
+extCtrRec var fields = do
+  let ctrs = map (\(f, e) -> (EStructProj f (EVar var), e)) fields
+  getEnv >>= \case
+    env@EnvVG{..} -> putEnv env{_envvgctrs = ctrs ++ _envvgctrs}
+    env@EnvCG{..} -> putEnv env{_envcgctrs = ctrs ++ _envcgctrs}
+    env@EnvS{..} -> putEnv env{_envsctrs = ctrs ++ _envsctrs}
 
 -- TODO: Is one layer of recursion enough?
 -- | Recursively skolemise the given record fields, when they have a record
@@ -595,7 +616,7 @@ lookupChoInHMap hmap _tem cho = listToMaybe $ HM.elems
 solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
 solveValueReferences EnvVG{..} =
   let valhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond [] hmap ref) _envvgvals (HM.keys _envvgvals)
-  in EnvCG _envvgskol (convertHMap valhmap) _envvgdats _envvgcids HM.empty
+  in EnvCG _envvgskol (convertHMap valhmap) _envvgdats _envvgcids _envvgctrs HM.empty
   where
     lookup_ref :: Qualified ExprValName
       -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
@@ -635,7 +656,7 @@ solveChoiceReferences EnvCG{..} =
   let chhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond [] hmap ref) _envcgchs (HM.keys _envcgchs)
       chshmap = convertChHMap chhmap
       valhmap = HM.map (inlineChoices chshmap) _envcgvals
-  in EnvS _envcgskol valhmap _envcgdats _envcgcids chshmap
+  in EnvS _envcgskol valhmap _envcgdats _envcgcids _envcgctrs chshmap
   where
     lookup_ref :: UpdChoice
       -> HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
