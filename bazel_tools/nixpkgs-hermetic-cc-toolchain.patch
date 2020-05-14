@@ -271,10 +271,10 @@ index 6662530..94678bd 100644
  )
  
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index fb87da4..52bbfcf 100644
+index fb87da4..7334de0 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
-@@ -1,7 +1,14 @@
+@@ -1,7 +1,15 @@
  """Rules for importing Nixpkgs packages."""
  
 +load("@bazel_skylib//lib:paths.bzl", "paths")
@@ -287,10 +287,11 @@ index fb87da4..52bbfcf 100644
 +    "get_starlark_list",
 +    "write_builtin_include_directory_paths",
 +)
++load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
  
  def _nixpkgs_git_repository_impl(repository_ctx):
      repository_ctx.file("BUILD")
-@@ -70,6 +77,54 @@ nixpkgs_local_repository = repository_rule(
+@@ -70,6 +78,54 @@ nixpkgs_local_repository = repository_rule(
  def _is_supported_platform(repository_ctx):
      return repository_ctx.which("nix-build") != None
  
@@ -345,7 +346,7 @@ index fb87da4..52bbfcf 100644
  def _nixpkgs_package_impl(repository_ctx):
      repository = repository_ctx.attr.repository
      repositories = repository_ctx.attr.repositories
-@@ -117,8 +172,9 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -117,8 +173,9 @@ def _nixpkgs_package_impl(repository_ctx):
      else:
          expr_args = ["-E", "import <nixpkgs> { config = {}; overlays = []; }"]
  
@@ -356,7 +357,7 @@ index fb87da4..52bbfcf 100644
  
      expr_args.extend([
          "-A",
-@@ -133,7 +189,13 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -133,7 +190,13 @@ def _nixpkgs_package_impl(repository_ctx):
          "bazel-support/nix-out-link",
      ])
  
@@ -371,7 +372,7 @@ index fb87da4..52bbfcf 100644
  
      for repo in repositories.keys():
          path = str(repository_ctx.path(repo).dirname) + "/nix-file-deps"
-@@ -206,7 +268,7 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -206,7 +269,7 @@ def _nixpkgs_package_impl(repository_ctx):
          if create_build_file_if_needed:
              p = repository_ctx.path("BUILD")
              if not p.exists:
@@ -380,7 +381,7 @@ index fb87da4..52bbfcf 100644
  
  _nixpkgs_package = repository_rule(
      implementation = _nixpkgs_package_impl,
-@@ -220,6 +282,7 @@ _nixpkgs_package = repository_rule(
+@@ -220,6 +283,7 @@ _nixpkgs_package = repository_rule(
          "build_file": attr.label(),
          "build_file_content": attr.string(),
          "nixopts": attr.string_list(),
@@ -388,7 +389,7 @@ index fb87da4..52bbfcf 100644
          "quiet": attr.bool(),
          "fail_not_supported": attr.bool(default = True, doc = """
              If set to True (default) this rule will fail on platforms which do not support Nix (e.g. Windows). If set to False calling this rule will succeed but no output will be generated.
-@@ -244,6 +307,298 @@ def nixpkgs_package(*args, **kwargs):
+@@ -244,6 +308,303 @@ def nixpkgs_package(*args, **kwargs):
      else:
          _nixpkgs_package(*args, **kwargs)
  
@@ -682,12 +683,17 @@ index fb87da4..52bbfcf 100644
 +    # Generate the `cc_toolchain` workspace.
 +    _nixpkgs_cc_toolchain(name = name)
 +
++    maybe(
++        native.bind,
++        name = "cc_toolchain",
++        actual = "@{}_config//:toolchain".format(name),
++    )
 +    native.register_toolchains("@{}//:toolchain".format(name))
 +
  def _readlink(repository_ctx, path):
      return repository_ctx.path(path).realpath
  
-@@ -323,6 +678,14 @@ def nixpkgs_cc_configure(
+@@ -323,6 +684,14 @@ def nixpkgs_cc_configure(
          nixopts = []):
      """Use a CC toolchain from Nixpkgs. No-op if not a nix-based platform.
  
