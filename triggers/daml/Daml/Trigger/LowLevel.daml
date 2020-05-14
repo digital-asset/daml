@@ -25,9 +25,11 @@ module Daml.Trigger.LowLevel
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
+  , createAndExerciseCmd
   , fromCreate
   , fromExercise
   , fromExerciseByKey
+  , fromCreateAndExercise
   , RegisteredTemplates(..)
   , registeredTemplate
   , RelTime(..)
@@ -177,6 +179,10 @@ data Command
       { contractId : AnyContractId
       , choiceArg : AnyChoice
       }
+  | CreateAndExerciseCommand
+    { templateArg : AnyTemplate
+    , choiceArg : AnyChoice
+    }
   | ExerciseByKeyCommand
       { tplTypeRep : TemplateTypeRep
       , contractKey : AnyContractKey
@@ -193,6 +199,12 @@ exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Command
 exerciseCmd contractId choiceArg =
   ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
 
+-- | Create a contract of the given template and immediately exercise
+-- the given choice on it.
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r) => t -> c -> Command
+createAndExerciseCmd templateArg choiceArg =
+  CreateAndExerciseCommand (toAnyTemplate templateArg) (toAnyChoice @t choiceArg)
+
 exerciseByKeyCmd : forall t c r k. (Choice t c r, TemplateKey t k) => k -> c -> Command
 exerciseByKeyCmd contractKey choiceArg =
   ExerciseByKeyCommand (templateTypeRep @t) (toAnyContractKey @t contractKey) (toAnyChoice @t choiceArg)
@@ -202,6 +214,12 @@ exerciseByKeyCmd contractKey choiceArg =
 fromCreate : Template t => Command -> Optional t
 fromCreate (CreateCommand t) = fromAnyTemplate t
 fromCreate _ = None
+
+-- | Check if the command corresponds to a create and exercise command
+-- for the given template.
+fromCreateAndExercise : forall t c r. (Template t, Choice t c r) => Command -> Optional (t, c)
+fromCreateAndExercise (CreateAndExerciseCommand t c) = (,) <$> fromAnyTemplate t <*> fromAnyChoice @t c
+fromCreateAndExercise _ = None
 
 -- | Check if the command corresponds to an exercise command
 -- for the given template.

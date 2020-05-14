@@ -275,6 +275,27 @@ abstract class AbstractFuncTests
       }
     }
 
+    "CreateAndExercise" should {
+      val triggerId = QualifiedName.assertFromString("CreateAndExercise:createAndExerciseTrigger")
+      val tId = LedgerApi.Identifier(packageId, "CreateAndExercise", "T")
+      val uId = LedgerApi.Identifier(packageId, "CreateAndExercise", "U")
+      "createAndExercise" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create and exercise
+          // 1 for completion
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          acs <- queryACS(client, party)
+        } yield {
+          assert(acs(tId).length == 1)
+          assert(acs(uId).length == 1)
+        }
+      }
+    }
+
     "NumericTests" should {
       val triggerId = QualifiedName.assertFromString("Numeric:test")
       val tId = LedgerApi.Identifier(packageId, "Numeric", "T")
