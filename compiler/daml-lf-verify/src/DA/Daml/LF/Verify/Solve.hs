@@ -13,7 +13,7 @@ module DA.Daml.LF.Verify.Solve
 
 import Data.Bifunctor
 import Data.Maybe (fromJust, maybeToList)
-import Data.List (lookup, union, intersect, partition, (\\), nub)
+import Data.List (lookup, union, intersect, partition, (\\), nub, foldl')
 import Data.Tuple.Extra (both)
 import Data.Text.Prettyprint.Doc
 import qualified Data.HashMap.Strict as HM
