@@ -277,22 +277,17 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val triggerDao = config.jdbcConfig.map(c => TriggerDao(c.driver, c.url, c.user, c.password))
-        (triggerDao, config.jdbcConfig) match {
-          case (Some(dao), Some(c)) if config.init =>
-            // logger.info("Creating DB schema...")
-            Try(dao.transact(TriggerDao.initialize(dao.logHandler)).unsafeRunSync()) match {
-              case Success(()) =>
-                // logger.info("DB schema created. Terminating process...")
-                // terminate()
-                System.exit(0)
-              case Failure(e) =>
-                // logger.error("Failed creating DB schema", e)
-                // terminate()
-                System.exit(1)
-            }
-          case _ =>
-        }
+        val triggerDao = TriggerDao(
+          "org.postgresql.Driver",
+          "jdbc:postgresql://localhost:5432/triggers",
+          "operator",
+          "operatorpass")
+//        Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
+//          case Success(()) =>
+//            System.exit(0)
+//          case Failure(e) =>
+//            System.exit(1)
+//        }
         val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
           case darPath =>
             val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =

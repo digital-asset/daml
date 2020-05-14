@@ -40,21 +40,19 @@ object TriggerDao {
   }
 
   def initialize(implicit log: LogHandler): ConnectionIO[Unit] = {
-    val createTriggerTable: Fragment =
-      sql"""
-          create table running_triggers(
-            trigger_id uuid primary key,
-            party varchar not null,
-            trigger_name varchar not null
-          )
-        """
-    val createDarTable: Fragment =
-      sql"""
-          create table dar_packages(
-            package_id varchar primary key,
-            package varchar not null
-          )
-        """
+    val createTriggerTable: Fragment = sql"""
+        create table running_triggers(
+          trigger_id uuid primary key,
+          party varchar not null,
+          trigger_name varchar not null
+        )
+      """
+    val createDarTable: Fragment = sql"""
+        create table dar_packages(
+          package_id varchar primary key,
+          package varchar not null
+        )
+      """
     (createTriggerTable.update.run
       *> createDarTable.update.run).void
   }
