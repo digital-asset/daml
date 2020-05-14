@@ -72,4 +72,4 @@ verify dar verbose choiceTmpl choiceName fieldTmpl fieldName = do
           let cset = constructConstr env4 choiceTmpl choiceName fieldTmpl fieldName
           when verbose $ putStr "Create: " >> print (_cCres cset)
           when verbose $ putStr "Archive: " >> print (_cArcs cset)
-          solveConstr solver cset
+          solveConstr solver verbose cset

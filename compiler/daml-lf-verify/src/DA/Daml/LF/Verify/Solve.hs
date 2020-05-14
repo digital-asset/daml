@@ -11,6 +11,7 @@ module DA.Daml.LF.Verify.Solve
   , Result(..)
   ) where
 
+import Control.Monad (when)
 import Data.Bifunctor
 import Data.Maybe (fromJust, maybeToList)
 import Data.List (lookup, union, intersect, partition, (\\), nub)
@@ -302,12 +303,14 @@ declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
 -- additional required variables.
 declareCtrs :: S.Solver
   -- ^ The SMT solver.
+  -> Bool
+  -- ^ Flag denoting whether to print verbosely.
   -> [(ExprVarName,S.SExpr)]
   -- ^ The set of variable names, mapped to their corresponding SMT counterparts.
   -> [(ConstraintExpr, ConstraintExpr)]
   -- ^ The equality constraints to be declared.
   -> IO [(ExprVarName,S.SExpr)]
-declareCtrs sol cvars1 ctrs = do
+declareCtrs sol verbose cvars1 ctrs = do
   let edges = map (\(l,r) -> (l,r,gatherFreeVars l ++ gatherFreeVars r)) ctrs
       components = conn_comp edges
       useful_nodes = map fst cvars1
@@ -353,7 +356,7 @@ declareCtrs sol cvars1 ctrs = do
     declare vars (cexp1, cexp2) = do
       sexp1 <- cexp2sexp vars cexp1
       sexp2 <- cexp2sexp vars cexp2
-      putStrLn $ "Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 "")
+      when verbose $ putStr "Assert: " >> print (S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
       S.assert sol (sexp1 `S.eq` sexp2)
 
 -- | Data type denoting the outcome of the solver.
@@ -380,14 +383,16 @@ instance Show Result where
 -- equal.
 solveConstr :: FilePath
   -- ^ The path to the constraint solver.
+  -> Bool
+  -- ^ Flag denoting whether to print verbosely.
   -> ConstraintSet
   -- ^ The constraint set to solve.
   -> IO Result
-solveConstr spath ConstraintSet{..} = do
+solveConstr spath verbose ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
   vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
-  vars2 <- declareCtrs sol vars1 _cCtrs
+  vars2 <- declareCtrs sol verbose vars1 _cCtrs
   let vars = vars1 ++ vars2
   cre <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cCres
   arc <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cArcs
