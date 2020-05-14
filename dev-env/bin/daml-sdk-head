@@ -11,7 +11,7 @@ then
 fi
 
 # get rid of old .daml-head installation
-if [ -d "${HOME}/.daml-head" ] ; then
+if [[ -d "${HOME}/.daml-head" ]] ; then
   chmod -R u+w "${HOME}/.daml-head"
   rm -rf "${HOME}/.daml-head"
 fi
@@ -48,26 +48,26 @@ done
 
 BAZEL_MODE_FLAGS=()
 
-if [ "$PROFILING" -ne "0" ] ; then
+if [[ "$PROFILING" -ne 0 ]] ; then
   BAZEL_MODE_FLAGS+=(-c dbg)
 fi
 
 readonly DAML_HOME="$HOME/.daml"
-if [ -d "$DAML_HOME" ] && [ "$NUKE" -ne "0" ] ; then
+if [[ -d "$DAML_HOME" && "$NUKE" -ne 0 ]] ; then
   echo "$(tput setaf 3)Removing existing daml installation.$(tput sgr 0)"
   chmod -R u+w "$DAML_HOME"
   rm -rf "$DAML_HOME"
 fi
 
 readonly DAML_HEAD_SDK="$DAML_HOME/sdk/0.0.0"
-if [ -d "$DAML_HEAD_SDK" ] && [ "$JUST_DAMLC" -eq "0" ] ; then
+if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -eq 0 ]] ; then
   echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
   rm -f "${DAML_HOME}/bin/daml-head"
   chmod -R u+w "$DAML_HEAD_SDK"
   rm -rf "$DAML_HEAD_SDK"
 fi
 
-if [ -d "$DAML_HEAD_SDK" ] && [ "$JUST_DAMLC" -ne "0" ] ; then
+if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]] ; then
   # daml-head is installed, so just replace damlc
   echo "$(tput setaf 3)Existing daml-head installation found."
   echo "Building damlc version 0.0.0, this may take a while ...$(tput sgr 0)"
@@ -111,7 +111,7 @@ mkdir -p "${TMPDIR}/sdk-head"
 tar xzf "$TARBALL" -C "${TMPDIR}/sdk-head" --strip-components 1
 
 readonly DAML_CMD="$(which daml)"
-if [ -x "$DAML_CMD" ] && [ "$DAML_CMD" == "$DAML_HOME/bin/daml" ] ; then
+if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]] ; then
   # A daml installation already exists, so just install SDK version 0.0.0.
   "${DAML_HOME}/bin/daml" install "${TMPDIR}/sdk-head" --force
 else
@@ -129,7 +129,7 @@ chmod +x "${DAML_HOME}/bin/daml-head"
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
 
-if [ "$SKIP_JARS" -eq "0" ]; then
+if [[ "$SKIP_JARS" -eq 0 ]]; then
     echo "$(tput setaf 3)Installing JARs as 0.0.0...$(tput sgr 0)"
 
     function cleanup() {
