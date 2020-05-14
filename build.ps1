@@ -53,6 +53,20 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
+get-process -includeusername
+
+bazel info
+cd compatibility
+bazel info
+bazel shutdown
+bazel info
+bazel shutdown
+cd ..
+
+bazel shutdown
+
+ls C:/users/vssadministrator/_bazel_vssadministrator
+
 bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown

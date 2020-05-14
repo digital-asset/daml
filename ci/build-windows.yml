@@ -16,6 +16,20 @@ steps:
   - powershell: '.\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
+  - powershell: |
+      get-location
+      invoke-webrequest -Uri https://download.sysinternals.com/files/Junction.zip -Outfile junction.zip
+      expand-archive -path junction.zip -force
+      ./junction/junction64.exe -accepteula -s D:\
+      ./junction/junction64.exe -accepteula -s C:\
+      # cd D:\a\1\s
+      # .\dev-env\windows\bin\dadew.ps1 enable
+      # bazel --help
+      # bazel clean --expunge
+      # cd D:\a\1\s\compatibility
+      # bazel clean --expunge
+      # git status
+      # bazel shutdown
   - powershell: '.\build.ps1'
     displayName: 'Build'
     env:

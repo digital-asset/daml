@@ -45,6 +45,7 @@ cd compatibility
 cp ../.bazelrc .bazelrc
 
 bazel shutdown
+bazel info execution_root
 bazel build //...
 bazel shutdown
 
