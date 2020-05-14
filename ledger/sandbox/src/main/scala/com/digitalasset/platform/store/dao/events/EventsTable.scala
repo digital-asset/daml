@@ -152,13 +152,14 @@ private[events] trait EventsTable {
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
       val visible = events.map(_.event.eventId)
+      val visibleSet = visible.toSet
 
       // All events in this transaction by their identifier, with their children
       // filtered according to those visible for this request
       val eventsById =
         events.iterator
           .map(_.event)
-          .map(e => e.eventId -> e.filterChildEventIds(visible.toSet))
+          .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
           .toMap
 
       // All event identifiers that appear as a child of another item in this response
