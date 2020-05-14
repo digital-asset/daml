@@ -196,45 +196,49 @@ class InMemoryLedger(
   override def ledgerEnd: Offset = entries.ledgerEnd
 
   override def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Ref.Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed] =
-    Source
-      .fromIterator[ActiveContract](() =>
-        acs.activeContracts.valuesIterator.flatMap(index
-          .EventFilter(_)(TransactionFilter(filter.map {
-            case (party, templates) =>
-              party -> Filters(if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
-          }))
-          .toList))
-      .map { contract =>
-        GetActiveContractsResponse(
-          workflowId = contract.workflowId.getOrElse(""),
-          activeContracts = List(
-            CreatedEvent(
-              contract.eventId,
-              contract.id.coid,
-              Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
-              contractKey = contract.key.map(
-                ck =>
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) =
+    (
+      Source
+        .fromIterator[ActiveContract](
+          () =>
+            acs.activeContracts.valuesIterator.flatMap(
+              index
+                .EventFilter(_)(TransactionFilter(filter.map {
+                  case (party, templates) =>
+                    party -> Filters(
+                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+                }))
+                .toList))
+        .map { contract =>
+          GetActiveContractsResponse(
+            workflowId = contract.workflowId.getOrElse(""),
+            activeContracts = List(
+              CreatedEvent(
+                contract.eventId,
+                contract.id.coid,
+                Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+                contractKey = contract.key.map(
+                  ck =>
+                    LfEngineToApi.assertOrRuntimeEx(
+                      "converting stored contract",
+                      LfEngineToApi
+                        .lfContractKeyToApiValue(verbose = verbose, ck))),
+                createArguments = Some(
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
                     LfEngineToApi
-                      .lfContractKeyToApiValue(verbose = verbose, ck))),
-              createArguments = Some(
-                LfEngineToApi.assertOrRuntimeEx(
-                  "converting stored contract",
-                  LfEngineToApi
-                    .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
-              contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
-              signatories = contract.signatories.toSeq,
-              observers = contract.observers.toSeq,
-              agreementText = Some(contract.agreementText)
+                      .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
+                contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
+                signatories = contract.signatories.toSeq,
+                observers = contract.observers.toSeq,
+                agreementText = Some(contract.agreementText)
+              )
             )
           )
-        )
-      }
+        },
+      ledgerEnd /*TODO SC derive from copy of acs var instead*/ )
 
   override def lookupContract(
       contractId: AbsoluteContractId,

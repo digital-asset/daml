@@ -65,11 +65,10 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics) extends Re
     ledger.completions(startExclusive, endInclusive, applicationId, parties)
 
   override def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed] =
-    ledger.activeContracts(activeAt, filter, verbose)
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) =
+    ledger.activeContracts(filter, verbose)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
