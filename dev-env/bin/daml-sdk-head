@@ -97,6 +97,10 @@ echo ""
 function cleanup() {
   echo "SDK 0.0.0 failed to build/install - if you need help ask on #product-daml"
   echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
+
+  if [[ -n "${SDK_TEMP_DIR+x}" && -d "$SDK_TEMP_DIR" ]]; then
+    rm -rf "$SDK_TEMP_DIR"
+  fi
 }
 trap cleanup EXIT
 
@@ -104,19 +108,24 @@ trap cleanup EXIT
 bazel build "${BAZEL_MODE_FLAGS[@]}" //release:sdk-release-tarball.tar.gz
 
 readonly TARBALL="$(bazel info bazel-bin "${BAZEL_MODE_FLAGS[@]}")/release/sdk-release-tarball.tar.gz"
-readonly TMPDIR="$(mktemp -d)"
-mkdir -p "${TMPDIR}/sdk-head"
+readonly SDK_TEMP_DIR="$(mktemp -d)"
+readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
+mkdir -p "$SDK_DIR"
 
-tar xzf "$TARBALL" -C "${TMPDIR}/sdk-head" --strip-components 1
+tar xzf "$TARBALL" -C "$SDK_DIR" --strip-components 1
 
 readonly DAML_CMD="$(command -v daml)"
 if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
   # A daml installation already exists, so just install SDK version 0.0.0.
-  "${DAML_HOME}/bin/daml" install "${TMPDIR}/sdk-head" --force
+  "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force
 else
   # No daml installation detected, so install the tarball normally but disable auto-install.
-  "${TMPDIR}/sdk-head/install.sh" --force
+  "${SDK_DIR}/install.sh" --force
   echo "auto-install: false" > "${DAML_HOME}/daml-config.yaml"
+fi
+
+if [[ -d "$SDK_TEMP_DIR" ]]; then
+  rm -rf "$SDK_TEMP_DIR"
 fi
 
 cat > "${DAML_HOME}/bin/daml-head" << EOF
