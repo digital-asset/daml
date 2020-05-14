@@ -897,7 +897,7 @@ object SBuiltin {
             machine.returnValue = contract
         case None =>
           coid match {
-            case acoid: V.AbsoluteContractId =>
+            case acoid: V.ContractId =>
               throw SpeedyHungry(
                 SResultNeedContract(
                   acoid,

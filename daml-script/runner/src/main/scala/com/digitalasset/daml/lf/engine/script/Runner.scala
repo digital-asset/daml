@@ -30,7 +30,7 @@ import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Spee
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.Jwt
@@ -43,7 +43,7 @@ import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
 import ParticipantsJsonProtocol.AbsoluteContractIdFormat
 
-object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
+object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
 case class Participant(participant: String)
 case class Party(party: String)
@@ -89,13 +89,13 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(p: Party) = JsString(p.party)
   }
-  implicit val AbsoluteContractIdFormat: JsonFormat[AbsoluteContractId] =
-    new JsonFormat[AbsoluteContractId] {
-      override def write(obj: AbsoluteContractId) =
+  implicit val AbsoluteContractIdFormat: JsonFormat[ContractId] =
+    new JsonFormat[ContractId] {
+      override def write(obj: ContractId) =
         JsString(obj.coid)
       override def read(json: JsValue) = json match {
         case JsString(s) =>
-          AbsoluteContractId fromString s fold (deserializationError(_), identity)
+          ContractId fromString s fold (deserializationError(_), identity)
         case _ => deserializationError("ContractId must be a string")
       }
     }

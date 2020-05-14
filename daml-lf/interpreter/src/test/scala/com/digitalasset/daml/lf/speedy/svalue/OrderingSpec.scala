@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SExpr.SEImportValue
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.TypedValueGenerators.genAddend
-import com.daml.lf.value.ValueGenerators.{absCoidV0Gen, comparableAbsCoidsGen}
+import com.daml.lf.value.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.Arbitrary
 import org.scalatest.prop.{
@@ -88,7 +88,7 @@ class OrderingSpec
     List("alice", "bob", "carol").map(SParty compose Ref.Party.assertFromString)
   private val absoluteContractId =
     List("a", "b", "c")
-      .map(x => SContractId(Value.AbsoluteContractId.assertFromString("#" + x)))
+      .map(x => SContractId(Value.ContractId.assertFromString("#" + x)))
 //  private val relativeContractId =
 //    List(0, 1).map(x => SContractId(Value.RelativeContractId(Value.NodeId(x))))
   private val contractIds = absoluteContractId //++ relativeContractId
@@ -443,9 +443,9 @@ class OrderingSpec
   // in Value.orderInstance or TypedValueGenerators, rather than to svalue.Ordering.
   // The tests are here as this is difficult to test outside daml-lf/interpreter.
   "txn Value Ordering" should {
-    import Value.{AbsoluteContractId => Cid}
+    import Value.{ContractId => Cid}
     // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
-    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidV0Gen)
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(cidV0Gen)
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None
@@ -462,10 +462,10 @@ class OrderingSpec
       }
     }
 
-    "match global AbsoluteContractId ordering" in forEvery(Table("gen", comparableAbsCoidsGen: _*)) {
+    "match global AbsoluteContractId ordering" in forEvery(Table("gen", comparableCoidsGen: _*)) {
       coidGen =>
         forAll(coidGen, coidGen, minSuccessful(50)) { (a, b) =>
-          Cid.`AbsCid Order`.order(a, b) should ===(cidOrd.order(a, b))
+          Cid.`Cid Order`.order(a, b) should ===(cidOrd.order(a, b))
         }
     }
   }
@@ -483,7 +483,7 @@ class OrderingSpec
     globalCids = Set.empty,
   )
 
-  private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
+  private def translatePrimValue(v: Value[Value.ContractId]) = {
     val machine = initMachine(SEImportValue(v))
     machine.run() match {
       case SResultFinalValue(value) => value

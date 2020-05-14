@@ -5,7 +5,7 @@ package com.daml.lf.transaction
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 
 /** This gives disclosure and divulgence info.
   *
@@ -30,7 +30,7 @@ case class BlindingInfo(
       * containing only absolute contract ids, this map may also
       * contain contracts produced in the same transaction.
       */
-    globalDivulgence: Relation[AbsoluteContractId, Party],
+    globalDivulgence: Relation[ContractId, Party],
 ) {
   def localDisclosure: Relation[Transaction.NodeId, Party] =
     Relation.union(disclosure, localDivulgence)

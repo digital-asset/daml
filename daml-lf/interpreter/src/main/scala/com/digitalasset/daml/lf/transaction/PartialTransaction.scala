@@ -236,7 +236,7 @@ case class PartialTransaction(
       val nodeSeed = context.nextChildrenSeed
       val discriminator =
         crypto.Hash.deriveContractDiscriminator(nodeSeed, submissionTime, stakeholders)
-      val cid = Value.AbsoluteContractId.V1(discriminator)
+      val cid = Value.ContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
         cid,
         coinst,

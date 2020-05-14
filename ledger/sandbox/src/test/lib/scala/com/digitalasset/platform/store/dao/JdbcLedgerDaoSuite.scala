@@ -25,7 +25,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{GenTransaction, Node}
 import com.daml.lf.value.Value.{
-  AbsoluteContractId,
+  ContractId,
   ContractInst,
   NodeId,
   ValueRecord,
@@ -117,8 +117,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     EventIdFormatter.fromTransactionId(txid, NodeId(idx.toInt))
 
   private def create(
-      absCid: AbsoluteContractId,
-  ): NodeCreate.WithTxValue[AbsoluteContractId] =
+      absCid: ContractId,
+  ): NodeCreate.WithTxValue[ContractId] =
     NodeCreate(
       coid = absCid,
       coinst = someContractInstance,
@@ -129,8 +129,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
 
   private def exercise(
-      targetCid: AbsoluteContractId,
-  ): NodeExercises.WithTxValue[EventId, AbsoluteContractId] =
+      targetCid: ContractId,
+  ): NodeExercises.WithTxValue[EventId, ContractId] =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -149,9 +149,9 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
 
   private def transaction(
-      head: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId]),
-      tail: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId])*,
-  ): GenTransaction.WithTxValue[EventId, AbsoluteContractId] =
+      head: (EventId, GenNode.WithTxValue[EventId, ContractId]),
+      tail: (EventId, GenNode.WithTxValue[EventId, ContractId])*,
+  ): GenTransaction.WithTxValue[EventId, ContractId] =
     GenTransaction(
       nodes = HashMap(head +: tail: _*),
       roots = ImmArray(head._1, tail.map(_._1): _*),
@@ -159,16 +159,16 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   @throws[RuntimeException] // if parent is not there or is not an exercise
   private def addChildren(
-      tx: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
+      tx: GenTransaction.WithTxValue[EventId, ContractId],
       parent: EventId,
-      head: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId]),
-      tail: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId])*,
-  ): GenTransaction.WithTxValue[EventId, AbsoluteContractId] =
+      head: (EventId, GenNode.WithTxValue[EventId, ContractId]),
+      tail: (EventId, GenNode.WithTxValue[EventId, ContractId])*,
+  ): GenTransaction.WithTxValue[EventId, ContractId] =
     tx.copy(
       nodes = tx.nodes.updated(
         key = parent,
         value = tx.nodes.get(parent) match {
-          case Some(node: NodeExercises.WithTxValue[EventId, AbsoluteContractId]) =>
+          case Some(node: NodeExercises.WithTxValue[EventId, ContractId]) =>
             node.copy(
               children = node.children.slowAppend(ImmArray(head._1, tail.map(_._1): _*))
             )
@@ -179,11 +179,11 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
 
   // All non-transient contracts created in a transaction
-  protected def nonTransient(tx: LedgerEntry.Transaction): Set[AbsoluteContractId] =
-    tx.transaction.fold(Set.empty[AbsoluteContractId]) {
-      case (set, (_, create: NodeCreate.WithTxValue[AbsoluteContractId])) =>
+  protected def nonTransient(tx: LedgerEntry.Transaction): Set[ContractId] =
+    tx.transaction.fold(Set.empty[ContractId]) {
+      case (set, (_, create: NodeCreate.WithTxValue[ContractId])) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises.WithTxValue[EventId, AbsoluteContractId]))
+      case (set, (_, exercise: Node.NodeExercises.WithTxValue[EventId, ContractId]))
           if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>
@@ -194,7 +194,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
-    val absCid = AbsoluteContractId.assertFromString(s"#cId$id")
+    val absCid = ContractId.assertFromString(s"#cId$id")
     val let = Instant.now
     val eid = event(txId, id)
     offset -> LedgerEntry.Transaction(
@@ -211,7 +211,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   }
 
   protected def divulgeAlreadyCommittedContract(
-      id: AbsoluteContractId,
+      id: ContractId,
       divulgees: Set[Party],
   ): (Offset, LedgerEntry.Transaction) = {
     val offset = nextOffset()
@@ -259,7 +259,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   }
 
   protected def singleExercise(
-      targetCid: AbsoluteContractId,
+      targetCid: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
     val offset = nextOffset()
     val id = offset.toLong
@@ -281,7 +281,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   protected def fullyTransient: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
-    val absCid = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
+    val absCid = ContractId.assertFromString("#" + UUID.randomUUID().toString)
     val let = Instant.now
     val createId = event(txId, 0)
     val exerciseId = event(txId, 1)
@@ -308,8 +308,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   // root exercise node that causes the creation of a transient contract
   protected def fullyTransientWithChildren: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
-    val root = AbsoluteContractId.assertFromString(s"#root-transient-${UUID.randomUUID}")
-    val transient = AbsoluteContractId.assertFromString(s"#child-transient-${UUID.randomUUID}")
+    val root = ContractId.assertFromString(s"#root-transient-${UUID.randomUUID}")
+    val transient = ContractId.assertFromString(s"#child-transient-${UUID.randomUUID}")
     val let = Instant.now
     val rootCreateId = event(txId, 0)
     val rootExerciseId = event(txId, 1)
@@ -357,9 +357,9 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     */
   protected def partiallyVisible: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
-    val absCid1 = AbsoluteContractId.assertFromString(s"#absCid1-${UUID.randomUUID}")
-    val absCid2 = AbsoluteContractId.assertFromString(s"#absCid2-${UUID.randomUUID}")
-    val absCid3 = AbsoluteContractId.assertFromString(s"#absCid3-${UUID.randomUUID}")
+    val absCid1 = ContractId.assertFromString(s"#absCid1-${UUID.randomUUID}")
+    val absCid2 = ContractId.assertFromString(s"#absCid2-${UUID.randomUUID}")
+    val absCid3 = ContractId.assertFromString(s"#absCid3-${UUID.randomUUID}")
     val let = Instant.now
     val createId = event(txId, 0)
     val exerciseId = event(txId, 1)
@@ -414,7 +414,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val transactionId = UUID.randomUUID.toString
     val nodes =
       for (((signatory, template), index) <- signatoriesAndTemplates.zipWithIndex) yield {
-        val contract = create(AbsoluteContractId.assertFromString("#" + UUID.randomUUID.toString))
+        val contract = create(ContractId.assertFromString("#" + UUID.randomUUID.toString))
         event(transactionId, index.toLong) -> contract.copy(
           signatories = Set(operator, signatory),
           stakeholders = Set(operator, signatory),
@@ -439,7 +439,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
   protected final def store(
-      divulgedContracts: Map[(AbsoluteContractId, AbsoluteContractInst), Set[Party]],
+      divulgedContracts: Map[(ContractId, AbsoluteContractInst), Set[Party]],
       offsetAndTx: (Offset, LedgerEntry.Transaction))(
       implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offset, entry) = offsetAndTx
@@ -472,7 +472,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val transactionId = UUID.randomUUID.toString
     val createEventId = event(transactionId, 0)
     val contractId =
-      AbsoluteContractId.assertFromString(s"#txCreateContractWithKey-${UUID.randomUUID}")
+      ContractId.assertFromString(s"#txCreateContractWithKey-${UUID.randomUUID}")
     nextOffset() ->
       LedgerEntry.Transaction(
         commandId = Some(UUID.randomUUID().toString),
@@ -504,7 +504,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   /** A transaction that archives the given contract with the given key */
   protected final def txArchiveContract(
       party: Party,
-      contract: (AbsoluteContractId, Option[String]),
+      contract: (ContractId, Option[String]),
   ): (Offset, LedgerEntry.Transaction) = {
     val (contractId, maybeKey) = contract
     val transactionId = UUID.randomUUID.toString
@@ -550,7 +550,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final def txLookupByKey(
       party: Party,
       key: String,
-      result: Option[AbsoluteContractId],
+      result: Option[ContractId],
   ): (Offset, LedgerEntry.Transaction) = {
     val transactionId = UUID.randomUUID.toString
     val lookupByKeyEventId = event(transactionId, 0)
@@ -580,7 +580,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   protected final def txFetch(
       party: Party,
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
     val transactionId = UUID.randomUUID.toString
     val fetchEventId = event(transactionId, 0)

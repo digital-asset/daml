@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.Transaction
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.ErrorCause
@@ -57,10 +57,10 @@ final class LedgerTimeAwareCommandExecutor(
           // Command execution was successful.
           // Check whether the ledger time used for input is consistent with the output,
           // and advance output time or re-execute the command if necessary.
-          val usedContractIds: Set[AbsoluteContractId] = cer.transaction
+          val usedContractIds: Set[ContractId] = cer.transaction
             .inputContracts[Transaction.TContractId]
-            .collect[AbsoluteContractId, Set[AbsoluteContractId]] {
-              case id: AbsoluteContractId => id
+            .collect[ContractId, Set[ContractId]] {
+              case id: ContractId => id
             }
           if (usedContractIds.isEmpty)
             Future.successful(Right(cer))

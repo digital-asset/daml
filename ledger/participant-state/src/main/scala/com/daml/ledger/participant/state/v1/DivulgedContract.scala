@@ -15,6 +15,6 @@ import com.daml.lf.value.Value
   * @param contractInst: The contract instance.
   */
 final case class DivulgedContract(
-    contractId: Value.AbsoluteContractId,
+    contractId: Value.ContractId,
     contractInst: AbsoluteContractInst
 )

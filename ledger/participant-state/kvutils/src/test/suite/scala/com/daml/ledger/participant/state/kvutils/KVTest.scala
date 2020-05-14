@@ -194,7 +194,7 @@ object KVTest {
           }
         )
         .getOrElse(sys.error("Engine.submit fail"))
-    } yield tx.assertNoRelCid(_ => "Unexpected relative contract ids") -> meta
+    } yield tx -> meta
 
   def runSimpleCommand(
       submitter: Party,

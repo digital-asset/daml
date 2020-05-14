@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
@@ -67,7 +67,7 @@ case class TriggerIds(val triggerPackageId: PackageId) {
         DottedName.assertFromString(s)))
 }
 
-case class AnyContractId(templateId: Identifier, contractId: AbsoluteContractId)
+case class AnyContractId(templateId: Identifier, contractId: ContractId)
 
 class ConverterException(message: String) extends RuntimeException(message)
 
@@ -87,16 +87,10 @@ object Converter {
   }
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    for {
-      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
-      apiRecord <- lfValueToApiRecord(true, value)
-    } yield apiRecord
+    lfValueToApiRecord(true, v.toValue)
 
   private def toLedgerValue(v: SValue): Either[String, value.Value] =
-    for {
-      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
-      apiValue <- lfValueToApiValue(true, value)
-    } yield apiValue
+    lfValueToApiValue(true, v.toValue)
 
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(
@@ -144,7 +138,7 @@ object Converter {
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
-      ("contractId", SContractId(AbsoluteContractId.assertFromString(contractId)))
+      ("contractId", SContractId(ContractId.assertFromString(contractId)))
     )
   }
 
@@ -384,9 +378,9 @@ object Converter {
     }
   }
 
-  private def toAbsoluteContractId(v: SValue): Either[String, AbsoluteContractId] = {
+  private def toAbsoluteContractId(v: SValue): Either[String, ContractId] = {
     v match {
-      case SContractId(cid: AbsoluteContractId) => Right(cid)
+      case SContractId(cid: ContractId) => Right(cid)
       case _ => Left(s"Expected AbsoluteContractId but got $v")
     }
   }

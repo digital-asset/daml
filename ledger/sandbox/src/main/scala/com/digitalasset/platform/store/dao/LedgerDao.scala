@@ -22,7 +22,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
@@ -52,12 +52,12 @@ trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
   def lookupActiveOrDivulgedContract(
-      contractId: AbsoluteContractId,
-      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
+      contractId: ContractId,
+      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
   /** Returns the largest ledger time of any of the given contracts */
   def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]]
 
   /** Looks up the current ledger configuration, if it has been set. */
@@ -77,7 +77,7 @@ trait LedgerReadDao extends ReportsHealth {
     * @param forParty the party for which the contract must be visible
     * @return the optional AbsoluteContractId
     */
-  def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
+  def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]]
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]

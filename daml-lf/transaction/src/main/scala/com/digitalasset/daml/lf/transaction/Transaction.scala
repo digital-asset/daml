@@ -386,7 +386,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
 }
 
-object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
+object GenTransaction extends value.CidContainer3[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
@@ -476,9 +476,9 @@ object Transaction {
       byKeyNodes: ImmArray[Value.NodeId],
   )
 
-  type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
+  type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.ContractId]
 
-  type AbsNode = GenNode.WithTxValue[NodeId, Value.AbsoluteContractId]
+  type AbsNode = GenNode.WithTxValue[NodeId, Value.ContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable

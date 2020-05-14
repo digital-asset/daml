@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.commands.CreateCommand
@@ -54,8 +54,7 @@ abstract class AbstractFuncTests
             .get(0)
             .asInstanceOf[SList]
             .list
-            .map(x =>
-              x.asInstanceOf[SContractId].value.asInstanceOf[AbsoluteContractId].coid.toString)
+            .map(x => x.asInstanceOf[SContractId].value.asInstanceOf[ContractId].coid.toString)
             .toSet
         )
       }

@@ -305,7 +305,7 @@ class HashSpec extends WordSpec with Matchers {
 
     "stable " in {
 
-      type V = Value[AbsoluteContractId]
+      type V = Value[ContractId]
 
       val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -347,7 +347,7 @@ class HashSpec extends WordSpec with Matchers {
           "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
           "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
         ).map { str =>
-          VA.contractId.inj(AbsoluteContractId.V1 assertFromString str)
+          VA.contractId.inj(ContractId.V1 assertFromString str)
         }
 
       val enumT1 = VA.enum("Color", List("Red", "Green"))._2

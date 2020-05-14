@@ -105,10 +105,10 @@ package object v1 {
     * absolute contract identifiers.
     */
   type CommittedTransaction =
-    GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
+    GenTransaction.WithTxValue[NodeId, Value.ContractId]
 
   /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
+    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
 
 }

@@ -79,12 +79,10 @@ object Hash {
 
   @throws[HashingError]
   private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
-    case cid @ Value.AbsoluteContractId.V1(_, _) =>
+    case cid @ Value.ContractId.V1(_, _) =>
       cid.toBytes
-    case Value.AbsoluteContractId.V0(s) =>
+    case Value.ContractId.V0(s) =>
       Utf8.getBytes(s)
-    case Value.RelativeContractId(_) =>
-      error("Hashing of relative contract id is not supported")
   }
 
   @throws[HashingError]
