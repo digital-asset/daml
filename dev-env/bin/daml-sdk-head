@@ -110,7 +110,7 @@ mkdir -p "${TMPDIR}/sdk-head"
 
 tar xzf "$TARBALL" -C "${TMPDIR}/sdk-head" --strip-components 1
 
-readonly DAML_CMD="$(which daml)"
+readonly DAML_CMD="$(command -v daml)"
 if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]] ; then
   # A daml installation already exists, so just install SDK version 0.0.0.
   "${DAML_HOME}/bin/daml" install "${TMPDIR}/sdk-head" --force
