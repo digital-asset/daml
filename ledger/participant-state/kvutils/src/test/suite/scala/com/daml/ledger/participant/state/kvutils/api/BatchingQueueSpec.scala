@@ -3,10 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.google.protobuf.ByteString
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.concurrent.Eventually
@@ -77,6 +79,7 @@ class BatchingQueueSpec
         maxConcurrentCommits = 1)
       queue.run(mockCommit)
       verify(mockCommit, Mockito.timeout(10 * maxWaitDuration.toMillis).times(0))
+        .apply(any[Seq[CorrelatedSubmission]]())
       succeed
     }
 
