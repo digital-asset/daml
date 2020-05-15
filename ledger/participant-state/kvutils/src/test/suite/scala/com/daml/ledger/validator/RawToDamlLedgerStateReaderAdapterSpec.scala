@@ -28,7 +28,7 @@ class RawToDamlLedgerStateReaderAdapterSpec extends AsyncWordSpec with Matchers 
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
 
       instance.readState(Seq(aDamlStateKey())).map { actual =>
-        verify(mockReader, times(1)).read(any[Seq[LedgerStateOperations.Key]]())
+        verify(mockReader, times(1)).read(Seq(expectedKey))
         actual shouldBe Seq(Some(expectedValue))
       }
     }
