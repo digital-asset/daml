@@ -25,9 +25,11 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.ledger.participant.state.v1.SeedService.Seeding.Static
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandboxnext
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import scalaz._
@@ -63,8 +65,9 @@ object HttpServiceTestFixture {
 
     val ledgerF = for {
       ledger <- Future(
-        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, useTls = useTls), mat))
-      port <- ledger.portF
+        new sandboxnext.Runner(ledgerConfig(Port.Dynamic, dars, ledgerId, useTls = useTls))
+          .acquire())
+      port <- ledger.asFuture
     } yield (ledger, port)
 
     val httpServiceF: Future[ServerBinding] = for {
@@ -117,7 +120,7 @@ object HttpServiceTestFixture {
       Future
         .sequence(
           Seq(
-            ledgerF.map(_._1.close()),
+            ledgerF.flatMap(_._1.release()),
             httpServiceF.flatMap(_.unbind()),
           ) map (_ fallbackTo Future.successful(())))
         .transform(_ => ta)
@@ -169,12 +172,13 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxConfig.default.copy(
+    SandboxConfig.nextDefault.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
+      seeding = Some(Static),
       authService = authService
     )
 
