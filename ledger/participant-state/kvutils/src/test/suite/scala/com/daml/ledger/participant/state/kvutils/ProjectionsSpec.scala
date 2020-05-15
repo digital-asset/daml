@@ -3,19 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{GenTransaction, Node}
-import com.daml.lf.value.Value.{
-  ContractId,
-  ContractInst,
-  NodeId,
-  RelativeContractId,
-  ValueText,
-  VersionedValue
-}
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId, ValueText, VersionedValue}
 import com.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
 
@@ -23,7 +17,7 @@ import scala.collection.immutable.HashMap
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
-  def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
+  def makeCreateNode(cid: AbsoluteContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
       coid = cid,
       coinst = ContractInst(
@@ -40,7 +34,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     )
 
   def makeExeNode(
-      target: ContractId,
+      target: AbsoluteContractId,
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -67,6 +61,9 @@ class ProjectionsSpec extends WordSpec with Matchers {
     Projections.computePerPartyProjectionRoots(tx, bi)
   }
 
+  private def toCid(nid: NodeId) =
+    AbsoluteContractId.V1(crypto.Hash.hashPrivateKey(nid.toString))
+
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
@@ -77,7 +74,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     "yield two projection roots for single root transaction with two parties" in {
       val nid = NodeId(1)
       val root = makeCreateNode(
-        RelativeContractId(nid),
+        toCid(nid),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
       val tx =
@@ -99,23 +96,23 @@ class ProjectionsSpec extends WordSpec with Matchers {
       // Alice sees both the exercise and the create, and Bob only
       // sees the offer.
       val create = makeCreateNode(
-        RelativeContractId(nid2),
+        toCid(nid2),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Bob")))
       val exe = makeExeNode(
-        RelativeContractId(nid1),
+        toCid(nid1),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
         ImmArray(nid2)
       )
       val bobCreate = makeCreateNode(
-        RelativeContractId(nid3),
+        toCid(nid3),
         Set(Party.assertFromString("Bob")),
         Set(Party.assertFromString("Bob")))
 
       val charlieCreate = makeCreateNode(
-        RelativeContractId(nid4),
+        toCid(nid4),
         Set(Party.assertFromString("Charlie")),
         Set(Party.assertFromString("Charlie")))
 

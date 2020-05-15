@@ -10,10 +10,10 @@ import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
-  private val createdFlatEventParser: RowParser[Entry[Raw.FlatEvent.Created]] =
+  private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
-        Entry(
+        EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -33,10 +33,10 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
         )
     }
 
-  private val archivedFlatEventParser: RowParser[Entry[Raw.FlatEvent.Archived]] =
+  private val archivedFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
-        Entry(
+        EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -51,7 +51,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
         )
     }
 
-  val rawFlatEventParser: RowParser[Entry[Raw.FlatEvent]] =
+  val rawFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent]] =
     createdFlatEventParser | archivedFlatEventParser
 
   private val selectColumns =

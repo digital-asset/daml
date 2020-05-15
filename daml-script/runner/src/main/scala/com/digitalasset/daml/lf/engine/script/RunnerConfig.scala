@@ -25,11 +25,13 @@ case class RunnerConfig(
     accessTokenFile: Option[Path],
     tlsConfig: Option[TlsConfiguration],
     jsonApi: Boolean,
+    maxInboundMessageSize: Int,
 )
 
 object RunnerConfig {
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+  val DefaultMaxInboundMessageSize: Int = 4194304
 
   private def validatePath(path: String, message: String): Either[String, Unit] = {
     val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
@@ -140,6 +142,12 @@ object RunnerConfig {
       }
       .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")
 
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -185,6 +193,7 @@ object RunnerConfig {
         accessTokenFile = None,
         tlsConfig = None,
         jsonApi = false,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
       )
     )
 }

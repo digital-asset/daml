@@ -120,7 +120,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
       for {
         transaction1 <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
         result <- submitTransaction(
@@ -279,7 +279,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
 
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
@@ -338,5 +338,5 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
   }
 
-  private def hash(s: String) = Some(crypto.Hash.hashPrivateKey(s))
+  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 }

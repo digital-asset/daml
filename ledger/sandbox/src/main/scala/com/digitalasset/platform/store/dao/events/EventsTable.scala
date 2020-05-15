@@ -8,9 +8,9 @@ import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, str}
 import anorm.{RowParser, ~}
-import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
@@ -22,9 +22,9 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.daml.metrics.Timed
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.platform.index.TransactionConversion
 import com.daml.platform.store.Conversions.{identifier, instant, offset}
 import com.google.protobuf.timestamp.Timestamp
 
@@ -38,11 +38,9 @@ private[events] object EventsTable
     extends EventsTable
     with EventsTableInsert
     with EventsTableFlatEvents
-    with EventsTableTreeEvents
+    with EventsTableTreeEvents {
 
-private[events] trait EventsTable {
-
-  case class Entry[+E](
+  final case class Entry[+E](
       eventOffset: Offset,
       transactionId: String,
       ledgerEffectiveTime: Instant,
@@ -53,49 +51,13 @@ private[events] trait EventsTable {
 
   object Entry {
 
-    private def eventOnly[E](verbose: Boolean)(entry: Entry[Raw[E]]): E =
-      entry.event.applyDeserialization(verbose)
-
-    private def fullEntry[E](verbose: Boolean)(entry: Entry[Raw[E]]): Entry[E] =
-      entry.copy(event = eventOnly(verbose)(entry))
-
-    private def deserialize[E1, E2](
-        rawEntries: Vector[Entry[Raw[E1]]],
-        verbose: Boolean,
-        timer: Timer,
-    )(deserializeEntry: Boolean => Entry[Raw[E1]] => E2): Vector[E2] =
-      Timed.value(
-        timer = timer,
-        value = rawEntries.map(deserializeEntry(verbose)),
-      )
-
     private def instantToTimestamp(t: Instant): Timestamp =
       Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
-    private def permanent(entries: Vector[Entry[Raw.FlatEvent]]): Set[String] = {
-      entries.foldLeft(Set.empty[String]) { (contractIds, entry) =>
-        if (entry.event.isCreated || !contractIds.contains(entry.event.contractId)) {
-          contractIds + entry.event.contractId
-        } else {
-          contractIds - entry.event.contractId
-        }
-      }
-    }
-
-    private def removeTransient(
-        entries: Vector[Entry[Raw.FlatEvent]]): Vector[Entry[Raw.FlatEvent]] = {
-      val toKeep = permanent(entries)
-      entries.filter(entry => toKeep(entry.event.contractId))
-    }
-
-    private def flatTransaction(
-        events: Vector[Entry[Raw.FlatEvent]],
-        verbose: Boolean,
-        deserializationTimer: Timer,
-    ): Option[ApiTransaction] =
+    private def flatTransaction(events: Vector[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
-        val withoutTransients = removeTransient(events)
-        val flatEvents = deserialize(withoutTransients, verbose, deserializationTimer)(eventOnly)
+        val flatEvents =
+          TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(
@@ -110,22 +72,19 @@ private[events] trait EventsTable {
         else None
       }
 
-    def toGetTransactionsResponse(verbose: Boolean, deserializationTimer: Timer)(
-        events: Vector[Entry[Raw.FlatEvent]],
+    def toGetTransactionsResponse(
+        events: Vector[Entry[Event]],
     ): List[GetTransactionsResponse] =
-      flatTransaction(events, verbose, deserializationTimer).toList.map(tx =>
-        GetTransactionsResponse(Seq(tx)))
+      flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
 
-    def toGetFlatTransactionResponse(verbose: Boolean, deserializationTimer: Timer)(
-        events: Vector[Entry[Raw.FlatEvent]],
+    def toGetFlatTransactionResponse(
+        events: Vector[Entry[Event]],
     ): Option[GetFlatTransactionResponse] =
-      flatTransaction(events, verbose, deserializationTimer).map(tx =>
-        GetFlatTransactionResponse(Some(tx)))
+      flatTransaction(events).map(tx => GetFlatTransactionResponse(Some(tx)))
 
-    def toGetActiveContractsResponse(verbose: Boolean, deserializationTimer: Timer)(
-        rawEvents: Vector[Entry[Raw.FlatEvent]],
+    def toGetActiveContractsResponse(
+        events: Vector[Entry[Event]],
     ): Vector[GetActiveContractsResponse] = {
-      val events = deserialize(rawEvents, verbose, deserializationTimer)(fullEntry)
       events.map {
         case entry if entry.event.isCreated =>
           GetActiveContractsResponse(
@@ -142,23 +101,20 @@ private[events] trait EventsTable {
     }
 
     private def treeOf(
-        rawEvents: Vector[Entry[Raw.TreeEvent]],
-        verbose: Boolean,
-        deserializationTimer: Timer,
+        events: Vector[Entry[TreeEvent]],
     ): (Map[String, TreeEvent], Vector[String]) = {
-
-      val events = deserialize(rawEvents, verbose, deserializationTimer)(fullEntry)
 
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
       val visible = events.map(_.event.eventId)
+      val visibleSet = visible.toSet
 
       // All events in this transaction by their identifier, with their children
       // filtered according to those visible for this request
       val eventsById =
         events.iterator
           .map(_.event)
-          .map(e => e.eventId -> e.filterChildEventIds(visible.toSet))
+          .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
           .toMap
 
       // All event identifiers that appear as a child of another item in this response
@@ -173,13 +129,11 @@ private[events] trait EventsTable {
     }
 
     private def transactionTree(
-        events: Vector[Entry[Raw.TreeEvent]],
-        verbose: Boolean,
-        deserializationTimer: Timer,
+        events: Vector[Entry[TreeEvent]],
     ): Option[ApiTransactionTree] =
       events.headOption.map(
         first => {
-          val (eventsById, rootEventIds) = treeOf(events, verbose, deserializationTimer)
+          val (eventsById, rootEventIds) = treeOf(events)
           ApiTransactionTree(
             transactionId = first.transactionId,
             commandId = first.commandId,
@@ -193,19 +147,21 @@ private[events] trait EventsTable {
         }
       )
 
-    def toGetTransactionTreesResponse(verbose: Boolean, deserializationTimer: Timer)(
-        events: Vector[Entry[Raw.TreeEvent]],
+    def toGetTransactionTreesResponse(
+        events: Vector[Entry[TreeEvent]],
     ): List[GetTransactionTreesResponse] =
-      transactionTree(events, verbose, deserializationTimer).toList.map(tx =>
-        GetTransactionTreesResponse(Seq(tx)))
+      transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
 
-    def toGetTransactionResponse(verbose: Boolean, deserializationTimer: Timer)(
-        events: Vector[Entry[Raw.TreeEvent]],
+    def toGetTransactionResponse(
+        events: Vector[Entry[TreeEvent]],
     ): Option[GetTransactionResponse] =
-      transactionTree(events, verbose, deserializationTimer).map(tx =>
-        GetTransactionResponse(Some(tx)))
+      transactionTree(events).map(tx => GetTransactionResponse(Some(tx)))
 
   }
+
+}
+
+private[events] trait EventsTable {
 
   private type SharedRow =
     Offset ~ String ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~ Option[String] ~ Array[

@@ -603,7 +603,7 @@ private[kvutils] object TransactionCommitter {
     lazy val absoluteTransaction: AbsTransaction =
       Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
-    val submissionSeed: Option[crypto.Hash] = Conversions.parseOptHash(submission.getSubmissionSeed)
+    val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
   }
 
   // Helper to read the _current_ contract state.

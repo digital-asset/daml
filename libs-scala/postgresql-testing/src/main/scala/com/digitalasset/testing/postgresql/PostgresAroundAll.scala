@@ -11,13 +11,13 @@ trait PostgresAroundAll extends PostgresAroundSuite with BeforeAndAfterAll {
   override protected def beforeAll(): Unit = {
     // We start PostgreSQL before calling `super` because _generally_ the database needs to be up
     // before everything else.
-    startEphemeralPostgres()
+    connectToPostgresqlServer()
     createNewDatabase()
     super.beforeAll()
   }
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    stopAndCleanUpPostgres()
+    disconnectFromPostgresqlServer()
   }
 }

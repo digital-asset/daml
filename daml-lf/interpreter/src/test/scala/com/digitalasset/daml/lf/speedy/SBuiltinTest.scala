@@ -1447,15 +1447,13 @@ object SBuiltinTest {
   val compiledPackages =
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
       compiledPackages = compiledPackages,
       scenario = false,
-      Time.Timestamp.now(),
-      Some(txSeed),
+      submissionTime = Time.Timestamp.now(),
+      initialSeeding = InitialSeeding.NoSeed,
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {

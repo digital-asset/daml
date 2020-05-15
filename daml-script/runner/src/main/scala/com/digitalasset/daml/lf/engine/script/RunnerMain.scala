@@ -115,7 +115,7 @@ object RunnerMain {
               sslContext = config.tlsConfig.flatMap(_.client),
               token = tokenHolder.flatMap(_.token),
             )
-            Runner.connect(participantParams, clientConfig)
+            Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
           }
           result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
           _ <- Future {

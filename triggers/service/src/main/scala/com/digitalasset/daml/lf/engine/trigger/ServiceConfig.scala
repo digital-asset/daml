@@ -15,11 +15,15 @@ case class ServiceConfig(
     httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
+    maxInboundMessageSize: Int,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
 )
 
 object ServiceConfig {
+  val DefaultHttpPort: Int = 8088
+  val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
+
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
 
@@ -31,7 +35,7 @@ object ServiceConfig {
     opt[Int]("http-port")
       .optional()
       .action((t, c) => c.copy(httpPort = t))
-      .text("Http port")
+      .text(s"Optional HTTP port. Defaults to ${DefaultHttpPort}")
 
     opt[String]("ledger-host")
       .required()
@@ -42,6 +46,12 @@ object ServiceConfig {
       .required()
       .action((t, c) => c.copy(ledgerPort = t))
       .text("Ledger port")
+
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}")
 
     opt[Unit]('w', "wall-clock-time")
       .action { (t, c) =>
@@ -60,9 +70,10 @@ object ServiceConfig {
       args,
       ServiceConfig(
         darPath = None,
-        httpPort = 8088,
+        httpPort = DefaultHttpPort,
         ledgerHost = null,
         ledgerPort = 0,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
       ),

@@ -478,7 +478,7 @@ class OrderingSpec
     sexpr = expr,
     compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
     submissionTime = Time.Timestamp.now(),
-    seeding = InitialSeeding(Some(txSeed)),
+    seeding = InitialSeeding.TransactionSeed(txSeed),
     globalCids = Set.empty,
   )
 

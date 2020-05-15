@@ -388,13 +388,15 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     }
 
     object V1 {
+      val maxSuffixLength = 94
+
       def apply(discriminator: Hash): V1 = new V1(discriminator, Bytes.Empty)
 
       def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
         Either.cond(
-          suffix.length <= 94,
+          suffix.length <= maxSuffixLength,
           new V1(discriminator, suffix),
-          s"the suffix is too long, expected at most 94 bytes, but got ${suffix.length}"
+          s"the suffix is too long, expected at most ${maxSuffixLength} bytes, but got ${suffix.length}"
         )
 
       def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =

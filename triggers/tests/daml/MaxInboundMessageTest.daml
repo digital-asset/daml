@@ -1,0 +1,40 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+-- Apache-2.0
+
+module MaxInboundMessageTest where
+
+import DA.Action
+import DA.Next.Map (Map)
+import Daml.Trigger
+
+maxInboundMessageSizeTrigger : Trigger ()
+maxInboundMessageSizeTrigger = Trigger
+  { initialize = \_ -> ()
+  , updateState = \_ _ _ -> ()
+  , rule = maxInboundMessageSizeRule
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+maxInboundMessageSizeRule : Party -> ACS -> Time -> Map CommandId [Command] -> ()
+  -> TriggerA ()
+maxInboundMessageSizeRule party acs _ _ _
+  | [] <- getContracts @MessageSize acs =
+      void $ emitCommands [createAndExerciseCmd (MessageSize { p = party }) (CreateN {n = 50000})] []
+  | otherwise = pure ()
+
+template MessageSize
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice CreateN : ()
+      with
+        n : Int
+      controller p
+      do
+        res <- forA [1..n] (\_ -> do
+              create this
+          )
+        return()

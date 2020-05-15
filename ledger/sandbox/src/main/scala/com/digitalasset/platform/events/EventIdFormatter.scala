@@ -3,11 +3,9 @@
 
 package com.daml.platform.events
 
-import com.daml.lf.data.Ref.{ContractIdString, LedgerString}
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.types.Ledger
-import com.daml.lf.value.Value.AbsoluteContractId
-import com.daml.lf.value.{Value => Lf}
 import com.daml.ledger.EventId
 
 import scala.util.{Failure, Success, Try}
@@ -17,15 +15,6 @@ object EventIdFormatter {
   private val `:` = LedgerString.assertFromString(":")
 
   case class TransactionIdWithIndex(transactionId: LedgerString, nodeId: Transaction.NodeId)
-
-  def makeAbs(transactionId: LedgerString)(rcoid: Lf.RelativeContractId): ContractIdString =
-    ContractIdString.assertFromString(fromTransactionId(transactionId, rcoid.txnid))
-
-  def makeAbsCoid(transactionId: LedgerString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
-    coid match {
-      case a: Lf.AbsoluteContractId => a
-      case r: Lf.RelativeContractId => AbsoluteContractId.V0(makeAbs(transactionId)(r))
-    }
 
   // this method defines the EventId format used by the sandbox
   def fromTransactionId(transactionId: LedgerString, nid: Transaction.NodeId): EventId =

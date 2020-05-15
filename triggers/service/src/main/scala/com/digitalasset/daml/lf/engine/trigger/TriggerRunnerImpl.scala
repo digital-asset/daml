@@ -9,6 +9,7 @@ import akka.actor.typed.PreRestart
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.ledger.api.refinements.ApiTypes.Party
+import io.grpc.netty.NettyChannelBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
@@ -29,6 +30,7 @@ object TriggerRunnerImpl {
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
+      maxInboundMessageSize: Int,
       party: Party,
   )
 
@@ -115,10 +117,13 @@ object TriggerRunnerImpl {
           }
 
       val acsQuery: Future[QueriedACS] = for {
-        client <- LedgerClient.singleHost(
-          config.ledgerConfig.host,
-          config.ledgerConfig.port,
-          clientConfig)
+        client <- LedgerClient
+          .fromBuilder(
+            NettyChannelBuilder
+              .forAddress(config.ledgerConfig.host, config.ledgerConfig.port)
+              .maxInboundMessageSize(config.maxInboundMessageSize),
+            clientConfig,
+          )
         runner = new Runner(
           config.compiledPackages,
           config.trigger,

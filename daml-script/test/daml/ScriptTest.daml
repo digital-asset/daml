@@ -5,6 +5,7 @@
 
 module ScriptTest where
 
+import DA.Action
 import DA.Assert
 import DA.Foldable hiding (length)
 import DA.Time
@@ -141,6 +142,13 @@ failingTest = do
   submit alice $ exerciseCmd cid ShouldFail
   pure ()
 
+-- | This used to produce a stackoverflow
+testStack : Script ()
+testStack = do
+  p <- allocateParty "p"
+  results <- submit p $ replicateA 1000 (createCmd (C p 42))
+  assert (length results == 1000)
+
 time : Script (Time, Time)
 time = do
   t1 <- getTime
@@ -209,3 +217,26 @@ jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd
 
 jsonAllocateParty : Text -> Script Party
 jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
+
+-- maxInboundMessageSize
+
+template MessageSize
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice CreateN : ()
+      with
+        n : Int
+      controller p
+      do
+        res <- forA [1..n] (\_ -> do
+              create this
+          )
+        return()
+
+testMaxInboundMessageSize : Script () = do
+  p <- allocateParty "p"
+  b <- submit p do createCmd (MessageSize p)
+  submit p do exerciseCmd b CreateN with n = 50000
+  return ()

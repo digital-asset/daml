@@ -38,6 +38,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/transaction",
     ],
 )
 

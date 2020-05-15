@@ -90,6 +90,7 @@ object Server {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
+      maxInboundMessageSize: Int,
       dar: Option[Dar[(PackageId, Package)]],
   ): Behavior[Message] = Behaviors.setup { ctx =>
     // http doesn't know about akka typed so provide untyped system
@@ -114,7 +115,7 @@ object Server {
           // Start a new trigger given its identifier and the party it
           // should be running as.  Returns a UUID for the newly
           // started trigger.
-          path("start") {
+          path("v1" / "start") {
             entity(as[StartParams]) {
               params =>
                 Trigger.fromIdentifier(compiledPackages, params.identifier) match {
@@ -126,7 +127,12 @@ object Server {
                     val ident = uuid.toString
                     val ref = ctx.spawn(
                       TriggerRunner(
-                        new TriggerRunner.Config(compiledPackages, trigger, ledgerConfig, party),
+                        new TriggerRunner.Config(
+                          compiledPackages,
+                          trigger,
+                          ledgerConfig,
+                          maxInboundMessageSize,
+                          party),
                         ident),
                       ident + "-monitor")
                     triggers = triggers + (uuid -> TriggerRunnerWithParty(ref, party))
@@ -139,7 +145,7 @@ object Server {
           },
           // upload a DAR as a multi-part form request with a single field called
           // "dar".
-          path("upload_dar") {
+          path("v1" / "upload_dar") {
             fileUpload("dar") {
               case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
                 val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
@@ -172,11 +178,11 @@ object Server {
         // Convenience endpoint for tests (roughly follow
         // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
         concat(
-          path("health") {
+          path("v1" / "health") {
             complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
           },
           // List triggers currently running for the given party
-          path("list") {
+          path("v1" / "list") {
             entity(as[ListParams]) { params =>
               {
                 val triggerList =
@@ -190,7 +196,7 @@ object Server {
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("stop" / JavaUUID) { uuid =>
+        pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
           val actorWithParty = triggers.get(uuid).get
           actorWithParty.ref ! TriggerRunner.Stop
           triggers = triggers - uuid
@@ -267,10 +273,11 @@ object ServiceMain {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
+      maxInboundMessageSize: Int,
       dar: Option[Dar[(PackageId, Package)]])
     : Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
-      ActorSystem(Server(host, port, ledgerConfig, dar), "TriggerService")
+      ActorSystem(Server(host, port, ledgerConfig, maxInboundMessageSize, dar), "TriggerService")
     // timeout chosen at random, change freely if you see issues
     implicit val timeout: Timeout = 15.seconds
     implicit val scheduler: Scheduler = system.scheduler
@@ -301,7 +308,9 @@ object ServiceMain {
             config.commandTtl,
           )
         val system: ActorSystem[Server.Message] =
-          ActorSystem(Server("localhost", config.httpPort, ledgerConfig, dar), "TriggerService")
+          ActorSystem(
+            Server("localhost", config.httpPort, ledgerConfig, config.maxInboundMessageSize, dar),
+            "TriggerService")
         // Timeout chosen at random, change freely if you see issues.
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler
