@@ -1,11 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
 
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlStateKey,
+  DamlStateValue
+}
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{MetricName, Metrics}

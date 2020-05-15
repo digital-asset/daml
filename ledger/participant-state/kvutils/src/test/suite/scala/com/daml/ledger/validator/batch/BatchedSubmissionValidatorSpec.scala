@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
@@ -195,7 +195,13 @@ class BatchedSubmissionValidatorSpec
           mockCommit
         )
         .map { _ =>
-          verify(mockCommit, times(nSubmissions)).commit(any[ParticipantId](), any[String](), any[DamlLogEntryId](), any[DamlLogEntry](), any[DamlInputState](), any[DamlOutputState]())
+          verify(mockCommit, times(nSubmissions)).commit(
+            any[ParticipantId](),
+            any[String](),
+            any[DamlLogEntryId](),
+            any[DamlLogEntry](),
+            any[DamlInputState](),
+            any[DamlOutputState]())
           // Verify that the log entries have been committed in the right order.
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
           logEntries.map(_.getPartyAllocationEntry) should be(
@@ -245,7 +251,13 @@ class BatchedSubmissionValidatorSpec
         )
         .map { _ =>
           // We must have 1 commit only (for the first submission).
-          verify(mockCommit, times(1)).commit(any[ParticipantId](), any[String](), any[DamlLogEntryId](), any[DamlLogEntry](), any[DamlInputState](), any[DamlOutputState]())
+          verify(mockCommit, times(1)).commit(
+            any[ParticipantId](),
+            any[String](),
+            any[DamlLogEntryId](),
+            any[DamlLogEntry](),
+            any[DamlInputState](),
+            any[DamlOutputState]())
           succeed
         }
     }
@@ -340,7 +352,13 @@ class BatchedSubmissionValidatorSpec
       .map { _ =>
         // We expected two state fetches and two commits.
         verify(mockLedgerStateReader, times(nSubmissions)).readState(any[Seq[DamlStateKey]]())
-        verify(mockCommit, times(nSubmissions)).commit(any[ParticipantId](), any[String](), any[DamlLogEntryId](), any[DamlLogEntry](), any[DamlInputState](), any[DamlOutputState]())
+        verify(mockCommit, times(nSubmissions)).commit(
+          any[ParticipantId](),
+          any[String](),
+          any[DamlLogEntryId](),
+          any[DamlLogEntry](),
+          any[DamlInputState](),
+          any[DamlOutputState]())
         // Verify we have all the expected log entries.
         val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
         logEntries.map(_.getPartyAllocationEntry) should contain allElementsOf
