@@ -19,6 +19,7 @@ import org.scalatest._
 import scalaz.syntax.traverse._
 
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.engine.trigger.RunnerConfig
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
@@ -292,6 +293,27 @@ abstract class AbstractFuncTests
         } yield {
           assert(acs(tId).length == 1)
           assert(acs(uId).length == 1)
+        }
+      }
+    }
+
+    "MaxMessageSizeTests" should {
+      val triggerId =
+        QualifiedName.assertFromString("MaxInboundMessageTest:maxInboundMessageSizeTrigger")
+      val tId = LedgerApi.Identifier(packageId, "MaxInboundMessageTest", "MessageSize")
+      "fail" in {
+        for {
+          client <- ledgerClient(
+            maxInboundMessageSize = 5 * RunnerConfig.DefaultMaxInboundMessageSize)
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create and exercise
+          // 1 for completion
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          acs <- queryACS(client, party)
+        } yield {
+          assert(acs(tId).length == 50001)
         }
       }
     }
