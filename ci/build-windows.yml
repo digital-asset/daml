@@ -21,8 +21,10 @@ steps:
       cd D:\a\1\s
       .\dev-env\windows\bin\dadew.ps1 enable
       bazel info
+      bazel clean --expunge
       cd D:\a\2\s
       bazel info
+      rm -r -Force C:/users/vssadministrator/_bazel_vssadministrator/w3d6ug6o
       # invoke-webrequest -Uri https://download.sysinternals.com/files/Junction.zip -Outfile junction.zip
       # expand-archive -path junction.zip -force
       # ./junction/junction64.exe -accepteula -s D:\
