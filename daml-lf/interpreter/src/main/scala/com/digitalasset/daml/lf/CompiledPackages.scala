@@ -50,7 +50,8 @@ object PureCompiledPackages {
 
   def apply(
       packages: Map[PackageId, Package],
-      profiling: Compiler.ProfilingMode): Either[String, PureCompiledPackages] =
+      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): Either[String, PureCompiledPackages] =
     Compiler
       .compilePackages(packages, profiling)
       .map(new PureCompiledPackages(packages, _, profiling))

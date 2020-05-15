@@ -508,7 +508,7 @@ object Runner extends StrictLogging {
       party: String
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap, Compiler.NoProfile).right.get
+    val compiledPackages = PureCompiledPackages(darMap).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
       case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
       case Right(trigger) => trigger

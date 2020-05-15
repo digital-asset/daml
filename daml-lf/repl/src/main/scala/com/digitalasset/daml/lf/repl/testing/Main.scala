@@ -357,7 +357,8 @@ object Repl {
   // Load DAML-LF packages from a set of files.
   def load(
       darFile: String,
-      profiling: Compiler.ProfilingMode = Compiler.NoProfile): (Boolean, State) = {
+      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): (Boolean, State) = {
     val state = initialState(profiling)
     try {
       val packages =
@@ -425,8 +426,7 @@ object Repl {
             val machine =
               Speedy.Machine.fromExpr(
                 expr = expr,
-                compiledPackages =
-                  PureCompiledPackages(state.packages, Compiler.NoProfile).right.get,
+                compiledPackages = PureCompiledPackages(state.packages).right.get,
                 scenario = false,
                 submissionTime = Time.Timestamp.now(),
                 initialSeeding = InitialSeeding.NoSeed,

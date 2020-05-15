@@ -207,7 +207,7 @@ object Runner {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap, Compiler.NoProfile).right.get
+    val compiledPackages = PureCompiledPackages(darMap).right.get
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
