@@ -14,7 +14,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.serialization.ValueSerializer.{deserializeValue => deserialize}
+import com.daml.platform.store.serialization.ValueSerializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -24,9 +24,9 @@ import scala.concurrent.{ExecutionContext, Future}
 private[dao] sealed abstract class ContractsReader(
     val committedContracts: PostCommitValidationData,
     dispatcher: DbDispatcher,
-    executionContext: ExecutionContext,
     metrics: Metrics,
-) extends ContractStore {
+)(implicit ec: ExecutionContext)
+    extends ContractStore {
 
   import ContractsReader._
 
@@ -52,7 +52,7 @@ private[dao] sealed abstract class ContractsReader(
             createArgument = createArgument,
             deserializationTimer = metrics.daml.index.db.lookupActiveContractDao.translationTimer,
           )
-      })(executionContext)
+      })
 
   override def lookupContractKey(
       submitter: Party,
@@ -67,7 +67,7 @@ private[dao] sealed abstract class ContractsReader(
       .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDao) { implicit connection =>
         committedContracts.lookupMaximumLedgerTime(ids)
       }
-      .map(_.get)(executionContext)
+      .map(_.get)
 
 }
 
@@ -75,23 +75,22 @@ object ContractsReader {
 
   private[dao] def apply(
       dispatcher: DbDispatcher,
-      executionContext: ExecutionContext,
       dbType: DbType,
       metrics: Metrics,
-  ): ContractsReader = {
+  )(implicit ec: ExecutionContext): ContractsReader = {
     val table = ContractsTable(dbType)
     dbType match {
-      case DbType.Postgres => new Postgresql(table, dispatcher, executionContext, metrics)
-      case DbType.H2Database => new H2Database(table, dispatcher, executionContext, metrics)
+      case DbType.Postgres => new Postgresql(table, dispatcher, metrics)
+      case DbType.H2Database => new H2Database(table, dispatcher, metrics)
     }
   }
 
   private final class Postgresql(
       table: ContractsTable,
       dispatcher: DbDispatcher,
-      executionContext: ExecutionContext,
       metrics: Metrics,
-  ) extends ContractsReader(table, dispatcher, executionContext, metrics) {
+  )(implicit ec: ExecutionContext)
+      extends ContractsReader(table, dispatcher, metrics) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: Key,
@@ -102,9 +101,9 @@ object ContractsReader {
   private final class H2Database(
       table: ContractsTable,
       dispatcher: DbDispatcher,
-      executionContext: ExecutionContext,
       metrics: Metrics,
-  ) extends ContractsReader(table, dispatcher, executionContext, metrics) {
+  )(implicit ec: ExecutionContext)
+      extends ContractsReader(table, dispatcher, metrics) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: Key,
@@ -127,7 +126,7 @@ object ContractsReader {
       template = Identifier.assertFromString(templateId),
       arg = Timed.value(
         timer = deserializationTimer,
-        value = deserialize(
+        value = ValueSerializer.deserializeValue(
           stream = createArgument,
           errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
         ),

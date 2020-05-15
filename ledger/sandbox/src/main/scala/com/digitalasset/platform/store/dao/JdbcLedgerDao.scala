@@ -56,7 +56,6 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry
 }
 import com.daml.resources.ResourceOwner
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -878,10 +877,10 @@ private class JdbcLedgerDao(
     new TransactionsWriter(dbType, metrics)
 
   override val transactionsReader: TransactionsReader =
-    new TransactionsReader(dbDispatcher, executionContext, eventsPageSize, metrics)
+    new TransactionsReader(dbDispatcher, eventsPageSize, metrics)(executionContext)
 
   private val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, executionContext, dbType, metrics)
+    ContractsReader(dbDispatcher, dbType, metrics)(executionContext)
 
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(dbDispatcher, metrics)
@@ -902,8 +901,6 @@ private class JdbcLedgerDao(
 object JdbcLedgerDao {
 
   private val DefaultNumberOfShortLivedConnections = 16
-
-  private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
 
   def readOwner(
       serverRole: ServerRole,
@@ -952,8 +949,7 @@ object JdbcLedgerDao {
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
-      executor <- ResourceOwner.forExecutorService(() =>
-        Executors.newCachedThreadPool(ThreadFactory))
+      executor <- ResourceOwner.forExecutorService(() => Executors.newWorkStealingPool())
     } yield
       new JdbcLedgerDao(
         maxConnections,
