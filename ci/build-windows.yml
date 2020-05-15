@@ -18,7 +18,7 @@ steps:
 
   - powershell: |
       get-location
-      ls D:\a\SourceRootMapping
+      cat D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2
       cd D:\a\1\s
       .\dev-env\windows\bin\dadew.ps1 enable
       bazel info
