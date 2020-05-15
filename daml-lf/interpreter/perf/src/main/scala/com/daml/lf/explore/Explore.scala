@@ -58,7 +58,8 @@ object PlaySpeedy {
   private val txSeed = crypto.Hash.hashPrivateKey("SpeedyExplore")
 
   def makeMachine(sexpr: SExpr): Machine = {
-    val compiledPackages: CompiledPackages = PureCompiledPackages(Map.empty, Compiler.NoProfile).right.get
+    val compiledPackages: CompiledPackages =
+      PureCompiledPackages(Map.empty, Compiler.NoProfile).right.get
     Machine.fromSExpr(
       sexpr,
       compiledPackages,

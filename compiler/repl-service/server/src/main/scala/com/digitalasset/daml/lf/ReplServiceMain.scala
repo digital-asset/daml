@@ -220,7 +220,8 @@ class ReplService(
 
     val allPkgs = packages + (homePackageId -> pkg)
     val defs = Compiler(allPkgs, Compiler.NoProfile).unsafeCompilePackage(homePackageId)
-    val compiledPackages = PureCompiledPackages(allPkgs, compiledDefinitions ++ defs, Compiler.NoProfile)
+    val compiledPackages =
+      PureCompiledPackages(allPkgs, compiledDefinitions ++ defs, Compiler.NoProfile)
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
