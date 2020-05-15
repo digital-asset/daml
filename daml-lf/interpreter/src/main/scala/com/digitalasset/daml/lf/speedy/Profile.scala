@@ -56,7 +56,6 @@ object Profile {
     }
   }
 
-
   /** Utility object to convert the profile into the JSON format required by
     * https://www.speedscope.app/. For a description of the format, see
     * https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources#speedscopes-file-format
