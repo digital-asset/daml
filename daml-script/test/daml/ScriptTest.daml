@@ -209,3 +209,26 @@ jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd
 
 jsonAllocateParty : Text -> Script Party
 jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
+
+-- maxInboundMessageSize
+
+template MessageSize
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice CreateN : ()
+      with
+        n : Int
+      controller p
+      do
+        res <- forA [1..n] (\_ -> do
+              create this
+          )
+        return()
+
+testMaxInboundMessageSize : Script () = do
+  p <- allocateParty "p"
+  b <- submit p do createCmd (MessageSize p)
+  submit p do exerciseCmd b CreateN with n = 50000
+  return ()

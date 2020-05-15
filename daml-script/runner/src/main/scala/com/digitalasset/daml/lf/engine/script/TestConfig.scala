@@ -15,6 +15,7 @@ case class TestConfig(
     participantConfig: Option[File],
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
+    maxInboundMessageSize: Int,
 )
 
 object TestConfig {
@@ -53,6 +54,12 @@ object TestConfig {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -75,6 +82,7 @@ object TestConfig {
         participantConfig = None,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
+        maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
       )
     )
 }

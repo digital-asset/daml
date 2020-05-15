@@ -93,7 +93,8 @@ class TestRunner(
       scriptId: Identifier,
       inputValue: Option[JsValue],
       assertResult: SValue => Either[String, Unit],
-      expectedLog: Option[Seq[String]] = None
+      expectedLog: Option[Seq[String]] = None,
+      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
   ) = {
 
     LogCollector.clear()
@@ -106,7 +107,8 @@ class TestRunner(
     implicit val materializer: Materializer = Materializer(system)
     implicit val ec: ExecutionContext = system.dispatcher
 
-    val clientsF = Runner.connect(participantParams, clientConfig)
+    val clientsF =
+      Runner.connect(participantParams, clientConfig, maxInboundMessageSize)
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF

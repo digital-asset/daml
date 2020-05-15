@@ -258,6 +258,22 @@ case class PartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestMaxInboundMessageSize(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "MaxInboundMessageSize",
+      scriptId,
+      None, {
+        case SUnit => Right(())
+        case v => Left(s"Expected SUnit but got $v")
+      },
+      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize * 10,
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -369,6 +385,7 @@ object SingleParticipant {
             Time(dar, runner).runTests()
             Sleep(dar, runner).runTests()
             PartyIdHintTest(dar, runner).runTests()
+            TestMaxInboundMessageSize(dar, runner).runTests()
             ScriptExample(dar, runner).runTests()
           case Some(_) =>
             // We can’t test much with auth since most of our tests rely on party allocation and being

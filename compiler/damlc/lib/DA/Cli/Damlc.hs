@@ -263,6 +263,11 @@ cmdRepl numProcessors =
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag
             <*> sslConfig
+            <*> optional
+                    (option auto $
+                        long "max-inbound-message-size" <>
+                        help "Optional max inbound message size in bytes."
+                    )
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -561,8 +566,9 @@ execRepl
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
+    -> Maybe ReplClient.MaxInboundMessageSize
     -> Command
-execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             mainDar <- makeAbsolute mainDar
@@ -573,7 +579,7 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
             let jar = runfilesDir </> "repl-service.jar"
-            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf Inherit) $ \replHandle _stdout _ph ->
+            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize Inherit) $ \replHandle _stdout _ph ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
