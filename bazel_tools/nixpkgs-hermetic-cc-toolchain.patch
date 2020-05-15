@@ -734,10 +734,10 @@ index fb87da4..6bf2d90 100644
      this rule to specific explicitly which commands the toolchain should
 diff --git a/nixpkgs/toolchains/cc.nix b/nixpkgs/toolchains/cc.nix
 new file mode 100644
-index 0000000..56ddae7
+index 0000000..88cf785
 --- /dev/null
 +++ b/nixpkgs/toolchains/cc.nix
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,279 @@
 +with import <nixpkgs> { config = {}; overlays = []; };
 +
 +{ attribute_path ? null
@@ -745,15 +745,7 @@ index 0000000..56ddae7
 +}:
 +
 +let
-+  defaultCcLinux =
-+    buildEnv {
-+      name = "bazel-nixpkgs-cc";
-+      # XXX: `gcov` is missing in `/bin`.
-+      #   It exists in `stdenv.cc.cc` but that collides with `stdenv.cc`.
-+      paths = [ stdenv.cc binutils ];
-+      pathsToLink = [ "/bin" ];
-+    };
-+  defaultCcDarwin =
++  darwinCC =
 +    # Work around https://github.com/NixOS/nixpkgs/issues/42059.
 +    # See also https://github.com/NixOS/nixpkgs/pull/41589.
 +    with darwin.apple_sdk.frameworks;
@@ -781,7 +773,17 @@ index 0000000..56ddae7
 +    '';
 +  cc =
 +    if isNull nix_expr then
-+      if stdenv.isDarwin then defaultCcDarwin else defaultCcLinux
++      buildEnv {
++        name = "bazel-nixpkgs-cc";
++        # XXX: `gcov` is missing in `/bin`.
++        #   It exists in `stdenv.cc.cc` but that collides with `stdenv.cc`.
++        paths =
++          if stdenv.isDarwin then
++            [ (overrideCC stdenv darwinCC).cc darwin.binutils ]
++          else
++            [ stdenv.cc binutils ];
++        pathsToLink = [ "/bin" ];
++      }
 +    else if isNull attribute_path then
 +      nix_expr
 +    else

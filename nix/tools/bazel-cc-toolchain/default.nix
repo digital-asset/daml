@@ -70,5 +70,5 @@ let cc-darwin =
 in
 buildEnv {
   name = "bazel-cc-toolchain";
-  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ ] else [ binutils ]);
+  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwin.binutils ] else [ binutils ]);
 }
