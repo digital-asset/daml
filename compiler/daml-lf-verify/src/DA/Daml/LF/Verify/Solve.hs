@@ -13,7 +13,8 @@ module DA.Daml.LF.Verify.Solve
 
 import Data.Bifunctor
 import Data.Maybe (fromJust, maybeToList)
-import Data.List (lookup, union, intersect, partition, (\\), nub, foldl')
+import Data.List
+import Data.List.Extra (nubOrd)
 import Data.Tuple.Extra (both)
 import Data.Text.Prettyprint.Doc
 import qualified Data.HashMap.Strict as HM
@@ -218,7 +219,7 @@ constructSynonyms = foldl step []
   where
     step :: [(ExprVarName, ExprVarName)] -> (ExprVarName, [ExprVarName])
       -> [(ExprVarName, ExprVarName)]
-    step acc (cur, prevs) = acc ++ map (\prev -> (prev, cur)) prevs
+    step acc (cur, prevs) = acc ++ map (, cur) prevs
 
 -- | Constructs a constraint set from the generator environment, together with
 -- the template name, the choice and field to be verified.
@@ -321,7 +322,7 @@ declareCtrs sol debug cvars1 ctrs = do
         components
       useful_equalities = concatMap (map (\(l,r,_) -> (l,r))) useful_components
       required_vars =
-        ( nub (concatMap (concatMap (\(_,_,vars) -> vars)) useful_components) )
+        nubOrd (concatMap (concatMap (\(_,_,vars) -> vars)) useful_components)
         \\ useful_nodes
   cvars2 <- declareVars sol required_vars
   mapM_ (declare $ cvars1 ++ cvars2) useful_equalities
@@ -357,7 +358,7 @@ declareCtrs sol debug cvars1 ctrs = do
     declare vars (cexp1, cexp2) = do
       sexp1 <- cexp2sexp vars cexp1
       sexp2 <- cexp2sexp vars cexp2
-      debug ("Assert: " ++ (S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 "")))
+      debug ("Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
       S.assert sol (sexp1 `S.eq` sexp2)
 
 -- | Data type denoting the outcome of the solver.

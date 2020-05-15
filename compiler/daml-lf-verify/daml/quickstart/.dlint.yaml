@@ -1,3 +1,6 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # This file controls the behaviour of the dlint linting tool. Below are two
 # examples of how to enable or disable a rule.
 
@@ -6,3 +9,4 @@
 
 # This rule is disabled by default. Uncomment to enable.
 #- suggest: {name: Use module export list}
+

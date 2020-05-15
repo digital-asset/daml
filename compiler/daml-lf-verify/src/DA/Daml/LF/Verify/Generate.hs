@@ -218,7 +218,7 @@ genUpdate = \case
     out <- genExpr True expr
     return (out, typ, Nothing)
   -- TODO: Extend additional cases
-  _ -> error $ "Update not implemented yet"
+  _ -> error "Update not implemented yet"
 
 -- | Analyse a term application expression.
 genForTmApp :: (GenPhase ph, MonadEnv m ph)

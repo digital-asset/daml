@@ -630,7 +630,7 @@ solveChoiceReferences EnvCG{..} =
     lookup_ref upd hmap = fromMaybe (error "Impossible: Undefined choice ref while solving")
       (HM.lookup upd hmap)
 
-    get_refs :: (ChoiceData 'ChoiceGathering)
+    get_refs :: ChoiceData 'ChoiceGathering
       -> ([Cond UpdChoice], ChoiceData 'ChoiceGathering)
     -- TODO: This is gonna result in a ton of substitutions
     get_refs chdat@ChoiceData{..} =
@@ -646,8 +646,8 @@ solveChoiceReferences EnvCG{..} =
       -> ChoiceData 'ChoiceGathering
     ext_upds chdat1 chdat2 =
       let updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            (_cdUpds chdat1) selfexp thisexp argsexp `concatUpdateSet`
-              (_cdUpds chdat2) selfexp thisexp argsexp
+            _cdUpds chdat1 selfexp thisexp argsexp `concatUpdateSet`
+              _cdUpds chdat2 selfexp thisexp argsexp
       in chdat1{_cdUpds = updfunc}
 
     intro_cond :: Cond (ChoiceData ph)
@@ -655,8 +655,8 @@ solveChoiceReferences EnvCG{..} =
     intro_cond (Determined x) = x
     intro_cond (Conditional cond chdatx y) =
       let updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            introCond (Conditional cond ((_cdUpds chdatx) selfexp thisexp argsexp)
-              ((\chdaty -> (_cdUpds chdaty) selfexp thisexp argsexp) <$> y))
+            introCond (Conditional cond (_cdUpds chdatx selfexp thisexp argsexp)
+              ((\chdaty -> _cdUpds chdaty selfexp thisexp argsexp) <$> y))
       in chdatx{_cdUpds = updfunc}
 
     inlineChoices :: HM.HashMap UpdChoice (ChoiceData 'Solving)

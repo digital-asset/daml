@@ -9,9 +9,9 @@ module DA.Daml.LF.Verify
   , verify
   ) where
 
-import Data.Maybe (maybe, listToMaybe, catMaybes)
+import Data.Maybe
 import qualified Data.NameMap as NM
-import Data.Text hiding (map, null, filter)
+import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.String
 import Options.Applicative
@@ -31,10 +31,10 @@ getSolver = locateRunfiles "z3_nix/bin/z3"
 main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
-  let choiceTmpl = TypeConName [pack optChoiceTmpl]
-      choiceName = ChoiceName (pack optChoiceName)
-      fieldTmpl = TypeConName [pack optFieldTmpl]
-      fieldName = FieldName (pack optFieldName)
+  let choiceTmpl = TypeConName [T.pack optChoiceTmpl]
+      choiceName = ChoiceName (T.pack optChoiceName)
+      fieldTmpl = TypeConName [T.pack optFieldTmpl]
+      fieldName = FieldName (T.pack optFieldName)
   result <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
   print result
 
@@ -45,7 +45,7 @@ outputError :: Error
   -> IO a
 outputError err msg = do
   hPutStrLn stderr msg
-  hPutStrLn stderr (show err)
+  hPrint stderr err
   exitFailure
 
 -- | Execute the full verification pipeline.
@@ -109,7 +109,7 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
     findTemplate pkgs tem = maybe
       (outputError (UnknownTmpl tem) "Parsing phase finished with error: ")
       (\(pacid, mod) -> return $ Qualified (PRImport pacid) mod tem)
-      (listToMaybe $ catMaybes $ map (templateInPackage tem) pkgs)
+      (listToMaybe $ mapMaybe (templateInPackage tem) pkgs)
 
     -- | Return the package id and the name of the module containing the given
     -- template, if it exists.
@@ -131,10 +131,10 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
       -- ^ The modules to look in.
       -> Maybe ModuleName
     templateInModules tem mods =
-      listToMaybe $ catMaybes $
-        map ( \Module{..} ->
-                let tmpls = NM.toList moduleTemplates
-                in if null (filter (\Template{..} -> tplTypeCon == tem) tmpls)
-                  then Nothing
-                  else Just moduleName )
+      listToMaybe $
+        mapMaybe ( \Module{..} ->
+          let tmpls = NM.toList moduleTemplates
+          in if not (any (\Template{..} -> tplTypeCon == tem) tmpls)
+            then Nothing
+            else Just moduleName )
         mods
