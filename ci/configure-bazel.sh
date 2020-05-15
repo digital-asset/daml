@@ -57,7 +57,7 @@ if is_windows; then
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
   CONFIG=${BAZEL_CONFIG_DIR-default}
-  echo $BUILD_SOURCESDIRECTORY
+  echo $(basename $BUILD_SOURCESDIRECTORY)
   echo "build --platform_suffix=-${CONFIG:0:2}" >> .bazelrc.local
 fi
 
