@@ -41,6 +41,7 @@ object ReplServiceMain extends App {
       ledgerHost: String,
       ledgerPort: Int,
       accessTokenFile: Option[Path],
+      maxInboundMessageSize: Int,
       tlsConfig: Option[TlsConfiguration],
   )
   object Config {
@@ -100,6 +101,12 @@ object ReplServiceMain extends App {
         .action((path, arguments) =>
           arguments.copy(tlsConfig =
             arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+
+      opt[Int]("max-inbound-message-size")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .optional()
+        .text(
+          s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
@@ -109,7 +116,9 @@ object ReplServiceMain extends App {
           ledgerHost = null,
           ledgerPort = 0,
           accessTokenFile = None,
-          tlsConfig = None)
+          tlsConfig = None,
+          maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+        )
       )
   }
 
@@ -137,7 +146,9 @@ object ReplServiceMain extends App {
     sslContext = config.tlsConfig.flatMap(_.client),
     token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),
   )
-  val clients = Await.result(Runner.connect(participantParams, clientConfig), 30.seconds)
+  val clients = Await.result(
+    Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize),
+    30.seconds)
 
   val server =
     NettyServerBuilder

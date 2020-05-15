@@ -123,7 +123,7 @@ object TestMain extends StrictLogging {
         }
 
         val flow: Future[Boolean] = for {
-          clients <- Runner.connect(participantParams, clientConfig)
+          clients <- Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
             case Right(client) =>

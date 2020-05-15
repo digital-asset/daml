@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
+import io.grpc.netty.NettyChannelBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.\/-
 import scalaz.std.either._
@@ -139,15 +140,27 @@ object Script {
 }
 
 object Runner {
-  private def connectApiParameters(params: ApiParameters, clientConfig: LedgerClientConfiguration)(
+  private def connectApiParameters(
+      params: ApiParameters,
+      clientConfig: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
-    LedgerClient.singleHost(params.host, params.port, clientConfig).map(new GrpcLedgerClient(_))
+    LedgerClient
+      .fromBuilder(
+        NettyChannelBuilder
+          .forAddress(params.host, params.port)
+          .maxInboundMessageSize(maxInboundMessageSize),
+        clientConfig,
+      )
+      .map(new GrpcLedgerClient(_))
+//    LedgerClient.singleHost(params.host, params.port, clientConfig).map(new GrpcLedgerClient(_))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
       participantParams: Participants[ApiParameters],
-      clientConfig: LedgerClientConfiguration)(
+      clientConfig: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
@@ -155,11 +168,11 @@ object Runner {
       // Map is but it doesn’t return a Map so we have to call toMap afterwards.
       defaultClient <- Future
         .traverse(participantParams.default_participant.toList)(x =>
-          connectApiParameters(x, clientConfig))
+          connectApiParameters(x, clientConfig, maxInboundMessageSize))
         .map(_.headOption)
       participantClients <- Future
         .traverse(participantParams.participants: Map[Participant, ApiParameters])({
-          case (k, v) => connectApiParameters(v, clientConfig).map((k, _))
+          case (k, v) => connectApiParameters(v, clientConfig, maxInboundMessageSize).map((k, _))
         })
         .map(_.toMap)
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
