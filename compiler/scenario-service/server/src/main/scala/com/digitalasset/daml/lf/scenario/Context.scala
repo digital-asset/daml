@@ -152,7 +152,7 @@ class Context(val contextId: Context.ContextId) {
       Speedy.Machine
         .build(
           sexpr = defn,
-          compiledPackages = PureCompiledPackages(allPackages, defns),
+          compiledPackages = PureCompiledPackages(allPackages, defns, Compiler.NoProfile),
           submissionTime,
           initialSeeding,
           Set.empty,

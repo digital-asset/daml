@@ -14,7 +14,6 @@ import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.speedy.Compiler
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
