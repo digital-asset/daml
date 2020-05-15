@@ -19,6 +19,7 @@ steps:
   - powershell: |
       get-location
       cd D:\a\1\s
+      .\dev-env\windows\bin\dadew.ps1 enable
       bazel info
       cd D:\a\2\s
       bazel info
