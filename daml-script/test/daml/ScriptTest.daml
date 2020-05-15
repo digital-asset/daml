@@ -5,6 +5,7 @@
 
 module ScriptTest where
 
+import DA.Action
 import DA.Assert
 import DA.Foldable hiding (length)
 import DA.Time
@@ -140,6 +141,13 @@ failingTest = do
   cid <- submit alice $ createCmd (C alice 42)
   submit alice $ exerciseCmd cid ShouldFail
   pure ()
+
+-- | This used to produce a stackoverflow
+testStack : Script ()
+testStack = do
+  p <- allocateParty "p"
+  results <- submit p $ replicateA 1000 (createCmd (C p 42))
+  assert (length results == 1000)
 
 time : Script (Time, Time)
 time = do

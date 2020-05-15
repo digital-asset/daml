@@ -258,6 +258,20 @@ case class PartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestStack(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testStack"))
+  def runTests() = {
+    runner.genericTest(
+      "testStack",
+      scriptId,
+      None,
+      // We only want to check that this does not crash so the check here is trivial.
+      v => TestRunner.assertEqual(v, SUnit, "Script result")
+    )
+  }
+}
+
 case class TestMaxInboundMessageSize(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId =
     Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"))
@@ -385,6 +399,7 @@ object SingleParticipant {
             Time(dar, runner).runTests()
             Sleep(dar, runner).runTests()
             PartyIdHintTest(dar, runner).runTests()
+            TestStack(dar, runner).runTests()
             TestMaxInboundMessageSize(dar, runner).runTests()
             ScriptExample(dar, runner).runTests()
           case Some(_) =>
