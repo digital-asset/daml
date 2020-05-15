@@ -48,17 +48,20 @@ if is_windows; then
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
 
-  # Modify the output path (x64_windows-opt-co) to avoid shared action keys
-  # between external dependencies of the daml and compatibility workspaces.
-  # These are causing issues on Windows, namely sporadic failures due to
-  # "undeclared inclusion(s)" with the mingw toolchain. This doesn't modify all
-  # action keys, e.g. metadata actions like `Mnemonic: Middleman` are
-  # unaffected. However, all actions that produce artifacts will be affected.
-  # To avoid exceeding the maximum path limit on Windows we limit the suffix to
-  # three characters.
-  CONFIG=${BAZEL_CONFIG_DIR-default}
-  echo $(basename $BUILD_SOURCESDIRECTORY)
-  echo "build --platform_suffix=-${CONFIG:0:2}" >> .bazelrc.local
+  # Modify the output path to avoid shared action keys.
+  # The issue appears to be that GCC produces absolute paths
+  # to system includes in .d files. These files are cached
+  # so the absolute paths leak into different builds. Most of the time
+  # this works since Azure reuses the working directory. However,
+  # between the daily compatibility job seems to get a different
+  # working directory because it is in a different pipeline.
+  # To make matters worse, the working directory depends on which
+  # job runs first afaict. There is a counter that simply gets incremented.
+  # Sharing between the compatibility workspace and the main workspace
+  # appears to be fine so we use BUILD_SOURCESDIRECTORY which is the same
+  # rather than PWD which would be different.
+  SUFFIX="$(basename $BUILD_SOURCESDIRECTORY)"
+  echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
