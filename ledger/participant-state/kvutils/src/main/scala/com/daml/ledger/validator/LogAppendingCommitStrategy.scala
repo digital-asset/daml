@@ -1,0 +1,38 @@
+package com.daml.ledger.validator
+
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue
+}
+import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.v1.ParticipantId
+
+import scala.collection.breakOut
+import scala.concurrent.{ExecutionContext, Future}
+
+class LogAppendingCommitStrategy[Index](
+    ledgerStateOperations: LedgerStateOperations[Index],
+    keySerializationStrategy: StateKeySerializationStrategy)(
+    implicit executionContext: ExecutionContext)
+    extends CommitStrategy[Index] {
+  override def commit(
+      participantId: ParticipantId,
+      correlationId: String,
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      outputState: Map[DamlStateKey, DamlStateValue]): Future[Index] = {
+    ledgerStateOperations.writeState(outputState.map {
+      case (key, value) =>
+        (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
+    }(breakOut))
+
+    ledgerStateOperations
+      .appendToLog(
+        entryId.toByteString,
+        Envelope.enclose(entry)
+      )
+  }
+}
