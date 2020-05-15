@@ -396,6 +396,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     case Participants(Participant(alpha, giver, newReceiver), Participant(beta, receiver)) =>
       for {
         callablePayout <- alpha.create(giver, CallablePayout(giver, receiver))
+        _ <- synchronize(alpha, beta)
         tree <- beta.exercise(receiver, callablePayout.exerciseTransfer(_, newReceiver))
       } yield {
         val created = assertSingleton("There should only be one creation", createdEvents(tree))
