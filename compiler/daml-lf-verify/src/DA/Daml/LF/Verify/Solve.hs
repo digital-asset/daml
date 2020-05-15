@@ -21,6 +21,7 @@ import qualified Data.Text as T
 import qualified SimpleSMT as S
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Verify.Context
 
 -- TODO: Since S.SExpr is so similar, we could just drop this.
@@ -102,8 +103,7 @@ instance ConstrExpr Expr where
   toCExp syns (ELocation _ e) = toCExp syns e
   toCExp _syns (EBuiltin (BEBool b)) = CBool b
   toCExp _syns (EBuiltin (BEInt64 i)) = CInt $ toInteger i
-  -- TODO
-  -- toCExp syns (EBuiltin (BENumeric i)) = CReal i
+  toCExp _syns (EBuiltin (BENumeric i)) = CReal $ toRational $ numericDecimal i
   toCExp _syns e = error ("Conversion: " ++ show e)
 
 instance ConstrExpr a => ConstrExpr (Cond a) where
@@ -286,7 +286,7 @@ cexp2sexp vars (CWhen ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
   -- TODO: Temporary hack
-  return $ S.ite se1 se2 (S.real 0)
+  return $ S.ite se1 se2 (S.real 0.0)
 
 -- | Declare a list of variables for the SMT solver. Returns a list of the
 -- declared variables, together with their corresponding SMT counterparts.
@@ -395,8 +395,8 @@ solveConstr spath debug ConstraintSet{..} = do
   vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
   vars2 <- declareCtrs sol debug vars1 _cCtrs
   let vars = vars1 ++ vars2
-  cre <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cCres
-  arc <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cArcs
+  cre <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cCres
+  arc <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cArcs
   S.assert sol (S.not (cre `S.eq` arc))
   S.check sol >>= \case
     S.Sat -> do
