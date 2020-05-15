@@ -1,10 +1,15 @@
 diff --git a/.bazelrc b/.bazelrc
-index d226e65..cf344ef 100644
+index d226e65..687c136 100644
 --- a/.bazelrc
 +++ b/.bazelrc
-@@ -1 +1,2 @@
+@@ -1 +1,7 @@
  build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
-+build --incompatible_enable_cc_toolchain_resolution
++build --crosstool_top=@nixpkgs_config_cc//:toolchain
++# Using toolchain resolution can lead to spurious dependencies on
++# `@local_config_cc//:builtin_include_directory_paths`. This needs to be
++# resolved before `--incompatible_enable_cc_toolchain_resolution` can be
++# recommended for `nixpkgs_cc_configure_hermetic`.
++# build --incompatible_enable_cc_toolchain_resolution
 diff --git a/BUILD.bazel b/BUILD.bazel
 index e69de29..efcf274 100644
 --- a/BUILD.bazel
@@ -47,7 +52,7 @@ index 8596633..234c41b 100644
  
  [0.7.0]: https://github.com/tweag/rules_nixpkgs/compare/v0.6.0...v0.7.0
 diff --git a/README.md b/README.md
-index 721f64d..71180c4 100644
+index 721f64d..07dbd8c 100644
 --- a/README.md
 +++ b/README.md
 @@ -176,7 +176,7 @@ Make the content of a Nixpkgs package available in the Bazel workspace.
@@ -78,7 +83,7 @@ index 721f64d..71180c4 100644
      <tr>
        <td><code>fail_not_supported</code></td>
        <td>
-@@ -321,6 +333,97 @@ filegroup(
+@@ -321,6 +333,96 @@ filegroup(
    </tbody>
  </table>
  
@@ -95,9 +100,8 @@ index 721f64d..71180c4 100644
 +
 +Note:
 +
-+This requires `--incompatible_enable_cc_toolchain_resolution` to be
-+enabled. See https://github.com/bazelbuild/bazel/issues/7260.
-+Alternatively, you can set `--crosstool_top=@<name>//:toolchain`.
++You need to configure `--crosstool_top=@<name>//:toolchain` to activate this
++toolchain.
 +
 +Example:
 +
@@ -176,7 +180,7 @@ index 721f64d..71180c4 100644
  ### nixpkgs_cc_configure
  
  Tells Bazel to use compilers and linkers from Nixpkgs for the CC
-@@ -328,6 +431,15 @@ toolchain. By default, Bazel autodetects a toolchain on the current
+@@ -328,6 +430,15 @@ toolchain. By default, Bazel autodetects a toolchain on the current
  `PATH`. Overriding this autodetection makes builds more hermetic and
  is considered a best practice.
  
@@ -271,7 +275,7 @@ index 6662530..94678bd 100644
  )
  
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index fb87da4..57ff187 100644
+index fb87da4..6bf2d90 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
 @@ -1,7 +1,15 @@
@@ -389,7 +393,7 @@ index fb87da4..57ff187 100644
          "quiet": attr.bool(),
          "fail_not_supported": attr.bool(default = True, doc = """
              If set to True (default) this rule will fail on platforms which do not support Nix (e.g. Windows). If set to False calling this rule will succeed but no output will be generated.
-@@ -244,6 +308,324 @@ def nixpkgs_package(*args, **kwargs):
+@@ -244,6 +308,323 @@ def nixpkgs_package(*args, **kwargs):
      else:
          _nixpkgs_package(*args, **kwargs)
  
@@ -408,10 +412,10 @@ index fb87da4..57ff187 100644
 +    #
 +    # Each line has the form
 +    #
-+    #   <key> <value1> <value2> ...
++    #   <key>:<value1>:<value2>:...
 +    info = {}
 +    for line in content.splitlines():
-+        fields = line.split(" ")
++        fields = line.split(":")
 +        if len(fields) == 0:
 +            fail(
 +                "Malformed CC_TOOLCHAIN_INFO '{}': Empty line encountered.".format(filename),
@@ -644,10 +648,9 @@ index fb87da4..57ff187 100644
 +    `gcc`) available in the environment. To make builds more hermetic, use
 +    this rule to specify explicitly which commands the toolchain should use.
 +
-+    NOTE:
-+    This requires `--incompatible_enable_cc_toolchain_resolution` to be
-+    enabled. See https://github.com/bazelbuild/bazel/issues/7260.
-+    Alternatively, you can set `--crosstool_top=@<name>//:toolchain`.
++    Note:
++      You need to configure `--crosstool_top=@<name>//:toolchain` to activate this
++      toolchain.
 +
 +    Attrs:
 +      attribute_path: optional, string, Obtain the toolchain from the Nix expression under this attribute path. Requires `nix_file` or `nix_file_content`.
@@ -714,7 +717,7 @@ index fb87da4..57ff187 100644
  def _readlink(repository_ctx, path):
      return repository_ctx.path(path).realpath
  
-@@ -323,6 +705,14 @@ def nixpkgs_cc_configure(
+@@ -323,6 +704,14 @@ def nixpkgs_cc_configure(
          nixopts = []):
      """Use a CC toolchain from Nixpkgs. No-op if not a nix-based platform.
  
@@ -731,10 +734,10 @@ index fb87da4..57ff187 100644
      this rule to specific explicitly which commands the toolchain should
 diff --git a/nixpkgs/toolchains/cc.nix b/nixpkgs/toolchains/cc.nix
 new file mode 100644
-index 0000000..4809408
+index 0000000..56ddae7
 --- /dev/null
 +++ b/nixpkgs/toolchains/cc.nix
-@@ -0,0 +1,242 @@
+@@ -0,0 +1,277 @@
 +with import <nixpkgs> { config = {}; overlays = []; };
 +
 +{ attribute_path ? null
@@ -742,15 +745,43 @@ index 0000000..4809408
 +}:
 +
 +let
++  defaultCcLinux =
++    buildEnv {
++      name = "bazel-nixpkgs-cc";
++      # XXX: `gcov` is missing in `/bin`.
++      #   It exists in `stdenv.cc.cc` but that collides with `stdenv.cc`.
++      paths = [ stdenv.cc binutils ];
++      pathsToLink = [ "/bin" ];
++    };
++  defaultCcDarwin =
++    # Work around https://github.com/NixOS/nixpkgs/issues/42059.
++    # See also https://github.com/NixOS/nixpkgs/pull/41589.
++    with darwin.apple_sdk.frameworks;
++    runCommand "bazel-nixpkgs-cc-wrapper"
++    {
++      buildInputs = [ stdenv.cc makeWrapper ];
++    }
++    ''
++      mkdir -p $out/bin
++
++      for i in ${stdenv.cc}/bin/*; do
++        ln -sf $i $out/bin
++      done
++
++      # Override cc
++      rm $out/bin/cc
++      makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc --add-flags \
++        "-isystem ${llvmPackages.libcxx}/include/c++/v1 \
++        -F${CoreFoundation}/Library/Frameworks \
++        -F${CoreServices}/Library/Frameworks \
++        -F${Security}/Library/Frameworks \
++        -F${Foundation}/Library/Frameworks \
++        -L${libcxx}/lib \
++        -L${darwin.libobjc}/lib"
++    '';
 +  cc =
 +    if isNull nix_expr then
-+      buildEnv {
-+        name = "bazel-nixpkgs-cc";
-+        # XXX: `gcov` is missing in `/bin`.
-+        #   It exists in `stdenv.cc.cc` but that collides with `stdenv.cc`.
-+        paths = [ stdenv.cc binutils ];
-+        pathsToLink = [ "/bin" ];
-+      }
++      if stdenv.isDarwin then defaultCcDarwin else defaultCcLinux
 +    else if isNull attribute_path then
 +      nix_expr
 +    else
@@ -794,12 +825,14 @@ index 0000000..4809408
 +      is_compiler_option_supported() {
 +        local option="$1"
 +        local pattern="''${2-$1}"
-+        { $cc "$option" -o /dev/null -c -x c++ - <<<"int main {}" 2>&1 || true; } | grep -qv -- "$pattern"
++        { $cc "$option" -o /dev/null -c -x c++ - <<<"int main() {}" 2>&1 1>/dev/null || true; } \
++          | grep -qe "$pattern" && return 1 || return 0
 +      }
 +      is_linker_option_supported() {
 +        local option="$1"
 +        local pattern="''${2-$1}"
-+        { $cc "$option" -o /dev/null -x c++ - <<<"int main {}" 2>&1 || true; } | grep -qv -- "$pattern"
++        { $cc "$option" -o /dev/null -x c++ - <<<"int main() {}" 2>&1 1>/dev/null || true; } \
++          | grep -qe "$pattern" && return 1 || return 0
 +      }
 +      add_compiler_option_if_supported() {
 +        if is_compiler_option_supported "$@"; then
@@ -816,10 +849,12 @@ index 0000000..4809408
 +      #
 +      # This is copied and adapted to bash from
 +      # `@bazel_tools//tools/cpp:unix_cc_configure.bzl`.
++      IFS=$'\n'
 +      include_dirs_for() {
 +        $cc -E -x "$1" - -v "''${@:2}" 2>&1 \
-+          | sed '1,/^#include <...>/d;/^[^ ]/,$d' \
-+          | xargs realpath -m
++          | sed '1,/^#include <...>/d;/^[^ ]/,$d;s/^ *//' \
++          | tr '\n' '\0' \
++          | xargs -0 realpath -ms
 +      }
 +      CXX_BUILTIN_INCLUDE_DIRECTORIES=($({
 +        include_dirs_for c
@@ -832,6 +867,7 @@ index 0000000..4809408
 +          include_dirs_for c++ -std=c++0x -no-canonical-prefixes
 +        fi
 +      } 2>&1 | sort -u))
++      unset IFS
 +
 +      # Determine list of supported compiler and linker flags.
 +      #
@@ -954,13 +990,15 @@ index 0000000..4809408
 +      # Write CC_TOOLCHAIN_INFO
 +      #
 +      # Each line has the following shape:
-+      #   <key> <value1> <value2> ...
-+      # I.e. each line contains one space-separated key-value pair, where the
-+      # value is a space-separated list.
++      #   <key>:<value1>:<value2>:...
++      # I.e. each line contains one colon-separated key-value pair, where the
++      # value is a colon-separated list.
 +      mkdir -p $out
 +      write_info() {
 +        local -n flags=$1
-+        echo $1 "''${flags[@]}" >>$out/CC_TOOLCHAIN_INFO
++        IFS=:
++        echo "$1:''${flags[*]}" >>$out/CC_TOOLCHAIN_INFO
++        unset IFS
 +      }
 +      write_info TOOL_NAMES
 +      write_info TOOL_PATHS
@@ -1082,10 +1120,10 @@ index 450810b..d86d6a5 100644
  )
 diff --git a/tests/cc-test.bzl b/tests/cc-test.bzl
 new file mode 100644
-index 0000000..c162e25
+index 0000000..8494cc8
 --- /dev/null
 +++ b/tests/cc-test.bzl
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,59 @@
 +load("@bazel_skylib//lib:paths.bzl", "paths")
 +load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 +
@@ -1099,7 +1137,7 @@ index 0000000..c162e25
 +    )
 +    ctx.actions.write(executable, content = """\
 +# Find cc in CC_TOOLCHAIN_INFO
-+while read -a line; do
++while IFS=: read -a line; do
 +    if [[ ${{line[0]}} = TOOL_PATHS ]]; then
 +        for item in ${{line[@]:1}}; do
 +            if [[ $item = */bin/cc ]]; then
@@ -1108,9 +1146,16 @@ index 0000000..c162e25
 +        done
 +    fi
 +done <{cc_toolchain_info_path}
-+if [[ {cc} != $CC ]]; then
-+    echo "Expected C compiler '$CC', but found '{cc}'." >&2
-+    exit 1
++if [[ {cc} = */cc_wrapper.sh ]]; then
++    grep -q "$CC" "{cc}" || {{
++        echo "Expected C compiler '$CC' in wrapper script '{cc}'." >&2
++        exit 1
++    }}
++else
++    if [[ {cc} != $CC ]]; then
++        echo "Expected C compiler '$CC', but found '{cc}'." >&2
++        exit 1
++    fi
 +fi
 +""".format(
 +        cc = cc.compiler_executable,
@@ -1118,7 +1163,10 @@ index 0000000..c162e25
 +    ))
 +    return [DefaultInfo(
 +        executable = executable,
-+        runfiles = ctx.runfiles(files = [ctx.file._cc_toolchain_info]),
++        runfiles = ctx.runfiles(
++            files = [ctx.file._cc_toolchain_info],
++            transitive_files = cc.all_files,
++        ),
 +    )]
 +
 +cc_toolchain_test = rule(
