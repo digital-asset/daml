@@ -9,6 +9,7 @@ import Crypto.Hash (hashlazy, Digest, SHA256)
 import Data.Aeson
 import Data.ByteArray.Encoding (Base(Base16), convertToBase)
 import Data.ByteString (ByteString)
+import Data.Either (fromRight)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
@@ -17,6 +18,7 @@ import qualified Data.Set as Set
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import qualified Data.Text as T
+import Network.HTTP.Client (responseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Options.Applicative
 import System.IO.Extra
@@ -67,8 +69,8 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , [ "}" ]
         ]
   where
-    renderChecksums (ver, Checksums{..}) =
-        [ "    \"" <> SemVer.toText ver <> "\": {"
+    renderChecksums (ver, Checksums{..}) = concat
+      [ [ "    \"" <> SemVer.toText ver <> "\": {"
         , "        \"linux\": " <> renderDigest linuxHash <> ","
         , "        \"macos\": " <> renderDigest macosHash <> ","
         , "        \"windows\": " <> renderDigest windowsHash <> ","
@@ -76,8 +78,12 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , "        \"daml_types\": " <> renderDigest damlTypesHash <> ","
         , "        \"daml_ledger\": " <> renderDigest damlLedgerHash <> ","
         , "        \"daml_react\": " <> renderDigest damlReactHash <> ","
-        , "    },"
         ]
+      , [ "        \"create_daml_app_patch\": " <> renderDigest hash <> ","
+        | Just hash <- [mbCreateDamlAppPatchHash]
+        ]
+      , [ "    }," ]
+      ]
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
     renderVersion ver = "    \"" <> SemVer.toText ver <> "\","
     stableVersions = filter (null . view SemVer.release) versions
@@ -94,24 +100,34 @@ data Checksums = Checksums
   , damlTypesHash :: Digest SHA256
   , damlLedgerHash :: Digest SHA256
   , damlReactHash :: Digest SHA256
+  , mbCreateDamlAppPatchHash :: Maybe (Digest SHA256)
+  -- ^ Nothing for older versions
   }
+
+-- | The messaging patch wasn’t included in 1.0.0 directly
+-- but only added later.
+-- However, the code did not change and we can apply
+-- the later patch on the older versions.
+-- Therefore we fallback to using the patch from this version
+-- for releases before this one.
+firstMessagingPatch :: Version
+firstMessagingPatch =
+    fromRight (error "Invalid version") $
+    SemVer.fromText "1.1.0-snapshot.20200422.3991.0.6391ee9f"
 
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
     putStrLn ("Requesting hashes for " <> SemVer.toString ver)
     [ linuxHash, macosHash, windowsHash, testToolHash,
-      damlTypesHash, damlLedgerHash, damlReactHash ] <-
+      damlTypesHash, damlLedgerHash, damlReactHash] <-
         forConcurrently
             [ sdkUrl "linux", sdkUrl "macos", sdkUrl "windows"
             , testToolUrl
             , tsLib "types"
             , tsLib "ledger"
             , tsLib "react"
-            ] $ \url -> do
-        req <- parseRequestThrow url
-        bs <- httpLbs req
-        let !hash = hashlazy (getResponseBody bs)
-        pure hash
+            ] getHash
+    mbCreateDamlAppPatchHash <- traverse getHash mbCreateDamlAppUrl
     pure Checksums {..}
   where sdkUrl platform =
             "https://github.com/digital-asset/daml/releases/download/v" <>
@@ -123,6 +139,17 @@ getChecksums ver = do
         tsLib name =
             "https://registry.npmjs.org/@daml/" <> name <>
             "/-/" <> name <> "-" <> SemVer.toString ver <> ".tgz"
+        mbCreateDamlAppUrl
+          | ver >= firstMessagingPatch =
+             Just $
+               "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
+               <> "/templates/create-daml-app-test-resources/messaging.patch"
+          | otherwise = Nothing
+        getHash url = do
+          req <- parseRequestThrow url
+          bs <- httpLbs req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
+          let !hash = hashlazy (getResponseBody bs)
+          pure hash
 
 optsParser :: Parser Opts
 optsParser = Opts

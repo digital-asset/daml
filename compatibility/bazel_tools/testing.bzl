@@ -257,6 +257,7 @@ def create_daml_app_test(
         daml_types,
         daml_react,
         daml_ledger,
+        messaging_patch,
         sandbox_args = [],
         json_api_args = [],
         data = [],
@@ -277,12 +278,15 @@ def create_daml_app_test(
                    "$(rootpath %s)" % daml_types,
                    "$(rootpath %s)" % daml_ledger,
                    "$(rootpath %s)" % daml_react,
+                   "$(rootpath %s)" % messaging_patch,
                    "$(rootpath @nodejs//:yarn)",
+                   "$(rootpath @patch_dev_env//:patch)",
                ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]) +
                _concat([["--json-api-arg", arg] for arg in json_api_args]),
         data = data + depset(direct = [
             "//bazel_tools/create-daml-app:runner",
             "@nodejs//:yarn",
+            "@patch_dev_env//:patch",
             # Deduplicate if daml and sandbox come from the same release.
             daml,
             sandbox,
@@ -290,6 +294,7 @@ def create_daml_app_test(
             daml_types,
             daml_react,
             daml_ledger,
+            messaging_patch,
         ]).to_list(),
         **kwargs
     )
@@ -389,6 +394,7 @@ def sdk_platform_test(sdk_version, platform_version):
         daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
         daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
         daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
+        messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
         sandbox_args = sandbox_args,
         json_api_args = json_api_args,
         size = "large",
