@@ -9,6 +9,7 @@ module DA.Daml.LF.Verify.Subst
   , createExprSubst
   , SubstTm(..)
   , SubstTy(..)
+  , InstPR(..)
   ) where
 
 import Control.Lens hiding (Context)
@@ -155,3 +156,56 @@ instance SubstTy TypeConApp where
 
 instance SubstTy CaseAlternative where
   substituteTy s (CaseAlternative p e) = CaseAlternative p (substituteTy s e)
+
+-- | A class covering the data types containing package references which can be
+-- instantiated..
+class InstPR a where
+  -- | Instantiate `PRSelf` with the given package reference.
+  instPRSelf :: PackageRef
+    -- ^ The package reference to substitute with.
+    -> a
+    -- ^ The data type to substitute in.
+    -> a
+
+instance InstPR (Qualified a) where
+  instPRSelf pac qx@(Qualified pac' mod x) = case pac' of
+    PRSelf -> Qualified pac mod x
+    _ -> qx
+
+instance InstPR Expr where
+  instPRSelf pac = \case
+    EVal val -> EVal (instPRSelf pac val)
+    ERecCon t fs -> ERecCon t $ map (over _2 (instPRSelf pac)) fs
+    ERecProj t f e -> ERecProj t f $ instPRSelf pac e
+    ERecUpd t f e1 e2 -> ERecUpd t f (instPRSelf pac e1) (instPRSelf pac e2)
+    EVariantCon t v e -> EVariantCon t v (instPRSelf pac e)
+    EStructCon fs -> EStructCon $ map (over _2 (instPRSelf pac)) fs
+    EStructProj f e -> EStructProj f (instPRSelf pac e)
+    EStructUpd f e1 e2 -> EStructUpd f (instPRSelf pac e1) (instPRSelf pac e2)
+    ETmApp e1 e2 -> ETmApp (instPRSelf pac e1) (instPRSelf pac e2)
+    ETyApp e t -> ETyApp (instPRSelf pac e) t
+    ETmLam b e -> ETmLam b (instPRSelf pac e)
+    ETyLam b e -> ETyLam b (instPRSelf pac e)
+    ECase e cs -> ECase (instPRSelf pac e)
+      $ map (\CaseAlternative{..} -> CaseAlternative altPattern (instPRSelf pac altExpr)) cs
+    ELet Binding{..} e -> ELet (Binding bindingBinder $ instPRSelf pac bindingBound)
+      (instPRSelf pac e)
+    ECons t e1 e2 -> ECons t (instPRSelf pac e1) (instPRSelf pac e2)
+    ESome t e -> ESome t (instPRSelf pac e)
+    EToAny t e -> EToAny t (instPRSelf pac e)
+    EFromAny t e -> EFromAny t (instPRSelf pac e)
+    EUpdate u -> EUpdate $ instPRSelf pac u
+    ELocation l e -> ELocation l (instPRSelf pac e)
+    e -> e
+
+instance InstPR Update where
+  instPRSelf pac = \case
+    UPure t e -> UPure t (instPRSelf pac e)
+    UBind Binding{..} e -> UBind (Binding bindingBinder $ instPRSelf pac bindingBound)
+      (instPRSelf pac e)
+    UCreate tem arg -> UCreate (instPRSelf pac tem) (instPRSelf pac arg)
+    UExercise tem ch cid act arg -> UExercise (instPRSelf pac tem) ch
+      (instPRSelf pac cid) (instPRSelf pac <$> act) (instPRSelf pac arg)
+    UFetch tem cid -> UFetch (instPRSelf pac tem) (instPRSelf pac cid)
+    UEmbedExpr t e -> UEmbedExpr t (instPRSelf pac e)
+    u -> u

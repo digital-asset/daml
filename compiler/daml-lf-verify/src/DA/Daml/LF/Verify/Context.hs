@@ -36,7 +36,6 @@ module DA.Daml.LF.Verify.Context
   , conditionalUpdateSet
   , solveValueReferences
   , solveChoiceReferences
-  , lookupChoInHMap
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
   ) where
@@ -45,7 +44,7 @@ import Control.Monad.Error.Class (MonadError (..), throwError)
 import Control.Monad.State.Lazy
 import Data.Hashable
 import GHC.Generics
-import Data.Maybe (listToMaybe, isJust, fromMaybe)
+import Data.Maybe (isJust, fromMaybe)
 import Data.List (find)
 import Data.Bifunctor
 import qualified Data.HashMap.Strict as HM
@@ -525,7 +524,7 @@ lookupVal val = do
     EnvVG{..} -> return _envvgvals
     EnvCG{..} -> return _envcgvals
     EnvS{..} -> return _envsvals
-  case lookupValInHMap vals val of
+  case HM.lookup val vals of
     Just res -> return res
     Nothing -> throwError (UnknownValue val)
 
@@ -543,7 +542,7 @@ lookupChoice tem ch = do
     EnvVG{..} -> return HM.empty
     EnvCG{..} -> return _envcgchs
     EnvS{..} -> return _envschs
-  case lookupChoInHMap chs (qualObject tem) ch of
+  case HM.lookup (UpdChoice tem ch) chs of
     Nothing -> throwError (UnknownChoice ch)
     Just ChoiceData{..} -> return (_cdUpds, _cdType)
 
@@ -577,32 +576,6 @@ lookupCid exp = do
     Nothing -> throwError $ UnknownCid cid
     Just var -> return var
 
--- TODO: There seems to be something wrong with the PackageRef in Qualified.
--- | Helper function to lookup a value definition in a HashMap.
-lookupValInHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet ph)
-  -- ^ The HashMap in which to look.
-  -> Qualified ExprValName
-  -- ^ The value name to lookup.
-  -> Maybe (Expr, UpdateSet ph)
-lookupValInHMap hmap val = listToMaybe $ HM.elems
-  $ HM.filterWithKey (\name _ -> qualObject name == qualObject val && qualModule name == qualModule val) hmap
-
--- TODO: Does this really need to be a seperate function?
--- | Helper function to lookup a choice in a HashMap. Returns the variables for
--- self, this and args used, as well as a function which, given the values for
--- self, this and args, produces the list of updates performed by this choice.
-lookupChoInHMap :: HM.HashMap UpdChoice (ChoiceData ph)
-  -- ^ The HashMap in which to look.
-  -> TypeConName
-  -- ^ The template in which the choice is defined.
-  -> ChoiceName
-  -- ^ The choice name to lookup.
-  -> Maybe (ChoiceData ph)
--- TODO: This TypeConName should be qualified
--- TODO: The type con name really should be taken into account here
-lookupChoInHMap hmap _tem cho = listToMaybe $ HM.elems
-  $ HM.filterWithKey (\upd _ -> _choName upd == cho) hmap
-
 -- | Solves the value references by computing the closure of all referenced
 -- values, for each value in the environment.
 -- It thus empties `_usValue` by collecting all updates made by this closure.
@@ -615,7 +588,7 @@ solveValueReferences EnvVG{..} =
       -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
       -> (Expr, UpdateSet 'ValueGathering)
     lookup_ref ref hmap = fromMaybe (error "Impossible: Undefined value ref while solving")
-      (lookupValInHMap hmap ref)
+      (HM.lookup ref hmap)
 
     get_refs :: (Expr, UpdateSet 'ValueGathering)
       -> ([Cond (Qualified ExprValName)], (Expr, UpdateSet 'ValueGathering))
@@ -654,8 +627,8 @@ solveChoiceReferences EnvCG{..} =
     lookup_ref :: UpdChoice
       -> HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
       -> ChoiceData 'ChoiceGathering
-    lookup_ref UpdChoice{..} hmap = fromMaybe (error "Impossible: Undefined choice ref while solving")
-      (lookupChoInHMap hmap (qualObject _choTemp) _choName)
+    lookup_ref upd hmap = fromMaybe (error "Impossible: Undefined choice ref while solving")
+      (HM.lookup upd hmap)
 
     get_refs :: (ChoiceData 'ChoiceGathering)
       -> ([Cond UpdChoice], ChoiceData 'ChoiceGathering)
@@ -848,6 +821,7 @@ data Error
   | UnboundVar ExprVarName
   | UnknownRecField FieldName
   | UnknownCid Cid
+  | UnknownTmpl TypeConName
   | ExpectRecord
   | ExpectCid
   | CyclicModules [ModuleName]
@@ -860,6 +834,7 @@ instance Show Error where
   show (UnboundVar name) = "Impossible: Unbound term variable: " ++ show name
   show (UnknownRecField f) = "Impossible: Unknown record field: " ++ show f
   show (UnknownCid cid) = "Impossible: Unknown contract id: " ++ show cid
+  show (UnknownTmpl tem) = "Impossible: Unknown template: " ++ show tem
   show ExpectRecord = "Impossible: Expected a record type"
   show ExpectCid = "Impossible: Expected a contract id"
   show (CyclicModules mods) = "Cyclic modules: " ++ show mods

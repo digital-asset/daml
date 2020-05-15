@@ -114,14 +114,16 @@ genValue :: (GenPhase ph, MonadEnv m ph)
   -- ^ The value to be analysed and added.
   -> m ()
 genValue pac mod val = do
-  expOut <- genExpr True (dvalBody val)
+  expOut <- genExpr True (instPRSelf pac $ dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
 -- | Analyse a choice definition and add to the environment.
 -- TODO: Handle annotated choices, by returning a set of annotations.
 genChoice :: MonadEnv m 'ChoiceGathering
-  => Qualified TypeConName
+  => PackageRef
+  -- ^ A reference to the package in which this choice is defined.
+  -> Qualified TypeConName
   -- ^ The template in which this choice is defined.
   -> (ExprVarName,ExprVarName)
   -- ^ The original and renamed variable `this` referencing the contract on
@@ -131,7 +133,7 @@ genChoice :: MonadEnv m 'ChoiceGathering
   -> TemplateChoice
   -- ^ The choice to be analysed and added.
   -> m ()
-genChoice tem (this',this) temFs TemplateChoice{..} = do
+genChoice pac tem (this',this) temFs TemplateChoice{..} = do
   let self' = chcSelfBinder
       arg' = fst chcArgBinder
   self <- genRenamedVar self'
@@ -141,7 +143,8 @@ genChoice tem (this',this) temFs TemplateChoice{..} = do
   argFs <- recTypFields (snd chcArgBinder)
   extRecEnv arg argFs
   expOut <- genExpr True
-    $ substituteTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]) chcUpdate
+    $ substituteTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)])
+    $ instPRSelf pac chcUpdate
   let out = if chcConsuming
         then addArchiveUpd tem fields expOut
         else expOut
@@ -167,7 +170,7 @@ genTemplate pac mod Template{..} = do
   extVarEnv this
   extRecEnv this fs
   extRecEnvLvl1 fields
-  mapM_ (genChoice name (tplParam,this) fs) (archive : NM.toList tplChoices)
+  mapM_ (genChoice pac name (tplParam,this) fs) (archive : NM.toList tplChoices)
   where
     archive :: TemplateChoice
     archive = TemplateChoice Nothing (ChoiceName "Archive") True

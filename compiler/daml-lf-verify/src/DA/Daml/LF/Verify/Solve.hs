@@ -159,7 +159,7 @@ data ConstraintSet = ConstraintSet
 -- | Filters a single update to match the given template, and takes out the
 -- field of interest. The update gets converted into a constraint expression.
 -- It returns either a create or an archive update.
-filterUpd :: TypeConName
+filterUpd :: Qualified TypeConName
   -- ^ The template name to filter against.
   -> [(ExprVarName, ExprVarName)]
   -- ^ The contract name synonyms, along with their current alias.
@@ -168,16 +168,16 @@ filterUpd :: TypeConName
   -> Upd
   -- ^ The update expression to convert and filter.
   -> (Maybe ConstraintExpr, Maybe ConstraintExpr)
-filterUpd tem syns f UpdCreate{..} = if tem == qualObject _creTemp
+filterUpd tem syns f UpdCreate{..} = if tem == _creTemp
   then (Just (toCExp syns $ fromJust $ lookup f _creField), Nothing)
   else (Nothing, Nothing)
-filterUpd tem syns f UpdArchive{..} = if tem == qualObject _arcTemp
+filterUpd tem syns f UpdArchive{..} = if tem == _arcTemp
   then (Nothing, Just (toCExp syns $ fromJust $ lookup f _arcField))
   else (Nothing, Nothing)
 
 -- | Filters and converts a conditional update into (possibly two) constraint
 -- expressions, while splitting it into create and archive updates.
-filterCondUpd :: TypeConName
+filterCondUpd :: Qualified TypeConName
   -- ^ The template name to filter against
   -> [(ExprVarName, ExprVarName)]
   -- ^ The contract name synonyms, along with their current alias.
@@ -224,17 +224,17 @@ constructSynonyms = foldl step []
 -- the template name, the choice and field to be verified.
 constructConstr :: Env 'Solving
   -- ^ The generator environment to convert.
-  -> TypeConName
+  -> Qualified TypeConName
   -- ^ The template name of the choice to be verified.
   -> ChoiceName
   -- ^ The choice name to be verified.
-  -> TypeConName
+  -> Qualified TypeConName
   -- ^ The template name of the field to be verified.
   -> FieldName
   -- ^ The field name to be verified.
   -> ConstraintSet
 constructConstr env chtem ch ftem f =
-  case lookupChoInHMap (_envschs env) chtem ch of
+  case HM.lookup (UpdChoice chtem ch) (_envschs env) of
     Just ChoiceData{..} ->
       let upds = _ussUpdate $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
           vars = concatMap skol2var (_envsskol env)

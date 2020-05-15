@@ -9,7 +9,9 @@ module DA.Daml.LF.Verify
   , verify
   ) where
 
-import Data.Text
+import Data.Maybe (maybe, listToMaybe, catMaybes)
+import qualified Data.NameMap as NM
+import Data.Text hiding (map, null, filter)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.String
 import Options.Applicative
@@ -40,7 +42,7 @@ outputError :: Error
   -- ^ The error message.
   -> String
   -- ^ An additional message providing context.
-  -> IO Result
+  -> IO a
 outputError err msg = do
   hPutStrLn stderr msg
   hPutStrLn stderr (show err)
@@ -60,10 +62,13 @@ verify :: FilePath
   -> FieldName
   -- ^ The field to be verified.
   -> IO Result
-verify dar debug choiceTmpl choiceName fieldTmpl fieldName = do
+verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
   -- Read the packages to analyse, and initialise the provided solver.
   pkgs <- readPackages [dar]
   solver <- getSolver
+  -- Find the given template names in the packages.
+  choiceTmpl <- findTemplate pkgs choiceTmplName
+  fieldTmpl <- findTemplate pkgs fieldTmplName
   -- Start reading data type and value definitions. References to other
   -- values are just stored as references at this point.
   debug "Start value gathering"
@@ -93,3 +98,43 @@ verify dar debug choiceTmpl choiceName fieldTmpl fieldName = do
           debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset))
           -- Pass the constraints to the SMT solver.
           solveConstr solver debug cset
+  where
+    -- | Lookup the first package that defines the given template. This avoids
+    -- having to pass in the package reference manually when using the tool.
+    findTemplate :: [(PackageId, (Package, Maybe PackageName))]
+      -- ^ The package from the DAR file.
+      -> TypeConName
+      -- ^ The template name.
+      -> IO (Qualified TypeConName)
+    findTemplate pkgs tem = maybe
+      (outputError (UnknownTmpl tem) "Parsing phase finished with error: ")
+      (\(pacid, mod) -> return $ Qualified (PRImport pacid) mod tem)
+      (listToMaybe $ catMaybes $ map (templateInPackage tem) pkgs)
+
+    -- | Return the package id and the name of the module containing the given
+    -- template, if it exists.
+    templateInPackage :: TypeConName
+      -- ^ The template to look for.
+      -> (PackageId, (Package, Maybe PackageName))
+      -- ^ The package to look in.
+      -> Maybe (PackageId, ModuleName)
+    templateInPackage tem (id, (pac,_)) =
+      case templateInModules tem $ NM.toList $ packageModules pac of
+        Nothing -> Nothing
+        Just mod -> Just (id, mod)
+
+    -- | Return the name of the module containing the given template, if it
+    -- exists.
+    templateInModules :: TypeConName
+      -- ^ The template to look for.
+      -> [Module]
+      -- ^ The modules to look in.
+      -> Maybe ModuleName
+    templateInModules tem mods =
+      listToMaybe $ catMaybes $
+        map ( \Module{..} ->
+                let tmpls = NM.toList moduleTemplates
+                in if null (filter (\Template{..} -> tplTypeCon == tem) tmpls)
+                  then Nothing
+                  else Just moduleName )
+        mods
