@@ -63,8 +63,10 @@ if is_windows; then
   # (this is what bazel does to determine the execroot name).
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
+  echo "Working directory: $PWD"
   SUFFIX="$(echo $PWD | md5sum)"
   SUFFIX="${SUFFIX:0:2}"
+  echo "Platform suffix: $SUFFIX"
   echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
 fi
 
