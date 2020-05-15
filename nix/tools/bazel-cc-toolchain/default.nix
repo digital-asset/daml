@@ -27,10 +27,10 @@ let cc-darwin =
       ln -sf $i $out/bin
     done
 
-    # Override clang
-    rm $out/bin/clang
+    # Override cc
+    rm $out/bin/cc
 
-    makeWrapper ${stdenv.cc}/bin/clang $out/bin/clang \
+    makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc \
       --add-flags "-Wno-unused-command-line-argument \
                    -mmacosx-version-min=10.14 \
                    -isystem ${llvmPackages.libcxx}/include/c++/v1 \
@@ -55,11 +55,11 @@ let cc-darwin =
     done
 
     # Override gcc
-    rm $out/bin/gcc
+    rm $out/bin/cc
 
     # We disable the fortify hardening as it causes issues with some
     # packages built with bazel that set these flags themselves.
-    makeWrapper ${stdenv.cc}/bin/gcc $out/bin/gcc \
+    makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc \
       --set hardeningDisable fortify
   '';
 
