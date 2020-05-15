@@ -19,6 +19,7 @@ case class RunnerConfig(
     ledgerHost: String,
     ledgerPort: Int,
     ledgerParty: String,
+    maxInboundMessageSize: Int,
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
     timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
@@ -27,7 +28,7 @@ case class RunnerConfig(
 )
 
 object RunnerConfig {
-
+  val DefaultMaxInboundMessageSize: Int = 4194304
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
   private def validatePath(path: String, message: String): Either[String, Unit] = {
@@ -58,6 +59,12 @@ object RunnerConfig {
     opt[String]("ledger-party")
       .action((t, c) => c.copy(ledgerParty = t))
       .text("Ledger party")
+
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}")
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -165,6 +172,7 @@ object RunnerConfig {
         ledgerHost = null,
         ledgerPort = 0,
         ledgerParty = null,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
         timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
