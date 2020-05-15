@@ -10,9 +10,8 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Defines how we read from an underlying ledger, using internal kvutils types.
   * This is the interface that the validator works against. However, ledger
   * integrations need not implement this directly.
-  * FIXME(miklos)
   * You can create a DamlLedgerStateReader instance via the factory methods
-  * available in [[com.daml.ledger.validator.privacy.PrivacyAwareSubmissionValidator]]
+  * available in [[com.daml.ledger.validator.SubmissionValidator]]
   * We're required to work at this level of abstraction in order to implement
   * efficient caching (e.g. package DamlStateValue is too large to be always
   * decompressed and deserialized from bytes).

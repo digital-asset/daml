@@ -67,11 +67,8 @@ object BatchedSubmissionValidator {
       logEntryId: DamlLogEntryId,
       submission: DamlSubmission)
 
-  // TODO(JM): We'll want to consistently prefix the log entry ids with a tag for hashing schema.
   private val LogEntryIdPrefix = "0"
 
-  // FIXME(ME): Shouldn't this rather be derived just from the submission?
-  // TODO(JM): Also consider using more space-efficient encoding (base64?)
   // While the log entry ID is no longer the basis for deriving absolute contract IDs,
   // it is used for keying log entries / fragments. We may want to consider content addressing
   // instead and remove the whole concept of log entry identifiers.
