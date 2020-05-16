@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $test_args = "//..."
 if (($args.length -ge 1) -and ($args[0] -eq "--quick")) {
-  $test_args = "//:head-quick"
+  $test_args = "//..."
 }
 write-output $test_args
 
