@@ -21,6 +21,12 @@
   <key>RunAtLoad</key>
   <false/>
 
+  <key>AbandonProcessGroup</key>
+  <true/>
+
+  <key>RunAtLoad</key>
+  <false/>
+
   <key>StandardErrorPath</key>
   <string>/Users/builder/rebuild-crontab.err</string>
 

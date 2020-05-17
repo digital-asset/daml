@@ -11,6 +11,15 @@ Example script for Launchctl scheduled rebuild of MacOS nodes. Run via
 launctl load com.digitalasset.macos-builder-crontab.plist
 ```
 
+and unload via 
+
+```bash
+launctl unload com.digitalasset.macos-builder-crontab.plist
+```
+
+NOTE: AbandonProcessGroup key is requied for VMWare or the started vmx process is sent a SIGTERM signal by launchd,
+causing node to halt and not be left running at end of script. Different behaviour to VirtualBox.
+
 ## rebuild-crontask.sh
 
 Script called by launchctl job to force destroy and rebuild a VSTS node. Needs a PAT token with job access 
