@@ -58,6 +58,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//ledger/participant-state/kvutils/app",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
