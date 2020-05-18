@@ -52,7 +52,7 @@ index 8596633..234c41b 100644
  
  [0.7.0]: https://github.com/tweag/rules_nixpkgs/compare/v0.6.0...v0.7.0
 diff --git a/README.md b/README.md
-index 721f64d..07dbd8c 100644
+index 721f64d..3ee682b 100644
 --- a/README.md
 +++ b/README.md
 @@ -176,7 +176,7 @@ Make the content of a Nixpkgs package available in the Bazel workspace.
@@ -83,7 +83,7 @@ index 721f64d..07dbd8c 100644
      <tr>
        <td><code>fail_not_supported</code></td>
        <td>
-@@ -321,6 +333,96 @@ filegroup(
+@@ -321,6 +333,99 @@ filegroup(
    </tbody>
  </table>
  
@@ -96,7 +96,10 @@ index 721f64d..07dbd8c 100644
 +this rule to specify explicitly which commands the toolchain should use.
 +
 +Specifically, it builds a Nix derivation that provides the CC toolchain tools
-+in the `bin/` path and constructs a CC toolchain that uses those tools.
++in the `bin/` path and constructs a CC toolchain that uses those tools. The
++following tools are expected `ar`, `cpp`, `dwp`, `cc`, `gcov`, `ld`, `nm`,
++`objcopy`, `objdump`, `strip`. Tools that aren't found are replaced by
++`${coreutils}/bin/false`.
 +
 +Note:
 +
@@ -180,7 +183,7 @@ index 721f64d..07dbd8c 100644
  ### nixpkgs_cc_configure
  
  Tells Bazel to use compilers and linkers from Nixpkgs for the CC
-@@ -328,6 +430,15 @@ toolchain. By default, Bazel autodetects a toolchain on the current
+@@ -328,6 +433,16 @@ toolchain. By default, Bazel autodetects a toolchain on the current
  `PATH`. Overriding this autodetection makes builds more hermetic and
  is considered a best practice.
  
@@ -188,10 +191,11 @@ index 721f64d..07dbd8c 100644
 +
 +Use `nixpkgs_cc_configure_hermetic` instead.
 +
-+This uses Bazel's autoconfigure toolchain under the hood, which is
-+inhermetic. In particular, system include directories specified in the
-+environment can leak in and affect the cache keys of target depending on
-+the cc toolchain leading to cache misses.
++While this improves upon Bazel's autoconfigure toolchain by picking tools from
++a Nix derivation rather than the environment, it is still not fully hermetic as
++it is affected by the environment. In particular, system include directories
++specified in the environment can leak in and affect the cache keys of targets
++depending on the cc toolchain leading to cache misses.
 +
  Example:
  
@@ -275,7 +279,7 @@ index 6662530..94678bd 100644
  )
  
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index fb87da4..6bf2d90 100644
+index fb87da4..9a9ad75 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
 @@ -1,7 +1,15 @@
@@ -393,7 +397,7 @@ index fb87da4..6bf2d90 100644
          "quiet": attr.bool(),
          "fail_not_supported": attr.bool(default = True, doc = """
              If set to True (default) this rule will fail on platforms which do not support Nix (e.g. Windows). If set to False calling this rule will succeed but no output will be generated.
-@@ -244,6 +308,323 @@ def nixpkgs_package(*args, **kwargs):
+@@ -244,6 +308,329 @@ def nixpkgs_package(*args, **kwargs):
      else:
          _nixpkgs_package(*args, **kwargs)
  
@@ -648,6 +652,12 @@ index fb87da4..6bf2d90 100644
 +    `gcc`) available in the environment. To make builds more hermetic, use
 +    this rule to specify explicitly which commands the toolchain should use.
 +
++    Specifically, it builds a Nix derivation that provides the CC toolchain
++    tools in the `bin/` path and constructs a CC toolchain that uses those
++    tools. The following tools are expected `ar`, `cpp`, `dwp`, `cc`, `gcov`,
++    `ld`, `nm`, `objcopy`, `objdump`, `strip`. Tools that aren't found are
++    replaced by `${coreutils}/bin/false`.
++
 +    Note:
 +      You need to configure `--crosstool_top=@<name>//:toolchain` to activate this
 +      toolchain.
@@ -717,27 +727,29 @@ index fb87da4..6bf2d90 100644
  def _readlink(repository_ctx, path):
      return repository_ctx.path(path).realpath
  
-@@ -323,6 +704,14 @@ def nixpkgs_cc_configure(
+@@ -323,6 +710,16 @@ def nixpkgs_cc_configure(
          nixopts = []):
      """Use a CC toolchain from Nixpkgs. No-op if not a nix-based platform.
  
 +    Deprecated:
 +      Use `nixpkgs_cc_configure_hermetic` instead.
 +
-+      This uses Bazel's autoconfigure toolchain under the hood, which is
-+      inhermetic. In particular, system include directories specified in the
-+      environment can leak in and affect the cache keys of target depending on
-+      the cc toolchain leading to cache misses.
++      While this improves upon Bazel's autoconfigure toolchain by picking tools
++      from a Nix derivation rather than the environment, it is still not fully
++      hermetic as it is affected by the environment. In particular, system
++      include directories specified in the environment can leak in and affect
++      the cache keys of targets depending on the cc toolchain leading to cache
++      misses.
 +
      By default, Bazel auto-configures a CC toolchain from commands (e.g.
      `gcc`) available in the environment. To make builds more hermetic, use
      this rule to specific explicitly which commands the toolchain should
 diff --git a/nixpkgs/toolchains/cc.nix b/nixpkgs/toolchains/cc.nix
 new file mode 100644
-index 0000000..88cf785
+index 0000000..6b1bff4
 --- /dev/null
 +++ b/nixpkgs/toolchains/cc.nix
-@@ -0,0 +1,279 @@
+@@ -0,0 +1,278 @@
 +with import <nixpkgs> { config = {}; overlays = []; };
 +
 +{ attribute_path ? null
@@ -761,7 +773,7 @@ index 0000000..88cf785
 +      done
 +
 +      # Override cc
-+      rm $out/bin/cc
++      rm -f $out/bin/cc $out/bin/clang $out/bin/clang++
 +      makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc --add-flags \
 +        "-isystem ${llvmPackages.libcxx}/include/c++/v1 \
 +        -F${CoreFoundation}/Library/Frameworks \
@@ -887,10 +899,8 @@ index 0000000..88cf785
 +          add_compiler_option_if_supported -Wthread-safety
 +          add_compiler_option_if_supported -Wself-assign
 +          # Disable problematic warnings.
-+          # XXX: Causes clang warning
 +          add_compiler_option_if_supported -Wunused-but-set-parameter
 +          # has false positives
-+          # XXX: Causes clang warning
 +          add_compiler_option_if_supported -Wno-free-nonheap-object
 +          # Enable coloring even if there's no attached terminal. Bazel removes the
 +          # escape sequences if --nocolor is specified.
@@ -902,7 +912,6 @@ index 0000000..88cf785
 +      CXX_FLAGS=(-std=c++0x)
 +      LINK_FLAGS=(
 +        $(
-+          # XXX: absolute path is only supported by clang.
 +          if [[ -x ${cc}/bin/ld.gold ]]; then echo -fuse-ld=gold; fi
 +          add_linker_option_if_supported -Wl,-no-as-needed -no-as-needed
 +          add_linker_option_if_supported -Wl,-z,relro,-z,now -z
@@ -993,13 +1002,15 @@ index 0000000..88cf785
 +      #
 +      # Each line has the following shape:
 +      #   <key>:<value1>:<value2>:...
-+      # I.e. each line contains one colon-separated key-value pair, where the
-+      # value is a colon-separated list.
++      # or
++      #   <key>
++      # I.e. each line is a colon-separated list of the key and the values.
 +      mkdir -p $out
 +      write_info() {
 +        local -n flags=$1
++        local output=( "$1" "''${flags[@]}" )
 +        IFS=:
-+        echo "$1:''${flags[*]}" >>$out/CC_TOOLCHAIN_INFO
++        echo "''${output[*]}" >>$out/CC_TOOLCHAIN_INFO
 +        unset IFS
 +      }
 +      write_info TOOL_NAMES
