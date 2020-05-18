@@ -14,14 +14,13 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
+import com.daml.ledger.participant.state.kvutils.{Bytes, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,6 +39,7 @@ final class InMemoryLedgerReaderWriter private (
     extends LedgerWriter
     with LedgerReader {
 
+  private val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
   private val committer = new ValidatingCommitter(
     () => timeProvider.getCurrentTime,
     SubmissionValidator
@@ -60,32 +60,16 @@ final class InMemoryLedgerReaderWriter private (
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // so we can use `.view`
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
-    dispatcher
-      .startingAt(
-        startExclusive
-          .map(KVOffset.highestIndex(_).toInt)
-          .getOrElse(StartIndex),
-        RangeSource((startExclusive, endInclusive) =>
-          Source.fromIterator(() => {
-            Timed.value(
-              metrics.daml.ledger.log.read,
-              state
-                .readLog(
-                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1))
-                .iterator)
-          }))
-      )
-      .map { case (_, updates) => updates }
+    reader.events(startExclusive)
 }
 
 object InMemoryLedgerReaderWriter {
   type Index = Int
 
-  private val StartIndex: Index = 0
-
   private val NamespaceLogEntries = "L"
+
+  private[memory] val StartIndex: Index = 0
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
