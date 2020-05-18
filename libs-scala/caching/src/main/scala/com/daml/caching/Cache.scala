@@ -12,6 +12,8 @@ sealed abstract class Cache[Key, Value] {
 
   def get(key: Key, acquire: Key => Value): Value
 
+  def getIfPresent(key: Key): Option[Value]
+
   def size: Cache.Size
 
   def weight: Cache.Size
@@ -43,6 +45,8 @@ object Cache {
 
     override def get(key: Key, acquire: Key => Value): Value = acquire(key)
 
+    override def getIfPresent(key: Key): Option[Value] = None
+
     override val size: Cache.Size = 0
 
     override val weight: Cache.Size = 0
@@ -54,6 +58,9 @@ object Cache {
 
     override def get(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
+
+    override def getIfPresent(key: Key): Option[Value] =
+      Option(cache.getIfPresent(key))
 
     override def size: Cache.Size =
       cache.estimatedSize()
