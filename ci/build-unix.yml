@@ -12,7 +12,7 @@ steps:
 
   - bash: |
       set -euo pipefail
-      eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
+      eval "$(dev-env/bin/dade-assist)"
       bazel clean --expunge
 
   - bash: |
