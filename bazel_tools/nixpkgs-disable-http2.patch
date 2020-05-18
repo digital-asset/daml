@@ -1,8 +1,8 @@
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index 263bb37..d363dfb 100644
+index 2f2c83d..61123c6 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
-@@ -88,7 +88,7 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -156,7 +156,7 @@ def _nixpkgs_package_impl(repository_ctx):
          "The NIX_PATH environment variable is not inherited."
      )
  
@@ -11,15 +11,12 @@ index 263bb37..d363dfb 100644
      if repository_ctx.attr.nix_file and repository_ctx.attr.nix_file_content:
          fail("Specify one of 'nix_file' or 'nix_file_content', but not both.")
      elif repository_ctx.attr.nix_file:
-diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index 263bb37..3360b9b 100644
---- a/nixpkgs/nixpkgs.bzl
-+++ b/nixpkgs/nixpkgs.bzl
-@@ -117,6 +117,7 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -186,6 +186,8 @@ def _nixpkgs_package_impl(repository_ctx):
          "bazel-support/nix-out-link",
      ])
  
 +    expr_args.extend(["--option", "http2", "false"])
-     expr_args.extend(repository_ctx.attr.nixopts)
- 
-     # If repositories is not set, leave empty so nix will fail
++
+     if repository_ctx.attr.expand_location:
+         expr_args.extend([
+             _expand_location(repository_ctx, opt, nix_file_deps, "nixopts")
