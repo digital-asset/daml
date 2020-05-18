@@ -44,7 +44,7 @@ final class InMemoryLedgerReaderWriter private (
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .createForTimeMode(
-        InMemoryLedgerStateAccess,
+        new InMemoryLedgerStateAccess(state, metrics),
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         stateValueCache = stateValueCache,
         engine = engine,
@@ -78,13 +78,6 @@ final class InMemoryLedgerReaderWriter private (
           }))
       )
       .map { case (_, updates) => updates }
-
-  object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      state.write { (log, state) =>
-        body(new TimedLedgerStateOperations(new InMemoryLedgerStateOperations(log, state), metrics))
-      }
-  }
 }
 
 object InMemoryLedgerReaderWriter {

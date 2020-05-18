@@ -5,8 +5,14 @@ import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.validator.BatchingLedgerStateOperations
+import com.daml.ledger.validator.{
+  BatchingLedgerStateOperations,
+  LedgerStateAccess,
+  LedgerStateOperations,
+  TimedLedgerStateOperations
+}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.metrics.Metrics
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,6 +33,15 @@ private[memory] final class InMemoryLedgerStateOperations(
 
   override def appendToLog(key: Key, value: Value): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
+}
+
+private[memory] class InMemoryLedgerStateAccess(state: InMemoryState, metrics: Metrics)(
+    implicit executionContext: ExecutionContext)
+    extends LedgerStateAccess[Index] {
+  override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
+    state.write { (log, state) =>
+      body(new TimedLedgerStateOperations(new InMemoryLedgerStateOperations(log, state), metrics))
+    }
 }
 
 object InMemoryLedgerStateOperations {
