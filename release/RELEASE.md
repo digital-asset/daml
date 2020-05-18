@@ -2,7 +2,7 @@
 
 First, you need to decide whether you are making a technical snapshot
 ("prerelease" at the github level, hereafter "snapshot") or an officially
-supported release (hereafter "stable release").  For the latter, there are
+supported release (hereafter "stable release"). For the latter, there are
 extra steps marked as **[STABLE]** in the following instructions. You have to
 skip those if you are making a snapshot release, that is, one intended mostly
 for internal use and early testing, but which makes no promises about future
@@ -10,43 +10,45 @@ compatibility.
 
 In either case, before going through the following list, you need to know which
 commit you want to create the release from, `$SHA`. For a stable release, it is
-highly recommended that this be the same commit as the latest existing
-snapshot, so we "bless" an existing, tested version of the SDK rather than try
-our luck with a random new one. For a snapshot, this should generally be the
-latest commit on master.
+highly recommended that this be the same commit as an existing snapshot, and
+these instructions will be written from that perspective.
+
+Valid commits for a release should come from either the `master` branch or one
+of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
+patches we backport to the 1.0 release branch).
 
 > **IMPORTANT**: If the release fails, please do not just abandon it. There are
 > some cleanup steps that need to be taken.
 
 1. **[STABLE]** Coordinate with the product and marketing teams to define
    release highlights, tweets, blog posts, as well as timeline for publishing
-   the release. Define a version number, `$VERSION`. The following command may
-   be useful as a starting point; it will list all changes between the previous
-   stable release and the latest snapshot release:
-
+   the release. Define a version number, `$VERSION`. As a starting point, find
+   out the sha of the reference version (previous stable release in the same
+   release branch), say `$PREV_SHA`, and run:
    ```
-   ./release.sh changes stable latest
+   ./unreleased.sh $PREV_SHA $SHA
    ```
 
 1. Pull the latest master branch of the `daml` repository and create a new,
    clean branch off it.
 
-   - For a snapshot, run `./release.sh snapshot HEAD`.
-     - If applicable (e.g. latest release was a stable one), edit `LATEST` to
-       update the release "version". For example, change:
-       ```
-       6ea118d6142d2a937286b0a7bf9846dbcdb1751b 0.13.56-snapshot.20200318.3529.0.6ea118d6
-       ```
-       to:
-       ```
-       6ea118d6142d2a937286b0a7bf9846dbcdb1751b 0.13.57-snapshot.20200318.3529.0.6ea118d6
-       ```
-   - For a stable release, run `echo "$SHA $VERSION" > LATEST`.
-     - Ideally, for a stable release, the resulting change is only to cut off
-       the prerelease part of the version number (the `-snapshot...`).
+   - For a snapshot, run `./release.sh snapshot $SHA`. This will print the
+     corresponding snapshot suffix. Add a line to the LATEST file for this new
+     release, of the form `$SHA $TARGET-$SUFFIX`, where `$SHA` is the sha of
+     the release commit you want to target, `$TARGET` is the intended target
+     release number, and `$SUFFIX` is the output of the script above. If there
+     is already a snapshot targeting the same final release number, replace it;
+     if not, add a new line at the top of the file.
+   - For a stable release, just remove the snapshot suffix from the latest
+     entry for that branch in the LATEST file.
 
 1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
    and label for the new version. (See previous releases as examples.)
+
+   Note that the release notes page is not version dependent, i.e. you are
+   editing the one and only release notes page. If the release your are making
+   is a patch on a support branch, it should be included in-between the next
+   "minor" release and the latest patch to the branch your are targeting.
 
    Once we are ready to make a release stable, preliminary release
    notes will already have been published to the blog, e.g., the
@@ -70,7 +72,7 @@ latest commit on master.
       release. In particular, this means that in Rst terminology all
       of these are external links.
    1. Pandoc does not seem to preserve markup of inline code blocks so
-      you will have to manually add wrap them in double backslashes.
+      you will have to manually wrap them in double backslashes.
 
 1. Once this is done, create a GitHub pull request (PR) with the above changes
    to the `LATEST` and (for a stable release) `release-notes.rst` files. It is
@@ -78,6 +80,10 @@ latest commit on master.
    `Standard-Change` label. Note that if the build failed because of this, you
    should be able to add the label and "rerun failed checks" in a few seconds;
    there is no need to restart an entire build cycle.
+
+1. Once the PR has built, check that it was considered a release build by our
+   CI. You can do that by looking at the output of the `check_for_release`
+   build step.
 
 1. Get a review and approval on your PR and then merge it into master.
    **[STABLE]** For a stable release, the approval **MUST** be from the team
@@ -321,34 +327,15 @@ latest commit on master.
    page](https://github.com/digital-asset/daml/releases). Mention why it is bad
    as a comment on your PR, and **stop the process here**.
 
-1. Add the label `Standard-Change` to your PR.
-
-1. Go to [the releases page](https://github.com/digital-asset/daml/releases)
-   and edit the release to look better. For both types of release, the release
-   title should be the version number (i.e. same as the git tag). For a
-   snapshot, the message should be set to
-
-   > This is a snapshot release. Use at your own risk.
-
-   For a stable release, the message should contain the team-lead-approved
-   release notes, and the "prerelease" checkbox should be unticked.
+1. **[STABLE]** Go to [the releases page](https://github.com/digital-asset/daml/releases)
+   and add the release notes. This unfortunately involves translating the
+   release notes from rst to markdown. Once the release has been adequately
+   tested, untick the `pre-release` box.
 
 1. Announce the release on the relevant internal Slack channels (#product-daml,
-   \#team-daml). Add release notes in a thread under your announcement. For a
-   stable release, these are the notes decided with the product team; for a
-   snapshot release, include both the changes in this release (i.e. since the
-   last snapshot) and the complete list of changes since the last stable
-   release. Use the raw output of `unreleased.sh`.
-
-   You can produce the changes since the previous (snapshot or stable) release
-   by running:
-   ```
-   ./release.sh changes previous latest
-   ```
-   and the changes between the latest stable and the previous release with:
-   ```
-   ./release.sh changes stable previous
-   ```
+   \#team-daml). For a stable release, direct people to the release blog post;
+   for a prerelease, you can include the raw output of the `unreleased.sh`
+   script as explained above.
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
    announcements (public Slack, Twitter, etc.).
