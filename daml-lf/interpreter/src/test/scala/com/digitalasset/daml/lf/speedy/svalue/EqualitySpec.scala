@@ -176,7 +176,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(null, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {

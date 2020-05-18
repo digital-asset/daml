@@ -142,7 +142,7 @@ object SExpr {
       }
 
       val sValues = convertToSValues(fv, machine.getEnv)
-      machine.returnValue = SPAP(PClosure(body, sValues), new util.ArrayList[SValue](), arity)
+      machine.returnValue = SPAP(PClosure(null, body, sValues), new util.ArrayList[SValue](), arity)
     }
   }
 
@@ -230,6 +230,22 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KCatch(handler, fin, machine.env.size))
       machine.ctrl = body
+    }
+  }
+
+  /** This is used only during profiling. When a package is compiled with
+    * profiling enabled, the right hand sides of top-level and let bindings,
+    * lambdas and some builtins are wrapped into [[SELabelClosure]]. During
+    * runtime, if the value resulting from evaluating [[expr]] is a
+    * (partially applied) closure, the label of the closure is set to the
+    * [[label]] given here.
+    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * [[AnyRef]] for the label.
+    */
+  final case class SELabelClosure(label: AnyRef, expr: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KLabelClosure(label))
+      machine.ctrl = expr
     }
   }
 
@@ -430,6 +446,8 @@ object SExpr {
         )
       )
   }
+
+  final case object AnonymousClosure
 
   private def prettyPrint(x: Any): String =
     x match {

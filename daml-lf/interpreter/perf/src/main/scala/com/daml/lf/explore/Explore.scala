@@ -22,7 +22,7 @@ object PlaySpeedy {
 
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)
-    val compiler: Compiler = Compiler(Map.empty)
+    val compiler: Compiler = Compiler(Map.empty, Compiler.NoProfile)
 
     val e: SExpr = compiler.unsafeClosureConvert(examples(config.exampleName))
     val m: Machine = makeMachine(e)
@@ -58,8 +58,8 @@ object PlaySpeedy {
   private val txSeed = crypto.Hash.hashPrivateKey("SpeedyExplore")
 
   def makeMachine(sexpr: SExpr): Machine = {
-    val compiledPackages: CompiledPackages = PureCompiledPackages(Map.empty).right.get
-    val compiler = Compiler(compiledPackages.packages)
+    val compiledPackages: CompiledPackages =
+      PureCompiledPackages(Map.empty, Compiler.NoProfile).right.get
     Machine.fromSExpr(
       sexpr,
       compiledPackages,

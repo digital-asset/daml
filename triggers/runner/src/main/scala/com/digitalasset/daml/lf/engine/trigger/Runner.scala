@@ -110,7 +110,7 @@ object Trigger extends StrictLogging {
       }
     }
 
-    val compiler = Compiler(compiledPackages.packages)
+    val compiler = compiledPackages.compiler
     for {
       pkg <- compiledPackages
         .getPackage(triggerId.packageId)
@@ -208,7 +208,7 @@ class Runner(
     party: String,
 ) extends StrictLogging {
   // Compiles LF expressions into Speedy expressions.
-  private val compiler: Compiler = Compiler(compiledPackages.packages)
+  private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = Converter(compiledPackages, trigger.triggerIds)
   // This is a map from the command IDs used on the ledger API to the
