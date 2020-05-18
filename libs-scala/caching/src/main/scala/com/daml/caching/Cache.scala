@@ -8,6 +8,8 @@ import com.github.benmanes.caffeine.{cache => caffeine}
 import scala.compat.java8.OptionConverters._
 
 sealed abstract class Cache[Key, Value] {
+  def put(key: Key, value: Value): Unit
+
   def get(key: Key, acquire: Key => Value): Value
 
   def size: Cache.Size
@@ -37,6 +39,8 @@ object Cache {
     }
 
   final class NoCache[Key, Value] private[Cache] extends Cache[Key, Value] {
+    override def put(key: Key, value: Value): Unit = ()
+
     override def get(key: Key, acquire: Key => Value): Value = acquire(key)
 
     override val size: Cache.Size = 0
@@ -46,6 +50,8 @@ object Cache {
 
   final class CaffeineCache[Key, Value] private[Cache] (val cache: caffeine.Cache[Key, Value])
       extends Cache[Key, Value] {
+    override def put(key: Key, value: Value): Unit = cache.put(key, value)
+
     override def get(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
 
