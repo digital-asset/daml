@@ -29,6 +29,7 @@ genrule(
       cp -L $(location :daml/Retry.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ExerciseByKey.daml) $$TMP_DIR/daml
       cp -L $(location :daml/CreateAndExercise.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MaxInboundMessageTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Numeric.daml) $$TMP_DIR/daml
       cp -L $(location :daml/CommandId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/PendingSet.daml) $$TMP_DIR/daml

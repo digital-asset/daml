@@ -63,7 +63,12 @@ object TriggerServiceFixture {
         ledgerPort,
         TimeProviderType.Static,
         Duration.ofSeconds(30))
-      service <- ServiceMain.startServer("localhost", 0, ledgerConfig, dar)
+      service <- ServiceMain.startServer(
+        "localhost",
+        0,
+        ledgerConfig,
+        ServiceConfig.DefaultMaxInboundMessageSize,
+        dar)
     } yield service
 
     val fa: Future[A] = for {

@@ -90,6 +90,7 @@ object Server {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
+      maxInboundMessageSize: Int,
       dar: Option[Dar[(PackageId, Package)]],
   ): Behavior[Message] = Behaviors.setup { ctx =>
     // http doesn't know about akka typed so provide untyped system
@@ -126,7 +127,12 @@ object Server {
                     val ident = uuid.toString
                     val ref = ctx.spawn(
                       TriggerRunner(
-                        new TriggerRunner.Config(compiledPackages, trigger, ledgerConfig, party),
+                        new TriggerRunner.Config(
+                          compiledPackages,
+                          trigger,
+                          ledgerConfig,
+                          maxInboundMessageSize,
+                          party),
                         ident),
                       ident + "-monitor")
                     triggers = triggers + (uuid -> TriggerRunnerWithParty(ref, party))
@@ -267,10 +273,11 @@ object ServiceMain {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
+      maxInboundMessageSize: Int,
       dar: Option[Dar[(PackageId, Package)]])
     : Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
-      ActorSystem(Server(host, port, ledgerConfig, dar), "TriggerService")
+      ActorSystem(Server(host, port, ledgerConfig, maxInboundMessageSize, dar), "TriggerService")
     // timeout chosen at random, change freely if you see issues
     implicit val timeout: Timeout = 15.seconds
     implicit val scheduler: Scheduler = system.scheduler
@@ -301,7 +308,9 @@ object ServiceMain {
             config.commandTtl,
           )
         val system: ActorSystem[Server.Message] =
-          ActorSystem(Server("localhost", config.httpPort, ledgerConfig, dar), "TriggerService")
+          ActorSystem(
+            Server("localhost", config.httpPort, ledgerConfig, config.maxInboundMessageSize, dar),
+            "TriggerService")
         // Timeout chosen at random, change freely if you see issues.
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler
