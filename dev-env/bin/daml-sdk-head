@@ -78,9 +78,9 @@ if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
   }
   trap cleanup EXIT
 
-  bazel build "${BAZEL_MODE_FLAGS[@]}" //compiler/damlc:damlc-dist.tar.gz
+  bazel build ${BAZEL_MODE_FLAGS[@]:-} //compiler/damlc:damlc-dist.tar.gz
 
-  readonly TARBALL="$(bazel info bazel-bin "${BAZEL_MODE_FLAGS[@]}")/compiler/damlc/damlc-dist.tar.gz"
+  readonly TARBALL="$(bazel info bazel-bin "${BAZEL_MODE_FLAGS[@]:-}")/compiler/damlc/damlc-dist.tar.gz"
   chmod -R u+w "$DAML_HEAD_SDK"
   rm -rf "${DAML_HEAD_SDK}/damlc"
   mkdir -p "${DAML_HEAD_SDK}/damlc"
@@ -106,9 +106,9 @@ function cleanup() {
 trap cleanup EXIT
 
 # Building here separately so the user can see the build process which could take a while
-bazel build "${BAZEL_MODE_FLAGS[@]}" //release:sdk-release-tarball.tar.gz
+bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:sdk-release-tarball.tar.gz
 
-readonly TARBALL="$(bazel info bazel-bin "${BAZEL_MODE_FLAGS[@]}")/release/sdk-release-tarball.tar.gz"
+readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/sdk-release-tarball.tar.gz"
 readonly SDK_TEMP_DIR="$(mktemp -d)"
 readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
 mkdir -p "$SDK_DIR"
