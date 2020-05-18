@@ -28,7 +28,7 @@ let cc-darwin =
     done
 
     # Override cc
-    rm $out/bin/cc
+    rm $out/bin/cc $out/bin/clang $out/bin/clang++
 
     makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc \
       --add-flags "-Wno-unused-command-line-argument \
@@ -55,7 +55,7 @@ let cc-darwin =
     done
 
     # Override gcc
-    rm $out/bin/cc
+    rm $out/bin/cc $out/bin/gcc $out/bin/g++
 
     # We disable the fortify hardening as it causes issues with some
     # packages built with bazel that set these flags themselves.
