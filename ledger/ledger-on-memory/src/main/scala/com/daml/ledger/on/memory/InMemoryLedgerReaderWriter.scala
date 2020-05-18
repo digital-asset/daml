@@ -12,12 +12,10 @@ import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
-import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -86,22 +84,6 @@ final class InMemoryLedgerReaderWriter private (
       state.write { (log, state) =>
         body(new TimedLedgerStateOperations(new InMemoryLedgerStateOperations(log, state), metrics))
       }
-  }
-
-  private final class InMemoryLedgerStateOperations(
-      log: InMemoryState.MutableLog,
-      state: InMemoryState.MutableState,
-  ) extends BatchingLedgerStateOperations[Index] {
-    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      Future.successful(keys.map(state.get))
-
-    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
-      state ++= keyValuePairs
-      Future.unit
-    }
-
-    override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
   }
 }
 
@@ -184,12 +166,4 @@ object InMemoryLedgerReaderWriter {
           zeroIndex = StartIndex,
           headAtInitialization = StartIndex,
       ))
-
-  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Index = {
-    val entryAtIndex = log.size
-    val offset = KVOffset.fromLong(entryAtIndex.toLong)
-    val entry = createEntry(offset)
-    log += entry
-    entryAtIndex
-  }
 }
