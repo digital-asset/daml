@@ -33,7 +33,7 @@ private[lf] object Compiler {
   // NOTE(MH): We make this an enum type to avoid boolean blindness. In fact,
   // other profiling modes like "only trace the ledger interactions" might also
   // be useful.
-  sealed abstract class ProfilingMode
+  sealed abstract class ProfilingMode extends Product with Serializable
   case object NoProfile extends ProfilingMode
   case object FullProfile extends ProfilingMode
 

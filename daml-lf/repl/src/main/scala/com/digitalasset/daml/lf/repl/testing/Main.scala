@@ -551,7 +551,7 @@ object Repl {
             (false, state)
           case Right((diff @ _, steps @ _, ledger, value @ _)) =>
             println("Writing profile...")
-            machine.profile.setName(scenarioId)
+            machine.profile.name = scenarioId
             machine.profile.writeSpeedscopeJson(outputFile)
             (true, state)
         }

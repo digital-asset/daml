@@ -16,7 +16,7 @@ final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
   private val events: ArrayList[Event] = new ArrayList()
-  private var name: String = "DAML Engine profile"
+  var name: String = "DAML Engine profile"
 
   def addOpenEvent(label: AnyRef) = {
     val time = System.nanoTime()
@@ -26,10 +26,6 @@ final class Profile {
   def addCloseEvent(label: AnyRef) = {
     val time = System.nanoTime()
     events.add(Event(false, label, time))
-  }
-
-  def setName(name: String) = {
-    this.name = name
   }
 
   def writeSpeedscopeJson(filename: String) = {
