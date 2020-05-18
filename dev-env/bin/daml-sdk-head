@@ -95,7 +95,8 @@ echo "$(tput setaf 3)Building version 0.0.0 - this may take a while ...$(tput sg
 echo ""
 
 function cleanup() {
-  echo "SDK 0.0.0 failed to build/install - if you need help ask on #product-daml"
+  echo "SDK 0.0.0 failed to build/install - if you need help ask on"
+  echo "https://slack.daml.com or https://discuss.daml.com."
   echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
 
   if [[ -n "${SDK_TEMP_DIR+x}" && -d "$SDK_TEMP_DIR" ]]; then
