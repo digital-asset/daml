@@ -50,6 +50,7 @@ def daml_haskell_deps():
             "directory",
             "extra",
             "filepath",
+            "http-client",
             "http-conduit",
             "jwt",
             "lens",

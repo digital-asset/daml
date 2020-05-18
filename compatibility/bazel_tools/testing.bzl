@@ -42,6 +42,18 @@ excluded_test_tool_tests = {
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
+        "1.1.1": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
     },
     "1.0.1-snapshot.20200417.3908.1.722bac90": {
         "0.0.0": [
@@ -70,6 +82,18 @@ excluded_test_tool_tests = {
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
         ],
+        "1.1.1": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
     },
     "1.0.1-snapshot.20200424.3917.0.16093690": {
         "1.0.0": [
@@ -89,6 +113,14 @@ excluded_test_tool_tests = {
             "ContractKeysSubmitterIsMaintainerIT",
         ],
         "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
+        "1.1.1": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
+        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
         ],
@@ -118,6 +150,14 @@ excluded_test_tool_tests = {
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
         ],
+        "1.1.1": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
+        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+        ],
         "0.0.0": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
@@ -139,6 +179,18 @@ excluded_test_tool_tests = {
             "ContractKeysIT",
         ],
         "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.1": [
+            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
+            "ContractKeysSubmitterIsMaintainerIT",
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
             # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
             "ContractKeysSubmitterIsMaintainerIT",
             # Fix for https://github.com/digital-asset/daml/issues/5562
@@ -166,6 +218,34 @@ excluded_test_tool_tests = {
         ],
     },
     "1.1.0-snapshot.20200506.4107.0.7e448d81": {
+        "1.0.0": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200417.3908.1.722bac90": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+    },
+    "1.1.1": {
+        "1.0.0": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.0.1-snapshot.20200417.3908.1.722bac90": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
+            # Fix for https://github.com/digital-asset/daml/issues/5562
+            "ContractKeysIT",
+        ],
+    },
+    "1.2.0-snapshot.20200513.4172.0.021f4af3": {
         "1.0.0": [
             # Fix for https://github.com/digital-asset/daml/issues/5562
             "ContractKeysIT",
@@ -257,6 +337,7 @@ def create_daml_app_test(
         daml_types,
         daml_react,
         daml_ledger,
+        messaging_patch,
         sandbox_args = [],
         json_api_args = [],
         data = [],
@@ -277,12 +358,15 @@ def create_daml_app_test(
                    "$(rootpath %s)" % daml_types,
                    "$(rootpath %s)" % daml_ledger,
                    "$(rootpath %s)" % daml_react,
+                   "$(rootpath %s)" % messaging_patch,
                    "$(rootpath @nodejs//:yarn)",
+                   "$(rootpath @patch_dev_env//:patch)",
                ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]) +
                _concat([["--json-api-arg", arg] for arg in json_api_args]),
         data = data + depset(direct = [
             "//bazel_tools/create-daml-app:runner",
             "@nodejs//:yarn",
+            "@patch_dev_env//:patch",
             # Deduplicate if daml and sandbox come from the same release.
             daml,
             sandbox,
@@ -290,6 +374,7 @@ def create_daml_app_test(
             daml_types,
             daml_react,
             daml_ledger,
+            messaging_patch,
         ]).to_list(),
         **kwargs
     )
@@ -389,6 +474,7 @@ def sdk_platform_test(sdk_version, platform_version):
         daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
         daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
         daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
+        messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
         sandbox_args = sandbox_args,
         json_api_args = json_api_args,
         size = "large",

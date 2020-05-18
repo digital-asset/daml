@@ -1,6 +1,5 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 module Main (main) where
 
 import qualified Bazel.Runfiles
@@ -38,7 +37,9 @@ data Tools = Tools
   , damlLedgerPath :: FilePath
   , damlTypesPath :: FilePath
   , damlReactPath :: FilePath
+  , messagingPatch :: FilePath
   , yarnPath :: FilePath
+  , patchPath :: FilePath
   }
 
 newtype DamlOption = DamlOption FilePath
@@ -101,12 +102,26 @@ instance IsOption DamlReactOption where
   optionName = Tagged "daml-react"
   optionHelp = Tagged "path to extracted daml-react package"
 
+newtype MessagingPatchOption = MessagingPatchOption FilePath
+instance IsOption MessagingPatchOption where
+  defaultValue = MessagingPatchOption ""
+  parseValue = Just . MessagingPatchOption
+  optionName = Tagged "messaging-patch"
+  optionHelp = Tagged "path to messaging patch"
+
 newtype YarnOption = YarnOption FilePath
 instance IsOption YarnOption where
   defaultValue = YarnOption ""
   parseValue = Just . YarnOption
   optionName = Tagged "yarn"
   optionHelp = Tagged "path to yarn"
+
+newtype PatchOption = PatchOption FilePath
+instance IsOption PatchOption where
+  defaultValue = PatchOption ""
+  parseValue = Just . PatchOption
+  optionName = Tagged "patch"
+  optionHelp = Tagged "path to patch"
 
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
@@ -118,7 +133,9 @@ withTools tests = do
   askOption $ \(DamlLedgerOption damlLedgerPath) -> do
   askOption $ \(DamlTypesOption damlTypesPath) -> do
   askOption $ \(DamlReactOption damlReactPath) -> do
+  askOption $ \(MessagingPatchOption messagingPatch) -> do
   askOption $ \(YarnOption yarnPath) -> do
+  askOption $ \(PatchOption patchPath) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -138,7 +155,9 @@ withTools tests = do
           , damlLedgerPath
           , damlTypesPath
           , damlReactPath
+          , messagingPatch
           , yarnPath
+          , patchPath
           }
   tests tools
 
@@ -154,7 +173,9 @@ main = do
         , Option @DamlLedgerOption Proxy
         , Option @DamlTypesOption Proxy
         , Option @DamlReactOption Proxy
+        , Option @MessagingPatchOption Proxy
         , Option @YarnOption Proxy
+        , Option @PatchOption Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
@@ -199,6 +220,29 @@ main = do
           step "Build the application UI"
           callProcessSilent yarnPath ["build"]
         assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
+
+        step "Patch the application code with messaging feature"
+        withCurrentDirectory cdaDir $ do
+          callProcessSilent patchPath ["-p2", "-i", messagingPatch]
+          forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
+            assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
+          step "Build the new DAML model"
+          callProcessSilent damlBinary ["build"]
+          step "Set up TypeScript libraries and Yarn workspaces for codegen again"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"])
+            [ (DamlTypes, damlTypesPath), (DamlLedger, damlLedgerPath) ]
+          step "Run JavaScript codegen for new DAML model"
+          callProcessSilent damlBinary ["codegen", "js", "-o", "daml.js", ".daml/dist/create-daml-app-0.1.0.dar"]
+        withCurrentDirectory (cdaDir </> "ui") $ do
+          step "Set up libraries and workspaces again for UI build"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"])
+            [(DamlLedger, damlLedgerPath), (DamlReact, damlReactPath), (DamlTypes, damlTypesPath)]
+          step "Install UI dependencies again, forcing rebuild of generated code"
+          callProcessSilent yarnPath ["install", "--force", "--frozen-lockfile"]
+          step "Run linter again"
+          callProcessSilent yarnPath ["lint", "--max-warnings", "0"]
+          step "Build the new UI"
+          callProcessSilent yarnPath ["build"]
 
 data TsLibrary
     = DamlLedger
