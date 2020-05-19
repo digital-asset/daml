@@ -468,9 +468,9 @@ class HashSpec extends WordSpec with Matchers {
           | 274830656c6f7de1daf729d11c57c40ef271a101a831d89e45f034ce7bd71d9d
           |ValueParty(bob)
           | dc1f0fc026d3200a1781f0989dd1801022e028e8afe5d953a033e6d35e8ea50b
-          |ValueContractId(AbsoluteContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
+          |ValueContractId(ContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
           | 0649b1e1e7f34be457c44146e449299109167b9199101349873142ed05878b96
-          |ValueContractId(AbsoluteContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
+          |ValueContractId(ContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
           | 0b8c0cc8ebbd56e275b60cf73133387322a42448986dc3858b31eef23098e8e8
           |ValueOptional(None)
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086

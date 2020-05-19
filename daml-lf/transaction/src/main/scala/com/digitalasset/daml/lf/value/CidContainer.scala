@@ -67,7 +67,7 @@ trait CidContainer[+A] {
   ): B =
     data.assertRight(ensureNoCid.left.map(message))
 
-  // Sets the suffix of any the V1 AbsoluteContractId `coid` of the container that are not already suffixed.
+  // Sets the suffix of any the V1 ContractId `coid` of the container that are not already suffixed.
   // Uses `f(coid.discriminator)` as suffix.
   final def suffixCid[B](f: crypto.Hash => Bytes)(
       implicit suffixer: CidSuffixer[A, B]

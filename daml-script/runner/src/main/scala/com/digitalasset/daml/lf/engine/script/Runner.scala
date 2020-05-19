@@ -41,7 +41,7 @@ import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
-import ParticipantsJsonProtocol.AbsoluteContractIdFormat
+import ParticipantsJsonProtocol.ContractIdFormat
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -89,7 +89,7 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
     }
     def write(p: Party) = JsString(p.party)
   }
-  implicit val AbsoluteContractIdFormat: JsonFormat[ContractId] =
+  implicit val ContractIdFormat: JsonFormat[ContractId] =
     new JsonFormat[ContractId] {
       override def write(obj: ContractId) =
         JsString(obj.coid)

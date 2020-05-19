@@ -75,10 +75,6 @@ object Ledger {
   /** The node of the transaction graph. Only differs from the update
     * transaction node * in the node identifier, where here the identifier
     * is global.
-    *
-    * Note that here the contract ids refer to NodeIds. Or in other
-    * words, all AbsoluteContractIds are also NodeIds (but not the
-    * reverse, node ids might be exercises)
     */
   type Node = GenNode.WithTxValue[ScenarioNodeId, ContractId]
 
@@ -939,27 +935,6 @@ object Ledger {
     collect(value)
     coids.result()
   }
-
-  /*
-  def relativeContractIdToNodeId(commitPrefix: String,
-                                 rcoid: RelativeContractId): NodeId =
-    NodeId(commitPrefix ++ rcoid.index.toString)
-
-  def contractIdToNodeId(commitPrefix: String, coid: ContractId): NodeId =
-    coid match {
-      case acoid: AbsoluteContractId => absoluteContractIdToNodeId(acoid)
-      case rcoid: RelativeContractId =>
-        relativeContractIdToNodeId(commitPrefix, rcoid)
-    }
-
-  def contractIdToNodeIdOrTrNodeId(
-      coid: ContractId): Either[NodeId, Tr.NodeId] = {
-    coid match {
-      case AbsoluteContractId(acoid) => Left(acoid)
-      case RelativeContractId(rcoid) => Right(rcoid)
-    }
-  }
-   */
 
   // ----------------------------------------------------------------
   // Cache for active contracts and nodes

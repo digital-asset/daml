@@ -69,7 +69,7 @@ trait FieldValidations {
   def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
-  def requireAbsoluteContractId(
+  def requireContractId(
       s: String,
       fieldName: String
   ): Either[StatusRuntimeException, ContractId] =

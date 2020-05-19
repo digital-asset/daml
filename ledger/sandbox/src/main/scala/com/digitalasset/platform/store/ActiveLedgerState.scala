@@ -5,7 +5,7 @@ package com.daml.platform.store
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.AbsoluteContractInst
+import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.Node.GlobalKey
@@ -69,5 +69,5 @@ trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
   def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
       global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, AbsoluteContractInst)]): ALS
+      referencedContracts: List[(Value.ContractId, ContractInst)]): ALS
 }

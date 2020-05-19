@@ -25,9 +25,9 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
-    updateWithAbsoluteContractId(tx)
+    updateWithContractId(tx)
 
-  def updateWithAbsoluteContractId(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
+  def updateWithContractId(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
     this.synchronized {
       // traverse in topo order and add / remove
       @tailrec

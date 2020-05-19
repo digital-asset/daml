@@ -589,7 +589,7 @@ private class JdbcLedgerDao(
   override def lookupActiveOrDivulgedContract(
       contractId: ContractId,
       forParty: Party,
-  ): Future[Option[AbsoluteContractInst]] =
+  ): Future[Option[ContractInst]] =
     contractsReader.lookupActiveContract(forParty, contractId)
 
   private val SQL_SELECT_MULTIPLE_PARTIES =

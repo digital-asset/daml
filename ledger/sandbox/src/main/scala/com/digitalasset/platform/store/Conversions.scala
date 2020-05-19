@@ -87,8 +87,6 @@ object Conversions {
   def participantId(columnName: String): RowParser[Ref.ParticipantId] =
     SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId)
 
-  // AbsoluteContractId
-
   implicit val columnToContractId: Column[Value.ContractId] =
     stringColumnToX(Value.ContractId.fromString)
 

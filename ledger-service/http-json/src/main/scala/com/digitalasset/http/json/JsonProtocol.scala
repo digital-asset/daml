@@ -27,10 +27,10 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
+  implicit val DomainContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
 
-  implicit val AbsoluteContractIdFormat: JsonFormat[ContractId] =
+  implicit val ContractIdFormat: JsonFormat[ContractId] =
     new JsonFormat[ContractId] {
       override def write(obj: ContractId) =
         JsString(obj.coid)

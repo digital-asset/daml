@@ -351,7 +351,7 @@ object Value extends CidContainer1[Value] {
 
   object ContractId {
     final case class V0(coid: Ref.ContractIdString) extends ContractId {
-      override def toString: String = s"AbsoluteContractId($coid)"
+      override def toString: String = s"ContractId($coid)"
     }
 
     object V0 {
@@ -368,7 +368,7 @@ object Value extends CidContainer1[Value] {
         with data.NoCopy {
       lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
-      override def toString: String = s"AbsoluteContractId($coid)"
+      override def toString: String = s"ContractId($coid)"
     }
 
     object V1 {

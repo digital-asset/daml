@@ -10,14 +10,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.{
-  AbsoluteContractInst,
-  Configuration,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo,
-  TimeModel
-}
+import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
@@ -92,9 +86,9 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     someAgreement
   )
 
-  protected final val defaultConfig = Configuration(
+  protected final val defaultConfig = v1.Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = v1.TimeModel.reasonableDefault,
     Duration.ofDays(1),
   )
 
@@ -439,13 +433,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
   protected final def store(
-      divulgedContracts: Map[(ContractId, AbsoluteContractInst), Set[Party]],
+      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       offsetAndTx: (Offset, LedgerEntry.Transaction))(
       implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offset, entry) = offsetAndTx
     val submitterInfo =
       for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
-        yield SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
+        yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
     ledgerDao
       .storeTransaction(
         submitterInfo = submitterInfo,
@@ -455,7 +449,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = entry.ledgerEffectiveTime,
         offset = offset,
-        divulged = divulgedContracts.keysIterator.map(c => DivulgedContract(c._1, c._2)).toList
+        divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
       )
       .map(_ => offsetAndTx)
   }

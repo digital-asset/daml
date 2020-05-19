@@ -147,7 +147,7 @@ object Converter {
   def toContractId(v: SValue): Either[String, ContractId] =
     v match {
       case SContractId(cid: ContractId) => Right(cid)
-      case _ => Left(s"Expected AbsoluteContractId but got $v")
+      case _ => Left(s"Expected ContractId but got $v")
     }
 
   def toExerciseCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =

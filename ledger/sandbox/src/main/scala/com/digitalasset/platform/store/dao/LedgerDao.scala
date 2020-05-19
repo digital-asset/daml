@@ -75,7 +75,7 @@ trait LedgerReadDao extends ReportsHealth {
     *
     * @param key the contract key to query
     * @param forParty the party for which the contract must be visible
-    * @return the optional AbsoluteContractId
+    * @return the optional ContractId
     */
   def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]]
 

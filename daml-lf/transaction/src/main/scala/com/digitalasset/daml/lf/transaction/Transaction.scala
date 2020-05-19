@@ -54,12 +54,6 @@ case class VersionedTransaction[Nid, Cid](
   *
   * Abstracts over NodeId type and ContractId type
   * ContractId restricts the occurrence of contractIds
-  * either AbsoluteContractId if only absolute ids occur
-  * or ContractId when both absolute and relative ids are allowed
-  *
-  * The Cid parameter is invariant on purpose, since we do not want
-  * to confuse transactions with AbsoluteContractId and ones with ContractId.
-  * For example, when enriching the transaction the difference is key.
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.

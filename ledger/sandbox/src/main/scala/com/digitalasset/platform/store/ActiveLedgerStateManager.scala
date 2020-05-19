@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{Disputed, Inconsistent, InvalidLedgerTime}
-import com.daml.ledger.participant.state.v1.AbsoluteContractInst
+import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
@@ -66,7 +66,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       transaction: GenTransaction.WithTxValue[EventId, ContractId],
       disclosure: Relation[EventId, Party],
       globalDivulgence: Relation[ContractId, Party],
-      divulgedContracts: List[(Value.ContractId, AbsoluteContractInst)])
+      divulgedContracts: List[(Value.ContractId, ContractInst)])
     : Either[Set[RejectionReason], ALS] = {
     // NOTE(RA): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
     // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`

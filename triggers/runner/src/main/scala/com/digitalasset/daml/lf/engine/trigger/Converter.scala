@@ -378,21 +378,20 @@ object Converter {
     }
   }
 
-  private def toAbsoluteContractId(v: SValue): Either[String, ContractId] = {
+  private def toContractId(v: SValue): Either[String, ContractId] = {
     v match {
       case SContractId(cid: ContractId) => Right(cid)
-      case _ => Left(s"Expected AbsoluteContractId but got $v")
+      case _ => Left(s"Expected ContractId but got $v")
     }
   }
 
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 => {
+      case SRecord(_, _, vals) if vals.size == 2 =>
         for {
           templateId <- toTemplateTypeRep(vals.get(0))
-          contractId <- toAbsoluteContractId(vals.get(1))
+          contractId <- toContractId(vals.get(1))
         } yield AnyContractId(templateId, contractId)
-      }
       case _ => Left(s"Expected AnyContractId but got $v")
     }
   }

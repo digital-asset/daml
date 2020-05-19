@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.stores
 import java.time.Instant
 
 import com.daml.ledger.api.domain.{PartyDetails, RejectionReason}
-import com.daml.ledger.participant.state.v1.AbsoluteContractInst
+import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
@@ -101,8 +101,7 @@ case class InMemoryActiveLedgerState(
   override def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
       global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, AbsoluteContractInst)])
-    : InMemoryActiveLedgerState =
+      referencedContracts: List[(Value.ContractId, ContractInst)]): InMemoryActiveLedgerState =
     if (global.nonEmpty) {
       val referencedContractsM = referencedContracts.toMap
       // Note: each entry in `global` can refer to either:
@@ -154,7 +153,7 @@ case class InMemoryActiveLedgerState(
       transaction: GenTransaction.WithTxValue[EventId, ContractId],
       disclosure: Relation[EventId, Party],
       globalDivulgence: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, AbsoluteContractInst)]
+      referencedContracts: List[(Value.ContractId, ContractInst)]
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,

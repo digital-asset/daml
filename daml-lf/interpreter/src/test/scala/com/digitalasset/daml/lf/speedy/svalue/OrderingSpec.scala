@@ -86,12 +86,9 @@ class OrderingSpec
     ).map(STimestamp compose Time.Timestamp.assertFromString)
   private val parties =
     List("alice", "bob", "carol").map(SParty compose Ref.Party.assertFromString)
-  private val absoluteContractId =
+  private val contractIds =
     List("a", "b", "c")
       .map(x => SContractId(Value.ContractId.assertFromString("#" + x)))
-//  private val relativeContractId =
-//    List(0, 1).map(x => SContractId(Value.RelativeContractId(Value.NodeId(x))))
-  private val contractIds = absoluteContractId //++ relativeContractId
 
   private val enums =
     List(EnumCon1, EnumCon2, EnumCon3).zipWithIndex.map {
@@ -462,7 +459,7 @@ class OrderingSpec
       }
     }
 
-    "match global AbsoluteContractId ordering" in forEvery(Table("gen", comparableCoidsGen: _*)) {
+    "match global ContractId ordering" in forEvery(Table("gen", comparableCoidsGen: _*)) {
       coidGen =>
         forAll(coidGen, coidGen, minSuccessful(50)) { (a, b) =>
           Cid.`Cid Order`.order(a, b) should ===(cidOrd.order(a, b))

@@ -82,7 +82,7 @@ class ValueSpec
 
   }
 
-  "AbsoluteContractID.V1.build" - {
+  "ContractID.V1.build" - {
 
     "rejects too long suffix" in {
 
@@ -115,7 +115,7 @@ class ValueSpec
     }
   }
 
-  "AbsoluteContractId" - {
+  "ContractId" - {
     type T = ContractId
     implicit val arbT: Arbitrary[T] = Arbitrary(coidGen)
     "Order" - {

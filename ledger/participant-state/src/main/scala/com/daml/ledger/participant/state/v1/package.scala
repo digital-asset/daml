@@ -107,8 +107,8 @@ package object v1 {
   type CommittedTransaction =
     GenTransaction.WithTxValue[NodeId, Value.ContractId]
 
-  /** A contract instance with absolute contract identifiers only. */
-  type AbsoluteContractInst =
+  /** A contract instance. */
+  type ContractInst =
     Value.ContractInst[Value.VersionedValue[Value.ContractId]]
 
 }
