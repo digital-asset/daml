@@ -17,6 +17,10 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
+if [[ "$(uname)" != "Darwin" ]]; then
+    bazel clean --expunge
+fi
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... --build_tag_filters "$tag_filter"
 
