@@ -218,7 +218,8 @@ genUpdate = \case
     out <- genExpr True expr
     return (out, typ, Nothing)
   -- TODO: Extend additional cases
-  _ -> error "Update not implemented yet"
+  UGetTime -> return (emptyOut (EUpdate UGetTime), TBuiltin BTTimestamp, Nothing)
+  u -> error ("Update not implemented yet: " ++ show u)
 
 -- | Analyse a term application expression.
 genForTmApp :: (GenPhase ph, MonadEnv m ph)
@@ -480,5 +481,7 @@ bindCids (TCon tc) cid (EVar this) fsExp = do
   creFs <- maybe (pure []) recExpFields fsExp
   extCtrRec this creFs
 bindCids (TBuiltin BTUnit) _ _ _ = return ()
+bindCids (TBuiltin BTTimestamp) _ _ _ = return ()
 -- TODO: Extend additional cases, like tuples.
-bindCids _ _ _ _ = error "Binding contract id's for this particular type has not been implemented yet"
+bindCids typ _ _ _ =
+  error ("Binding contract id's for this particular type has not been implemented yet: " ++ show typ)
