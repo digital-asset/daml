@@ -97,11 +97,12 @@ abstract class BaseLedger(
     )
 
   override def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed] =
-    ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose)
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
+    val activeAt = ledgerEnd
+    (ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose), activeAt)
+  }
 
   override def lookupContract(
       contractId: AbsoluteContractId,

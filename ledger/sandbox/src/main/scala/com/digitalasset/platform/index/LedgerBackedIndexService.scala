@@ -61,10 +61,9 @@ abstract class LedgerBackedIndexService(
       filter: TransactionFilter,
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
-    val ledgerEnd = ledger.ledgerEnd
-    ledger
-      .activeContracts(ledgerEnd, convertFilter(filter), verbose)
-      .concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
+    val (acs, ledgerEnd) = ledger
+      .activeContracts(convertFilter(filter), verbose)
+    acs.concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
   }
 
   override def transactionTrees(
