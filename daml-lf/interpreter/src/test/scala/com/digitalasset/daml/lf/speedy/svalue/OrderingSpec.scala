@@ -340,6 +340,9 @@ class OrderingSpec
       Seq(
         r("Int64", VA.int64)(SInt64),
         r("Text", VA.text)(SText),
+        r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
+          SList(loi.map(oi => SOptional(oi map SInt64)).to[FrontStack])
+        },
       ) ++
         comparableAbsCoidsGen.zipWithIndex.map {
           case (g, ix) => (s"ContractId $ix", g map SContractId)
