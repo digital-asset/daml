@@ -119,6 +119,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 # Patchelf system dependency
@@ -128,6 +131,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 # netcat dependency
@@ -137,6 +143,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
@@ -157,6 +166,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
@@ -181,6 +193,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
@@ -201,6 +216,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
@@ -221,6 +239,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
@@ -256,6 +277,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 nixpkgs_package(
@@ -264,6 +288,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 nixpkgs_package(
@@ -272,6 +299,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 nix_ghc_deps = common_nix_file_deps + [
@@ -287,6 +317,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 nixpkgs_package(
@@ -296,6 +329,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 nixpkgs_package(
@@ -304,6 +340,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 load(
@@ -328,6 +367,9 @@ filegroup(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 ) if is_linux else None
 
 # This is used to get ghc-pkg on Linux.
@@ -341,6 +383,9 @@ exports_files(glob(["lib/**/*"]))
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 ) if not is_windows else None
 
 common_ghc_flags = [
@@ -403,6 +448,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
@@ -424,6 +472,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 #node & npm
@@ -435,6 +486,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 #sass
@@ -444,6 +498,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 #tex
@@ -453,6 +510,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 #sphinx
@@ -462,6 +522,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 #Imagemagick
@@ -471,6 +534,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 #Javadoc
@@ -481,6 +547,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 # This will not be needed after merge of the PR to bazel adding proper javadoc filegroups:
@@ -526,6 +595,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 # Dummy target //external:python_headers.
@@ -575,6 +647,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 # A repository that generates the Go SDK imports, see
@@ -804,6 +879,9 @@ cc_library(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 nixpkgs_package(
@@ -813,6 +891,9 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `sdk-daml-head`.
+    quiet = True,
 )
 
 dev_env_tool(
