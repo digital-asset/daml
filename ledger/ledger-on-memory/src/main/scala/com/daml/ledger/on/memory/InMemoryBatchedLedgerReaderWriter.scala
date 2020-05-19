@@ -40,7 +40,7 @@ final class InMemoryBatchedLedgerReaderWriter(
     metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
-  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] = {
+  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
         val reader = DamlLedgerStateReader.from(
@@ -57,8 +57,10 @@ final class InMemoryBatchedLedgerReaderWriter(
               Future.successful(SubmissionResult.InternalError(exception.getLocalizedMessage))
           }
       }
-      .andThen { case Success(_) => dispatcher.signalNewHead(state.logSize()) }
-  }
+      .andThen {
+        case Success(_) =>
+          dispatcher.signalNewHead(state.logSize())
+      }
 
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     reader.events(startExclusive)
