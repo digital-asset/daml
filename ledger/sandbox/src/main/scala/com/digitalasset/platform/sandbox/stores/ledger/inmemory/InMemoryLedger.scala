@@ -198,12 +198,13 @@ class InMemoryLedger(
   override def activeContracts(
       filter: Map[Party, Set[Ref.Identifier]],
       verbose: Boolean,
-  ): (Source[GetActiveContractsResponse, NotUsed], Offset) =
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
+    val (acsNow, ledgerEndNow) = this.synchronized { (acs, ledgerEnd) }
     (
       Source
         .fromIterator[ActiveContract](
           () =>
-            acs.activeContracts.valuesIterator.flatMap(
+            acsNow.activeContracts.valuesIterator.flatMap(
               index
                 .EventFilter(_)(TransactionFilter(filter.map {
                   case (party, templates) =>
@@ -238,7 +239,8 @@ class InMemoryLedger(
             )
           )
         },
-      ledgerEnd /*TODO SC derive from copy of acs var instead*/ )
+      ledgerEndNow)
+  }
 
   override def lookupContract(
       contractId: AbsoluteContractId,
