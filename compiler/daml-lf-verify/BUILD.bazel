@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
     name = "daml-lf-verify",
