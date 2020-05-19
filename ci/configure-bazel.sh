@@ -40,9 +40,34 @@ cd "$(dirname "$0")"/..
 
 step "configuring bazel"
 
+if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
+    cd "$BAZEL_CONFIG_DIR"
+fi
+
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
+
+  # Modify the output path to avoid shared action keys.
+  # The issue appears to be that GCC produces absolute paths
+  # to system includes in .d files. These files are cached
+  # so the absolute paths leak into different builds. Most of the time
+  # this works since Azure reuses the working directory. However,
+  # between the daily compatibility job seems to get a different
+  # working directory because it is in a different pipeline.
+  # To make matters worse, the working directory depends on which
+  # job runs first afaict. There is a counter that simply gets incremented.
+  # Sharing between the compatibility workspace and the main workspace
+  # runs into the same issue.
+  # To sidestep this we take a md5 hash of PWD
+  # (this is what bazel does to determine the execroot name).
+  # To avoid exceeding the maximum path limit on Windows we limit the suffix to
+  # three characters.
+  echo "Working directory: $PWD"
+  SUFFIX="$(echo $PWD | md5sum)"
+  SUFFIX="${SUFFIX:0:2}"
+  echo "Platform suffix: $SUFFIX"
+  echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork

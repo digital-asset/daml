@@ -15,12 +15,24 @@ Of course there are more to choose from, but this is one combination that works.
     - `Jest <https://jestjs.io/>`_ is a general-purpose testing framework for JavaScript that's well integrated with both TypeScript and React. Jest helps you structure your tests and express expectations of the app's behaviour.
     - `Puppeteer <https://pptr.dev/>`_ is a library for controlling a Chrome browser from JavaScript/TypeScript. Puppeteer allows you to simulate interactions with the app in place of a real user.
 
+To install Puppeteer and some other testing utilities we are going to use,
+run the following command in the ``ui`` directory::
+
+    yarn add --dev puppeteer wait-on @types/jest @types/node @types/puppeteer @types/wait-on
+
 
 Setting up our tests
 ====================
 
 Let's see how to use these tools to write some tests for our social network app.
-You can see the full suite in the file ``index.test.tsx``.
+You can see the full suite in section :ref:`Full Test Suite` at the bottom of
+this page.
+To run this test suite, create a new file ``ui/src/index.test.ts``, copy the
+code in this section into that file and run the following command in the ``ui``
+folder::
+
+    yarn test
+
 The actual tests are the clauses beginning with ``test``.
 You can scroll down to the important ones with the following descriptions (the first argument to each ``test``):
 
@@ -49,10 +61,10 @@ This means we use Puppeteer to type text into input forms, click buttons and sea
 In order to find those elements, we do need to make some adjustments in our React components, which we'll show later.
 Let's start at a higher level with a ``test``.
 
-.. literalinclude:: code/ui-before/index.test.tsx
-  :language: tsx
-  :start-after: // BEGIN_LOGIN_TEST
-  :end-before: // END_LOGIN_TEST
+.. literalinclude:: code/testing/index.test.ts
+  :language: ts
+  :start-after: // LOGIN_TEST_BEGIN
+  :end-before: // LOGIN_TEST_END
 
 We'll walk though this step by step.
 
@@ -75,10 +87,10 @@ We showed how to write a simple test at a high level, but haven't shown how to m
 This was hidden in the ``login()`` and ``logout()`` functions.
 Let's see how ``login()`` is implemented.
 
-.. literalinclude:: code/ui-before/index.test.tsx
-  :language: tsx
-  :start-after: // BEGIN_LOGIN_FUNCTION
-  :end-before: // END_LOGIN_FUNCTION
+.. literalinclude:: code/testing/index.test.ts
+  :language: ts
+  :start-after: // LOGIN_FUNCTION_BEGIN
+  :end-before: // LOGIN_FUNCTION_END
 
 We first wait to receive a handle to the username input element.
 This is important to ensure the page and relevant elements are loaded by the time we try to act on them.
@@ -93,10 +105,10 @@ In this case we use *class selectors*, which look for CSS classes we've given to
 This means we must manually add classes to the components we want to test.
 For example, here is a snippet of the ``LoginScreen`` React component with classes added to the ``Form`` elements.
 
-.. literalinclude:: code/ui-before/LoginScreen.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/LoginScreen.tsx
   :language: tsx
-  :start-after: // BEGIN_FORM
-  :end-before: // END_FORM
+  :start-after: {/* FORM_BEGIN */}
+  :end-before: {/* FORM_END */}
 
 You can see the ``className`` attributes in the ``Input`` and ``Button``, which we select in the ``login()`` function.
 Note that you can use other features of an element in your selector, such as its type and attributes.
@@ -116,3 +128,12 @@ Semantic UI provides a convenient set of UI elements which get translated to HTM
 In the example of the username field above, the original Semantic UI ``Input`` is translated to nested ``div`` nodes with the ``input`` inside.
 You can see this highlighted on the right side of the screenshot.
 While harmless in this case, in general you may need to inspect the HTML translation of UI elements and write your CSS selectors accordingly.
+
+
+.. _Full Test Suite:
+
+The Full Test Suite
+===================
+
+.. literalinclude:: code/testing/index.test.ts
+  :language: ts

@@ -9,7 +9,7 @@ load(
 da_scala_library(
     name = "auth-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset:auth-utils:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:auth-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

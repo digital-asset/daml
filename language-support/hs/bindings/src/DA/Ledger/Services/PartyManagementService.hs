@@ -16,7 +16,7 @@ import DA.Ledger.Types
 import Data.Functor
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Digitalasset.Ledger.Api.V1.Admin.PartyManagementService as LL
+import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
 
 newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
 

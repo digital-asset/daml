@@ -5,7 +5,7 @@ package com.daml.ledger.javaapi.data
 
 import java.util.Collections
 
-import com.digitalasset.ledger.api.v1.ValueOuterClass
+import com.daml.ledger.api.v1.ValueOuterClass
 import org.scalatest.{FlatSpec, Matchers}
 
 import collection.JavaConverters._

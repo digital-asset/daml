@@ -35,6 +35,7 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 import Development.IDE.Types.Location as Base
@@ -202,11 +203,16 @@ diagsToIdeResult :: NormalizedFilePath -> [Diagnostic] -> IdeResult ()
 diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
     where r = if any ((Just DsError ==) . _severity) diags then Nothing else Just ()
 
-getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
-getDalfDependencies files = do
+-- | Dependencies on other packages excluding stable DALFs.
+getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getUnstableDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- Map.unions <$> usesE GeneratePackageMap files
-    let actualDeps = Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+    pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+
+getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getDalfDependencies files = do
+    actualDeps <- getUnstableDalfDependencies files
     -- For now, we unconditionally include all stable packages.
     -- Given that they are quite small and it is pretty much impossible to not depend on them
     -- this is fine. We might want to try being more clever here in the future.
@@ -250,7 +256,11 @@ generateRawDalfRule =
                     -- GHC Core to DAML LF
                     case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
                         Left e -> return ([e], Nothing)
-                        Right v -> return ([], Just $ LF.simplifyModule v)
+                        Right v -> do
+                            WhnfPackage pkg <- use_ GeneratePackageDeps file
+                            pkgs <- getExternalPackages file
+                            let world = LF.initWorldSelf pkgs pkg
+                            return ([], Just $ LF.simplifyModule world v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -396,9 +406,15 @@ generateSerializedDalfRule options =
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
-                                    rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
-                                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
+                                    let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
+                                        world = LF.initWorldSelf pkgs selfPkg
+                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) rawDalf
+                                        -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
+                                        -- across modules when doing incremental builds. The reason is that our Shake rules
+                                        -- use ABI changes to determine whether to rebuild the module, so if an implementaion
+                                        -- changes without a corresponding ABI change, we would end up with an outdated
+                                        -- implementation.
                                     case Serializability.inferModule world lfVersion rawDalf of
                                         Left err -> pure ([ideErrorPretty file err], Nothing)
                                         Right dalf -> do
@@ -446,8 +462,7 @@ generateDocTestModuleRule =
 -- | Load all the packages that are available in the package database directories. We expect the
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
-generatePackageMap ::
-     LF.Version -> Maybe FilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
+generatePackageMap :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
 generatePackageMap version mbProjRoot userPkgDbs = do
     versionedPackageDbs <- getPackageDbs version mbProjRoot userPkgDbs
     (diags, pkgs) <-
@@ -502,7 +517,9 @@ generatePackageMapRule opts = do
         f <- liftIO $ do
             findProjectRoot <- memoIO findProjectRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
-            pure $ \file -> liftIO $ generatePackageMap =<< findProjectRoot file
+            pure $ \file -> do
+                mbProjectRoot <- liftIO (findProjectRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -515,6 +532,33 @@ generatePackageMapRule opts = do
                 "Errors:\n" ++ unlines (map show errs)
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just res))
+
+damlGhcSessionRule :: Options -> Rules ()
+damlGhcSessionRule opts@Options{..} = do
+    -- The file path here is optional so we go for defineNoFile
+    -- (or the equivalent thereof for rules with cut off).
+    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+        let base = mkBaseUnits (optUnitId opts)
+        inferredPackages <- liftIO $ case mbProjectRoot of
+            Just projectRoot | getInferDependantPackages optInferDependantPackages ->
+                -- We catch doesNotExistError which could happen if the
+                -- package db has never been initialized. In that case, we simply
+                -- infer no extra packages.
+                catchJust
+                    (guard . isDoesNotExistError)
+                    (directDependencies <$> readMetadata projectRoot)
+                    (const $ pure [])
+            _ -> pure []
+        optPackageImports <- pure $ map mkPackageFlag (base ++ inferredPackages) ++ optPackageImports
+        env <- liftIO $ runGhcFast $ do
+            setupDamlGHC opts
+            GHC.getSession
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
+        hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
+        -- In the IDE we do not care about the cache value here but for
+        -- incremental builds we need an early cutoff.
+        pure (Just "", ([], Just hscEnv))
 
 generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
@@ -705,7 +749,7 @@ createScenarioContextRule =
                 pure
                 ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-        liftIO $ modifyVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
+        liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
@@ -912,11 +956,44 @@ ofInterestRule opts = do
             garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
-              ctxRoots <- modifyVar envScenarioContexts $ \ctxs -> do
-                  let gcdCtxs = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
-                  pure (gcdCtxs, HashMap.elems gcdCtxs)
-              prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
-              when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
+              mask $ \restore -> do
+                  ctxs <- takeMVar envScenarioContexts
+                  -- Filter down to contexts of files of interest.
+                  let gcdCtxsMap :: HashMap.HashMap NormalizedFilePath SS.ContextId
+                      gcdCtxsMap = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
+                      gcdCtxs = HashMap.elems gcdCtxsMap
+                  -- Note (MK) We don’t want to keep sending GC grpc requests if nothing
+                  -- changed. We used to keep track of the last GC request and GC if that was
+                  -- different. However, that causes an issue in the folllowing scenario.
+                  -- This scenario is exactly what we hit in the integration tests.
+                  --
+                  -- 1. A is the only file of interest.
+                  -- 2. We run GC, no scenario context has been allocated.
+                  --    No scenario contexts will be garbage collected.
+                  -- 3. Now the scenario context is allocated.
+                  -- 4. B is set to the only file of interest.
+                  -- 5. We run GC, the scenario context for B has not been allocated yet.
+                  --    A is not a file of interest so gcdCtxs is still empty.
+                  --    Therefore the old and current contexts are identical.
+                  --
+                  -- We now GC under the following condition:
+                  --
+                  -- > gcdCtxs is different from ctxs or the last GC was different from gcdCtxs
+                  --
+                  -- The former covers the above scenario, the latter covers the case where
+                  -- a scenario context changed but the files of interest did not.
+                  prevCtxRoots <- takeMVar envPreviousScenarioContexts
+                  when (gcdCtxs /= HashMap.elems ctxs || prevCtxRoots /= gcdCtxs) $
+                      -- We want to avoid updating the maps if gcCtxs throws an exception
+                      -- so we do some custom masking. We could still end up GC’ing on the
+                      -- server and getting an exception afterwards. This is fine, at worst
+                      -- we will just GC again.
+                      restore (void $ SS.gcCtxs scenarioService gcdCtxs) `onException`
+                          (putMVar envPreviousScenarioContexts prevCtxRoots >>
+                           putMVar envScenarioContexts ctxs)
+                  -- We are masked so this is atomic.
+                  putMVar envPreviousScenarioContexts gcdCtxs
+                  putMVar envScenarioContexts gcdCtxsMap
 
 getOpenVirtualResourcesRule :: Rules ()
 getOpenVirtualResourcesRule = do
@@ -1089,11 +1166,12 @@ damlRule opts = do
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
-    ofInterestRule opts
     encodeModuleRule opts
     createScenarioContextRule
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
+    damlGhcSessionRule opts
+    when (optEnableOfInterestRule opts) (ofInterestRule opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

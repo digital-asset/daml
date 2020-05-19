@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.sql.Connection
 
@@ -18,7 +18,7 @@ object SimpleSqlAsVectorOf {
       *
       * Allows to avoid linear operations in lists when using the default
       * [[anorm.ResultSetParser]]s (e.g. when retrieving the result set
-      * length in [[com.digitalasset.platform.store.dao.PaginatingAsyncStream]]
+      * length in [[com.daml.platform.store.dao.PaginatingAsyncStream]]
       *
       * @param parser knows how to turn each row in an [[A]]
       * @param conn an implicit JDBC connection

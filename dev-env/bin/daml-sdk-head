@@ -2,18 +2,17 @@
 set -eu
 
 # Make sure they are in the right repo
-readonly REPO_ROOT=$(bazel info workspace)
-if [[ "${REPO_ROOT}/dev-env/bin/daml-sdk-head" != "${BASH_SOURCE}" ]];
-then
+readonly REPO_ROOT="$(bazel info workspace)"
+if [[ "${REPO_ROOT}/dev-env/bin/daml-sdk-head" != "${BASH_SOURCE[0]}" ]]; then
   echo "Repo root does not match the script being run."
   echo "Make sure you run this script from a directory within the 'daml' repository "
   exit 1
 fi
 
 # get rid of old .daml-head installation
-if [ -d "$HOME/.daml-head" ] ; then
-  chmod -R u+w "$HOME/.daml-head"
-  rm -rf "$HOME/.daml-head"
+if [[ -d "${HOME}/.daml-head" ]]; then
+  chmod -R u+w "${HOME}/.daml-head"
+  rm -rf "${HOME}/.daml-head"
 fi
 
 
@@ -21,8 +20,8 @@ NUKE=0
 PROFILING=0
 SKIP_JARS=0
 JUST_DAMLC=0
-for opt in "$@" ; do
-  case $opt in
+for opt in "$@"; do
+  case "$opt" in
     "--nuke")
       NUKE=1
       ;;
@@ -30,10 +29,10 @@ for opt in "$@" ; do
       PROFILING=1
       ;;
     "--skip-jars")
-      SKIP_JARS=1;
+      SKIP_JARS=1
       ;;
     "--damlc")
-      JUST_DAMLC=1;
+      JUST_DAMLC=1
       ;;
     *)
       echo "Unknown option: $opt"
@@ -46,28 +45,28 @@ for opt in "$@" ; do
   esac
 done
 
-BAZEL_MODE_FLAG=""
+BAZEL_MODE_FLAGS=()
 
-if [ "$PROFILING" -ne "0" ] ; then
-  BAZEL_MODE_FLAG="-c dbg"
+if [[ "$PROFILING" -ne 0 ]]; then
+  BAZEL_MODE_FLAGS+=(-c dbg)
 fi
 
 readonly DAML_HOME="$HOME/.daml"
-if [ -d $DAML_HOME ] && [ "$NUKE" -ne "0" ] ; then
+if [[ -d "$DAML_HOME" && "$NUKE" -ne 0 ]]; then
   echo "$(tput setaf 3)Removing existing daml installation.$(tput sgr 0)"
-  chmod -R u+w $DAML_HOME
-  rm -rf $DAML_HOME
+  chmod -R u+w "$DAML_HOME"
+  rm -rf "$DAML_HOME"
 fi
 
 readonly DAML_HEAD_SDK="$DAML_HOME/sdk/0.0.0"
-if [ -d $DAML_HEAD_SDK ] && [ "$JUST_DAMLC" -eq "0" ] ; then
+if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -eq 0 ]]; then
   echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
-  rm -f $DAML_HOME/bin/daml-head
-  chmod -R u+w $DAML_HEAD_SDK
-  rm -rf $DAML_HEAD_SDK
+  rm -f "${DAML_HOME}/bin/daml-head"
+  chmod -R u+w "$DAML_HEAD_SDK"
+  rm -rf "$DAML_HEAD_SDK"
 fi
 
-if [ -d $DAML_HEAD_SDK ] && [ "$JUST_DAMLC" -ne "0" ] ; then
+if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
   # daml-head is installed, so just replace damlc
   echo "$(tput setaf 3)Existing daml-head installation found."
   echo "Building damlc version 0.0.0, this may take a while ...$(tput sgr 0)"
@@ -79,13 +78,13 @@ if [ -d $DAML_HEAD_SDK ] && [ "$JUST_DAMLC" -ne "0" ] ; then
   }
   trap cleanup EXIT
 
-  bazel build $BAZEL_MODE_FLAG //compiler/damlc:damlc-dist.tar.gz
+  bazel build ${BAZEL_MODE_FLAGS[@]:-} //compiler/damlc:damlc-dist.tar.gz
 
-  readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/compiler/damlc/damlc-dist.tar.gz
-  chmod -R u+w $DAML_HEAD_SDK
-  rm -rf $DAML_HEAD_SDK/damlc
-  mkdir -p $DAML_HEAD_SDK/damlc
-  tar xzf $TARBALL -C $DAML_HEAD_SDK/damlc --strip-components 1
+  readonly TARBALL="$(bazel info bazel-bin "${BAZEL_MODE_FLAGS[@]:-}")/compiler/damlc/damlc-dist.tar.gz"
+  chmod -R u+w "$DAML_HEAD_SDK"
+  rm -rf "${DAML_HEAD_SDK}/damlc"
+  mkdir -p "${DAML_HEAD_SDK}/damlc"
+  tar xzf "$TARBALL" -C "${DAML_HEAD_SDK}/damlc" --strip-components 1
 
   trap - EXIT
   echo "$(tput setaf 3)Done installing damlc 0.0.0$(tput sgr 0)"
@@ -96,41 +95,51 @@ echo "$(tput setaf 3)Building version 0.0.0 - this may take a while ...$(tput sg
 echo ""
 
 function cleanup() {
-  echo "SDK 0.0.0 failed to build/install - if you need help ask on #product-daml"
+  echo "SDK 0.0.0 failed to build/install - if you need help ask on"
+  echo "https://slack.daml.com or https://discuss.daml.com."
   echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
+
+  if [[ -n "${SDK_TEMP_DIR+x}" && -d "$SDK_TEMP_DIR" ]]; then
+    rm -rf "$SDK_TEMP_DIR"
+  fi
 }
 trap cleanup EXIT
 
 # Building here separately so the user can see the build process which could take a while
-bazel build $BAZEL_MODE_FLAG //release:sdk-release-tarball.tar.gz
+bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:sdk-release-tarball.tar.gz
 
-readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/release/sdk-release-tarball.tar.gz
-readonly TMPDIR=$(mktemp -d)
-mkdir -p $TMPDIR/sdk-head
+readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/sdk-release-tarball.tar.gz"
+readonly SDK_TEMP_DIR="$(mktemp -d)"
+readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
+mkdir -p "$SDK_DIR"
 
-tar xzf $TARBALL -C $TMPDIR/sdk-head --strip-components 1
+tar xzf "$TARBALL" -C "$SDK_DIR" --strip-components 1
 
-readonly DAML_CMD="$(which daml)"
-if [ -x "$DAML_CMD" ] && [ "$DAML_CMD" == "$DAML_HOME/bin/daml" ] ; then
+readonly DAML_CMD="$(command -v daml)"
+if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
   # A daml installation already exists, so just install SDK version 0.0.0.
-  $DAML_HOME/bin/daml install $TMPDIR/sdk-head --force
+  "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force
 else
   # No daml installation detected, so install the tarball normally but disable auto-install.
-  $TMPDIR/sdk-head/install.sh --force
-  echo "auto-install: false" > $DAML_HOME/daml-config.yaml
+  "${SDK_DIR}/install.sh" --force
+  echo "auto-install: false" > "${DAML_HOME}/daml-config.yaml"
 fi
 
-cat > $DAML_HOME/bin/daml-head << EOF
+if [[ -d "$SDK_TEMP_DIR" ]]; then
+  rm -rf "$SDK_TEMP_DIR"
+fi
+
+cat > "${DAML_HOME}/bin/daml-head" << EOF
 #!/bin/sh
-exec env DAML_SDK_VERSION=0.0.0 $DAML_HEAD_SDK/daml/daml "\$@"
+exec env DAML_SDK_VERSION=0.0.0 "${DAML_HEAD_SDK}/daml/daml" "\$@"
 EOF
-chmod +x $DAML_HOME/bin/daml-head
+chmod +x "${DAML_HOME}/bin/daml-head"
 
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
 
-if [ "$SKIP_JARS" -eq "0" ]; then
-    echo "$(tput setaf 3)Installing JARs as 100.0.0...$(tput sgr 0)"
+if [[ "$SKIP_JARS" -eq 0 ]]; then
+    echo "$(tput setaf 3)Installing JARs as 0.0.0...$(tput sgr 0)"
 
     function cleanup() {
       echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
@@ -138,10 +147,10 @@ if [ "$SKIP_JARS" -eq "0" ]; then
     trap cleanup EXIT
 
     bazel build //release:release
-    tmp=$(mktemp -d)
-    "$REPO_ROOT/bazel-bin/release/release" --release-dir $tmp --install-head-jars
+    tmp="$(mktemp -d)"
+    "${REPO_ROOT}/bazel-bin/release/release" --release-dir "$tmp" --install-head-jars
 
     trap - EXIT
 
-    echo "$(tput setaf 3)Done installing JARs as 100.0.0.$(tput sgr 0)"
+    echo "$(tput setaf 3)Done installing JARs as 0.0.0.$(tput sgr 0)"
 fi

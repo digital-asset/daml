@@ -5,6 +5,7 @@ package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.LedgerStateOperations._
+import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -90,6 +91,27 @@ abstract class NonBatchingLedgerStateOperations[LogResult](
         case (key, value) => writeState(key, value)
       })
       .map(_ => ())
+}
+
+final class TimedLedgerStateOperations[LogResult](
+    delegate: LedgerStateOperations[LogResult],
+    metrics: Metrics,
+) extends LedgerStateOperations[LogResult] {
+
+  override def readState(key: Key): Future[Option[Value]] =
+    Timed.future(metrics.daml.ledger.state.read, delegate.readState(key))
+
+  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+    Timed.future(metrics.daml.ledger.state.read, delegate.readState(keys))
+
+  override def writeState(key: Key, value: Value): Future[Unit] =
+    Timed.future(metrics.daml.ledger.state.write, delegate.writeState(key, value))
+
+  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
+    Timed.future(metrics.daml.ledger.state.write, delegate.writeState(keyValuePairs))
+
+  override def appendToLog(key: Key, value: Value): Future[LogResult] =
+    Timed.future(metrics.daml.ledger.log.append, delegate.appendToLog(key, value))
 }
 
 object LedgerStateOperations {

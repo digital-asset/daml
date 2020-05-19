@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.CommandSubmissionServiceOuterClass;
+import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Duration;

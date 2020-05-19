@@ -176,7 +176,6 @@ in rec {
           >&2 echo "Please run bazel inside of the dev-env"
           exit 1
       fi
-      export BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -203,6 +202,8 @@ in rec {
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
     grep = pkgs.gnugrep;
+    bc = pkgs.bc;
+    envsubst = pkgs.envsubst;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;

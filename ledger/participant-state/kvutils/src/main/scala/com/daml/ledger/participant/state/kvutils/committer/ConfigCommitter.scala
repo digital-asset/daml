@@ -3,15 +3,15 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.codahale.metrics.{Counter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   buildTimestamp,
   configDedupKey,
   configurationStateKey
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committing.Common.getCurrentConfiguration
+import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.metrics.Metrics
 
 private[kvutils] object ConfigCommitter {
 
@@ -24,15 +24,10 @@ private[kvutils] object ConfigCommitter {
 
 private[kvutils] class ConfigCommitter(
     defaultConfig: Configuration,
-    override protected val metricRegistry: MetricRegistry,
+    override protected val metrics: Metrics,
 ) extends Committer[DamlConfigurationSubmission, ConfigCommitter.Result] {
 
   override protected val committerName = "config"
-
-  private object Metrics {
-    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
-  }
 
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
     logger.trace(s"Configuration rejected, $msg, correlationId=${submission.getSubmissionId}")
@@ -144,7 +139,7 @@ private[kvutils] class ConfigCommitter(
 
   private def buildLogEntry: Step = (ctx, result) => {
 
-    Metrics.accepts.inc()
+    metrics.daml.kvutils.committer.config.accepts.inc()
     logger.trace(
       s"Configuration accepted, generation=${result.submission.getConfiguration.getGeneration} correlationId=${result.submission.getSubmissionId}")
 
@@ -184,7 +179,7 @@ private[kvutils] class ConfigCommitter(
       submission: DamlConfigurationSubmission,
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
   ): DamlLogEntry = {
-    Metrics.rejections.inc()
+    metrics.daml.kvutils.committer.config.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
       .setConfigurationRejectionEntry(

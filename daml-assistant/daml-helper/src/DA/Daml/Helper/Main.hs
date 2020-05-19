@@ -4,6 +4,7 @@
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception
+import Control.Monad
 import Data.Foldable
 import Data.List.Extra
 import Options.Applicative.Extended
@@ -43,7 +44,7 @@ data Command
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
-      { sandboxPortM :: Maybe SandboxPort
+      { sandboxPortM :: Maybe SandboxPortSpec
       , openBrowser :: OpenBrowser
       , startNavigator :: Maybe StartNavigator
       , jsonApiCfg :: JsonApiConfig
@@ -64,7 +65,7 @@ data Command
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
-data Lang = Java | Scala | TypeScript
+data Lang = Java | Scala | JavaScript
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -120,7 +121,7 @@ commandParser = subparser $ fold
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
     startCmd = Start
-        <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
+        <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> optional navigatorFlag
         <*> jsonApiCfg
@@ -187,13 +188,13 @@ commandParser = subparser $ fold
         [ subparser $ fold
             [  command "java" $ info codegenJavaCmd forwardOptions
             ,  command "scala" $ info codegenScalaCmd forwardOptions
-            ,  command "ts" $ info codegenTypeScriptCmd forwardOptions
+            ,  command "js" $ info codegenJavaScriptCmd forwardOptions
             ]
         ]
 
     codegenJavaCmd = Codegen Java <$> many (argument str (metavar "ARG"))
     codegenScalaCmd = Codegen Scala <$> many (argument str (metavar "ARG"))
-    codegenTypeScriptCmd = Codegen TypeScript <$> many (argument str (metavar "ARG"))
+    codegenJavaScriptCmd = Codegen JavaScript <$> many (argument str (metavar "ARG"))
 
     ledgerCmdInfo = mconcat
         [ forwardOptions
@@ -319,10 +320,8 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    New {..}
-        | templateNameM == Just "create-daml-app" -> runCreateDamlApp targetFolder
-        | otherwise -> runNew targetFolder templateNameM
-    CreateDamlApp{..} -> runCreateDamlApp targetFolder
+    New {..} -> runNew targetFolder templateNameM
+    CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
@@ -347,8 +346,8 @@ runCommand = \case
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} ->
         case lang of
-            TypeScript ->
-                runDaml2ts remainingArguments
+            JavaScript ->
+                runDaml2js remainingArguments
             Java ->
                 runJar
                     "daml-sdk/daml-sdk.jar"

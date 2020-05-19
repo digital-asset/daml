@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.store.FlywayMigrations._
-import com.digitalasset.platform.store.dao.HikariConnection
-import com.digitalasset.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.FlywayMigrations._
+import com.daml.platform.store.dao.HikariConnection
+import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion

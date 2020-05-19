@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
-import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.MetricName
 
 private[apiserver] object MetricsNaming {
 
@@ -37,21 +37,15 @@ private[apiserver] object MetricsNaming {
   val camelCaseToSnakeCase: String => String =
     snakifyWholeWord andThen snakifyStart andThen snakifyEnd andThen snakify
 
-  // assert(nameForService("org.example.SomeService") == "daml.lapi.some_service")
-  def nameForService(fullServiceName: String): String = {
-    val serviceName = camelCaseToSnakeCase(fullServiceName.split('.').last)
-    MetricRegistry.name("daml", "lapi", serviceName)
-  }
-
-  // assert(nameFor("org.example.SomeService/someMethod") == "daml.lapi.some_service.some_method")
-  def nameFor(fullMethodName: String): String = {
+  // assert(nameFor("org.example.SomeService/someMethod") == "some_service.some_method")
+  def nameFor(fullMethodName: String): MetricName = {
     val serviceAndMethodName = fullMethodName.split('/')
     assert(
       serviceAndMethodName.length == 2,
       s"Expected service and method names separated by '/', got '$fullMethodName'")
-    val prefix = nameForService(serviceAndMethodName(0))
+    val serviceName = camelCaseToSnakeCase(serviceAndMethodName(0).split('.').last)
     val methodName = camelCaseToSnakeCase(serviceAndMethodName(1))
-    MetricRegistry.name(prefix, methodName)
+    MetricName(serviceName) :+ methodName
   }
 
 }

@@ -1,25 +1,37 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.serialization
+package com.daml.platform.store.serialization
 
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.{Numeric, Utf8}
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.data.{Numeric, Utf8}
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
 
+/**
+  * @deprecated in favor of [[GlobalKey.hash]]
+  */
 trait KeyHasher {
 
-  /** Returns the hash of the given DAML-LF value */
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    * Returns the hash of the given DAML-LF value
+    */
   def hashKey(key: GlobalKey): Array[Byte]
 
-  /** Returns a string representation of the hash of the given DAML-LF value */
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    * Returns a string representation of the hash of the given DAML-LF value
+    */
   def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
 }
 
+/**
+  * @deprecated in favor of [[GlobalKey.hash]]
+  */
 object KeyHasher extends KeyHasher {
 
   /**
@@ -44,7 +56,7 @@ object KeyHasher extends KeyHasher {
     * @return the final hash value
     */
   def foldLeft[T](value: Value[AbsoluteContractId], z: T, op: (T, HashToken) => T): T = {
-    import com.digitalasset.daml.lf.value.Value._
+    import com.daml.lf.value.Value._
 
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))
@@ -150,6 +162,9 @@ object KeyHasher extends KeyHasher {
     )
   }
 
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    */
   override def hashKey(key: GlobalKey): Array[Byte] = {
     val digest = MessageDigest.getInstance("SHA-256")
 

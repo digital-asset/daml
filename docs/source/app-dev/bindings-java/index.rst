@@ -10,7 +10,8 @@ Java bindings
   :hidden:
 
   codegen
-  example
+  Ping Pong Example <example>
+  Iou Quickstart Tutorial <quickstart>
 
 The Java bindings is a client implementation of the *Ledger API*
 based on `RxJava <https://github.com/ReactiveX/RxJava>`_, a library for composing asynchronous and event-based programs using observable sequences for the Java VM. It provides an idiomatic way to write DAML Ledger applications.
@@ -31,7 +32,7 @@ The Java bindings library is composed of:
 - The Reactive Layer
     A thin layer built on top of the Ledger API services generated classes.
 
-    For each Ledger API service, there is a reactive counterpart with a 
+    For each Ledger API service, there is a reactive counterpart with a
     matching name. For instance, the reactive counterpart of ``ActiveContractsServiceGrpc``
     is ``ActiveContractsClient``.
 
@@ -41,9 +42,9 @@ The Java bindings library is composed of:
 
     Can be found in the java package ``com.daml.ledger.rxjava``.
 - The Reactive Components
-    A set of optional components you can use to assemble DAML Ledger applications. 
+    A set of optional components you can use to assemble DAML Ledger applications.
 
-    The most important components are: 
+    The most important components are:
 
     - the ``LedgerView``, which provides a local view of the Ledger
     - the ``Bot``, which provides utility methods to assemble automation logic for the Ledger
@@ -69,7 +70,7 @@ This class provides access to the ledgerId, and all clients that give access to 
 Accessing data on the ledger: LedgerView
 ========================================
 
-The ``LedgerView`` of an application is the "copy" of the ledger that the application has locally. You can query it to obtain the contracts that are active on the Ledger and not pending. 
+The ``LedgerView`` of an application is the "copy" of the ledger that the application has locally. You can query it to obtain the contracts that are active on the Ledger and not pending.
 
 .. note::
 
@@ -77,7 +78,7 @@ The ``LedgerView`` of an application is the "copy" of the ledger that the applic
   - A contract is *pending* if the application has sent a consuming command to the Ledger and has yet
     to receive an completion for the command (that is, if the command has succeeded or not).
 
-The ``LedgerView`` is updated every time: 
+The ``LedgerView`` is updated every time:
 
 - a new event is received from the Ledger
 - new commands are sent to the Ledger
@@ -90,10 +91,10 @@ Writing automations: Bot
 ========================
 
 The ``Bot`` is an abstraction used to write automation for a DAML Ledger. It is conceptually
-defined by two aspects: 
+defined by two aspects:
 
 - the ``LedgerView``
-- the logic that produces commands, given a ``LedgerView`` 
+- the logic that produces commands, given a ``LedgerView``
 
 When the ``LedgerView`` is updated, to see if the bot has new commands to submit based on the
 updated view, the logic of the bot is run.
@@ -119,7 +120,7 @@ In the above:
 
 - ``applicationId``
     The id used by the Ledger to identify all the queries from the same application.
-- ``ledgerClient`` 
+- ``ledgerClient``
     The connection to the Ledger.
 - ``transactionFilter``
     The server-side filter to the incoming transactions. Used to reduce the traffic between
@@ -127,7 +128,7 @@ In the above:
 - ``bot``
     The logic of the application,
 - ``transform``
-    The function that, given a new contract, returns which information for 
+    The function that, given a new contract, returns which information for
     that contracts are useful for the application. Can be used to reduce space used
     by discarding all the info not required by the application. The input to the function
     contains the ``templateId``, the arguments of the contract created and the context of
@@ -157,7 +158,7 @@ To use the Java bindings library, add the following dependencies to your project
     :dedent: 4
 
 Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions by checking
-the `Maven Central Repository <https://search.maven.org/search?q=g:com.daml.ledger>`__.
+the `Maven Central Repository <https://search.maven.org/artifact/com.daml/bindings-java>`__.
 
 .. note::
    As of DAML SDK release 0.13.3, the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the `DAML Bintray repository <https://digitalassetsdk.bintray.com>`__.

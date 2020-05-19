@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package types
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref
+import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value
 import Value._
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -181,9 +181,7 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       enrichedTx: EnrichedTransaction,
-  ): RichTransaction = {
-    def makeAbs(cid: Value.RelativeContractId) =
-      Ref.ContractIdString.assertFromString(relativeToContractIdString(commitPrefix, cid))
+  ): RichTransaction =
     RichTransaction(
       committer = committer,
       effectiveAt = effectiveAt,
@@ -191,7 +189,7 @@ object Ledger {
       nodes = enrichedTx.nodes.map {
         case (nodeId, node) =>
           ScenarioNodeId(commitPrefix, nodeId) -> node
-            .resolveRelCid(makeAbs)
+            .assertNoRelCid(_ => "Unexpected relative contract ID.")
             .mapNodeId(ScenarioNodeId(commitPrefix, _))
       }(breakOut),
       explicitDisclosure = enrichedTx.explicitDisclosure.map {
@@ -205,7 +203,6 @@ object Ledger {
       globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
       failedAuthorizations = enrichedTx.failedAuthorizations,
     )
-  }
 
   /** Scenario step representing the actions executed in a scenario. */
   sealed trait ScenarioStep
@@ -389,15 +386,20 @@ object Ledger {
           }
       }
     }
+
+    // Given a ledger and the node index of a node in a partial transaction
+    // turn it into a node it that can be used in scenario error messages.
+    def ptxNodeId(nodeIdx: NodeId): ScenarioNodeId =
+      ScenarioNodeId(scenarioStepId.makeCommitPrefix, nodeIdx)
   }
 
   sealed trait CommitError
   object CommitError {
     final case class FailedAuthorizations(
-        errors: com.digitalasset.daml.lf.types.Ledger.FailedAuthorizations,
+        errors: com.daml.lf.types.Ledger.FailedAuthorizations,
     ) extends CommitError
     final case class UniqueKeyViolation(
-        error: com.digitalasset.daml.lf.types.Ledger.UniqueKeyViolation,
+        error: com.daml.lf.types.Ledger.UniqueKeyViolation,
     ) extends CommitError
   }
 
@@ -1246,4 +1248,5 @@ object Ledger {
         }
     }
   }
+
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 /**
   * The simplified AST for the speedy interpreter.
@@ -9,12 +9,15 @@ package com.digitalasset.daml.lf.speedy
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
   */
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.Speedy._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SBuiltin._
+import java.util
+
+import com.daml.lf.language.Ast._
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SBuiltin._
 import java.util.ArrayList
 
 /** The speedy expression:
@@ -24,8 +27,7 @@ import java.util.ArrayList
   * - all update and scenario operations converted to builtin functions.
   */
 sealed abstract class SExpr extends Product with Serializable {
-  def execute(machine: Machine): Ctrl
-
+  def execute(machine: Machine): Unit
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def toString: String =
     productPrefix + productIterator.map(SExpr.prettyPrint).mkString("(", ",", ")")
@@ -39,8 +41,8 @@ object SExpr {
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     */
   final case class SEVar(index: Int) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
-      CtrlValue(machine.getEnv(index))
+    def execute(machine: Machine): Unit = {
+      machine.returnValue = machine.getEnv(index)
     }
   }
 
@@ -49,29 +51,47 @@ object SExpr {
     */
   final case class SEVal(
       ref: SDefinitionRef,
-      var cached: Option[(SValue, List[Location])],
   ) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
+
+    // The variable `_cached` is used to cache the evaluation of the
+    // LF value defined by `ref` once it has been computed.  Hence we
+    // avoid both the lookup in the package definition HashMap and the
+    // full reevaluation of the body of the definition.
+    // Here we take advantage of the Java memory model
+    // (https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7)
+    // that guarantees the write of `_cache` (in the method
+    // `setCached`) is done atomically.
+    // This is similar how hashcode evaluation is cached in String
+    // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
+    private var _cached: Option[(SValue, List[Location])] = None
+
+    def cached: Option[(SValue, List[Location])] = _cached
+
+    def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
+      _cached = Some((sValue, stack_trace))
+
+    def execute(machine: Machine): Unit =
       machine.lookupVal(this)
-    }
   }
 
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       /* special case for nullary record constructors */
-      b match {
+      machine.returnValue = b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          CtrlValue(SRecord(id, fields, new ArrayList()))
+          SRecord(id, fields, new ArrayList())
         case _ =>
-          Ctrl.fromPrim(PBuiltin(b), b.arity)
+          SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
       }
     }
   }
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExpr {
-    def execute(machine: Machine): Ctrl = CtrlValue(v)
+    def execute(machine: Machine): Unit = {
+      machine.returnValue = v
+    }
   }
 
   object SEValue extends SValueContainer[SEValue]
@@ -80,9 +100,9 @@ object SExpr {
     * evaluates to a builtin or a closure.
     */
   final case class SEApp(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KArg(args))
-      CtrlExpr(fun)
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KArg(args))
+      machine.ctrl = fun
     }
   }
 
@@ -91,7 +111,7 @@ object SExpr {
     * can be written against this simplified expression type.
     */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr {
-    def execute(machine: Machine): Ctrl =
+    def execute(machine: Machine): Unit =
       crash("unexpected SEAbs, expected SEMakeClo")
   }
 
@@ -110,7 +130,7 @@ object SExpr {
       extends SExpr
       with SomeArrayEquals {
 
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       def convertToSValues(fv: Array[Int], getEnv: Int => SValue) = {
         val sValues = new Array[SValue](fv.length)
         var i = 0
@@ -122,15 +142,15 @@ object SExpr {
       }
 
       val sValues = convertToSValues(fv, machine.getEnv)
-      Ctrl.fromPrim(PClosure(body, sValues), arity)
+      machine.returnValue = SPAP(PClosure(null, body, sValues), new util.ArrayList[SValue](), arity)
     }
   }
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KMatch(alts))
-      CtrlExpr(scrut)
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KMatch(alts))
+      machine.ctrl = scrut
     }
 
     override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
@@ -155,19 +175,19 @@ object SExpr {
     * with later expressions possibly referring to earlier.
     */
   final case class SELet(bounds: Array[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       // Pop the block once we're done evaluating the body
-      machine.kont.add(KPop(bounds.size))
+      machine.pushKont(KPop(bounds.size))
 
       // Evaluate the body after we've evaluated the binders
-      machine.kont.add(KPushTo(machine.env, body))
+      machine.pushKont(KPushTo(machine.env, body))
 
       // Start evaluating the let binders
       for (i <- 1 until bounds.size) {
         val b = bounds(bounds.size - i)
-        machine.kont.add(KPushTo(machine.env, b))
+        machine.pushKont(KPushTo(machine.env, b))
       }
-      CtrlExpr(bounds.head)
+      machine.ctrl = bounds.head
     }
   }
 
@@ -193,9 +213,9 @@ object SExpr {
     * variable of the machine. When commit is begun the location is stored in 'commitLocation'.
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       machine.pushLocation(loc)
-      CtrlExpr(expr)
+      machine.ctrl = expr
     }
   }
 
@@ -207,9 +227,44 @@ object SExpr {
     * to access the value returned from 'body'.
     */
   final case class SECatch(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KCatch(handler, fin, machine.env.size))
-      CtrlExpr(body)
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KCatch(handler, fin, machine.env.size))
+      machine.ctrl = body
+    }
+  }
+
+  /** This is used only during profiling. When a package is compiled with
+    * profiling enabled, the right hand sides of top-level and let bindings,
+    * lambdas and some builtins are wrapped into [[SELabelClosure]]. During
+    * runtime, if the value resulting from evaluating [[expr]] is a
+    * (partially applied) closure, the label of the closure is set to the
+    * [[label]] given here.
+    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * [[AnyRef]] for the label.
+    */
+  final case class SELabelClosure(label: AnyRef, expr: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KLabelClosure(label))
+      machine.ctrl = expr
+    }
+  }
+
+  /** When we fetch a contract id from upstream we cannot crash in the upstream
+    * calls. Rather, we set the control to this expression and then crash when executing.
+    */
+  final case class SEWronglyTypeContractId(
+      acoid: V.AbsoluteContractId,
+      expected: TypeConName,
+      actual: TypeConName,
+  ) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      throw DamlEWronglyTypedContract(acoid, expected, actual)
+    }
+  }
+
+  final case class SEImportValue(value: V[V.ContractId]) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.importValue(value)
     }
   }
 
@@ -263,7 +318,7 @@ object SExpr {
 
     import SEBuiltinRecursiveDefinition._
 
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       val body = ref match {
         case Reference.FoldL => foldLBody
         case Reference.FoldR => foldRBody
@@ -391,6 +446,8 @@ object SExpr {
         )
       )
   }
+
+  final case object AnonymousClosure
 
   private def prettyPrint(x: Any): String =
     x match {

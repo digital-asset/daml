@@ -1,23 +1,23 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
 import java.io.File
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.sandbox.perf.util.DarUtil
+import com.daml.lf.data.Ref.PackageId
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.dec.DirectExecutionContext
+import com.daml.platform.sandbox.perf.util.DarUtil
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._

@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.digitalasset.daml.lf.data.{BackStack, Bytes, ImmArray, Time}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.daml.lf.data.{BackStack, ImmArray, Time}
+import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
+import com.daml.lf.value.Value
 
 import scala.collection.breakOut
 import scala.collection.immutable.HashMap
@@ -19,33 +19,48 @@ object PartialTransaction {
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
     */
-  sealed abstract class Context extends Product with Serializable {
-    def contextSeed: Option[crypto.Hash]
-
-    def children: BackStack[Value.NodeId]
-
-    def addChild(child: Value.NodeId): Context
+  final class Context private (
+      val exeContext: Option[ExercisesContext], // empty if root context
+      val children: BackStack[Value.NodeId],
+      protected val childrenSeeds: Int => crypto.Hash
+  ) {
+    def addChild(child: Value.NodeId): Context =
+      new Context(exeContext, children :+ child, childrenSeeds)
+    def nextChildrenSeed: crypto.Hash =
+      childrenSeeds(children.length)
   }
 
-  /** The root context, which is what we use when we are not exercising
-    * a choice.
-    */
-  final case class ContextRoot(
-      contextSeed: Option[crypto.Hash],
-      children: BackStack[Value.NodeId] = BackStack.empty,
-  ) extends Context {
-    override def addChild(child: Value.NodeId): ContextRoot = copy(children = children :+ child)
-  }
+  object Context {
 
-  /** Context when creating a sub-transaction due to an exercises. */
-  final case class ContextExercise(
-      ctx: ExercisesContext,
-      children: BackStack[Value.NodeId] = BackStack.empty,
-  ) extends Context {
-    override def addChild(child: Value.NodeId): ContextExercise =
-      copy(children = children :+ child)
+    def apply(initialSeeds: InitialSeeding): Context =
+      initialSeeds match {
+        case InitialSeeding.TransactionSeed(seed) =>
+          new Context(None, BackStack.empty, childrenSeeds(seed))
+        case InitialSeeding.RootNodeSeeds(seeds) =>
+          new Context(
+            None,
+            BackStack.empty,
+            i =>
+              (if (0 <= i && i < seeds.length) seeds(i) else None)
+                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided"))
+          )
+        case InitialSeeding.NoSeed =>
+          new Context(
+            None,
+            BackStack.empty,
+            _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
+      }
 
-    override def contextSeed: Option[crypto.Hash] = ctx.contextSeed
+    def apply(exeContext: ExercisesContext) =
+      new Context(
+        Some(exeContext),
+        BackStack.empty,
+        childrenSeeds(exeContext.parent.nextChildrenSeed),
+      )
+
+    private def childrenSeeds(seed: crypto.Hash)(i: Int) =
+      crypto.Hash.deriveNodeSeed(seed, i)
+
   }
 
   /** Context information to remember when building a sub-transaction
@@ -70,7 +85,6 @@ object PartialTransaction {
     *                       happening.
     */
   case class ExercisesContext(
-      contextSeed: Option[crypto.Hash],
       targetId: Value.ContractId,
       templateId: TypeConName,
       contractKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
@@ -86,24 +100,31 @@ object PartialTransaction {
       parent: Context,
   )
 
-  def initial(seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None) =
-    PartialTransaction(
-      submissionTime = seedWithTime.map(_._2),
-      nextNodeIdx = 0,
-      nodes = HashMap.empty,
-      consumedBy = Map.empty,
-      context = ContextRoot(seedWithTime.map(_._1)),
-      aborted = None,
-      keys = Map.empty,
-      localContracts = Map.empty,
-      globalContracts = Map.empty,
-    )
+  def initial(
+      submissionTime: Time.Timestamp,
+      initialSeeds: InitialSeeding,
+  ) = PartialTransaction(
+    submissionTime = submissionTime,
+    nextNodeIdx = 0,
+    nodes = HashMap.empty,
+    nodeSeeds = BackStack.empty,
+    byKeyNodes = BackStack.empty,
+    consumedBy = Map.empty,
+    context = Context(initialSeeds),
+    aborted = None,
+    keys = Map.empty,
+  )
 
 }
 
 /** A transaction under construction
   *
   *  @param nodes The nodes of the transaction graph being built up.
+  *  @param nodeSeeds The seeds of Create and Exercise nodes
+  *  @param byKeyNodes The list of the IDs of each node that
+  *           corresponds to a FetchByKey, LookupByKey, or
+  *           ExerciseByKey commands. Empty in case of validation
+  *           or reinterpretation.
   *  @param consumedBy 'ContractId's of all contracts that have
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
@@ -124,22 +145,17 @@ object PartialTransaction {
   *              we archive. This is not an optimization and is required for
   *              correct semantics, since otherwise lookups for keys for
   *              locally archived absolute contract ids will succeed wrongly.
-  * @param localContracts A map that associates to each contract created the
-  *                      node in which it was created.
-  * @param globalContracts A map that associates to each fetched AbsoluteContractId.V1
-  *                       contract id its respective contract instance.
-  *                       other format of contract ids are not cached.
   */
 case class PartialTransaction(
-    submissionTime: Option[Time.Timestamp],
+    submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[Value.NodeId, Tx.Node],
+    nodeSeeds: BackStack[(Value.NodeId, crypto.Hash)],
+    byKeyNodes: BackStack[Value.NodeId],
     consumedBy: Map[Value.ContractId, Value.NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[Node.GlobalKey, Option[Value.ContractId]],
-    localContracts: Map[Value.ContractId, Value.NodeId],
-    globalContracts: Map[crypto.Hash, Map[Bytes, Tx.ContractInst[Value.ContractId]]],
 ) {
 
   import PartialTransaction._
@@ -194,67 +210,17 @@ case class PartialTransaction(
     *  aborted.
     */
   def finish: Either[PartialTransaction, Tx.Transaction] =
-    context match {
-      case ContextRoot(_, children) if aborted.isEmpty =>
-        Right(GenTransaction(nodes = nodes, roots = children.toImmArray))
-      case _ =>
-        Left(this)
-    }
-
-  private def lookupLocalContract(
-      lcoid: Value.ContractId,
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    for {
-      nid <- localContracts.get(lcoid)
-      node <- nodes.get(nid)
-      coinst <- node match {
-        case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
-          Some(create.coinst)
-        case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_, _] |
-            _: Node.NodeLookupByKey[_, _] =>
-          None
-      }
-    } yield coinst
-
-  private def lookupGlobalContract(
-      gcoid: Value.ContractId
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    gcoid match {
-      case Value.AbsoluteContractId.V1(discriminator, suffix) =>
-        globalContracts.get(discriminator).flatMap(_.get(suffix))
-      case _ =>
-        None
-    }
-
-  def lookupCachedContract(
-      coid: Value.ContractId
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    lookupLocalContract(coid).orElse(lookupGlobalContract(coid))
-
-  /** Update the globalContract if coid is an `Value.AbsoluteContractId.V1`,
-    *  idempotent otherwise.
-    */
-  def cachedContract(
-      coid: Value.ContractId,
-      contract: Tx.ContractInst[Value.ContractId]
-  ): PartialTransaction =
-    coid match {
-      case Value.AbsoluteContractId.V1(discriminator, suffix) =>
-        copy(
-          globalContracts = globalContracts.updated(
-            discriminator,
-            globalContracts.getOrElse(discriminator, Map.empty).updated(suffix, contract)
-          )
-        )
-      case _ =>
-        this
-    }
+    Either.cond(
+      context.exeContext.isEmpty && aborted.isEmpty,
+      GenTransaction(nodes = nodes, roots = context.children.toImmArray),
+      this
+    )
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
   def insertCreate(
-      coinst: Tx.ContractInst[Value.ContractId],
+      coinst: Value.ContractInst[Tx.Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -267,17 +233,11 @@ case class PartialTransaction(
           .mkString(",")}""",
       )
     } else {
-      val nodeSeed = deriveChildSeed
+      val nodeSeed = context.nextChildrenSeed
       val discriminator =
-        for {
-          seed <- nodeSeed
-          time <- submissionTime
-        } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
-      val cid = discriminator.fold[Value.ContractId](
-        Value.RelativeContractId(Value.NodeId(nextNodeIdx))
-      )(Value.AbsoluteContractId.V1(_))
+        crypto.Hash.deriveContractDiscriminator(nodeSeed, submissionTime, stakeholders)
+      val cid = Value.AbsoluteContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
-        nodeSeed,
         cid,
         coinst,
         optLocation,
@@ -290,7 +250,7 @@ case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
-        localContracts = localContracts.updated(cid, nid)
+        nodeSeeds = nodeSeeds :+ (nid -> nodeSeed),
       )
 
       // if we have a contract key being added, include it in the list of
@@ -313,7 +273,8 @@ case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]]
+      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      byKey: Boolean,
   ): PartialTransaction =
     mustBeActive(
       coid,
@@ -328,6 +289,7 @@ case class PartialTransaction(
             signatories,
             stakeholders,
             key),
+        byKey,
       ),
     )
 
@@ -337,7 +299,7 @@ case class PartialTransaction(
       key: Node.KeyWithMaintainers[Tx.Value[Nothing]],
       result: Option[Value.ContractId],
   ): PartialTransaction =
-    insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result))
+    insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result), byKey = true)
 
   def beginExercises(
       targetId: Value.ContractId,
@@ -350,6 +312,7 @@ case class PartialTransaction(
       stakeholders: Set[Party],
       controllers: Set[Party],
       mbKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      byKey: Boolean,
       chosenValue: Tx.Value[Value.ContractId],
   ): Either[String, PartialTransaction] = {
     val serializableErrs = serializable(chosenValue)
@@ -366,9 +329,9 @@ case class PartialTransaction(
           templateId,
           copy(
             nextNodeIdx = nextNodeIdx + 1,
-            context = ContextExercise(
+            byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes,
+            context = Context(
               ExercisesContext(
-                contextSeed = deriveChildSeed,
                 targetId = targetId,
                 templateId = templateId,
                 contractKey = mbKey,
@@ -399,10 +362,9 @@ case class PartialTransaction(
   }
 
   def endExercises(value: Tx.Value[Value.ContractId]): PartialTransaction =
-    context match {
-      case ContextExercise(ec, children) =>
+    context.exeContext match {
+      case Some(ec) =>
         val exerciseNode = Node.NodeExercises(
-          nodeSeed = ec.contextSeed,
           targetCoid = ec.targetId,
           templateId = ec.templateId,
           choiceId = ec.choiceId,
@@ -413,13 +375,18 @@ case class PartialTransaction(
           stakeholders = ec.stakeholders,
           signatories = ec.signatories,
           controllers = ec.controllers,
-          children = children.toImmArray,
+          children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,
         )
         val nodeId = ec.nodeId
-        copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
-      case ContextRoot(_, _) =>
+        val nodeSeed = ec.parent.nextChildrenSeed
+        copy(
+          context = ec.parent.addChild(nodeId),
+          nodes = nodes.updated(nodeId, exerciseNode),
+          nodeSeeds = nodeSeeds :+ (nodeId -> nodeSeed),
+        )
+      case None =>
         noteAbort(Tx.EndExerciseInRootContext)
     }
 
@@ -443,16 +410,24 @@ case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: Tx.LeafNode): PartialTransaction = {
+  def insertLeafNode(node: Tx.LeafNode, byKey: Boolean): PartialTransaction = {
     val nid = Value.NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addChild(nid),
       nodes = nodes.updated(nid, node),
+      byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes
     )
   }
 
-  def deriveChildSeed: Option[crypto.Hash] =
-    context.contextSeed.map(crypto.Hash.deriveNodeSeed(_, nodes.size))
+}
 
+sealed abstract class InitialSeeding extends Product with Serializable
+
+object InitialSeeding {
+  // NoSeed may be used to initialize machines that are not intended to create transactions
+  // e.g. trigger and script runners, tests
+  final case object NoSeed extends InitialSeeding
+  final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
+  final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding
 }

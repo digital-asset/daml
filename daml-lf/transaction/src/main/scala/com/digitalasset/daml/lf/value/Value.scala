@@ -1,18 +1,23 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref.{Identifier, Name}
+import com.daml.lf.data._
+import data.ScalazEqual._
+import com.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
-import scalaz.Equal
+import scalaz.{@@, Equal, Order, Tag}
+import scalaz.Ordering.EQ
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.syntax.equal._
+import scalaz.syntax.order._
+import scalaz.syntax.semigroup._
+import scalaz.syntax.std.option._
 
 /** Values   */
 sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
@@ -129,6 +134,15 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
     go(false, BackStack.empty, FrontStack((this, 0))).toImmArray
   }
 
+  def foreach1(f: Cid => Unit) =
+    Value.foreach1(f)(self)
+
+  def cids[Cid2 >: Cid] = {
+    val cids = Set.newBuilder[Cid2]
+    foreach1(cids += _)
+    cids.result()
+  }
+
 }
 
 object Value extends CidContainer1WithDefaultCidResolver[Value] {
@@ -161,6 +175,32 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     go
   }
 
+  private[lf] override def foreach1[Cid](f: Cid => Unit): Value[Cid] => Unit = {
+
+    def go(v0: Value[Cid]): Unit =
+      v0 match {
+        case ValueContractId(coid) =>
+          f(coid)
+        case ValueRecord(id @ _, fs) =>
+          fs.foreach { case (_, value) => go(value) }
+        case ValueStruct(fs) =>
+          fs.foreach { case (_, value) => go(value) }
+        case ValueVariant(id @ _, variant @ _, value) =>
+          go(value)
+        case _: ValueCidlessLeaf =>
+        case ValueList(vs) =>
+          vs.foreach(go)
+        case ValueOptional(x) =>
+          x.foreach(go)
+        case ValueTextMap(x) =>
+          x.foreach { case (_, value) => go(value) }
+        case ValueGenMap(entries) =>
+          entries.foreach { case (k, v) => go(k); go(v) }
+      }
+
+    go
+  }
+
   /** the maximum nesting level for DAML-LF serializable values. we put this
     * limitation to be able to reliably implement stack safe programs with it.
     * right now it's 100 to be conservative -- it's in the same order of magnitude
@@ -170,8 +210,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * this level of nesting.
     */
   val MAXIMUM_NESTING: Int = 100
-
-  import Name.equalInstance
 
   final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
       extends CidContainer[VersionedValue[Cid]] {
@@ -187,13 +225,16 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
     /** Increase the `version` if appropriate for `languageVersions`. */
     def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
-      import com.digitalasset.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
+      import com.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
       copy(version =
         latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
     }
-  }
 
-  import Name.equalInstance
+    def foreach1(f: Cid => Unit) =
+      VersionedValue.foreach1(f)(self)
+
+    def cids[Cid2 >: Cid]: Set[Cid2] = value.cids
+  }
 
   object VersionedValue extends CidContainer1[VersionedValue] {
     implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =
@@ -211,6 +252,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     ): CidMapper.RelCidResolver[VersionedValue[A1], VersionedValue[A2]] =
       cidMapperInstance
 
+    override private[lf] def foreach1[A](f: A => Unit): VersionedValue[A] => Unit =
+      x => Value.foreach1(f)(x.value)
   }
 
   /** The parent of all [[Value]] cases that cannot possibly have a Cid.
@@ -244,7 +287,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   final case class ValueBool(value: Boolean) extends ValueCidlessLeaf
   object ValueBool {
     val True = new ValueBool(true)
-    val Fasle = new ValueBool(false)
+    val False = new ValueBool(false)
     def apply(value: Boolean): ValueBool =
       if (value) ValueTrue else ValueFalse
   }
@@ -257,53 +300,20 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   // currently those can be structs, although we should probably ban that.
   final case class ValueStruct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
 
+  /** The data constructors of a variant or enum, if defined. */
+  type LookupVariantEnum = Identifier => Option[ImmArray[Name]]
+
+  /** This comparison assumes that you are comparing values of matching type,
+    * and, like the lf-value-json decoder, all variants and enums contain
+    * their identifier.  Moreover, the `Scope` must include all of those
+    * identifiers.
+    */
+  def orderInstance[Cid: Order](Scope: LookupVariantEnum): Order[Value[Cid] @@ Scope.type] =
+    Tag.subst(new `Value Order instance`(Scope): Order[Value[Cid]])
+
   // Order of GenMap entries is relevant for this equality.
   implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
-    ScalazEqual.withNatural(Equal[Cid].equalIsNatural) {
-      ScalazEqual.match2(fallback = false) {
-        case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp |
-            _: ValueParty | _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
-        case r: ValueRecord[Cid] => {
-          case ValueRecord(tycon2, fields2) =>
-            import r._
-            tycon == tycon2 && fields === fields2
-        }
-        case v: ValueVariant[Cid] => {
-          case ValueVariant(tycon2, variant2, value2) =>
-            import v._
-            tycon == tycon2 && variant == variant2 && value === value2
-        }
-        case v: ValueEnum => {
-          case ValueEnum(tycon2, value2) =>
-            import v._
-            tycon == tycon2 && value == value2
-        }
-        case ValueContractId(value) => {
-          case ValueContractId(value2) =>
-            value === value2
-        }
-        case ValueList(values) => {
-          case ValueList(values2) =>
-            values === values2
-        }
-        case ValueOptional(value) => {
-          case ValueOptional(value2) =>
-            value === value2
-        }
-        case ValueStruct(fields) => {
-          case ValueStruct(fields2) =>
-            fields === fields2
-        }
-        case ValueTextMap(map1) => {
-          case ValueTextMap(map2) =>
-            map1 === map2
-        }
-        case genMap: ValueGenMap[Cid] => {
-          case ValueGenMap(entries2) =>
-            genMap.entries === entries2
-        }
-      }
-    }
+    new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
   final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
@@ -328,6 +338,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     override private[lf] def map1[A, B](f: A => B): ContractInst[A] => ContractInst[B] =
       x => x.copy(arg = f(x.arg))
 
+    override private[lf] def foreach1[A](f: A => Unit): ContractInst[A] => Unit =
+      x => f(x.arg)
   }
 
   type NodeIdx = Int
@@ -347,9 +359,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed abstract class ContractId
+  sealed abstract class ContractId extends Product with Serializable
 
-  sealed abstract class AbsoluteContractId extends ContractId with Product with Serializable {
+  sealed abstract class AbsoluteContractId extends ContractId {
     def coid: String
   }
 
@@ -363,16 +375,32 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
         Ref.ContractIdString.fromString(s).map(V0(_))
 
       def assertFromString(s: String): V0 = assertRight(fromString(s))
+
+      implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
     }
 
-    final case class V1(discriminator: crypto.Hash, suffix: Bytes = Bytes.Empty)
-        extends AbsoluteContractId {
+    final case class V1 private (discriminator: crypto.Hash, suffix: Bytes)
+        extends AbsoluteContractId
+        with data.NoCopy {
       lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"AbsoluteContractId($coid)"
     }
 
     object V1 {
+      val maxSuffixLength = 94
+
+      def apply(discriminator: Hash): V1 = new V1(discriminator, Bytes.Empty)
+
+      def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
+        Either.cond(
+          suffix.length <= maxSuffixLength,
+          new V1(discriminator, suffix),
+          s"the suffix is too long, expected at most ${maxSuffixLength} bytes, but got ${suffix.length}"
+        )
+
+      def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =
+        assertRight(build(discriminator, suffix))
 
       val prefix: Bytes = Bytes.assertFromString("00")
 
@@ -386,13 +414,18 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
               if (bytes.startsWith(prefix) && bytes.length >= suffixStart)
                 crypto.Hash
                   .fromBytes(bytes.slice(prefix.length, suffixStart))
-                  .map(
-                    V1(_, bytes.slice(suffixStart, bytes.length))
+                  .flatMap(
+                    V1.build(_, bytes.slice(suffixStart, bytes.length))
                   )
               else
                 Left(s"""cannot parse V1 ContractId "$s""""))
 
       def assertFromString(s: String): V1 = assertRight(fromString(s))
+
+      implicit val `V1 Order`: Order[V1] = {
+        case (AbsoluteContractId.V1(hash1, suffix1), AbsoluteContractId.V1(hash2, suffix2)) =>
+          hash1 ?|? hash2 |+| suffix1 ?|? suffix2
+      }
 
     }
 
@@ -405,6 +438,25 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
     def assertFromString(s: String): AbsoluteContractId =
       assertRight(fromString(s))
+
+    implicit val `AbsCid Order`: Order[AbsoluteContractId] = new Order[AbsoluteContractId] {
+      import scalaz.Ordering._
+      override def order(a: AbsoluteContractId, b: AbsoluteContractId) =
+        (a, b) match {
+          case (a: V0, b: V0) => a ?|? b
+          case (a: V1, b: V1) => a ?|? b
+          case (_: V0, _: V1) => LT
+          case (_: V1, _: V0) => GT
+        }
+
+      override def equal(a: AbsoluteContractId, b: AbsoluteContractId) =
+        (a, b).match2 {
+          case a: V0 => { case b: V0 => a === b }
+          case V1(discA, suffA) => {
+            case V1(discB, suffB) => discA == discB && suffA.toByteString == suffB.toByteString
+          }
+        }(fallback = false)
+    }
   }
 
   final case class RelativeContractId(txnid: NodeId) extends ContractId
@@ -418,6 +470,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       CidMapper.basicMapperInstance[ContractId, AbsoluteContractId]
     implicit val relCidResolver: CidMapper.RelCidResolver[ContractId, AbsoluteContractId] =
       CidMapper.basicCidResolverInstance
+    implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, AbsoluteContractId.V1] =
+      CidMapper.basicMapperInstance[ContractId, AbsoluteContractId.V1]
   }
 
   /** The constructor is private so that we make sure that only this object constructs
@@ -434,7 +488,137 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   type Key = Value[Nothing]
 
   val ValueTrue: ValueBool = ValueBool.True
-  val ValueFalse: ValueBool = ValueBool.Fasle
+  val ValueFalse: ValueBool = ValueBool.False
   val ValueNil: ValueList[Nothing] = ValueList(FrontStack.empty)
   val ValueNone: ValueOptional[Nothing] = ValueOptional(None)
+}
+
+/** This Order is not strictly compatible with the Equal instance, so
+  * instances of it must always be local or tagged.
+  */
+private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVariantEnum)
+    extends Order[Value[Cid]] {
+  import Value._, Utf8.ImplicitOrder._
+  import scalaz.std.anyVal._
+  import ScalazEqual._2, _2._
+
+  implicit final def Self: this.type = this
+
+  override final def order(a: Value[Cid], b: Value[Cid]) = {
+    val (ixa, cmp) = ixv(a)
+    cmp.applyOrElse(b, { b: Value[Cid] =>
+      val (ixb, _) = ixv(b)
+      ixa ?|? ixb
+    })
+  }
+
+  private[this] def ixv(a: Value[Cid]) = a match {
+    case ValueUnit => (0, k { case ValueUnit => EQ })
+    case ValueBool(a) => (10, k { case ValueBool(b) => a ?|? b })
+    case ValueInt64(a) => (20, k { case ValueInt64(b) => a ?|? b })
+    case ValueText(a) => (30, k { case ValueText(b) => a ?|? b })
+    case ValueNumeric(a) => (40, k { case ValueNumeric(b) => a ?|? b })
+    case ValueTimestamp(a) => (50, k { case ValueTimestamp(b) => a ?|? b })
+    case ValueDate(a) => (60, k { case ValueDate(b) => a ?|? b })
+    case ValueParty(a) => (70, k { case ValueParty(b) => a ?|? b })
+    case ValueContractId(a) => (80, k { case ValueContractId(b) => a ?|? b })
+    case ValueOptional(a) => (90, k { case ValueOptional(b) => a ?|? b })
+    case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
+    case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
+    case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
+    case ValueEnum(idA, a) =>
+      (130, k {
+        case ValueEnum(idB, b) =>
+          ctorOrder(idA, idB, a, b)
+      })
+    case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
+    case ValueStruct(a) => (150, k { case ValueStruct(b) => a ?|? b })
+    case ValueVariant(idA, conA, a) =>
+      (160, k {
+        case ValueVariant(idB, conB, b) =>
+          ctorOrder(idA, idB, conA, conB) |+| a ?|? b
+      })
+  }
+
+  private[this] def ctorOrder(
+      idA: Option[Identifier],
+      idB: Option[Identifier],
+      ctorA: Ref.Name,
+      ctorB: Ref.Name) = {
+    val idAB = unifyIds(idA, idB)
+    Scope(idAB) cata ({ ctors =>
+      val lookup = ctors.toSeq
+      (lookup indexOf ctorA) ?|? (lookup indexOf ctorB)
+    },
+    noType(idAB))
+  }
+  @throws[IllegalArgumentException]
+  private[this] def noType(id: Identifier): Nothing =
+    throw new IllegalArgumentException(s"type $id not found in scope")
+
+  // could possibly return Ordering \/ Id instead of throwing in the Some/Some case,
+  // not sure if that could apply to None/None...
+  @throws[IllegalArgumentException]
+  private[this] def unifyIds[Id <: Identifier](a: Option[Id], b: Option[Id]): Id = (a, b) match {
+    case (Some(idA), Some(idB)) =>
+      if (idA != idB) throw new IllegalArgumentException(s"types $idA and $idB don't match")
+      else idA
+    case _ => a orElse b getOrElse (throw new IllegalArgumentException("missing type identifier"))
+  }
+
+  private[this] def k[Z](f: Value[Cid] PartialFunction Z): f.type = f
+}
+
+private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]] {
+  import Value._
+  import ScalazEqual._
+
+  override final def equalIsNatural: Boolean = Equal[Cid].equalIsNatural
+
+  implicit final def Self: this.type = this
+
+  override final def equal(a: Value[Cid], b: Value[Cid]) =
+    (a, b).match2 {
+      case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp | _: ValueParty |
+          _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
+      case r: ValueRecord[Cid] => {
+        case ValueRecord(tycon2, fields2) =>
+          import r._
+          tycon == tycon2 && fields === fields2
+      }
+      case v: ValueVariant[Cid] => {
+        case ValueVariant(tycon2, variant2, value2) =>
+          import v._
+          tycon == tycon2 && variant == variant2 && value === value2
+      }
+      case v: ValueEnum => {
+        case ValueEnum(tycon2, value2) =>
+          import v._
+          tycon == tycon2 && value == value2
+      }
+      case ValueContractId(value) => {
+        case ValueContractId(value2) =>
+          value === value2
+      }
+      case ValueList(values) => {
+        case ValueList(values2) =>
+          values === values2
+      }
+      case ValueOptional(value) => {
+        case ValueOptional(value2) =>
+          value === value2
+      }
+      case ValueStruct(fields) => {
+        case ValueStruct(fields2) =>
+          fields === fields2
+      }
+      case ValueTextMap(map1) => {
+        case ValueTextMap(map2) =>
+          map1 === map2
+      }
+      case genMap: ValueGenMap[Cid] => {
+        case ValueGenMap(entries2) =>
+          genMap.entries === entries2
+      }
+    }(fallback = false)
 }

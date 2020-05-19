@@ -1,29 +1,32 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
-import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.ledger.client.services.admin.PackageManagementClient
-import com.digitalasset.ledger.client.services.admin.PartyManagementClient
-import com.digitalasset.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
-import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
-import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import io.grpc.Channel
+import java.io.Closeable
+import java.util.concurrent.TimeUnit
+
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.client.LedgerCallCredentials
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
+import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
+import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
+import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.ledger.client.services.admin.PackageManagementClient
+import com.daml.ledger.client.services.admin.PartyManagementClient
+import com.daml.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.client.services.transactions.TransactionClient
+import io.grpc.{Channel, ManagedChannel}
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.grpc.stub.AbstractStub
 
@@ -33,7 +36,8 @@ final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
     val ledgerId: LedgerId
-)(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory) {
+)(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
+    extends Closeable {
 
   val activeContractSetClient =
     new ActiveContractSetClient(
@@ -68,6 +72,12 @@ final class LedgerClient private (
       ledgerId,
       LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token))
 
+  override def close(): Unit =
+    channel match {
+      case channel: ManagedChannel =>
+        val _ = channel.shutdown().awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+      case _ => // do nothing
+    }
 }
 
 object LedgerClient {
@@ -119,7 +129,11 @@ object LedgerClient {
     configuration.sslContext.fold(builder.usePlaintext())(
       builder.sslContext(_).negotiationType(NegotiationType.TLS))
     val channel = builder.build()
-    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
+    sys.addShutdownHook {
+      if (!channel.isShutdown) {
+        val _ = channel.shutdownNow()
+      }
+    }
     apply(channel, configuration)
   }
 

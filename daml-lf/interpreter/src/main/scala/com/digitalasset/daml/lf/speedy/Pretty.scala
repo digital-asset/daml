@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.value.Value
 import Value._
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.SBuiltin._
-import com.digitalasset.daml.lf.types.Ledger.CommitError
+import com.daml.lf.transaction.Node._
+import com.daml.lf.types.{Ledger => L}
+import com.daml.lf.data.Ref._
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.types.Ledger.CommitError
 
 //
 // Pretty-printer for the interpreter errors and the scenario ledger
@@ -70,11 +70,6 @@ object Pretty {
           text("Expected contract of type") & prettyTypeConName(expected) & text("but got") & prettyTypeConName(
           actual,
         )
-
-      case DamlESubmitterNotInMaintainers(templateId, submitter, maintainers) =>
-        text("Expected the submitter") & prettyParty(submitter) &
-          text("to be in maintainers") & intercalate(comma + space, maintainers.map(prettyParty)) &
-          text("when looking up template of maintainer") & prettyTypeConName(templateId)
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
@@ -437,8 +432,8 @@ object Pretty {
     // An incomplete pretty-printer for debugging purposes. Exposed
     // via the ':speedy' repl command.
 
-    import com.digitalasset.daml.lf.language.Ast._
-    import com.digitalasset.daml.lf.speedy.SExpr._
+    import com.daml.lf.language.Ast._
+    import com.daml.lf.speedy.SExpr._
     def prettyAlt(index: Int)(alt: SCaseAlt): Doc = {
       val (pat, newIndex) = alt.pattern match {
         case SCPNil => (text("nil"), index)
@@ -462,7 +457,7 @@ object Pretty {
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
         case SEVar(i) => char('@') + str(index - i)
-        case SEVal(defId, _) =>
+        case SEVal(defId) =>
           str(defId)
         case SEValue(lit) =>
           lit match {

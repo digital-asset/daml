@@ -1,17 +1,35 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
-import com.digitalasset.daml.lf.value.Value._
-
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
-import org.scalatest.{FreeSpec, Matchers}
+import data.{Bytes, FrontStack, ImmArray, Ref, Unnatural}
+import Value._
+import Ref.{Identifier, Name}
+import ValueGenerators.{absCoidGen, idGen, nameGen}
+import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
+import org.scalacheck.{Arbitrary, Gen, Shrink}
+import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+import org.scalatest.{FreeSpec, Inside, Matchers}
+import scalaz.{Order, Tag}
+import scalaz.std.anyVal._
+import scalaz.syntax.functor._
+import scalaz.syntax.order._
+import scalaz.scalacheck.{ScalazProperties => SzP}
+import scalaz.scalacheck.ScalaCheckBinding._
+import shapeless.syntax.singleton._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrivenPropertyChecks {
+class ValueSpec
+    extends FreeSpec
+    with Matchers
+    with Inside
+    with Checkers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
+  import ValueSpec._
+
   "serialize" - {
     val emptyStruct = ValueStruct(ImmArray.empty)
     val emptyStructError = "contains struct ValueStruct(ImmArray())"
@@ -88,20 +106,162 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
 
   }
 
+  "AbsoluteContractID.V1.build" - {
+
+    "rejects too long suffix" in {
+
+      def suffix(size: Int) =
+        Bytes.fromByteArray(Array.iterate(0.toByte, size)(b => (b + 1).toByte))
+
+      val hash = crypto.Hash.hashPrivateKey("some hash")
+      import AbsoluteContractId.V1.build
+      build(hash, suffix(0)) shouldBe 'right
+      build(hash, suffix(94)) shouldBe 'right
+      build(hash, suffix(95)) shouldBe 'left
+      build(hash, suffix(96)) shouldBe 'left
+      build(hash, suffix(127)) shouldBe 'left
+
+    }
+
+  }
+
   "Equal" - {
-    import com.digitalasset.daml.lf.value.ValueGenerators._
+    import com.daml.lf.value.ValueGenerators._
     import org.scalacheck.Arbitrary
     type T = VersionedValue[Unnatural[ContractId]]
     implicit val arbT: Arbitrary[T] =
       Arbitrary(versionedValueGen.map(VersionedValue.map1(Unnatural(_))))
 
-    scalaz.scalacheck.ScalazProperties.equal.laws[T].properties foreach {
-      case (s, p) => s in check(p)
-    }
+    "obeys Equal laws" in checkLaws(SzP.equal.laws[T])
 
     "results preserve natural == results" in forAll { (a: T, b: T) =>
       scalaz.Equal[T].equal(a, b) shouldBe (a == b)
     }
   }
 
+  "AbsoluteContractId" - {
+    type T = AbsoluteContractId
+    implicit val arbT: Arbitrary[T] = Arbitrary(absCoidGen)
+    "Order" - {
+      "obeys Order laws" in checkLaws(SzP.order.laws[T])
+    }
+  }
+
+  // XXX can factor like FlatSpecCheckLaws
+  private def checkLaws(props: org.scalacheck.Properties) =
+    forEvery(Table(("law", "property"), props.properties: _*)) { (_, p) =>
+      check(p, minSuccessful(20))
+    }
+
+  private def checkOrderPreserved[Cid: Arbitrary: Shrink: Order](
+      va: VA,
+      scope: Value.LookupVariantEnum) = {
+    import va.{injord, injarb, injshrink}
+    implicit val targetOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance(scope)
+    forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+      (a ?|? b) should ===(va.inj(a) ?|? va.inj(b))
+    }
+  }
+
+  "Order" - {
+    type Cid = Int
+    type T = Value[Cid]
+
+    val FooScope: Value.LookupVariantEnum =
+      Map(fooVariantId -> ImmArray("quux", "baz"), fooEnumId -> ImmArray("quux", "baz"))
+        .transform((_, ns) => ns map Ref.Name.assertFromString)
+        .lift
+
+    "for primitive, matching types" - {
+      val EmptyScope: Value.LookupVariantEnum = _ => None
+      implicit val ord: Order[T] = Tag unsubst Value.orderInstance(EmptyScope)
+
+      "obeys order laws" in forAll(genAddend, minSuccessful(100)) { va =>
+        implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
+        checkLaws(SzP.order.laws[T])
+      }
+    }
+
+    "for record and variant types" - {
+      implicit val ord: Order[T] = Tag unsubst Value.orderInstance(FooScope)
+      "obeys order laws" in forEvery(Table("va", fooRecord, fooVariant)) { va =>
+        implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
+        checkLaws(SzP.order.laws[T])
+      }
+
+      "matches constructor rank" in {
+        val fooCp = shapeless.Coproduct[fooVariant.Inj[Cid]]
+        val quux = fooCp('quux ->> 42L)
+        val baz = fooCp('baz ->> 42L)
+        (fooVariant.inj(quux) ?|? fooVariant.inj(baz)) shouldBe scalaz.Ordering.LT
+      }
+
+      "preserves base order" in forEvery(Table("va", fooRecord, fooVariant)) { va =>
+        checkOrderPreserved[Cid](va, FooScope)
+      }
+    }
+
+    "for enum types" - {
+      "obeys order laws" in forAll(enumDetailsAndScopeGen, minSuccessful(20)) {
+        case (details, scope) =>
+          implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
+          forEvery(Table("va", details.values.toSeq: _*)) { ea =>
+            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
+            checkLaws(SzP.order.laws[T])
+          }
+      }
+
+      "matches constructor rank" in forAll(enumDetailsAndScopeGen, minSuccessful(20)) {
+        case (details, scope) =>
+          implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
+          forEvery(Table("va", details.values.toSeq: _*)) { ea =>
+            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
+            forAll(minSuccessful(20)) { (a: T, b: T) =>
+              inside((a, b)) {
+                case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
+                  (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
+              }
+            }
+          }
+      }
+
+      "preserves base order" in forAll(enumDetailsAndScopeGen, minSuccessful(20)) {
+        case (details, scope) =>
+          forEvery(Table("va", details.values.toSeq: _*)) { ea =>
+            checkOrderPreserved[Cid](ea, scope)
+          }
+      }
+    }
+  }
+
+}
+
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+object ValueSpec {
+  private val fooSpec =
+    'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil
+  private val (_, fooRecord) = VA.record(Identifier assertFromString "abc:Foo:FooRec", fooSpec)
+  private val fooVariantId = Identifier assertFromString "abc:Foo:FooVar"
+  private val (_, fooVariant) = VA.variant(fooVariantId, fooSpec)
+  private val fooEnumId = Identifier assertFromString "abc:Foo:FooEnum"
+
+  private[this] val scopeOfEnumsGen: Gen[Map[Identifier, Seq[Name]]] =
+    Gen.mapOf(Gen.zip(idGen, Gen.nonEmptyContainerOf[Set, Name](nameGen) map (_.toSeq)))
+
+  private val enumDetailsAndScopeGen
+    : Gen[(Map[Identifier, VA.EnumAddend[Seq[Name]]], Value.LookupVariantEnum)] =
+    scopeOfEnumsGen flatMap { details =>
+      (
+        details transform ((name, members) => VA.enum(name, members)._2),
+        details.transform((_, members) => members.to[ImmArray]).lift)
+    }
+  /*
+  private val genFoos: Gen[(ImmArray[Name], ValueAddend)] =
+    Gen.nonEmptyContainerOf[ImmArray, Name](ValueGenerators.nameGen)
+    Gen.oneOf(
+    fooRecord,
+    fooVariant,
+     map ()
+  )
+ */
 }

@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPackageId
-import com.digitalasset.daml.lf.validation.SpecUtil._
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -359,6 +359,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Nil → () ))",
         // ExpCaseCons
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of Cons x y → () ))",
+        E"Λ (τ : ⋆). λ (e: List τ) → (( case e of Cons x x → () ))",
         // ExpCaseFalse & ExpCaseTrue
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of True → () ))",
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of False → () ))",
@@ -471,7 +472,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               },
               key @NegativeTestCase:TBis
                   (NegativeTestCase:TBis { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
@@ -488,7 +489,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -502,7 +503,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers (),                                  // should be of type (List Party)
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -516,7 +517,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement (),                                 // should be of type Text
               choices {
-                choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
           }
@@ -530,7 +531,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
+                choice Ch (self) (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
                   by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
               }
             } ;
@@ -545,7 +546,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
+                choice Ch (self) (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
                    by Cons @Party ['Alice'] (Nil @Party) to upure @(List) (/\ (tau : *). Nil @tau)
               }
             } ;
@@ -561,7 +562,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase6:TBis
               // In the next line, should use only record construction and projection, and variable. Here use string literal.
@@ -581,7 +582,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase7:TBis
           // In the next line, the declared type do not match body
@@ -601,7 +602,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase8:TBis
           (PositiveTestCase8:TBis { person = (PositiveTestCase8:T {name} this), party = (PositiveTestCase8:T {person} this) })
@@ -620,7 +621,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           observers Cons @Party ['Alice'] (Nil @Party),
           agreement "Agreement",
           choices {
-            choice Ch (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+            choice Ch (self) (i : Unit) : Unit by Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase9:TBis
           (PositiveTestCase9:TBis { person = (PositiveTestCase9:T {name} this), party = (PositiveTestCase9:T {person} this) })
@@ -701,7 +702,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
                observers Cons @Party ['Alice'] (Nil @Party),
                agreement "Agreement",
                choices {
-                 choice Ch (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
+                 choice Ch (self) (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
                }
              } ;
            }
@@ -745,7 +746,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
                observers Cons @Party ['Alice'] (Nil @Party),
                agreement "Agreement",
                choices {
-                 choice Ch (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
+                 choice Ch (self) (record : Mod:T) : Unit by Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
                }
              } ;
            }
@@ -903,7 +904,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
            observers Cons @Party ['Alice'] (Nil @Party),
            agreement "Agreement",
            choices {
-             choice Ch (x: Int64) : Decimal by 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x)
+             choice Ch (self) (x: Int64) : Decimal by 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x)
            },
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party ['Alice', p] (Nil @Party))
          } ;

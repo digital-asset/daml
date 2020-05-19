@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Node._
+import com.daml.lf.value.Value
 import scalaz.Equal
 
 import scala.annotation.tailrec
@@ -207,7 +207,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
   def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
     fold(Map.empty[Cid2, Nid]) {
-      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _, _))) =>
+      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _))) =>
         acc.updated(create.coid, nid)
       case (acc, _) => acc
     }
@@ -217,7 +217,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     */
   def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.NodeExercises(_, coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _))) =>
         acc + coid
@@ -284,6 +284,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
       false
     else
       go(FrontStack(roots.zip(other.roots)))
+
   }
 
   /** Whether `other` is the result of reinterpreting this transaction.
@@ -329,6 +330,60 @@ final case class GenTransaction[Nid, +Cid, +Val](
           case lk: Node.NodeLookupByKey[_, Val] => f(z, lk.key.key)
         }
     }
+
+  def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
+    GenTransaction.foreach3(fNid, fCid, fVal)(self)
+
+  // This method visits to all nodes of the transaction in execution order.
+  // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
+  def foreachInExecutionOrder(
+      exerciseBegin: (Nid, Node.NodeExercises[Nid, Cid, Val]) => Unit,
+      leaf: (Nid, Node.LeafOnlyNode[Cid, Val]) => Unit,
+      exerciseEnd: (Nid, Node.NodeExercises[Nid, Cid, Val]) => Unit,
+  ): Unit = {
+    @tailrec
+    def loop(
+        currNodes: FrontStack[Nid],
+        stack: FrontStack[((Nid, Node.NodeExercises[Nid, Cid, Val]), FrontStack[Nid])],
+    ): Unit =
+      currNodes match {
+        case FrontStackCons(nid, rest) =>
+          nodes(nid) match {
+            case exe: NodeExercises[Nid, Cid, Val] =>
+              exerciseBegin(nid, exe)
+              loop(FrontStack(exe.children), (((nid, exe), rest)) +: stack)
+            case node: Node.LeafOnlyNode[Cid, Val] =>
+              leaf(nid, node)
+              loop(rest, stack)
+          }
+        case FrontStack() =>
+          stack match {
+            case FrontStackCons(((nid, exe), brothers), rest) =>
+              exerciseEnd(nid, exe)
+              loop(brothers, rest)
+            case FrontStack() =>
+          }
+      }
+
+    loop(FrontStack(roots), FrontStack.empty)
+  }
+
+  // This method visits to all nodes of the transaction in execution order.
+  // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
+  def foldInExecutionOrder[A](z: A)(
+      exerciseBegin: (A, Nid, Node.NodeExercises[Nid, Cid, Val]) => A,
+      leaf: (A, Nid, Node.LeafOnlyNode[Cid, Val]) => A,
+      exerciseEnd: (A, Nid, Node.NodeExercises[Nid, Cid, Val]) => A,
+  ): A = {
+    var acc = z
+    foreachInExecutionOrder(
+      (nid, node) => acc = exerciseBegin(acc, nid, node),
+      (nid, node) => acc = leaf(acc, nid, node),
+      (nid, node) => acc = exerciseEnd(acc, nid, node),
+    )
+    acc
+  }
+
 }
 
 object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
@@ -354,6 +409,19 @@ object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTrans
         },
         roots = roots.map(f1)
       )
+  }
+
+  override private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): GenTransaction[A, B, C] => Unit = {
+    case GenTransaction(nodes, _) =>
+      nodes.foreach {
+        case (nodeId, node) =>
+          f1(nodeId)
+          GenNode.foreach3(f1, f2, f3)(node)
+      }
   }
 }
 
@@ -382,19 +450,30 @@ object Transaction {
     */
   type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
 
-  /* Transaction meta data
-   * @param submissionTime: submission time
-   * @param usedPackages The set of packages used during command processing.
-   *        This is a hint for what packages are required to validate
-   *        the transaction using the current interpreter.
-   *        The used packages are not serialized using [[TransactionCoder]].
-   * @dependsOnTime: indicate the transaction computation depends on ledger
-   *        time.
-   */
+  /** Transaction meta data
+    * @param submissionSeed: the submission seed used to derive the contract IDs.
+    *        If undefined no seed has been used (the legacy contract ID scheme
+    *        have been used) or it is unknown (output of partial reinterpretation).
+    * @param submissionTime: the submission time
+    * @param usedPackages The set of packages used during command processing.
+    *        This is a hint for what packages are required to validate
+    *        the transaction using the current interpreter.
+    *        If set to `empty` the package dependency have not be computed.
+    * @param dependsOnTime: indicate the transaction computation depends on ledger
+    *        time.
+    * @param nodeSeeds: An association list that maps to each ID of create and exercise
+    *        nodes its seeds.
+    * @param byKeyNodes: The list of the IDs of each node that corresponds to a FetchByKey,
+    *        LookupByKey, or ExerciseByKey commands. Empty in case of validation or
+    *        reinterpretation
+    */
   final case class Metadata(
+      submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
-      dependsOnTime: Boolean
+      dependsOnTime: Boolean,
+      nodeSeeds: ImmArray[(Value.NodeId, crypto.Hash)],
+      byKeyNodes: ImmArray[Value.NodeId],
   )
 
   type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]

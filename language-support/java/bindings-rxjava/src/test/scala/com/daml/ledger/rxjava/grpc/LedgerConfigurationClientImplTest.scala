@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
+import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 final class LedgerConfigurationClientImplTest

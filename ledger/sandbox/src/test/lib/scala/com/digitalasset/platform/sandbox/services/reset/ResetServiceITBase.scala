@@ -1,46 +1,56 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.reset
+package com.daml.platform.sandbox.services.reset
 
 import java.io.File
+import java.time.Instant
 import java.util.UUID
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.{
+import com.daml.api.util.TimestampConversion
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.{
   IsStatusException,
   SuiteResourceManagementAroundEach,
   MockMessages => M
 }
-import com.digitalasset.ledger.api.v1.active_contracts_service.{
+import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
   GetActiveContractsRequest,
   GetActiveContractsResponse
 }
-import com.digitalasset.ledger.api.v1.admin.party_management_service.{
+import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   PartyManagementServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
+import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
-import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.AbstractSandboxFixture
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.TestCommands
-import com.digitalasset.platform.testing.{StreamConsumer, WaitForCompletionsObserver}
-import com.digitalasset.timer.RetryStrategy
+import com.daml.ledger.api.v1.package_service.{ListPackagesRequest, PackageServiceGrpc}
+import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
+import com.daml.ledger.api.v1.testing.time_service.{
+  GetTimeRequest,
+  GetTimeResponse,
+  SetTimeRequest,
+  TimeServiceGrpc
+}
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.testing.{StreamConsumer, WaitForCompletionsObserver}
+import com.daml.timer.RetryStrategy
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
@@ -67,6 +77,9 @@ abstract class ResetServiceITBase
   protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, scaled(10.millis))
 
   override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
+
+  protected def timeIsStatic: Boolean =
+    config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType) == TimeProviderType.Static
 
   protected def fetchLedgerId(): Future[String] =
     LedgerIdentityServiceGrpc
@@ -105,6 +118,9 @@ abstract class ResetServiceITBase
       .all()
       .map(_.flatMap(_.activeContracts)(collection.breakOut))
 
+  protected def listPackages(ledgerId: String): Future[Seq[String]] =
+    PackageServiceGrpc.stub(channel).listPackages(ListPackagesRequest(ledgerId)).map(_.packageIds)
+
   protected def submitAndExpectCompletions(
       ledgerId: String,
       commands: Int,
@@ -128,6 +144,23 @@ abstract class ResetServiceITBase
             ),
             _))
     } yield unit
+
+  protected def getTime(ledgerId: String): Future[Instant] =
+    new StreamConsumer[GetTimeResponse](
+      TimeServiceGrpc.stub(channel).getTime(GetTimeRequest(ledgerId), _))
+      .first()
+      .map(_.flatMap(_.currentTime).map(TimestampConversion.toInstant).get)
+
+  protected def setTime(ledgerId: String, currentTime: Instant, newTime: Instant): Future[Unit] =
+    TimeServiceGrpc
+      .stub(channel)
+      .setTime(
+        SetTimeRequest(
+          ledgerId,
+          Some(TimestampConversion.fromInstant(currentTime)),
+          Some(TimestampConversion.fromInstant(newTime)),
+        ))
+      .map(_ => ())
 
   "ResetService" when {
     "state is reset" should {
@@ -187,6 +220,41 @@ abstract class ResetServiceITBase
           newEvents <- activeContracts(newLid, M.transactionFilter)
         } yield {
           newEvents should have size 0
+        }
+      }
+
+      "retain previously uploaded packages" in {
+        for {
+          ledgerId <- fetchLedgerId()
+          packagesBeforeReset <- eventually { (_, _) =>
+            listPackages(ledgerId).map { packages =>
+              packages.size should be > 0
+              packages
+            }
+          }
+          newLid <- reset(ledgerId)
+          packagesAfterReset <- listPackages(newLid)
+        } yield {
+          packagesBeforeReset should contain theSameElementsAs packagesAfterReset
+        }
+      }
+
+      if (timeIsStatic) {
+        "reset the time to the epoch" in {
+          for {
+            ledgerId <- fetchLedgerId()
+            epoch <- getTime(ledgerId)
+
+            now = Instant.now()
+            _ <- setTime(ledgerId, epoch, now)
+            newTime <- getTime(ledgerId)
+            _ = newTime should not be epoch
+
+            newLedgerId <- reset(ledgerId)
+            resetTime <- getTime(newLedgerId)
+          } yield {
+            resetTime should be(epoch)
+          }
         }
       }
     }

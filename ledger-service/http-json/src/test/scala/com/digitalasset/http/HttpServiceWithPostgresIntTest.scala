@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.http.Statement.discard
+import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
 
 import scala.concurrent.Future
@@ -20,7 +20,7 @@ class HttpServiceWithPostgresIntTest
   // has to be lazy because postgresFixture is NOT initialized yet
   private lazy val jdbcConfig_ = JdbcConfig(
     driver = "org.postgresql.Driver",
-    url = postgresFixture.jdbcUrl,
+    url = postgresDatabase.url,
     user = "test",
     password = "",
     createSchema = true)
@@ -33,7 +33,7 @@ class HttpServiceWithPostgresIntTest
   )
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
@@ -57,7 +57,7 @@ class HttpServiceWithPostgresIntTest
 
   private def selectAllDbContracts
     : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
-    import com.digitalasset.http.dbbackend.Queries.Implicits._
+    import com.daml.http.dbbackend.Queries.Implicits._
     import dao.logHandler
     import doobie.implicits._
     import doobie.postgres.implicits._

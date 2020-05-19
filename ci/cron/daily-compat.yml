@@ -1,0 +1,143 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Do not run on PRs
+pr: none
+
+# Do not run on merge to master
+trigger: none
+
+# Do run on a schedule (daily)
+#
+# Note: machines are killed every day at 4AM UTC, so we need to either:
+# - run sufficiently before that that this doesn't get killed, or
+# - run sufficiently after that that machines are initialized.
+#
+# Targeting 6AM UTC seems to fit that.
+schedules:
+- cron: "0 6 * * *"
+  displayName: daily checks and reporting
+  branches:
+    include:
+    - master
+  always: true
+
+jobs:
+  - job: compatibility_ts_libs
+    timeoutInMinutes: 60
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../compatibility_ts_libs.yml
+
+  - job: compatibility
+    dependsOn: compatibility_ts_libs
+    timeoutInMinutes: 240
+    strategy:
+      matrix:
+        linux:
+          pool: linux-pool
+        macos:
+          pool: macOS-pool
+    pool:
+      name: $(pool)
+    steps:
+      - checkout: self
+      - template: ../compatibility.yml
+      - bash: |
+          set -euo pipefail
+          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
+          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
+              MESSAGE=":fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:"
+          else
+              MESSAGE="$(Agent.JobName) passed: $COMMIT_LINK"
+          fi
+          curl -XPOST \
+               -i \
+               -H 'Content-type: application/json' \
+               --data "{\"text\":\"$MESSAGE\n\"}" \
+               $(Slack.team-daml)
+        displayName: report
+        condition: always()
+
+  - job: compatibility_windows
+    dependsOn: compatibility_ts_libs
+    timeoutInMinutes: 240
+    pool:
+      name: windows-pool
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - template: ../compatibility-windows.yml
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Compatibility Logs'
+      - bash: |
+          set -euo pipefail
+          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
+          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
+              MESSAGE=":fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:"
+          else
+              MESSAGE="$(Agent.JobName) passed: $COMMIT_LINK"
+          fi
+          curl -XPOST \
+               -i \
+               -H 'Content-type: application/json' \
+               --data "{\"text\":\"$MESSAGE\n\"}" \
+               $(Slack.team-daml)
+        displayName: report
+        condition: always()
+  - job: performance_report
+    timeoutInMinutes: 120
+    pool:
+      name: "linux-pool"
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel for root workspace'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
+          TEST_SHA=$(cat ci/cron/perf/test_sha)
+          OUT="$(Build.StagingDirectory)/perf-results.json"
+          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
+              # no changes, all good
+              ci/cron/perf/compare.sh $BASELINE > $OUT
+          else
+              # the tests have changed, we need to figure out what to do with
+              # the baseline.
+              echo "Baseline no longer valid, needs manual correction." > $OUT
+          fi
+        displayName: measure perf
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          cat $(Build.StagingDirectory)/perf-results.json
+          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
+          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
+              MESSAGE="{\"text\": \":fire: <!here> :fire: :fire:\nperf *FAILED*: $COMMIT_LINK\n:fire: :fire:\"}"
+          else
+              MESSAGE=$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR '{"text": "perf for '"$COMMIT_LINK"':```\(.)```"}')
+          fi
+          curl -XPOST \
+               -i \
+               -H 'Content-type: application/json' \
+               --data "$MESSAGE" \
+               $(Slack.team-daml)
+        displayName: report
+        condition: always()

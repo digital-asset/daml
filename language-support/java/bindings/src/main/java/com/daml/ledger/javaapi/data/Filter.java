@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.TransactionFilterOuterClass;
+import com.daml.ledger.api.v1.TransactionFilterOuterClass;
 
 public abstract class Filter {
 

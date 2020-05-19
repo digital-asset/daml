@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.data.BackStack
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 
 import scala.language.implicitConversions
 
@@ -27,6 +27,7 @@ class TypeSpec extends WordSpec with Matchers {
       if (!typs.isEmpty)
         sys.error(s"expected 0 arguments, got ${typs.toImmArray.length}")
 
+    @scala.annotation.tailrec
     def go(typ0: Pkg.Type, args: BackStack[Type]): Type = typ0 match {
       case Pkg.TVar(v) =>
         assertZeroArgs(args)
@@ -101,14 +102,14 @@ class TypeSpec extends WordSpec with Matchers {
   }
 
   "mapTypeVars should replace all type variables in `List (List a)`" in {
-    val result: Type = t"List (List a)".mapTypeVars(v => t"Text")
+    val result: Type = t"List (List a)".mapTypeVars(_ => t"Text")
     val expected: Type = t"List (List Text)"
 
     result shouldBe expected
   }
 
   "mapTypeVars should replace all type variables in `GenMap a b`" in {
-    val result: Type = t"GenMap a b".mapTypeVars(a => t"GenMap a b")
+    val result: Type = t"GenMap a b".mapTypeVars(_ => t"GenMap a b")
     val expected: Type = t"GenMap (GenMap a b) (GenMap a b)"
 
     result shouldBe expected

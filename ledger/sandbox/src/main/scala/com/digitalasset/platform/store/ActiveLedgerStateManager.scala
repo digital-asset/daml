@@ -1,28 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.time.Instant
 
+import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.api.domain.RejectionReason.{Disputed, Inconsistent, InvalidLedgerTime}
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.SequencingError.PredicateType.{Exercise, Fetch}
-import com.digitalasset.platform.store.SequencingError.{
-  DuplicateKey,
-  InactiveDependencyError,
-  InvalidLookup,
-  PredicateType,
-  TimeBeforeError
-}
+import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.{GenTransaction, Node => N}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.platform.store.Contract.ActiveContract
 
 /**
   * A helper for updating an [[ActiveLedgerState]] with new transactions:
@@ -33,13 +26,13 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
 
   private case class AddTransactionState(
       acc: Option[ALS],
-      errs: Set[SequencingError],
+      errs: Set[RejectionReason],
       parties: Set[Party],
       archivedIds: Set[AbsoluteContractId]) {
 
     def mapAcs(f: ALS => ALS): AddTransactionState = copy(acc = acc map f)
 
-    def result: Either[Set[SequencingError], ALS] = {
+    def result: Either[Set[RejectionReason], ALS] = {
       acc match {
         case None =>
           if (errs.isEmpty) {
@@ -74,7 +67,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       disclosure: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
-    : Either[Set[SequencingError], ALS] = {
+    : Either[Set[RejectionReason], ALS] = {
     // NOTE(RA): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
     // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
     // will also point to contracts created in the same transaction.
@@ -93,14 +86,13 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
           case (ats @ AddTransactionState(Some(acc), errs, parties, archivedIds), (nodeId, node)) =>
             // If some node requires a contract, check that we have that contract, and check that that contract is not
             // created after the current let.
-            def contractCheck(
-                cid: AbsoluteContractId,
-                predType: PredicateType): Option[SequencingError] =
+            def contractCheck(cid: AbsoluteContractId): Option[RejectionReason] =
               acc lookupContractLet cid match {
                 case Some(Let(otherContractLet)) =>
                   // Existing active contract, check its LET
                   if (otherContractLet.isAfter(let)) {
-                    Some(TimeBeforeError(cid, otherContractLet, let, predType))
+                    Some(InvalidLedgerTime(
+                      s"Encountered contract [$cid] with LET [$otherContractLet] greater than the LET of the transaction [$let]"))
                   } else {
                     None
                   }
@@ -112,7 +104,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   None
                 case None =>
                   // Contract not known
-                  Some(InactiveDependencyError(cid, predType))
+                  Some(Inconsistent(s"Could not lookup contract $cid"))
               }
 
             node match {
@@ -120,10 +112,9 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties.getOrElse(Set.empty))
-                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
                 AddTransactionState(
                   Some(acc),
-                  contractCheck(absCoid, Fetch).fold(errs)(errs + _),
+                  contractCheck(nf.coid).fold(errs)(errs + _),
                   parties.union(nodeParties),
                   archivedIds
                 )
@@ -131,15 +122,13 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
-                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
-
                 val activeContract = ActiveContract(
-                  id = absCoid,
+                  id = nc.coid,
                   let = let,
                   transactionId = transactionId,
                   eventId = nodeId,
                   workflowId = workflowId,
-                  contract = nc.coinst.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
+                  contract = nc.coinst,
                   witnesses = disclosure(nodeId),
                   // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
                   // But this field is always empty in transactions with only absolute contract ids.
@@ -160,7 +149,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                     if (acc.lookupContractByKey(gk).isDefined) {
                       AddTransactionState(
                         None,
-                        errs + DuplicateKey(gk),
+                        errs + Disputed("DuplicateKey: contract key is not unique"),
                         parties.union(nodeParties),
                         archivedIds)
                     } else {
@@ -174,16 +163,15 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
-                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
                 ats.copy(
-                  errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
+                  errs = contractCheck(ne.targetCoid).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    acc.removeContract(absCoid)
+                    acc.removeContract(ne.targetCoid)
                   } else {
                     acc
                   }),
                   parties = parties.union(nodeParties),
-                  archivedIds = if (ne.consuming) archivedIds + absCoid else archivedIds
+                  archivedIds = if (ne.consuming) archivedIds + ne.targetCoid else archivedIds
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // Check that the stored lookup result matches the current result
@@ -206,7 +194,8 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                       )
                     } else {
                       ats.copy(
-                        errs = errs + InvalidLookup(gk, nlkup.result, currentResult)
+                        errs = errs + Disputed(
+                          s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]")
                       )
                     }
                   // Otherwise, trust that the lookup was valid.

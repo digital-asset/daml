@@ -4,7 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
--- | Automatically imported qualified in every module.
+-- | HIDE Automatically imported qualified in every module.
 module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,

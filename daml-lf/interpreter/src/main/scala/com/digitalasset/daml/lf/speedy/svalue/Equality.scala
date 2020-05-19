@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy.svalue
 
-import com.digitalasset.daml.lf.data.FrontStack
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
+import com.daml.lf.data.FrontStack
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -23,7 +23,7 @@ private[lf] object Equality {
       h2: Iterator[Y],
       stack: FrontStack[(X, Y)],
   ): FrontStack[(X, Y)] =
-    (stack /: (h1 zip h2))(_.+:(_))
+    ((h1 zip h2) foldLeft stack)(_.+:(_))
 
   @tailrec
   private[this] def equality(stack0: FrontStack[(SValue, SValue)]): Boolean = {

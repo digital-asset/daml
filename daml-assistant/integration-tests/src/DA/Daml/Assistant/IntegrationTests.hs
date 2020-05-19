@@ -5,53 +5,50 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 import Conduit hiding (connect)
 import Control.Concurrent
 import Control.Concurrent.Async
-import Control.Exception
+import Control.Exception.Extra
 import Control.Monad
-import Control.Monad.Fail (MonadFail)
 import qualified Data.Aeson as Aeson
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Typeable
+import Data.Typeable (Typeable)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
 import System.Directory.Extra
 import System.Environment.Blank
+import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
 import System.Process
-import Test.Main hiding (withEnv)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
 
-import DA.Directory
 import DA.Bazel.Runfiles
-import DA.Daml.Helper.Run
-import DA.Test.Daml2TsUtils
+import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
+import DA.Daml.Assistant.IntegrationTestUtils
+import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
+import DA.PortFile
+import DA.Test.Daml2jsUtils
+import DA.Test.Process (callCommandSilent)
 import DA.Test.Util
 import SdkVersion
 
 main :: IO ()
 main = do
-    yarn : damlTypesPath : args <- getArgs
+    yarn : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_dev_env/bin"
     tarPath <- locateRunfiles "tar_dev_env/bin"
     yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
-    damlTypesDir <-
-      if isWindows
-        then pure damlTypesPath -- Not available.
-        else locateRunfiles (mainWorkspace </> damlTypesPath)
     -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
     -- on the PATH as mvn.cmd executes cmd.exe
     mbComSpec <- getEnv "COMSPEC"
@@ -59,57 +56,23 @@ main = do
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
         , ("TASTY_NUM_THREADS", Just "1")
-        ] $ defaultMain (tests tmpDir damlTypesDir))
+        ] $ defaultMain (tests tmpDir))
 
-tests :: FilePath -> FilePath -> TestTree
-tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests"
-    [ testCase "daml version" $ callCommandQuiet "daml version"
-    , testCase "daml --help" $ callCommandQuiet "daml --help"
-    , testCase "daml new --list" $ callCommandQuiet "daml new --list"
+tests :: FilePath -> TestTree
+tests tmpDir = withSdkResource $ \_ -> testGroup "Integration tests"
+    [ testCase "daml version" $ callCommandSilent "daml version"
+    , testCase "daml --help" $ callCommandSilent "daml --help"
+    , testCase "daml new --list" $ callCommandSilent "daml new --list"
     , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , templateTests
-    , deployTest deployDir
-    , fetchTest tmpDir
-    , codegenTests codegenDir damlTypesDir
+    , codegenTests codegenDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
-          deployDir = tmpDir </> "deploy"
           codegenDir = tmpDir </> "codegen"
-
--- | Install the SDK in a temporary directory and provide the path to the SDK directory.
--- This also adds the bin directory to PATH so calling assistant commands works without
--- special hacks.
-withSdkResource :: (IO FilePath -> TestTree) -> TestTree
-withSdkResource f =
-    withTempDirResource $ \getDir ->
-    withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
-  where installSdk targetDir = do
-            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-            oldPath <- getSearchPath
-            withTempDir $ \extractDir -> do
-                runConduitRes
-                    $ sourceFileBS releaseTarball
-                    .| Zlib.ungzip
-                    .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
-                setEnv "DAML_HOME" targetDir True
-                if isWindows
-                    then callProcessQuiet
-                        (extractDir </> "daml" </> damlInstallerName)
-                        ["install", "--install-assistant=yes", "--set-path=no", extractDir]
-                    else callCommandQuiet $ extractDir </> "install.sh"
-            setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
-            pure oldPath
-        restoreEnv oldPath = do
-            setEnv "PATH" (intercalate [searchPathSeparator] oldPath) True
-            unsetEnv "DAML_HOME"
-
-
-throwError :: MonadFail m => T.Text -> T.Text -> m ()
-throwError msg e = fail (T.unpack $ msg <> " " <> e)
 
 -- Most of the packaging tests are in the a separate test suite in
 -- //compiler/damlc/tests:packaging. This only has a couple of
@@ -118,16 +81,16 @@ packagingTests :: TestTree
 packagingTests = testGroup "packaging"
      [ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
-        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build copy trigger with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
+        callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
-        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build trigger with extra dependency" $ withTempDir $ \tmpDir -> do
         let myDepDir = tmpDir </> "mydep"
         createDirectoryIfMissing True (myDepDir </> "daml")
@@ -144,7 +107,7 @@ packagingTests = testGroup "packaging"
           [ "daml 1.2"
           , "module MyDep where"
           ]
-        withCurrentDirectory myDepDir $ callCommandQuiet "daml build -o mydep.dar"
+        withCurrentDirectory myDepDir $ callCommandSilent "daml build -o mydep.dar"
         let myTriggerDir = tmpDir </> "mytrigger"
         createDirectoryIfMissing True (myTriggerDir </> "daml")
         writeFileUTF8 (myTriggerDir </> "daml.yaml") $ unlines
@@ -164,21 +127,73 @@ packagingTests = testGroup "packaging"
             , "import MyDep ()"
             , "import Daml.Trigger ()"
             ]
-        withCurrentDirectory myTriggerDir $ callCommandQuiet "daml build -o mytrigger.dar"
+        withCurrentDirectory myTriggerDir $ callCommandSilent "daml build -o mytrigger.dar"
         let dar = myTriggerDir </> "mytrigger.dar"
-        assertBool "mytrigger.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build DAML script example" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build DAML script example with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
+        callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
+     , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ withTempDir $ \tmpDir -> do
+        callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
+        withCurrentDirectory (tmpDir </> "data-dependency") $ callCommandSilent "daml build -o data-dependency.dar"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.0.1"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib, daml-script, daml-trigger]"
+          , "data-dependencies: [" <> show (tmpDir </> "data-dependency" </> "data-dependency.dar") <> "]"
+          ]
+        writeFileUTF8 (tmpDir </> "proj" </> "A.daml") $ unlines
+          [ "module A where"
+          , "import Main (setup)"
+          , "setup' = setup"
+          ]
+        withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
+     , testCase "DAML Script --input-file and --output-file" $ withTempDir $ \projDir -> do
+           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+               [ "sdk-version: " <> sdkVersion
+               , "name: proj"
+               , "version: 0.0.1"
+               , "source: ."
+               , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+               ]
+           writeFileUTF8 (projDir </> "Main.daml") $ unlines
+               [ "module Main where"
+               , "import Daml.Script"
+               , "test : Int -> Script (Int, Int)"
+               , "test x = pure (x, x + 1)"
+               ]
+           withCurrentDirectory projDir $ do
+               callCommandSilent "daml build -o script.dar"
+               writeFileUTF8 (projDir </> "input.json") "0"
+               p :: Int <- fromIntegral <$> getFreePort
+               withDevNull $ \devNull ->
+                   withCreateProcess (shell $ unwords ["daml sandbox --port " <> show p]) { std_out = UseHandle devNull } $ \_ _ _ _ -> do
+                       waitForConnectionOnPort (threadDelay 100000) p
+                       callCommand $ unwords
+                           [ "daml script"
+                           , "--dar script.dar --script-name Main:test"
+                           , "--input-file input.json --output-file output.json"
+                           , "--ledger-host localhost --ledger-port " <> show p
+                           ]
+           contents <- readFileUTF8 (projDir </> "output.json")
+           lines contents @?=
+               [ "{"
+               , "  \"_1\": 0,"
+               , "  \"_2\": 1"
+               , "}"
+               ]
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "init-script-example"
         createDirectoryIfMissing True (projDir </> "daml")
@@ -305,20 +320,60 @@ packagingTests = testGroup "packaging"
               statusCode (responseStatus createResponse) @?= 200
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess startPh
+    , testCase "daml start --sandbox-port=0" $ withTempDir $ \tmpDir -> do
+          writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: sandbox-options"
+              , "version: \"1.0\""
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              , "start-navigator: false"
+              ]
+          let startProc = shell $ unwords
+                  [ "daml"
+                  , "start"
+                  , "--sandbox-port=0"
+                  , "--sandbox-option=--ledgerid=MyLedger"
+                  , "--json-api-port=0"
+                  , "--json-api-option=--port-file=jsonapi.port"
+                  ]
+          withCurrentDirectory tmpDir $
+              withCreateProcess startProc $ \_ _ _ _ph -> do
+              jsonApiPort <- readPortFile maxRetries "jsonapi.port"
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/parties/allocate"
+              let queryRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        [ "identifierHint" Aeson..= ("Alice" :: String)
+                        ]
+                    }
+              manager <- newManager defaultManagerSettings
+              queryResponse <- httpLbs queryRequest manager
+              responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
-          callCommandQuiet $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
-    , testCase "daml build " $ withCurrentDirectory quickstartDir $
-          callCommandQuiet "daml build"
+          callCommandSilent $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
+    , testCase "daml build" $ withCurrentDirectory quickstartDir $
+          callCommandSilent "daml build"
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet "daml test"
+          callCommandSilent "daml test"
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet "daml damlc test --files daml/Main.daml"
+          callCommandSilent "daml damlc test --files daml/Main.daml"
     , testCase "daml damlc visual-web" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
+          callCommandSilent $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
     , testCase "Sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
@@ -383,7 +438,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               jsonApiPort :: Int <- fromIntegral <$> getFreePort
-              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort]) { std_out = UseHandle devNull2, std_in = CreatePipe }
+              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort, "--allow-insecure-tokens"]) { std_out = UseHandle devNull2, std_in = CreatePipe }
               withCreateProcess jsonApiProc $ \_ _ _ jsonApiPh -> race_ (waitForProcess' jsonApiProc jsonApiPh) $ do
                   let headers =
                           [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
@@ -404,16 +459,25 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           runConduitRes
             $ sourceFileBS mvnDbTarball
             .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
+          callCommand "daml codegen java"
           callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox-classic", "--", "--port", show sandboxPort, "--", "--static-time", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--static-time", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
+              callCommandSilent $ unwords
+                    [ "daml script"
+                    , "--dar .daml/dist/quickstart-0.0.1.dar"
+                    , "--script-name Setup:initialize"
+                    , "--static-time"
+                    , "--ledger-host localhost"
+                    , "--ledger-port", show sandboxPort
+                    ]
               restPort :: Int <- fromIntegral <$> getFreePort
               let mavenProc = (shell $ unwords ["mvn", mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
               withCreateProcess mavenProc $
@@ -449,11 +513,11 @@ cleanTests baseDir = testGroup "daml clean"
                 createDirectoryIfMissing True baseDir
                 withCurrentDirectory baseDir $ do
                     let projectDir = baseDir </> ("proj-" <> templateName)
-                    callCommandQuiet $ unwords ["daml", "new", projectDir, templateName]
+                    callCommandSilent $ unwords ["daml", "new", projectDir, templateName]
                     withCurrentDirectory projectDir $ do
                         filesAtStart <- sort <$> listFilesRecursive "."
-                        callCommandQuiet "daml build"
-                        callCommandQuiet "daml clean"
+                        callCommandSilent "daml build"
+                        callCommandSilent "daml clean"
                         filesAtEnd <- sort <$> listFilesRecursive "."
                         when (filesAtStart /= filesAtEnd) $
                             fail $ unlines
@@ -469,8 +533,8 @@ templateTests :: TestTree
 templateTests = testGroup "templates"
     [ testCase name $ do
           withTempDir $ \dir -> withCurrentDirectory dir $ do
-              callCommandQuiet $ unwords ["daml", "new", "foobar", name]
-              withCurrentDirectory (dir </> "foobar") $ callCommandQuiet "daml build"
+              callCommandSilent $ unwords ["daml", "new", "foobar", name]
+              withCurrentDirectory (dir </> "foobar") $ callCommandSilent "daml build"
     | name <- templateNames
     ]
 
@@ -486,17 +550,18 @@ templateTests = testGroup "templates"
             , "quickstart-scala"
             , "script-example"
             , "skeleton"
+            , "create-daml-app"
             ]
 
 -- | Check we can generate language bindings.
-codegenTests :: FilePath -> FilePath -> TestTree
-codegenTests codegenDir damlTypes = testGroup "daml codegen" (
+codegenTests :: FilePath -> TestTree
+codegenTests codegenDir = testGroup "daml codegen" (
     [ codegenTestFor "java" Nothing
     , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
     ] ++
-    -- The 'daml-types' NPM package is not available on Windows which
-    -- is required by 'daml2ts'.
-    [ codegenTestFor "ts" Nothing | not isWindows ]
+    -- The '@daml/types' NPM package is not available on Windows which
+    -- is required by 'daml2js'.
+    [ codegenTestFor "js" Nothing | not isWindows ]
     )
     where
         codegenTestFor :: String -> Maybe String -> TestTree
@@ -505,199 +570,28 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                 createDirectoryIfMissing True codegenDir
                 withCurrentDirectory codegenDir $ do
                     let projectDir = codegenDir </> ("proj-" ++ lang)
-                    callCommandQuiet $ unwords ["daml new", projectDir, "skeleton"]
+                    callCommandSilent $ unwords ["daml new", projectDir, "skeleton"]
                     withCurrentDirectory projectDir $ do
-                        callCommandQuiet "daml build"
+                        callCommandSilent "daml build"
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir </> "generated" </> lang
-                        when (lang == "ts") $ do
-                          -- This section makes
-                          -- 'daml-types@0.0.0-SDKVERSION' available
-                          -- to yarn.
-                          createDirectoryIfMissing True "generated"
-                          withCurrentDirectory "generated" $ do
-                            copyDirectory damlTypes "daml-types"
-                            writeRootPackageJson Nothing [lang]
-                        callCommandQuiet $
+                        when (lang == "js") $ do
+                            let workspaces = Workspaces [makeRelative codegenDir outDir]
+                            setupYarnEnv codegenDir workspaces [DamlTypes, DamlLedger]
+                        callCommandSilent $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
                                   , "-o", outDir]
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
 
--- | Start a sandbox on any free port
-withSandboxOnFreePort :: (Int -> IO ()) -> IO ()
-withSandboxOnFreePort f = do
-  port :: Int <- fromIntegral <$> getFreePort
-  withDevNull $ \devNull -> do
-    let sandboxProc =
-          (shell $ unwords
-           ["daml"
-           , "sandbox"
-           , "--wall-clock-time"
-           , "--port", show port
-           ]) { std_out = UseHandle devNull, std_in = CreatePipe }
-    withCreateProcess sandboxProc  $ \_ _ _ ph -> do
-      race_ (waitForProcess' sandboxProc ph) $ do
-        waitForConnectionOnPort (threadDelay 100000) port
-        f port
-        -- waitForProcess' will block on Windows so we explicitly kill the process.
-        terminateProcess ph
-
--- | Using `daml inspect-dar`, discover the main package-identifier of a dar.
-getMainPidByInspecingDar :: FilePath -> String -> IO String
-getMainPidByInspecingDar dar projName = do
-  stdout <- callCommandForStdout $ unwords ["daml damlc inspect-dar", dar ]
-  [grepped] <- pure $
-        [ line
-        | line <- lines stdout
-        -- expect a single line containing double quotes and the projName
-        , "\"" `isInfixOf` line
-        , projName `isInfixOf` line
-        ]
-  -- and the main pid is found between the 1st and 2nd double-quotes
-  [_,pid,_] <- pure $ splitOn "\"" grepped
-  return pid
-
--- | Tests for the `daml ledger fetch-dar` command
-fetchTest :: FilePath -> TestTree
-fetchTest tmpDir = testCaseSteps "daml ledger fetch-dar" $ \step -> do
-  let fetchDir = tmpDir </> "fetchTest"
-  withSandboxOnFreePort $ \port -> do
-    createDirectoryIfMissing True fetchDir
-    withCurrentDirectory fetchDir $ do
-      callCommandQuiet $ unwords ["daml new", "proj1"]
-      withCurrentDirectory "proj1" $ do
-        let origDar = ".daml/dist/proj1-0.0.1.dar"
-        step "build/upload"
-        callCommandQuiet $ unwords ["daml ledger upload-dar --port", show port]
-        pid <- getMainPidByInspecingDar origDar "proj1"
-        step "fetch/validate"
-        let fetchedDar = "fetched.dar"
-        callCommandQuiet $ unwords [ "daml ledger fetch-dar"
-                                   , "--port", show port
-                                   , "--main-package-id", pid
-                                   , "-o", fetchedDar
-                                   ]
-        callCommandQuiet $ unwords ["daml damlc validate-dar", fetchedDar]
-
-deployTest :: FilePath -> TestTree
-deployTest deployDir = testCase "daml deploy" $ do
-    createDirectoryIfMissing True deployDir
-    withCurrentDirectory deployDir $ do
-        callCommandQuiet $ unwords ["daml new", deployDir </> "proj1"]
-        callCommandQuiet $ unwords ["daml new", deployDir </> "proj2", "quickstart-java"]
-        withCurrentDirectory (deployDir </> "proj1") $ do
-            callCommandQuiet "daml build"
-            withDevNull $ \devNull -> do
-                port :: Int <- fromIntegral <$> getFreePort
-                let sharedSecret = "TheSharedSecret"
-                let sandboxProc =
-                        (shell $ unwords
-                            ["daml"
-                            , "sandbox"
-                            , "--wall-clock-time"
-                            , "--auth-jwt-hs256-unsafe=" <> sharedSecret
-                            , "--port", show port
-                            , ".daml/dist/proj1-0.0.1.dar"
-                            ]) { std_out = UseHandle devNull, std_in = CreatePipe }
-                let tokenFile = deployDir </> "secretToken.jwt"
-                -- The trailing newline is not required but we want to test that it is supported.
-                writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
-                withCreateProcess sandboxProc  $ \_ _ _ ph ->
-                    race_ (waitForProcess' sandboxProc ph) $ do
-                        waitForConnectionOnPort (threadDelay 100000) port
-                        withCurrentDirectory (deployDir </> "proj2") $ do
-                            callCommandQuiet $ unwords
-                                [ "daml deploy"
-                                , "--access-token-file " <> tokenFile
-                                , "--port", show port
-                                , "--host localhost"
-                                ]
-                        -- waitForProcess' will block on Windows so we explicitly kill the process.
-                        terminateProcess ph
-
-makeSignedJwt :: String -> String
-makeSignedJwt sharedSecret = do
-  let urc = JWT.ClaimsMap $ Map.fromList [ ("admin", Aeson.Bool True)]
-  let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ T.pack sharedSecret
-  let text = JWT.encodeSigned key mempty cs
-  T.unpack text
-
-
-damlInstallerName :: String
-damlInstallerName
-    | isWindows = "daml.exe"
-    | otherwise = "daml"
-
--- | Like call process but returning stdout.
-runCreateProcessForStdout :: CreateProcess -> IO String
-runCreateProcessForStdout createProcess = do
-    -- We use `repeat ' '` to keep stdin open. Really we would just
-    -- like to inherit stdin but readCreateProcessWithExitCode does
-    -- not allow us to overwrite just that and I don’t want to
-    -- reimplement everything.
-    (exit, out, err) <- readCreateProcessWithExitCode createProcess (repeat ' ')
-    hPutStr stderr err
-    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
-    return out
-
-callCommandForStdout :: String -> IO String
-callCommandForStdout cmd =
-    runCreateProcessForStdout (shell cmd)
-
--- | Like call process but hiding stdout.
-runCreateProcessQuiet :: CreateProcess -> IO ()
-runCreateProcessQuiet createProcess = do
-  _ <- runCreateProcessForStdout createProcess
-  return ()
-
--- | Like callProcess but hides stdout.
-callProcessQuiet :: FilePath -> [String] -> IO ()
-callProcessQuiet cmd args =
-    runCreateProcessQuiet (proc cmd args)
-
--- | Like callCommand but hides stdout.
-callCommandQuiet :: String -> IO ()
-callCommandQuiet cmd =
-    runCreateProcessQuiet (shell cmd)
-
-data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
-    deriving (Show, Typeable)
-
-instance Exception ProcessExitFailure
-
--- This is slightly hacky: we need to find a free port but pass it to an
--- external process. Technically this port could be reused between us
--- getting it from the kernel and the external process listening
--- on that port but ports are usually not reused aggressively so this should
--- be fine and is certainly better than hardcoding the port.
-getFreePort :: IO PortNumber
-getFreePort = do
-    addr : _ <- getAddrInfo
-        (Just socketHints)
-        (Just "127.0.0.1")
-        (Just "0")
-    bracket
-        (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-        close
-        (\s -> do bind s (addrAddress addr)
-                  name <- getSocketName s
-                  case name of
-                      SockAddrInet p _ -> pure p
-                      _ -> fail $ "Expected a SockAddrInet but got " <> show name)
-
-socketHints :: AddrInfo
-socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
-
--- | Like waitForProcess' but throws ProcessExitFailure if the process fails to start.
+-- | Like `waitForProcess` but throws ProcessExitFailure if the process fails to start.
 waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()
 waitForProcess' cp ph = do
     e <- waitForProcess ph
     unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cp
 
--- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
--- use a temporary file.
-withDevNull :: (Handle -> IO a) -> IO a
-withDevNull a = withTempFile $ \f -> withFile f WriteMode a
+data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
+    deriving (Show, Typeable)
+
+instance Exception ProcessExitFailure

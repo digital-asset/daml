@@ -108,7 +108,7 @@ for participant in "${PARTICIPANTS[@]}"; do
         -plaintext \
         -d @ \
         "$participant" \
-        com.digitalasset.ledger.api.v1.admin.PackageManagementService.UploadDarFile \
+        com.daml.ledger.api.v1.admin.PackageManagementService.UploadDarFile \
         >/dev/null
   done
 done

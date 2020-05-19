@@ -1,0 +1,30 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Script where
+
+import Daml.Script
+import Model
+
+data Result = Result with
+  oldTProposals : [(ContractId TProposal, TProposal)]
+  newTProposals : [(ContractId TProposal, TProposal)]
+  oldTs : [(ContractId T, T)]
+  newTs : [(ContractId T, T)]
+
+-- We create two proposal contracts, accept both of them
+-- and then archive one of the newly created T contracts.
+-- We query before and after and return the results in `Result`.
+run : (Party, Party, Text) -> Script Result
+run (proposer, accepter, note) = do
+  oldTProposals <- query @TProposal proposer
+  oldTs <- query @T proposer
+  proposal0 <- submit proposer (createCmd TProposal with ..)
+  proposal1 <- submit proposer (createCmd TProposal with ..)
+  t0 <- submit accepter (exerciseCmd proposal0 Accept)
+  t1 <- submit accepter (exerciseCmd proposal1 Accept)
+  submit proposer (exerciseCmd t0 UnilateralArchive)
+  newTProposals <- query @TProposal proposer
+  newTs <- query @T proposer
+  pure Result with ..
+

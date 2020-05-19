@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.platform.store.entries.ConfigurationEntry
+import com.daml.lf.data.Ref
+import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

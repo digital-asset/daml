@@ -138,6 +138,28 @@ should be separate scala_library targets, unvisible to the outside.
 A visible scala_library target should then collect the unrelated modules
 into a single target that can be depended on from outside.
 
+Benchmarking
+------------
+
+Benchmarks for scenario execution can be run with
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf
+```
+A run of this benchmark will take between 6 and 7 minutes. A faster, less
+precise benchmark which takes around 1 minute can be invoked with
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf -- -f 0
+```
+To benchmark scenarios other than the ones configured by default, you can
+invoke
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf -- -p dar=/path/to/some/dar -p scenario=Some.Module:test
+```
+This can be combined with the `-f 0` flag as well.
+
+These benchmarks are focused on DAML execution speed and try to avoid noise
+caused by, say, I/O as much as possible.
+
 DAML-LF-REPL Usage
 ------------------
 
@@ -163,6 +185,29 @@ $ bazel run //:daml-lf-repl -- testAll $PWD/project.dalf
 $ bazel run //:daml-lf-repl -- test Project.tests $PWD/project.dalf
 
 NOTE: When running via `bazel run` one needs to specify full path (or relative path from repo root), since Bazel runs all commands from repository root.
+
+Profiling scenarios
+-------------------
+
+DAML-LF-REPL provides a command to run a scenario and collect profiling
+information while running it. This information is then written into a file that
+can be viewed using the [speedscope](https://www.speedscope.app/) flamegraph
+visualizer. The easiest way to install speedscope is to run
+```shell
+$ npm install -g speedscope
+```
+See the [Offline usage](https://github.com/jlfwong/speedscope#usage) section of
+its documentation for alternatives.
+
+Once speedscope is installed, the profiler can be invoked via
+```shell
+$ bazel run //:daml-lf-repl -- profile Module.Name:scenarioName /path/to.dar /path/to/output.json
+```
+and the profile viewed via
+```shell
+$ speedscope /path/to/output.json
+```
+
 
 Scala house rules
 -----------------

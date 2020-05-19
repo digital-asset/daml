@@ -11,8 +11,9 @@ import com.codahale.metrics
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
+import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
+import com.daml.metrics.{JvmMetricSet, Metrics}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -38,13 +39,7 @@ object IntegrityCheck extends App {
   println(s"Verifying integrity of $filename...")
 
   val metricRegistry = new MetricRegistry
-  // Register JVM related metrics.
-  (new metrics.jvm.GarbageCollectorMetricSet).getMetrics.forEach { (k, m) =>
-    val _ = metricRegistry.register(s"jvm.gc.$k", m)
-  }
-  (new metrics.jvm.MemoryUsageGaugeSet).getMetrics.forEach { (k, m) =>
-    val _ = metricRegistry.register(s"jvm.mem.$k", m)
-  }
+  metricRegistry.registerAll(new JvmMetricSet)
 
   val ledgerDumpStream: DataInputStream =
     new DataInputStream(new FileInputStream(filename))
@@ -55,7 +50,7 @@ object IntegrityCheck extends App {
     timeModel = TimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
-  val keyValueCommitting = new KeyValueCommitting(metricRegistry)
+  val keyValueCommitting = new KeyValueCommitting(engine, new Metrics(metricRegistry))
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 
   var total_t_commit = 0L
@@ -85,7 +80,6 @@ object IntegrityCheck extends App {
     val (t_commit, (logEntry2, outputState)) = Helpers.time(
       () =>
         keyValueCommitting.processSubmission(
-          engine,
           entry.getEntryId,
           Conversions.parseTimestamp(logEntry.getRecordTime),
           defaultConfig,
@@ -109,6 +103,7 @@ object IntegrityCheck extends App {
     print("update...")
     val (t_update, updates) =
       Helpers.time(() => KeyValueConsumption.logEntryToUpdate(entry.getEntryId, logEntry))
+    total_t_update += t_update
 
     logEntry.getPayloadCase match {
       case Proto.DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
@@ -128,8 +123,10 @@ object IntegrityCheck extends App {
       case _ =>
         ()
     }
-    println(" ok.")
-    total_t_update += t_update
+
+    val t_total_ms =
+      TimeUnit.NANOSECONDS.toMillis(t_commit) + TimeUnit.NANOSECONDS.toMillis(t_update)
+    println(s" ok. (${t_total_ms}ms)")
 
     state = state ++ expectedOutputState
     size = Try(ledgerDumpStream.readInt()).getOrElse(-1)

@@ -4,7 +4,6 @@
 package com.daml.ledger.on.sql.queries
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -32,19 +31,19 @@ final class H2Queries(override protected implicit val connection: Connection)
       ()
     }.flatMap(_ => lastInsertId())
 
-  override def insertHeartbeatIntoLog(timestamp: Instant): Try[Index] =
-    Try {
-      SQL"INSERT INTO #$LogTable (heartbeat_timestamp) VALUES (${timestamp.toEpochMilli})"
-        .executeInsert()
-      ()
-    }.flatMap(_ => lastInsertId())
-
   override protected val updateStateQuery: String =
     s"MERGE INTO $StateTable VALUES ({key}, {value})"
 
   private def lastInsertId(): Try[Index] = Try {
     SQL"CALL IDENTITY()"
       .as(long("IDENTITY()").single)
+  }
+
+  override final def truncate(): Try[Unit] = Try {
+    SQL"truncate #$StateTable".executeUpdate()
+    SQL"truncate #$LogTable".executeUpdate()
+    SQL"truncate #$MetaTable".executeUpdate()
+    ()
   }
 }
 

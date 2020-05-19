@@ -1,19 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandboxnext
+package com.daml.platform.sandboxnext
 
 import com.daml.ledger.participant.state.v1.SeedService
-import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
-import com.digitalasset.platform.sandbox.AbstractSandboxFixture
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.GrpcClientResource
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
+import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.GrpcClientResource
+import com.daml.ports.Port
+import com.daml.resources.ResourceOwner
 import io.grpc.Channel
 import org.scalatest.Suite
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port, Channel)] {
   self: Suite =>
@@ -36,7 +37,9 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
             Some(info.jdbcUrl)))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
-      } yield (port, channel)
+      } yield (port, channel),
+      acquisitionTimeout = 1.minute,
+      releaseTimeout = 1.minute,
     )
   }
 }

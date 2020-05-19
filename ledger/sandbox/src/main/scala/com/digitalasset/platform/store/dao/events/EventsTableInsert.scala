@@ -1,48 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
-import java.util.Date
+import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger._
-import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
+import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo}
+import com.daml.ledger._
+import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableInsert { this: EventsTable =>
-
-  private def cantSerialize(attribute: String, forContract: ContractId): String =
-    s"Cannot serialize $attribute for ${forContract.coid}"
-
-  private def serializeCreateArgOrThrow(node: Create): Array[Byte] =
-    serialize(
-      value = node.coinst.arg,
-      errorContext = cantSerialize(attribute = "create argument", forContract = node.coid),
-    )
-
-  private def serializeNullableKeyOrThrow(node: Create): Option[Array[Byte]] =
-    node.key.map(
-      k =>
-        serialize(
-          value = k.key,
-          errorContext = cantSerialize(attribute = "key", forContract = node.coid),
-      ))
-
-  private def serializeExerciseArgOrThrow(node: Exercise): Array[Byte] =
-    serialize(
-      value = node.chosenValue,
-      errorContext = cantSerialize(attribute = "exercise argument", forContract = node.targetCoid),
-    )
-
-  private def serializeNullableExerciseResultOrThrow(node: Exercise): Option[Array[Byte]] =
-    node.exerciseResult.map(exerciseResult =>
-      serialize(
-        value = exerciseResult,
-        errorContext = cantSerialize(attribute = "exercise result", forContract = node.targetCoid),
-    ))
 
   private def insertEvent(columnNameAndValues: (String, String)*): String = {
     val (columns, values) = columnNameAndValues.unzip
@@ -57,10 +25,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "transaction_id" -> "{transaction_id}",
       "workflow_id" -> "{workflow_id}",
       "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_package_id" -> "{template_package_id}",
-      "template_name" -> "{template_name}",
+      "template_id" -> "{template_id}",
       "node_index" -> "{node_index}",
-      "is_root" -> "{is_root}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
       "submitter" -> "{submitter}",
@@ -72,39 +38,6 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "create_key_value" -> "{create_key_value}"
     )
 
-  private def create(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      commandId: Option[CommandId],
-      transactionId: TransactionId,
-      nodeId: NodeId,
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
-      offset: Offset,
-      create: Create,
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId),
-      "event_offset" -> offset,
-      "contract_id" -> create.coid.coid,
-      "transaction_id" -> transactionId,
-      "workflow_id" -> workflowId,
-      "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> create.coinst.template.packageId,
-      "template_name" -> create.coinst.template.qualifiedName,
-      "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
-      "command_id" -> commandId,
-      "application_id" -> applicationId,
-      "submitter" -> submitter,
-      "create_argument" -> serializeCreateArgOrThrow(create),
-      "create_signatories" -> create.signatories.toArray[String],
-      "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
-      "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
-      "create_key_value" -> serializeNullableKeyOrThrow(create),
-    )
-
   private val insertExercise =
     insertEvent(
       "event_id" -> "{event_id}",
@@ -113,10 +46,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "transaction_id" -> "{transaction_id}",
       "workflow_id" -> "{workflow_id}",
       "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_package_id" -> "{template_package_id}",
-      "template_name" -> "{template_name}",
+      "template_id" -> "{template_id}",
       "node_index" -> "{node_index}",
-      "is_root" -> "{is_root}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
       "submitter" -> "{submitter}",
@@ -126,42 +57,6 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "exercise_result" -> "{exercise_result}",
       "exercise_actors" -> "{exercise_actors}",
       "exercise_child_event_ids" -> "{exercise_child_event_ids}"
-    )
-
-  private def exercise(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      commandId: Option[CommandId],
-      transactionId: TransactionId,
-      nodeId: NodeId,
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
-      offset: Offset,
-      exercise: Exercise,
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId),
-      "event_offset" -> offset,
-      "contract_id" -> exercise.targetCoid.coid,
-      "transaction_id" -> transactionId,
-      "workflow_id" -> workflowId,
-      "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> exercise.templateId.packageId,
-      "template_name" -> exercise.templateId.qualifiedName,
-      "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
-      "command_id" -> commandId,
-      "application_id" -> applicationId,
-      "submitter" -> submitter,
-      "exercise_consuming" -> exercise.consuming,
-      "exercise_choice" -> exercise.choiceId,
-      "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
-      "exercise_result" -> serializeNullableExerciseResultOrThrow(exercise),
-      "exercise_actors" -> exercise.actingParties.toArray[String],
-      "exercise_child_event_ids" -> exercise.children
-        .map(fromTransactionId(transactionId, _))
-        .toArray[String],
     )
 
   private val updateArchived =
@@ -176,13 +71,39 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       "contract_id" -> contractId.coid,
     )
 
-  sealed abstract case class PreparedBatches(
+  final class RawBatches private[EventsTableInsert] (
+      creates: Option[RawBatch],
+      exercises: Option[RawBatch],
+      archives: Option[BatchSql],
+  ) {
+    def applySerialization(): SerializedBatches =
+      new SerializedBatches(
+        creates = creates.map(_.applySerialization()),
+        exercises = exercises.map(_.applySerialization()),
+        archives = archives,
+      )
+  }
+
+  final class SerializedBatches(
+      creates: Option[Vector[Vector[NamedParameter]]],
+      exercises: Option[Vector[Vector[NamedParameter]]],
+      archives: Option[BatchSql],
+  ) {
+    def applyBatching(): PreparedBatches =
+      new PreparedBatches(
+        creates = creates.map(cs => BatchSql(insertCreate, cs.head, cs.tail: _*)),
+        exercises = exercises.map(es => BatchSql(insertExercise, es.head, es.tail: _*)),
+        archives = archives,
+      )
+  }
+
+  final class PreparedBatches(
       creates: Option[BatchSql],
       exercises: Option[BatchSql],
       archives: Option[BatchSql],
   ) {
-    final def isEmpty: Boolean = creates.isEmpty && exercises.isEmpty && archives.isEmpty
-    final def foreach[U](f: BatchSql => U): Unit = {
+    def isEmpty: Boolean = creates.isEmpty && exercises.isEmpty && archives.isEmpty
+    def foreach[U](f: BatchSql => U): Unit = {
       creates.foreach(f)
       exercises.foreach(f)
       archives.foreach(f)
@@ -190,19 +111,25 @@ private[events] trait EventsTableInsert { this: EventsTable =>
   }
 
   private case class AccumulatingBatches(
-      creates: Vector[Vector[NamedParameter]],
-      exercises: Vector[Vector[NamedParameter]],
+      creates: Vector[RawBatch.Event.Created],
+      exercises: Vector[RawBatch.Event.Exercised],
       archives: Vector[Vector[NamedParameter]],
   ) {
 
-    def addCreate(create: Vector[NamedParameter]): AccumulatingBatches =
+    def add(create: RawBatch.Event.Created): AccumulatingBatches =
       copy(creates = creates :+ create)
 
-    def addExercise(exercise: Vector[NamedParameter]): AccumulatingBatches =
+    def add(exercise: RawBatch.Event.Exercised): AccumulatingBatches =
       copy(exercises = exercises :+ exercise)
 
-    def addArchive(archive: Vector[NamedParameter]): AccumulatingBatches =
+    def add(archive: Vector[NamedParameter]): AccumulatingBatches =
       copy(archives = archives :+ archive)
+
+    private def prepareRawNonEmpty(
+        query: String,
+        params: Vector[RawBatch.Event],
+    ): Option[RawBatch] =
+      if (params.nonEmpty) Some(new RawBatch(query, params)) else None
 
     private def prepareNonEmpty(
         query: String,
@@ -210,12 +137,12 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     ): Option[BatchSql] =
       if (params.nonEmpty) Some(BatchSql(query, params.head, params.tail: _*)) else None
 
-    def prepare: PreparedBatches =
-      new PreparedBatches(
-        prepareNonEmpty(insertCreate, creates),
-        prepareNonEmpty(insertExercise, exercises),
+    def prepare: RawBatches =
+      new RawBatches(
+        prepareRawNonEmpty(insertCreate, creates),
+        prepareRawNonEmpty(insertExercise, exercises),
         prepareNonEmpty(updateArchived, archives),
-      ) {}
+      )
 
   }
 
@@ -232,28 +159,24 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     */
   @throws[RuntimeException]
   def prepareBatchInsert(
-      applicationId: Option[ApplicationId],
+      submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
-  ): PreparedBatches =
+  ): RawBatches =
     transaction
       .fold(AccumulatingBatches.empty) {
         case (batches, (nodeId, node: Create)) =>
-          batches.addCreate(
-            create(
-              applicationId = applicationId,
+          batches.add(
+            new RawBatch.Event.Created(
+              applicationId = submitterInfo.map(_.applicationId),
               workflowId = workflowId,
-              commandId = commandId,
+              commandId = submitterInfo.map(_.commandId),
               transactionId = transactionId,
               nodeId = nodeId,
-              submitter = submitter,
-              roots = roots,
+              submitter = submitterInfo.map(_.submitter),
               ledgerEffectiveTime = ledgerEffectiveTime,
               offset = offset,
               create = node,
@@ -261,22 +184,21 @@ private[events] trait EventsTableInsert { this: EventsTable =>
           )
         case (batches, (nodeId, node: Exercise)) =>
           val batchWithExercises =
-            batches.addExercise(
-              exercise(
-                applicationId = applicationId,
+            batches.add(
+              new RawBatch.Event.Exercised(
+                applicationId = submitterInfo.map(_.applicationId),
                 workflowId = workflowId,
-                commandId = commandId,
+                commandId = submitterInfo.map(_.commandId),
                 transactionId = transactionId,
                 nodeId = nodeId,
-                submitter = submitter,
-                roots = roots,
+                submitter = submitterInfo.map(_.submitter),
                 ledgerEffectiveTime = ledgerEffectiveTime,
                 offset = offset,
                 exercise = node,
               )
             )
           if (node.consuming) {
-            batchWithExercises.addArchive(
+            batchWithExercises.add(
               archive(
                 contractId = node.targetCoid,
                 consumedAt = offset,

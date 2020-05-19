@@ -11,7 +11,6 @@ module Types (
     GroupId,
     MavenAllowUnsecureTls(..),
     MavenCoords(..),
-    MavenUpload(..),
     MavenUploadConfig(..),
     MonadCI,
     OS(..),
@@ -19,6 +18,7 @@ module Types (
     Version(..),
     (#),
     dropFileName,
+    groupIdString,
     pathToString,
     pathToText,
     throwIO,
@@ -33,6 +33,7 @@ import           Control.Monad.IO.Unlift              (MonadUnliftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Control          (MonadBaseControl)
 import           Data.Aeson
+import qualified Data.List                            as List
 import           Data.Maybe
 import           Data.Text                            (Text)
 import qualified Data.Text                            as T
@@ -55,8 +56,8 @@ data MavenCoords = MavenCoords
     , artifactType :: !ArtifactType
     } deriving Show
 
-newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
-    deriving (Eq, Show, FromJSON)
+groupIdString :: GroupId -> String
+groupIdString gid = List.intercalate "." (map T.unpack gid)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,

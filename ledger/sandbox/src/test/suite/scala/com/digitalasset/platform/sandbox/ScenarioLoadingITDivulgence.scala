@@ -1,19 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.{
-  SuiteResourceManagementAroundEach,
-  MockMessages => M
-}
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
-import com.digitalasset.ledger.api.v1.transaction_filter._
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundEach, MockMessages => M}
+import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
+import com.daml.ledger.api.v1.transaction_filter._
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.dec.DirectExecutionContext
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, WordSpec}

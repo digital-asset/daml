@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Time}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 import org.slf4j.LoggerFactory
@@ -23,14 +23,17 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(e, true, PureCompiledPackages(Map.empty).right.get, false)
-    while (!machine.isFinal) {
-      machine.step match {
-        case SResultContinue => ()
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
+    val machine = Speedy.Machine.fromExpr(
+      expr = e,
+      compiledPackages = PureCompiledPackages(Map.empty).right.get,
+      scenario = false,
+      submissionTime = Time.Timestamp.now(),
+      initialSeeding = InitialSeeding.NoSeed,
+    )
+    machine.run() match {
+      case SResultFinalValue(v) => v
+      case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
     }
-    machine.toSValue
   }
 
   "evaluator behaves responsibly" should {
@@ -118,7 +121,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       runExpr(input) shouldBe output
     }
 
-    a[Compiler.CompileError] shouldBe thrownBy(
+    a[Compiler.CompilationError] shouldBe thrownBy(
       runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
     )
   }
@@ -133,17 +136,20 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine =
-        Speedy.Machine.fromExpr(list, true, PureCompiledPackages(Map.empty).right.get, false)
+      machine = Speedy.Machine.fromExpr(
+        expr = list,
+        compiledPackages = PureCompiledPackages(Map.empty).right.get,
+        scenario = false,
+        submissionTime = Time.Timestamp.now(),
+        initialSeeding = InitialSeeding.NoSeed,
+      )
     }
     "interpret" in {
-      while (!machine.isFinal) {
-        machine.step match {
-          case SResultContinue => ()
-          case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-        }
+      val value = machine.run() match {
+        case SResultFinalValue(v) => v
+        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
-      machine.toSValue match {
+      value match {
         case SValue.SList(lst) =>
           lst.length shouldBe 100000
           val arr = lst.toImmArray
@@ -230,24 +236,19 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
-        EVal(ref),
-        true,
-        pkgs1,
-        false,
+        expr = EVal(ref),
+        compiledPackages = pkgs1,
+        scenario = false,
+        submissionTime = Time.Timestamp.now(),
+        initialSeeding = InitialSeeding.NoSeed,
       )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-
-      run()
+      val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
           cb(pkgs2)
-          result = SResultContinue
-          run()
-          machine.ctrl shouldBe Speedy.CtrlValue(SValue.SBool(true))
+          val result = machine.run()
+          result shouldBe SResultFinalValue(SValue.SBool(true))
         case _ =>
           sys.error(s"expected result to be missing definition, got $result")
       }
@@ -256,20 +257,16 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
     "crashes without definition" in {
       val machine = Speedy.Machine.fromExpr(
-        EVal(ref),
-        true,
-        pkgs1,
-        false,
+        expr = EVal(ref),
+        compiledPackages = pkgs1,
+        scenario = false,
+        submissionTime = Time.Timestamp.now(),
+        initialSeeding = InitialSeeding.NoSeed,
       )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-      run()
+      val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
-          result = SResultContinue
           try {
             cb(pkgs3)
             sys.error(s"expected crash when definition not provided")

@@ -17,7 +17,7 @@ module DA.Daml.LF.Proto3.Archive
 
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
-import qualified Com.Digitalasset.DamlLfDev.DamlLf as ProtoLF
+import qualified Com.Daml.DamlLfDev.DamlLf as ProtoLF
 import Control.Monad
 import Data.List
 import           DA.Pretty

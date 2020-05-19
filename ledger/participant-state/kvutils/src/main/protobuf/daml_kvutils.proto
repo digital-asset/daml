@@ -16,9 +16,9 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "com/digitalasset/daml_lf_dev/daml_lf.proto";
-import "com/digitalasset/daml/lf/transaction.proto";
-import "com/digitalasset/daml/lf/value.proto";
+import "com/daml/daml_lf_dev/daml_lf.proto";
+import "com/daml/lf/transaction.proto";
+import "com/daml/lf/value.proto";
 import "com/daml/ledger/participant/state/ledger_configuration.proto";
 
 
@@ -141,7 +141,7 @@ message DamlSubmitterInfo {
 // their source).
 message DamlTransactionEntry {
   // The original submitted transaction, with relative identifiers.
-  com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
+  com.daml.lf.transaction.Transaction transaction = 1;
 
   // The submitting party and metadata about the submitted command.
   // The submitting party is authorized against the submitting participant
@@ -348,13 +348,16 @@ message DamlStateValue {
 
 message DamlCommandDedupKey {
   string submitter = 1;
-  string application_id = 2;
+  reserved 2; // was application_id
   string command_id = 3;
 }
 
 message DamlCommandDedupValue {
   // record time will be used in the future for pruning
   google.protobuf.Timestamp record_time = 1;
+  // the time until when future commands with the same
+  // deduplication key will be rejected due to a duplicate submission
+  google.protobuf.Timestamp deduplicated_until = 2;
 }
 
 message DamlSubmissionDedupKey {
@@ -384,6 +387,8 @@ message DamlSubmissionDedupValue {
 // instance storage.
 message DamlContractState {
   // The time from which the contract is active.
+  // This is the same value as the ledger_effective_time of the transaction
+  // that created this contract.
   google.protobuf.Timestamp active_at = 1;
 
   // Optional, if set the contract has been archived.
@@ -405,12 +410,12 @@ message DamlContractState {
   DamlContractKey contract_key = 6;
 
   // The contract instance.
-  com.digitalasset.daml.lf.transaction.ContractInstance contract_instance = 7;
+  com.daml.lf.transaction.ContractInstance contract_instance = 7;
 }
 
 message DamlContractKey {
   // The DAML template identifier of the contract that created this key.
-  com.digitalasset.daml.lf.value.Identifier template_id = 1;
+  com.daml.lf.value.Identifier template_id = 1;
 
   reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
 
@@ -435,6 +440,11 @@ message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
   string contract_id = 1;
+
+  // The time from which the contract is active.
+  // This is the same value as the ledger_effective_time of the transaction
+  // that created this contract.
+  google.protobuf.Timestamp active_at = 2;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test

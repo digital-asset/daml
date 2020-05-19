@@ -1,0 +1,31 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.lf.blinding;
+
+option java_package = "com.daml.lf.blinding";
+
+// a relation between a node and a set of parties
+message NodeParties {
+    string node_id = 1;
+    repeated string parties = 2;
+}
+
+// a relation between a contract and a set of parties
+message ContractParties {
+    string contract_id = 1;
+    repeated string parties = 2;
+}
+
+// Blinding info always contains information with respect to a specific transaction
+// nodes are the nodes of that transaction for
+message BlindingInfo {
+    // also known as simple 'disclosure' describes which nodes are shown to which parties
+    repeated NodeParties explicit_disclosure = 1;
+    // also known as 'divulgence' additional nodes sent to participants enabling post-commit validation
+    repeated NodeParties local_implicit_disclosure = 2;
+    // 'divulgence' contracts outside this the transaction revealed to participants making validation possible
+    repeated ContractParties global_implicit_disclosure = 3;
+}

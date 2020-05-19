@@ -153,7 +153,7 @@ addName name (NCState nameMap)
         in Left $ if all isVirtual badNames || isVirtual name
                then diag
                         { _severity = Just DsWarning
-                        , _message = _message diag <> " This breaks `daml codegen ts` and will become an error in a future SDK version."
+                        , _message = _message diag <> " This breaks `daml codegen js` and will become an error in a future SDK version."
                         }
                else diag
   where

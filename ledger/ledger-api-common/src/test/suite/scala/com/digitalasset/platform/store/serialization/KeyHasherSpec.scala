@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.serialization
+package com.daml.platform.store.serialization
 
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions

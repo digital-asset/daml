@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.sql
 
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
 
 import scala.collection.mutable
 
@@ -15,8 +15,8 @@ class PostgresqlSqlLedgerReaderWriterIntegrationSpec
 
   override protected def jdbcUrl(id: String): String = {
     if (!databases.contains(id)) {
-      val jdbcUrl = createNewDatabase(id).jdbcUrl
-      databases += id -> jdbcUrl
+      val database = createNewDatabase(id)
+      databases += id -> database.url
     }
     databases(id)
   }

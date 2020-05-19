@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.CommandsOuterClass;
+import com.daml.ledger.api.v1.CommandsOuterClass;
 
 import java.util.Optional;
 

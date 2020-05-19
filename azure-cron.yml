@@ -32,6 +32,7 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -55,6 +56,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -95,6 +97,7 @@ jobs:
     timeoutInMinutes: 10
     pool:
       name: 'linux-pool'
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |
@@ -108,17 +111,46 @@ jobs:
                         -s \
                         "https://marketplace.visualstudio.com/_apis/gallery/publishers/DigitalAssetHoldingsLLC/extensions/daml?flags=1" \
                         | jq -r '.versions[0].version')
-          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[0]')
-          if [[ "${GITHUB#v}" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c $GITHUB; then
+          # This jq expression should ensure that we always upload the
+          # highest-number version. Here is how this works:
+          #
+          # 1. The GitHub API documentation does not specify the order for the
+          #    "list releases" endpoint, but does specify that the "latest"
+          #    endpoint returns the release that points to the most recent commit.
+          #    Assuming the same sort order is applied for the list endpoint
+          #    (which empirically seems to hold so far), this means that they may
+          #    be out-of-order wrt version numbers, e.g. 1.1.0 may appear after
+          #    1.0.2.
+          # 2. The `.tag_name | .[1:] | split (".") | map(tonumber)` part will
+          #    turn "v1.0.2" into an array [1, 0, 2].
+          # 3. jq documents its sort method to sort numbers in numeric order
+          #    and arrays in lexical order (ascending in both cases).
+          #
+          # This is required because, while the VSCode Marketplace does show
+          # _a_ version number, it doesn't handle versions at all: we can only
+          # have one version on the marketplace at any given time, and any
+          # upload replaces the existing version.
+          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -s \
+                   | jq -r '. | map(select(.prerelease == false)
+                                    | .tag_name
+                                    | .[1:]
+                                    | split (".")
+                                    | map(tonumber))
+                              | sort
+                              | reverse
+                              | .[0]
+                              | map(tostring)
+                              | join(".")')
+          if [[ "$GITHUB" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c v$GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
-            git checkout $GITHUB
+            git checkout v$GITHUB
             cd compiler/daml-extension
             # This produces out/src/extension.js
             bazel run @nodejs//:yarn
             bazel run @nodejs//:yarn compile
-            bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
+            bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish $GITHUB -p $MARKETPLACE_TOKEN
           else
-            if [[ "${GITHUB#v}" == "$MARKET" ]]; then
+            if [[ "$GITHUB" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."
             else
               echo "Latest version is not ready for marketplace publication."
@@ -132,6 +164,7 @@ jobs:
     timeoutInMinutes: 10
     pool:
       name: "linux-pool"
+      demands: assignment -equals default
     steps:
       - checkout: self
       - bash: |

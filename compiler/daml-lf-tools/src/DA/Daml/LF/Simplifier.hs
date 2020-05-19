@@ -6,18 +6,22 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
-import Control.Lens hiding (para)
-import Data.Functor.Foldable
-import Data.Maybe
+import Control.Monad (guard)
+import Data.Maybe (mapMaybe)
+import Data.List (foldl')
+import Data.Foldable (fold, toList)
+import Data.Functor.Foldable (cata, embed)
+import qualified Data.Graph as G
+import qualified Data.Text as T
 import qualified Data.Set as Set
+import qualified Data.NameMap as NM
 import qualified Safe
 import qualified Safe.Exact as Safe
 
 import DA.Daml.LF.Ast
-import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Recursive
-
-type VarSet = Set.Set ExprVarName
+import DA.Daml.LF.Ast.FreeVars
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -28,63 +32,23 @@ data Safety
   | Safe Int  -- number is >= 0
   deriving (Eq, Ord)
 
-data Info = Info
-  { freeVars :: VarSet
-  , safety   :: Safety
-  }
+-- | This is used to track the necessary information for typeclass dictionary
+-- inlining and projecion. We really only want to inline typeclass projection
+-- function applied to dictionary functions, so we need to keep track of what
+-- is what.
+--
+-- We rely on laziness to prevent actual inlining/substitution until it is
+-- confirmed to be necessary.
+data TypeClassInfo
+  = TCNeither
+  | TCProjection Expr
+  | TCDictionary Expr
 
--- | @'cata' freeVarsStep@ maps an 'Expr' to its free term variables.
-freeVarsStep :: ExprF VarSet -> VarSet
-freeVarsStep = \case
-  EVarF x -> Set.singleton x
-  EValF _ -> mempty
-  EBuiltinF _ -> mempty
-  ERecConF _ fs -> foldMap snd fs
-  ERecProjF _ _ s -> s
-  ERecUpdF _ _ s1 s2 -> s1 <> s2
-  EVariantConF _ _ s -> s
-  EEnumConF _ _ -> Set.empty
-  EStructConF fs -> foldMap snd fs
-  EStructProjF _ s -> s
-  EStructUpdF _ s1 s2 -> s1 <> s2
-  ETmAppF s1 s2 -> s1 <> s2
-  ETyAppF s _ -> s
-  ETmLamF (x, _) s -> x `Set.delete` s
-  ETyLamF _ s -> s
-  ECaseF s as -> s <> foldMap snd as
-  ELetF b s -> fvBinding b s
-  ENilF _ -> mempty
-  EConsF _ s1 s2 -> s1 <> s2
-  ENoneF _ -> mempty
-  ESomeF _ s -> s
-  EToAnyF _ s -> s
-  EFromAnyF _ s -> s
-  ETypeRepF _ -> mempty
-  EUpdateF u ->
-    case u of
-      UPureF _ s -> s
-      UBindF b s -> fvBinding b s
-      UCreateF _ s -> s
-      UExerciseF _ _ s1 s2 s3 -> s1 <> fromMaybe Set.empty s2 <> s3
-      UFetchF _ s1 -> s1
-      UGetTimeF -> mempty
-      UEmbedExprF _ s -> s
-      UFetchByKeyF rbk -> retrieveByKeyFKey rbk
-      ULookupByKeyF rbk -> retrieveByKeyFKey rbk
-  EScenarioF e ->
-    case e of
-      SPureF _ s -> s
-      SBindF b s -> fvBinding b s
-      SCommitF _ s1 s2 -> s1 <> s2
-      SMustFailAtF _ s1 s2 -> s1 <> s2
-      SPassF s -> s
-      SGetTimeF -> mempty
-      SGetPartyF s -> s
-      SEmbedExprF _ s -> s
-  ELocationF _ e -> e
-  where
-    fvBinding :: BindingF VarSet -> VarSet -> VarSet
-    fvBinding (BindingF (x, _) s1) s2 = s1 <> (x `Set.delete` s2)
+data Info = Info
+  { freeVars :: FreeVars
+  , safety   :: Safety
+  , tcinfo   :: TypeClassInfo
+  }
 
 decrSafety :: Safety -> Safety
 decrSafety = \case
@@ -241,14 +205,110 @@ safetyStep = \case
   ETypeRepF _ -> Safe 0
 
 
-infoStep :: ExprF Info -> Info
-infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))
+isTypeClassDictionary :: DefValue -> Bool
+isTypeClassDictionary DefValue{..}
+    = T.isPrefixOf "$f" (unExprValName (fst dvalBinder)) -- generic dictionary
+    || T.isPrefixOf "$d" (unExprValName (fst dvalBinder)) -- specialized dictionary
 
-simplifyExpr :: Expr -> Expr
-simplifyExpr = fst . cata go
+isTypeClassProjection :: DefValue -> Bool
+isTypeClassProjection DefValue{..} = go dvalBody
   where
+    go :: Expr -> Bool
+    go (ETyLam _ e) = go e
+    go (ETmLam _ e) = go e
+    go (ETmApp e _) = go e
+    go (EStructProj _ _) = True
+    go _ = False
+
+typeclassStep :: World -> ExprF TypeClassInfo -> TypeClassInfo
+typeclassStep world = \case
+    EValF x ->
+        case lookupValue x world of
+            Left _ -> TCNeither
+            Right dv
+                | isTypeClassProjection dv -> TCProjection (dvalBody dv)
+                | isTypeClassDictionary dv -> TCDictionary (dvalBody dv)
+                | otherwise -> TCNeither
+
+    ETyAppF tci ty ->
+        case tci of
+            TCProjection (ETyLam (x,_) e) ->
+                TCProjection (applySubstInExpr (typeSubst x ty) e)
+            TCDictionary (ETyLam (x,_) e) ->
+                TCDictionary (applySubstInExpr (typeSubst x ty) e)
+            _ ->
+                TCNeither
+
+    _ -> TCNeither
+
+infoStep :: World -> ExprF Info -> Info
+infoStep world e = Info
+    (freeVarsStep (fmap freeVars e))
+    (safetyStep (fmap safety e))
+    (typeclassStep world (fmap tcinfo e))
+
+-- | Try to get the actual field value from the body of
+-- a typeclass projection function, after substitution of the
+-- dictionary function inside.
+getProjectedTypeclassField :: World -> Expr -> Maybe Expr
+getProjectedTypeclassField world = \case
+    EStructProj f e -> do
+        EStructCon fs <- getTypeClassDictionary world e
+        lookup f fs
+
+    ETmApp e EUnit -> do
+        ETmLam (x,_) e' <- getProjectedTypeclassField world e
+        Just (applySubstInExpr (exprSubst x EUnit) e')
+
+    _ ->
+        Nothing
+
+-- | Try to get typeclass dictionary from the body of
+-- a typeclass dictionary function, after substitution.
+-- This is made complicated by GHC's specializer, which
+-- introduces a level of indirection. That's why we need
+-- to inline dictionary functions and beta-reduce.
+getTypeClassDictionary :: World -> Expr -> Maybe Expr
+getTypeClassDictionary world = \case
+    e@(EStructCon _) ->
+        Just e
+
+    EVal x
+        | Right dv <- lookupValue x world
+        , isTypeClassDictionary dv
+        -> do
+            Just (dvalBody dv)
+
+    ETyApp e t -> do
+        ETyLam (x,_) e' <- getTypeClassDictionary world e
+        Just (applySubstInExpr (typeSubst x t) e')
+
+    ETmApp e1 e2 -> do
+        ETmLam (x,_) e1' <- getTypeClassDictionary world e1
+        Just (applySubstInExpr (exprSubst x e2) e1')
+
+    _ ->
+        Nothing
+
+simplifyExpr :: World -> Expr -> Expr
+simplifyExpr world = fst . cata go
+  where
+
     go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
+
+      ETmAppF (_, i1) (_, i2)
+          | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
+          , TCDictionary e2 <- tcinfo i2
+          , Just e' <- getProjectedTypeclassField world
+              (applySubstInExpr (exprSubst' x e2 (freeVars i2)) e1)
+                  -- (freeVars i2) is a safe over-approximation
+                  -- of the free variables in e2, because e2 is
+                  -- a repeated beta-reduction of a closed expression
+                  -- (the dictionary function) applied to subterms of
+                  -- the argument whose free variables are tracked in i2.
+          -> cata go e'
+
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
         -- NOTE(MH): We're deliberately overapproximating the potential of
@@ -284,7 +344,7 @@ simplifyExpr = fst . cata go
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
       ELetF (BindingF (x, _) e1) e2
         | Safe _ <- safety (snd e1)
-        , x `Set.notMember` freeVars (snd e2) -> e2
+        , not (isFreeExprVar x (freeVars (snd e2))) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
       -- NOTE(MH): The reason for the choice of `s1` and `s2` is as follows:
@@ -292,14 +352,40 @@ simplifyExpr = fst . cata go
       --   `fv(e2) ⊆ V ∪ {x}`.
       -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
       --   k-safe.
-      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf) ->
+      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf _) ->
         go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
-          s1 = Info fv (sf `min` Safe 0)
-          s2 = Info (Set.insert x fv) sf
+          s1 = Info fv (sf `min` Safe 0) TCNeither
+          s2 = Info (freeExprVar x <> fv) sf TCNeither
 
       -- e    ==>    e
-      e -> (embed (fmap fst e), infoStep (fmap snd e))
+      e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
-simplifyModule :: Module -> Module
-simplifyModule = over moduleExpr simplifyExpr
+exprRefs :: Expr -> Set.Set (Qualified ExprValName)
+exprRefs = cata $ \case
+    EValF x -> Set.singleton x
+    e -> fold e
+
+topoSortDefValues :: Module -> [DefValue]
+topoSortDefValues m =
+    let isLocal Qualified{..} = do
+            PRSelf <- pure qualPackage
+            guard (moduleName m == qualModule)
+            Just qualObject
+        dvalDeps = mapMaybe isLocal . Set.toList . exprRefs . dvalBody
+        dvalName = fst . dvalBinder
+        dvalNode dval = (dval, dvalName dval, dvalDeps dval)
+        sccs = G.stronglyConnComp . map dvalNode . NM.toList $ moduleValues m
+    in concatMap toList sccs
+
+simplifyDefValue :: World -> DefValue -> DefValue
+simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dval) }
+
+simplifyModule :: World -> Module -> Module
+simplifyModule world m =
+    let step accum dval =
+            let m' = m { moduleValues = accum }
+                w' = extendWorldSelf m' world
+                d' = simplifyDefValue w' dval
+            in NM.insert d' accum
+    in m { moduleValues = foldl' step NM.empty (topoSortDefValues m) }

@@ -3,17 +3,14 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Instant
-
-import akka.NotUsed
-import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.ResourceOwner
+import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
+import com.daml.resources.ResourceOwner
 
 class InMemoryLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase("In-memory ledger/participant") {
@@ -24,13 +21,12 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      heartbeats: Source[Instant, NotUsed],
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     new InMemoryLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
       participantId,
-      metricRegistry,
-      heartbeats = heartbeats,
-    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
+      metrics = metrics,
+      engine = Engine(),
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }

@@ -4,9 +4,10 @@
 package com.daml.ledger.api.testtool
 
 import java.io.File
+import java.nio.file.Path
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.TlsConfiguration
 
 final case class Config(
     participants: Vector[(String, Int)],
@@ -20,6 +21,8 @@ final case class Config(
     tlsConfig: Option[TlsConfiguration],
     excluded: Set[String],
     included: Set[String],
+    performanceTests: Set[String],
+    performanceTestsReport: Option[Path],
     listTests: Boolean,
     allTests: Boolean,
     shuffleParticipants: Boolean,
@@ -39,6 +42,8 @@ object Config {
     tlsConfig = None,
     excluded = Set.empty,
     included = Set.empty,
+    performanceTests = Set.empty,
+    performanceTestsReport = None,
     listTests = false,
     allTests = false,
     shuffleParticipants = false,

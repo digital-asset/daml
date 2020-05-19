@@ -6,16 +6,6 @@
 HTTP JSON API Service
 #####################
 
-**WARNING:** the HTTP JSON API described in this document is actively
-being designed and is *subject to breaking changes*, including all
-request and response elements demonstrated below or otherwise
-implemented by the API.  We welcome feedback about the API on `our issue
-tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
-
-Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
-
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
 API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
 
@@ -82,9 +72,20 @@ From a DAML project directory:
       --address <value>
             IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
       --http-port <value>
-            HTTP JSON API service port number
+            HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port. Consider specifying `--port-file` option with port number 0.
+      --port-file <value>
+            Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
+      --pem <value>
+            TLS: The pem file to be used as the private key.
+      --crt <value>
+            TLS: The crt file to be used as the cert chain.
+            Required for client authentication.
+      --cacrt <value>
+            TLS: The crt file to be used as the the trusted root CA.
+      --tls
+            TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
       --max-inbound-message-size <value>
@@ -102,6 +103,8 @@ From a DAML project directory:
             prefix -- URL prefix,
             directory -- local directory that will be mapped to the URL prefix.
             Example: "prefix=static,directory=./static-content"
+      --allow-insecure-tokens
+            DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.
       --access-token-file <value>
             provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
       --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
@@ -119,11 +122,11 @@ For this reason, you must provide an access token when you start the HTTP JSON A
 
 Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
 
-The HTTP JSON API servers requires no access to party-specific data, only access to the ledger identity and package services: a token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
+The HTTP JSON API server requires no access to party-specific data, only access to the ledger identity and package services. A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
 
-Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file. Give the path to it with the ``--access-token-file`` command line option.
 
-If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token and it will be picked up at the next attempt to send a request.
+If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token, and it will be picked up at the next attempt to send a request.
 
 Example session
 ***************
@@ -157,9 +160,7 @@ token.  The default "header" is fine.  Under "Payload", fill in:
       }
     }
 
-Keep in mind:
-- the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox.
-- you can replace ``Alice`` with whatever party you want to use.
+Keep in mind that the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox. You can replace ``Alice`` with whatever party you want to use.
 
 Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
@@ -174,7 +175,7 @@ Alternatively, here are two tokens you can use for testing:
 
 - ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
-  
+
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
@@ -222,9 +223,9 @@ If client's HTTP GET or POST request reaches an API endpoint, the corresponding 
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 404 | 500>
-        ,"errors": <JSON array of strings> | ,"result": <JSON object>
-        [ ,"warnings": <JSON object> ]
+        "status": <400 | 401 | 404 | 500>,
+        "errors": <JSON array of strings>, | "result": <JSON object or array>,
+        ["warnings": <JSON object> ]
     }
 
 Where:
@@ -281,21 +282,43 @@ Failure, HTTP status: 400 | 401 | 404 | 500
 Examples
 ========
 
+**Result with JSON Object without Warnings:**
+
 .. code-block:: none
 
     {"status": 200, "result": {...}}
+
+**Result with JSON Array and Warnings:**
 
 .. code-block:: none
 
     {"status": 200, "result": [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
-.. code-block:: json
-
-    {"status": 401, "errors": ["Authentication Required"]}
+**Bad Request Error:**
 
 .. code-block:: json
 
     {"status": 400, "errors": ["JSON parser error: Unexpected character 'f' at input index 27 (line 1, position 28)"]}
+
+**Bad Request Error with Warnings:**
+
+.. code-block:: json
+
+    {"status":400, "errors":["Cannot not resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
+
+**Authentication Error:**
+
+.. code-block:: json
+
+    {"status": 401, "errors": ["Authentication Required"]}
+
+**Not Found Error:**
+
+.. code-block:: json
+
+    {"status": 404, "errors": ["HttpMethod(POST), uri: http://localhost:7575/v1/query1"]}
+
+**Internal Server Error:**
 
 .. code-block:: json
 
@@ -304,9 +327,9 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
+See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
@@ -338,7 +361,7 @@ Where:
 - ``templateId`` is the contract template identifier, which can be formatted as either:
 
   + ``"<package ID>:<module>:<entity>"`` or
-  + ``"<module>:<entity>"`` if contract template can be uniquely identified by it's module and entity name.
+  + ``"<module>:<entity>"`` if contract template can be uniquely identified by its module and entity name.
 
 - ``payload`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
 
@@ -409,7 +432,7 @@ Exercise by Contract ID
 
 The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 
@@ -823,7 +846,7 @@ HTTP Request
 Where:
 
 - ``templateIds`` --  an array of contract template identifiers to search through,
-- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`:
+- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 
 Empty HTTP Response
 ===================
@@ -871,7 +894,7 @@ Nonempty HTTP Response
 Where
 
 - ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
-- ``status`` matches the HTTP status code returned in the HTTP header,
+- ``status`` matches the HTTP status code returned in the HTTP header.
 
 Nonempty HTTP Response with Unknown Template IDs Warning
 ========================================================
@@ -965,8 +988,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-HTTP Response with Unknown Parties Warning
-============================================
+Response with Unknown Parties Warning
+=====================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -982,12 +1005,12 @@ HTTP Response with Unknown Parties Warning
         }
       ],
       "warnings": {
-        "unknownParties": [
-          "Erin"
-        ]
+        "unknownParties": ["Erin"]
       },
       "status": 200
     }
+
+The ``result`` might be an empty JSON array if none of the requested parties is known.
 
 Fetch All Known Parties
 ***********************
@@ -1004,7 +1027,7 @@ The response is the same as for the POST method above.
 Allocate a New Party
 ********************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.daml.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
 
 HTTP Request
 ============
@@ -1021,7 +1044,7 @@ HTTP Request
       "displayName": "Carol & Co. LLC"
     }
 
-Please refer to :ref:`AllocateParty <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
+Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
 
 All fields in the request are optional, this means that empty JSON object is a valid request to allocate a new party:
 
@@ -1043,8 +1066,127 @@ HTTP Response
       "status": 200
     }
 
+List All DALF Packages
+**********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        "c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd",
+        "733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a",
+        "bfcd37bd6b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f",
+        "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7",
+        "8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb"
+      ],
+      "status": 200
+    }
+
+Where ``result`` is the JSON array containing package IDs of all loaded DALFs.
+
+Download a DALF Package
+***********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages/<package ID>``
+- Method: ``GET``
+- Content: <EMPTY>
+
+Note that package ID is specified in the URL.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Transfer-Encoding: ``chunked``
+- Content-Type: ``application/octet-stream``
+- Content: <DALF bytes>
+
+The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
+
+HTTP Response with Error, any status different from 200 OK
+==========================================================
+
+Any status different from ``200 OK`` will be in the format specified below.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: NOT_FOUND"
+        ],
+        "status": 500
+    }
+
+Upload a DAR File
+*****************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``POST``
+- Content-Type: ``application/octet-stream``
+- Content: <DAR bytes>
+
+The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "result": 1,
+        "status": 200
+    }
+
+HTTP Response with Error
+========================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Invalid DAR: package-upload, content: [}]"
+        ],
+        "status": 500
+    }
+
 Streaming API
 *************
+
+**WARNING:** the WebSocket endpoints described below are in alpha,
+so are *subject to breaking changes*, including all
+request and response elements demonstrated below or otherwise
+implemented by the API.  We welcome feedback about the API on `our issue
+tracker
+<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+or `on Slack <https://hub.daml.com/slack/>`_.
+
+Please keep in mind that the presence of **/v1** prefix in the the
+WebSocket URLs does not mean that the endpoint interfaces are
+stabilized.
 
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
@@ -1112,6 +1254,8 @@ Contracts Query Stream
 - URL: ``/v1/stream/query``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
+
+*Endpoint is in alpha as described above.*
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -1276,6 +1420,8 @@ Fetch by Key Contracts Stream
 - URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
+
+*Endpoint is in alpha as described above.*
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 

@@ -6,9 +6,6 @@
 Getting Started with DAML
 #########################
 
-**Disclaimer:** This guide is being actively developed.
-Expect major changes to the tutorial text and minor changes to the template application.
-
 The goal of this tutorial is to get you up and running with full-stack DAML development.
 We do this through the example of a simple social networking application,
 showing you three things:
@@ -40,7 +37,7 @@ Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio
 You will also need some common software tools to build and interact with the template project.
 
 - `Git <https://git-scm.com/downloads>`_ version control system
-- `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for Javascript. You have to have yarn version 1.10.0 or higher.
+- `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for JavaScript. You have to have yarn version 1.10.0 or higher.
 
   Note: Ubuntu 17.04 and higher come with ``cmdtest`` package installed by default. If you are getting errors when installing yarn, you may want to run ``sudo apt remove cmdtest`` first and then install yarn. More information can be found `here <https://github.com/yarnpkg/yarn/issues/2821>`_ as well as in the official `yarn installation docs for Debian / Ubuntu <https://classic.yarnpkg.com/en/docs/install/#debian-stable>`_
 - A terminal application for command line interaction
@@ -51,9 +48,14 @@ Running the app
 
 We'll start by getting the app up and running, and then explain the different components which we will later extend.
 
-First off, open a terminal, clone the template project and move to the project folder::
+First off, open a terminal and instantiate the template project.
+::
 
-    git clone https://github.com/digital-asset/create-daml-app.git
+    daml new create-daml-app create-daml-app
+
+This creates a new folder with contents from our template.
+Change to the new folder::
+
     cd create-daml-app
 
 Next we need to compile the DAML code to a DAR file::
@@ -65,15 +67,15 @@ Once the DAR file is created you will see this message in terminal ``Created .da
 Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
 In order to connect the UI code to this DAML, we need to run a code generation step::
 
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+    daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
-Now, use Yarn to install the project dependencies and build the app::
+Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
 
+    cd ui
     yarn install
-    yarn workspaces run build
 
-These steps may take a couple of minutes each (it's worth it!).
-You should see ``Compiled successfully.`` in the output if everything worked as expected.
+This step may take a couple of moments (it's worth it!).
+You should see ``success Saved lockfile.`` in the output if everything worked as expected.
 
 .. TODO: Give instructions for possible failures.
 
@@ -81,9 +83,9 @@ We can now run the app in two steps.
 You'll need two terminal windows running for this.
 In one terminal, at the root of the ``create-daml-app`` directory, run the command::
 
-    daml start --start-navigator=no
+    daml start
 
-You will know that the command has started successfully when you see the ``INFO  com.digitalasset.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
+You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
     1. Compiles the DAML code to a DAR file as in the previous ``daml build`` step.
     2. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.
@@ -98,6 +100,7 @@ In a second terminal, navigate to the ``create-daml-app/ui`` folder and run the 
 
 This starts the web UI connected to the running Sandbox and JSON API server.
 The command should automatically open a window in your default browser at http://localhost:3000.
+Once the web UI has been compiled and started, you should see ``Compiled successfully!`` in your terminal.
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.
@@ -142,5 +145,3 @@ Just switch to the window where you are logged in as yourself - the network shou
 Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
 When you're ready, let's move on to the :doc:`architecture of our app <app-architecture>`.
-
-.. TODO: Add screenshots for the app above

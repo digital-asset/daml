@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.persistence
+package com.daml.platform.sandbox.persistence
 
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.store.FlywayMigrations
-import com.digitalasset.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
-import com.digitalasset.resources.Resource
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.dec.DirectExecutionContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.FlywayMigrations
+import com.daml.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
+import com.daml.resources.Resource
+import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 
 import scala.concurrent.Await
@@ -26,7 +26,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
     connectionProviderResource = HikariJdbcConnectionProvider
       .owner(
         ServerRole.Testing(getClass),
-        postgresFixture.jdbcUrl,
+        postgresDatabase.url,
         maxConnections = 4,
         new MetricRegistry,
       )
@@ -55,7 +55,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   "Flyway" should {
     "execute initialisation script" in {
       newLoggingContext { implicit logCtx =>
-        new FlywayMigrations(postgresFixture.jdbcUrl).migrate()(DirectExecutionContext)
+        new FlywayMigrations(postgresDatabase.url).migrate()(DirectExecutionContext)
       }.map { _ =>
         connectionProvider.runSQL { conn =>
           def checkTableExists(table: String) = {
@@ -63,12 +63,23 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
             resultSet.next shouldEqual false
           }
 
-          checkTableExists("ledger_entries")
-          checkTableExists("contracts")
-          checkTableExists("disclosures")
-          checkTableExists("contract_witnesses")
           checkTableExists("parameters")
+          checkTableExists("configuration_entries")
+
+          checkTableExists("participant_command_completions")
+          checkTableExists("participant_command_submissions")
+          checkTableExists("participant_contract_witnesses")
+          checkTableExists("participant_contracts")
+          checkTableExists("participant_event_flat_transaction_witnesses")
+          checkTableExists("participant_event_transaction_tree_witnesses")
+          checkTableExists("participant_events")
+
           checkTableExists("parties")
+          checkTableExists("party_entries")
+
+          checkTableExists("packages")
+          checkTableExists("package_entries")
+
         }
       }
     }

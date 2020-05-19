@@ -1,13 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform
+package com.daml.platform
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 import scala.util.{Failure, Success, Try}
 
+// This utility object is used as a single point to encode and decode
+// offsets sent over the API and received from the API.
 object ApiOffset {
 
   def fromString(s: String): Try[Offset] =

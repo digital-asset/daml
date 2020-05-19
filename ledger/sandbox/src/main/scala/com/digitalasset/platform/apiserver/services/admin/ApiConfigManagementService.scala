@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services.admin
+package com.daml.platform.apiserver.services.admin
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
@@ -13,17 +13,18 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   WriteConfigService
 }
-import com.digitalasset.api.util.{DurationConversion, TimeProvider, TimestampConversion}
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerOffset
-import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
-import com.digitalasset.ledger.api.v1.admin.config_management_service._
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation
-import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
+import com.daml.lf.data.Time
+import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
+import com.daml.ledger.api.v1.admin.config_management_service._
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.server.api.validation
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters
@@ -35,7 +36,7 @@ final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
-    defaultConfiguration: Configuration,
+    ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer
 )(implicit logCtx: LoggingContext)
     extends ConfigManagementService
@@ -43,7 +44,7 @@ final class ApiConfigManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val defaultConfigResponse = configToResponse(defaultConfiguration)
+  private val defaultConfigResponse = configToResponse(ledgerConfiguration.initialConfiguration)
 
   override def close(): Unit = ()
 
@@ -81,7 +82,9 @@ final class ApiConfigManagementService private (
       // Lookup latest configuration to check generation and to extend it with the new time model.
       optConfigAndOffset <- index.lookupConfiguration()
       pollOffset = optConfigAndOffset.map(_._1)
-      currentConfig = optConfigAndOffset.map(_._2).getOrElse(defaultConfiguration)
+      currentConfig = optConfigAndOffset
+        .map(_._2)
+        .getOrElse(ledgerConfiguration.initialConfiguration)
 
       // Verify that we're modifying the current configuration.
       _ <- if (request.configurationGeneration != currentConfig.generation) {
@@ -173,8 +176,8 @@ final class ApiConfigManagementService private (
     index
       .configurationEntries(offset)
       .collect {
-        case entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _, _) => entry
-        case entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _, _) => entry
+        case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _, _)) => entry
+        case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _, _)) => entry
       }
       .completionTimeout(timeToLive)
       .runWith(Sink.head)(materializer)
@@ -191,13 +194,13 @@ object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      defaultConfiguration: Configuration)(implicit mat: Materializer, logCtx: LoggingContext)
+      ledgerConfiguration: LedgerConfiguration)(implicit mat: Materializer, logCtx: LoggingContext)
     : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,
       timeProvider,
-      defaultConfiguration,
+      ledgerConfiguration,
       mat)
 
 }

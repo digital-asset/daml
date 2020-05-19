@@ -1,0 +1,21 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "cli-opts",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:http-json-cli-opts:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ledger/ledger-api-common",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:io_netty_netty_handler",
+    ],
+)

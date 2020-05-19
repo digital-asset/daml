@@ -1,0 +1,56 @@
+The use of temp files in `zip` sadly runs into an issue
+with GHC’s `openBinaryTempFile` function which seems
+to have a race condition where multiple processes can get
+the same temp file name. Then one process will move away the temp
+file of the other process resulting in the following error:
+
+damlc.exe: C:\users\\…\\ghc77D0.zip" Just "\\\\?\\C:\\users\\…\\daml-script-1.dev.dar": does not exist (The system cannot find the file specified.)
+
+We don’t need the atomic write of the zip (DAR) file here so
+we simply patch `zip` to write to the file directly.
+It doesn’t really make sense to upstream this. The code in the
+zip library is correct, it’s `openBinaryTempFile` that is broken.
+
+diff --git a/Codec/Archive/Zip/Internal.hs b/Codec/Archive/Zip/Internal.hs
+index 674a4a3..6f68cdd 100644
+--- a/Codec/Archive/Zip/Internal.hs
++++ b/Codec/Archive/Zip/Internal.hs
+@@ -27,7 +27,6 @@ import Codec.Archive.Zip.CP437 (decodeCP437)
+ import Codec.Archive.Zip.Type
+ import Conduit (PrimMonad)
+ import Control.Applicative (many, (<|>))
+-import Control.Exception (bracketOnError, catchJust)
+ import Control.Monad
+ import Control.Monad.Catch (MonadThrow (..))
+ import Control.Monad.Trans.Maybe
+@@ -50,10 +49,7 @@ import Data.Version
+ import Data.Void
+ import Data.Word (Word16, Word32)
+ import Numeric.Natural (Natural)
+-import System.Directory
+-import System.FilePath
+ import System.IO
+-import System.IO.Error (isDoesNotExistError)
+ import qualified Data.ByteString     as B
+ import qualified Data.Conduit        as C
+ #ifdef ENABLE_BZIP2
+@@ -278,18 +274,7 @@ withNewFile
+   -> (Handle -> IO ()) -- ^ Action that writes to given 'Handle'
+   -> IO ()
+ withNewFile fpath action =
+-  bracketOnError allocate release $ \(path, h) -> do
+-    action h
+-    hClose h
+-    renameFile path fpath
+-  where
+-    allocate = openBinaryTempFile (takeDirectory fpath) ".zip"
+-    release (path, h) = do
+-      hClose h
+-      -- Despite using `bracketOnError` the file is not guaranteed to exist here
+-      -- since we could be interrupted with an async exception after the file has
+-      -- been renamed. Therefore, we silentely ignore `DoesNotExistError`.
+-      catchJust (guard . isDoesNotExistError) (removeFile path) (const $ pure ())
++    withBinaryFile fpath ReadWriteMode action
+ 
+ -- | Determine what comment in new archive will look like given its original
+ -- value and a collection of pending actions.

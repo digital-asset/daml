@@ -1,29 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Transaction.NodeId
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.EventId
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.store.ReadOnlyLedger
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.{GenTransaction, TransactionCommitter}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.EventId
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 
 trait Ledger extends ReadOnlyLedger {
-
-  def publishHeartbeat(time: Instant): Future[Unit]
 
   def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -62,12 +59,14 @@ object Ledger {
   type DisclosureForIndex = Map[EventId, Set[Party]]
   type GlobalDivulgence = Relation[AbsoluteContractId, Party]
 
-  def convertToCommittedTransaction(transactionId: TransactionId, transaction: SubmittedTransaction)
-    : (TransactionForIndex, DisclosureForIndex, GlobalDivulgence) = {
+  def convertToCommittedTransaction(
+      committer: TransactionCommitter,
+      transactionId: TransactionId,
+      transaction: SubmittedTransaction
+  ): (TransactionForIndex, DisclosureForIndex, GlobalDivulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones
-    val committedTransaction: GenTransaction.WithTxValue[NodeId, AbsoluteContractId] =
-      transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId))
+    val committedTransaction = committer.commitTransaction(transactionId, transaction)
 
     // here we just need to align the type for blinding
     val blindingInfo = Blinding.blind(committedTransaction)

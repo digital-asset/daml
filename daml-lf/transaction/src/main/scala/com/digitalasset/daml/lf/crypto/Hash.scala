@@ -1,15 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package crypto
 
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
 
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
+import com.daml.lf.value.Value
+import scalaz.Order
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -73,6 +74,8 @@ object Hash {
 
   implicit val ordering: Ordering[Hash] =
     Ordering.by(_.bytes)
+
+  implicit val order: Order[Hash] = Order.fromScalaOrdering
 
   @throws[HashingError]
   private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
@@ -232,6 +235,7 @@ object Hash {
   private[crypto] object Purpose {
     val Testing = Purpose(1)
     val ContractKey = Purpose(2)
+    val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
   }
 
@@ -355,4 +359,13 @@ object Hash {
       .addStringSet(parties)
       .build
 
+  // For DAML-on-Corda to ensure the hashing is performed in a way that will work with upgrades.
+  def deriveMaintainerContractKeyUUID(
+      keyHash: Hash,
+      maintainer: Ref.Party,
+  ): Hash =
+    builder(Purpose.MaintainerContractKeyUUID, noCid2String)
+      .add(keyHash)
+      .add(maintainer)
+      .build
 }

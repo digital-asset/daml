@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script.test
+package com.daml.lf.engine.script.test
 
 import java.nio.file.{Path, Paths}
 import java.io.File
@@ -9,19 +9,19 @@ import java.time.Duration
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.{Party => LedgerParty}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.daml.auth.TokenHolder
+import com.daml.lf.archive.Dar
+import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Ref.{Party => LedgerParty}
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SValue._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 
-import com.digitalasset.daml.lf.engine.script._
+import com.daml.lf.engine.script._
 
 case class Config(
     ledgerPort: Int,
@@ -258,6 +258,36 @@ case class PartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestStack(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testStack"))
+  def runTests() = {
+    runner.genericTest(
+      "testStack",
+      scriptId,
+      None,
+      // We only want to check that this does not crash so the check here is trivial.
+      v => TestRunner.assertEqual(v, SUnit, "Script result")
+    )
+  }
+}
+
+case class TestMaxInboundMessageSize(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "MaxInboundMessageSize",
+      scriptId,
+      None, {
+        case SUnit => Right(())
+        case v => Left(s"Expected SUnit but got $v")
+      },
+      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize * 10,
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -369,6 +399,8 @@ object SingleParticipant {
             Time(dar, runner).runTests()
             Sleep(dar, runner).runTests()
             PartyIdHintTest(dar, runner).runTests()
+            TestStack(dar, runner).runTests()
+            TestMaxInboundMessageSize(dar, runner).runTests()
             ScriptExample(dar, runner).runTests()
           case Some(_) =>
             // We can’t test much with auth since most of our tests rely on party allocation and being

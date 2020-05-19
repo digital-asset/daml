@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SINCE-LF 1.dev
+-- @SINCE-LF 1.7
 module TemplateTypeRep where
 
 import DA.Action

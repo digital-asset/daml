@@ -20,13 +20,8 @@ Ledger Model </concepts/ledger-model/index>`.
 Downloading the tool
 ====================
 
-Run the following command to fetch the tool:
-
-.. code-block:: shell
-
-     curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool/$latest/ledger-api-test-tool-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar
-
-This will create a file ``ledger-api-test-tool.jar`` in your current directory.
+Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 Extracting ``.dar`` files required to run the tests
 ======================================================
@@ -120,7 +115,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
-     $ daml sandbox --wall-clock-time *.dar
+     $ daml sandbox *.dar
      $ java -jar ledger-api-test-tool.jar localhost:6865
 
 This should always succeed, as the Sandbox is tested to correctly implement the

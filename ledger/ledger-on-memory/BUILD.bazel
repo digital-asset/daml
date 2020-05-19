@@ -15,17 +15,20 @@ da_scala_library(
     name = "ledger-on-memory",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:on-memory:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-on-memory:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/caching",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -45,19 +48,21 @@ da_scala_test(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
@@ -71,21 +76,23 @@ da_scala_library(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox",
+        "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -115,7 +122,6 @@ conformance_test(
         "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -135,7 +141,6 @@ conformance_test(
         "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -150,6 +155,22 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ConfigManagementServiceIT",
+    ],
+)
+
+conformance_test(
+    name = "benchmark-performance-envelope",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--perf-tests=PerformanceEnvelope.Beta.Throughput",
+        "--perf-tests=PerformanceEnvelope.Beta.Latency",
+        "--perf-tests=PerformanceEnvelope.Beta.TransactionSize",
     ],
 )
 

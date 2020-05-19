@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.sql.queries
 
-import java.time.Instant
-
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.v1.LedgerId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -16,7 +14,8 @@ trait WriteQueries {
 
   def insertRecordIntoLog(key: Key, value: Value): Try[Index]
 
-  def insertHeartbeatIntoLog(timestamp: Instant): Try[Index]
-
   def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit]
+
+  def truncate(): Try[Unit]
+
 }

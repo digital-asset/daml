@@ -1,8 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
+import java.security.DigestInputStream
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -10,26 +11,27 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
+import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
-import com.digitalasset.http.domain.ContractId
-import com.digitalasset.http.domain.TemplateId.OptionalPkg
-import com.digitalasset.http.json.SprayJson.{decode1, decode2, objectField}
-import com.digitalasset.http.json._
-import com.digitalasset.http.util.ClientUtil.{boxedRecord, uniqueId}
-import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.TestUtil
-import com.digitalasset.jwt.JwtSigner
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.v1.{value => v}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.service.MetadataReader
-import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.daml.api.util.TimestampConversion
+import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.lf.data.Ref
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import HttpServiceTestFixture.{jsonCodecs, UseTls}
+import com.daml.http.domain.ContractId
+import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.json.SprayJson.{decode, decode1, objectField}
+import com.daml.http.json._
+import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
+import com.daml.http.util.FutureUtil.toFuture
+import com.daml.http.util.{FutureUtil, TestUtil}
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.{value => v}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.service.MetadataReader
+import com.daml.platform.participant.util.LfEngineToApi
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.std.list._
@@ -43,11 +45,30 @@ import spray.json._
 
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 object AbstractHttpServiceIntegrationTestFuns {
   private val dar1 = requiredResource("docs/quickstart-model.dar")
 
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
+
+  private[http] val dar3 = requiredResource("ledger/test-common/Test-stable.dar")
+
+  def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
+    import java.security.MessageDigest
+    import javax.xml.bind.DatatypeConverter
+
+    val md = MessageDigest.getInstance("SHA-256")
+    val is = source.runWith(StreamConverters.asInputStream())
+    val dis = new DigestInputStream(is, md)
+
+    // drain the input stream and calculate the hash
+    while (-1 != dis.read()) ()
+
+    dis.on(false)
+
+    DatatypeConverter.printHexBinary(md.digest()).toLowerCase
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -60,6 +81,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   def staticContentConfig: Option[StaticContentConfig]
 
+  def useTls: UseTls
+
   protected def testId: String = this.getClass.getSimpleName
 
   protected val metdata2: MetadataReader.LfMetadata =
@@ -68,7 +91,17 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val jwt: Jwt = {
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
-      s"""{"ledgerId": "${testId: String}", "applicationId": "ledger-service-test", "party": "Alice"}"""
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "actAs": ["Alice"]}}"""
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
+
+  protected val jwtAdminNoParty: Jwt = {
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}"""
     )
     JwtSigner.HMAC256
       .sign(decodedJwt, "secret")
@@ -86,7 +119,12 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def withHttpServiceAndClient[A]
     : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
     HttpServiceTestFixture
-      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)
+      .withHttpService[A](
+        testId,
+        List(dar1, dar2),
+        jdbcConfig,
+        staticContentConfig,
+        useTls = useTls)
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
@@ -114,7 +152,10 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     domain.CreateCommand(templateId, arg, None)
   }
 
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+  protected val headersWithAuth = authorizationHeader(jwt)
+
+  protected def authorizationHeader(token: Jwt): List[Authorization] =
+    List(Authorization(OAuth2BearerToken(token.value)))
 
   protected def postJsonStringRequest(
       uri: Uri,
@@ -389,6 +430,15 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     actual.moduleName shouldBe expected.moduleName
     actual.entityName shouldBe expected.entityName
   }
+
+  protected def getAllPackageIds(uri: Uri): Future[domain.OkResponse[List[String]]] =
+    getRequest(uri = uri.withPath(Uri.Path("/v1/packages"))).map {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        inside(decode1[domain.OkResponse, List[String]](output)) {
+          case \/-(x) => x
+        }
+    }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -399,6 +449,8 @@ abstract class AbstractHttpServiceIntegrationTest
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
+
+  override final def useTls = UseTls.NoTls
 
   "query GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
@@ -443,7 +495,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query POST with empty query" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"]}"""),
       uri,
@@ -454,7 +506,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, one field" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
@@ -465,19 +517,40 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "query returns unknown Template IDs as warnings" in withHttpService { (uri, _, _) =>
+  "query returns unknown Template IDs as warnings" in withHttpService { (uri, encoder, _) =>
     val query =
       jsObject(
         """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}""")
 
-    postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query)
-      .map {
-        case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output) shouldBe JsArray.empty
-          getWarnings(output) shouldBe JsObject(
-            "unknownTemplateIds" -> JsArray(Vector(JsString("UnknownModule:UnknownEntity"))))
+    search(List(), query, uri, encoder).map { response =>
+      inside(response) {
+        case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
+          acl.size shouldBe 0
+          warnings shouldBe Some(
+            domain.UnknownTemplateIds(
+              List(domain.TemplateId(None, "UnknownModule", "UnknownEntity"))))
+      }
+    }
+  }
+
+  "query returns unknown Template IDs as warnings and error" in withHttpService {
+    (uri, encoder, _) =>
+      search(
+        searchDataSet,
+        jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
+        uri,
+        encoder
+      ).map { response =>
+        inside(response) {
+          case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest) =>
+            errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
+            inside(warnings) {
+              case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
+                unknownTemplateIds.toSet shouldBe Set(
+                  domain.TemplateId(None, "AAA", "BBB"),
+                  domain.TemplateId(None, "XXX", "YYY"))
+            }
+        }
       }
   }
 
@@ -515,7 +588,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, two fields" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject(
         """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""),
@@ -528,7 +601,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, no results" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject(
         """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""),
@@ -556,19 +629,34 @@ abstract class AbstractHttpServiceIntegrationTest
     r.valueOr(e => fail(e.shows))
   }
 
-  protected def searchWithQuery(
+  protected def searchExpectOk(
       commands: List[domain.CreateCommand[v.Record]],
       query: JsObject,
       uri: Uri,
       encoder: DomainJsonEncoder): Future[List[domain.ActiveContract[JsValue]]] = {
+    search(commands, query, uri, encoder).map {
+      case ok: domain.OkResponse[_] =>
+        ok.status shouldBe StatusCodes.OK
+        ok.warnings shouldBe 'empty
+        ok.result
+      case err: domain.ErrorResponse =>
+        fail(s"Expected OK response, got: $err")
+    }
+  }
+
+  protected def search(
+      commands: List[domain.CreateCommand[v.Record]],
+      query: JsObject,
+      uri: Uri,
+      encoder: DomainJsonEncoder): Future[
+    domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
+  ] = {
     commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
-      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).map {
-        case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          output.asJsObject.fields.get("warnings") shouldBe None
-          activeContractList(output)
+      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).flatMap {
+        case (_, output) =>
+          FutureUtil.toFuture(
+            decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
       }
     }
   }
@@ -662,11 +750,11 @@ abstract class AbstractHttpServiceIntegrationTest
         case (status, output) =>
           status shouldBe StatusCodes.OK
           inside(
-            decode2[domain.OkResponse, domain.ExerciseResponse[JsValue], Unit](output)
+            decode1[domain.OkResponse, domain.ExerciseResponse[JsValue]](output)
           ) {
             case \/-(response) =>
               response.status shouldBe StatusCodes.OK
-              (response.warnings: Option[Unit]) shouldBe Option.empty[Unit]
+              response.warnings shouldBe 'empty
               inside(response.result.events) {
                 case List(
                     domain.Contract(\/-(created0)),
@@ -837,11 +925,11 @@ abstract class AbstractHttpServiceIntegrationTest
             case (status, output) =>
               status shouldBe StatusCodes.OK
               inside(
-                decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)
+                decode1[domain.OkResponse, List[domain.PartyDetails]](output)
               ) {
                 case \/-(response) =>
                   response.status shouldBe StatusCodes.OK
-                  response.warnings shouldBe None
+                  response.warnings shouldBe 'empty
                   val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
                   actualIds shouldBe domain.Party.subst(partyIds.toSet)
                   response.result.toSet shouldBe
@@ -874,7 +962,7 @@ abstract class AbstractHttpServiceIntegrationTest
             case (status, output) =>
               status shouldBe StatusCodes.OK
               inside(
-                decode2[domain.OkResponse, List[domain.PartyDetails], domain.UnknownParties](output)
+                decode1[domain.OkResponse, List[domain.PartyDetails]](output)
               ) {
                 case \/-(response) =>
                   response.status shouldBe StatusCodes.OK
@@ -901,7 +989,45 @@ abstract class AbstractHttpServiceIntegrationTest
           assertStatus(output, StatusCodes.BadRequest)
           val errorMsg = expectedOneErrorMessage(output)
           errorMsg should include("Cannot read JSON: <[]>")
-          errorMsg should include("must be a list with at least 1 element")
+          errorMsg should include("must be a JSON array with at least 1 element")
+      }: Future[Assertion]
+  }
+
+  "parties endpoint returns error if empty party string passed" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val requestedPartyIds: Vector[domain.Party] = domain.Party.subst(Vector(""))
+
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
+            case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest)) =>
+              error should include("DAML LF Party is empty")
+          }
+      }: Future[Assertion]
+  }
+
+  "parties endpoint returns empty result with warnings and OK status if nothing found" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val requestedPartyIds: Vector[domain.Party] =
+        domain.Party.subst(Vector("Alice", "Bob", "Dave"))
+
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
+            case \/-(domain.OkResponse(List(), Some(warnings), StatusCodes.OK)) =>
+              inside(warnings) {
+                case domain.UnknownParties(unknownParties) =>
+                  unknownParties.toSet shouldBe requestedPartyIds.toSet
+              }
+          }
       }: Future[Assertion]
   }
 
@@ -912,11 +1038,14 @@ abstract class AbstractHttpServiceIntegrationTest
     )
     val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
 
-    postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = json)
+    postJsonRequest(
+      uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
+      json = json,
+      headers = authorizationHeader(jwtAdminNoParty))
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
-          inside(decode2[domain.OkResponse, domain.PartyDetails, Unit](output)) {
+          inside(decode1[domain.OkResponse, domain.PartyDetails](output)) {
             case \/-(response) =>
               response.status shouldBe StatusCodes.OK
               val newParty = response.result
@@ -927,7 +1056,7 @@ abstract class AbstractHttpServiceIntegrationTest
               getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
                 case (status, output) =>
                   status shouldBe StatusCodes.OK
-                  inside(decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)) {
+                  inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
                     case \/-(response) =>
                       response.status shouldBe StatusCodes.OK
                       response.result should contain(newParty)
@@ -943,7 +1072,7 @@ abstract class AbstractHttpServiceIntegrationTest
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.OK
-            inside(decode2[domain.OkResponse, domain.PartyDetails, Unit](output)) {
+            inside(decode1[domain.OkResponse, domain.PartyDetails](output)) {
               case \/-(response) =>
                 response.status shouldBe StatusCodes.OK
                 val newParty = response.result
@@ -954,7 +1083,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
                   case (status, output) =>
                     status shouldBe StatusCodes.OK
-                    inside(decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)) {
+                    inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
                       case \/-(response) =>
                         response.status shouldBe StatusCodes.OK
                         response.result should contain(newParty)
@@ -976,11 +1105,10 @@ abstract class AbstractHttpServiceIntegrationTest
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.BadRequest
-            inside(
-              decode1[domain.ErrorResponse, Vector[String]](output)
-            ) {
+            inside(decode[domain.ErrorResponse](output)) {
               case \/-(response) =>
                 response.status shouldBe StatusCodes.BadRequest
+                response.warnings shouldBe 'empty
                 response.errors.length shouldBe 1
             }
         }
@@ -1123,7 +1251,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "query by a variant field" in withHttpService { (uri, encoder, decoder) =>
+  "query by a variant field" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val now = TimestampConversion.instantToMicros(Instant.now)
@@ -1158,6 +1286,64 @@ abstract class AbstractHttpServiceIntegrationTest
               case List(ac) =>
                 ac.contractId shouldBe contractId
             }
+        }
+    }: Future[Assertion]
+  }
+
+  "packages endpoint should return all known package IDs" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      getAllPackageIds(uri).map { x =>
+        inside(x) {
+          case domain.OkResponse(ps, None, StatusCodes.OK) if ps.nonEmpty =>
+            Inspectors.forAll(ps)(_.length should be > 0)
+        }
+      }: Future[Assertion]
+  }
+
+  "packages/packageId should return a requested package" in withHttpServiceAndClient {
+    import AbstractHttpServiceIntegrationTestFuns.sha256
+
+    (uri, _, _, _) =>
+      getAllPackageIds(uri).flatMap { okResp =>
+        inside(okResp.result.headOption) {
+          case Some(packageId) =>
+            Http()
+              .singleRequest(
+                HttpRequest(
+                  method = HttpMethods.GET,
+                  uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
+                  headers = authorizationHeader(jwtAdminNoParty),
+                )
+              )
+              .map { resp =>
+                resp.status shouldBe StatusCodes.OK
+                resp.entity.getContentType() shouldBe ContentTypes.`application/octet-stream`
+                sha256(resp.entity.dataBytes) shouldBe Success(packageId)
+              }
+        }
+      }: Future[Assertion]
+  }
+
+  "packages upload endpoint" in withHttpServiceAndClient { (uri, _, _, _) =>
+    val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
+
+    getAllPackageIds(uri).flatMap { okResp =>
+      val existingPackageIds: Set[String] = okResp.result.toSet
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.POST,
+            uri = uri.withPath(Uri.Path("/v1/packages")),
+            headers = authorizationHeader(jwtAdminNoParty),
+            entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar)
+          )
+        )
+        .flatMap { resp =>
+          resp.status shouldBe StatusCodes.OK
+          getAllPackageIds(uri).map { okResp =>
+            val newPackageIds: Set[String] = okResp.result.toSet -- existingPackageIds
+            newPackageIds.size should be > 0
+          }
         }
     }: Future[Assertion]
   }

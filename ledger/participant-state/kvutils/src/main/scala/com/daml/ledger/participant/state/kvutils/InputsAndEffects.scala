@@ -7,10 +7,10 @@ import scala.collection.mutable
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.TransactionMeta
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, VersionedValue}
+import com.daml.lf.data.Ref._
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
@@ -64,12 +64,9 @@ private[kvutils] object InputsAndEffects {
 
     val localContract = tx.localContracts
 
-    def addContractInput(coid: ContractId): Unit =
-      coid match {
-        case acoid: AbsoluteContractId if (!localContract.isDefinedAt(acoid)) =>
-          inputs += contractIdToStateKey(acoid)
-        case _ =>
-      }
+    def addContractInput(coid: AbsoluteContractId): Unit =
+      if (!localContract.isDefinedAt(coid))
+        inputs += contractIdToStateKey(coid)
 
     def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
@@ -86,13 +83,13 @@ private[kvutils] object InputsAndEffects {
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case create @ NodeCreate(_, _, _, _, _, _, _) =>
+          case create @ NodeCreate(_, _, _, _, _, _) =>
             create.key.foreach { keyWithMaintainers =>
               inputs += globalKeyToStateKey(
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
             addContractInput(exe.targetCoid)
 
           case lookup @ NodeLookupByKey(_, _, _, _) =>
@@ -118,7 +115,7 @@ private[kvutils] object InputsAndEffects {
         node match {
           case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
             effects
-          case create @ NodeCreate(_, _, _, _, _, _, _) =>
+          case create @ NodeCreate(_, _, _, _, _, _) =>
             effects.copy(
               createdContracts = contractIdToStateKey(create.coid) -> create :: effects.createdContracts,
               updatedContractKeys = create.key
@@ -141,7 +138,7 @@ private[kvutils] object InputsAndEffects {
                 )
             )
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
             if (exe.consuming) {
               effects.copy(
                 consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,

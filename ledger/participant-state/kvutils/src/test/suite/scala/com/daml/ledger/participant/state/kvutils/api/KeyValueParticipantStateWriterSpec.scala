@@ -13,10 +13,11 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWri
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.crypto
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
@@ -27,11 +28,14 @@ import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
 class KeyValueParticipantStateWriterSpec extends WordSpec {
+
+  private def newMetrics = new Metrics(new MetricRegistry)
+
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]
       val writer = createWriter(transactionCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
       val recordTime = newRecordTime()
 
       instance.submitTransaction(
@@ -45,7 +49,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "upload a package" in {
       val packageUploadCaptor = captor[Bytes]
       val writer = createWriter(packageUploadCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
@@ -55,7 +59,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "submit a configuration" in {
       val configurationCaptor = captor[Bytes]
       val writer = createWriter(configurationCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
@@ -65,7 +69,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "allocate a party without hint" in {
       val partyAllocationCaptor = captor[Bytes]
       val writer = createWriter(partyAllocationCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
+      val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
@@ -118,7 +122,9 @@ object KeyValueParticipantStateWriterSpec {
     submissionSeed = Some(
       crypto.Hash.assertFromString(
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
-    optUsedPackages = Some(Set.empty)
+    optUsedPackages = Some(Set.empty),
+    optNodeSeeds = None,
+    optByKeyNodes = None
   )
 
   private def newRecordTime(): Timestamp =

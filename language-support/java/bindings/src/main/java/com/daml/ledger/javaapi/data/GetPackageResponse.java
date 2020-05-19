@@ -50,7 +50,7 @@ public class GetPackageResponse {
         return archivePayload.toByteArray();
     }
 
-    public static GetPackageResponse fromProto(com.digitalasset.ledger.api.v1.PackageServiceOuterClass.GetPackageResponse p) {
+    public static GetPackageResponse fromProto(com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageResponse p) {
         return new GetPackageResponse(HashFunction.valueOf(p.getHashFunctionValue()), p.getHash(), p.getArchivePayload());
     }
 }

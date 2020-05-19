@@ -1,26 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf
+package speedy
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
-import com.digitalasset.daml.lf.speedy.SBuiltin._
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.validation.{
-  EUnknownDefinition,
-  LEPackage,
-  Validation,
-  ValidationError,
-}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Numeric, Time}
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -32,16 +25,69 @@ import scala.collection.mutable
   * a pretty-printer defined in lf.speedy.Pretty, which
   * is exposed via ':speedy' command in the REPL.
   */
-object Compiler {
-  case class CompileError(error: String) extends RuntimeException(error, null, true, false)
+private[lf] object Compiler {
+  case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
+
+  // NOTE(MH): We make this an enum type to avoid boolean blindness. In fact,
+  // other profiling modes like "only trace the ledger interactions" might also
+  // be useful.
+  sealed abstract class ProfilingMode extends Product with Serializable
+  case object NoProfile extends ProfilingMode
+  case object FullProfile extends ProfilingMode
+
+  private val SEGetTime = SEBuiltin(SBGetTime)
+
+  private def SBCompareNumeric(b: SBuiltin) =
+    SEAbs(3, SEApp(SEBuiltin(b), Array(SEVar(2), SEVar(1))))
+  private val SBLessNumeric = SBCompareNumeric(SBLess)
+  private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
+  private val SBGreaterNumeric = SBCompareNumeric(SBGreater)
+  private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
+  private val SBEqualNumeric = SBCompareNumeric(SBEqual)
+
+  private val SEDropSecondArgument = SEAbs(2, SEVar(2))
+  private val SEUpdatePureUnit = SEAbs(1, SEValue.Unit)
+  private val SEAppBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
+
+  private val SENat: Numeric.Scale => Some[SEValue] =
+    Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
+
+  /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
+    *
+    * The packages do not need to be in any specific order, as long as they and all the packages
+    * they transitively reference are in the [[packages]] in the compiler.
+    */
+  def compilePackages(
+      packages: Map[PackageId, Package],
+      profiling: ProfilingMode,
+      validation: Boolean = true,
+  ): Either[String, Map[SDefinitionRef, SExpr]] = {
+    val compiler = Compiler(packages, profiling)
+    try {
+      Right(
+        packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
+          _ ++ compiler.unsafeCompilePackage(_, validation))
+      )
+    } catch {
+      case CompilationError(msg) => Left(s"Compilation Error: $msg")
+      case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
+      case e: ValidationError => Left(e.pretty)
+    }
+  }
+
 }
 
-final case class Compiler(packages: PackageId PartialFunction Package) {
+private[lf] final case class Compiler(
+    packages: PackageId PartialFunction Package,
+    profiling: Compiler.ProfilingMode) {
+
+  import Compiler._
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private abstract class VarRef { def name: Ref.Name }
+  private abstract class VarRef { def name: Name }
   // corresponds to DAML-LF expression variable.
   private case class EVarRef(name: ExprVarName) extends VarRef
   // corresponds to DAML-LF type variable.
@@ -75,7 +121,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
     def lookUpExprVar(name: ExprVarName): Int =
       lookUpVar(EVarRef(name))
-        .getOrElse(throw CompileError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}"))
+        .getOrElse(
+          throw CompilationError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}"))
 
     def lookUpTypeVar(name: TypeVarName): Option[Int] =
       lookUpVar(TVarRef(name))
@@ -85,22 +132,50 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   /** Environment mapping names into stack positions */
   private var env = Env()
 
-  def compile(cmds: ImmArray[Command]): SExpr =
+  private val withLabel: (AnyRef, SExpr) => SExpr =
+    profiling match {
+      case NoProfile => { (_, expr) =>
+        expr
+      }
+      case FullProfile => { (label, expr) =>
+        expr match {
+          case SELabelClosure(_, expr1) => SELabelClosure(label, expr1)
+          case _ => SELabelClosure(label, expr)
+        }
+      }
+    }
+
+  private def withOptLabel(optLabel: Option[AnyRef], expr: SExpr): SExpr =
+    optLabel match {
+      case Some(label) => withLabel(label, expr)
+      case None => expr
+    }
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompile(cmds: ImmArray[Command]): SExpr =
     validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
 
-  def compile(cmd: Command): SExpr =
-    validate(closureConvert(Map.empty, 0, translateCommand(cmd)))
-
-  def compile(expr: Expr): SExpr =
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompile(expr: Expr): SExpr =
     validate(closureConvert(Map.empty, 0, translate(expr)))
 
-  def compileDefn(
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeClosureConvert(sexpr: SExpr): SExpr =
+    validate(closureConvert(Map.empty, 0, sexpr))
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompileDefn(
       identifier: Identifier,
       defn: Definition,
   ): List[(SDefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
-        List(LfDefRef(identifier) -> compile(body))
+        val ref = LfDefRef(identifier)
+        List(ref -> withLabel(ref, unsafeCompile(body)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
@@ -108,7 +183,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         tmpl.choices.toList.map {
           case (cname, choice) =>
             ChoiceDefRef(identifier, cname) ->
-              compileChoice(identifier, tmpl, choice)
+              compileChoice(identifier, tmpl, cname, choice)
         }
 
       case _ =>
@@ -122,19 +197,26 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     *
     * @throws ValidationError if the package does not pass validations.
     */
-  @throws(classOf[PackageNotFound])
-  @throws(classOf[ValidationError])
-  def compilePackage(pkgId: PackageId): Iterable[(SDefinitionRef, SExpr)] = {
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  @throws[ValidationError]
+  def unsafeCompilePackage(
+      pkgId: PackageId,
+      validation: Boolean = true,
+  ): Iterable[(SDefinitionRef, SExpr)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
-    Validation.checkPackage(packages, pkgId).left.foreach {
-      case EUnknownDefinition(_, LEPackage(pkgId_)) =>
-        logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-        throw PackageNotFound(pkgId_)
-      case e =>
-        throw e
-    }
+
+    if (validation)
+      Validation.checkPackage(packages, pkgId).left.foreach {
+        case EUnknownDefinition(_, LEPackage(pkgId_)) =>
+          logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
+          throw PackageNotFound(pkgId_)
+        case e =>
+          throw e
+      }
+
     val t1 = Time.Timestamp.now()
 
     val defns = for {
@@ -142,7 +224,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       defnWithId <- module.definitions
       (defnId, defn) = defnWithId
       fullId = Identifier(pkgId, QualifiedName(module.name, defnId))
-      exprWithId <- compileDefn(fullId, defn)
+      exprWithId <- unsafeCompileDefn(fullId, defn)
     } yield exprWithId
     val t2 = Time.Timestamp.now()
 
@@ -153,67 +235,27 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     defns
   }
 
-  /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
-    *
-    * The packages do not need to be in any specific order, as long as they and all the packages
-    * they transitively reference are in the [[packages]] in the compiler.
-    */
-  @throws(classOf[PackageNotFound])
-  def compilePackages(toCompile0: Iterable[PackageId]): Map[SDefinitionRef, SExpr] = {
-    var defns = Map.empty[SDefinitionRef, SExpr]
-    val compiled = mutable.Set.empty[PackageId]
-    var toCompile = toCompile0.toList
-    val foundDependencies = mutable.Set.empty[PackageId]
-
-    while (toCompile.nonEmpty) {
-      val pkgId = toCompile.head
-      toCompile = toCompile.tail
-      try {
-        if (!compiled.contains(pkgId))
-          defns ++= compilePackage(pkgId)
-      } catch {
-        case PackageNotFound(dependency) if dependency != pkgId =>
-          if (foundDependencies.contains(dependency)) {
-            throw CompileError(s"Cyclical packages, stumbled upon $dependency twice")
-          }
-          foundDependencies += dependency
-          toCompile = dependency :: pkgId :: toCompile
-      }
-      compiled += pkgId
-    }
-
-    defns
-  }
-
   private def patternNArgs(pat: SCasePat): Int = pat match {
     case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
     case _: SCPVariant | SCPSome => 1
     case SCPCons => 2
   }
 
-  private val compileGetTime: SExpr =
-    SEAbs(1) { SBGetTime(SEVar(1)) }
-
-  private val SBLessNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBLess), Array(SEVar(2), SEVar(1))))
-  private val SBLessEqNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBLessEq), Array(SEVar(2), SEVar(1))))
-  private val SBGreaterNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBGreater), Array(SEVar(2), SEVar(1))))
-  private val SBGreaterEqNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBGreaterEq), Array(SEVar(2), SEVar(1))))
-  private val SBEqualNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBEqual), Array(SEVar(2), SEVar(1))))
-
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
-      case EVal(ref) => SEVal(LfDefRef(ref), None)
+      case EVal(ref) => SEVal(LfDefRef(ref))
       case EBuiltin(bf) =>
         bf match {
-          case BFoldl => SEBuiltinRecursiveDefinition.FoldL
-          case BFoldr => SEBuiltinRecursiveDefinition.FoldR
-          case BEqualList => SEBuiltinRecursiveDefinition.EqualList
+          case BFoldl =>
+            val ref = SEBuiltinRecursiveDefinition.FoldL
+            withLabel(ref, ref)
+          case BFoldr =>
+            val ref = SEBuiltinRecursiveDefinition.FoldR
+            withLabel(ref, ref)
+          case BEqualList =>
+            val ref = SEBuiltinRecursiveDefinition.EqualList
+            withLabel(ref, ref)
           case BCoerceContractId => SEAbs.identity
           // Numeric Comparisons
           case BLessNumeric => SBLessNumeric
@@ -315,7 +357,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
                   BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
                   BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
-                throw CompileError(s"unexpected $bf")
+                throw CompilationError(s"unexpected $bf")
             })
         }
 
@@ -383,7 +425,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               pat match {
                 case CPVariant(tycon, variant, binder) =>
                   val variantDef = lookupVariantDefinition(tycon).getOrElse(
-                    throw CompileError(s"variant $tycon not found"))
+                    throw CompilationError(s"variant $tycon not found"))
                   withBinders(binder) { _ =>
                     SCaseAlt(
                       SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
@@ -393,7 +435,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
                 case CPEnum(tycon, constructor) =>
                   val enumDef = lookupEnumDefinition(tycon).getOrElse(
-                    throw CompileError(s"enum $tycon not found"))
+                    throw CompilationError(s"enum $tycon not found"))
                   SCaseAlt(
                     SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
                     translate(expr),
@@ -443,12 +485,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EEnumCon(tyCon, constructor) =>
         val enumDef =
-          lookupEnumDefinition(tyCon).getOrElse(throw CompileError(s"enum $tyCon not found"))
+          lookupEnumDefinition(tyCon).getOrElse(throw CompilationError(s"enum $tyCon not found"))
         SEValue(SEnum(tyCon, constructor, enumDef.constructorRank(constructor)))
 
       case EVariantCon(tapp, variant, arg) =>
         val variantDef = lookupVariantDefinition(tapp.tycon)
-          .getOrElse(throw CompileError(s"variant ${tapp.tycon} not found"))
+          .getOrElse(throw CompilationError(s"variant ${tapp.tycon} not found"))
         SBVariantCon(tapp.tycon, variant, variantDef.constructorRank(variant))(translate(arg))
 
       case let: ELet =>
@@ -457,7 +499,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SELet(
             bindings.map {
               case Binding(optBinder, _, bound) =>
-                val bound2 = translate(bound)
+                val bound2 = withOptLabel(optBinder, translate(bound))
                 env = env.addExprVar(optBinder)
                 bound2
             }.toArray,
@@ -502,10 +544,17 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             compileCreate(tmplId, translate(arg))
 
           case UpdateExercise(tmplId, chId, cidE, actorsE, argE) =>
-            compileExercise(tmplId, translate(cidE), chId, actorsE.map(translate), translate(argE))
+            compileExercise(
+              tmplId = tmplId,
+              contractId = translate(cidE),
+              choiceId = chId,
+              optActors = actorsE.map(translate),
+              byKey = false,
+              argument = translate(argE),
+            )
 
           case UpdateGetTime =>
-            compileGetTime
+            SEGetTime
 
           case UpdateLookupByKey(retrieveByKey) =>
             // Translates 'lookupByKey Foo <key>' into:
@@ -528,40 +577,43 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             withEnv { _ =>
               val key = translate(retrieveByKey.key)
               val keyTemplate = template.key.getOrElse(
-                throw CompileError(
+                throw CompilationError(
                   s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't",
                 ),
               )
               SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
                 env = env.incrPos // key with maintainers
-                SEAbs(1) {
-                  env = env.incrPos // token
-                  env = env.addExprVar(template.param)
-                  // TODO should we evaluate this before we even construct
-                  // the update expression? this might be better for the user
-                  val signatories = translate(template.signatories)
-                  val observers = translate(template.observers)
-                  SELet(
-                    SBUFetchKey(retrieveByKey.templateId)(
-                      SEVar(2), // key with maintainers
-                      SEVar(1) // token
-                    ),
-                    SBUFetch(retrieveByKey.templateId)(
-                      SEVar(1), /* coid */
-                      SEVar(2) /* token */
-                    ),
-                    SBUInsertFetchNode(retrieveByKey.templateId)(
-                      SEVar(2), // coid
-                      signatories,
-                      observers,
-                      SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
-                      SEVar(3) // token
-                    ),
-                  ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
-                    SEVar(3), // contract id
-                    SEVar(2) // contract
-                  )
-                }
+                withLabel(
+                  s"<fetch_by_key ${retrieveByKey.templateId}",
+                  SEAbs(1) {
+                    env = env.incrPos // token
+                    env = env.addExprVar(template.param)
+                    // TODO should we evaluate this before we even construct
+                    // the update expression? this might be better for the user
+                    val signatories = translate(template.signatories)
+                    val observers = translate(template.observers)
+                    SELet(
+                      SBUFetchKey(retrieveByKey.templateId)(
+                        SEVar(2), // key with maintainers
+                        SEVar(1) // token
+                      ),
+                      SBUFetch(retrieveByKey.templateId)(
+                        SEVar(1), /* coid */
+                        SEVar(2) /* token */
+                      ),
+                      SBUInsertFetchNode(retrieveByKey.templateId, byKey = true)(
+                        SEVar(2), // coid
+                        signatories,
+                        observers,
+                        SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
+                        SEVar(3) // token
+                      ),
+                    ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
+                      SEVar(3), // contract id
+                      SEVar(2) // contract
+                    )
+                  }
+                )
               }
             }
         }
@@ -600,7 +652,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case _ if arity == 0 =>
         translate(expr0)
       case _ =>
-        SEAbs(arity, translate(expr0))
+        withLabel(AnonymousClosure, SEAbs(arity, translate(expr0)))
     }
 
   @tailrec
@@ -618,7 +670,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
   private def translateType(typ: Type): Option[SExpr] =
     typ match {
-      case TNat(n) => Some(SEValue(STNat(n)))
+      case TNat(n) => SENat(n)
       case TVar(name) => env.lookUpTypeVar(name).map(SEVar)
       case _ => None
     }
@@ -645,16 +697,19 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           env = env.incrPos // update
           env = env.incrPos // $beginCommit
           SELet(party, update) in
-            SEAbs(1) {
-              SELet(
-                // stack: <party> <update> <token>
-                SBSBeginCommit(optLoc)(SEVar(3), SEVar(1)),
-                // stack: <party> <update> <token> ()
-                SEApp(SEVar(3), Array(SEVar(2))),
-                // stack: <party> <update> <token> () result
-              ) in
-                SBSEndCommit(false)(SEVar(1), SEVar(3))
-            }
+            withLabel(
+              "<submit>",
+              SEAbs(1) {
+                SELet(
+                  // stack: <party> <update> <token>
+                  SBSBeginCommit(optLoc)(SEVar(3), SEVar(1)),
+                  // stack: <party> <update> <token> ()
+                  SEApp(SEVar(3), Array(SEVar(2))),
+                  // stack: <party> <update> <token> () result
+                ) in
+                  SBSEndCommit(false)(SEVar(1), SEVar(3))
+              }
+            )
         }
 
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
@@ -667,31 +722,40 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           val party = translate(partyE)
           env = env.incrPos // $beginCommit
           val update = translate(updateE)
-          SEAbs(1) {
-            SELet(
-              SBSBeginCommit(optLoc)(party, SEVar(1)),
-              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
-            ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
-          }
+          withLabel(
+            "<submit_must_fail>",
+            SEAbs(1) {
+              SELet(
+                SBSBeginCommit(optLoc)(party, SEVar(1)),
+                SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
+              ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
+            }
+          )
         }
 
       case ScenarioGetTime =>
-        compileGetTime
+        SEGetTime
 
       case ScenarioGetParty(e) =>
         withEnv { _ =>
           env = env.incrPos // token
-          SEAbs(1) {
-            SBSGetParty(translate(e), SEVar(1))
-          }
+          withLabel(
+            "<get_party>",
+            SEAbs(1) {
+              SBSGetParty(translate(e), SEVar(1))
+            }
+          )
         }
 
       case ScenarioPass(relTimeE) =>
         withEnv { _ =>
           env = env.incrPos // token
-          SEAbs(1) {
-            SBSPass(translate(relTimeE), SEVar(1))
-          }
+          withLabel(
+            "<pass>",
+            SEAbs(1) {
+              SBSPass(translate(relTimeE), SEVar(1))
+            }
+          )
         }
 
       case ScenarioEmbedExpr(_, e) =>
@@ -709,8 +773,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       }
     }
   }
-
-  private val SEDropSecondArgument = SEAbs(2, SEVar(2))
 
   private def translatePure(body: Expr): SExpr =
     // pure <E>
@@ -768,11 +830,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     encodeKeyWithMaintainers(translate(tmplKey.body), tmplKey)
 
   /** Compile a choice into a top-level function for exercising that choice */
-  private def compileChoice(tmplId: TypeConName, tmpl: Template, choice: TemplateChoice): SExpr =
+  private def compileChoice(
+      tmplId: TypeConName,
+      tmpl: Template,
+      cname: ChoiceName,
+      choice: TemplateChoice): SExpr =
     // Compiles a choice into:
-    // SomeTemplate$SomeChoice = \actors cid arg token ->
-    //   let targ = fetch cid
-    //       _ = $beginExercise[tmplId, chId] arg cid actors <sigs> <obs> <ctrls> <mbKey> token
+    // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choice arg> <token> ->
+    //   let targ = fetch <cid>
+    //       _ = $beginExercise[tmplId, chId] <choice arg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
     //       result = <updateE>
     //       _ = $endExercise[tmplId]
     //   in result
@@ -781,14 +847,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         Map.empty,
         0,
         withEnv { _ =>
-          env = env.incrPos // actors
+          env = env.incrPos // <byKey flag>
+          env = env.incrPos // <actors>
           val selfBinderPos = env.position
-          env = env.incrPos // cid
+          env = env.incrPos // <cid>
           val choiceArgumentPos = env.position
-          env = env.incrPos // choice argument
-          env = env.incrPos // token
+          env = env.incrPos // <choice argument>
+          env = env.incrPos // <token>
 
-          // template argument
+          // <template argument>
           env = env.addExprVar(tmpl.param)
 
           val signatories = translate(tmpl.signatories)
@@ -805,29 +872,33 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           // allow access to the self contract id
           env = env.addExprVar(choice.selfBinder, selfBinderPos)
           val update = translate(choice.update)
-          SEAbs(4) {
-            SELet(
-              // stack: <actors> <cid> <choice arg> <token>
-              SBUFetch(tmplId)(SEVar(3) /* cid */, SEVar(1) /* token */ ),
-              // stack: <actors> <cid> <choice arg> <token> <template arg>
-              SBUBeginExercise(tmplId, choice.name, choice.consuming)(
-                SEVar(3), // choice argument
-                SEVar(4), // cid
-                SEVar(5), // actors
-                signatories,
-                observers,
-                controllers,
-                mbKey,
-                SEVar(2),
-              ),
-              // stack: <actors> <cid> <choice arg> <token> <template arg> ()
-              SEApp(update, Array(SEVar(3))),
-              // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
-              SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
-            ) in
-              // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
-              SEVar(2)
-          }
+          withLabel(
+            s"<exercise ${tmplId}:${cname}>",
+            SEAbs(5) {
+              SELet(
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token>
+                SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
+                SBUBeginExercise(tmplId, choice.name, choice.consuming)(
+                  SEVar(3), // <choice arg>
+                  SEVar(4), // <cid>
+                  SEVar(5), // <actors>
+                  SEVar(6), // <byKey flag>
+                  signatories,
+                  observers,
+                  controllers,
+                  mbKey,
+                  SEVar(2),
+                ),
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> ()
+                SEApp(update, Array(SEVar(3))),
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value>
+                SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
+              ) in
+                // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
+                SEVar(2)
+            }
+          )
         },
       ),
     )
@@ -856,7 +927,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case DDataType(_, _, DataRecord(_, tmpl)) => tmpl
         case _ => None
       }
-      .getOrElse(throw CompileError(s"template $tycon not found"))
+      .getOrElse(throw CompilationError(s"template $tycon not found"))
 
   private def lookupVariantDefinition(tycon: TypeConName): Option[DataVariant] =
     lookupDefinition(tycon).flatMap {
@@ -882,7 +953,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           if (idx < 0) None else Some(idx)
         case _ => None
       }
-      .getOrElse(throw CompileError(s"record type $tapp not found"))
+      .getOrElse(throw CompilationError(s"record type $tapp not found"))
 
   private def withEnv[A](f: Unit => A): A = {
     val oldEnv = env
@@ -893,7 +964,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
   private def withBinders[A](binders: ExprVarName*)(f: Unit => A): A =
     withEnv { _ =>
-      env = (env /: binders)(_ addExprVar _)
+      env = (binders foldLeft env)(_ addExprVar _)
       f(())
     }
 
@@ -939,7 +1010,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELocation(loc, closureConvert(remaps, bound, body))
 
       case SEAbs(0, _) =>
-        throw CompileError("empty SEAbs")
+        throw CompilationError("empty SEAbs")
 
       case SEAbs(n, body) =>
         val fv = freeVars(body, n).toList.sorted
@@ -956,7 +1027,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SEMakeClo(fv.reverse.map(remap).toArray, n, newBody)
 
       case x: SEMakeClo =>
-        throw CompileError(s"unexpected SEMakeClo: $x")
+        throw CompilationError(s"unexpected SEMakeClo: $x")
 
       case SEApp(fun, args) =>
         val newFun = closureConvert(remaps, bound, fun)
@@ -987,6 +1058,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           closureConvert(remaps, bound, handler),
           closureConvert(remaps, bound, fin),
         )
+
+      case SELabelClosure(label, expr) =>
+        SELabelClosure(label, closureConvert(remaps, bound, expr))
+
+      case x: SEWronglyTypeContractId =>
+        throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+
+      case x: SEImportValue =>
+        throw CompilationError(s"unexpected SEImportValue: $x")
     }
   }
 
@@ -1016,7 +1096,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(body)
           bound -= n
         case x: SEMakeClo =>
-          throw CompileError(s"unexpected SEMakeClo: $x")
+          throw CompilationError(s"unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1035,6 +1115,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(body)
           go(handler)
           go(fin)
+        case SELabelClosure(_, expr) =>
+          go(expr)
+        case x: SEWronglyTypeContractId =>
+          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEImportValue =>
+          throw CompilationError(s"unexpected SEImportValue: $x")
       }
     go(expr)
     free
@@ -1061,7 +1147,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case _: SPAP | SToken | SStruct(_, _) =>
-          throw CompileError("validate: unexpected SEValue")
+          throw CompilationError("validate: unexpected SEValue")
       }
     }
 
@@ -1069,7 +1155,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       expr match {
         case SEVar(i) =>
           if (i < 1 || i > bound) {
-            throw CompileError(s"validate: SEVar: index $i out of bound $bound")
+            throw CompilationError(s"validate: SEVar: index $i out of bound $bound")
           }
         case _: SEVal => ()
         case _: SEBuiltin => ()
@@ -1079,11 +1165,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(fun)
           args.foreach(go)
         case abs: SEAbs =>
-          throw CompileError(s"validate: SEAbs encountered: $abs")
+          throw CompilationError(s"validate: SEAbs encountered: $abs")
         case SEMakeClo(fv, n, body) =>
           fv.foreach { i =>
             if (i < 1 || i > bound) {
-              throw CompileError(s"validate: SEMakeClo: free variable $i is out of bounds ($bound)")
+              throw CompilationError(
+                s"validate: SEMakeClo: free variable $i is out of bounds ($bound)")
             }
           }
           val oldBound = bound
@@ -1110,6 +1197,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(fin)
         case SELocation(_, body) =>
           go(body)
+        case SELabelClosure(_, expr) =>
+          go(expr)
+        case x: SEWronglyTypeContractId =>
+          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEImportValue =>
+          throw CompilationError(s"unexpected SEImportValue: $x")
       }
     go(expr)
     expr
@@ -1127,21 +1220,24 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
       }
       SELet(coid) in
-        SEAbs(1) {
-          SELet(
-            SBUFetch(tmplId)(
-              SEVar(2), /* coid */
-              SEVar(1) /* token */
-            ),
-            SBUInsertFetchNode(tmplId)(
-              SEVar(3), /* coid */
-              signatories,
-              observers,
-              key,
-              SEVar(2) /* token */
-            ),
-          ) in SEVar(2) /* fetch result */
-        }
+        withLabel(
+          s"<fetch ${tmplId}>",
+          SEAbs(1) {
+            SELet(
+              SBUFetch(tmplId)(
+                SEVar(2), /* coid */
+                SEVar(1) /* token */
+              ),
+              SBUInsertFetchNode(tmplId, byKey = false)(
+                SEVar(3), /* coid */
+                signatories,
+                observers,
+                key,
+                SEVar(2) /* token */
+              ),
+            ) in SEVar(2) /* fetch result */
+          }
+        )
     }
   }
 
@@ -1160,37 +1256,36 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
       env = env.addExprVar(tmpl.param) // argument
-
-      val key = tmpl.key match {
-        case None => SEValue.None
-        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
-      }
-
-      env = env.incrPos // key
       env = env.incrPos // token
-
       val precond = translate(tmpl.precond)
 
       env = env.incrPos // unit returned by SBCheckPrecond
       val agreement = translate(tmpl.agreementText)
       val signatories = translate(tmpl.signatories)
       val observers = translate(tmpl.observers)
+      val key = tmpl.key match {
+        case None => SEValue.None
+        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
+      }
 
-      SELet(arg, key) in
-        SEAbs(1) {
-          // We check precondition in a separated builtin to prevent
-          // further evaluation of agreement, signatories and observers
-          // in case of failed precondition.
-          SELet(SBCheckPrecond(tmplId)(SEVar(3), precond)) in
-            SBUCreate(tmplId)(
-              SEVar(4), /* argument */
-              agreement,
-              signatories,
-              observers,
-              SEVar(3), /* key */
-              SEVar(2) /* token */
-            )
-        }
+      SELet(arg) in
+        withLabel(
+          s"<create ${tmplId}>",
+          SEAbs(1) {
+            // We check precondition in a separated builtin to prevent
+            // further evaluation of agreement, signatories, observers and key
+            // in case of failed precondition.
+            SELet(SBCheckPrecond(tmplId)(SEVar(2), precond)) in
+              SBUCreate(tmplId)(
+                SEVar(3), /* argument */
+                agreement,
+                signatories,
+                observers,
+                key,
+                SEVar(2) /* token */
+              )
+          }
+        )
     }
   }
 
@@ -1201,6 +1296,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       // actors are only present when compiling old LF update expressions;
       // they are computed from the controllers in newer versions
       optActors: Option[SExpr],
+      byKey: Boolean,
       argument: SExpr,
   ): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
@@ -1211,7 +1307,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case None => SEValue.None
         case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
       }
-      SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
+      SEApp(
+        SEVal(ChoiceDefRef(tmplId, choiceId)),
+        Array(SEValue.bool(byKey), actors, contractId, argument))
     }
 
   private def compileExerciseByKey(
@@ -1234,20 +1332,29 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val template = lookupTemplate(tmplId)
     withEnv { _ =>
       val tmplKey = template.key.getOrElse(
-        throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't"),
+        throw CompilationError(s"Expecting to find key for template ${tmplId}, but couldn't"),
       )
       SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
         env = env.incrPos // key with maintainers
-        SEAbs(1) {
-          env = env.incrPos // token
-          SELet(
-            SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
-            SEApp(
-              compileExercise(tmplId, SEVar(1), choiceId, optActors, argument),
-              Array(SEVar(2)),
-            ),
-          ) in SEVar(1)
-        }
+        withLabel(
+          s"<exercise_by_key ${tmplId}:${choiceId}>",
+          SEAbs(1) {
+            env = env.incrPos // token
+            SELet(
+              SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
+              SEApp(
+                compileExercise(
+                  tmplId = tmplId,
+                  contractId = SEVar(1),
+                  choiceId = choiceId,
+                  byKey = true,
+                  optActors = optActors,
+                  argument = argument),
+                Array(SEVar(2)),
+              ),
+            ) in SEVar(1)
+          }
+        )
       }
     }
   }
@@ -1260,16 +1367,26 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   ): SExpr = {
 
     withEnv { _ =>
-      SEAbs(1) {
-        env = env.incrPos // token
-        SELet(
-          SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
-          SEApp(
-            compileExercise(tmplId, SEVar(1), choiceId, None, SEValue(choiceArg)),
-            Array(SEVar(2)),
-          ),
-        ) in SEVar(1)
-      }
+      withLabel(
+        s"<create_and_exercise ${tmplId}:${choiceId}>",
+        SEAbs(1) {
+          env = env.incrPos // token
+          SELet(
+            SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
+            SEApp(
+              compileExercise(
+                tmplId = tmplId,
+                contractId = SEVar(1),
+                choiceId = choiceId,
+                optActors = None,
+                byKey = false,
+                argument = SEValue(choiceArg),
+              ),
+              Array(SEVar(2)),
+            ),
+          ) in SEVar(1)
+        }
+      )
     }
   }
 
@@ -1277,26 +1394,29 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val template = lookupTemplate(templateId)
     withEnv { _ =>
       val templateKey = template.key.getOrElse(
-        throw CompileError(
+        throw CompilationError(
           s"Expecting to find key for template ${templateId}, but couldn't",
         ),
       )
       SELet(encodeKeyWithMaintainers(key, templateKey)) in {
         env = env.incrPos // keyWithM
-        SEAbs(1) {
-          env = env.incrPos // token
-          SELet(
-            SBULookupKey(templateId)(
-              SEVar(2), // key with maintainers
-              SEVar(1) // token
-            ),
-            SBUInsertLookupNode(templateId)(
-              SEVar(3), // key with maintainers
-              SEVar(1), // mb contract id
-              SEVar(2) // token
-            ),
-          ) in SEVar(2) // mb contract id
-        }
+        withLabel(
+          s"<lookup_by_key ${templateId}>",
+          SEAbs(1) {
+            env = env.incrPos // token
+            SELet(
+              SBULookupKey(templateId)(
+                SEVar(2), // key with maintainers
+                SEVar(1) // token
+              ),
+              SBUInsertLookupNode(templateId)(
+                SEVar(3), // key with maintainers
+                SEVar(1), // mb contract id
+                SEVar(2) // token
+              ),
+            ) in SEVar(2) // mb contract id
+          }
+        )
       }
     }
   }
@@ -1305,7 +1425,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case Command.Create(templateId, argument) =>
       compileCreate(templateId, SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
-      compileExercise(templateId, SEValue(contractId), choiceId, None, SEValue(argument))
+      compileExercise(
+        tmplId = templateId,
+        contractId = SEValue(contractId),
+        choiceId = choiceId,
+        optActors = None,
+        byKey = false,
+        argument = SEValue(argument),
+      )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       compileExerciseByKey(templateId, SEValue(contractKey), choiceId, None, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
@@ -1320,9 +1447,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case Command.LookupByKey(templateId, contractKey) =>
       compileLookupByKey(templateId, SEValue(contractKey))
   }
-
-  private val SEUpdatePureUnit = translate(EUpdate(UpdatePure(TUnit, EUnit)))
-  private val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
 
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {
 
@@ -1345,7 +1469,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           env = env.incrPos
           SEApp(translateCommand(cmd), Array(SEVar(tokenIndex)))
         }
-        val allBounds = appBoundHead +: boundTail
+        val allBounds = SEAppBoundHead +: boundTail
         SELet(boundHead) in
           SEAbs(1) {
             SELet(allBounds: _*) in

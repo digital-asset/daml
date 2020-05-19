@@ -6,6 +6,652 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-1.1.0:
+
+1.1.0 - 2020-05-13
+------------------
+
+Summary
+~~~~~~~
+
+- New package management endpoints on the JSON API
+
+- Better TLS Support for the JSON API
+
+  - Action required if you start the JSON API using daml json-api and
+    do not run it behind a reverse proxy.
+
+What’s New
+~~~~~~~~~~
+
+New Package Management Endpoints on the JSON API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+The Ledger API’s package management service allows uploading,
+downloading and listing of DAML packages available on a DAML Ledger.
+For situations where connecting to the Ledger API is not possible or
+is inconvenient, these services are now available through the JSON
+API as well.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+The JSON API has three new endpoints
+
+-  ``GET /v1/packages`` -- returns all package IDs
+-  ``GET /v1/packages/<package ID>`` -- downloads a given DALF package
+-  ``POST /v1/packages`` -- uploads a DAR file to the ledger
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This is a purely additive change. Users who connect to gRPC from
+their applications for the sole purpose of managing DAML packages may
+switch over to the new endpoints to eliminate dependencies on gRPC or
+Ledger API language bindings.
+
+Better TLS Support for the JSON API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+In addition to the numerous new TLS options introduced in SDK 1.0.0,
+the JSON API can now also connect to the Ledger API via TLS. To
+protect against insecure connections which may leak access tokens, it
+also adds a warning if not run behind a reverse proxy that terminates
+TLS connections. This warning will become an error in a future
+release.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  The JSON API accepts new command line parameters ``--pem``, ``--crt``,
+   ``--cacrt``, and ``--tls``, which configure it to connect to the Ledger
+   API using TLS.
+-  By default, the JSON API now checks that connections are made
+   through a reverse-proxy providing HTTPS, ensuring that JWT tokens
+   don't leak. To disable this check, such as for development, pass
+   ``--allow-insecure-tokens``. A failed check currently results in a
+   warning.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+``daml start`` automatically sets this flag so there is no migration
+needed. If you are starting the JSON API manually, we advise you to
+add the flag ``--allow-insecure-tokens`` for development environments,
+and to run the JSON API behind a TLS-enabled reverse proxy in
+production.
+
+Minor Improvements
+~~~~~~~~~~~~~~~~~~
+
+-  Faster Sandbox reset via the ResetService.
+-  ``daml trigger`` and  ``daml script`` now default to wall clock time if 
+   neither ``--wall-clock-time`` or ``--static-time`` is passed.
+-  daml script now has an ``--output-file`` option that can be used to
+   specify a file the result of the script should be  written to.
+   Similar to ``--input-file`` the result will be output in the DAML-LF
+   JSON encoding.
+-  You can now disable implicit party allocation of the Sandbox by
+   passing the flag ``--implicit-party-allocation=false``. This makes it
+   easier to test as you would against another ledger which does not
+   support this feature.
+-  The ``daml ledger`` commands no longer require the Bearer prefix in
+   the access token file. This matches the behavior of DAML Script
+   and other SDK tools.
+-  Added ``--max-commands-in-flight`` to Sandbox CLI configs. This limits
+   the maximum number of unconfirmed commands in flight in
+   CommandService.
+
+
+Improvements to Early Access Features
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-  ``daml damlc visual`` now works properly in projects consisting of
+   multiple packages.
+-  Fix a bug where ``exerciseByKey`` was not properly recognized by
+   daml damlc visual.
+-  DAML REPL now produces better error messages on calls to ``error``
+   and ``abort``.
+
+
+Bug Fixes
+~~~~~~~~~
+
+-  Fix a bug where scenarios with names containing special characters
+   resulted in a crash in the scenario service.
+-  The Sandbox properly respects the ``--log-level`` CLI parameter
+-  The sandbox now properly delays command submissions using
+   ``minLedgerTimeAbs`` or ``minLedgerTimeRel``. See `issue
+   #5480 <https://github.com/digital-asset/daml/issues/5480>`__.
+-  Migrating from Sandbox 0.13.55 to Sandbox Classic 1.0.0 could have
+   introduced contracts falsely reported as active when in fact they
+   are not. Migrating to Sandbox Classic 1.1.0 will fix the issue.
+   See `issue
+   #5659 <https://github.com/digital-asset/daml/issues/5659>`__.
+
+Changes to Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These changes only affect ledger integrators and operators that
+consume the metrics emitted by the DAML Integration Kit. We have
+introduced new metrics and adjusted the naming of existing metrics to
+be consolidated. If you have built a dashboard for a ledger built
+using the integration kit, then you will need to adapt that
+dashboard. The changes are as follows.
+
+We have introduced these new metrics:
+
+-  a timing metric for the commit at ``daml.kvutils.writer.commit``.
+-  a metric for command validation upon submission,
+   ``daml.commands.validation``.
+-  ``daml.commands.submissions`` is a new timer that measures all
+   submissions.
+-  ``daml.commands.valid_submissions`` is a new meter that counts valid
+   ``(unique, interpretable)`` submissions.
+-  ``daml.kvutils.reader.parse_updates`` is a new timer that measures the
+   translation time of ledger log entries when serving state updates
+   to the indexer.
+-  ``daml.kvutils.reader.open_envelope`` is a new timer that measures the
+   deserialization time of ledger log entries when serving state
+   updates to the indexer.
+-  ``daml.ledger.log.append`` is a new timer that measures the time for
+   writing new log entries.
+-  ``daml.ledger.state.read`` is a new timer that measures reading from
+   the ledger state.
+-  ``daml.ledger.state.write`` is a new timer that measures writing to
+   the ledger state.
+
+- We have renamed these metrics:
+
+  -  ``daml.lapi.command_submission_service.failed_command_interpretations``
+     has been renamed to ``daml.commands.failed_command_interpretations``.
+  -  ``daml.lapi.command_submission_service.deduplicated_commands`` has
+     been renamed to ``daml.commands.deduplicated_commands``.
+  -  ``daml.lapi.command_submission_service.delayed_submissions`` has been
+     renamed to ``daml.commands.delayed_submissions``.
+  -  ``daml.lapi.command_submission_service.submitted_transactions`` has
+     been renamed to ``daml.services.write.submit_transaction``.
+
+- The metrics registry should now be passed using the new
+  ``com.daml.metrics.Metrics`` type, which wraps/replaces
+  ``com.codahale.metrics.MetricsRegistry``.
+- ``maxDeduplicationTime`` configuration (the maximum time window during
+  which commands can be deduplicated) has moved from
+  ``SubmissionConfiguration`` to the ``Configuration`` class.
+- Engine is now mandatory in several  participant api server related
+  constructors to avoid running multiple interpretation engines.
+
+.. _release-1-0-1:
+
+1.0.1 - 2020-04-27
+------------------
+
+This is a bugfix release for SDK 1.0.0. All users of SDK 1.0.0 are
+encouraged to upgrade at their earliest convenience. This release
+fixes 3 issues:
+
+1. Fix an issue with false negative contract key lookups by
+   non-stakeholders (see
+   https://github.com/digital-asset/daml/issues/5562 for
+   details).
+
+   This issue affected the new Sandbox introduced in SDK
+   1.0.0 (but not sandbox-classic) as well as the scenario
+   service. Both Sandbox and the scenario service are fixed.
+
+2. Fix a crash in the scenario service.
+
+   SDK 1.0 introduced a bug where the scenario service would crash if
+   a failing transaction contained transient contracts. In DAML Studio this was shown as the following error:
+
+.. code::
+
+   BErrorClient (ClientIOError (GRPCIOBadStatusCode StatusUnknown (StatusDetails {unStatusDetails = \“\”})))
+
+3. Fix an issue where Sandbox incorrectly rejected certain commands
+   relying on ``getTime`` during validation (see
+   https://github.com/digital-asset/daml/issues/5662 for
+   details). This was only an issue if you set either
+   ``min_ledger_time_rel`` or ``min_ledger_time_abs``.
+
+.. _release-1-0-0:
+
+1.0.0 - 2020-04-15
+------------------
+
+Summary
+~~~~~~~
+
+-  New JavaScript/TypeScript client-side tooling is now stable and
+   the recommended way to build DAML applications. A new
+   `Getting Started Guide <https://docs.daml.com/1.0.0/getting-started/index.html>`__
+   based on these tools has replaced the Quickstart guide.
+-  The Time Model has been improved so that it works seamlessly
+   without user input to the Ledger API. Action needed when you
+   update to the latest version of API bindings or recompile gRPC
+   clients.
+-  More TLS configuration options for DAML Ledgers.
+-  The next generation Sandbox is now the default, bringing an
+   experience closer to a distributed ledger. Immediate action is
+   needed if your project is relying on scenarios for ledger
+   initialization.
+-  Cleanup of names, deprecated features and language versions.
+   Immediate action needed if you use any Java dependencies with
+   ``com.digitalasset`` packages or Maven coordinates.
+
+Known issues
+~~~~~~~~~~~~
+
+- The new Sandbox has a known issue where some false negative contract key lookups
+  are only correctly validated on the read path, not on the write path. The net
+  effect is that with carefully constructed DAML models, non-conformant transactions can
+  be recorded in the underlying storage, which may lead to data continuity issues when this issue is fixed.
+  Full details can be found on `GitHub issue #5563 <https://github.com/digital-asset/daml/issues/5562>`__.
+
+What’s New
+~~~~~~~~~~
+
+New Client Tooling
+^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+Distributed applications are much more than smart contracts running
+on a distributed ledger, and in 2019 we set out to make it
+significantly easier to build that part of applications which lives
+off-ledger: Automations, Integrations, and UIs. The new tooling is
+focused on giving application developers an easy-to-consume,
+real-time ledger state, which moves the development experience away
+from event sourcing and makes it similar to working with a database.
+
+-  The HTTP JSON API: giving a queryable view of the ledger state and
+   endpoints to submit transactions, all using an easy-to-consume
+   JSON format.
+-  A JavaScript/TypeScript code generator: turning a DAML package
+   into a (typed) library to interact with the HTTP JSON API.
+-  A set of JavaScript/TypeScript client libraries: working hand in
+   hand with the code generator to interact with the HTTP JSON API,
+   and bind ledger data to React components.
+-  A new Getting Started Guide shows how all these pieces fit
+   together to build a complete distributed end-to-end application
+   with a custom UI.
+
+The HTTP JSON API is designed to be consumable from any language
+ecosystem. The choice of JavaScript (and React) for the rest of the
+tooling was driven by the desire to aid application development all
+the way up to UIs, using the most widely adopted technologies.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  The documentation has a new `Getting Started Guide <https://docs.daml.com/1.0.0/getting-started/index.html>`__.
+   The previous Quickstart guide has moved under the Java Bindings section.
+-  There is a new SDK template with a skeleton for an end-to-end
+   application using the new tooling. It’s documented and used in the
+   new Getting Started Guide. Use ``daml new create-daml-app create-daml-app`` to
+   get started.
+-  The ``/v1`` endpoints of the HTTP JSON API and the JavaScript Code
+   Generator and Support Libraries are now stable.
+
+   -  The JSON API has gained an endpoint to allocate parties:
+      ``/v1/parties/allocate``.
+
+-  Support for maps and lists has been removed from the query
+   language.
+-  Note that the WebSockets streaming endpoint of the HTTP JSON API
+   is still under development.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+The new client tooling is almost purely additive so for most, no
+action is needed. For new applications, we recommend this tooling as
+it makes a lot of things quicker and easier. However, direct use of
+the Ledger API and HTTP JSON API continues to be a good option for
+anyone needing lower-level control or wanting to use a different
+language for their applications.
+
+The only non-backwards compatible change compared to previous
+versions is the removal of queries on lists and maps in the HTTP JSON
+API. There is no trivial migration for this. If you were relying on
+these capabilities please get in touch with us via community@daml.com
+or on Slack. We’d like to hear how you were making use of the feature
+so that we can replace it with something better, and we will make
+some suggestions to work around the removal.
+
+Improved Time Model
+^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+SDK Release 0.13.55 introduced a new method for command deduplication
+and deprecated the command field ``maximum_record_time``. SDK Release 1.0
+further improves the Ledger Time model so that users no longer need
+to pass in any time related information to the Ledger API. The new
+time model is designed to work under almost all circumstances without
+user intervention, making developing applications against DAML
+Ledgers easier in practice.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  The Sandbox no longer emits Checkpoints at regular intervals in
+   wall clock mode.
+-  The ``ledger_effective_time`` and ``maximum_record_time`` fields have been
+   removed from the Ledger API, and corresponding fields have been
+   removed from the  HTTP JSON API and Ledger API language bindings.
+-  The ``--default-ttl`` command line argument of the HTTP JSON API is
+   gone.
+-  Ledger Time is no longer strictly monotonically increasing, but
+   only follows causal monotonicity: Ledger Time of transactions is
+   greater than or equal to the Ledger Time of any input contract.
+-  The Command Service is no longer idempotent with respect to
+   duplicate submissions. Duplicate submissions now instead return an
+   ``ALREADY_EXISTS`` error, consistent with the new deduplication
+   mechanism of the Command Submission Service.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+Old applications will continue running against new ledgers, but
+ledger effective time and maximum record time set on submissions will
+be ignored. As soon as the client-side language bindings or compiled
+gRPC services are updated, the fields will need to be removed as they
+are no longer part of the API specification.
+
+Better TLS Support
+^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+DAML Ledgers have always supported exposing the Ledger API via TLS,
+but support on consuming applications was inconsistent and often
+required client certificates. From this release onward, more client
+components support consuming the Ledger API via TLS without client
+authentication.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  When Sandbox is run with TLS enabled, you can now configure the
+   requirement for client authentication via  ``--client-auth``. See the
+   `documentation <https://docs.daml.com/1.0.0/tools/sandbox.html#running-with-tls>`__
+   for more information.
+-  The ``daml deploy`` and ``daml ledger`` commands now support connecting to
+   the Ledger API via TLS. See their
+   `documentation <https://docs.daml.com/1.0.0/deploy/generic_ledger.html>`__
+   for more information.
+-  DAML Script and DAML Triggers now support TLS by passing the ``--tls``
+   flag. You can set certificates for client authentication via ``--pem``
+   and ``--crt`` and a custom root CA for validating the server
+   certificate via -``-cacrt``.
+
+-  Navigator, DAML Script, DAML REPL, DAML Triggers, and Extractor
+   can now run against a TLS-enabled ledger without client
+   authentication. You can enable TLS without any special
+   certificates by passing ``--tls``.
+-  DAML Script and DAML Triggers have the option to configure
+   certificates for client authentication via ``--pem`` and ``--crt`` and a
+   custom root CA for validating the server certificate via ``--cacrt``.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This is a new capability, so no action is needed. These new
+features are useful in production environments where client to
+ledger connections may need to be secured.
+
+Next Generation Sandbox
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+The DAML Sandbox has had a major architectural overhaul to bring it
+and its user experience even closer in line with other DAML Ledgers.
+The new Sandbox is now the default, but the “classic” Sandbox is
+included as a deprecated version in this release. The classic Sandbox
+will be removed from the SDK in a future release and will not be
+actively developed further.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  daml sandbox and daml start start the new Sandbox. The classic
+   sandbox can be invoked via ``daml sandbox-classic`` and
+   ``daml start --sandbox-classic``.
+
+-  Wall Clock Time mode (``--wall-clock-time``) is now the default.
+-  Scenarios are no longer supported for ledger initialization.
+-  Contract identifiers are hashes instead of longer sequence
+   numbers.
+
+   -  A new static contract identifier seeding scheme has been added
+      to enable reproducible contract identifiers in combination with
+      ``--static-time``. Set flag ``--contract-id-seeding=static`` to use it.
+
+-  Ledger API Offsets are no longer guaranteed to be a parsable
+   number. They are an opaque string that can be compared
+   lexicographically.
+-  The command line flags ``--auth-jwt-ec256-crt`` and
+   ``--auth-jwt-ec512-crt`` were renamed to ``--auth-jwt-es256-crt`` and
+   ``--auth-jwt-es512-crt``, respectively, to align them with the
+   cryptographic algorithms used.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+The impact is primarily on demo applications running in static time
+mode and/or using scenarios for ledger initialization. Since both the
+classic  and new Sandbox are compliant DAML Ledgers, there is no
+difference in behavior apart from these fringes.
+
+If you rely on static time mode, set it explicitly using
+``--static-time``.
+
+-  If you rely on reproducible contract identifiers, also set
+   ``--contract-id-seeding=static``.
+
+If you use a scenario for ledger initialization, `migrate to DAML
+Script <https://docs.daml.com/1.0.0/daml-script/index.html#using-daml-script-for-ledger-initialization>`__.
+If you were parsing ledger offsets, you need to find a way to stop
+doing so. This is not guaranteed to be possible on DAML Ledgers other
+than the classic Sandbox. If you were relying on doing so, get in
+touch with us on community@daml.com. We’d like to help with migration
+and want to understand how you were using this so we can better
+support your use case.
+If you were using ES256 or ES512 signing for authentication, adjust
+your command line flags.
+If you were running the now classic sandbox with persistence in a SQL
+database, you need to recreate contracts in the ledger run with the
+new sandbox. There is no automatic data migration available.
+To ease transition, you can revert back to the classic Sandbox using
+``daml sandbox-classic`` and ``daml start --sandbox-classic=yes``. Note that
+the classic Sandbox is deprecated and will be removed in a future
+release.
+
+Cleanup for DAML SDK 1.0
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+As we are moving into the 1.0 release line, we have done some cleanup
+work, aligning names of artifacts, removing deprecated language
+versions, streamlining the release process, and finishing a few
+language tweaks by turning select warnings into errors. 
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  All Java and Scala packages starting with ``com.digitalasset.daml``
+   and ``com.digitalasset`` are now consolidated under ``com.daml``. 
+
+   -  **Impact:** Changing the version of some artifacts to 1.0 will
+      cause a resolution error.
+   -  **Migration:** Changing Maven coordinates and imports using a
+      find and replace should be enough to migrate your code.
+
+-  Ledger API services are now under the ``com.daml`` package. A
+   compatibility layer has been added to also expose the services
+   under the ``com.digitalasset`` package.
+
+   -  **Impact:** grpcurl does not work with the compatibility layer.
+   -  **Migration:** Scripts using grpcurl need to change the service
+      name from ``com.digitalasset`` to ``com.daml``.
+
+-  < DAML SDK 1.0: ``com.digitalasset.ledger.api.v1.TransactionService``
+
+   ≥ DAML SDK 1.0: ``com.daml.ledger.api.v1.TransactionService``)
+
+-  The default DAML-LF target version is now 1.8.
+
+   -  **Impact:** Projects will not run against old DAML Ledgers that
+      do not support DAML-LF 1.8.
+   -  **Migration:** You can target 1.7 by specifying ``--target=1.7`` in
+      the ``build-options`` field in your ``daml.yaml``.
+
+-  All DAML-LF versions <1.6 are deprecated and will not be supported
+   on DAML Ledgers.
+
+   -  **Impact:** The new Sandbox will not run DAML code compiled to
+      DAML-LF 1.5 or earlier.
+   -  **Migration**: Use classic Sandbox to run older DAML models.
+
+-  We no longer release the SDK to Bintray.
+
+   -  **Impact:** If you were relying on artifacts on Bintray, you
+      will not be able to update to version 1.0 without changing the
+      repository.
+   -  **Migration:** The new locations are as follows:
+
+      -  SDK Releases and Protobuf files are released to GitHub
+         Releases.
+      -  Java/Scala artifacts are on Maven Central.
+      -  JavaScript artifacts are on NPM.
+
+-  File names must now match up with module names. This already
+   produced a warning in previous releases
+
+   -  **Impact:** Projects in which there are mismatches will no
+      longer build.
+   -  **Migration:** Change your ``.daml`` filenames to match module
+      names.
+
+-  It is now an error to define a record with a single constructor
+   where the constructor does not match the type name. This
+   restriction only applies to single-constructor records. Variants
+   and enums are not affected. This already produced a warning in SDK
+   0.13.55.
+
+   -  **Impact:** Projects with now illegal type declarations will no
+      longer build.
+   -  **Migration:** In declarations of the type ``data X = Y with ..``,
+      you have to change the type name (``X``) to match data constructor
+      name (``Y``) or vice versa.
+
+-  The compiler name collision check has been extended to also count
+   the case as a collision where you have a type ``B`` in module ``A`` and a
+   module ``A.B.C`` (but no module ``A.B``).
+
+   -  **Impact:** Projects with such module names will produce
+      warnings and stop compiling in a future release. The JavaScript
+      Code Generator is not usable on packages that don’t uphold this
+      restriction.
+   -  **Migration:** You have to rename your modules to avoid such
+      name clashes.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+Impacts and migrations are covered item by item in Specific Changes
+above.
+
+Progress on Features Under Development
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+Work is progressing on two features that are currently under active
+development.
+
+#. The DAML REPL, introduced with SDK 0.13.55 is becoming richer in
+   its abilities, getting ever closer in capabilities to DAML Script.
+#. Work on a Websockets streaming version of the HTTP JSON API’s
+   querying endpoints is progressing. The aim with this streaming
+   service is to combine the ease of consumption of the HTTP JSON API
+   with the liveness provided by a streaming API.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+-  DAML REPL
+
+   -  You can now use import declarations at the REPL prompt to bring
+      additional modules into scope.
+   -  You can now use more complex patterns in statements, e.g.,
+      ``(x,y) <- pure (1,2)``.
+   -  You can now connect to a ledger with authentication using
+      ``daml repl --access-token-file=path/to/tokenfile`` option.
+
+-  Websockets on the HTTP JSON API
+
+   -  The error format has changed to match the synchronous API:
+      ``{"status": <400 \| 401 \| 404 \| 500>, "errors": <JSON array of
+      strings> }``.
+   -  The streaming version of the query and fetch-by-key endpoints now
+      emit the last seen ledger offset. These offsets can be fed back to
+      new requests to start the stream at said offset. Such offset
+      messages are also used for heartbeating instead of the previous
+      explicit heartbeat messages.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+The only impacts are on consumers of the Websocket streaming APIs.
+Those consumers will have to make some minor adjustments to include
+the API changes around error handling and ledger offsets.
+
+Minor Changes and Fixes
+^^^^^^^^^^^^^^^^^^^^^^^
+
+-   Better support for snapshot releases in the DAML Assistant.
+
+   -  ``daml version`` can now list the available snapshot versions by
+      passing the flag ``--snapshots=yes``.
+
+   -  ``daml install latest`` can now include the latest snapshot version
+      by passing the flag ``--snapshots=yes``.
+   -  DAML Script can now be run over the HTTP JSON API, which means
+      it now runs against project:DABL. Take a look at the
+      `documentation <https://docs.daml.com/1.0.0/daml-script/index.html#running-daml-script-against-the-http-json-api>`__
+      for instructions and limitations.
+
+-  Party strings are now restricted to 255 characters.
+
+   -  **Impact:** If you used the Sandbox with very long Party
+      strings they’ll be rejected by the new Sandbox and other DAML
+      Ledgers.
+   -  **Migration:** Shorten your Party strings. Note that in ledgers
+      other than Sandbox, you may not be able to choose them entirely
+      freely anyway.
+
+-  You can now disable starting Navigator as part of ``daml start`` in
+   your ``daml.yaml`` file by adding ``start-navigator: false``.
+
+-  Calls to the ``GetParties`` API function with an empty list of parties
+   no longer results in an error, but in an empty response.
+
 .. _release-0-13-55:
 
 0.13.55 - 2020-03-18
@@ -438,7 +1084,7 @@ DAML Compiler
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
-- The simplified kvutils API now uses ``com.digitalasset.resources`` to manage
+- The simplified kvutils API now uses ``com.daml.resources`` to manage
   acquiring and releasing resources instead of ``Closeable``.
 
 DAML Standard Library
@@ -569,7 +1215,7 @@ Ledger API Server
 ~~~~~~~~~~~~~~~~~
 
 - Publish the resource management code as a library
-  under ``com.digitalasset:resources``.
+  under ``com.daml:resources``.
 
 Ledger API Authorization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1144,7 +1790,7 @@ DAML-LF - Internal
    + Add support for type representation values.
 
 - Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.7:
-   + `com.digitalasset.daml-lf-1.7-archive-proto`
+   + `com.daml-lf-1.7-archive-proto`
 
      This package contains the archive protobuf definitions as they
      were introduced when 1.7 was frozen.  These definitions can be
@@ -1282,7 +1928,7 @@ DAML Triggers - Experimental
 DAML-LF - Internal
 ~~~~~~~~~~~~~~~~~~
 
-- Changed the name of the bintray/maven package from ``com.digitalasset.daml-lf-archive-scala`` to ``com.digitalasset.daml-lf-archive-reader``
+- Changed the name of the bintray/maven package from ``com.daml-lf-archive-scala`` to ``com.daml.daml-lf-archive-reader``
 
 .. _release-0-13-30:
 
@@ -1310,25 +1956,25 @@ DAML-LF
 ~~~~~~~
 
 - **Breaking** Rename DAML-LF Archive protobuf package from
-  `com.digitalasset.daml_lf` to `com.digitalasset.daml_lf_dev`. This
+  `com.daml_lf` to `com.daml.daml_lf_dev`. This
   will only affect you do not use the DAML-LF Archive reader provided
   with the SDK but a custom one based on code generation by protoc.
 
 - **Breaking** Some bintray/maven packages are renamed:
-   + `com.digitalasset.daml-lf-proto` becomes
-     `com.digitalasset.daml-lf-dev-archive-proto`
-   + `com.digitalasset.daml-lf-archive` becomes
-     `com.digitalasset:daml-lf-dev-archive-java-proto``
+   + `com.daml-lf-proto` becomes
+     `com.daml-lf-dev-archive-proto`
+   + `com.daml-lf-archive` becomes
+     `com.daml:daml-lf-dev-archive-java-proto``
 
 - Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.6 in a stable way:
-   + `com.digitalasset.daml-lf-1.6-archive-proto`
+   + `com.daml-lf-1.6-archive-proto`
 
      This package contains the archive protobuf definitions as they
      were introduced when 1.6 was frozen.  These definitions can be
      used to read DAML-LF archives up to version 1.6.
 
      The main advantage of this package over the `dev` version
-     (`com.digitalasset.daml-lf-dev-archive-proto`) is that it is
+     (`com.daml-lf-dev-archive-proto`) is that it is
      immutable (it is guaranteed to never changed once introduced
      in the SDK). In other words one can used it without suffering
      frequent breaking changes introduced in the `dev` version.
@@ -1339,15 +1985,15 @@ DAML-LF
 
      We strongly advise anyone reading DAML-LF Archive directly to use
      this package (or the
-     `com.digitalasset:daml-lf-1.6-archive-java-proto` package
+     `com.daml:daml-lf-1.6-archive-java-proto` package
      described below).  Breaking changes to the `dev` version may be
      introduced frequently and without further notice in the release
      notes.
 
-   + `com.digitalasset:daml-lf-1.6-archive-java-proto`
+   + `com.daml:daml-lf-1.6-archive-java-proto`
 
      This package contains the java classes generated from the package
-     `com.digitalasset.daml-lf-1.6-archive-proto`
+     `com.daml-lf-1.6-archive-proto`
 
 
 DAML Triggers
@@ -2780,8 +3426,8 @@ DAML
 Ledger API
 ~~~~~~~~~~
 
-- **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`,
-  because a :ref:`com.digitalasset.ledger.api.v1.Transaction` never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
+- **BREAKING** Removed the unused field :ref:`com.daml.ledger.api.v1.ExercisedEvent` from :ref:`com.daml.ledger.api.v1.Event`,
+  because a :ref:`com.daml.ledger.api.v1.Transaction` never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
   This change is *backwards compatible on the transport level*, meaning:
 
@@ -2790,7 +3436,7 @@ Ledger API
 
   How to migrate:
 
-  - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
+  - If you check for the presence of :ref:`com.daml.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.daml.ledger.api.v1.Transaction`, you have to remove this code now.
 
 - Added the :ref:`agreement text <daml-ref-agreements>` as a new field ``agreement_text`` to the ``CreatedEvent`` message. This means you now have access to the agreement text of contracts via the Ledger API.
   The type of this field is ``google.protobuf.StringValue`` to properly reflect the optionality on the wire for full backwards compatibility.
@@ -2886,8 +3532,8 @@ Scala Bindings
 
   How to migrate:
 
-  - If you are pattern matching on ``com.digitalasset.ledger.client.binding.Contract``, you need to add a match clause for the added field.
-  - If you are constructing ``com.digitalasset.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
+  - If you are pattern matching on ``com.daml.ledger.client.binding.Contract``, you need to add a match clause for the added field.
+  - If you are constructing ``com.daml.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
 
 - ``CreateAndExercise`` support via ``createAnd`` method, e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for more information.
@@ -2902,7 +3548,7 @@ Ledger
   `#1166 <https://github.com/digital-asset/daml/issues/1166>`_.
 - Contract visibility is now properly checked when looking up contracts in the SQL backend, see
   `#784 <https://github.com/digital-asset/daml/issues/784>`_.
-- The sandbox now exposes the :ref:`agreement text <daml-ref-agreements>` of contracts in :ref:`CreatedEvents <com.digitalasset.ledger.api.v1.CreatedEvent>`. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+- The sandbox now exposes the :ref:`agreement text <daml-ref-agreements>` of contracts in :ref:`CreatedEvents <com.daml.ledger.api.v1.CreatedEvent>`. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
 
 Navigator
 ~~~~~~~~~
@@ -2963,7 +3609,7 @@ SQL Extractor
   Documentation is still in progress, but you can see the :doc:`Migration guide </support/new-assistant>` and the `pull request for the updated documentation <https://github.com/digital-asset/daml/pull/740>`__.
 - **DAML Standard Library**: Added ``fromListWith`` and ``merge`` to ``DA.TextMap``.
 - **DAML Standard Library**: Deprecated ``DA.Map`` and ``DA.Set``. Use the new ``DA.Next.Map`` and ``DA.Next.Set`` instead.
-- **Ledger API**: Added three new methods to the :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+- **Ledger API**: Added three new methods to the :ref:`CommandService <com.daml.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction ID.
 - Beta release of the Windows SDK:
@@ -2976,7 +3622,7 @@ SQL Extractor
 - Add ``fromListWith`` and ``merge`` to ``DA.TextMap``.
 - Release Javadoc artifacts as part of the SDK. See more `here https://github.com/digital-asset/daml/pull/896`
 - Add ``DA.Next.Map`` and ``DA.Next.Set`` and deprecate ``DA.Map`` and ``DA.Set`` in favor of those.
-- Ledger API: Added three new methods to :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+- Ledger API: Added three new methods to :ref:`CommandService <com.daml.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction id.
   - ``SubmitAndWaitForTransaction`` returns the transaction.
@@ -3150,7 +3796,7 @@ No user-facing changes.
 - **BREAKING CHANGE - DAML standard library**: Removed ``DA.List.split`` function, which was never intended to be exposed and doesn't do what the name suggests.
 - **BREAKING CHANGE - Java Bindings**: Removed type parameter for ``DamlList`` and ``DamlOptional`` classes.
 
-  The ``DamlList``, ``DamlOptional``, and ``ContractId`` classes were previously parameterized (i.e ``DamlList[String]``) for consistency with the DAML language. The type parameter has been removed as such type information is not supported by the underlying Ledger API and and therefore the parameterized type couldn’t be checked for correctness.
+  The ``DamlList``, ``DamlOptional``, and ``ContractId`` classes were previously parameterized (i.e ``DamlList[String]``) for consistency with the DAML language. The type parameter has been removed as such type information is not supported by the underlying Ledger API and therefore the parameterized type couldn’t be checked for correctness.
 - **BREAKING CHANGE - Java Bindings**: For all classes in the package ``com.daml.ledger.javaapi.data``, we shortened the names of the conversion methods from long forms like ``fromProtoGeneratedCompletionStreamRequest`` and ``toProtoGeneratedCompletionStreamRequest`` to the much shorter ``fromProto`` and ``toProto``.
 - **Navigator**: Added support for Optional and recursive data types.
 - **Navigator**: Improved start up performance for big DAML models.
@@ -3197,7 +3843,7 @@ No user-facing changes.
 -------------------
 
 - **Documentation**: :doc:`DAML documentation </daml/reference/index>` and :doc:`examples </examples/examples>` now use DAML 1.2.
-- **Documentation**: Added a comprehensive :doc:`quickstart guide </getting-started/quickstart>` that replaces the old "My first project" example.
+- **Documentation**: Added a comprehensive :doc:`quickstart guide </app-dev/bindings-java/quickstart>` that replaces the old "My first project" example.
 
 	As part of this, removed the My first project, IOU and PvP examples.
 - **Documentation**: Added a :doc:`guide to building applications against a DAML ledger </app-dev/app-arch>`.

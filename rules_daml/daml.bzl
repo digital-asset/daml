@@ -79,6 +79,7 @@ def _daml_build_impl(ctx):
     damlc = ctx.file._damlc
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ctx.actions.run_shell(
         tools = [damlc],
         inputs = [daml_yaml] + srcs + input_dars,
@@ -89,6 +90,9 @@ def _daml_build_impl(ctx):
             tmpdir=$(mktemp -d)
             trap "rm -rf $tmpdir" EXIT
             cp -f {config} $tmpdir/daml.yaml
+            # Having to produce all the daml.yaml files via a genrule is annoying
+            # so we allow hardcoded version numbers and patch them here.
+            {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir -o $PWD/{output_dar}
@@ -108,8 +112,10 @@ def _daml_build_impl(ctx):
                 )
                 for k, v in dar_dict.items()
             ]),
+            sed = posix.commands["sed"],
             damlc = damlc.path,
             output_dar = output_dar.path,
+            sdk_version = sdk_version,
         ),
     )
 
@@ -128,6 +134,7 @@ _daml_build = rule(
         ),
         "dar_dict": attr.label_keyed_string_dict(
             mandatory = True,
+            allow_files = True,
             doc = "Other DAML projects referenced by this DAML project.",
         ),
         "dar": attr.output(
@@ -136,6 +143,7 @@ _daml_build = rule(
         ),
         "_damlc": _damlc,
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
 def _extract_main_dalf_impl(ctx):
@@ -151,10 +159,16 @@ def _extract_main_dalf_impl(ctx):
         outputs = [output_dalf],
         progress_message = "Extract DALF from DAR (%s)" % project_name,
         command = """
-            set -eou pipefail
-            {zipper} x {input_dar}
-            main_dalf=$({find} . -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
-            cp $main_dalf {output_dalf}
+set -eoux pipefail
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+# While zipper has a -d option, it insists on it
+# being a relative path so we don't use it.
+ZIPPER=$PWD/{zipper}
+DAR=$PWD/{input_dar}
+(cd $TMPDIR && $ZIPPER x $DAR)
+main_dalf=$({find} $TMPDIR/ -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
+cp $main_dalf {output_dalf}
         """.format(
             zipper = zipper.path,
             find = posix.commands["find"],

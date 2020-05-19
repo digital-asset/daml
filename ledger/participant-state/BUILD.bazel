@@ -11,7 +11,7 @@ da_scala_library(
     name = "participant-state",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -41,5 +41,6 @@ da_scala_test(
         ":participant-state",
         "//daml-lf/transaction",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

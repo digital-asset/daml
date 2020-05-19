@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, ScalazEqual}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -49,18 +49,21 @@ object Node {
       *
       */
     def requiredAuthorizers: Set[Party]
+
+    def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
+      GenNode.foreach3(fNid, fCid, fVal)(self)
   }
 
   object GenNode
       extends WithTxValue3[GenNode]
       with value.CidContainer3WithDefaultCidResolver[GenNode] {
+
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
         f2: A2 => B2,
         f3: A3 => B3,
     ): GenNode[A1, A2, A3] => GenNode[B1, B2, B3] = {
       case NodeCreate(
-          nodeSeed,
           coid,
           coinst,
           optLocation,
@@ -69,7 +72,6 @@ object Node {
           key,
           ) =>
         NodeCreate(
-          nodeSeed = nodeSeed,
           coid = f2(coid),
           coinst = value.Value.ContractInst.map1(f3)(coinst),
           optLocation = optLocation,
@@ -96,7 +98,6 @@ object Node {
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
       case NodeExercises(
-          nodeSeed,
           targetCoid,
           templateId,
           choiceId,
@@ -112,7 +113,6 @@ object Node {
           key,
           ) =>
         NodeExercises(
-          nodeSeed = nodeSeed,
           targetCoid = f2(targetCoid),
           templateId = templateId,
           choiceId = choiceId,
@@ -140,6 +140,63 @@ object Node {
           result = result.map(f2),
         )
     }
+
+    override private[lf] def foreach3[A, B, C](
+        f1: A => Unit,
+        f2: B => Unit,
+        f3: C => Unit,
+    ): GenNode[A, B, C] => Unit = {
+      case NodeCreate(
+          coid,
+          coinst,
+          optLocation @ _,
+          signatories @ _,
+          stakeholders @ _,
+          key,
+          ) =>
+        f2(coid)
+        value.Value.ContractInst.foreach1(f3)(coinst)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+      case NodeFetch(
+          coid,
+          templateId @ _,
+          optLocationd @ _,
+          actingPartiesd @ _,
+          signatoriesd @ _,
+          stakeholdersd @ _,
+          key,
+          ) =>
+        f2(coid)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+      case NodeExercises(
+          targetCoid,
+          templateId @ _,
+          choiceId @ _,
+          optLocation @ _,
+          consuming @ _,
+          actingParties @ _,
+          chosenValue,
+          stakeholders @ _,
+          signatories @ _,
+          controllers @ _,
+          children @ _,
+          exerciseResult,
+          key,
+          ) =>
+        f2(targetCoid)
+        f3(chosenValue)
+        exerciseResult.foreach(f3)
+        key.foreach(KeyWithMaintainers.foreach1(f3))
+        children.foreach(f1)
+      case NodeLookupByKey(
+          templateId @ _,
+          optLocation @ _,
+          key,
+          result,
+          ) =>
+        KeyWithMaintainers.foreach1(f3)(key)
+        result.foreach(f2)
+    }
   }
 
   /** A transaction node that can't possibly refer to `Nid`s. */
@@ -149,7 +206,6 @@ object Node {
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
-      nodeSeed: Option[crypto.Hash],
       coid: Cid,
       coinst: ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
@@ -181,7 +237,6 @@ object Node {
     * ledgers.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
-      nodeSeed: Option[crypto.Hash],
       targetCoid: Cid,
       templateId: Identifier,
       choiceId: ChoiceName,
@@ -210,7 +265,6 @@ object Node {
       * apply method enforces it.
       */
     def apply[Nid, Cid, Val](
-        nodeSeed: Option[crypto.Hash] = None,
         targetCoid: Cid,
         templateId: Identifier,
         choiceId: ChoiceName,
@@ -225,7 +279,6 @@ object Node {
         key: Option[KeyWithMaintainers[Val]],
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
-        nodeSeed,
         targetCoid,
         templateId,
         choiceId,
@@ -265,6 +318,9 @@ object Node {
     @deprecated("Use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] =
       KeyWithMaintainers.map1(f)(this)
+
+    def foreach1(f: Val => Unit): Unit =
+      KeyWithMaintainers.foreach1(f)(self)
   }
 
   object KeyWithMaintainers extends value.CidContainer1WithDefaultCidResolver[KeyWithMaintainers] {
@@ -279,6 +335,10 @@ object Node {
         f: A => B,
     ): KeyWithMaintainers[A] => KeyWithMaintainers[B] =
       x => x.copy(key = f(x.key))
+
+    override private[lf] def foreach1[A](f: A => Unit): KeyWithMaintainers[A] => Unit =
+      x => f(x.key)
+
   }
 
   final def isReplayedBy[Cid: Equal, Val: Equal](
@@ -287,7 +347,7 @@ object Node {
   ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(_, coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
+        case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
           import nc._
           // NOTE(JM): Do not compare location annotations as they may differ due to
           // differing update expression constructed from the root node.
@@ -313,7 +373,6 @@ object Node {
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
-            _,
             targetCoid2,
             templateId2,
             choiceId2,

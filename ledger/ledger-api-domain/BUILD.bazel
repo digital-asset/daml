@@ -9,7 +9,7 @@ load(
 da_scala_library(
     name = "ledger-api-domain",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-domain:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-domain:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

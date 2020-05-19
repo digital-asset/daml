@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.sdk
+package com.daml.sdk
 
-import com.digitalasset.codegen.{CodegenMain => Codegen}
-import com.digitalasset.daml.lf.engine.script.{RunnerMain => Script, TestMain => TestScript}
-import com.digitalasset.daml.lf.engine.trigger.{RunnerMain => Trigger}
-import com.digitalasset.extractor.{Main => Extractor}
-import com.digitalasset.http.{Main => JsonApi}
-import com.digitalasset.navigator.{NavigatorBackend => Navigator}
-import com.digitalasset.platform.sandbox.{SandboxMain => SandboxClassic}
-import com.digitalasset.platform.sandboxnext.{Main => Sandbox}
+import com.daml.codegen.{CodegenMain => Codegen}
+import com.daml.lf.engine.script.{RunnerMain => Script, TestMain => TestScript}
+import com.daml.lf.engine.trigger.{RunnerMain => Trigger}
+import com.daml.extractor.{Main => Extractor}
+import com.daml.http.{Main => JsonApi}
+import com.daml.navigator.{NavigatorBackend => Navigator}
+import com.daml.platform.sandbox.{SandboxMain => SandboxClassic}
+import com.daml.platform.sandboxnext.{Main => Sandbox}
 
 object SdkMain {
   def main(args: Array[String]): Unit = {

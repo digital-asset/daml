@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
@@ -11,14 +11,12 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with Matchers
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendH2Database
+    with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoConfigurationSpec
-    with JdbcLedgerDaoContractKeysSpec
     with JdbcLedgerDaoContractsSpec
-    with JdbcLedgerDaoDivulgenceSpec
-    with JdbcLedgerDaoFetchSerializationSpec
-    with JdbcLedgerDaoLedgerEntriesSpec
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
+    with JdbcLedgerDaoTransactionsWriterSpec

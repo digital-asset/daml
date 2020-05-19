@@ -1,22 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.retrying
+package com.daml.ledger.client.binding.retrying
 
 import java.time.{Duration, Instant}
 
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.client.testing.AkkaTest
-import com.digitalasset.ledger.client.binding.retrying.CommandRetryFlow.{
-  In,
-  Out,
-  SubmissionFlowType
-}
-import com.digitalasset.util.Ctx
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.client.testing.AkkaTest
+import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
+import com.daml.util.Ctx
 import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status

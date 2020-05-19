@@ -26,7 +26,7 @@ import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
-import qualified System.IO.Extra as Temp
+import qualified System.IO.Extra as IO
 import qualified System.Process as System
 import qualified Text.Regex.TDFA as Regex
 
@@ -240,7 +240,7 @@ build_docs_folder path versions latest = do
 
 find_commit_for_version :: String -> IO String
 find_commit_for_version version = do
-    release_commits <- lines <$> shell "git log --format=%H origin/master -- LATEST"
+    release_commits <- lines <$> shell "git log --format=%H --all -- LATEST"
     ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
     let expected = ver_sha <> " " <> version
     matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
@@ -319,12 +319,19 @@ fetch_gh_versions = do
 
 same_versions :: (Set.Set Version, Set.Set Version) -> [GitHubVersion] -> Bool
 same_versions s3_versions gh_versions =
-    let gh_releases = Set.fromList $ map (to_v . name) $ filter (not . prerelease) gh_versions
+    -- Versions 0.13.5 and earlier can no longer be built by this script, and
+    -- happen to not exist in the s3 repo. This means they are not generated
+    -- and thus do not appear in the versions.json file on s3. This means that
+    -- if we do not remove them from the listing here, the docs cron always
+    -- believes there is a change to deploy.
+    let gh_releases = Set.fromList $ map (to_v . name) $ filter (\v -> to_v (name v) > to_v "0.13.5") $ filter (not . prerelease) gh_versions
         gh_snapshots = Set.fromList $ map (to_v . name) $ filter prerelease gh_versions
     in s3_versions == (gh_releases, gh_snapshots)
 
 main :: IO ()
 main = do
+    Control.forM_ [IO.stdout, IO.stderr] $
+        \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
     (gh_versions, gh_latest) <- fetch_gh_versions
     s3_versions_before <- fetch_s3_versions
@@ -333,7 +340,7 @@ main = do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
-        Temp.withTempDir $ \temp_dir -> do
+        IO.withTempDir $ \temp_dir -> do
             putStrLn "Building docs listing"
             docs_folder <- build_docs_folder temp_dir gh_versions $ name gh_latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."

@@ -40,7 +40,7 @@ dar_to_scala(
     srcs = [
         ":PackageManagementTest.dar",
     ],
-    package_prefix = "com.digitalasset.ledger.packagemanagementtest",
+    package_prefix = "com.daml.ledger.packagemanagementtest",
     srcjar_out = "PackageManagementTest.scala.srcjar",
     verbosity = 2,
 )
@@ -88,13 +88,17 @@ da_scala_library_suite(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/test-common",
+        "//ledger/test-common:PerformanceTests.scala",
         "//ledger/test-common:SemanticTests.scala",
         "//ledger/test-common:Test-dev.scala",
         "//ledger/test-common:Test-stable.scala",
         "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_context",
         "@maven//:org_cvogt_scala_extensions_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -110,7 +114,7 @@ da_scala_binary(
         "//ledger/test-common:dar-files",
     ],
     tags = [
-        "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
+        "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",
         # We release this as a fat jar so this tag ensures that the dependencies in the generated
         # POM file are set correctly.
         "fat_jar",
@@ -154,6 +158,5 @@ conformance_test(
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-        "--exclude=CommandDeduplicationIT",
     ],
 )

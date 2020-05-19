@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@bazel/hide-bazel-files@0.32.2":
-  version "0.32.2"
-  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-0.32.2.tgz#a482855eafbccb56b1fce0d92ff922c2c6e0a90c"
-  integrity sha512-585XY53mhMZaCjEQJ+aDqkmydWZbuXsKrZsSpoW9YeAVEH0poQY3YhdyCPmMVBo7/l1mkrqpFuOK5BpECfwdtA==
+"@bazel/hide-bazel-files@1.6.0":
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-1.6.0.tgz#4dfc610734934f43e1e7c97a26da7b4f2ec8f47f"
+  integrity sha512-RSu6I5yVVtjDP6PTkhDVvqOC+KJf8t4Uo2qCLxGjunLVt4guqKLt3KQX+dEU/qVn5vECXGTprDSNk+c9G6hDmg==
 
 "@types/node-fetch@^2.5.3":
   version "2.5.3"
@@ -29,10 +29,10 @@
   resolved "https://registry.yarnpkg.com/@types/tmp/-/tmp-0.0.29.tgz#3f188a758327375766babca50fee224aff09a13f"
   integrity sha1-PxiKdYMnN1dmurylD+4iSv8JoT8=
 
-"@types/vscode@1.33":
-  version "1.33.0"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.33.0.tgz#da400abcb4caaeea18fd37287a3f48b18c785c94"
-  integrity sha512-JSmGiValbrcG5g20jjCfKakLiuWyrcjVezj+SEAEZ4klXQktE5EtowuGlkLVqbkiBK4iY5wy/4yW8OjecuHnjQ==
+"@types/vscode@1.38":
+  version "1.38.0"
+  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.38.0.tgz#1e53953406ef662354e2e62451c3c71c9ff19a6d"
+  integrity sha512-aGo8LQ4J1YF0T9ORuCO+bhQ5sGR1MXa7VOyOdEP685se3wyQWYUExcdiDi6rvaK61KUwfzzA19JRLDrUbDl7BQ==
 
 "@types/which@1.3.1":
   version "1.3.1"

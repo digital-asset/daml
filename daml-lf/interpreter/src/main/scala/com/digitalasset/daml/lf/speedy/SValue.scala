@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 import java.util
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data._
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.{HashMap, TreeMap}
@@ -88,8 +88,8 @@ sealed trait SValue {
       case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
-          case PClosure(expr, vars) =>
-            PClosure(expr, vars.map(_.mapContractId(f)))
+          case PClosure(label, expr, vars) =>
+            PClosure(label, expr, vars.map(_.mapContractId(f)))
           case other => other
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
@@ -120,17 +120,30 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
+
+  /** A closure consisting of an expression together with the values the
+    * expression is closing over.
+    * The [[label]] field is only used during profiling. During non-profiling
+    * runs it is always set to [[null]].
+    * During profiling, whenever a closure whose [[label]] has been set is
+    * entered, we write an "open event" with the label and when the closure is
+    * left, we write a "close event" with the same label.
+    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * [[AnyRef]] for the label.
+    */
+  final case class PClosure(label: AnyRef, expr: SExpr, closure: Array[SValue])
+      extends Prim
+      with SomeArrayEquals {
     override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
   }
 
-  /** A partially (or fully) applied primitive.
-    * This is constructed when an argument is applied. When it becomes fully
-    * applied (args.size == arity), the machine will apply the arguments to the primitive.
-    * If the primitive is a closure, the arguments are pushed to the environment and the
-    * closure body is entered.
+  /** A partially applied primitive.
+    * An SPAP is *never* fully applied. This is asserted on construction.
     */
   final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
+    if (args.size >= arity) {
+      throw SErrorCrash(s"SPAP: unexpected args.size >= arity")
+    }
     override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
   }
 
@@ -196,6 +209,9 @@ object SValue {
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
   final case class SBool(value: Boolean) extends SPrimLit
+  object SBool {
+    def apply(value: Boolean): SBool = if (value) SValue.True else SValue.False
+  }
   final case object SUnit extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
   final case class SContractId(value: V.ContractId) extends SPrimLit
@@ -205,8 +221,8 @@ object SValue {
 
   object SValue {
     val Unit = SUnit
-    val True = SBool(true)
-    val False = SBool(false)
+    val True = new SBool(true)
+    val False = new SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
     val EmptyMap = STextMap(HashMap.empty)

@@ -180,20 +180,8 @@ index 00e5163c..4fc8cafa 100644
        extra_srcs: Extra (non-Haskell) source files that will be needed at compile time (e.g. by Template Haskell).
        deps: List of other Haskell libraries to be linked to this target.
        data: See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common.data).,
-diff --git a/haskell/doctest.bzl b/haskell/doctest.bzl
-index 94394aa4..1578efbc 100644
---- a/haskell/doctest.bzl
-+++ b/haskell/doctest.bzl
-@@ -118,6 +118,7 @@ def _haskell_doctest_single(target, ctx):
- 
-     if ctx.attr.modules:
-         inputs = ctx.attr.modules
-+        args.add_all(set.to_list(hs_info.import_dirs), format_each = "-i%s")
-     else:
-         inputs = [source.path for source in hs_info.source_files.to_list()]
- 
 diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index 4c2da9a7..fc04dbf6 100644
+index 280611ca..fc04dbf6 100644
 --- a/haskell/private/actions/compile.bzl
 +++ b/haskell/private/actions/compile.bzl
 @@ -10,7 +10,6 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
@@ -296,16 +284,7 @@ index 4c2da9a7..fc04dbf6 100644
  
      # Default compiler flags.
      compile_flags += hs.toolchain.compiler_flags
-@@ -214,8 +232,6 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
-             idir = import_dir_map[s]
-             set.mutable_insert(import_dirs, idir)
- 
--    compile_flags += ["-i{0}".format(d) for d in set.to_list(import_dirs)]
--
-     # Write the -optP flags to a parameter file because they can be very long on Windows
-     # e.g. 27Kb for grpc-haskell
-     # Equivalent to: compile_flags += ["-optP" + f for f in cc.cpp_flags]
-@@ -269,9 +285,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+@@ -267,9 +285,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
      # Output directories
      args.add_all([
          "-odir",
@@ -317,7 +296,7 @@ index 4c2da9a7..fc04dbf6 100644
      ])
  
      # Interface files with profiling have to have the extension "p_hi":
-@@ -343,9 +359,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+@@ -341,9 +359,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
              plugin_tool_inputs,
          ]),
          input_manifests = preprocessors.input_manifests + plugin_tool_input_manifests,
@@ -330,7 +309,7 @@ index 4c2da9a7..fc04dbf6 100644
          source_files = source_files,
          extra_source_files = extra_source_files,
          import_dirs = import_dirs,
-@@ -374,7 +390,7 @@ def compile_binary(
+@@ -372,7 +390,7 @@ def compile_binary(
          dep_info,
          plugin_dep_info,
          srcs,
@@ -339,7 +318,7 @@ index 4c2da9a7..fc04dbf6 100644
          import_dir_map,
          extra_srcs,
          user_compile_flags,
-@@ -394,7 +410,7 @@ def compile_binary(
+@@ -392,7 +410,7 @@ def compile_binary(
          modules: set of module names
          source_files: set of Haskell source files
      """
@@ -348,7 +327,7 @@ index 4c2da9a7..fc04dbf6 100644
      c.args.add_all(["-main-is", main_function])
      if dynamic:
          # For binaries, GHC creates .o files even for code to be
-@@ -406,10 +422,9 @@ def compile_binary(
+@@ -404,10 +422,9 @@ def compile_binary(
      coverage_data = []
      if inspect_coverage:
          c.args.add_all(_hpc_compiler_args(hs))
@@ -361,7 +340,7 @@ index 4c2da9a7..fc04dbf6 100644
  
      hs.toolchain.actions.run_ghc(
          hs,
-@@ -424,7 +439,7 @@ def compile_binary(
+@@ -422,7 +439,7 @@ def compile_binary(
      )
  
      return struct(
@@ -370,7 +349,7 @@ index 4c2da9a7..fc04dbf6 100644
          source_files = c.source_files,
          extra_source_files = c.extra_source_files,
          import_dirs = c.import_dirs,
-@@ -440,6 +455,7 @@ def compile_library(
+@@ -438,6 +455,7 @@ def compile_library(
          dep_info,
          plugin_dep_info,
          srcs,
@@ -378,7 +357,7 @@ index 4c2da9a7..fc04dbf6 100644
          import_dir_map,
          extra_srcs,
          user_compile_flags,
-@@ -461,18 +477,17 @@ def compile_library(
+@@ -459,18 +477,17 @@ def compile_library(
          source_files: set of Haskell module files
          import_dirs: import directories that should make all modules visible (for GHCi)
      """
@@ -401,7 +380,7 @@ index 4c2da9a7..fc04dbf6 100644
  
      if srcs:
          hs.toolchain.actions.run_ghc(
-@@ -486,76 +501,13 @@ def compile_library(
+@@ -484,76 +501,13 @@ def compile_library(
              env = c.env,
              arguments = c.args,
          )

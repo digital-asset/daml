@@ -6,12 +6,12 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.util.Optional
 
 import com.daml.ledger.javaapi.data._
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndResponse
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
-import com.digitalasset.ledger.api.v1.testing.time_service.GetTimeResponse
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionEndResponse
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.collection.JavaConverters._

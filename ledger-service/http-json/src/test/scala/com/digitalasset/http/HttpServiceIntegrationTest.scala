@@ -1,20 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.io.File
 import java.nio.file.Files
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.util.TestUtil.writeToFile
+import com.daml.http.Statement.discard
+import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with BeforeAndAfterAll {
 
   private val staticContent: String = "static"
@@ -57,5 +58,17 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
           body shouldBe expectedDummyContent
         }
       }: Future[Assertion]
+  }
+
+  "Forwarded" - {
+    import Endpoints.Forwarded
+    "can 'parse' sample" in {
+      Forwarded("for=192.168.0.1;proto=http;by=192.168.0.42").proto should ===(Some("http"))
+    }
+
+    "can 'parse' quoted sample" in {
+      Forwarded("for=192.168.0.1;proto = \"https\" ;by=192.168.0.42").proto should ===(
+        Some("https"))
+    }
   }
 }

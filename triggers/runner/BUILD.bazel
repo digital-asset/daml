@@ -10,7 +10,7 @@ load(
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.daml.lf.engine.trigger:runner:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -34,7 +34,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "trigger-runner",
-    main_class = "com.digitalasset.daml.lf.engine.trigger.RunnerMain",
+    main_class = "com.daml.lf.engine.trigger.RunnerMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [":trigger-runner-lib"],

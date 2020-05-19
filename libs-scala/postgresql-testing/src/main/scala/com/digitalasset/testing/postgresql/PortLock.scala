@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing.postgresql
+package com.daml.testing.postgresql
 
 import java.io.RandomAccessFile
 import java.nio.channels.{
@@ -12,7 +12,7 @@ import java.nio.channels.{
 }
 import java.nio.file.{Files, Path, Paths}
 
-import com.digitalasset.ports.Port
+import com.daml.ports.Port
 
 private[postgresql] object PortLock {
 

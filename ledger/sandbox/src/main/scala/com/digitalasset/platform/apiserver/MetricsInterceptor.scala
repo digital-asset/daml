@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
-import java.util.concurrent.atomic.AtomicBoolean
-
-import com.codahale.metrics.{MetricRegistry, Timer}
-import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
+import com.codahale.metrics.Timer
+import com.daml.metrics.Metrics
+import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
+import io.grpc._
 
 import scala.collection.concurrent.TrieMap
 
@@ -27,11 +27,11 @@ import scala.collection.concurrent.TrieMap
   *
   * e.g. "org.example.SomeService/someMethod" becomes "daml.lapi.some_service.some_method"
   */
-final class MetricsInterceptor(metrics: MetricRegistry) extends ServerInterceptor {
+final class MetricsInterceptor(metrics: Metrics) extends ServerInterceptor {
 
   // Cache the result of calling MetricsInterceptor.nameFor, which practically has a
   // limited co-domain and whose cost we don't want to pay every time an endpoint is hit
-  private val fullServiceToMetricNameCache = TrieMap.empty[String, String]
+  private val fullServiceToMetricNameCache = TrieMap.empty[String, Timer]
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -39,42 +39,21 @@ final class MetricsInterceptor(metrics: MetricRegistry) extends ServerIntercepto
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
     val fullMethodName = call.getMethodDescriptor.getFullMethodName
-    val metricName = fullServiceToMetricNameCache.getOrElseUpdate(
+    val timer = fullServiceToMetricNameCache.getOrElseUpdate(
       fullMethodName,
-      MetricsNaming.nameFor(fullMethodName))
-    val timer = metrics.timer(metricName).time()
-    val listener = next.startCall(call, headers)
-    new TimedListener(listener, timer)
+      metrics.daml.lapi.forMethod(MetricsNaming.nameFor(fullMethodName)))
+    val timerCtx = timer.time
+    next.startCall(new TimedServerCall(call, timerCtx), headers)
   }
 
-  class TimedListener[ReqT](listener: ServerCall.Listener[ReqT], timer: Timer.Context)
-      extends ServerCall.Listener[ReqT] {
-    private val timerStopped = new AtomicBoolean(false)
-
-    override def onReady(): Unit =
-      listener.onReady()
-
-    override def onMessage(message: ReqT): Unit =
-      listener.onMessage(message)
-
-    override def onHalfClose(): Unit =
-      listener.onHalfClose()
-
-    override def onCancel(): Unit = {
-      listener.onCancel()
-      stopTimer()
-    }
-
-    override def onComplete(): Unit = {
-      listener.onComplete()
-      stopTimer()
-    }
-
-    private def stopTimer(): Unit = {
-      if (timerStopped.compareAndSet(false, true)) {
-        timer.stop()
-        ()
-      }
+  private final class TimedServerCall[ReqT, RespT](
+      delegate: ServerCall[ReqT, RespT],
+      timer: Timer.Context,
+  ) extends SimpleForwardingServerCall[ReqT, RespT](delegate) {
+    override def close(status: Status, trailers: Metadata): Unit = {
+      delegate.close(status, trailers)
+      timer.stop()
+      ()
     }
   }
 

@@ -4,9 +4,9 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
-import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
-import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
-import com.digitalasset.timer.RetryStrategy
+import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
+import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
+import com.daml.timer.RetryStrategy
 import io.grpc.ManagedChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import org.slf4j.LoggerFactory

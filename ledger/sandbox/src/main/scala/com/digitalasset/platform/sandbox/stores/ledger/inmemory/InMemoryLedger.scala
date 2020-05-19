@@ -1,10 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.inmemory
+package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -21,17 +20,18 @@ import com.daml.ledger.participant.state.v1.{
   TransactionId => _,
   _
 }
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger
-import com.digitalasset.ledger.api.domain.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.{Node, TransactionCommitter}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger
+import com.daml.ledger.api.domain.{
   ApplicationId,
+  CommandId,
   Filters,
   InclusiveFilters,
   LedgerId,
@@ -40,31 +40,36 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason,
   TransactionFilter
 }
-import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.index.TransactionConversion
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{
+import com.daml.platform.index.TransactionConversion
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.Ledger
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{CompletionFromTransaction, LedgerSnapshot}
-import com.digitalasset.platform.{ApiOffset, index}
+import com.daml.platform.store.CompletionFromTransaction
+import com.daml.platform.{ApiOffset, index}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
+import scala.util.Try
 
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
@@ -85,22 +90,15 @@ class InMemoryLedger(
     participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
+    transactionCommitter: TransactionCommitter,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
-    initialConfig: Configuration,
 ) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
-    l.publish(
-      InMemoryConfigEntry(
-        ConfigurationEntry.Accepted(
-          submissionId = UUID.randomUUID.toString,
-          participantId = participantId,
-          configuration = initialConfig,
-        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
@@ -116,7 +114,7 @@ class InMemoryLedger(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def ledgerEntries(
+  def ledgerEntries(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     entries
@@ -129,7 +127,8 @@ class InMemoryLedger(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Ref.Identifier]],
-      verbose: Boolean): Source[(Offset, GetTransactionsResponse), NotUsed] =
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
       .flatMapConcat {
@@ -153,9 +152,32 @@ class InMemoryLedger(
           Source.empty
       }
 
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToTransactionTree(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                requestingParties,
+                verbose)
+              .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
+              .toList)
+        case _ =>
+          Source.empty
+      }
+
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
+  private var ledgerConfiguration: Option[Configuration] = None
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
@@ -173,16 +195,46 @@ class InMemoryLedger(
 
   override def ledgerEnd: Offset = entries.ledgerEnd
 
-  // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
-    Future.successful(this.synchronized {
-      LedgerSnapshot(
-        entries.ledgerEnd,
-        Source
-          .fromIterator[ActiveContract](() =>
-            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList))
-      )
-    })
+  override def activeContracts(
+      activeAt: Offset,
+      filter: Map[Party, Set[Ref.Identifier]],
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    Source
+      .fromIterator[ActiveContract](() =>
+        acs.activeContracts.valuesIterator.flatMap(index
+          .EventFilter(_)(TransactionFilter(filter.map {
+            case (party, templates) =>
+              party -> Filters(if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+          }))
+          .toList))
+      .map { contract =>
+        GetActiveContractsResponse(
+          workflowId = contract.workflowId.getOrElse(""),
+          activeContracts = List(
+            CreatedEvent(
+              contract.eventId,
+              contract.id.coid,
+              Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+              contractKey = contract.key.map(
+                ck =>
+                  LfEngineToApi.assertOrRuntimeEx(
+                    "converting stored contract",
+                    LfEngineToApi
+                      .lfContractKeyToApiValue(verbose = verbose, ck))),
+              createArguments = Some(
+                LfEngineToApi.assertOrRuntimeEx(
+                  "converting stored contract",
+                  LfEngineToApi
+                    .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
+              contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
+              signatories = contract.signatories.toSeq,
+              observers = contract.observers.toSeq,
+              agreementText = Some(contract.agreementText)
+            )
+          )
+        )
+      }
 
   override def lookupContract(
       contractId: AbsoluteContractId,
@@ -200,21 +252,26 @@ class InMemoryLedger(
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
-  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
-    Future.successful(this.synchronized {
-      contractIds.foldLeft[Instant](Instant.EPOCH)((acc, id) => {
-        val let = acs.activeContracts
-          .getOrElse(id, sys.error(s"Contract $id not found while looking for maximum ledger time"))
-          .let
-        if (let.isAfter(acc)) let else acc
-      })
-    })
-
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    Future.successful(this.synchronized[Unit] {
-      entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))
-      ()
-    })
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId]): Future[Option[Instant]] =
+    if (contractIds.isEmpty) {
+      Future.failed(
+        new IllegalArgumentException(
+          "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
+        )
+      )
+    } else {
+      Future.fromTry(Try(this.synchronized {
+        contractIds.foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
+          val let = acs.activeContracts
+            .getOrElse(
+              id,
+              sys.error(s"Contract $id not found while looking for maximum ledger time"))
+            .let
+          acc.map(acc => if (let.isAfter(acc)) let else acc)
+        })
+      }))
+    }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -227,6 +284,16 @@ class InMemoryLedger(
       }
     )
 
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
+    ledgerConfiguration
+      .fold[Either[String, Unit]](
+        Left("No ledger configuration available, cannot validate ledger time")
+      )(
+        config => config.timeModel.checkTime(ledgerTime, recordTime)
+      )
+  }
+
   private def handleSuccessfulTx(
       transactionId: LedgerString,
       submitterInfo: SubmitterInfo,
@@ -234,14 +301,17 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Unit = {
     val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
-    val timeModel = ledgerConfiguration.get.timeModel
-    timeModel
-      .checkTime(ledgerTime, recordTime)
+    checkTimeModel(ledgerTime, recordTime)
       .fold(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
           val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-            Ledger.convertToCommittedTransaction(transactionId, transaction)
+            Ledger
+              .convertToCommittedTransaction(
+                transactionCommitter,
+                transactionId,
+                transaction,
+              )
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,
@@ -281,6 +351,7 @@ class InMemoryLedger(
 
   private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
+    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.submitter)
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(
@@ -481,26 +552,29 @@ class InMemoryLedger(
         case (offset, InMemoryConfigEntry(entry)) => offset -> entry
       }
 
+  private def deduplicationKey(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): String = commandId.unwrap + "%" + submitter
+
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     Future.successful {
       this.synchronized {
-        val entry = commands.get(deduplicationKey)
+        val key = deduplicationKey(commandId, submitter)
+        val entry = commands.get(key)
         if (entry.isEmpty) {
           // No previous entry - new command
-          commands += (deduplicationKey -> CommandDeduplicationEntry(
-            deduplicationKey,
-            deduplicateUntil))
+          commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
           CommandDeduplicationNew
         } else {
           val previousDeduplicateUntil = entry.get.deduplicateUntil
           if (submittedAt.isAfter(previousDeduplicateUntil)) {
             // Previous entry expired - new command
-            commands += (deduplicationKey -> CommandDeduplicationEntry(
-              deduplicationKey,
-              deduplicateUntil))
+            commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
             CommandDeduplicationNew
           } else {
             // Existing previous entry - deduplicate command
@@ -514,6 +588,15 @@ class InMemoryLedger(
     Future.successful {
       this.synchronized {
         commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime))
+        ()
+      }
+    }
+
+  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
+    Future.successful {
+      val key = deduplicationKey(commandId, submitter)
+      this.synchronized {
+        commands.remove(key)
         ()
       }
     }

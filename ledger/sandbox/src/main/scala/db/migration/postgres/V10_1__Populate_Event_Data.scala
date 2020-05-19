@@ -8,12 +8,12 @@ package db.migration.postgres
 import java.sql.Connection
 
 import anorm.{BatchSql, NamedParameter}
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.EventId
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.serialization.TransactionSerializer
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.EventId
+import com.daml.platform.store.Conversions._
+import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V10_1__Populate_Event_Data extends BaseJavaMigration {
@@ -55,7 +55,7 @@ class V10_1__Populate_Event_Data extends BaseJavaMigration {
     val data = txs.flatMap {
       case (txId, tx) =>
         tx.nodes.collect {
-          case (eventId, NodeCreate(nodeSeed @ _, cid, _, _, signatories, stakeholders, _)) =>
+          case (eventId, NodeCreate(cid, _, _, signatories, stakeholders, _)) =>
             (cid, eventId, signatories, stakeholders -- signatories)
         }
     }

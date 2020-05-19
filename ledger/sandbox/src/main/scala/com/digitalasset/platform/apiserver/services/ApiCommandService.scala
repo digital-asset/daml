@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
 import java.time.Instant
 
@@ -9,35 +9,34 @@ import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.api.util.TimeProvider
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
-import com.digitalasset.ledger.api.v1.command_service._
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
   GetTransactionResponse
 }
-import com.digitalasset.ledger.client.services.commands.{
-  CommandCompletionSource,
-  CommandTrackerFlow
-}
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.services.ApiCommandService._
-import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
-import com.digitalasset.platform.server.api.ApiException
-import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
-import com.digitalasset.util.Ctx
-import com.digitalasset.util.akkastreams.MaxInFlight
+import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
+import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.ApiCommandService._
+import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
+import com.daml.platform.server.api.ApiException
+import com.daml.platform.server.api.services.grpc.GrpcCommandService
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import scalaz.syntax.tag._
@@ -49,6 +48,7 @@ import scala.util.Try
 final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
+    ledgerConfigProvider: LedgerConfigProvider,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
@@ -79,7 +79,9 @@ final class ApiCommandService private (
       logging.commandId(request.getCommands.commandId),
       logging.party(request.getCommands.party)) { implicit logCtx =>
       if (running) {
-        track(request)
+        ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
+          Future.failed(ErrorFactories.missingLedgerConfig()))(ledgerConfig =>
+          track(request, ledgerConfig))
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down.")))
@@ -87,7 +89,9 @@ final class ApiCommandService private (
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def track(request: SubmitAndWaitRequest): Future[Completion] = {
+  private def track(
+      request: SubmitAndWaitRequest,
+      ledgerConfig: LedgerConfiguration): Future[Completion] = {
     val appId = request.getCommands.applicationId
     val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
     submissionTracker.track(submitter, request) {
@@ -106,7 +110,7 @@ final class ApiCommandService private (
                   Some(offset)))
               .mapConcat(CommandCompletionSource.toStreamElements),
           ledgerEnd,
-          () => configuration.maxDeduplicationTime
+          () => ledgerConfig.maxDeduplicationTime
         )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
@@ -160,6 +164,7 @@ object ApiCommandService {
       configuration: Configuration,
       services: LocalServices,
       timeProvider: TimeProvider,
+      ledgerConfigProvider: LedgerConfigProvider,
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
@@ -167,22 +172,20 @@ object ApiCommandService {
       logCtx: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
-      new ApiCommandService(services, configuration),
+      new ApiCommandService(services, configuration, ledgerConfigProvider),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime = () => configuration.maxDeduplicationTime,
+      maxDeduplicationTime =
+        () => ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
     )
 
   final case class Configuration(
       ledgerId: LedgerId,
       inputBufferSize: Int,
-      maxParallelSubmissions: Int,
       maxCommandsInFlight: Int,
       limitMaxCommandsInFlight: Boolean,
       retentionPeriod: FiniteDuration,
-      // TODO(RA): this should be updated dynamically from the ledger configuration
-      maxDeduplicationTime: java.time.Duration,
   )
 
   final case class LocalServices(

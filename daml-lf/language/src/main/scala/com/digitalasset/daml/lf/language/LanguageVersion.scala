@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
@@ -72,16 +72,6 @@ object LanguageVersion {
       * feature flag once the decision to add them permanently has been made.
       */
     val unstable = v1_dev
-
-    /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
-      * compatibility, we introduce a new DAML-LF version where this restriction is in
-      * place, and then:
-      * * When committing a scenario, we check that the scenario code is at least of that
-      * version;
-      * * When executing a Ledger API command, we check that the template underpinning
-      * said command is at least of that version.
-      */
-    val checkSubmitterInMaintainersVersion = v1_dev
 
   }
 }

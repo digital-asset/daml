@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
 import data.ImmArray
@@ -33,7 +33,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
     "pick version 2 when confronted with newer data" in {
       val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
+        ValueOptional(Some(v)): Value[Value.ContractId])
       assignVersion(assignValueVersions(usingOptional)) shouldBe maxVersion(
         minOutputVersion,
         TransactionVersion("2"))
@@ -41,7 +41,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
     "pick version 7 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
+        ValueOptional(Some(v)): Value[Value.ContractId])
       assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
         minOutputVersion,
         TransactionVersion("7"))
@@ -49,7 +49,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
     "pick version 2 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
+        ValueOptional(Some(v)): Value[Value.ContractId])
       assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
         minOutputVersion,
         TransactionVersion("2"))
@@ -66,15 +66,19 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 }
 
 object TransactionVersionSpec {
-  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
-  private[this] val singleId = "a"
+
+  import TransactionSpec._
+
+  private[this] val singleId = Value.NodeId(0)
   private val dummyCreateTransaction =
-    StringTransaction(HashMap(singleId -> dummyCreateNode), ImmArray(singleId))
+    mkTransaction(HashMap(singleId -> dummyCreateNode("cid1")), ImmArray(singleId))
   private val dummyExerciseWithResultTransaction =
-    StringTransaction(HashMap(singleId -> dummyExerciseNode(ImmArray.empty)), ImmArray(singleId))
+    mkTransaction(
+      HashMap(singleId -> dummyExerciseNode("cid2", ImmArray.empty)),
+      ImmArray(singleId))
   private val dummyExerciseTransaction =
-    StringTransaction(
-      HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
+    mkTransaction(
+      HashMap(singleId -> dummyExerciseNode("cid3", ImmArray.empty, false)),
       ImmArray(singleId),
     )
 

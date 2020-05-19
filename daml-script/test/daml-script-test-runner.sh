@@ -21,7 +21,7 @@ GREP=$4
 SORT=$5
 
 set +e
-TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE 2>&1)"
+TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
 TEST_RESULT=$?
 set -e
 
@@ -40,7 +40,7 @@ EXPECTED="$($SORT <<'EOF'
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
 ScriptExample:test SUCCESS
-ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS
@@ -52,6 +52,8 @@ ScriptTest:traceOrder SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
 ScriptExample:initializeFixed SUCCESS
+ScriptTest:testStack SUCCESS
+ScriptTest:testMaxInboundMessageSize SUCCESS
 EOF
 )"
 

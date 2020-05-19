@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.VersionedValue
-import com.digitalasset.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.{Value, ValueVersion}
 
 final case class TransactionVersion(protoValue: String)
 

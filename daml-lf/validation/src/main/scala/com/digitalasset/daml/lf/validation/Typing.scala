@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.validation.AlphaEquiv._
-import com.digitalasset.daml.lf.validation.Util._
-import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.data.{ImmArray, Numeric}
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.validation.AlphaEquiv._
+import com.daml.lf.validation.Util._
+import com.daml.lf.validation.traversable.TypeTraversable
 
 import scala.annotation.tailrec
 
@@ -19,7 +19,7 @@ private[validation] object Typing {
   /* Typing */
 
   private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
-    (Set.empty[A] /: xs)((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
+    (xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
     ()
   }
 
@@ -343,7 +343,8 @@ private[validation] object Typing {
           if (supportsFlexibleControllers) {
             introExprVar(param, paramType).checkExpr(controllers, TParties)
           } else {
-            param.filter(eVars.isDefinedAt).foreach(x => throw EIllegalShadowingExprVar(ctx, x))
+            if (eVars.isDefinedAt(param))
+              throw EIllegalShadowingExprVar(ctx, param)
             checkExpr(controllers, TParties)
           }
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
@@ -610,6 +611,8 @@ private[validation] object Typing {
         }
 
       case CPCons(headVar, tailVar) =>
+        if (headVar == tailVar)
+          throw EClashingPatternVariables(ctx, headVar)
         scrutType match {
           case TList(elemType) =>
             introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))

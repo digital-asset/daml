@@ -9,8 +9,8 @@ load(
 da_scala_binary(
     name = "repl",
     srcs = glob(["src/main/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.speedy.testing.Main",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-repl:__VERSION__"],
+    main_class = "com.daml.lf.speedy.testing.Main",
+    tags = ["maven_coordinates=com.daml:daml-lf-repl:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",

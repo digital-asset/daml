@@ -1,33 +1,40 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
-import com.digitalasset.ledger.api.health.ReportsHealth
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
-import com.digitalasset.platform.store.entries.{
+import com.daml.ledger.participant.state.v1.{
+  CommittedTransaction,
+  Configuration,
+  DivulgedContract,
+  Offset,
+  ParticipantId,
+  RejectionReason,
+  SubmitterInfo,
+  TransactionId
+}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.WorkflowId
+import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.health.ReportsHealth
+import com.daml.platform.store.dao.events.TransactionsReader
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{LedgerSnapshot, PersistenceEntry}
 
-import scala.collection.immutable
 import scala.concurrent.Future
 
 trait LedgerReadDao extends ReportsHealth {
@@ -51,7 +58,7 @@ trait LedgerReadDao extends ReportsHealth {
   /** Returns the largest ledger time of any of the given contracts */
   def lookupMaximumLedgerTime(
       contractIds: Set[AbsoluteContractId],
-  ): Future[Instant]
+  ): Future[Option[Instant]]
 
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]]
@@ -61,26 +68,7 @@ trait LedgerReadDao extends ReportsHealth {
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed]
 
-  /**
-    * Looks up a LedgerEntry at a given offset
-    *
-    * @param offset the offset to look at
-    * @return the optional LedgerEntry found
-    */
-  def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]]
-
   def transactionsReader: TransactionsReader
-
-  /**
-    * Looks up a LedgerEntry at a given offset
-    *
-    * @param offset the offset to look at
-    * @return the LedgerEntry found, or throws an exception
-    */
-  def lookupLedgerEntryAssert(offset: Offset): Future[LedgerEntry] = {
-    lookupLedgerEntry(offset).map(
-      _.getOrElse(sys.error(s"ledger entry not found for offset: $offset")))(DirectExecutionContext)
-  }
 
   /**
     * Looks up a Contract given a contract key and a party
@@ -90,24 +78,6 @@ trait LedgerReadDao extends ReportsHealth {
     * @return the optional AbsoluteContractId
     */
   def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
-
-  /**
-    * Returns a stream of ledger entries
-    *
-    * @return a stream of ledger entries tupled with their offset
-    */
-  def getLedgerEntries(
-      startExclusive: Offset,
-      endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed]
-
-  /**
-    * Returns a snapshot of the ledger.
-    * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
-    */
-  def getActiveContractSnapshot(
-      endInclusive: Offset,
-      filter: TransactionFilter
-  ): Future[LedgerSnapshot]
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
@@ -133,17 +103,19 @@ trait LedgerReadDao extends ReportsHealth {
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed]
 
-  def completions: CommandCompletionsReader[Offset]
+  def completions: CommandCompletionsReader
 
   /** Deduplicates commands.
     *
-    * @param deduplicationKey The key used to deduplicate commands
+    * @param commandId The command Id
+    * @param submitter The submitting party
     * @param submittedAt The time when the command was submitted
     * @param deduplicateUntil The time until which the command should be deduplicated
     * @return whether the command is a duplicate or not
     */
   def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 
@@ -161,6 +133,22 @@ trait LedgerReadDao extends ReportsHealth {
   def removeExpiredDeduplicationData(
       currentTime: Instant,
   ): Future[Unit]
+
+  /**
+    * Stops deduplicating the given command. This method should be called after
+    * a command is rejected by the submission service, or after a transaction is
+    * rejected by the ledger. Without removing deduplication entries for failed
+    * commands, applications would have to wait for the end of the (long) deduplication
+    * window before they could send a retry.
+    *
+    * @param commandId The command Id
+    * @param submitter The submitting party
+    * @return
+    */
+  def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit]
 }
 
 trait LedgerWriteDao extends ReportsHealth {
@@ -174,27 +162,33 @@ trait LedgerWriteDao extends ReportsHealth {
     */
   def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit]
 
-  /**
-    * Stores a ledger entry. The ledger end gets updated as well in the same transaction.
-    * WARNING: this code cannot be run concurrently on subsequent entry persistence operations!
-    *
-    * @param offset       the offset to store the ledger entry
-    * @param ledgerEntry  the LedgerEntry to be stored
-    * @return Ok when the operation was successful otherwise a Duplicate
-    */
-  def storeLedgerEntry(offset: Offset, ledgerEntry: PersistenceEntry): Future[PersistenceResponse]
+  def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      recordTime: Instant,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulged: Iterable[DivulgedContract],
+  ): Future[PersistenceResponse]
+
+  def storeRejection(
+      submitterInfo: Option[SubmitterInfo],
+      recordTime: Instant,
+      offset: Offset,
+      reason: RejectionReason,
+  ): Future[PersistenceResponse]
 
   /**
     * Stores the initial ledger state, e.g., computed by the scenario loader.
     * Must be called at most once, before any call to storeLedgerEntry.
     *
-    * @param activeContracts the active contract set
     * @param ledgerEntries the list of LedgerEntries to save
     * @return Ok when the operation was successful
     */
   def storeInitialState(
-      activeContracts: immutable.Seq[ActiveContract],
-      ledgerEntries: immutable.Seq[(Offset, LedgerEntry)],
+      ledgerEntries: Vector[(Offset, LedgerEntry)],
       newLedgerEnd: Offset
   ): Future[Unit]
 
@@ -230,8 +224,6 @@ trait LedgerWriteDao extends ReportsHealth {
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
-
-  def transactionsWriter: TransactionsWriter
 
 }
 

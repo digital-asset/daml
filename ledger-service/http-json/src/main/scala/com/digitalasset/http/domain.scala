@@ -1,16 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.http.util.ClientUtil.boxedRecord
-import com.digitalasset.http.util.LedgerOffsetUtil
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.lf
+import com.daml.lf.data.Ref
+import com.daml.lf.iface
+import com.daml.http.util.ClientUtil.boxedRecord
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
@@ -24,6 +23,7 @@ import scalaz.{
   Applicative,
   Bitraverse,
   NonEmptyList,
+  OneAnd,
   Semigroup,
   Show,
   Tag,
@@ -50,7 +50,7 @@ object domain {
 
   type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
-  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: Party)
+  case class JwtPayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
@@ -92,7 +92,7 @@ object domain {
   )
 
   case class GetActiveContractsRequest(
-      templateIds: Set[TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
   )
 
@@ -136,7 +136,7 @@ object domain {
   )
 
   object PartyDetails {
-    def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
+    def fromLedgerApi(p: com.daml.ledger.api.domain.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
   }
 
@@ -161,14 +161,18 @@ object domain {
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
 
-    implicit val ordering: Ordering[Offset] =
-      Ordering.by(LedgerOffsetUtil.parseOffsetString _ compose unwrap)(
-        LedgerOffsetUtil.LongEitherLongLongOrdering)
-
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
   }
 
   final case class StartingOffset(offset: Offset)
+
+  type LedgerIdTag = lar.LedgerIdTag
+  type LedgerId = lar.LedgerId
+  val LedgerId = lar.LedgerId
+
+  type ApplicationIdTag = lar.ApplicationIdTag
+  type ApplicationId = lar.ApplicationId
+  val ApplicationId = lar.ApplicationId
 
   type Choice = lar.Choice
   val Choice = lar.Choice
@@ -553,32 +557,41 @@ object domain {
     }
   }
 
-  sealed abstract class ServiceResponse extends Product with Serializable
+  sealed abstract class SyncResponse[+R] extends Product with Serializable {
+    def status: StatusCode
+  }
 
-  final case class OkResponse[R, W](
+  final case class OkResponse[+R](
       result: R,
-      warnings: Option[W] = Option.empty[W],
+      warnings: Option[ServiceWarning] = None,
       status: StatusCode = StatusCodes.OK,
-  ) extends ServiceResponse
+  ) extends SyncResponse[R]
 
-  final case class ErrorResponse[E](errors: E, status: StatusCode) extends ServiceResponse
+  final case class ErrorResponse(
+      errors: List[String],
+      warnings: Option[ServiceWarning],
+      status: StatusCode,
+  ) extends SyncResponse[Nothing]
 
   object OkResponse {
-    implicit val covariant: Bitraverse[OkResponse] = new Bitraverse[OkResponse] {
-      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: OkResponse[A, B],
-      )(f: A => G[C], g: B => G[D]): G[OkResponse[C, D]] = {
-        import scalaz.syntax.applicative._
-        ^(f(fab.result), fab.warnings.traverse(g))((c, d) => fab.copy(result = c, warnings = d))
-      }
+    implicit val covariant: Traverse[OkResponse] = new Traverse[OkResponse] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: OkResponse[A])(
+          f: A => G[B]): G[OkResponse[B]] =
+        f(fa.result).map(b => fa.copy(result = b))
     }
   }
 
-  object ErrorResponse {
-    implicit val traverseInstance: Traverse[ErrorResponse] = new Traverse[ErrorResponse] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ErrorResponse[A])(
-          f: A => G[B],
-      ): G[ErrorResponse[B]] = f(fa.errors).map(b => fa.copy(errors = b))
+  object SyncResponse {
+    implicit val covariant: Traverse[SyncResponse] = new Traverse[SyncResponse] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: SyncResponse[A])(
+          f: A => G[B]): G[SyncResponse[B]] = {
+        import scalaz.syntax.functor._
+        val G = implicitly[Applicative[G]]
+        fa match {
+          case err: ErrorResponse => G.point[SyncResponse[B]](err)
+          case ok: OkResponse[A] => OkResponse.covariant.traverse(ok)(f).widen
+        }
+      }
     }
   }
 
@@ -589,5 +602,6 @@ object domain {
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
 
-  final case class WarningsWrapper(warnings: ServiceWarning)
+  // It wraps warnings in the streaming API.. TODO(Leo): define AsyncResponse ADT
+  final case class AsyncWarningsWrapper(warnings: ServiceWarning)
 }

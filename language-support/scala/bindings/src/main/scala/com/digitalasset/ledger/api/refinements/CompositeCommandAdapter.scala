@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.refinements
+package com.daml.ledger.api.refinements
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId}
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId}
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
 import scalaz.syntax.tag._
 
 class CompositeCommandAdapter(

@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.command._
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{Node => N, Transaction => Tx}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value._
+import com.daml.lf.command._
 import org.scalameter
 import org.scalameter.Quantity
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -26,7 +26,7 @@ import scala.language.implicitConversions
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private def hash(s: String, i: Int) =
-    Some(crypto.Hash.hashPrivateKey(s + ":" + i.toString))
+    crypto.Hash.hashPrivateKey(s + ":" + i.toString)
 
   private val participant = Ref.ParticipantId.assertFromString("participant")
 
@@ -92,9 +92,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionOneContract:create", txSize))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+      case N.NodeCreate(x: RelativeContractId, _, _, _, _, _) =>
         AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
-      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
+      case N.NodeCreate(x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
@@ -121,9 +121,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionManySmallContracts:create", num))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+      case N.NodeCreate(x: RelativeContractId, _, _, _, _, _) =>
         AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
-      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
+      case N.NodeCreate(x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
@@ -150,9 +150,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create ListUtil",
         seed = hash("testLargeChoiceArgument:create", size))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+      case N.NodeCreate(x: RelativeContractId, _, _, _, _, _) =>
         AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
-      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
+      case N.NodeCreate(x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
@@ -195,7 +195,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       }
 
     newContracts.count {
-      case N.NodeCreate(_, _, _, _, _, _, _) => true
+      case N.NodeCreate(_, _, _, _, _, _) => true
       case n @ _ => fail(s"Unexpected match: $n")
     } shouldBe expectedNumberOfContracts
   }
@@ -204,7 +204,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       submitter: Party,
       cmd: Command,
       cmdReference: String,
-      seed: Option[crypto.Hash]
+      seed: crypto.Hash
   ): Tx.Transaction = {
     engine
       .submit(
@@ -320,7 +320,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     }
 
     createNode match {
-      case N.NodeCreate(_, _, x: ContractInst[_], _, _, _, _) => x
+      case N.NodeCreate(_, x: ContractInst[_], _, _, _, _) => x
       case n @ _ => fail(s"Unexpected match: $n")
     }
   }

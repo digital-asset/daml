@@ -9,17 +9,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Update
-import com.digitalasset.daml.lf.command.{
-  Command,
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseCommand
-}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
+import com.daml.lf.command.{Command, CreateAndExerciseCommand, CreateCommand, ExerciseCommand}
+import com.daml.lf.crypto
+import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
+import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{
   AbsoluteContractId,
   ValueList,
   ValueOptional,
@@ -125,7 +120,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
       for {
         transaction1 <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
         result <- submitTransaction(
@@ -269,15 +264,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
-        metricRegistry
-          .counter("daml.kvutils.committer.transaction.accepts")
-          .getCount should be >= 1L
-        metricRegistry
-          .counter(s"daml.kvutils.committer.transaction.rejections_${disputed.name}")
-          .getCount should be >= 1L
-        metricRegistry
-          .timer("daml.kvutils.committer.transaction.run_timer")
-          .getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L
+        metrics.daml.kvutils.committer.runTimer("transaction").getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.interpretTimer.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.runTimer.getCount should be >= 1L
       }
     }
 
@@ -288,7 +279,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seeds =
         Stream
           .from(0)
-          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+          .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
 
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
@@ -347,5 +338,5 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
   }
 
-  private def hash(s: String) = Some(crypto.Hash.hashPrivateKey(s))
+  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 }

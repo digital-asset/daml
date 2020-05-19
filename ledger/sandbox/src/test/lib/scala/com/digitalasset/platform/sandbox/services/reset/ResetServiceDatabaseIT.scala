@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.reset
+package com.daml.platform.sandbox.services.reset
 
 import java.sql.{Connection, DriverManager}
 
 import anorm.SqlParser._
 import anorm.{SQL, SqlStringInterpolation}
-import com.digitalasset.ledger.api.testing.utils.MockMessages
-import com.digitalasset.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
-import com.digitalasset.platform.sandbox.services.{DbInfo, SandboxFixture}
-import com.digitalasset.platform.store.DbType
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.testing.utils.MockMessages
+import com.daml.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
+import com.daml.platform.sandbox.services.{DbInfo, SandboxFixture}
+import com.daml.platform.store.DbType
+import com.daml.resources.ResourceOwner
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -41,9 +41,7 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
         } yield {
 
           val expectedToHaveOneItem = Set(
-            "parameters", // a new set of parameters is stored at startup
-            "participant_command_completions", // using static time, one checkpoint is going to be saved
-            "ledger_entries" // using static time, one checkpoint is going to be saved
+            "parameters" // a new set of parameters is stored at startup
           )
 
           for ((table, count) <- counts if expectedToHaveOneItem(table)) {

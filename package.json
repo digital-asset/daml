@@ -30,8 +30,8 @@
     "url": "^0.11.0"
   },
   "devDependencies": {
-    "@bazel/bazel": "0.29.0",
-    "@bazel/hide-bazel-files": "1.1.0",
-    "@bazel/typescript": "1.1.0"
+    "@bazel/bazel": "2.1.0",
+    "@bazel/hide-bazel-files": "1.6.0",
+    "@bazel/typescript": "1.6.0"
   }
 }

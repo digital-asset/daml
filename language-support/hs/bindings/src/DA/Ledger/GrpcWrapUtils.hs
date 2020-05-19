@@ -15,7 +15,7 @@ module DA.Ledger.GrpcWrapUtils (
 
 import Prelude hiding (fail)
 
-import Com.Digitalasset.Ledger.Api.V1.TraceContext (TraceContext)
+import Com.Daml.Ledger.Api.V1.TraceContext (TraceContext)
 import Control.Exception (throwIO)
 import Control.Monad.Fail (fail)
 import Control.Monad.Fix (fix)

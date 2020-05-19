@@ -3,24 +3,20 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.codahale.metrics.{Counter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   buildTimestamp,
   partyAllocationDedupKey
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
+import com.daml.lf.data.Ref
+import com.daml.metrics.Metrics
 
 private[kvutils] class PartyAllocationCommitter(
-    override protected val metricRegistry: MetricRegistry,
+    override protected val metrics: Metrics,
 ) extends Committer[DamlPartyAllocationEntry, DamlPartyAllocationEntry.Builder] {
 
   override protected val committerName = "party_allocation"
-
-  private object Metrics {
-    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
-  }
 
   private def rejectionTraceLog(
       msg: String,
@@ -101,7 +97,7 @@ private[kvutils] class PartyAllocationCommitter(
     val party = partyAllocationEntry.getParty
     val partyKey = DamlStateKey.newBuilder.setParty(party).build
 
-    Metrics.accepts.inc()
+    metrics.daml.kvutils.committer.partyAllocation.accepts.inc()
     logger.trace(
       s"Party allocated, party=$party correlationId=${partyAllocationEntry.getSubmissionId}")
 
@@ -138,7 +134,7 @@ private[kvutils] class PartyAllocationCommitter(
       partyAllocationEntry: DamlPartyAllocationEntry.Builder,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): DamlLogEntry = {
-    Metrics.rejections.inc()
+    metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
       .setPartyAllocationRejectionEntry(

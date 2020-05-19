@@ -1,18 +1,15 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Redundant ==
--- @INFO Evaluate
--- @INFO Redundant ==
--- @INFO Evaluate
-
+-- @INFO range=12:12-12:32; Evaluate
+-- @INFO range=13:16-13:37; Evaluate
 
 module ShortCircuit where
 
 import DA.Action
 
 main = scenario do
-  assert $ (True || error "disj") == True
-  assert $ (False && error "conj") == False
+  assert $ (True || error "disj")
+  assert $ not (False && error "conj")
   when False (error "when")
   unless True (error "unless")

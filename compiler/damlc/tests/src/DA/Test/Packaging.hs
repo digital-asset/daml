@@ -10,6 +10,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Test.Process
 import DA.Test.Util
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
@@ -78,7 +79,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "  - daml-stdlib"
             ]
         buildProject projectA
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        assertFileExists aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
         writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
@@ -105,7 +106,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             -- the last option checks that module aliases work and modules imported without aliases
             -- are still exposed.
         buildProject projectB
-        assertBool "b.dar was not created." =<< doesFileExist bDar
+        assertFileExists bDar
     , testCaseSteps "Dependency on a package with source: A.daml" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -126,7 +127,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "  - daml-stdlib"
             ]
         buildProject projectA
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        assertFileExists aDar
         step "Creating project b..."
         createDirectoryIfMissing True projectB
         writeFileUTF8 (projectB </> "B.daml") $ unlines
@@ -144,7 +145,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "  - " <> aDar
             ]
         buildProject projectB
-        assertBool "b.dar was not created." =<< doesFileExist bDar
+        assertFileExists bDar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile bDar
         assertBool "b.dar contains source file from package database" $
             not $ any ("A.daml" `isSuffixOf`) darFiles
@@ -170,7 +171,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
-        assertBool "proj.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
 
@@ -200,7 +201,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             (\ _ -> buildProject projDir)
 
         let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
-        assertBool "proj.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         archive <- Zip.toArchive <$> BSL.readFile dar
         Just entry <- pure $ Zip.findEntryByPath "META-INF/MANIFEST.MF" archive
         let lines = BSL.Char8.lines (Zip.fromEntry entry)
@@ -226,7 +227,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         forM_ ["A.daml", "A.hi", "A.hie", "B.daml", "B.hi", "B.hie"] $ checkDarFile darFiles "."
     , testCase "Root source file in subdir" $ withTempDir $ \projDir -> do
@@ -250,7 +251,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         checkDarFile darFiles "A" "B.daml"
         checkDarFile darFiles "A" "B.hi"
@@ -274,7 +275,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         let allDalfFilesHavePkgId = and $ do
               fp <- darFiles
@@ -703,6 +704,64 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
           exitCode @?= ExitFailure 1
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
+
+    , testCaseSteps "data-dependencies + exposed-modules" $ \step -> withTempDir $ \projDir -> do
+          step "Building dependency"
+          createDirectoryIfMissing True (projDir </> "dependency")
+          writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dependency"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "exposed-modules: [B]"
+            ]
+          writeFileUTF8 (projDir </> "dependency" </> "A.daml") $ unlines
+            [ "module A where"
+            ]
+          writeFileUTF8 (projDir </> "dependency" </> "B.daml") $ unlines
+            [ "module B where"
+            , "class C a where f : a"
+            ]
+          withCurrentDirectory (projDir </> "dependency") $ callProcessSilent damlc ["build", "-o", "dependency.dar"]
+          step "Building data-dependency"
+          createDirectoryIfMissing True (projDir </> "data-dependency")
+          writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: data-dependency"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "data-dependency" </> "B.daml") $ unlines
+            [ "module B where"
+            , "class C a where f : a"
+            ]
+          writeFileUTF8 (projDir </> "data-dependency" </> "C.daml") $ unlines
+            [ "module C where"
+            , "import B"
+            , "data Foo = Foo"
+            , "instance C Foo where f = Foo"
+            ]
+          withCurrentDirectory (projDir </> "data-dependency") $ callProcessSilent damlc ["build", "-o", "data-dependency.dar"]
+          step "Building main"
+          createDirectoryIfMissing True (projDir </> "main")
+          writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "dependency" </> "dependency.dar") <> "]"
+            , "data-dependencies: [" <> show (projDir </> "data-dependency" </> "data-dependency.dar") <>  "]"
+            ]
+          writeFileUTF8 (projDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import \"dependency\" B"
+            , "import C"
+            , "foo : Foo"
+            , "foo = f"
+            ]
+          withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
     ] <>
     [ lfVersionTests damlc
     , dataDependencyTests tools
@@ -1182,7 +1241,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             ["--with-archive-choice" | withArchiveChoice ] <> ["simple-dalf-0.0.0.dalf"]
         withCurrentDirectory projDir $ callProcess damlc ["build", "--target=1.dev", "--generated-src"]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
     | withArchiveChoice <- [False, True]
     ] <>
@@ -1502,16 +1561,6 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             callProcessSilent damlc ["build"]
 
     ]
-
--- | Only displays stdout and stderr on errors
-callProcessSilent :: FilePath -> [String] -> IO ()
-callProcessSilent cmd args = do
-    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-    unless (exitCode == ExitSuccess) $ do
-      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-      hPutStrLn stderr $ unlines ["stdout:", out]
-      hPutStrLn stderr $ unlines ["stderr: ", err]
-      exitFailure
 
 -- | Check that the given file exists in the dar in the given directory.
 --

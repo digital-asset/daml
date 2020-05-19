@@ -193,7 +193,7 @@
     - warn: {lhs: intersectBy (==), rhs: intersect}
     - warn: {lhs: maximumBy compare, rhs: maximum}
     - warn: {lhs: minimumBy compare, rhs: minimum}
-    - warn: {lhs: nubBy (==), rhs: nub}
+    - warn: {lhs: dedupBy compare, rhs: dedup}
     - warn: {lhs: sortBy compare, rhs: sort}
     - warn: {lhs: unionBy (==), rhs: union}
 
@@ -392,13 +392,10 @@
 
     # MONAD LIST
 
-    - warn: {lhs: fmap unzip (mapA f x), rhs: DA.Action.mapAndUnzipM f x}
-    - warn: {lhs: sequence (zipWith f x y), rhs: DA.Action.zipWithM f x y}
-    - warn: {lhs: sequence_ (zipWith f x y), rhs: DA.Action.zipWithM_ f x y}
-    - warn: {lhs: sequence (replicate n x), rhs: DA.Action.replicateM n x}
-    - warn: {lhs: sequence_ (replicate n x), rhs: DA.Action.replicateM_ n x}
-    - warn: {lhs: mapA f (replicate n x), rhs: DA.Action.replicateM n (f x)}
-    - warn: {lhs: mapA_ f (replicate n x), rhs: DA.Action.replicateM_ n (f x)}
+    - warn: {lhs: sequence (replicate n x), rhs: DA.Action.replicateA n x}
+    - warn: {lhs: sequence_ (replicate n x), rhs: DA.Action.replicateA_ n x}
+    - warn: {lhs: mapA f (replicate n x), rhs: DA.Action.replicateA n (f x)}
+    - warn: {lhs: mapA_ f (replicate n x), rhs: DA.Action.replicateA_ n (f x)}
     - warn: {lhs: mapA f (map g x), rhs: mapA (f . g) x, name: Fuse mapA/map}
     - warn: {lhs: mapA_ f (map g x), rhs: mapA_ (f . g) x, name: Fuse mapA_/map}
     - warn: {lhs: traverse f (map g x), rhs: traverse (f . g) x, name: Fuse traverse/map}

@@ -8,13 +8,14 @@ import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.command.{Command, Commands}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.command.{Command, Commands}
+import com.daml.lf.crypto
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.Transaction
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.metrics.Metrics
 import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -22,7 +23,6 @@ import scalaz.syntax.traverse._
 import scala.collection.JavaConverters._
 
 final case class KVTestState(
-    engine: Engine,
     participantId: ParticipantId,
     recordTime: Timestamp,
     defaultConfig: Configuration,
@@ -38,14 +38,14 @@ object KVTest {
 
   private[this] val defaultAdditionalContractDataTy = "Party"
 
-  private[kvutils] val metricRegistry = new MetricRegistry
+  private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
-  private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
-  private[this] val keyValueSubmission = new KeyValueSubmission(metricRegistry)
+  private[this] val engine = Engine()
+  private[this] val keyValueCommitting = new KeyValueCommitting(engine, metrics)
+  private[this] val keyValueSubmission = new KeyValueSubmission(metrics)
 
   def initialTestState: KVTestState =
     KVTestState(
-      engine = Engine(),
       participantId = mkParticipantId(0),
       recordTime = Timestamp.Epoch.addMicros(1000000),
       defaultConfig = theDefaultConfig,
@@ -124,7 +124,6 @@ object KVTest {
       testState <- get[KVTestState]
       entryId <- freshEntryId
       (logEntry, newState) = keyValueCommitting.processSubmission(
-        engine = testState.engine,
         entryId = entryId,
         recordTime = testState.recordTime,
         defaultConfig = testState.defaultConfig,
@@ -164,13 +163,13 @@ object KVTest {
 
   def runCommand(
       submitter: Party,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       additionalContractDataTy: String,
       cmds: Command*,
   ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     for {
       s <- get[KVTestState]
-      (tx, meta) = s.engine
+      (tx, meta) = engine
         .submit(
           cmds = Commands(
             submitter = submitter,
@@ -199,7 +198,7 @@ object KVTest {
 
   def runSimpleCommand(
       submitter: Party,
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       cmds: Command*,
   ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
@@ -207,7 +206,7 @@ object KVTest {
   def submitTransaction(
       submitter: Party,
       transaction: (Transaction.AbsTransaction, Transaction.Metadata),
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
@@ -227,8 +226,10 @@ object KVTest {
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
           workflowId = None,
           submissionTime = txMetaData.submissionTime,
-          submissionSeed = submissionSeed,
-          optUsedPackages = Some(txMetaData.usedPackages)
+          submissionSeed = Some(submissionSeed),
+          optUsedPackages = Some(txMetaData.usedPackages),
+          optNodeSeeds = None,
+          optByKeyNodes = None,
         ),
         tx = tx
       )

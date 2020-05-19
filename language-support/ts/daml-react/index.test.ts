@@ -48,10 +48,10 @@ const mockStream = <T>(): [Stream <object, string, string, T>, EventEmitter] =>
   const stream =
     {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      on: (type: string, listener: (...args: any[]) => void) => emitter.on(type, listener),
+      on: (type: string, listener: (...args: any[]) => void): void => void emitter.on(type, listener),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      off: (type: string, listener: (...args: any[]) => void) => emitter.on(type, listener),
-      close: () => {
+      off: (type: string, listener: (...args: any[]) => void): void => void emitter.on(type, listener),
+      close: (): void => {
         emitter.removeAllListeners();
         console.log('mock stream closed');
       }
@@ -287,6 +287,44 @@ describe('useFetchByKey', () => {
 });
 
 describe('useStreamQuery', () => {
+  test('live event changes loading status', () => {
+    // setup
+    const query = 'foo-query';
+    const [stream, emitter] = mockStream();
+    mockStreamQuery.mockReturnValueOnce(stream);
+    const hookResult = renderDamlHook(() => useStreamQuery(Foo, () => ({query}), [query]));
+    expect(mockStreamQuery).toHaveBeenCalledTimes(1);
+    expect(mockStreamQuery).toHaveBeenLastCalledWith(Foo, {query});
+
+    // no events have been emitted.
+    expect(hookResult.result.current).toEqual({contracts: [], loading:true});
+
+    // live event
+    act(() =>
+      void emitter.emit('live', [])
+    );
+    expect(hookResult.result.current).toEqual({contracts: [], loading: false});
+  });
+
+  test('live event changes loading status', () => {
+    // setup
+    const query = 'foo-query';
+    const [stream, emitter] = mockStream();
+    mockStreamQuery.mockReturnValueOnce(stream);
+    const hookResult = renderDamlHook(() => useStreamQuery(Foo, () => ({query}), [query]));
+    expect(mockStreamQuery).toHaveBeenCalledTimes(1);
+    expect(mockStreamQuery).toHaveBeenLastCalledWith(Foo, {query});
+
+    // no events have been emitted.
+    expect(hookResult.result.current).toEqual({contracts: [], loading:true});
+
+    // live event
+    act(() =>
+      void emitter.emit('live', [])
+    );
+    expect(hookResult.result.current).toEqual({contracts: [], loading: false});
+  });
+
   test('empty stream', () => {
     // setup
     const query = 'foo-query';
@@ -295,7 +333,11 @@ describe('useStreamQuery', () => {
     const hookResult = renderDamlHook(() => useStreamQuery(Foo, () => ({query}), [query]));
     expect(mockStreamQuery).toHaveBeenCalledTimes(1);
     expect(mockStreamQuery).toHaveBeenLastCalledWith(Foo, {query});
-    expect(hookResult.result.current).toEqual({contracts: [], loading: false});
+
+    // live event
+    act(() =>
+      void emitter.emit('live', [])
+    );
 
     // no events have been emitted.
     expect(hookResult.result.current).toEqual({contracts: [], loading:false});
@@ -307,6 +349,7 @@ describe('useStreamQuery', () => {
     expect(hookResult.result.current).toEqual({contracts: [], loading: false});
   });
 
+
   test('new events', () => {
     // setup
     const query = 'foo-query';
@@ -316,6 +359,12 @@ describe('useStreamQuery', () => {
     expect(mockStreamQuery).toHaveBeenCalledTimes(1);
     expect(mockStreamQuery).toHaveBeenLastCalledWith(Foo, {query: query});
     expect(hookResult.result.current.contracts).toEqual([]);
+
+    // live event
+    act(() =>
+      void emitter.emit('live', [])
+    );
+
     expect(hookResult.result.current.loading).toBe(false);
 
     // one new event
@@ -341,6 +390,12 @@ describe('useStreamQuery', () => {
     })
     expect(mockStreamQuery).toHaveBeenCalledTimes(1);
     expect(mockStreamQuery).toHaveBeenLastCalledWith(Foo, {query: query1});
+
+    // live event
+    act(() =>
+      void emitter.emit('live', [])
+    );
+
     expect(result.current.queryResult).toEqual({contracts: [], loading: false});
 
     // new events
@@ -351,6 +406,9 @@ describe('useStreamQuery', () => {
     mockStreamQuery.mockClear();
     mockStreamQuery.mockReturnValueOnce(stream);
     act(() => result.current.setQuery(query2));
+    // live event
+    act(() => void emitter.emit('live', null));
+    // change event
     act(() => void emitter.emit('change', ['bar']));
     expect(mockStreamQuery).toHaveBeenCalledTimes(1);
     expect(mockStreamQuery).toHaveBeenLastCalledWith(Foo, {query: query2});

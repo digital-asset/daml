@@ -1,9 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
-import com.digitalasset.http.Generators.{
+import akka.http.scaladsl.model.StatusCodes
+import com.daml.http.Generators.{
   OptionalPackageIdGen,
   contractGen,
   contractLocatorGen,
@@ -15,18 +16,20 @@ import com.digitalasset.http.Generators.{
   genUnknownTemplateIds,
   genWarningsWrapper
 }
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.domain
+import com.daml.http.Statement.discard
+import com.daml.http.domain
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers, Succeeded}
+import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
 import scala.collection.breakOut
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class JsonProtocolTest
     extends FreeSpec
     with Matchers
@@ -124,19 +127,18 @@ class JsonProtocolTest
       }
     }
     "roundtrips" in forAll(genWarningsWrapper) { x =>
-      x.toJson.convertTo[domain.WarningsWrapper] === x
+      x.toJson.convertTo[domain.AsyncWarningsWrapper] === x
     }
   }
 
   "domain.OkResponse" - {
-    import scalaz.syntax.bifunctor._
 
     "response with warnings" in forAll(listOf(genDomainTemplateIdO(OptionalPackageIdGen))) {
       templateIds: List[domain.TemplateId.OptionalPkg] =>
-        val response: domain.OkResponse[Int, domain.ServiceWarning] =
+        val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
 
-        val responseJsVal: domain.OkResponse[JsValue, JsValue] = response.bimap(_.toJson, _.toJson)
+        val responseJsVal: domain.OkResponse[JsValue] = response.map(_.toJson)
 
         discard {
           responseJsVal.toJson shouldBe JsObject(
@@ -148,16 +150,31 @@ class JsonProtocolTest
     }
 
     "response without warnings" in forAll(identifier) { str =>
-      val response: domain.OkResponse[String, domain.ServiceWarning] =
+      val response: domain.OkResponse[String] =
         domain.OkResponse(result = str, warnings = None)
 
-      val responseJsVal: domain.OkResponse[JsValue, JsValue] = response.bimap(_.toJson, _.toJson)
+      val responseJsVal: domain.OkResponse[JsValue] = response.map(_.toJson)
 
       discard {
         responseJsVal.toJson shouldBe JsObject(
           "result" -> JsString(str),
           "status" -> JsNumber(200),
         )
+      }
+    }
+  }
+
+  "domain.SyncResponse" - {
+    "Ok response parsed" in {
+      import SprayJson.decode1
+
+      val str =
+        """{"warnings":{"unknownTemplateIds":["AAA:BBB"]},"result":[],"status":200}"""
+
+      inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
+        case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
+          warning shouldBe domain.UnknownTemplateIds(
+            List(domain.TemplateId(Option.empty[String], "AAA", "BBB")))
       }
     }
   }

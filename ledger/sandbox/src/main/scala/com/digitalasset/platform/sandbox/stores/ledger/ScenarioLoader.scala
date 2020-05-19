@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, VersionTimeline}
-import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
-import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.{CompiledPackages, crypto}
+import com.daml.lf.data._
+import com.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.{ScenarioRunner, Speedy}
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.types.Ledger.ScenarioTransactionId
+import com.daml.lf.types.{Ledger => L}
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.store.entries.LedgerEntry
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -56,8 +56,11 @@ object ScenarioLoader {
   def fromScenario(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
-    val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
+      scenario: String,
+      submissionSeed: crypto.Hash,
+  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
+    val (scenarioLedger, scenarioRef) =
+      buildScenarioLedger(packages, compiledPackages, scenario, submissionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
@@ -110,38 +113,37 @@ object ScenarioLoader {
   private def buildScenarioLedger(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String): (L.Ledger, Ref.DefinitionRef) = {
+      scenario: String,
+      submissionSeed: crypto.Hash,
+  ): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(Ref.DefinitionRef, LanguageVersion, Definition)] =
-      getCandidateScenarios(packages, scenarioQualName)
-    val (scenarioRef, scenarioLfVers, scenarioDef) =
-      identifyScenario(packages, scenario, candidateScenarios)
+    val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
+    val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioLfVers, scenarioExpr, compiledPackages)
+    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages, submissionSeed)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
   }
 
   private def getScenarioLedger(
       scenarioRef: Ref.DefinitionRef,
-      speedyMachine: Speedy.Machine): L.Ledger = {
-    ScenarioRunner(speedyMachine).run match {
+      speedyMachine: Speedy.Machine,
+  ): L.Ledger =
+    ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
-      case Right((_, _, l)) => l
+      case Right((_, _, l, _)) => l
     }
-  }
 
   private def getSpeedyMachine(
-      submissionVersion: LanguageVersion,
       scenarioExpr: Ast.Expr,
-      compiledPackages: CompiledPackages): Speedy.Machine = {
-    Speedy.Machine.newBuilder(compiledPackages) match {
+      compiledPackages: CompiledPackages,
+      submissionSeed: crypto.Hash,
+  ): Speedy.Machine =
+    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), submissionSeed) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
-      case Right(build) =>
-        build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), scenarioExpr)
+      case Right(build) => build(scenarioExpr)
     }
-  }
 
   private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
     scenarioDef match {
@@ -158,8 +160,8 @@ object ScenarioLoader {
   private def identifyScenario(
       packages: InMemoryPackageStore,
       scenario: String,
-      candidateScenarios: List[(Ref.DefinitionRef, LanguageVersion, Definition)])
-    : (Ref.DefinitionRef, LanguageVersion, Definition) = {
+      candidateScenarios: List[(Ref.DefinitionRef, Definition)])
+    : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
@@ -174,7 +176,7 @@ object ScenarioLoader {
   private def getCandidateScenarios(
       packages: InMemoryPackageStore,
       scenarioQualName: Ref.QualifiedName
-  ): List[(Ref.Identifier, LanguageVersion, Definition)] = {
+  ): List[(Ref.Identifier, Ast.Definition)] = {
     packages
       .listLfPackagesSync()
       .flatMap {
@@ -184,11 +186,7 @@ object ScenarioLoader {
             .getOrElse(sys.error(s"Listed package $packageId not found"))
           pkg.lookupIdentifier(scenarioQualName) match {
             case Right(x) =>
-              List(
-                (
-                  Ref.Identifier(packageId, scenarioQualName),
-                  pkg.modules(scenarioQualName.module).languageVersion,
-                  x))
+              List((Ref.Identifier(packageId, scenarioQualName) -> x))
             case Left(_) => List()
           }
       }(breakOut)

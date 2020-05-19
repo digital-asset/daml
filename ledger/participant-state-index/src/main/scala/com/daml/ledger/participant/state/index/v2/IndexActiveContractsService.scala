@@ -3,17 +3,19 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.digitalasset.ledger.api.domain.TransactionFilter
-
-import scala.concurrent.Future
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.daml.ledger.api.domain.TransactionFilter
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 
 /**
   * Serves as a backend to implement
-  * [[com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService]]
+  * [[com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService]]
   **/
 trait IndexActiveContractsService {
 
-  def getActiveContractSetSnapshot(
-      filter: TransactionFilter
-  ): Future[ActiveContractSetSnapshot]
+  def getActiveContracts(
+      filter: TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed]
 }

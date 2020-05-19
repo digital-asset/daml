@@ -14,27 +14,23 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.RejectionReason
-import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.entries.LedgerEntry
-import com.digitalasset.platform.store.serialization.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
-import com.digitalasset.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.api.domain.RejectionReason._
+import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.entries.LedgerEntry
+import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
+import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
+import db.migration.translation.{ContractSerializer, TransactionSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -459,15 +455,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     ()
   }
 
-  private def storeCheckpoint(offset: Long, checkpoint: LedgerEntry.Checkpoint)(
-      implicit connection: Connection): Unit = {
-    SQL_INSERT_CHECKPOINT
-      .on("ledger_offset" -> offset, "recorded_at" -> checkpoint.recordedAt)
-      .execute()
-
-    ()
-  }
-
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
@@ -566,20 +553,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
         .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
-    case ParsedEntry(
-        "checkpoint",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(recordedAt),
-        None,
-        None,
-        None,
-        offset) =>
-      offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
     case invalidRow =>
       sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
   }
@@ -694,10 +667,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         lookupLedgerEntry(offset)
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
-            // Recover the original transaction that can be used as input to Blinding.blind.
-            // Here we do not convert absolute contract IDs back to relative ones,
-            // as this should not affect the blinding.
-            val toCoid: AbsoluteContractId => ContractId = identity
             val unmappedTx: Transaction.Transaction = tx.transaction
               .mapNodeId(EventIdFormatter.split(_).get.nodeId)
 

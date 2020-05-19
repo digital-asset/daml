@@ -4,28 +4,28 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.{Clock, Duration, Instant, LocalDate, ZoneOffset}
+import java.time.{Clock, Duration}
 import java.util.UUID
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.archive.DarReader
+import com.daml.lf.crypto
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.Metrics
+import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
@@ -55,15 +55,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
-  // This can be overriden by tests for those that don't support heartbeats.
-  protected val supportsHeartbeats: Boolean = true
-
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      heartbeats: Source[Instant, NotUsed],
-      metricRegistry: MetricRegistry,
+      metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -71,10 +67,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   private def newParticipantState(
       ledgerId: Option[LedgerId] = None,
-      heartbeats: Source[Instant, NotUsed] = Source.empty,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, heartbeats, new MetricRegistry)
+      participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
     }
 
   override protected def beforeEach(): Unit = {
@@ -473,7 +468,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           offset2 should be(toOffset(2))
           inside(update2) {
             case CommandRejected(_, _, reason) =>
-              reason should be(RejectionReason.PartyNotKnownOnLedger)
+              reason should be(a[RejectionReason.PartyNotKnownOnLedger])
           }
 
           offset3 should be(toOffset(3))
@@ -620,35 +615,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       }
     }
 
-    if (supportsHeartbeats) {
-      "emit heartbeats if a source is provided" in newLoggingContext { implicit logCtx =>
-        val start = LocalDate.of(2020, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant
-        val heartbeats =
-          Source
-            .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
-            // ensure this doesn't keep running forever, past the length of the test
-            // and make sure we correctly dispatch all events
-            .take(3)
-        newParticipantState(heartbeats = heartbeats)
-          .use { ps =>
-            for {
-              updates <- ps
-                .stateUpdates(beginAfter = None)
-                .idleTimeout(IdleTimeout)
-                .take(3)
-                .runWith(Sink.seq)
-            } yield {
-              updates.map(_._2) should be(
-                Seq(
-                  Update.Heartbeat(Timestamp.assertFromInstant(start)),
-                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(1))),
-                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(2))),
-                ))
-            }
-          }
-      }
-    }
-
     if (isPersistent) {
       "store the ledger ID and re-use it" in {
         val ledgerId = newLedgerId()
@@ -758,6 +724,8 @@ object ParticipantStateIntegrationSpecBase {
         crypto.Hash.assertFromString(
           "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
       optUsedPackages = Some(Set.empty),
+      optNodeSeeds = None,
+      optByKeyNodes = None,
     )
 
   private def matchPackageUpload(

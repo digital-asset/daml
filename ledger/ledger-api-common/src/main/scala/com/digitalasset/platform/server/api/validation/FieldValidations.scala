@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.validation
+package com.daml.platform.server.api.validation
 
 import java.time.Duration
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
 import scala.language.higherKinds
@@ -92,21 +92,24 @@ trait FieldValidations {
 
   def validateDeduplicationTime(
       durationO: Option[com.google.protobuf.duration.Duration],
-      maxDeduplicationTime: Duration,
-      fieldName: String): Either[StatusRuntimeException, Duration] = durationO match {
-    case None =>
-      Right(maxDeduplicationTime)
-    case Some(duration) =>
-      val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
-      if (result.isNegative)
-        Left(invalidField(fieldName, "Duration must be positive"))
-      else if (result.compareTo(maxDeduplicationTime) > 0)
-        Left(invalidField(
-          fieldName,
-          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
-      else
-        Right(result)
-  }
+      maxDeduplicationTimeO: Option[Duration],
+      fieldName: String): Either[StatusRuntimeException, Duration] =
+    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, Duration]](
+      Left(missingLedgerConfig()))(maxDeduplicationTime =>
+      durationO match {
+        case None =>
+          Right(maxDeduplicationTime)
+        case Some(duration) =>
+          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+          if (result.isNegative)
+            Left(invalidField(fieldName, "Duration must be positive"))
+          else if (result.compareTo(maxDeduplicationTime) > 0)
+            Left(invalidField(
+              fieldName,
+              s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+          else
+            Right(result)
+    })
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

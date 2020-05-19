@@ -17,11 +17,11 @@
         <appender-ref ref="FILE"/>
     </appender>
 
-    <appender name="MEM" class="com.digitalasset.platform.testing.LogCollector">
-        <test>com.digitalasset.platform.indexer.RecoveringIndexerSpec</test>
+    <appender name="MEM" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.indexer.RecoveringIndexerSpec</test>
     </appender>
 
-    <logger name="com.digitalasset.platform.indexer.RecoveringIndexer" level="INFO">
+    <logger name="com.daml.platform.indexer.RecoveringIndexer" level="INFO">
         <appender-ref ref="MEM" />
     </logger>
 

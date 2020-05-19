@@ -1,36 +1,52 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
-import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.ApiOffset
+import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * @param dispatcher Executes the queries prepared by this object
-  * @param executionContext Runs transformations on data fetched from the database
+  * @param executionContext Runs transformations on data fetched from the database, including DAML-LF value deserialization
   * @param pageSize The number of events to fetch at a time the database when serving streaming calls
   * @see [[PaginatingAsyncStream]]
   */
 private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
-    executionContext: ExecutionContext,
     pageSize: Int,
-) {
+    metrics: Metrics,
+)(implicit executionContext: ExecutionContext) {
+
+  private val dbMetrics = metrics.daml.index.db
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
+
+  private def offsetFor(response: GetTransactionTreesResponse): Offset =
+    ApiOffset.assertFromString(response.transactions.head.offset)
+
+  private def deserializeEvent[E](verbose: Boolean)(entry: EventsTable.Entry[Raw[E]]): Future[E] =
+    Future(entry.event.applyDeserialization(verbose))
+
+  private def deserializeEntry[E](verbose: Boolean)(
+      entry: EventsTable.Entry[Raw[E]],
+  ): Future[EventsTable.Entry[E]] =
+    deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
   def getFlatTransactions(
       startExclusive: Offset,
@@ -50,9 +66,15 @@ private[dao] final class TransactionsReader(
               rowOffset = offset,
             )
             .withFetchSize(Some(pageSize))
-        dispatcher.executeSql("get_flat_transactions") { implicit connection =>
-          query.asVectorOf(EventsTable.flatEventParser(verbose = verbose))
-        }
+        val rawEvents =
+          dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
+            query.asVectorOf(EventsTable.rawFlatEventParser)
+          }
+        Timed.future(
+          future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
+          timer = dbMetrics.getFlatTransactions.translationTimer,
+        )
+
       }
 
     groupContiguous(events)(by = _.transactionId)
@@ -69,12 +91,53 @@ private[dao] final class TransactionsReader(
     val query = EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
     dispatcher
       .executeSql(
-        description = "lookup_flat_transaction_by_id",
+        databaseMetrics = dbMetrics.lookupFlatTransactionById,
         extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
       ) { implicit connection =>
-        query.as(EventsTable.flatEventParser(verbose = true).*)
+        query.asVectorOf(EventsTable.rawFlatEventParser)
       }
-      .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
+      .flatMap(
+        rawEvents =>
+          Timed.value(
+            timer = dbMetrics.lookupFlatTransactionById.translationTimer,
+            value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
+        ))
+      .map(EventsTable.Entry.toGetFlatTransactionResponse)
+  }
+
+  def getTransactionTrees(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    val events =
+      PaginatingAsyncStream(pageSize) { offset =>
+        val query =
+          EventsTable
+            .preparePagedGetTransactionTrees(
+              startExclusive = startExclusive,
+              endInclusive = endInclusive,
+              requestingParties = requestingParties,
+              pageSize = pageSize,
+              rowOffset = offset,
+            )
+            .withFetchSize(Some(pageSize))
+        val rawEvents =
+          dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
+            query.asVectorOf(EventsTable.rawTreeEventParser)
+          }
+        Timed.future(
+          future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
+          timer = dbMetrics.getTransactionTrees.translationTimer,
+        )
+      }
+
+    groupContiguous(events)(by = _.transactionId)
+      .flatMapConcat { events =>
+        val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
+        Source(response.map(r => offsetFor(r) -> r))
+      }
   }
 
   def lookupTransactionTreeById(
@@ -84,12 +147,50 @@ private[dao] final class TransactionsReader(
     val query = EventsTable.prepareLookupTransactionTreeById(transactionId, requestingParties)
     dispatcher
       .executeSql(
-        description = "lookup_transaction_tree_by_id",
+        databaseMetrics = dbMetrics.lookupTransactionTreeById,
         extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
       ) { implicit connection =>
-        query.as(EventsTable.treeEventParser(verbose = true).*)
+        query.asVectorOf(EventsTable.rawTreeEventParser)
       }
-      .map(EventsTable.Entry.toTransactionTree)(executionContext)
+      .flatMap(
+        rawEvents =>
+          Timed.value(
+            timer = dbMetrics.lookupTransactionTreeById.translationTimer,
+            value = Future.traverse(rawEvents)(deserializeEntry(verbose = true))
+        ))
+      .map(EventsTable.Entry.toGetTransactionResponse)
+  }
+
+  def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] = {
+    val events =
+      PaginatingAsyncStream(pageSize) { offset =>
+        val query =
+          EventsTable
+            .preparePagedGetActiveContracts(
+              activeAt = activeAt,
+              filter = filter,
+              pageSize = pageSize,
+              rowOffset = offset,
+            )
+            .withFetchSize(Some(pageSize))
+        val rawEvents =
+          dispatcher.executeSql(dbMetrics.getActiveContracts) { implicit connection =>
+            query.asVectorOf(EventsTable.rawFlatEventParser)
+          }
+        Timed.future(
+          future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
+          timer = dbMetrics.getActiveContracts.translationTimer,
+        )
+      }
+
+    groupContiguous(events)(by = _.transactionId)
+      .flatMapConcat { events =>
+        Source(EventsTable.Entry.toGetActiveContractsResponse(events))
+      }
   }
 
 }

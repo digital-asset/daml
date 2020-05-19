@@ -3,9 +3,9 @@
 
 syntax = "proto3";
 
-package com.digitalasset.platform;
+package com.daml.platform;
 
-option java_package = "com.digitalasset.platform";
+option java_package = "com.daml.platform";
 
 
 message HelloRequest {

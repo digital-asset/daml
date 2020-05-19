@@ -197,7 +197,7 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
             help
                 (mconcat
                      [ "Path to the root of a project containing daml.yaml. "
-                     , "If unspecified this will use the DAML_PROJECT environment variable set by the assistant."
+                     , "If you use the assistant, you should set the DAML_PROJECT environment variable instead."
                      ])
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
                help "Check if running in DAML project."
@@ -268,6 +268,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optHaddock = Haddock False
     let optIncrementalBuild = IncrementalBuild False
     let optInferDependantPackages = InferDependantPackages True
+    let optEnableOfInterestRule = True
     optCppPath <- optCppPath
 
     return Options{..}

@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.{Bytes, Ref}
 
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
@@ -38,10 +38,17 @@ object CidMapper {
   type RelCidResolver[-A1, +A2] =
     CidMapper[A1, A2, Value.RelativeContractId, Ref.ContractIdString]
 
-  def trivialMapper[X, In, Out]: CidMapper[X, X, In, Out] =
-    new CidMapper[X, X, In, Out] {
-      override def map(f: In => Out): X => X = identity
+  type CidSuffixer[-A1, +A2] =
+    CidMapper[A1, A2, Value.ContractId, Value.AbsoluteContractId.V1]
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private val _trivialMapper: CidMapper[Any, Any, Nothing, Any] =
+    new CidMapper[Any, Any, Nothing, Any] {
+      override def map(f: Nothing => Any): Any => Any = identity
     }
+
+  def trivialMapper[X, In, Out]: CidMapper[X, X, In, Out] =
+    _trivialMapper.asInstanceOf[CidMapper[X, X, In, Out]]
 
   private[value] def basicMapperInstance[Cid1, Cid2]: CidMapper[Cid1, Cid2, Cid1, Cid2] =
     new CidMapper[Cid1, Cid2, Cid1, Cid2] {
@@ -93,6 +100,23 @@ trait CidContainer[+A] {
       case rcoid: Value.RelativeContractId => Left(rcoid)
     }(self)
 
+  // Sets the suffix of any the V1 AbsoluteContractId `coid` of the container that are not already suffixed.
+  // Uses `f(coid.discriminator)` as suffix.
+  final def suffixCid[B](f: crypto.Hash => Bytes)(
+      implicit suffixer: CidSuffixer[A, B]
+  ): Either[String, B] = {
+    suffixer.traverse[String] {
+      case Value.AbsoluteContractId.V1(discriminator, Bytes.Empty) =>
+        Value.AbsoluteContractId.V1.build(discriminator, f(discriminator))
+      case acoid @ Value.AbsoluteContractId.V1(_, _) =>
+        Right(acoid)
+      case acoid @ Value.AbsoluteContractId.V0(_) =>
+        Left(s"expect a Contract ID V1, found $acoid")
+      case rcoid @ Value.RelativeContractId(_) =>
+        Left(s"expect a Contract Id V1, found $rcoid")
+    }(self)
+  }
+
   final def assertNoRelCid[B](message: Value.ContractId => String)(
       implicit checker: NoRelCidChecker[A, B]
   ): B =
@@ -105,6 +129,8 @@ trait CidContainer1[F[_]] {
   import CidMapper._
 
   private[lf] def map1[A, B](f: A => B): F[A] => F[B]
+
+  private[lf] def foreach1[A](f: A => Unit): F[A] => Unit
 
   protected final def cidMapperInstance[A1, A2, In, Out](
       implicit mapper: CidMapper[A1, A2, In, Out]
@@ -123,6 +149,11 @@ trait CidContainer1[F[_]] {
       implicit checker1: NoRelCidChecker[A1, A2],
   ): NoRelCidChecker[F[A1], F[A2]] =
     cidMapperInstance[A1, A2, Value.ContractId, Value.AbsoluteContractId]
+
+  final implicit def cidSuffixerInstance[A1, A2](
+      implicit resolver1: CidSuffixer[A1, A2],
+  ): CidSuffixer[F[A1], F[A2]] =
+    cidMapperInstance
 
 }
 
@@ -147,6 +178,12 @@ trait CidContainer3[F[_, _, _]] {
       f3: C1 => C2,
   ): F[A1, B1, C1] => F[A2, B2, C2]
 
+  private[lf] def foreach3[A, B, C](
+      f1: A => Unit,
+      f2: B => Unit,
+      f3: C => Unit,
+  ): F[A, B, C] => Unit
+
   protected final def cidMapperInstance[A1, B1, C1, A2, B2, C2, In, Out](
       implicit mapper1: CidMapper[A1, A2, In, Out],
       mapper2: CidMapper[B1, B2, In, Out],
@@ -163,6 +200,13 @@ trait CidContainer3[F[_, _, _]] {
       checker2: NoRelCidChecker[B1, B2],
       checker3: NoRelCidChecker[C1, C2],
   ): NoRelCidChecker[F[A1, B1, C1], F[A2, B2, C2]] =
+    cidMapperInstance
+
+  final implicit def cidSuffixerInstance[A1, B1, C1, A2, B2, C2](
+      implicit suffixer1: CidSuffixer[A1, A2],
+      suffixer2: CidSuffixer[B1, B2],
+      suffixer3: CidSuffixer[C1, C2],
+  ): CidSuffixer[F[A1, B1, C1], F[A2, B2, C2]] =
     cidMapperInstance
 
 }

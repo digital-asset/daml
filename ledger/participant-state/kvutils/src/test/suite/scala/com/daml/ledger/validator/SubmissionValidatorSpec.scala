@@ -6,6 +6,7 @@ package com.daml.ledger.validator
 import java.time.Clock
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
@@ -13,7 +14,9 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
+import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
@@ -31,7 +34,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
-        metricRegistry = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
@@ -48,7 +51,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true,
-        metricRegistry = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
@@ -61,7 +64,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
-        metricRegistry = new MetricRegistry,
+        metrics = new Metrics(new MetricRegistry),
       )
       instance
         .validate(
@@ -95,7 +98,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
           new FakeStateAccess(mockStateOperations),
           failingProcessSubmission,
           allocateLogEntryId = () => aLogEntryId(),
-          metricRegistry = new MetricRegistry,
+          checkForMissingInputs = false,
+          stateValueCache = Cache.none,
+          metrics = new Metrics(new MetricRegistry),
         )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
@@ -118,11 +123,15 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
+      val metrics = new Metrics(new MetricRegistry)
       val instance = new SubmissionValidator(
-        new FakeStateAccess(mockStateOperations),
-        SubmissionValidator.processSubmission(new KeyValueCommitting(new MetricRegistry)),
-        mockLogEntryIdGenerator,
-        metricRegistry = new MetricRegistry,
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = SubmissionValidator
+          .processSubmission(new KeyValueCommitting(Engine(), metrics)),
+        allocateLogEntryId = mockLogEntryIdGenerator,
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = metrics,
       )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
@@ -153,10 +162,12 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
-        new FakeStateAccess(mockStateOperations),
-        (_, _, _, _, _) => logEntryAndStateResult,
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
-        metricRegistry = new MetricRegistry,
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = new Metrics(new MetricRegistry),
       )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
@@ -186,10 +197,13 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
-        new FakeStateAccess(mockStateOperations),
-        (_, _, _, _, _) => logEntryAndStateResult,
-        () => aLogEntryId(),
-        metricRegistry = new MetricRegistry)
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
+        allocateLogEntryId = () => aLogEntryId(),
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = new Metrics(new MetricRegistry),
+      )
       val batchEnvelope =
         Envelope.enclose(
           DamlSubmissionBatch.newBuilder
@@ -217,10 +231,13 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
-        new FakeStateAccess(mockStateOperations),
-        (_, _, _, _, _) => logEntryAndStateResult,
-        () => aLogEntryId(),
-        metricRegistry = new MetricRegistry)
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
+        allocateLogEntryId = () => aLogEntryId(),
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = new Metrics(new MetricRegistry),
+      )
       val batchEnvelope =
         Envelope.enclose(
           DamlSubmissionBatch.newBuilder
@@ -251,10 +268,13 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(99))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
-        new FakeStateAccess(mockStateOperations),
-        (_, _, _, _, _) => logEntryAndStateResult,
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
-        metricRegistry = new MetricRegistry)
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = new Metrics(new MetricRegistry),
+      )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {

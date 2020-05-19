@@ -91,6 +91,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger-service/lf-value-json",
         "//ledger-service/utils",
         "//ledger/ledger-api-client",
@@ -127,9 +128,9 @@ da_scala_library(
 
 da_scala_binary(
     name = "extractor-binary",
-    main_class = "com.digitalasset.extractor.Main",
+    main_class = "com.daml.extractor.Main",
     tags = [
-        "maven_coordinates=com.digitalasset:extractor:__VERSION__",
+        "maven_coordinates=com.daml:extractor:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],

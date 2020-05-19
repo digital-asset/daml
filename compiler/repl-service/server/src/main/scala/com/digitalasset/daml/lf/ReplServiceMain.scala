@@ -1,24 +1,24 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.repl
+package com.daml.lf.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.script._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.{Compiler, SValue, SExpr}
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.api.util.TimeProvider
+import com.daml.auth.TokenHolder
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
@@ -41,6 +41,7 @@ object ReplServiceMain extends App {
       ledgerHost: String,
       ledgerPort: Int,
       accessTokenFile: Option[Path],
+      maxInboundMessageSize: Int,
       tlsConfig: Option[TlsConfiguration],
   )
   object Config {
@@ -100,6 +101,12 @@ object ReplServiceMain extends App {
         .action((path, arguments) =>
           arguments.copy(tlsConfig =
             arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+
+      opt[Int]("max-inbound-message-size")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .optional()
+        .text(
+          s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
@@ -109,7 +116,9 @@ object ReplServiceMain extends App {
           ledgerHost = null,
           ledgerPort = 0,
           accessTokenFile = None,
-          tlsConfig = None)
+          tlsConfig = None,
+          maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+        )
       )
   }
 
@@ -137,7 +146,9 @@ object ReplServiceMain extends App {
     sslContext = config.tlsConfig.flatMap(_.client),
     token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),
   )
-  val clients = Await.result(Runner.connect(participantParams, clientConfig), 30.seconds)
+  val clients = Await.result(
+    Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize),
+    30.seconds)
 
   val server =
     NettyServerBuilder
@@ -172,7 +183,8 @@ class ReplService(
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     packages = packages + (pkgId -> pkg)
-    compiledDefinitions = compiledDefinitions ++ Compiler(packages).compilePackage(pkgId)
+    compiledDefinitions = compiledDefinitions ++ Compiler(packages, Compiler.NoProfile)
+      .unsafeCompilePackage(pkgId)
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
   }
@@ -201,26 +213,40 @@ class ReplService(
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
-        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
-      None)
+        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))))
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
 
     val allPkgs = packages + (homePackageId -> pkg)
-    val defs = Compiler(allPkgs).compilePackage(homePackageId)
-    val compiledPackages = PureCompiledPackages(allPkgs, compiledDefinitions ++ defs).right.get
+    val defs = Compiler(allPkgs, Compiler.NoProfile).unsafeCompilePackage(homePackageId)
+    val compiledPackages =
+      PureCompiledPackages(allPkgs, compiledDefinitions ++ defs, Compiler.NoProfile)
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
       TimeProvider.UTC)
     runner.runWithClients(clients).onComplete {
-      case Failure(e) => respObs.onError(e)
+      case Failure(e: SError.SError) =>
+        // The error here is already printed by the logger in stepToValue.
+        // No need to print anything here.
+        respObs.onError(e)
+      case Failure(e) =>
+        println(s"$e")
+        respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)
         respObs.onNext(RunScriptResponse.newBuilder.build)
         respObs.onCompleted
     }
+  }
+
+  override def clearResults(
+      req: ClearResultsRequest,
+      respObs: StreamObserver[ClearResultsResponse]): Unit = {
+    results = Seq()
+    respObs.onNext(ClearResultsResponse.newBuilder.build)
+    respObs.onCompleted
   }
 }

@@ -1,0 +1,23 @@
+diff --git a/haskell/private/cabal_wrapper.py.tpl b/haskell/private/cabal_wrapper.py.tpl
+index 81269cc7..35c24cf4 100755
+--- a/haskell/private/cabal_wrapper.py.tpl
++++ b/haskell/private/cabal_wrapper.py.tpl
+@@ -143,6 +143,18 @@ with tmpdir() as distdir:
+         "--with-hc-pkg=" + ghc_pkg,
+         "--with-ar=" + ar,
+         "--with-gcc=" + cc,
++        "--ghc-option=-pgmc=" + cc,
++        "--ghc-option=-pgma=" + cc,
++        "--ghc-option=-pgmP=" + cc,
++        "--ghc-option=-pgml=" + cc,
++        # Setting -pgm* flags explicitly has the unfortunate side effect
++        # of resetting any program flags in the GHC settings file. So we
++        # restore them here. See
++        # https://ghc.haskell.org/trac/ghc/ticket/7929.
++        "--ghc-option=-optc-fno-stack-protector",
++        "--ghc-option=-optP-E",
++        "--ghc-option=-optP-undef",
++        "--ghc-option=-optP-traditional",
+         "--with-strip=" + strip,
+         "--enable-deterministic", \
+         ] +

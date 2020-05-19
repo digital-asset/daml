@@ -5,7 +5,7 @@
 -- `NumericScale` constraint.
 --
 -- @SINCE-LF 1.7
--- @ERROR No instance for (NumericScale 38)
+-- @ERROR range=16:11-16:18; No instance for (NumericScale 38)
 
 
 

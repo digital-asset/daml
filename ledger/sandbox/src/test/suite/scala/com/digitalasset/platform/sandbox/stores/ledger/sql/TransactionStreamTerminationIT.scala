@@ -1,32 +1,29 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.sql
+package com.daml.platform.sandbox.stores.ledger.sql
 import java.time.{Duration => JDuration}
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{
-  SuiteResourceManagementAroundAll,
-  MockMessages => M
-}
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll, MockMessages => M}
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest
 }
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.ledger.client.services.admin.PartyManagementClient
-import com.digitalasset.ledger.client.services.commands.CommandClient
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.admin.PartyManagementClient
+import com.daml.ledger.client.services.commands.CommandClient
+import com.daml.ledger.client.services.transactions.TransactionClient
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}

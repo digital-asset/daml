@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.extractor.config.SnapshotEndSetting
-import com.digitalasset.extractor.services.ExtractorFixture
-import com.digitalasset.extractor.targets.TextPrintTarget
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.extractor.config.SnapshotEndSetting
+import com.daml.extractor.services.ExtractorFixture
+import com.daml.extractor.targets.TextPrintTarget
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.sandbox.config.SandboxConfig
 import org.scalatest._
 
 import scala.concurrent.Await

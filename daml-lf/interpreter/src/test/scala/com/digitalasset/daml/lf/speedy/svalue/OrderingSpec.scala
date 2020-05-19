@@ -1,17 +1,32 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy
+package svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
-import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.digitalasset.daml.lf.value.Value
-import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
+import com.daml.lf.crypto
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SExpr.SEImportValue
+import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.value.Value
+import com.daml.lf.value.TypedValueGenerators.genAddend
+import com.daml.lf.value.ValueGenerators.{absCoidV0Gen, comparableAbsCoidsGen}
+import com.daml.lf.PureCompiledPackages
+import org.scalacheck.Arbitrary
+import org.scalatest.prop.{
+  GeneratorDrivenPropertyChecks,
+  TableDrivenPropertyChecks,
+  TableFor1,
+  TableFor2
+}
 import org.scalatest.{Matchers, WordSpec}
+import scalaz.{Order, Tag}
+import scalaz.syntax.order._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -19,7 +34,11 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.util.Random
 
-class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class OrderingSpec
+    extends WordSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -311,7 +330,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(null, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {
@@ -420,7 +439,54 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   }
 
+  // A problem in this test *usually* indicates changes that need to be made
+  // in Value.orderInstance or TypedValueGenerators, rather than to svalue.Ordering.
+  // The tests are here as this is difficult to test outside daml-lf/interpreter.
+  "txn Value Ordering" should {
+    import Value.{AbsoluteContractId => Cid}
+    // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidV0Gen)
+    implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
+    implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
+    val EmptyScope: Value.LookupVariantEnum = _ => None
+
+    "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
+      import va.{injarb, injshrink}
+      implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
+      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+        import va.injord
+        val ta = va.inj(a)
+        val tb = va.inj(b)
+        val bySvalue = translatePrimValue(ta) ?|? translatePrimValue(tb)
+        (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
+      }
+    }
+
+    "match global AbsoluteContractId ordering" in forEvery(Table("gen", comparableAbsCoidsGen: _*)) {
+      coidGen =>
+        forAll(coidGen, coidGen, minSuccessful(50)) { (a, b) =>
+          Cid.`AbsCid Order`.order(a, b) should ===(cidOrd.order(a, b))
+        }
+    }
+  }
+
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
+  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
+  private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
+    sexpr = expr,
+    compiledPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.NoProfile),
+    submissionTime = Time.Timestamp.now(),
+    seeding = InitialSeeding.TransactionSeed(txSeed),
+    globalCids = Set.empty,
+  )
+
+  private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
+    val machine = initMachine(SEImportValue(v))
+    machine.run() match {
+      case SResultFinalValue(value) => value
+      case _ => throw new Error(s"error while translating value $v")
+    }
+  }
 }

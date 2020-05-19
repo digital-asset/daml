@@ -1,21 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
-
-import java.time.Instant
+package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import com.digitalasset.http.domain
-import com.digitalasset.http.json.TaggedJsonFormat._
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.http.domain
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, \/-}
+import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 
-object JsonProtocol extends DefaultJsonProtocol {
+object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
 
@@ -33,10 +30,24 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
 
+  implicit val AbsoluteContractIdFormat: JsonFormat[AbsoluteContractId] =
+    new JsonFormat[AbsoluteContractId] {
+      override def write(obj: AbsoluteContractId) =
+        JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          AbsoluteContractId fromString s fold (deserializationError(_), identity)
+        case _ => deserializationError("ContractId must be a string")
+      }
+    }
+
+  implicit val OffsetFormat: JsonFormat[domain.Offset] =
+    taggedJsonFormat[String, domain.OffsetTag]
+
   implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
     case JsArray(hd +: tl) =>
       NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
-    case _ => deserializationError("must be a list with at least 1 element")
+    case _ => deserializationError("must be a JSON array with at least 1 element")
   }
 
   implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
@@ -67,14 +78,12 @@ object JsonProtocol extends DefaultJsonProtocol {
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = true,
         encodeInt64AsString = true)
-      with CodecAbsoluteContractIds
 
   // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = false,
-        encodeInt64AsString = false)
-      with CodecAbsoluteContractIds {
+        encodeInt64AsString = false) {
     private[http] def asLfValueCodec(jv: JsValue): JsValue = jv match {
       case JsObject(fields) => JsObject(fields transform ((_, v) => asLfValueCodec(v)))
       case JsArray(elements) => JsArray(elements map asLfValueCodec)
@@ -84,25 +93,6 @@ object JsonProtocol extends DefaultJsonProtocol {
         // will not have a ".0" included in their string representation.  We can't
         // tell the difference here between an int64 and a numeric
         JsString(value.bigDecimal.stripTrailingZeros.toPlainString)
-    }
-  }
-
-  sealed trait CodecAbsoluteContractIds extends ApiCodecCompressed[AbsoluteContractId] {
-    protected override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
-      JsString(obj.coid)
-    protected override final def jsValueToApiContractId(json: JsValue) = json match {
-      case JsString(s) =>
-        AbsoluteContractId fromString s fold (deserializationError(_), identity)
-      case _ => deserializationError("ContractId must be a string")
-    }
-  }
-
-  implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
-    override def write(obj: Instant): JsValue = JsNumber(obj.toEpochMilli)
-
-    override def read(json: JsValue): Instant = json match {
-      case JsNumber(a) => java.time.Instant.ofEpochMilli(a.toLongExact)
-      case _ => deserializationError("java.time.Instant must be epoch millis")
     }
   }
 
@@ -253,12 +243,13 @@ object JsonProtocol extends DefaultJsonProtocol {
       {
         val GACR(tids, q) = jsv.convertTo[GACR]
         val extras = jsv.asJsObject.fields.keySet diff validKeys
-        if (tids.isEmpty)
-          deserializationError("search requires at least one item in 'templateIds'")
-        else if (extras.nonEmpty)
+        if (extras.nonEmpty)
           deserializationError(
             s"unsupported query fields ${extras}; likely should be within 'query' subobject")
-        domain.GetActiveContractsRequest(tids, q getOrElse Map.empty)
+        tids.headOption.cata(
+          h => domain.GetActiveContractsRequest(OneAnd(h, tids - h), q getOrElse Map.empty),
+          deserializationError("search requires at least one item in 'templateIds'")
+        )
       }
   }
 
@@ -324,12 +315,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
     }
 
-  implicit def OkResponseFormat[A: JsonFormat, B: JsonFormat]
-    : RootJsonFormat[domain.OkResponse[A, B]] = jsonFormat3(domain.OkResponse[A, B])
-
-  implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse[JsValue]] = jsonFormat2(
-    domain.ErrorResponse[JsValue])
-
   implicit val ServiceWarningFormat: RootJsonFormat[domain.ServiceWarning] =
     new RootJsonFormat[domain.ServiceWarning] {
       override def read(json: JsValue): domain.ServiceWarning = json match {
@@ -348,12 +333,41 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val WarningsWrapperFormat: RootJsonFormat[domain.WarningsWrapper] =
-    jsonFormat1(domain.WarningsWrapper)
+  implicit val AsyncWarningsWrapperFormat: RootJsonFormat[domain.AsyncWarningsWrapper] =
+    jsonFormat1(domain.AsyncWarningsWrapper)
 
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
     domain.UnknownTemplateIds)
 
   implicit val UnknownPartiesFormat: RootJsonFormat[domain.UnknownParties] = jsonFormat1(
     domain.UnknownParties)
+
+  implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
+    jsonFormat3(domain.OkResponse[R])
+
+  implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
+    jsonFormat3(domain.ErrorResponse)
+
+  implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
+    new RootJsonFormat[domain.SyncResponse[R]] {
+      private val resultKey = "result"
+      private val errorsKey = "errors"
+      private val errorMsg =
+        s"Invalid ${domain.SyncResponse.getClass.getSimpleName} format, expected a JSON object with either $resultKey or $errorsKey field"
+
+      override def write(obj: domain.SyncResponse[R]): JsValue = obj match {
+        case a: domain.OkResponse[_] => OkResponseFormat[R].write(a)
+        case b: domain.ErrorResponse => ErrorResponseFormat.write(b)
+      }
+
+      override def read(json: JsValue): domain.SyncResponse[R] = json match {
+        case JsObject(fields) =>
+          (fields get resultKey, fields get errorsKey) match {
+            case (Some(_), None) => OkResponseFormat[R].read(json)
+            case (None, Some(_)) => ErrorResponseFormat.read(json)
+            case _ => deserializationError(errorMsg)
+          }
+        case _ => deserializationError(errorMsg)
+      }
+    }
 }

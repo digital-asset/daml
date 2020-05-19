@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -98,30 +98,22 @@ trait ReadService extends ReportsHealth {
     * need to be persisted. Before explaining them in detail we provide
     * intuition.
     *
-    * All [[Update]]s other than [[Update.Heartbeat]] and [[Update.CommandRejected]] must
+    * All [[Update]]s other than [[Update.CommandRejected]] must
     * always be persisted by the backends implementing the [[ReadService]].
-    * For heartbeats and command rejections, the situation is more
-    * nuanced, as we want to provide the backends with additional
-    * implementation leeway.
+    * For rejections, the situation is more nuanced, as we want to provide
+    * the backends with additional implementation leeway.
     *
     * [[Update.CommandRejected]] messages are advisory messages to submitters of
     * transactions to inform them in a timely fashion that their transaction
-    * has been rejected. The failure of transactions submissions for which no
-    * explicit [[Update.CommandRejected]] message is provided can be detected via
-    * [[Update.Heartbeat]]s, as explained in the 'maximum record time enforced'
-    * property above. In that context, it is also such that only the latest
-    * [[Update.Heartbeat]] with the highest record time matters.
+    * has been rejected.
     *
     * Given this intuition for the desired mechanism, we advise participant
     * state implementations to aim to always provide timely
-    * [[Update.CommandRejected]] messages and regular heartbeats at a
-    * granularity that supports timely detection of maximum record time
-    * violation. Concrete values need to be recommended by implementors.
+    * [[Update.CommandRejected]] messages.
     *
-    * Implementations are free to not persist
-    * [[Update.CommandRejected]] and [[Update.Heartbeat]] updates provided their
-    * [[Offset]]s are not reused. This is relevant for the case where a
-    * consumer rebuilds his view of the state by starting from a fresh
+    * Implementations are free to not persist [[Update.CommandRejected]] updates
+    * provided their [[Offset]]s are not reused. This is relevant for the case
+    * where a consumer rebuilds his view of the state by starting from a fresh
     * call to [[ReadService.stateUpdates]]; e.g., because it or the
     * stream provider crashed.
     *
@@ -135,7 +127,7 @@ trait ReadService extends ReportsHealth {
     *   *strictly increasing [[Offset]]* this also implies that the order of
     *   elements present in both `s1` and `s2` cannot change.
     *
-    * - *persistent updates*: any update other than [[Update.Heartbeat]] and
+    * - *persistent updates*: any update other than
     *   [[Update.CommandRejected]] in `s2` must also be present in `s1`.
     *
     *

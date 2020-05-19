@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
 import java.time.Instant
 
@@ -10,17 +10,18 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{
   ApplicationId,
+  CommandId,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -29,20 +30,20 @@ import com.digitalasset.ledger.api.domain.{
   TransactionFilter,
   TransactionId
 }
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.platform.store.ReadOnlyLedger
+import com.daml.platform.ApiOffset
+import com.daml.platform.ApiOffset.ApiOffsetConverter
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -56,39 +57,15 @@ abstract class LedgerBackedIndexService(
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
-  override def getActiveContractSetSnapshot(
-      filter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
+  override def getActiveContracts(
+      filter: TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] = {
+    val ledgerEnd = ledger.ledgerEnd
     ledger
-      .snapshot(filter)
-      .map {
-        case LedgerSnapshot(offset, acsStream) =>
-          ActiveContractSetSnapshot(
-            toAbsolute(offset),
-            acsStream
-              .mapConcat { ac =>
-                EventFilter(ac)(filter)
-                  .map(create =>
-                    create.workflowId.map(domain.WorkflowId(_)) -> toUpdateEvent(create))
-                  .toList
-              }
-          )
-      }(mat.executionContext)
+      .activeContracts(ledgerEnd, convertFilter(filter), verbose)
+      .concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
   }
-
-  private def toUpdateEvent(ac: ActiveContract): AcsUpdateEvent.Create =
-    AcsUpdateEvent.Create(
-      // we use absolute contract ids as event ids throughout the sandbox
-      domain.TransactionId(ac.transactionId),
-      domain.EventId(ac.eventId),
-      ac.id,
-      ac.contract.template,
-      ac.contract.arg,
-      ac.witnesses,
-      ac.key.map(_.key),
-      ac.signatories,
-      ac.observers,
-      ac.agreementText
-    )
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
@@ -96,18 +73,17 @@ abstract class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionTreesResponse, NotUsed] =
-    between(startExclusive, endInclusive)(acceptedTransactions)
-      .mapConcat {
-        case (offset, transaction) =>
-          TransactionConversion
-            .ledgerEntryToTransactionTree(
-              offset,
-              transaction,
-              filter.filtersByParty.keySet,
-              verbose)
-            .map(tx => GetTransactionTreesResponse(Seq(tx)))
-            .toList
-      }
+    between(startExclusive, endInclusive)(
+      (from, to) =>
+        ledger
+          .transactionTrees(
+            startExclusive = from,
+            endInclusive = to,
+            requestingParties = filter.filtersByParty.keySet,
+            verbose = verbose,
+          )
+          .map(_._2)
+    )
 
   override def transactions(
       startExclusive: domain.LedgerOffset,
@@ -121,11 +97,8 @@ abstract class LedgerBackedIndexService(
           .flatTransactions(
             startExclusive = from,
             endInclusive = to,
-            filter = filter.filtersByParty.map {
-              case (party, filters) =>
-                party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
-            },
-            verbose = verbose
+            filter = convertFilter(filter),
+            verbose = verbose,
           )
           .map(_._2)
     )
@@ -165,16 +138,11 @@ abstract class LedgerBackedIndexService(
     }
   }
 
-  private def acceptedTransactions(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset],
-  ): Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] =
-    ledger
-      .ledgerEntries(startExclusive, endInclusive)
-      .collect {
-        case (offset, t: LedgerEntry.Transaction) =>
-          (toAbsolute(offset), t)
-      }
+  private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
+    filter.filtersByParty.map {
+      case (party, filters) =>
+        party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
+    }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
     Future.successful(toAbsolute(ledger.ledgerEnd))
@@ -219,7 +187,7 @@ abstract class LedgerBackedIndexService(
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     ledger.lookupContract(contractId, submitter)
 
-  override def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Instant] =
+  override def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Option[Instant]] =
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
@@ -267,19 +235,28 @@ abstract class LedgerBackedIndexService(
       .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
 
   /** Retrieve configuration entries. */
-  override def configurationEntries(
-      startExclusive: Option[LedgerOffset.Absolute]): Source[domain.ConfigurationEntry, NotUsed] =
+  override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
+    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
       .future(
         startExclusive
           .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
           .getOrElse(Future.successful(None)))
-      .flatMapConcat(ledger.configurationEntries(_).map(_._2.toDomain))
+      .flatMapConcat(ledger.configurationEntries(_).map {
+        case (offset, config) => toAbsolute(offset) -> config.toDomain
+      })
 
   /** Deduplicate commands */
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
+    ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
+
+  override def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit] =
+    ledger.stopDeduplicatingCommand(commandId, submitter)
 }

@@ -28,7 +28,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.Compiler.Scenario as SS
+import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
@@ -85,7 +85,9 @@ mainAll :: IO ()
 mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
 
 mainWithVersions :: [Version] -> IO ()
-mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
+mainWithVersions versions = do
+ let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
+ SS.withScenarioService Logger.makeNopHandle scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
@@ -316,9 +318,40 @@ parseRange :: String -> Range
 parseRange s =
   case traverse readMaybe (wordsBy (`elem` (":-" :: String)) s) of
     Just [rowStart, colStart, rowEnd, colEnd] ->
-        Range
-            (Position (rowStart - 1) (colStart - 1))
-            (Position (rowEnd - 1) (colEnd - 1))
+      -- When specifying ranges:
+      --  * lines are 1-based
+      --  * columns are 0-based
+      --  * the column span is open, that is, the end column is "one
+      --    past the end" of the span.
+      --
+      -- Positions in these ranges are matched against LSP coordinates
+      -- which are 0-based in both line and column and also open. Error
+      -- messages are formatted by GHC and are 1-based in line, 0-based
+      -- in column and closed (so add one to column start, one to
+      -- column end to make them 1-based, then subtract one from column
+      -- end to convert to closed!)
+      --
+      -- 'showDiagnostics' reports ranges such that lines are 1-based,
+      -- columns are 0-based and open.
+      --
+      -- Example:
+      --   If @INFO 'range=8:13-8:47':
+      --   then the actual (LSP) range is
+      --      { _start = Position {_line = 7, _character = 13}
+      --      ,   _end = Position {_line = 7, _character = 47}}
+      --   and 'showDiagnostics' reports:
+      --     Hidden:   no
+      --     Range:    8:13-8:47
+      --     Source:   linter
+      --     Severity: DsInfo
+      --     Message:  RangeTest.daml:8:14-47: Some error message.
+      --
+      -- TL;DR: To mark a diagnostic as "expected" paste the range as it
+      -- appears in 'showDiagnostics' e.g. '@INFO range=8:13-8:47; Some
+      -- error message'.
+      Range
+        (Position (rowStart - 1) colStart)
+        (Position (rowEnd - 1) colEnd)
     _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package

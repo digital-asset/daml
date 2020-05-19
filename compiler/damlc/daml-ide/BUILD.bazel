@@ -37,6 +37,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-rule-types",
         "//compiler/damlc/daml-visual",
         "//libs-haskell/da-hs-base",
     ],

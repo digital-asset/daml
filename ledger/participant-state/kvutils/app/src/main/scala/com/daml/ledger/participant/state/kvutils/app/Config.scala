@@ -7,14 +7,15 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.daml.caching
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.configuration.MetricsReporter
-import com.digitalasset.platform.configuration.Readers._
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ProgramResource.SuppressedStartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.platform.configuration.Readers._
+import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
+import com.daml.ports.Port
+import com.daml.resources.ProgramResource.SuppressedStartupException
+import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 final case class Config[Extra](
@@ -22,10 +23,11 @@ final case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    eventsPageSize: Int,
+    stateValueCache: caching.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    eventsPageSize: Int,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -39,6 +41,7 @@ case class ParticipantConfig(
     portFile: Option[Path],
     serverJdbcUrl: String,
     allowExistingSchemaForIndex: Boolean,
+    maxCommandsInFlight: Option[Int],
 )
 
 object ParticipantConfig {
@@ -51,18 +54,17 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  val DefaultEventsPageSize = 1000
-
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
       ledgerId = None,
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      stateValueCache = caching.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      eventsPageSize = DefaultEventsPageSize,
       extra = extra,
     )
 
@@ -94,7 +96,7 @@ object Config {
       opt[Map[String, String]]("participant")
         .minOccurs(1)
         .unbounded()
-        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url]")
+        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -102,13 +104,16 @@ object Config {
           val portFile = kv.get("port-file").map(new File(_).toPath)
           val jdbcUrl =
             kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
+          val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
           val partConfig = ParticipantConfig(
             participantId,
             address,
             port,
             portFile,
             jdbcUrl,
-            allowExistingSchemaForIndex = false)
+            allowExistingSchemaForIndex = false,
+            maxCommandsInFlight = maxCommandsInFlight
+          )
           config.copy(participants = config.participants :+ partConfig)
         })
       opt[String]("ledger-id")
@@ -140,8 +145,16 @@ object Config {
       opt[Int]("events-page-size")
         .optional()
         .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${Config.DefaultEventsPageSize}.")
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+      opt[Long]("max-state-value-cache-size")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
+        .action((maximumStateValueCacheSize, config) =>
+          config.copy(stateValueCache =
+            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

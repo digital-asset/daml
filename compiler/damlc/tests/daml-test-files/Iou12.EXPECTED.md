@@ -4,13 +4,13 @@
 
 <a name="type-iou12-iou-45923"></a>**template** [Iou](#type-iou12-iou-45923)
 
-> | Field                                                                                  | Type                                                                                   | Description |
-> | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :---------- |
-> | issuer                                                                                 | Party                                                                                  |  |
-> | owner                                                                                  | Party                                                                                  |  |
-> | currency                                                                               | [Text](https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703)       | only 3-letter symbols are allowed |
-> | amount                                                                                 | [Decimal](https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602) | must be positive |
-> | regulators                                                                             | \[Party\]                                                                              | `regulators` may observe any use of the `Iou` |
+> | Field                                                                                | Type                                                                                 | Description |
+> | :----------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------- | :---------- |
+> | issuer                                                                               | Party                                                                                |  |
+> | owner                                                                                | Party                                                                                |  |
+> | currency                                                                             | [Text](https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-text-57703)       | only 3-letter symbols are allowed |
+> | amount                                                                               | [Decimal](https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-decimal-54602) | must be positive |
+> | regulators                                                                           | \[Party\]                                                                            | `regulators` may observe any use of the `Iou` |
 > 
 > * **Choice Archive**
 >   
@@ -33,9 +33,9 @@
 >   splits into two `Iou`s with
 >   smaller amounts
 >   
->   | Field                                                                                  | Type                                                                                   | Description |
->   | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :---------- |
->   | splitAmount                                                                            | [Decimal](https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602) | must be between zero and original amount |
+>   | Field                                                                                | Type                                                                                 | Description |
+>   | :----------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------- | :---------- |
+>   | splitAmount                                                                          | [Decimal](https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-decimal-54602) | must be between zero and original amount |
 > 
 > * **Choice Transfer**
 >   

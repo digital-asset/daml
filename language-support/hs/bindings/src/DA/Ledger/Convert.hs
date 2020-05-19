@@ -30,16 +30,16 @@ import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.LedgerConfigurationService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Testing.TimeService as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Transaction as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.Value as LL
-import qualified Com.Digitalasset.Ledger.Api.V1.LedgerOffset as LL
+import qualified Com.Daml.Ledger.Api.V1.ActiveContractsService as LL
+import qualified Com.Daml.Ledger.Api.V1.CommandCompletionService as LL
+import qualified Com.Daml.Ledger.Api.V1.LedgerConfigurationService as LL
+import qualified Com.Daml.Ledger.Api.V1.Testing.TimeService as LL
+import qualified Com.Daml.Ledger.Api.V1.Commands as LL
+import qualified Com.Daml.Ledger.Api.V1.Completion as LL
+import qualified Com.Daml.Ledger.Api.V1.Event as LL
+import qualified Com.Daml.Ledger.Api.V1.Transaction as LL
+import qualified Com.Daml.Ledger.Api.V1.Value as LL
+import qualified Com.Daml.Ledger.Api.V1.LedgerOffset as LL
 import qualified Data.Map as Map
 import qualified Proto3.Suite.Types as LL
 

@@ -3,9 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.digitalasset.ledger.api.health.ReportsHealth
 
 import scala.concurrent.Future
 
@@ -18,17 +18,17 @@ import scala.concurrent.Future
 trait LedgerWriter extends ReportsHealth {
 
   /**
-    * Sends a submission to be committed to the ledger.
-    *
-    * @param correlationId correlation ID to be used for logging purposes
-    * @param envelope opaque submission; may be compressed
-    * @return  future for sending the submission; for possible results see
-    *          [[com.daml.ledger.participant.state.v1.SubmissionResult]]
-    */
-  def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult]
-
-  /**
     * @return participant ID of the participant on which this LedgerWriter instance runs
     */
   def participantId: ParticipantId
+
+  /**
+    * Sends a submission to be committed to the ledger.
+    *
+    * @param correlationId correlation ID to be used for logging purposes
+    * @param envelope      opaque submission; may be compressed
+    * @return future for sending the submission; for possible results see
+    *         [[com.daml.ledger.participant.state.v1.SubmissionResult]]
+    */
+  def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult]
 }

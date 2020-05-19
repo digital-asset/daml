@@ -7,7 +7,7 @@
     "repository": "https://github.com/digital-asset/daml/tree/master/compiler/daml-extension",
     "icon": "images/daml-studio.png",
     "engines": {
-        "vscode": "^1.33.0"
+        "vscode": "^1.38.0"
     },
     "license": "Apache-2.0",
     "private": true,
@@ -147,9 +147,9 @@
         "xml2js": "^0.4.22"
     },
     "devDependencies": {
-        "@bazel/hide-bazel-files": "0.32.2",
+        "@bazel/hide-bazel-files": "1.6.0",
         "@types/node": "12.7.11",
-        "@types/vscode": "1.33",
+        "@types/vscode": "1.38",
         "typescript": "3.6.3",
         "vsce": "1.66.0"
     }

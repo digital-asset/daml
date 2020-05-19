@@ -1,33 +1,34 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf
+package engine
+package trigger
 
-import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import java.util
 
 import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.FrontStack
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.v1.commands.{
+import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   ExerciseByKeyCommand,
-  ExerciseCommand
+  ExerciseCommand,
+  CreateAndExerciseCommand
 }
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.value
-import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.validation.ValueValidator
+import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier
@@ -157,7 +158,7 @@ object Converter {
   }
 
   private def fromCreatedEvent(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       created: CreatedEvent): Either[String, SValue] = {
     val createdTy = triggerIds.damlTriggerLowLevel("Created")
@@ -174,10 +175,12 @@ object Converter {
         .left
         .map(_.getMessage)
       anyTemplate <- valueTranslator.translateValue(TTyCon(templateTy), createArguments) match {
-        case ResultDone(r @ SRecord(tyCon, _, _)) =>
+        case Right(r @ SRecord(tyCon, _, _)) =>
           Right(record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
-        case ResultDone(v) => Left(s"Expected record but got $v")
-        case res => Left(s"Failure to translate value in create: $res")
+        case Right(v) =>
+          Left(s"Expected record but got $v")
+        case Left(res) =>
+          Left(s"Failure to translate value in create: $res")
       }
     } yield
       record(
@@ -218,7 +221,7 @@ object Converter {
   }
 
   private def fromEvent(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       ev: Event): Either[String, SValue] = {
     val eventTy = triggerIds.damlTriggerLowLevel("Event")
@@ -246,7 +249,7 @@ object Converter {
   }
 
   private def fromTransaction(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       t: Transaction): Either[String, SValue] = {
     val messageTy = triggerIds.damlTriggerLowLevel("Message")
@@ -502,6 +505,30 @@ object Converter {
     }
   }
 
+  private def toCreateAndExercise(
+      triggerIds: TriggerIds,
+      v: SValue): Either[String, CreateAndExerciseCommand] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 => {
+        for {
+          tpl <- toAnyTemplate(vals.get(0))
+          templateId <- extractTemplateId(tpl)
+          templateArg <- toLedgerRecord(tpl)
+          choiceVal <- toAnyChoice(vals.get(1))
+          choiceName <- extractChoiceName(choiceVal)
+          choiceArg <- toLedgerValue(choiceVal)
+        } yield {
+          CreateAndExerciseCommand(
+            Some(toApiIdentifier(templateId)),
+            Some(templateArg),
+            choiceName,
+            Some(choiceArg)
+          )
+        }
+      }
+    }
+  }
+
   private def toCommand(triggerIds: TriggerIds, v: SValue): Either[String, Command] = {
     v match {
       case SVariant(_, "CreateCommand", _, createVal) =>
@@ -516,7 +543,11 @@ object Converter {
         for {
           exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
         } yield Command().withExerciseByKey(exerciseByKey)
-      case _ => Left(s"Expected CreateCommand or ExerciseCommand but got $v")
+      case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
+        for {
+          createAndExercise <- toCreateAndExercise(triggerIds, createAndExerciseVal)
+        } yield Command().withCreateAndExercise(createAndExercise)
+      case _ => Left(s"Expected a Command but got $v")
     }
   }
 
@@ -537,7 +568,7 @@ object Converter {
   }
 
   private def fromACS(
-      valueTranslator: ValueTranslator,
+      valueTranslator: preprocessing.ValueTranslator,
       triggerIds: TriggerIds,
       createdEvents: Seq[CreatedEvent]): Either[String, SValue] = {
     val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
@@ -549,7 +580,7 @@ object Converter {
   }
 
   def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
-    val valueTranslator = new ValueTranslator(compiledPackages)
+    val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
     Converter(
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),

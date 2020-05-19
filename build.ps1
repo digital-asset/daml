@@ -1,7 +1,10 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
+# See https://github.com/lukesampson/scoop/issues/3859
+Set-Strictmode -Off
 .\dev-env\windows\bin\dadew.ps1 install
+Set-StrictMode -Version latest
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
@@ -50,7 +53,7 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel build //...
+bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown
 

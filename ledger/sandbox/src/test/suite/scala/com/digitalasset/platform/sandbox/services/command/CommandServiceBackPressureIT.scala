@@ -1,24 +1,24 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.command
+package com.daml.platform.sandbox.services.command
 
 import java.util.UUID
 
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.testing.utils.{
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.testing.utils.{
   IsStatusException,
   MockMessages,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.ledger.api.v1.commands.CreateCommand
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.sandbox.SandboxBackend
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import io.grpc.Status
 import org.scalatest.{Assertion, AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._

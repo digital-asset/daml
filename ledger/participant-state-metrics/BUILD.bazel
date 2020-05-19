@@ -10,7 +10,7 @@ da_scala_library(
     name = "participant-state-metrics",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-metrics:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state-metrics:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -20,12 +20,11 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
-        "//libs-scala/direct-execution-context",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_dropwizard_metrics_metrics_jvm",
     ],
 )

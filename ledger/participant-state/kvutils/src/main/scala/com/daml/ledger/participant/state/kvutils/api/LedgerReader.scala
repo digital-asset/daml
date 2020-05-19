@@ -8,7 +8,7 @@ import java.time.Duration
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, TimeModel}
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 /**
   * Defines how a participant's state is read from the ledger.
@@ -23,14 +23,13 @@ trait LedgerReader extends ReportsHealth {
     *
     * In case an offset is not specified, all updates must be streamed from the oldest known state.
     * Each update is defined either as an opaque log entry ID and an
-    * envelope ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord]]) or
-    * as a heartbeat ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.Heartbeat]]).
+    * envelope ([[com.daml.ledger.participant.state.kvutils.api.LedgerRecord]]).
     *
     * @param startExclusive offset right after which updates must be streamed; in case not specified updates
     *                       must be returned from the beginning
     * @return stream of updates
     */
-  def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed]
+  def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed]
 
   /**
     * Get the ledger's ID from which this reader instance streams events.
@@ -46,7 +45,7 @@ object LedgerReader {
   /**
     * Default initial ledger configuration used by [[KeyValueParticipantStateReader]].
     */
-  val DefaultConfiguration = Configuration(
+  val DefaultConfiguration: Configuration = Configuration(
     generation = 0,
     timeModel = TimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),

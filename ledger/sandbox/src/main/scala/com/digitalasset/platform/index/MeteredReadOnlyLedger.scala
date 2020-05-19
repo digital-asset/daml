@@ -1,83 +1,43 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
 import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.TransactionId
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionFilter}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.TransactionId
+import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
-import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.ReadOnlyLedger
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
-class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
-    extends ReadOnlyLedger {
-
-  private object Metrics {
-    private val prefix: String = MetricRegistry.name("daml", "index")
-
-    val lookupContract: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "lookup_contract"))
-    val lookupKey: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "lookup_key"))
-    val lookupFlatTransactionById: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "lookup_flat_transaction_by_id"))
-    val lookupTransactionTreeById: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "lookup_transaction_tree_by_id"))
-    val lookupLedgerConfiguration: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "lookup_ledger_configuration"))
-    val lookupMaximumLedgerTime: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "lookup_maximum_ledger_time"))
-    val getParties: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "get_parties"))
-    val listKnownParties: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "list_known_parties"))
-    val listLfPackages: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "list_lf_packages"))
-    val getLfArchive: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "get_lf_archive"))
-    val getLfPackage: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "get_lf_package"))
-    val deduplicateCommand: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "deduplicate_command"))
-    val removeExpiredDeduplicationData: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "remove_expired_deduplication_data"))
-  }
+class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics) extends ReadOnlyLedger {
 
   override def ledgerId: LedgerId = ledger.ledgerId
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
-
-  override def ledgerEntries(
-      startExclusive: Option[Offset],
-      endOpt: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
-    ledger.ledgerEntries(startExclusive, endOpt)
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -86,6 +46,14 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
   override def ledgerEnd: Offset = ledger.ledgerEnd
 
@@ -96,24 +64,28 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     ledger.completions(startExclusive, endInclusive, applicationId, parties)
 
-  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
-    ledger.snapshot(filter)
+  override def activeContracts(
+      activeAt: Offset,
+      filter: Map[Party, Set[Identifier]],
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    ledger.activeContracts(activeAt, filter, verbose)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
       forParty: Party
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    timedFuture(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
+    Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParty))
 
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
+    Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParty))
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[Option[GetFlatTransactionResponse]] =
-    timedFuture(
-      Metrics.lookupFlatTransactionById,
+    Timed.future(
+      metrics.daml.index.lookupFlatTransactionById,
       ledger.lookupFlatTransactionById(transactionId, requestingParties),
     )
 
@@ -121,31 +93,35 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[Option[GetTransactionResponse]] =
-    timedFuture(
-      Metrics.lookupTransactionTreeById,
+    Timed.future(
+      metrics.daml.index.lookupTransactionTreeById,
       ledger.lookupTransactionTreeById(transactionId, requestingParties),
     )
 
-  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
-    timedFuture(Metrics.lookupMaximumLedgerTime, ledger.lookupMaximumLedgerTime(contractIds))
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Option[Instant]] =
+    Timed.future(
+      metrics.daml.index.lookupMaximumLedgerTime,
+      ledger.lookupMaximumLedgerTime(contractIds))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
-    timedFuture(Metrics.getParties, ledger.getParties(parties))
+    Timed.future(metrics.daml.index.getParties, ledger.getParties(parties))
 
   override def listKnownParties(): Future[List[PartyDetails]] =
-    timedFuture(Metrics.listKnownParties, ledger.listKnownParties())
+    Timed.future(metrics.daml.index.listKnownParties, ledger.listKnownParties())
 
   override def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] =
     ledger.partyEntries(startExclusive)
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    timedFuture(Metrics.listLfPackages, ledger.listLfPackages())
+    Timed.future(metrics.daml.index.listLfPackages, ledger.listLfPackages())
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    timedFuture(Metrics.getLfArchive, ledger.getLfArchive(packageId))
+    Timed.future(metrics.daml.index.getLfArchive, ledger.getLfArchive(packageId))
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
+    Timed.future(metrics.daml.index.getLfPackage, ledger.getLfPackage(packageId))
 
   override def packageEntries(
       startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
@@ -156,27 +132,36 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   }
 
   override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
-    timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
+    Timed.future(metrics.daml.index.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
       startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(startExclusive)
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    timedFuture(
-      Metrics.deduplicateCommand,
-      ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
+    Timed.future(
+      metrics.daml.index.deduplicateCommand,
+      ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
-    timedFuture(
-      Metrics.removeExpiredDeduplicationData,
+    Timed.future(
+      metrics.daml.index.removeExpiredDeduplicationData,
       ledger.removeExpiredDeduplicationData(currentTime))
+
+  override def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit] =
+    Timed.future(
+      metrics.daml.index.stopDeduplicatingCommand,
+      ledger.stopDeduplicatingCommand(commandId, submitter))
 }
 
 object MeteredReadOnlyLedger {
-  def apply(ledger: ReadOnlyLedger, metrics: MetricRegistry): ReadOnlyLedger =
+  def apply(ledger: ReadOnlyLedger, metrics: Metrics): ReadOnlyLedger =
     new MeteredReadOnlyLedger(ledger, metrics)
 }

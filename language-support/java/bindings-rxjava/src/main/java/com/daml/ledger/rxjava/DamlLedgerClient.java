@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.rxjava.grpc.*;
-import com.digitalasset.grpc.adapter.SingleThreadExecutionSequencerPool;
+import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;

@@ -14,10 +14,6 @@ navigator_scalacopts = [
     "-Xsource:2.13",
 ]
 
-common_jvm_flags = [
-    "-Xmx2G",
-]
-
 # All frontend resource files.
 # These come in a manually created JAR file, this rule is just wrapping it in
 # a java_import, so that it is a valid target for the 'resources' property of
@@ -40,7 +36,7 @@ java_library(
 da_scala_library(
     name = "navigator-library",
     srcs = glob([
-        "src/main/scala/com/digitalasset/navigator/**/*.scala",
+        "src/main/scala/**/*.scala",
     ]),
     scalacopts = navigator_scalacopts,
     visibility = ["//visibility:public"],
@@ -126,9 +122,9 @@ da_scala_library(
 
 da_scala_binary(
     name = "navigator-binary",
-    main_class = "com.digitalasset.navigator.NavigatorBackend",
+    main_class = "com.daml.navigator.NavigatorBackend",
     tags = [
-        "maven_coordinates=com.digitalasset:navigator:__VERSION__",
+        "maven_coordinates=com.daml:navigator:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = [

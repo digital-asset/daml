@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.common
+package com.daml.platform.common
 
-import com.digitalasset.daml.lf.transaction.{Node => N}
-import com.digitalasset.daml.lf.value.{ValueVersions, Value => V}
-import com.digitalasset.daml.lf.{transaction => T}
-import com.digitalasset.daml.lf.{engine => E}
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.transaction.{Node => N}
+import com.daml.lf.value.{ValueVersions, Value => V}
+import com.daml.lf.{transaction => T}
+import com.daml.lf.{engine => E}
+import com.daml.lf.data.Ref
 import scala.collection.breakOut
 
 object PlatformTypes {
@@ -45,11 +45,11 @@ object PlatformTypes {
       f: Cid => Cid2): GenTransaction[Nid, Cid2] =
     tx.mapContractIdAndValue(f, _.mapContractId(f))
 
-  def asVersionedValue[Cid <: V.ContractId](
+  def asVersionedValue[Cid <: V.AbsoluteContractId](
       v: V[Cid]): scala.Either[String, V.VersionedValue[Cid]] =
     ValueVersions.asVersionedValue(v)
 
-  def asVersionedValueOrThrow[Cid <: V.ContractId](v: V[Cid]): V.VersionedValue[Cid] = {
+  def asVersionedValueOrThrow[Cid <: V.AbsoluteContractId](v: V[Cid]): V.VersionedValue[Cid] = {
     asVersionedValue(v).fold(
       s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
       identity)

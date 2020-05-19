@@ -78,6 +78,9 @@ ledger-api/.bin
 **/.history/
 ### Bazel: https://www.gitignore.io/api/bazel ###
 /bazel-*
+/compatibility/bazel-*
+/compatibility/.bazelrc
+/compatibility/head_sdk/
 .bazelrc.local
 .ijwb
 .bazelproject
@@ -91,3 +94,4 @@ compiler/damlc/output
 language-support/hs/bindings/gen
 language-support/hs/bindings/*.cabal
 language-support/hs/bindings/examples/nim/*.cabal
+.daml/

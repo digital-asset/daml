@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy.svalue
 
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -29,7 +29,7 @@ private[speedy] object Hasher {
     loop(List(Value(v)))
 
   private def pushOrderedValues(size: Int, values: Iterator[SValue], cmds: List[Command]) =
-    ((Ordered(size) :: cmds) /: values) { case (acc, v) => Value(v) :: acc }
+    (values foldLeft (Ordered(size) :: cmds)) { case (acc, v) => Value(v) :: acc }
 
   @tailrec
   private def loop(cmds: List[Command], stack: List[Int] = List.empty): Int =
@@ -77,12 +77,12 @@ private[speedy] object Hasher {
               case SList(values) =>
                 loop(pushOrderedValues(values.length, values.iterator, cmdsRest), stack)
               case STextMap(value) =>
-                val newCmds = ((Unordered(value.size) :: cmdsRest) /: value) {
+                val newCmds = (value foldLeft (Unordered(value.size) :: cmdsRest)) {
                   case (acc, (k, v)) => Value(v) :: Mix(k.hashCode) :: acc
                 }
                 loop(newCmds, stack)
               case SGenMap(values) =>
-                val newCmds = ((Unordered(values.size) :: cmdsRest) /: values) {
+                val newCmds = (values foldLeft (Unordered(values.size) :: cmdsRest)) {
                   case (acc, (k, v)) => Value(v) :: Mix(k.hashCode) :: acc
                 }
                 loop(newCmds, stack)

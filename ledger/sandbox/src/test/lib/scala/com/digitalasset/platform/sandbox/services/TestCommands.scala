@@ -1,25 +1,25 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.daml.platform.sandbox.services
 
 import java.io.File
 import java.util
 
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.MockMessages.applicationId
-import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Party, Text, Timestamp}
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.testing.TestTemplateIdentifiers
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.Ref.PackageId
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.testing.utils.MockMessages.applicationId
+import com.daml.ledger.api.testing.utils.{MockMessages => M}
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Command.Command.{Create, Exercise}
+import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.Value.Sum.{Bool, Party, Text, Timestamp}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.testing.TestTemplateIdentifiers
 import scalaz.syntax.tag._
 
 trait TestCommands {

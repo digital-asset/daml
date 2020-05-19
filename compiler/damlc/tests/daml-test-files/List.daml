@@ -1,21 +1,19 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use null
--- @INFO Evaluate
--- @INFO Use sum
--- @INFO Use sum
--- @INFO Use sum
--- @INFO Use head
--- @INFO Use head
--- @INFO Use isNone
--- @INFO Use isNone
--- @INFO Use isNone
+-- @INFO range=115:16-115:31; Use dedup
+-- @INFO range=301:9-301:23; Evaluate
+-- @INFO range=316:37-316:47; Use sum
+-- @INFO range=317:42-317:52; Use sum
+-- @INFO range=318:28-318:38; Use sum
+-- @INFO range=321:2-321:22; Use head
+-- @INFO range=326:28-326:35; Use head
 
 module List where
 
 import DA.List
 import DA.Assert
+import DA.Optional
 
 data Foo = Foo with x : Int; y : Text
   deriving Eq
@@ -32,7 +30,7 @@ testSort6 = scenario do
 -- Utility called on by 'testSort4' and 'testSort5'
 check45 n m = do
     assert $ n == [1, 1, 1, 2, 3]
-    let o = map (flip snd ()) m
+    let o = map (\(_, f) -> f ()) m
     assert $ o == ["A", "B", "C", "D", "E"]
 
 testSort5 = scenario do
@@ -100,7 +98,7 @@ testUniqueOn = scenario do
 testDedupOn = scenario do
     assert $ dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] == [ Employee 1 "Monday" "Jo" ]
     assert $ dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ] == [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ]
-    assert $ dedupOn (.employeeNo) ([] : [Employee]) == []
+    assert $ null $ dedupOn (.employeeNo) ([] : [Employee])
 
 testUniqueBy = scenario do
     let cmp = \x y -> compare x.surname y.surname
@@ -332,14 +330,14 @@ testElemIndex = scenario do
   assert $ elemIndex 7 x == Some 3
   assert $ elemIndex 5 x == Some 0
   assert $ elemIndex 4 x == Some 1
-  assert $ elemIndex 10 x == None
+  assert $ isNone $ elemIndex 10 x
 
 testFindIndex = scenario do
   let x = [5, 4, 6, 7, 9, 4]
   assert $ findIndex (>6) x == Some 3
   assert $ findIndex (>0) x == Some 0
   assert $ findIndex (<5) x == Some 1
-  assert $ findIndex (>10) x == None
+  assert $ isNone $ findIndex (>10) x
 
 testSum = scenario do
   assert $ sum [1, 2, 3] == 6

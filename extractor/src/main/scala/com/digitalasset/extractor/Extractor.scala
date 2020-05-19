@@ -1,31 +1,31 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer}
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.helpers.FutureUtil.toFuture
-import com.digitalasset.extractor.helpers.{TemplateIds, TransactionTreeTrimmer}
-import com.digitalasset.extractor.ledger.types.TransactionTree
-import com.digitalasset.extractor.ledger.types.TransactionTree._
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.{v1 => api}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration._
-import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.LedgerReader
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.timer.RetryStrategy
+import com.daml.auth.TokenHolder
+import com.daml.extractor.Types._
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.helpers.FutureUtil.toFuture
+import com.daml.extractor.helpers.{TemplateIds, TransactionTreeTrimmer}
+import com.daml.extractor.ledger.types.TransactionTree
+import com.daml.extractor.ledger.types.TransactionTree._
+import com.daml.extractor.writers.Writer
+import com.daml.extractor.writers.Writer.RefreshPackages
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.{v1 => api}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration._
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.service.LedgerReader
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.\/

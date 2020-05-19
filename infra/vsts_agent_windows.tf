@@ -61,7 +61,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   metadata {
     // Prepare the machine
-    sysprep-specialize-script-ps1 = <<SYSPREP_SPECIALIZE
+    windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
@@ -128,7 +128,11 @@ net start winrm
 
 echo "== Installing the VSTS agent"
 
-choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a'"
+New-Item -ItemType Directory -Path 'C:\agent'
+Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=default'
+
+$MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
+choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
 echo OK
 SYSPREP_SPECIALIZE
 

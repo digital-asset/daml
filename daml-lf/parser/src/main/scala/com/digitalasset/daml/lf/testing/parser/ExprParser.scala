@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data.Ref.Name
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
 @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
 private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
@@ -69,7 +69,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   lazy val expr: Parser[Expr] = {
     expr0 ~ rep(eAppAgr) ^^ {
       case e0 ~ args =>
-        (e0 /: args) {
+        (args foldLeft e0) {
           case (acc, EAppExprArg(e)) => EApp(acc, e)
           case (acc, EAppTypArg(t)) => ETyApp(acc, t)
         }
@@ -150,12 +150,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eAbs: Parser[Expr] =
     `\\` ~>! rep1(varBinder) ~ (`->` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(EAbs(_, _, None))
+      case binders ~ body => (binders foldRight body)(EAbs(_, _, None))
     }
 
   private lazy val eTyAbs: Parser[Expr] =
     `/\\` ~>! rep1(typeBinder) ~ (`.` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(ETyAbs)
+      case binders ~ body => (binders foldRight body)(ETyAbs)
     }
 
   private lazy val bindings: Parser[ImmArray[Binding]] =
