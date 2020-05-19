@@ -264,8 +264,7 @@ jobs:
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -356,8 +355,7 @@ jobs:
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
