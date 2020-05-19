@@ -383,7 +383,7 @@ simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dva
 
 simplifyModule :: World -> Module -> Module
 simplifyModule world m =
-    let step !accum dval =
+    let step accum dval =
             let m' = m { moduleValues = accum }
                 w' = extendWorldSelf m' world
                 d' = simplifyDefValue w' dval
