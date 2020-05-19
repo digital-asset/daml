@@ -408,7 +408,7 @@ object ServiceMain {
             "operatorpass")
           Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
             case Success(()) =>
-              system.log.info("Initialized running triggers database.")
+              system.log.info("Initialized database.")
               sys.exit(0)
             case Failure(err) =>
               system.log.error(err.toString)
