@@ -18,6 +18,8 @@ eval "$(../dev-env/bin/dade-assist)"
 # it unconditionally since it should be cheap enough.
 cp ../.bazelrc .bazelrc
 
+yarn cache clean
+
 bazel build //...
 if [ "${1:-}" = "--quick" ]; then
     bazel test //:create-daml-app-0.0.0-platform-1.1.1 --test_output=streamed -t-
