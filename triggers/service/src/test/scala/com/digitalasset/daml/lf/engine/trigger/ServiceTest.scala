@@ -9,6 +9,7 @@ import com.daml.lf.language.Ast.Package
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
@@ -21,6 +22,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import scalaz.syntax.show._
 import spray.json._
 
 import com.daml.bazeltools.BazelRunfiles.requiredResource
@@ -30,6 +32,8 @@ import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, InclusiveFilters}
 import com.daml.ledger.client.LedgerClient
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
 
 class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 
@@ -62,6 +66,21 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
+  protected def jwt(party: String): Jwt = {
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "${testId: String}", "actAs": ["${party}"]}}"""
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
+
+  protected def headersWithAuth(party: String) = authorizationHeader(jwt(party))
+
+  protected def authorizationHeader(token: Jwt): List[Authorization] =
+    List(Authorization(OAuth2BearerToken(token.value)))
+
   def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
     : ((Uri, LedgerClient) => Future[A]) => Future[A] =
     TriggerServiceFixture
@@ -71,9 +90,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/start")),
+      headers = headersWithAuth(party),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"identifier": "$id", "party": "$party"}"""
+        s"""{"identifier": "$id"}"""
       )
     )
     Http().singleRequest(req)
@@ -83,17 +103,15 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/v1/list")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        s"""{"party": "$party"}"""
-      )
+      headers = headersWithAuth(party),
     )
     Http().singleRequest(req)
   }
 
-  def stopTrigger(uri: Uri, id: String): Future[HttpResponse] = {
+  def stopTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.DELETE,
+      headers = headersWithAuth(s"${party}"),
       uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
     )
     Http().singleRequest(req)
@@ -175,7 +193,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       result <- parseTriggerIds(resp)
       _ <- result should equal(Vector(triggerId))
 
-      resp <- stopTrigger(uri, triggerId)
+      resp <- stopTrigger(uri, triggerId, "Alice")
       stoppedTriggerId <- parseTriggerId(resp)
       _ <- stoppedTriggerId should equal(triggerId)
     } yield succeed
@@ -207,7 +225,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
         // stop Alice's trigger
-        resp <- stopTrigger(uri, aliceTrigger)
+        resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
@@ -216,9 +234,9 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
         // stop Bob's triggers
-        resp <- stopTrigger(uri, bobTrigger1)
+        resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
-        resp <- stopTrigger(uri, bobTrigger2)
+        resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Bob")
         result <- parseTriggerIds(resp)
@@ -261,7 +279,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
           }
         }
         // format: on
-        resp <- stopTrigger(uri, triggerId)
+        resp <- stopTrigger(uri, triggerId, "Alice")
         _ <- assert(resp.status.isSuccess)
       } yield succeed
   }
