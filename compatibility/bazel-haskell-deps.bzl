@@ -40,6 +40,7 @@ def daml_haskell_deps():
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "aeson",
+            "aeson-extra",
             "async",
             "base",
             "bytestring",
