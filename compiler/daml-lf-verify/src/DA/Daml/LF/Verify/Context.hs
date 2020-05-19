@@ -123,9 +123,7 @@ introCond (Conditional e updx updy) = case getPhase updx of
     buildCond updx updy get =
       let xs = concatCond updx get
           ys = concatCond updy get
-      in if null xs && null ys
-        then []
-        else [Conditional e xs ys]
+      in [Conditional e xs ys | not (null xs && null ys)]
 
     -- TODO: Temporary solution. Make introCond a part of the GenPhase class instead.
     getPhase :: [Cond (UpdateSet ph)] -> UpdateSet ph
@@ -706,10 +704,10 @@ solveChoiceReferences EnvCG{..} =
           updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
             introCond (createCond cond
               (foldl
-                (\upd dat -> upd `concatUpdateSet` (_cdUpds dat selfexp thisexp argsexp))
+                (\upd dat -> upd `concatUpdateSet` _cdUpds dat selfexp thisexp argsexp)
                 emptyUpdateSet datxs)
               (foldl
-                (\upd dat -> upd `concatUpdateSet` (_cdUpds dat selfexp thisexp argsexp))
+                (\upd dat -> upd `concatUpdateSet` _cdUpds dat selfexp thisexp argsexp)
                 emptyUpdateSet datys))
       in (head datxs){_cdUpds = updfunc}
 
@@ -766,7 +764,7 @@ solveReference lookup getRefs extUpds introCond emptyUpds vis hmap0 ref0 =
   -- reference should be flagged as recursive.
   in if ref0 `elem` vis
   -- TODO: Recursion!
-    then trace "Recursion!" $ (upd1, hmap0) -- TODO: At least remove the references?
+    then trace "Recursion!" (upd1, hmap0) -- TODO: At least remove the references?
     -- When no recursion has been detected, continue inlining the references.
     else let (upd2, hmap1) = foldl handle_ref (upd1, hmap0) refs
       in (upd1, HM.insert ref0 upd2 hmap1)

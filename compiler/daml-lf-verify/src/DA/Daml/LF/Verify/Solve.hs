@@ -66,7 +66,7 @@ instance Pretty ConstraintExpr where
 -- | Add a bunch of constraint expressions.
 addMany :: [ConstraintExpr] -> ConstraintExpr
 addMany [] = CReal 0.0
-addMany (x:[]) = x
+addMany [x] = x
 addMany (x:xs) = CAdd x (addMany xs)
 
 -- | Class covering the types convertible to constraint expressions.
