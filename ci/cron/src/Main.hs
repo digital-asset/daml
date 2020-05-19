@@ -12,6 +12,7 @@ import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
+import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
@@ -107,13 +108,14 @@ to_v s = case Split.splitOn "-" s of
               _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
 
 build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
-build_docs_folder path versions latest = do
+build_docs_folder path versions current = do
     restore_sha $ do
         let old = path </> "old"
         let new = path </> "new"
         shell_ $ "mkdir -p " <> new
         shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
+        latest_release_notes_sha <- shell "git log -n1 --format=%H master -- LATEST"
         documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\gh_version -> do
             let version = name gh_version
             putStrLn $ "Building " <> version <> "..."
@@ -128,7 +130,7 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. Too old to rebuild, copying over..."
                     copy (old </> version) $ new </> version
-                    return $ Just gh_version
+                    return $ Just (gh_version, False)
                 else do
                     putStrLn "  Too old to rebuild and no existing version. Skipping."
                     return Nothing
@@ -143,11 +145,11 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
                     copy (old </> version) $ new </> version
-                    return $ Just gh_version
+                    return $ Just (gh_version, False)
                 else do
                     putStrLn "  Not found. Building..."
-                    build version new
-                    return $ Just gh_version
+                    build version new latest_release_notes_sha
+                    return $ Just (gh_version, True)
             else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
@@ -159,21 +161,31 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Checks, reusing existing."
                     copy (old </> version) $ new </> version
-                    return $ Just gh_version
+                    return $ Just (gh_version, False)
                 else do
                     putStrLn "  Check failed. Rebuilding..."
-                    build version new
-                    return $ Just gh_version
+                    build version new latest_release_notes_sha
+                    return $ Just (gh_version, True)
             else do
                 putStrLn "  Not found. Building..."
-                build version new
-                return $ Just gh_version)
-        putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
-        copy (new </> latest </> "*") (new <> "/")
+                build version new latest_release_notes_sha
+                return $ Just (gh_version, True))
+        putStrLn $ "Copying current (" <> current <> ") to top-level..."
+        copy (new </> current </> "*") (new <> "/")
         putStrLn "Creating versions.json..."
-        let (releases, snapshots) = List.partition (not . prerelease) documented_versions
-        create_versions_json releases (new </> "versions.json")
-        create_versions_json snapshots (new </> "snapshots.json")
+        let (releases, snapshots) = List.partition (not . prerelease . fst) documented_versions
+        create_versions_json (map fst releases) (new </> "versions.json")
+        create_versions_json (map fst snapshots) (new </> "snapshots.json")
+        case filter snd documented_versions of
+          ((newly_built,_):_) -> do
+              putStrLn $ "Copying release notes from " <> name newly_built <> " to all other versions..."
+              let p v = new </> name v </> "support" </> "release-notes.html"
+              let top_level_release_notes = new </> "support" </> "release-notes.html"
+              shell_ $ "cp " <> p newly_built <> " " <> top_level_release_notes
+              Data.Foldable.for_ documented_versions $ \(gh_version, _) -> do
+                  shell_ $ "cp " <> top_level_release_notes <> " " <> p gh_version
+          _ -> do
+              putStrLn "No version built, so no release page copied."
         return new
     where
         restore_sha io =
@@ -185,14 +197,14 @@ build_docs_folder path versions latest = do
             shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
         exists dir = Directory.doesDirectoryExist dir
         checksums path = do
-            let cmd = "cd " <> path <> "; sha256sum -c checksum"
+            let cmd = "cd " <> path <> "; sed -i ':support/release-notes.html:d' checksum; sha256sum -c checksum"
             (code, _, _) <- shell_exit_code cmd
             case code of
                 Exit.ExitSuccess -> return True
                 _ -> return False
         copy from to = do
             shell_ $ "cp -r " <> from <> " " <> to
-        build version path = do
+        build version path latest_sha = do
             shell_ $ "git checkout v" <> version
             -- Maven does not accept http connections anymore; this patches the
             -- scala rules for Bazel to use https instead. This is not needed
@@ -207,25 +219,24 @@ build_docs_folder path versions latest = do
             -- Starting after 0.13.54, we have changed the way in which we
             -- trigger releases. Rather than releasing the current commit by
             -- changing the VERSION file, we now mark an existing commit as the
-            -- source code for a release by changing the LATEST file. However,
-            -- release notes still need to be taken from the release commit
-            -- (i.e. the one that changes the LATEST file, not the one being
-            -- pointed to).
+            -- source code for a release by changing the LATEST file. This
+            -- raises the question of the release notes: as we tag a commit
+            -- from the past, and keep the changelog outside of the worktree
+            -- (in commit messages), that means that commit cannot contain its
+            -- own release notes. We have decided to resolve that conundrum by
+            -- always including the release notes from the most recent release
+            -- in all releases.
             else do
-                -- The release-triggering commit does not have a tag, so we
-                -- need to find it by walking through the git history of the
-                -- LATEST file.
-                sha <- find_commit_for_version version
-                Control.Exception.bracket
-                    (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
-                    (\_ -> shell_ "git reset --hard")
-                    (\_ -> build_helper version path)
+                Control.Exception.bracket_
+                    (shell_ $ "git checkout " <> latest_sha <> " -- docs/source/support/release-notes.rst")
+                    (shell_ "git reset --hard")
+                    (build_helper version path)
         build_helper version path = do
             robustly_download_nix_packages version
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
-            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
+            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\; | grep -v 'support/release-notes.html'"
             writeFile (path </> version </> "checksum") checksums
         create_versions_json versions path = do
             -- Not going through Aeson because it represents JSON objects as
@@ -237,20 +248,6 @@ build_docs_folder path versions latest = do
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
             writeFile path versions_json
-
-find_commit_for_version :: String -> IO String
-find_commit_for_version version = do
-    release_commits <- lines <$> shell "git log --format=%H --all -- LATEST"
-    ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
-    let expected = ver_sha <> " " <> version
-    matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
-        latest <- init <$> (shell $ "git show " <> sha <> ":LATEST")
-        if latest == expected
-        then return $ Just sha
-        else return Nothing)
-    case matching of
-      [sha] -> return sha
-      _ -> error $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
 
 fetch_s3_versions :: IO (Set.Set Version, Set.Set Version)
 fetch_s3_versions = do
@@ -281,13 +278,12 @@ push_to_s3 doc_folder = do
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
 
-data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String, published_at :: String } deriving Show
+data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String } deriving Show
 instance JSON.FromJSON GitHubVersion where
     parseJSON = JSON.withObject "GitHubVersion" $ \v -> GitHubVersion
         <$> v JSON..: Text.pack "prerelease"
         <*> v JSON..: Text.pack "tag_name"
         <*> v JSON..:? Text.pack "body" JSON..!= ""
-        <*> v JSON..: Text.pack "published_at"
 
 name :: GitHubVersion -> String
 name gh = tail $ tag_name gh

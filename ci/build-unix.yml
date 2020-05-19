@@ -67,8 +67,7 @@ steps:
     name: publish_npm_mvn
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
+                   eq(variables['Build.SourceBranchName'], 'master'),
                    eq('${{parameters.name}}', 'linux'))
   - bash: |
       set -euo pipefail
@@ -96,24 +95,21 @@ steps:
     name: publish
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
       artifactName: $(publish.protos-zip)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
+                   eq(variables['Build.SourceBranchName'], 'master'),
                    eq('${{parameters.name}}', 'linux'))
   - task: PublishPipelineArtifact@0
     inputs:
@@ -121,8 +117,7 @@ steps:
       artifactName: $(publish.daml-on-sql)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
+                   eq(variables['Build.SourceBranchName'], 'master'),
                    eq('${{parameters.name}}', 'linux'))
   - task: PublishPipelineArtifact@0
     inputs:
@@ -130,6 +125,5 @@ steps:
       artifactName: $(publish.json-api)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
+                   eq(variables['Build.SourceBranchName'], 'master'),
                    eq('${{parameters.name}}', 'linux'))
