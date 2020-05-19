@@ -235,12 +235,12 @@ constructConstr :: Env 'Solving
   -- ^ The field name to be verified.
   -> ConstraintSet
 constructConstr env chtem ch ftem f =
-  case HM.lookup (UpdChoice chtem ch) (_envschs env) of
+  case HM.lookup (UpdChoice chtem ch) (envChoices env) of
     Just ChoiceData{..} ->
-      let upds = _ussUpdate $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
-          vars = concatMap skol2var (_envsskol env)
-          syns = constructSynonyms $ HM.elems $ _envscids env
-          ctrs = map (both (toCExp syns)) $ _envsctrs env
+      let upds = updSetUpdates $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
+          vars = concatMap skol2var (envSkols env)
+          syns = constructSynonyms $ HM.elems $ envCids env
+          ctrs = map (both (toCExp syns)) $ envCtrs env
           (cres, arcs) = foldl
             (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
             ([],[]) upds

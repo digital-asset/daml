@@ -28,7 +28,7 @@ data Output (ph :: Phase) = Output
   }
 
 -- | Construct an output with no updates.
-emptyOut :: GenPhase ph
+emptyOut :: IsPhase ph
   => Expr
   -- ^ The evaluated expression.
   -> Output ph
@@ -36,7 +36,7 @@ emptyOut expr = Output expr emptyUpdateSet
 
 -- | Extend a generator output with the updates of the second generator output.
 -- Note that the end result will contain only the first expression.
-combineOut :: Output ph -> Output ph -> Output ph
+combineOut :: IsPhase ph => Output ph -> Output ph -> Output ph
 combineOut out1 out2 = extendOutUpds (_oUpdate out2) out1
 
 -- | Update an output with a new evaluated expression.
@@ -48,7 +48,8 @@ updateOutExpr :: Expr
 updateOutExpr expr out = out{_oExpr = expr}
 
 -- | Update an output with additional updates.
-extendOutUpds :: UpdateSet ph
+extendOutUpds :: IsPhase ph
+  => UpdateSet ph
   -- ^ The extension of the update set.
   -> Output ph
   -- ^ The generator output to be updated.
@@ -65,6 +66,43 @@ addArchiveUpd :: Qualified TypeConName
   -> Output 'ChoiceGathering
 addArchiveUpd temp fs (Output expr upds) =
   Output expr (addUpd upds $ UpdArchive temp fs)
+
+-- | Class containing the generator methods for different generator phases.
+class IsPhase ph => GenPhase (ph :: Phase) where
+  -- | Generate an environment for a given module.
+  -- Depending on the generator phase, this either adds all value and data type
+  -- definitions to the environment, or all template definitions with their
+  -- respective choices.
+  genModule :: MonadEnv m ph
+    => PackageRef
+    -- ^ A reference to the package in which this module is defined.
+    -> Module
+    -- ^ The module to analyse.
+    -> m ()
+
+  -- | Analyse a value reference.
+  genForVal :: MonadEnv m ph
+    => Bool
+    -- ^ Flag denoting whether updates should be analysed.
+    -> Qualified ExprValName
+    -- ^ The value reference to be analysed.
+    -> m (Output ph)
+
+instance GenPhase 'ValueGathering where
+  genModule pac mod = do
+    extDatsEnv (NM.toHashMap (moduleDataTypes mod))
+    mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
+  genForVal _updFlag w = return $ Output (EVal w) (setUpdSetValues [Determined w] emptyUpdateSet)
+
+instance GenPhase 'ChoiceGathering where
+  genModule pac mod =
+    mapM_ (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
+  genForVal _updFlag w = lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
+
+instance GenPhase 'Solving where
+  genModule _pac _mod =
+    error "Impossible: genModule can't be used in the solving phase"
+  genForVal _updFlag _w = error "Impossible: genForVal can't be used in the solving phase"
 
 -- | Generate an environment for a given list of packages.
 -- Depending on the generator phase, this either adds all value and data type
@@ -85,24 +123,6 @@ genPackage :: (GenPhase ph, MonadEnv m ph)
   -- ^ The package, as produced by `readPackages`.
   -> m ()
 genPackage (id, (pac, _)) = mapM_ (genModule (PRImport id)) (NM.toList $ packageModules pac)
-
--- | Generate an environment for a given module.
--- Depending on the generator phase, this either adds all value and data type
--- definitions to the environment, or all template definitions with their
--- respective choices.
-genModule :: (GenPhase ph, MonadEnv m ph)
-  => PackageRef
-  -- ^ A reference to the package in which this module is defined.
-  -> Module
-  -- ^ The module to analyse.
-  -> m ()
-genModule pac mod = getEnv >>= \case
-  EnvVG{} -> do
-    extDatsEnv (NM.toHashMap (moduleDataTypes mod))
-    mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
-  EnvCG{} ->
-    mapM_ (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
-  EnvS{} -> error "Impossible: genModule can't be used in the solving phase"
 
 -- | Analyse a value definition and add to the environment.
 genValue :: (GenPhase ph, MonadEnv m ph)
@@ -288,18 +308,6 @@ genForVar :: (GenPhase ph, MonadEnv m ph)
   -- ^ The expression variable to be analysed.
   -> m (Output ph)
 genForVar _updFlag name = lookupVar name >> return (emptyOut (EVar name))
-
--- | Analyse a value reference.
-genForVal :: (GenPhase ph, MonadEnv m ph)
-  => Bool
-  -- ^ Flag denoting whether updates should be analysed.
-  -> Qualified ExprValName
-  -- ^ The value reference to be analysed.
-  -> m (Output ph)
-genForVal _updFlag w = getEnv >>= \case
-  EnvVG{} -> return $ Output (EVal w) (emptyUpdateSet{_usvgValue = [Determined w]})
-  EnvCG{} -> lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
-  EnvS{} -> error "Impossible: genForVal can't be used in the solving phase"
 
 -- | Analyse a record projection expression.
 genForRecProj :: (GenPhase ph, MonadEnv m ph)
