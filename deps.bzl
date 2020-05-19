@@ -194,6 +194,7 @@ def daml_deps():
             patches = [
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
+                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
             ],
             patch_args = ["-p1"],
         )

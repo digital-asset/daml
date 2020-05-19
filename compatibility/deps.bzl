@@ -97,6 +97,9 @@ def daml_deps():
             patches = [
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
+                # Enforces a dependency of the rules_nodejs workspace on the
+                # workspace providing node.
+                "@daml//bazel_tools:rules_nodejs_node_dependency.patch",
             ],
             patch_args = ["-p1"],
         )
