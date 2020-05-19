@@ -3,6 +3,9 @@
 
 package com.daml.ledger.client
 
+import java.io.Closeable
+import java.util.concurrent.TimeUnit
+
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.domain.LedgerId
@@ -23,7 +26,7 @@ import com.daml.ledger.client.services.commands.{CommandClient, SynchronousComma
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.transactions.TransactionClient
-import io.grpc.Channel
+import io.grpc.{Channel, ManagedChannel}
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.grpc.stub.AbstractStub
 
@@ -33,7 +36,8 @@ final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
     val ledgerId: LedgerId
-)(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory) {
+)(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
+    extends Closeable {
 
   val activeContractSetClient =
     new ActiveContractSetClient(
@@ -68,6 +72,12 @@ final class LedgerClient private (
       ledgerId,
       LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token))
 
+  override def close(): Unit =
+    channel match {
+      case channel: ManagedChannel =>
+        val _ = channel.shutdown().awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+      case _ => // do nothing
+    }
 }
 
 object LedgerClient {
@@ -119,7 +129,11 @@ object LedgerClient {
     configuration.sslContext.fold(builder.usePlaintext())(
       builder.sslContext(_).negotiationType(NegotiationType.TLS))
     val channel = builder.build()
-    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
+    sys.addShutdownHook {
+      if (!channel.isShutdown) {
+        val _ = channel.shutdownNow()
+      }
+    }
     apply(channel, configuration)
   }
 
