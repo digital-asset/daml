@@ -18,9 +18,8 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives._
 import akka.http.scaladsl.server.Route
-
-import akka.stream.{Materializer}
-import akka.stream.scaladsl.{Source}
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 import java.io.ByteArrayInputStream
 import java.time.Duration
@@ -39,29 +38,23 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec}
 
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
-
+import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
 import com.daml.lf.language.Ast._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
+
 import scala.sys.ShutdownHookThread
 
 case class LedgerConfig(
@@ -406,6 +399,19 @@ object ServiceMain {
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
+
+        val triggerDao = TriggerDao(
+          "org.postgresql.Driver",
+          "jdbc:postgresql://localhost:5432/triggers",
+          "operator",
+          "operatorpass")
+        Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
+          case Success(()) =>
+            system.log.info("Initialized running triggers database.")
+            System.exit(0)
+          case Failure(err) =>
+            sys.error(s"Failed to initialize database: $err")
+        }
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
