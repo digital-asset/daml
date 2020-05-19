@@ -227,6 +227,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: macOS-pool
+      demands: assignment -equals broken
     steps:
       - template: ci/report-start.yml
       - checkout: self
