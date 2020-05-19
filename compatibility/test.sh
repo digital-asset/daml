@@ -20,7 +20,7 @@ cp ../.bazelrc .bazelrc
 
 bazel build //...
 if [ "${1:-}" = "--quick" ]; then
-    bazel test //:head-quick
+    bazel test //:create-daml-app-0.0.0-platform-1.1.1 --test_output=streamed -t-
 else
     bazel test //:create-daml-app-0.0.0-platform-1.1.1 --test_output=streamed -t-
 fi
