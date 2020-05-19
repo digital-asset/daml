@@ -128,4 +128,4 @@ da_haskell_test(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
-)
+) if not is_windows else None
