@@ -3,7 +3,6 @@
 
 package com.daml.ledger.validator.batch
 
-import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
@@ -12,10 +11,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{MetricName, Metrics}
+import com.daml.metrics.Metrics
 
-class ConflictDetection(val metrics: Metrics) {
+class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
+  private val metrics = damlMetrics.daml.kvutils.ConflictDetection
 
   /**
     * Detect conflicts in a log entry and attempt to recover.
@@ -42,7 +42,7 @@ class ConflictDetection(val metrics: Metrics) {
     val conflictingKeys = (inputState.keySet union outputState.keySet) intersect invalidatedKeys
     if (conflictingKeys.isEmpty) {
       // No conflicting keys, nothing to change.
-      Metrics.accepted.inc()
+      metrics.accepted.inc()
       Some((newInvalidatedKeys, (logEntry, outputState)))
     } else {
       // Conflicting keys.
@@ -60,7 +60,7 @@ class ConflictDetection(val metrics: Metrics) {
         .hashCode() || inputValue != outputValue
       if (!contentsDiffer) {
         logger.trace(s"Dropped key=$key from conflicting key set as its value has not been altered")
-        Metrics.removedTransientKey.inc()
+        metrics.removedTransientKey.inc()
       }
       contentsDiffer
     }
@@ -69,11 +69,11 @@ class ConflictDetection(val metrics: Metrics) {
       logEntry: DamlLogEntry,
       conflictingKeys: Set[DamlStateKey])(implicit loggingContext: LoggingContext)
     : Option[(DamlLogEntry, Map[DamlStateKey, DamlStateValue])] = {
-    Metrics.conflicted.inc()
+    metrics.conflicted.inc()
 
     logEntry.getPayloadCase match {
       case TRANSACTION_ENTRY =>
-        Metrics.recovered.inc()
+        metrics.recovered.inc()
         val reason = explainConflict(conflictingKeys)
         val transactionRejectionEntry = transactionRejectionEntryFrom(logEntry, reason)
         logger.trace(s"Recovered a conflicted transaction, details='$reason'")
@@ -83,7 +83,7 @@ class ConflictDetection(val metrics: Metrics) {
           TRANSACTION_REJECTION_ENTRY | CONFIGURATION_REJECTION_ENTRY |
           PACKAGE_UPLOAD_REJECTION_ENTRY | PARTY_ALLOCATION_REJECTION_ENTRY =>
         logger.trace(s"Dropping conflicting submission (${logEntry.getPayloadCase})")
-        Metrics.dropped.inc()
+        metrics.dropped.inc()
         None
 
       case PAYLOAD_NOT_SET =>
@@ -127,24 +127,5 @@ class ConflictDetection(val metrics: Metrics) {
       .getInconsistentBuilder
       .setDetails(reason)
     builder.build
-  }
-
-  private[batch] object Metrics {
-    private val Prefix = MetricName.DAML :+ "pkvutils" :+ "conflict_detection"
-
-    val accepted: Counter =
-      metrics.registry.counter(Prefix :+ "accepted")
-
-    val conflicted: Counter =
-      metrics.registry.counter(Prefix :+ "conflicted")
-
-    val removedTransientKey: Counter =
-      metrics.registry.counter(Prefix :+ "removed_transient_key")
-
-    val recovered: Counter =
-      metrics.registry.counter(Prefix :+ "recovered")
-
-    val dropped: Counter =
-      metrics.registry.counter(Prefix :+ "dropped")
   }
 }

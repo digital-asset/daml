@@ -169,6 +169,25 @@ class Metrics(val registry: MetricRegistry) {
 
         val commit: Timer = registry.timer(prefix :+ "commit")
       }
+
+      object ConflictDetection {
+        private val Prefix = kvutils.prefix :+ "conflict_detection"
+
+        val accepted: Counter =
+          registry.counter(Prefix :+ "accepted")
+
+        val conflicted: Counter =
+          registry.counter(Prefix :+ "conflicted")
+
+        val removedTransientKey: Counter =
+          registry.counter(Prefix :+ "removed_transient_key")
+
+        val recovered: Counter =
+          registry.counter(Prefix :+ "recovered")
+
+        val dropped: Counter =
+          registry.counter(Prefix :+ "dropped")
+      }
     }
 
     object lapi {
