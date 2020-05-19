@@ -3,13 +3,25 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlPartyAllocationEntry,
+  DamlSubmission
+}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.google.protobuf.ByteString
 
 private[validator] object TestHelper {
 
   lazy val aParticipantId: ParticipantId = ParticipantId.assertFromString("aParticipantId")
+
+  lazy val aLogEntry: DamlLogEntry =
+    DamlLogEntry
+      .newBuilder()
+      .setPartyAllocationEntry(
+        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId(aParticipantId))
+      .build()
 
   lazy val anInvalidEnvelope: ByteString = ByteString.copyFromUtf8("invalid data")
   lazy val invalidEnvelope: ByteString = anInvalidEnvelope
@@ -31,4 +43,6 @@ private[validator] object TestHelper {
       .setParty(party)
     builder.build
   }
+
+  def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
 }

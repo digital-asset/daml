@@ -33,7 +33,11 @@ class LogAppendingCommitStrategy[Index](
         case (key, value) =>
           (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
       }(breakOut))
-      _ <- ledgerStateOperations.writeState(serializedKeyValuePairs)
+      _ <- if (serializedKeyValuePairs.nonEmpty) {
+        ledgerStateOperations.writeState(serializedKeyValuePairs)
+      } else {
+        Future.unit
+      }
       index <- ledgerStateOperations
         .appendToLog(
           entryId.toByteString,
