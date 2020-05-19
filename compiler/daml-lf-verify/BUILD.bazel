@@ -10,7 +10,7 @@ da_haskell_binary(
     srcs = glob(["src/**/*.hs"]),
     data = [
         "@z3_nix//:bin/z3",
-    ],
+    ] if not is_windows else [],
     hackage_deps = [
         "aeson",
         "base",
@@ -47,14 +47,14 @@ da_haskell_binary(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
-) if not is_windows else None
+)
 
 da_haskell_library(
     name = "daml-lf-verify-lib",
     srcs = glob(["src/**/*.hs"]),
     data = [
         "@z3_nix//:bin/z3",
-    ],
+    ] if not is_windows else [],
     hackage_deps = [
         "aeson",
         "base",
@@ -90,7 +90,7 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
-) if not is_windows else None
+)
 
 daml_compile(
     name = "quickstart",
@@ -110,7 +110,7 @@ da_haskell_test(
     data = [
         ":conditionals.dar",
         ":quickstart.dar",
-    ],
+    ] if not is_windows else [],
     hackage_deps = [
         "base",
         "containers",
@@ -128,4 +128,4 @@ da_haskell_test(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
-) if not is_windows else None
+)
