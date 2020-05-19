@@ -371,14 +371,9 @@ genForCase updFlag exp cs = do
                 [ CaseAlternative (CPBool True) (_oExpr truOut)
                 , CaseAlternative (CPBool False) (_oExpr falOut) ]
               resUpd = _oUpdate expOut `concatUpdateSet`
-                conditionalUpdateSet (_oExpr expOut) (_oUpdate truOut) (Just $ _oUpdate falOut)
+                conditionalUpdateSet (_oExpr expOut) (_oUpdate truOut) (_oUpdate falOut)
           return $ Output resExp resUpd
-        Nothing -> do
-          let resExp = ECase (_oExpr expOut)
-                [ CaseAlternative (CPBool True) (_oExpr truOut) ]
-              resUpd = _oUpdate expOut `concatUpdateSet`
-                conditionalUpdateSet (_oExpr expOut) (_oUpdate truOut) Nothing
-          return $ Output resExp resUpd
+        Nothing -> error "Impossible: Missing False-case in if statement"
     Nothing -> return $ emptyOut (ECase exp cs)
   where
     findBool :: Bool -> Maybe Expr

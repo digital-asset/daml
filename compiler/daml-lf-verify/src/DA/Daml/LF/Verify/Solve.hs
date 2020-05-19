@@ -12,7 +12,7 @@ module DA.Daml.LF.Verify.Solve
   ) where
 
 import Data.Bifunctor
-import Data.Maybe (fromJust, maybeToList)
+import Data.Maybe
 import Data.List
 import Data.List.Extra (nubOrd)
 import Data.Tuple.Extra (both)
@@ -48,8 +48,6 @@ data ConstraintExpr
   | CNot !ConstraintExpr
   -- | If then else expression.
   | CIf !ConstraintExpr !ConstraintExpr !ConstraintExpr
-  -- | If then expression.
-  | CWhen !ConstraintExpr !ConstraintExpr
   deriving Show
 
 instance Pretty ConstraintExpr where
@@ -64,7 +62,12 @@ instance Pretty ConstraintExpr where
   pretty (CNot e) = "not " <+> pretty e
   pretty (CIf e1 e2 e3) = "if " <+> pretty e1 <+> " then " <+> pretty e2
     <+> " else " <+> pretty e3
-  pretty (CWhen e1 e2) = "when " <+> pretty e1 <+> " then " <+> pretty e2
+
+-- | Add a bunch of constraint expressions.
+addMany :: [ConstraintExpr] -> ConstraintExpr
+addMany [] = CReal 0.0
+addMany (x:[]) = x
+addMany (x:xs) = CAdd x (addMany xs)
 
 -- | Class covering the types convertible to constraint expressions.
 class ConstrExpr a where
@@ -109,8 +112,10 @@ instance ConstrExpr Expr where
 
 instance ConstrExpr a => ConstrExpr (Cond a) where
   toCExp syns (Determined x) = toCExp syns x
-  toCExp syns (Conditional b x Nothing) = CWhen (toCExp syns b) (toCExp syns x)
-  toCExp syns (Conditional b x (Just y)) = CIf (toCExp syns b) (toCExp syns x) (toCExp syns y)
+  -- TODO: Can we assume this should always be a sum?
+  toCExp syns (Conditional b x y) = CIf (toCExp syns b)
+    (addMany $ map (toCExp syns) x)
+    (addMany $ map (toCExp syns) y)
 
 -- | Gather all free variables in a constraint expression.
 gatherFreeVars :: ConstraintExpr
@@ -127,7 +132,6 @@ gatherFreeVars (CAnd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CNot e) = gatherFreeVars e
 gatherFreeVars (CIf e1 e2 e3) = gatherFreeVars e1 `union`
   gatherFreeVars e2 `union` gatherFreeVars e3
-gatherFreeVars (CWhen e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 
 -- | Gather the variable names bound within a skolem variable.
 skol2var :: Skolem
@@ -188,16 +192,12 @@ filterCondUpd :: Qualified TypeConName
   -- ^ The conditional update expression to convert and filter.
   -> ([ConstraintExpr], [ConstraintExpr])
 filterCondUpd tem syns f (Determined x) = both maybeToList $ filterUpd tem syns f x
-filterCondUpd tem syns f (Conditional b x Nothing) =
+filterCondUpd tem syns f (Conditional b xs ys) =
   let cb = toCExp syns b
-  in both (map (CWhen cb) . maybeToList) $ filterUpd tem syns f x
-filterCondUpd tem syns f (Conditional b x (Just y)) =
-  let cb = toCExp syns b
-      (cxcre,cxarc) = both maybeToList $ filterUpd tem syns f x
-      (cycre,cyarc) = both maybeToList $ filterUpd tem syns f y
-  -- TODO: We should try to use an if here.
-  in ( map (CWhen cb) cxcre ++ map (CWhen (CNot cb)) cycre
-     , map (CWhen cb) cxarc ++ map (CWhen (CNot cb)) cyarc )
+      (cxcre,cxarc) = both (addMany . concat) $ unzip $ map (filterCondUpd tem syns f) xs
+      (cycre,cyarc) = both (addMany . concat) $ unzip $ map (filterCondUpd tem syns f) ys
+  in ( [CIf cb cxcre cycre]
+     , [CIf cb cxarc cyarc] )
 
 -- | Filter the given set of skolems, to only include those that occur in the
 -- given constraint expressions. Remove duplicates in the process.
@@ -283,11 +283,6 @@ cexp2sexp vars (CIf ce1 ce2 ce3) = do
   se2 <- cexp2sexp vars ce2
   se3 <- cexp2sexp vars ce3
   return $ S.ite se1 se2 se3
-cexp2sexp vars (CWhen ce1 ce2) = do
-  se1 <- cexp2sexp vars ce1
-  se2 <- cexp2sexp vars ce2
-  -- TODO: Temporary hack
-  return $ S.ite se1 se2 (S.real 0.0)
 
 -- | Declare a list of variables for the SMT solver. Returns a list of the
 -- declared variables, together with their corresponding SMT counterparts.

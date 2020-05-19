@@ -49,6 +49,7 @@ import Data.List (find)
 import Data.Bifunctor
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
+import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Subst
@@ -80,35 +81,68 @@ data BoolExpr
 data Cond a
   = Determined a
   -- ^ Non-conditional value.
-  | Conditional BoolExpr a (Maybe a)
-  -- ^ Conditional value, with a (Boolean) condition, a value in case the
-  -- condition holds, and possibly a value in case it doesn't.
+  | Conditional BoolExpr [Cond a] [Cond a]
+  -- ^ Conditional value, with a (Boolean) condition, at least one value in case
+  -- the condition holds, and at least one value in case it doesn't.
+  -- Note that these branch lists should not be empty.
+  -- TODO: Encode this invariant in the type system?
   deriving (Show, Functor)
+
+-- | Construct a simple conditional.
+createCond :: BoolExpr
+  -- ^ The condition to depend on.
+  -> a
+  -- ^ The value in case the condition holds.
+  -> a
+  -- ^ The value in case the condition does not hold.
+  -> Cond a
+createCond cond x y = Conditional cond [Determined x] [Determined y]
 
 -- | Shift the conditional inside the update set.
 introCond :: Cond (UpdateSet ph) -> UpdateSet ph
 introCond (Determined upds) = upds
-introCond (Conditional e updx updy) = case updx of
+introCond (Conditional e updx updy) = case getPhase updx of
   UpdateSetVG{} -> UpdateSetVG
-    (concatCond $ Conditional e (_usvgUpdate updx) (_usvgUpdate <$> updy))
-    (concatCond $ Conditional e (_usvgChoice updx) (_usvgChoice <$> updy))
-    (concatCond $ Conditional e (_usvgValue updx) (_usvgValue <$> updy))
+    (buildCond updx updy _usvgUpdate)
+    (buildCond updx updy _usvgChoice)
+    (buildCond updx updy _usvgValue)
   UpdateSetCG{} -> UpdateSetCG
-    (concatCond $ Conditional e (_uscgUpdate updx) (_uscgUpdate <$> updy))
-    (concatCond $ Conditional e (_uscgChoice updx) (_uscgChoice <$> updy))
+    (buildCond updx updy _uscgUpdate)
+    (buildCond updx updy _uscgChoice)
   UpdateSetS{} -> UpdateSetS
-    (concatCond $ Conditional e (_ussUpdate updx) (_ussUpdate <$> updy))
-
--- | Flatten nested conditionals into a single level.
-concatCond :: Cond [Cond a] -> [Cond a]
-concatCond (Determined xs) = xs
-concatCond (Conditional e xs mys) = case mys of
-  Just ys -> map (ext_cond e) xs ++ map (ext_cond (BNot e)) ys
-  Nothing -> map (ext_cond e) xs
+    (buildCond updx updy _ussUpdate)
   where
-    ext_cond :: BoolExpr -> Cond b -> Cond b
-    ext_cond e (Determined x) = Conditional e x Nothing
-    ext_cond e1 (Conditional e2 x y) = Conditional (BAnd e1 e2) x y
+    -- | Construct a single conditional, if the input is not empty.
+    buildCond :: [Cond (UpdateSet ph)]
+      -- ^ The input for the true case.
+      -> [Cond (UpdateSet ph)]
+      -- ^ The input for the false case.
+      -> (UpdateSet ph -> [Cond a])
+      -- ^ The fetch function.
+      -> [Cond a]
+    buildCond updx updy get =
+      let xs = concatCond updx get
+          ys = concatCond updy get
+      in if null xs && null ys
+        then []
+        else [Conditional e xs ys]
+
+    -- TODO: Temporary solution. Make introCond a part of the GenPhase class instead.
+    getPhase :: [Cond (UpdateSet ph)] -> UpdateSet ph
+    getPhase lst = case head lst of
+      Determined upds -> upds
+      Conditional _ xs _ -> getPhase xs
+
+-- | Fetch the conditionals from the conditional update set, and flatten the
+-- two layers into one.
+concatCond :: [Cond (UpdateSet ph)]
+  -- ^ The conditional update set to fetch from.
+  -> (UpdateSet ph -> [Cond a])
+  -- ^ The fetch function.
+  -> [Cond a]
+concatCond upds get =
+  let upds' = map introCond upds
+  in concatMap get upds'
 
 -- | Data type denoting an update.
 data Upd
@@ -203,11 +237,11 @@ conditionalUpdateSet :: Expr
   -- ^ The condition on which to combine the two update sets.
   -> UpdateSet ph
   -- ^ The update set in case the condition holds.
-  -> Maybe (UpdateSet ph)
-  -- ^ Possibly a second update set.
+  -> UpdateSet ph
+  -- ^ The update set in case the condition does not hold.
   -> UpdateSet ph
 conditionalUpdateSet exp upd1 upd2 =
-  introCond (Conditional (BExpr exp) upd1 upd2)
+  introCond $ createCond (BExpr exp) upd1 upd2
 
 -- | Refresh a given expression variable by producing a fresh renamed variable.
 -- TODO: when a renamed var gets renamed again, it might overlap again.
@@ -581,7 +615,7 @@ lookupCid exp = do
 -- It thus empties `_usValue` by collecting all updates made by this closure.
 solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
 solveValueReferences EnvVG{..} =
-  let valhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond [] hmap ref) _envvgvals (HM.keys _envvgvals)
+  let valhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond empty_upds [] hmap ref) _envvgvals (HM.keys _envvgvals)
   in EnvCG _envvgskol (convertHMap valhmap) _envvgdats _envvgcids _envvgctrs HM.empty
   where
     lookup_ref :: Qualified ExprValName
@@ -603,7 +637,17 @@ solveValueReferences EnvVG{..} =
     -- Note that the expression is not important here, as it will be ignored in
     -- `ext_upds` later on.
     intro_cond (Determined x) = x
-    intro_cond (Conditional cond (e,updx) y) = (e, introCond (Conditional cond updx (snd <$> y)))
+    intro_cond (Conditional cond cx cy) =
+      let xs = map intro_cond cx
+          ys = map intro_cond cy
+          e = fst $ head xs
+          updx = foldl concatUpdateSet emptyUpdateSet $ map snd xs
+          updy = foldl concatUpdateSet emptyUpdateSet $ map snd ys
+      in (e, introCond $ createCond cond updx updy)
+
+    empty_upds :: (Expr, UpdateSet 'ValueGathering)
+      -> (Expr, UpdateSet 'ValueGathering)
+    empty_upds (e, _) = (e, emptyUpdateSet)
 
     convertHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
       -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering)
@@ -619,7 +663,7 @@ solveValueReferences EnvVG{..} =
 -- It thus empties `_usChoice` by collecting all updates made by this closure.
 solveChoiceReferences :: Env 'ChoiceGathering -> Env 'Solving
 solveChoiceReferences EnvCG{..} =
-  let chhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond [] hmap ref) _envcgchs (HM.keys _envcgchs)
+  let chhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond empty_upds [] hmap ref) _envcgchs (HM.keys _envcgchs)
       chshmap = convertChHMap chhmap
       valhmap = HM.map (inlineChoices chshmap) _envcgvals
   in EnvS _envcgskol valhmap _envcgdats _envcgcids _envcgctrs chshmap
@@ -650,14 +694,28 @@ solveChoiceReferences EnvCG{..} =
               _cdUpds chdat2 selfexp thisexp argsexp
       in chdat1{_cdUpds = updfunc}
 
-    intro_cond :: Cond (ChoiceData ph)
+    intro_cond :: GenPhase ph
+      => Cond (ChoiceData ph)
       -> ChoiceData ph
+    -- Note that the expression and return type is not important here, as it
+    -- will be ignored in `ext_upds` later on.
     intro_cond (Determined x) = x
-    intro_cond (Conditional cond chdatx y) =
-      let updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            introCond (Conditional cond (_cdUpds chdatx selfexp thisexp argsexp)
-              ((\chdaty -> _cdUpds chdaty selfexp thisexp argsexp) <$> y))
-      in chdatx{_cdUpds = updfunc}
+    intro_cond (Conditional cond cdatxs cdatys) =
+      let datxs = map intro_cond cdatxs
+          datys = map intro_cond cdatys
+          updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
+            introCond (createCond cond
+              (foldl
+                (\upd dat -> upd `concatUpdateSet` (_cdUpds dat selfexp thisexp argsexp))
+                emptyUpdateSet datxs)
+              (foldl
+                (\upd dat -> upd `concatUpdateSet` (_cdUpds dat selfexp thisexp argsexp))
+                emptyUpdateSet datys))
+      in (head datxs){_cdUpds = updfunc}
+
+    empty_upds :: ChoiceData 'ChoiceGathering
+      -> ChoiceData 'ChoiceGathering
+    empty_upds dat = dat{_cdUpds = \ _ _ _ -> emptyUpdateSet}
 
     inlineChoices :: HM.HashMap UpdChoice (ChoiceData 'Solving)
       -> (Expr, UpdateSet 'ChoiceGathering)
@@ -690,6 +748,8 @@ solveReference :: forall updset ref. (Eq ref, Hashable ref)
   -- ^ Function for concatinating update sets.
   -> (Cond updset -> updset)
   -- ^ Function for moving conditionals inside the update set.
+  -> (updset -> updset)
+  -- ^ Function for emptying a given update set of all updates.
   -> [ref]
   -- ^ The references which have already been visited.
   -> HM.HashMap ref updset
@@ -697,7 +757,7 @@ solveReference :: forall updset ref. (Eq ref, Hashable ref)
   -> ref
   -- ^ The reference to be solved.
   -> (updset, HM.HashMap ref updset)
-solveReference lookup getRefs extUpds introCond vis hmap0 ref0 =
+solveReference lookup getRefs extUpds introCond emptyUpds vis hmap0 ref0 =
   -- Lookup updates performed by the given reference, and split in new
   -- references and reference-free updates.
   let upd0 = lookup ref0 hmap0
@@ -706,7 +766,7 @@ solveReference lookup getRefs extUpds introCond vis hmap0 ref0 =
   -- reference should be flagged as recursive.
   in if ref0 `elem` vis
   -- TODO: Recursion!
-    then (upd1, hmap0) -- TODO: At least remove the references?
+    then trace "Recursion!" $ (upd1, hmap0) -- TODO: At least remove the references?
     -- When no recursion has been detected, continue inlining the references.
     else let (upd2, hmap1) = foldl handle_ref (upd1, hmap0) refs
       in (upd1, HM.insert ref0 upd2 hmap1)
@@ -720,18 +780,20 @@ solveReference lookup getRefs extUpds introCond vis hmap0 ref0 =
       -> (updset, HM.HashMap ref updset)
     -- For a simple reference, the closure is computed straightforwardly.
     handle_ref (upd_i0, hmap_i0) (Determined ref_i) =
-      let (upd_i1, hmap_i1) = solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_i0 ref_i
+      let (upd_i1, hmap_i1) =
+            solveReference lookup getRefs extUpds introCond emptyUpds (ref0:vis) hmap_i0 ref_i
       in (extUpds upd_i0 upd_i1, hmap_i1)
     -- A conditional reference is more involved, as the conditional needs to be
     -- preserved in the computed closure (update set).
-    handle_ref (upd_i0, hmap_i0) (Conditional cond ref_ia ref_ib) =
+    handle_ref (upd_i0, hmap_i0) (Conditional cond refs_ia refs_ib) =
+          -- Construct an update set without any updates.
+      let upd_i0_empty = emptyUpds upd_i0
           -- Compute the closure for the true-case.
-      let (upd_ia, hmap_ia) = solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_i0 ref_ia
-          -- Compute the closure for the false-case, when this case exists.
-          (upd_ib, hmap_ib) = maybe (Nothing, hmap_ia)
-            (first Just . solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_ia) ref_ib
+          (upd_ia, hmap_ia) = foldl handle_ref (upd_i0_empty, hmap_i0) refs_ia
+          -- Compute the closure for the false-case.
+          (upd_ib, hmap_ib) = foldl handle_ref (upd_i0_empty, hmap_ia) refs_ib
           -- Move the conditional inwards, in the update set.
-          upd_i1 = extUpds upd_i0 $ introCond $ Conditional cond upd_ia upd_ib
+          upd_i1 = extUpds upd_i0 $ introCond $ createCond cond upd_ia upd_ib
       in (upd_i1, hmap_ib)
 
 -- TODO: This should work recursively
@@ -797,7 +859,7 @@ instance SubstTm BoolExpr where
 instance SubstTm a => SubstTm (Cond a) where
   substituteTm s (Determined x) = Determined $ substituteTm s x
   substituteTm s (Conditional e x y) =
-    Conditional (substituteTm s e) (substituteTm s x) (substituteTm s y)
+    Conditional (substituteTm s e) (map (substituteTm s) x) (map (substituteTm s) y)
 
 instance SubstTm (UpdateSet ph) where
   substituteTm s UpdateSetVG{..} = UpdateSetVG susUpdate _usvgChoice _usvgValue
