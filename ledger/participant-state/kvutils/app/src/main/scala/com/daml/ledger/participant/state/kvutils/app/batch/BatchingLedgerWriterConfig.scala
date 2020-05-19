@@ -25,7 +25,7 @@ object BatchingLedgerWriterConfig {
     BatchingLedgerWriterConfig(
       enableBatching = false,
       maxBatchQueueSize = 200,
-      maxBatchSizeBytes = 4 * 1024 * 1024 /* 4MB */,
+      maxBatchSizeBytes = 4L * 1024L * 1024L /* 4MB */,
       maxBatchWaitDuration = 100.millis,
       maxBatchConcurrentCommits = 5
     )
