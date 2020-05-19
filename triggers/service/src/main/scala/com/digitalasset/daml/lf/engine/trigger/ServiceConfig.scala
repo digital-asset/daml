@@ -18,6 +18,7 @@ case class ServiceConfig(
     maxInboundMessageSize: Int,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
+    init: Boolean,
 )
 
 object ServiceConfig {
@@ -64,6 +65,10 @@ object ServiceConfig {
         c.copy(commandTtl = Duration.ofSeconds(t))
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
+
+    cmd("init")
+      .action((_, c) => c.copy(init = true))
+      .text("Initialize database and terminate.")
   }
   def parse(args: Array[String]): Option[ServiceConfig] =
     parser.parse(
@@ -76,6 +81,7 @@ object ServiceConfig {
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
+        init = false,
       ),
     )
 }

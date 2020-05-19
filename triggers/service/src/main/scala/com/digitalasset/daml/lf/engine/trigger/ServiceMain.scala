@@ -400,17 +400,20 @@ object ServiceMain {
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
 
-        val triggerDao = TriggerDao(
-          "org.postgresql.Driver",
-          "jdbc:postgresql://localhost:5432/triggers",
-          "operator",
-          "operatorpass")
-        Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
-          case Success(()) =>
-            system.log.info("Initialized running triggers database.")
-            System.exit(0)
-          case Failure(err) =>
-            sys.error(s"Failed to initialize database: $err")
+        if (config.init) {
+          val triggerDao = TriggerDao(
+            "org.postgresql.Driver",
+            "jdbc:postgresql://localhost:5432/triggers",
+            "operator",
+            "operatorpass")
+          Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
+            case Success(()) =>
+              system.log.info("Initialized running triggers database.")
+              sys.exit(0)
+            case Failure(err) =>
+              system.log.error(err.toString)
+              sys.exit(1)
+          }
         }
 
         // Shutdown gracefully on SIGINT.
