@@ -478,7 +478,7 @@ def sdk_platform_test(sdk_version, platform_version):
         sandbox_args = sandbox_args,
         json_api_args = json_api_args,
         size = "large",
-        # Yarn gets really unhappy on Windows if it is called in parallel
+        # Yarn gets really unhappy if it is called in parallel
         # so we mark this exclusive for now.
-        tags = extra_tags(sdk_version, platform_version) + (["exclusive"] if is_windows else []),
+        tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
     )
