@@ -527,9 +527,7 @@ class Ledger {
           lastOffset = jtv.Result.withException(jtv.string().run(json.offset));
           if (isLiveSince === undefined) {
             isLiveSince = Date.now();
-            if (!isReconnecting) {
-              emitter.emit('live', state);
-            }
+            emitter.emit('live', state);
           }
         }
       } else if (isRecordWith('warnings', json)) {
