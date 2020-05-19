@@ -269,7 +269,7 @@ final class Engine {
     ) {
       val machine = Machine
         .build(
-          sexpr = speedy.Compiler(compiledPackages.packages).unsafeCompile(commands),
+          sexpr = compiledPackages.compiler.unsafeCompile(commands),
           compiledPackages = compiledPackages,
           submissionTime = submissionTime,
           seeds = seeding,

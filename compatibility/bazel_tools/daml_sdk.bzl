@@ -56,6 +56,17 @@ def _daml_sdk_impl(ctx):
         output = "extracted-test-tool",
     )
 
+    if ctx.attr.create_daml_app_patch:
+        ctx.symlink(ctx.attr.create_daml_app_patch, "create_daml_app.patch")
+    elif ctx.attr.test_tool_sha256:
+        ctx.download(
+            output = "create_daml_app.patch",
+            url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
+            sha256 = ctx.attr.create_daml_app_patch_sha256,
+        )
+    else:
+        fail("Must specify either test_tool or test_tool_sha256")
+
     for lib in ["types", "ledger", "react"]:
         tarball_name = "daml_{}_tarball".format(lib)
         if getattr(ctx.attr, tarball_name):
@@ -121,7 +132,7 @@ filegroup(
     name = "dar-files",
     srcs = glob(["extracted-test-tool/ledger/test-common/**"]),
 )
-exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz"])
+exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
 """,
     )
     return None
@@ -141,6 +152,8 @@ _daml_sdk = repository_rule(
         "daml_types_sha256": attr.string(mandatory = False),
         "daml_ledger_sha256": attr.string(mandatory = False),
         "daml_react_sha256": attr.string(mandatory = False),
+        "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
+        "create_daml_app_patch_sha256": attr.string(mandatory = False),
     },
 )
 
@@ -151,7 +164,7 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
@@ -161,5 +174,6 @@ def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_le
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,
+        create_daml_app_patch = create_daml_app_patch,
         **kwargs
     )

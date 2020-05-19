@@ -36,6 +36,8 @@ object Main extends App {
   val out = new PrintStream(System.out, true, "UTF-8")
   System.setOut(out)
 
+  case class ProfileArgs(scenarioId: String, inputFile: String, outputFile: String)
+
   def usage(): Unit = {
     println(
       """
@@ -45,6 +47,7 @@ object Main extends App {
      |  repl [file]             Run the interactive repl. Load the given packages if any.
      |  test <name> [file]      Load given packages and run the named scenario with verbose output.
      |  testAll [file]          Load the given packages and run all scenarios.
+     |  profile <name> [infile] [outfile]  Run the name scenario and write a profile in speedscope.app format
      |  validate [file]         Load the given packages and validate them.
      |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
@@ -78,6 +81,8 @@ object Main extends App {
         if (!Repl.testAll(allowDev, file)._1) System.exit(1)
       case List("test", id, file) =>
         if (!Repl.test(allowDev, id, file)._1) System.exit(1)
+      case List("profile", scenarioId, inputFile, outputFile) =>
+        if (!Repl.profile(allowDev, scenarioId, inputFile, outputFile)._1) System.exit(1)
       case List("validate", file) =>
         if (!Repl.validate(allowDev, file)._1) System.exit(1)
       case List(possibleFile) =>
@@ -137,6 +142,15 @@ object Repl {
   def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
     load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
 
+  def profile(
+      allowDev: Boolean,
+      scenarioId: String,
+      inputFile: String,
+      outputFile: String,
+  ): (Boolean, State) =
+    load(inputFile, Compiler.FullProfile) fMap cmdValidate fMap (state =>
+      cmdProfile(state, scenarioId, outputFile))
+
   def validate(allowDev: Boolean, file: String): (Boolean, State) =
     load(file) fMap cmdValidate
 
@@ -161,13 +175,20 @@ object Repl {
       quit: Boolean
   )
 
-  case class ScenarioRunnerHelper(packages: Map[PackageId, Package]) {
+  case class ScenarioRunnerHelper(
+      packages: Map[PackageId, Package],
+      profiling: Compiler.ProfilingMode) {
     private val build = Speedy.Machine
-      .newBuilder(PureCompiledPackages(packages).right.get, Time.Timestamp.MinValue, nextSeed())
+      .newBuilder(
+        PureCompiledPackages(packages, profiling).right.get,
+        Time.Timestamp.MinValue,
+        nextSeed())
       .fold(err => sys.error(err.toString), identity)
     def run(expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger, SValue)]) =
-      (build(expr), ScenarioRunner(build(expr)).run())
+      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger, SValue)]) = {
+      val machine = build(expr)
+      (machine, ScenarioRunner(machine).run())
+    }
   }
 
   case class Command(help: String, action: (State, Seq[String]) => State)
@@ -205,12 +226,12 @@ object Repl {
     cmpl
   }
 
-  def initialState(): State =
+  def initialState(profiling: Compiler.ProfilingMode = Compiler.NoProfile): State =
     rebuildReader(
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty),
+        ScenarioRunnerHelper(Map.empty, profiling),
         reader = null,
         history = new DefaultHistory(),
         quit = false
@@ -334,8 +355,11 @@ object Repl {
   }
 
   // Load DAML-LF packages from a set of files.
-  def load(darFile: String): (Boolean, State) = {
-    val state = initialState()
+  def load(
+      darFile: String,
+      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): (Boolean, State) = {
+    val state = initialState(profiling)
     try {
       val packages =
         UniversalArchiveReader().readFile(new File(darFile)).get
@@ -352,7 +376,7 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap)
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, profiling)
         ))
     } catch {
       case ex: Throwable => {
@@ -365,7 +389,7 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val defs = assertRight(Compiler.compilePackages(state.packages))
+    val defs = assertRight(Compiler.compilePackages(state.packages, Compiler.NoProfile))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage
@@ -508,6 +532,31 @@ object Repl {
     println(
       s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps.")
     (failures == 0, state)
+  }
+
+  def cmdProfile(state: State, scenarioId: String, outputFile: String): (Boolean, State) = {
+    buildExpr(state, Seq(scenarioId))
+      .map { expr =>
+        println("Warming up JVM for 10s...")
+        val start = System.nanoTime()
+        while (System.nanoTime() - start < 10L * 1000 * 1000 * 1000) {
+          state.scenarioRunner.run(expr)
+        }
+        println("Collecting profile...")
+        val (machine, errOrLedger) =
+          state.scenarioRunner.run(expr)
+        errOrLedger match {
+          case Left((err, ledger @ _)) =>
+            println(prettyError(err, machine.ptx).render(128))
+            (false, state)
+          case Right((diff @ _, steps @ _, ledger, value @ _)) =>
+            println("Writing profile...")
+            machine.profile.name = scenarioId
+            machine.profile.writeSpeedscopeJson(outputFile)
+            (true, state)
+        }
+      }
+      .getOrElse((false, state))
   }
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")

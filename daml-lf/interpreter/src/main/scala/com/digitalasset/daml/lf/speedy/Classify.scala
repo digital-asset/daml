@@ -97,6 +97,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case SEBuiltinRecursiveDefinition(_) => counts.ebuiltinrecursivedefinition += 1
       case SECatch(_, _, _) => counts.ecatch += 1
       case SEAbs(_, _) => //never expect these!
+      case SELabelClosure(_, _) => ()
       case SEImportValue(_) => counts.eimportvalue += 1
       case SEWronglyTypeContractId(_, _, _) => counts.ewronglytypedcontractid += 1
     }
@@ -113,6 +114,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case KMatch(_) => counts.kmatch += 1
       case KCatch(_, _, _) => counts.kcatch += 1
       case KFinished => counts.kfinished += 1
+      case KLabelClosure(_) | KLeaveClosure(_) => ()
     }
   }
 

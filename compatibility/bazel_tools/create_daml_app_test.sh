@@ -20,7 +20,9 @@ JSON_API="$(rlocation "$TEST_WORKSPACE/$4")"
 DAML_TYPES="$(rlocation "$TEST_WORKSPACE/$5")"
 DAML_LEDGER="$(rlocation "$TEST_WORKSPACE/$6")"
 DAML_REACT="$(rlocation "$TEST_WORKSPACE/$7")"
-YARN="$(rlocation "$TEST_WORKSPACE/$8")"
+MESSAGING_PATCH="$(rlocation "$TEST_WORKSPACE/$8")"
+YARN="$(rlocation "$TEST_WORKSPACE/$9")"
+PATCH="$(rlocation "$TEST_WORKSPACE/${10}")"
 
 "$RUNNER" \
   --daml "$DAML" \
@@ -29,5 +31,7 @@ YARN="$(rlocation "$TEST_WORKSPACE/$8")"
   --daml-types "$DAML_TYPES" \
   --daml-ledger "$DAML_LEDGER" \
   --daml-react "$DAML_REACT" \
+  --messaging-patch "$MESSAGING_PATCH" \
   --yarn "$YARN" \
-  "${@:9}"
+  --patch "$PATCH" \
+  "${@:11}"

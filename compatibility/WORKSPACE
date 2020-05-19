@@ -44,7 +44,7 @@ load(
 )
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-    "nixpkgs_cc_configure",
+    "nixpkgs_cc_configure_hermetic",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
@@ -78,14 +78,17 @@ nixpkgs_local_repository(
     ],
 )
 
-nixpkgs_cc_configure(
+nixpkgs_cc_configure_hermetic(
+    # We override the Bazel's autodetect toolchain to avoid accidentaly
+    # dependencies on the inhermetic autodetected builtin include paths or
+    # builds failing due to Bazel not finding `cc` in `$PATH` or `$CC`.
+    name = "local_config_cc",
     nix_file = "@daml//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
-        "@daml//nix:bazel-cc-toolchain.nix",
         "@daml//nix:tools/bazel-cc-toolchain/default.nix",
     ],
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "glibc_locales",
@@ -201,6 +204,26 @@ node_repositories(
     yarn_version = "1.22.4",
 )
 
+nixpkgs_package(
+    name = "patch_nix",
+    attribute_path = "gnupatch",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "patch_dev_env",
+    nix_include = ["bin/patch"],
+    nix_label = "@patch_nix",
+    nix_paths = ["bin/patch"],
+    tools = ["patch"],
+    win_include = ["usr/bin/patch.exe"],
+    win_paths = ["usr/bin/patch.exe"],
+    win_tool = "msys2",
+)
+
 load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
 
 daml_haskell_deps()
@@ -213,6 +236,7 @@ local_repository(
 )
 
 daml_sdk_head(
+    create_daml_app_patch = "@head_sdk//:messaging.patch",
     daml_ledger_tarball = "@head_sdk//:daml-ledger-0.0.0.tgz",
     daml_react_tarball = "@head_sdk//:daml-react-0.0.0.tgz",
     daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
@@ -223,6 +247,9 @@ daml_sdk_head(
 
 [
     daml_sdk(
+        # See the explanation in UpdateVersions.hs
+        create_daml_app_patch = None if version_sha256s.get(ver).get("create_daml_app_patch") else "@daml-sdk-1.1.0-snapshot.20200422.3991.0.6391ee9f//:create_daml_app.patch",
+        create_daml_app_patch_sha256 = version_sha256s.get(ver).get("create_daml_app_patch"),
         daml_ledger_sha256 = version_sha256s.get(ver).get("daml_ledger"),
         daml_react_sha256 = version_sha256s.get(ver).get("daml_react"),
         daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),

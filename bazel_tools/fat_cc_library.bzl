@@ -113,14 +113,6 @@ fat_cc_library = rule(
         "_cc_toolchain": attr.label(
             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
         ),
-        "_cc_compiler": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "host",
-            default =
-                # bin/cc is gcc on Darwin which fails to find libc++
-                Label("@nixpkgs_cc_toolchain//:bin/clang") if is_darwin else None,
-        ),
         "whole_archive_flag": attr.string_list(
             # ld on MacOS doesn’t understand --whole-archive
             default = ["-Wl,-all_load"] if is_darwin else ["-Wl,--whole-archive"],

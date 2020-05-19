@@ -100,6 +100,8 @@ object Speedy {
       var steps: Int,
       /* Used when enableInstrumentation is true */
       var track: Instrumentation,
+      /* Profile of the run when the packages haven been compiled with profiling enabled. */
+      var profile: Profile
   ) {
 
     /* kont manipulation... */
@@ -315,7 +317,12 @@ object Speedy {
 
     def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
       prim match {
-        case PClosure(expr, vars) =>
+        case PClosure(label, expr, vars) =>
+          if (label != null) {
+            profile.addOpenEvent(label)
+            pushKont(KLeaveClosure(label))
+          }
+
           // Pop the arguments once we're done evaluating the body.
           pushKont(KPop(args.size + vars.size))
 
@@ -511,6 +518,7 @@ object Speedy {
         },
         steps = 0,
         track = Instrumentation(),
+        profile = new Profile(),
       )
 
     def newBuilder(
@@ -518,7 +526,7 @@ object Speedy {
         submissionTime: Time.Timestamp,
         submissionSeed: crypto.Hash,
     ): Either[SError, Expr => Machine] = {
-      val compiler = Compiler(compiledPackages.packages)
+      val compiler = compiledPackages.compiler
       Right(
         (expr: Expr) =>
           fromSExpr(
@@ -553,7 +561,7 @@ object Speedy {
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
     ): Machine = {
-      val compiler = Compiler(compiledPackages.packages)
+      val compiler = compiledPackages.compiler
       val sexpr =
         if (scenario)
           SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
@@ -805,6 +813,31 @@ object Speedy {
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(location: Location) extends Kont {
     def execute(v: SValue, machine: Machine) = {
+      machine.returnValue = v
+    }
+  }
+
+  /** Continuation produced by [[SELabelClsoure]] expressions. This is only
+    * used during profiling. Its purpose is to attach a label to closures such
+    * that entering the closure can write an "open event" with that label.
+    */
+  final case class KLabelClosure(label: AnyRef) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      v match {
+        case SPAP(PClosure(_, expr, closure), args, arity) =>
+          machine.returnValue = SPAP(PClosure(label, expr, closure), args, arity)
+        case _ =>
+          machine.returnValue = v
+      }
+    }
+  }
+
+  /** Continuation marking the exit of a closure. This is only used during
+    * profiling.
+    */
+  final case class KLeaveClosure(label: AnyRef) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      machine.profile.addCloseEvent(label)
       machine.returnValue = v
     }
   }

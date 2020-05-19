@@ -45,6 +45,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case KMatch(_) => "KMatch"
     case KCatch(_, _, _) => "KCatch" //never seen
     case KFinished => "KFinished"
+    case KLabelClosure(_) => "KLabelClosure"
+    case KLeaveClosure(_) => "KLeaveClosure"
   }
 
   def ppVarRef(n: Int): String = {
@@ -66,6 +68,7 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case SEBuiltinRecursiveDefinition(_) => "<SEBuiltinRecursiveDefinition...>"
     case SECatch(_, _, _) => "<SECatch...>" //not seen one yet
     case SEAbs(_, _) => "<SEAbs...>" // will never get these on a running machine
+    case SELabelClosure(_, _) => "<SELabelClosure...>"
     case SEImportValue(_) => "<SEImportValue...>"
     case SEWronglyTypeContractId(_, _, _) => "<SEWronglyTypeContractId...>"
   }
@@ -85,7 +88,7 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def pp(prim: Prim): String = prim match {
     case PBuiltin(b) => s"$b"
-    case PClosure(expr, fvs) =>
+    case PClosure(_, expr, fvs) =>
       s"clo[${commas(fvs.map(pp))}]:${pp(expr)}"
   }
 

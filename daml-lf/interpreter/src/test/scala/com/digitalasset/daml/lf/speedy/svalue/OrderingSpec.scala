@@ -330,7 +330,7 @@ class OrderingSpec
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(null, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {
@@ -476,7 +476,7 @@ class OrderingSpec
   private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
   private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
     sexpr = expr,
-    compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
+    compiledPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.NoProfile),
     submissionTime = Time.Timestamp.now(),
     seeding = InitialSeeding.TransactionSeed(txSeed),
     globalCids = Set.empty,
