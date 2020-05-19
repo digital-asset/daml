@@ -186,6 +186,29 @@ $ bazel run //:daml-lf-repl -- test Project.tests $PWD/project.dalf
 
 NOTE: When running via `bazel run` one needs to specify full path (or relative path from repo root), since Bazel runs all commands from repository root.
 
+Profiling scenarios
+-------------------
+
+DAML-LF-REPL provides a command to run a scenario and collect profiling
+information while running it. This information is then written into a file that
+can be viewed using the [speedscope](https://www.speedscope.app/) flamegraph
+visualizer. The easiest way to install speedscope is to run
+```shell
+$ npm install -g speedscope
+```
+See the [Offline usage](https://github.com/jlfwong/speedscope#usage) section of
+its documentation for alternatives.
+
+Once speedscope is installed, the profiler can be invoked via
+```shell
+$ bazel run //:daml-lf-repl -- profile Module.Name:scenarioName /path/to.dar /path/to/output.json
+```
+and the profile viewed via
+```shell
+$ speedscope /path/to/output.json
+```
+
+
 Scala house rules
 -----------------
 

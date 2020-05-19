@@ -195,6 +195,15 @@ java_image(
     runtime_deps = [":sandbox"],
 ) if not is_windows else None
 
+java_image(
+    name = "sandbox-next-image",
+    base = ":sandbox-image-base",
+    main_class = "com.daml.platform.sandboxnext.Main",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":sandbox"],
+) if not is_windows else None
+
 alias(
     name = "Test-1.5.dar",
     actual = ":historical-dars/Test-1.5.dar",

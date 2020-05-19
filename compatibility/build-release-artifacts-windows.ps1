@@ -45,3 +45,4 @@ bazel build `
 
 cp -Force bazel-bin\release\sdk-release-tarball.tar.gz compatibility/head_sdk
 cp -Force bazel-bin\ledger\ledger-api-test-tool\ledger-api-test-tool_deploy.jar compatibility/head_sdk
+cp -Force templates\create-daml-app-test-resources\messaging.patch compatibility/head_sdk

@@ -31,10 +31,10 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 
-rules_haskell_version = "76f7b1c7328f59bf2f38b56bce0036153c65a40d"
-rules_haskell_sha256 = "5553f76d40db672b499a76fd56fab75df6fe465531f2eedd7da39a3deaed54a6"
-rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
-rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
+rules_haskell_version = "ac87721a4dbc0f7dbe731df928d322f02ed93330"
+rules_haskell_sha256 = "684f91defad36e9d6ce3ac4213864b89e8f6fe813508ae93bfe80996447a1516"
+rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
+rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
 buildifier_version = "0.26.0"
 buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
 zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
@@ -89,6 +89,9 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = [
+                # Remove once https://github.com/tweag/rules_nixpkgs/pull/128
+                # has been merged
+                "@com_github_digital_asset_daml//bazel_tools:nixpkgs-hermetic-cc-toolchain.patch",
                 # On CI and locally we observe occasional segmantation faults
                 # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
                 # can cause such segmentation faults. Since Nix 2.3.2 it is

@@ -80,6 +80,7 @@ ledger-api/.bin
 /bazel-*
 /compatibility/bazel-*
 /compatibility/.bazelrc
+/compatibility/head_sdk/
 .bazelrc.local
 .ijwb
 .bazelproject

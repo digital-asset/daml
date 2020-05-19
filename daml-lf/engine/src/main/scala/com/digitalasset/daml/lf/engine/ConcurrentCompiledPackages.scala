@@ -26,6 +26,8 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
 
+  def profilingMode = speedy.Compiler.NoProfile
+
   /** Might ask for a package if the package you're trying to add references it.
     *
     * Note that when resuming from a [[Result]] the continuation will modify the
@@ -80,7 +82,9 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
             pkgId, { _ =>
               // Compile the speedy definitions for this package.
               val defns =
-                speedy.Compiler(packages orElse state.packages).unsafeCompilePackage(pkgId)
+                speedy
+                  .Compiler(packages orElse state.packages, profilingMode)
+                  .unsafeCompilePackage(pkgId)
               defns.foreach {
                 case (defnId, defn) => _defns.put(defnId, defn)
               }

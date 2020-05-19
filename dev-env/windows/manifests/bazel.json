@@ -5,8 +5,8 @@
   "bin": "bazel.exe",
   "architecture": {
     "64bit": {
-      "url": "https://daml-binaries.da-ext.net/patch_bazel_windows/bazel-46cfe9da3d303f42d8bd469653ffc41b.zip",
-      "hash": "3ac6975cacf00963eb41277cd27d75babe405bdb2bef1eb02f0c9d9607fbc93f"
+      "url": "https://daml-binaries.da-ext.net/patch_bazel_windows/bazel-8e606d2495d967cbbf2d247269765cec.zip",
+      "hash": "9641d25c739e77932fcce51bf4756e1a51afd5cc844b1095b3cd39f24d399728"
     }
   },
   "depends": [

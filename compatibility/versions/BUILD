@@ -11,6 +11,7 @@ da_haskell_binary(
         "containers",
         "cryptonite",
         "extra",
+        "http-client",
         "http-conduit",
         "lens",
         "memory",

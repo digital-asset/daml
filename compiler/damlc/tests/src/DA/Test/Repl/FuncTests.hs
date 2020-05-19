@@ -223,6 +223,15 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           [ input "abort \"foobar\""
           , matchServiceOutput "^Error: User abort: foobar$"
           ]
+    , testInteraction' "record dot syntax"
+          [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice\")"
+          , input "bob <- allocatePartyWithHint \"Bob\" (PartyIdHint \"bob\")"
+          , input "proposal <- pure (T alice bob)"
+          , input "debug proposal.proposer"
+          , matchServiceOutput "'alice'"
+          , input "debug proposal.accepter"
+          , matchServiceOutput "'bob'"
+          ]
     ]
   where
     testInteraction' testName steps =
