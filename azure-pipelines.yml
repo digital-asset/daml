@@ -288,10 +288,6 @@ jobs:
               [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
           }
 
-          is_trigger_commit() {
-              changes_release_files && changes_one_line_in_latest
-          }
-
           setvar() {
               echo "Setting '$1' to '$2'"
               echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
@@ -301,17 +297,18 @@ jobs:
               echo "$(git diff $(branch_sha) $(fork_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
           }
 
-          if is_trigger_commit; then
-              setvar is_release true
-              setvar trigger_sha $(branch_sha)
-              setvar release_sha "$(added_line | awk '{print $1}')"
-              setvar release_tag "$(added_line | awk '{print $2}')"
+          if changes_release_files; then
+              if changes_one_line_in_latest; then
+                  setvar is_release true
+                  setvar trigger_sha $(branch_sha)
+                  setvar release_sha "$(added_line | awk '{print $1}')"
+                  setvar release_tag "$(added_line | awk '{print $2}')"
+              else
+                  echo "Release commit should only add one version."
+                  exit 1
+              fi
           else
               setvar is_release false
-              #FIXME
-              setvar trigger_sha $(branch_sha)
-              setvar release_sha "$(added_line | awk '{print $1}')"
-              setvar release_tag "$(added_line | awk '{print $2}')"
           fi
         name: out
 

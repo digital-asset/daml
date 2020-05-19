@@ -30,17 +30,21 @@ patches we backport to the 1.0 release branch).
    ```
 
 1. Pull the latest master branch of the `daml` repository and create a new,
-   clean branch off it.
+   clean branch off it. Now, we have three possible cases:
 
-   - For a snapshot, run `./release.sh snapshot $SHA`. This will print the
-     corresponding snapshot suffix. Add a line to the LATEST file for this new
-     release, of the form `$SHA $TARGET-$SUFFIX`, where `$SHA` is the sha of
-     the release commit you want to target, `$TARGET` is the intended target
-     release number, and `$SUFFIX` is the output of the script above. If there
-     is already a snapshot targeting the same final release number, replace it;
-     if not, add a new line at the top of the file.
    - For a stable release, just remove the snapshot suffix from the latest
-     entry for that branch in the LATEST file.
+     entry for that branch in the LATEST file, replacing the existing line.
+
+   - If you are making the first snapshot for a new target version (i.e. there
+     is no snapshot for it yet), add a new line for that version. It does not
+     matter to the process where that line is, but try to keep versions sorted
+     by version number.
+
+   - If you are making a new snapshot for an existing target version, i.e. the
+     stable part of the version number is the same, replace the existing line.
+
+   In both of the latter cases, you can get the "snapshot" part of the version
+   tag by running `./release.sh snapshot $SHA`.
 
 1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
    and label for the new version. (See previous releases as examples.)

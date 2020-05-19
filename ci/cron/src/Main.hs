@@ -115,7 +115,7 @@ build_docs_folder path versions current = do
         shell_ $ "mkdir -p " <> new
         shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
-        latest_release_notes_sha <- shell "git log -n1 --format=%H master -- docs/source/support/release-notes.rst"
+        latest_release_notes_sha <- shell "git log -n1 --format=%H master -- LATEST"
         documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\gh_version -> do
             let version = name gh_version
             putStrLn $ "Building " <> version <> "..."
@@ -176,13 +176,16 @@ build_docs_folder path versions current = do
         let (releases, snapshots) = List.partition (not . prerelease . fst) documented_versions
         create_versions_json (map fst releases) (new </> "versions.json")
         create_versions_json (map fst snapshots) (new </> "snapshots.json")
-        let newly_built = fst $ head $ filter snd documented_versions
-        putStrLn $ "Copying release notes from " <> name newly_built <> " to all other versions..."
-        let p v = new </> name v </> "support" </> "release-notes.html"
-        let top_level_release_notes = new </> "support" </> "release-notes.html"
-        shell_ $ "cp " <> p newly_built <> " " <> top_level_release_notes
-        Data.Foldable.for_ documented_versions $ \(gh_version, _) -> do
-            shell_ $ "cp " <> top_level_release_notes <> " " <> p gh_version
+        case filter snd documented_versions of
+          ((newly_built,_):_) -> do
+              putStrLn $ "Copying release notes from " <> name newly_built <> " to all other versions..."
+              let p v = new </> name v </> "support" </> "release-notes.html"
+              let top_level_release_notes = new </> "support" </> "release-notes.html"
+              shell_ $ "cp " <> p newly_built <> " " <> top_level_release_notes
+              Data.Foldable.for_ documented_versions $ \(gh_version, _) -> do
+                  shell_ $ "cp " <> top_level_release_notes <> " " <> p gh_version
+          _ -> do
+              putStrLn "No version built, so no release page copied."
         return new
     where
         restore_sha io =
@@ -224,10 +227,10 @@ build_docs_folder path versions current = do
             -- always including the release notes from the most recent release
             -- in all releases.
             else do
-                Control.Exception.bracket
+                Control.Exception.bracket_
                     (shell_ $ "git checkout " <> latest_sha <> " -- docs/source/support/release-notes.rst")
-                    (\_ -> shell_ "git reset --hard")
-                    (\_ -> build_helper version path)
+                    (shell_ "git reset --hard")
+                    (build_helper version path)
         build_helper version path = do
             robustly_download_nix_packages version
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
