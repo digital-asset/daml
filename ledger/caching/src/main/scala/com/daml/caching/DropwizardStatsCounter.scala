@@ -4,6 +4,7 @@
 package com.daml.caching
 
 import com.daml.metrics.CacheMetrics
+import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.stats.{CacheStats, StatsCounter}
 
 private[caching] final class DropwizardStatsCounter(
@@ -21,6 +22,11 @@ private[caching] final class DropwizardStatsCounter(
 
   override def recordLoadFailure(l: Long): Unit =
     metrics.loadFailureCount.inc(l)
+
+  override def recordEviction(weight: Int, cause: RemovalCause): Unit = {
+    metrics.evictionCount.inc()
+    metrics.evictionWeight.inc(weight)
+  }
 
   override def recordEviction(): Unit = {
     metrics.evictionCount.inc()
