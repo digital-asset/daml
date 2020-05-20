@@ -400,20 +400,21 @@ object ServiceMain {
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
 
-        if (config.init) {
-          val triggerDao = TriggerDao(
-            "org.postgresql.Driver",
-            "jdbc:postgresql://localhost:5432/triggers",
-            "operator",
-            "operatorpass")
-          Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
-            case Success(()) =>
-              system.log.info("Initialized database.")
-              sys.exit(0)
-            case Failure(err) =>
-              system.log.error(err.toString)
-              sys.exit(1)
-          }
+        (config.init, config.jdbcConfig) match {
+          case (true, None) =>
+            system.log.error("No JDBC configuration for database initialization.")
+            sys.exit(1)
+          case (true, Some(jdbcConfig)) =>
+            val triggerDao = TriggerDao(jdbcConfig.driver, jdbcConfig.url, jdbcConfig.user, jdbcConfig.password)
+            Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
+              case Success(()) =>
+                system.log.info("Initialized database.")
+                sys.exit(0)
+              case Failure(err) =>
+                system.log.error(err.toString)
+                sys.exit(1)
+            }
+          case _ =>
         }
 
         // Shutdown gracefully on SIGINT.
