@@ -22,28 +22,32 @@ import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{Assertion, WordSpec}
+import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
-class KeyValueParticipantStateWriterSpec extends WordSpec {
+class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
   private def newMetrics = new Metrics(new MetricRegistry)
 
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]
-      val writer = createWriter(transactionCaptor)
+      val correlationIdCaptor = captor[String]
+      val writer = createWriter(transactionCaptor, correlationIdCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
       val recordTime = newRecordTime()
+      val expectedCorrelationId = "correlation ID"
 
       instance.submitTransaction(
-        submitterInfo(recordTime, aParty),
+        submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
         anEmptyTransaction)
+
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
+      correlationIdCaptor.getValue should be(expectedCorrelationId)
     }
 
     "upload a package" in {
@@ -100,20 +104,23 @@ object KeyValueParticipantStateWriterSpec {
     maxDeduplicationTime = Duration.ofDays(1),
   )
 
-  private def createWriter(captor: ArgumentCaptor[Bytes]): LedgerWriter = {
+  private def createWriter(
+      envelopeCaptor: ArgumentCaptor[Bytes],
+      correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(anyString(), captor.capture()))
+    when(writer.commit(correlationIdCaptor.capture(), envelopeCaptor.capture()))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
   }
 
-  private def submitterInfo(rt: Timestamp, party: Ref.Party) = SubmitterInfo(
-    submitter = party,
-    applicationId = Ref.LedgerString.assertFromString("tests"),
-    commandId = Ref.LedgerString.assertFromString("X"),
-    deduplicateUntil = rt.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
-  )
+  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
+    SubmitterInfo(
+      submitter = party,
+      applicationId = Ref.LedgerString.assertFromString("tests"),
+      commandId = Ref.LedgerString.assertFromString(commandId),
+      deduplicateUntil = rt.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
+    )
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
     ledgerEffectiveTime = let,
