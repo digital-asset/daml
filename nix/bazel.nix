@@ -116,6 +116,8 @@ let shared = rec {
     ;
   };
 
+  z3 = pkgs.z3;
+
   bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
 };
 in shared // (if pkgs.stdenv.isLinux then {
