@@ -128,7 +128,7 @@
   type: jar-scala
 - target: //libs-scala/auth-utils:auth-utils
   type: jar-scala
-- target: //libs-scala/caching:caching
+- target: //ledger/caching:caching
   type: jar-scala
 - target: //libs-scala/contextualized-logging:contextualized-logging
   type: jar-scala

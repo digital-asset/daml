@@ -70,11 +70,13 @@ private[dao] final class TransactionsReader(
           dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
             query.asVectorOf(EventsTable.rawFlatEventParser)
           }
-        Timed.future(
-          future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
-          timer = dbMetrics.getFlatTransactions.translationTimer,
+        rawEvents.flatMap(
+          es =>
+            Timed.future(
+              future = Future.traverse(es)(deserializeEntry(verbose)),
+              timer = dbMetrics.getFlatTransactions.translationTimer,
+          )
         )
-
       }
 
     groupContiguous(events)(by = _.transactionId)
@@ -127,9 +129,12 @@ private[dao] final class TransactionsReader(
           dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
             query.asVectorOf(EventsTable.rawTreeEventParser)
           }
-        Timed.future(
-          future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
-          timer = dbMetrics.getTransactionTrees.translationTimer,
+        rawEvents.flatMap(
+          es =>
+            Timed.future(
+              future = Future.traverse(es)(deserializeEntry(verbose)),
+              timer = dbMetrics.getTransactionTrees.translationTimer,
+          )
         )
       }
 
