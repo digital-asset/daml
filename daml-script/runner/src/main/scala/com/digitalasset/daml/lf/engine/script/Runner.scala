@@ -272,7 +272,7 @@ class Runner(
   private val extendedCompiledPackages = {
     val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SEVar(1))
+        SEMakeClo(Array(), 1, SELocA(0))
     }
     new CompiledPackages {
       def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
