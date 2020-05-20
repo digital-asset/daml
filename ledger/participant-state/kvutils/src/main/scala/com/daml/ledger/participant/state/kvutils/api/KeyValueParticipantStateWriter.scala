@@ -17,6 +17,7 @@ import com.daml.metrics.Metrics
 import scala.compat.java8.FutureConverters
 
 class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) extends WriteService {
+
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
   override def submitTransaction(
