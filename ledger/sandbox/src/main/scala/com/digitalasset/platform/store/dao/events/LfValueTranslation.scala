@@ -109,7 +109,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
     val key = LfValueTranslation.Cache.Key(raw.partial.eventId)
     val create =
       cache
-        .getIfPresent(key = key)
+        .getIfPresent(key)
         .getOrElse(
           LfValueTranslation.Cache.Value.Create(
             argument = ValueSerializer.deserializeValue(raw.createArgument),
@@ -140,7 +140,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
     val key = LfValueTranslation.Cache.Key(raw.partial.eventId)
     val exercise =
       cache
-        .getIfPresent(key = key)
+        .getIfPresent(key)
         .getOrElse(
           LfValueTranslation.Cache.Value.Exercise(
             argument = ValueSerializer.deserializeValue(raw.exerciseArgument),
