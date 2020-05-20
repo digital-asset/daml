@@ -48,7 +48,7 @@ private[events] object RawBatch {
     override def applySerialization(
         lfValueTranslation: LfValueTranslation,
     ): Vector[NamedParameter] =
-      partial ++ lfValueTranslation.serialize(contractId, createArgument)
+      partial :+ lfValueTranslation.serialize(contractId, createArgument)
   }
 
   sealed abstract class Event(
