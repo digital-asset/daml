@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
 import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
@@ -20,17 +20,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 
-import com.daml.jwt.{JwtDecoder}
-import com.daml.jwt.domain.{DecodedJwt}
-import com.daml.jwt.domain.Jwt
-
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec}
-
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
-import scalaz.syntax.traverse._
+import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
