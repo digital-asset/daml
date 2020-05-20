@@ -254,27 +254,27 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       executionContext: ExecutionContext,
       logCtx: LoggingContext): Future[Unit] =
     indexedSubmissions
-    /** Stage1 => Stage2: Fetch the submission inputs in parallel. */
+    // Fetch the submission inputs in parallel.
       .mapAsyncUnordered[Outputs1](params.readParallelism) {
         _.mapFuture(fetchSubmissionInputs(_, damlLedgerStateReader))
       }
-      /** Stage2 => Stage3: Validate the submissions in parallel. */
+      // Validate the submissions in parallel.
       .mapAsyncUnordered[Outputs2](params.cpuParallelism) {
         _.mapFuture {
           case (correlatedSubmission, inputState) =>
             validateSubmission(participantId, recordTime, correlatedSubmission, inputState)
         }
       }
-      /** Stage3 => Stage4: Collect the results */
+      // Collect the results.
       .fold(List.empty[Outputs2]) {
         case (results: Outputs3, result: Outputs2) =>
           result :: results
       }
-      /** Stage4 => Stage5: Sort the results and drop the index. */
+      // Sort the results and drop the index.
       .mapConcat[Outputs4] { results: Outputs3 =>
         results.sortBy(_.index).map(_.value)
       }
-      /** Stage5 => Stage6: Conflict detect and either recover or drop the result.  */
+      // Conflict detect and either recover or drop the result.
       .statefulMapConcat[Outputs5] { () =>
         val invalidatedKeys = mutable.Set.empty[DamlStateKey]
 
@@ -287,7 +287,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
               invalidatedKeys)
         }
       }
-      /** Stage6 => Stage7: Commit the results. */
+      // Commit the results.
       .mapAsync[Outputs6](params.commitParallelism) {
         case (correlatedSubmission, inputState, logEntryAndOutputState) =>
           commitResult(
