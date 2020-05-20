@@ -641,6 +641,26 @@ object Speedy {
     def execute(v: SValue, machine: Machine): Unit
   }
 
+  /*
+   Speedy uses a caller-saves strategy for managing the environment.  In a Speedy machine,
+   the environment is represented by the `frame` and `env` components.
+
+   Continuations are responsible for restoring their own environment. In the general case,
+   an arbitrary amount of computation may have occurred between the continuation being
+   pushed and then later entered.
+
+   When we push a continuation which requires it's environment to be preserved, we record
+   the current Frame and the current env-stack depth within the continuation. Then, when
+   the continuation is entered, it will call `restoreEnv`.
+
+   We do this for KArg, KMatch, KPushTo, KCatch.
+
+   We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
+   changes `frame` to point to itself, and there will be no references to existing
+   stack-variables within the body of the function. (They will have been translated to
+   free-var reference by the compiler).
+   */
+
   /** Final continuation; machine has computed final value */
   final case object KFinished extends Kont {
     def execute(v: SValue, machine: Machine) = {

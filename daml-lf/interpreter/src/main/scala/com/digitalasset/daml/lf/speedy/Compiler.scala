@@ -990,10 +990,10 @@ private[lf] final case class Compiler(
     * =>
     *   SELet(..two-bindings..) in
     *     SEMakeClo(
-    *       Array(SELocS(2)),       [capture the let-bound variable, from the stack]
+    *       Array(SELocS(2)),       [capture the first let-bound variable, from the stack]
     *       2,
-    *       SELocF(0) ..            [reference the let-bound variable via the closure]
-    *       SELocA(0))              [reference the function arg]
+    *       SELocF(0) ..            [reference the first let-bound variable via the closure]
+    *       SELocA(0))              [reference the first function arg]
     */
   def closureConvert(remaps: Map[Int, SELoc], expr: SExpr): SExpr = {
     // remaps is a function which maps the relative offset from variables (SEVar) to their runtime location

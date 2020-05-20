@@ -137,7 +137,7 @@ object SExpr {
       var i = 0
       while (i < fvs.length) {
         sValues(i) = fvs(i).lookup(machine)
-        i = i + 1
+        i += 1
       }
       machine.returnValue = SPAP(PClosure(null, body, sValues), new util.ArrayList[SValue](), arity)
     }
