@@ -31,8 +31,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         transactionMeta,
         transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
       )
-    val correlationId = submitterInfo.commandId
-    commit(correlationId, submission)
+    commit(correlationId = submitterInfo.commandId, submission = submission)
   }
 
   override def uploadPackages(
