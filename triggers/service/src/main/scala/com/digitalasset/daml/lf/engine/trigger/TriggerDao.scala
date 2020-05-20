@@ -53,12 +53,7 @@ object TriggerDao {
           package text not null
         )
       """
-//    val insertTrigger: Fragment =
-//      sql"""
-//        insert into dar_packages values ('thisisyetanotherid', 'thisisapackage')
-//      """
     (createTriggerTable.update.run
       *> createDarTable.update.run).void
-//    insertTrigger.update.run.void
   }
 }
