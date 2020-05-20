@@ -438,6 +438,7 @@ jobs:
           title: '$(release_tag)'
           addChangeLog: false
           isPrerelease: true
+          releaseNotesSource: 'input'
           releaseNotes: "This is a pre-release. Use at your own risk."
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
@@ -453,13 +454,13 @@ jobs:
           export BOTO_CONFIG=/dev/null
 
           gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql) \
-                    gs://daml-binaries/daml-on-sql/($daml-on-sql)
+                    gs://daml-binaries/daml-on-sql/$(daml-on-sql)
           gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql).asc \
-                    gs://daml-binaries/daml-on-sql/($daml-on-sql).asc
+                    gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
           gsutil cp $(Build.StagingDirectory)/bucket/$(json-api) \
-                    gs://daml-binaries/json-api/($json-api)
+                    gs://daml-binaries/json-api/$(json-api)
           gsutil cp $(Build.StagingDirectory)/bucket/$(json-api).asc \
-                    gs://daml-binaries/json-api/($json-api).asc
+                    gs://daml-binaries/json-api/$(json-api).asc
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         condition: not(eq(variables['skip-github'], 'TRUE'))
