@@ -176,13 +176,13 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   private def singleSubmissionSource(
       envelope: ByteString,
       submission: DamlSubmission,
-      correlationId: CorrelationId): Source[Stage1, NotUsed] = {
+      correlationId: CorrelationId): Source[Inputs, NotUsed] = {
     val logEntryId = bytesToLogEntryId(envelope)
     Source.single(Indexed(CorrelatedSubmission(correlationId, logEntryId, submission), 0L))
   }
 
   private def batchSubmissionSource(batch: DamlSubmissionBatch, correlationId: CorrelationId)(
-      implicit executionContext: ExecutionContext): Source[Stage1, NotUsed] =
+      implicit executionContext: ExecutionContext): Source[Inputs, NotUsed] =
     Source(
       Indexed
         .fromSeq(batch.getSubmissionsList.asScala
@@ -217,27 +217,27 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
 
   // The batch pipeline starts with a stream of correlated submissions that carry their original index
   // in the batch.
-  private type Stage1 = Indexed[CorrelatedSubmission]
+  private type Inputs = Indexed[CorrelatedSubmission]
 
   // The second stage resolves the inputs to each submission.
   private type FetchedInput = (CorrelatedSubmission, DamlInputState)
-  private type Stage2 = Indexed[FetchedInput]
+  private type Outputs1 = Indexed[FetchedInput]
 
   // Third stage validates the submission, adding in the validation results.
   private type ValidatedSubmission = (CorrelatedSubmission, DamlInputState, LogEntryAndState)
-  private type Stage3 = Indexed[ValidatedSubmission]
+  private type Outputs2 = Indexed[ValidatedSubmission]
 
   // Fourth stage collects the results.
-  private type Stage4 = List[Stage3]
+  private type Outputs3 = List[Outputs2]
 
   // The fifth stage sorts the results and drops the index.
-  private type Stage5 = ValidatedSubmission
+  private type Outputs4 = ValidatedSubmission
 
   // Sixth stage performs conflict detection and potentially drops conflicting results.
-  private type Stage6 = Stage5
+  private type Outputs5 = Outputs4
 
   // The last stage commits the results.
-  private type Stage7 = Unit
+  private type Outputs6 = Unit
 
   /** Validate and commit a batch of indexed DAML submissions.
     * See the type definitions above to understand the different stages in the
@@ -247,7 +247,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       participantId: ParticipantId,
       batchCorrelationId: CorrelationId,
       recordTime: Timestamp,
-      indexedSubmissions: Source[Stage1, NotUsed],
+      indexedSubmissions: Source[Inputs, NotUsed],
       damlLedgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult])(
       implicit materializer: Materializer,
@@ -255,27 +255,27 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       logCtx: LoggingContext): Future[Unit] =
     indexedSubmissions
     /** Stage1 => Stage2: Fetch the submission inputs in parallel. */
-      .mapAsyncUnordered[Stage2](params.readParallelism) {
+      .mapAsyncUnordered[Outputs1](params.readParallelism) {
         _.mapFuture(fetchSubmissionInputs(_, damlLedgerStateReader))
       }
       /** Stage2 => Stage3: Validate the submissions in parallel. */
-      .mapAsyncUnordered[Stage3](params.cpuParallelism) {
+      .mapAsyncUnordered[Outputs2](params.cpuParallelism) {
         _.mapFuture {
           case (correlatedSubmission, inputState) =>
             validateSubmission(participantId, recordTime, correlatedSubmission, inputState)
         }
       }
       /** Stage3 => Stage4: Collect the results */
-      .fold(List.empty[Stage3]) {
-        case (results: Stage4, result: Stage3) =>
+      .fold(List.empty[Outputs2]) {
+        case (results: Outputs3, result: Outputs2) =>
           result :: results
       }
       /** Stage4 => Stage5: Sort the results and drop the index. */
-      .mapConcat { results: Stage4 =>
+      .mapConcat[Outputs4] { results: Outputs3 =>
         results.sortBy(_.index).map(_.value)
       }
       /** Stage5 => Stage6: Conflict detect and either recover or drop the result.  */
-      .statefulMapConcat[Stage5] { () =>
+      .statefulMapConcat[Outputs5] { () =>
         val invalidatedKeys = mutable.Set.empty[DamlStateKey]
 
         {
@@ -288,7 +288,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
         }
       }
       /** Stage6 => Stage7: Commit the results. */
-      .mapAsync[Stage7](params.commitParallelism) {
+      .mapAsync[Outputs6](params.commitParallelism) {
         case (correlatedSubmission, inputState, logEntryAndOutputState) =>
           commitResult(
             participantId,
