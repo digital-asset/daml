@@ -8,9 +8,9 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriter,
   BatchingLedgerWriterConfig,
+  BatchingQueueFactory,
   KeyValueParticipantState
 }
-import com.daml.ledger.participant.state.kvutils.app.batch.BatchingQueueFactory
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext

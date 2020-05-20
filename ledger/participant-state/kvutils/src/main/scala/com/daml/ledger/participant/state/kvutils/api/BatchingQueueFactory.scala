@@ -1,13 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package com.daml.ledger.participant.state.kvutils.app.batch
-
-import com.daml.ledger.participant.state.kvutils.api.{
-  BatchingLedgerWriterConfig,
-  BatchingQueue,
-  DefaultBatchingQueue
-}
+package com.daml.ledger.participant.state.kvutils.api
 
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
