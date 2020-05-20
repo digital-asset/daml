@@ -17,12 +17,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new Semaphore(1, true)
-  private val lastLogEntry = new AtomicInteger()
+  private val lastLogEntryIndex = new AtomicInteger()
 
   def readLog[A](action: ImmutableLog => A): A =
     action(log) // `log` is mutable, but the interface is immutable
 
-  def logSize(): Int = lastLogEntry.get()
+  def newHeadSinceLastWrite(): Int = lastLogEntryIndex.get()
 
   def write[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
@@ -31,7 +31,7 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
     action(log, state)
       .andThen {
         case _ =>
-          lastLogEntry.set(log.size)
+          lastLogEntryIndex.set(log.size - 1)
           lockCurrentState.release()
       }
   }

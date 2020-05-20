@@ -61,8 +61,8 @@ final class InMemoryBatchedLedgerReaderWriter(
           }
       }
       .andThen {
-        case Success(_) =>
-          dispatcher.signalNewHead(state.logSize())
+        case Success(SubmissionResult.Acknowledged) =>
+          dispatcher.signalNewHead(state.newHeadSinceLastWrite())
       }
 
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
