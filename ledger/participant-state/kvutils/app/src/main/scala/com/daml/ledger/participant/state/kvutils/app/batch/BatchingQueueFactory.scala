@@ -3,7 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.app.batch
 
-import com.daml.ledger.participant.state.kvutils.api.{BatchingQueue, DefaultBatchingQueue}
+import com.daml.ledger.participant.state.kvutils.api.{
+  BatchingLedgerWriterConfig,
+  BatchingQueue,
+  DefaultBatchingQueue
+}
 
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 

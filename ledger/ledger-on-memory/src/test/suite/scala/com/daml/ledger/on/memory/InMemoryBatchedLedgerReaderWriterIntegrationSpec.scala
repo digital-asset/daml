@@ -7,12 +7,10 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriter,
+  BatchingLedgerWriterConfig,
   KeyValueParticipantState
 }
-import com.daml.ledger.participant.state.kvutils.app.batch.{
-  BatchingLedgerWriterConfig,
-  BatchingQueueFactory
-}
+import com.daml.ledger.participant.state.kvutils.app.batch.BatchingQueueFactory
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext

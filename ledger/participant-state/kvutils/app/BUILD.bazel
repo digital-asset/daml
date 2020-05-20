@@ -51,3 +51,15 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     ],
 )
+
+da_scala_test(
+    name = "app-tests",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    deps = [
+        ":app",
+        "//ledger/participant-state/kvutils",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)

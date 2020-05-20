@@ -79,4 +79,3 @@ class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with Mo
 
   private val aStateValue: DamlStateValue = DamlStateValue.getDefaultInstance
 }
-
