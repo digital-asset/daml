@@ -66,14 +66,14 @@ private[dao] final class TransactionsReader(
               rowOffset = offset,
             )
             .withFetchSize(Some(pageSize))
-        val rawEvents =
+        val rawEventsFuture =
           dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
             query.asVectorOf(EventsTable.rawFlatEventParser)
           }
-        rawEvents.flatMap(
-          es =>
+        rawEventsFuture.flatMap(
+          rawEvents =>
             Timed.future(
-              future = Future.traverse(es)(deserializeEntry(verbose)),
+              future = Future.traverse(rawEvents)(deserializeEntry(verbose)),
               timer = dbMetrics.getFlatTransactions.translationTimer,
           )
         )
