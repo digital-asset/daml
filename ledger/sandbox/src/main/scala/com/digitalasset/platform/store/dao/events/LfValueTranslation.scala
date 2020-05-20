@@ -175,14 +175,14 @@ object LfValueTranslation {
 
   object Cache {
 
-    // To avoid the overhead of measuring the size of objects, we just assign a weight of 1 to values
     private implicit object `Key Weight` extends caching.Weight[Key] {
-      override def weigh(value: Key): caching.Cache.Size = 0
+      override def weigh(value: Key): caching.Cache.Size =
+        0 // make sure that only the value is counted
     }
 
-    // To avoid the overhead of measuring the size of objects, we just assign a weight of 1 to values
     private implicit object `Value Weight` extends caching.Weight[Value] {
-      override def weigh(value: Value): caching.Cache.Size = 1
+      override def weigh(value: Value): caching.Cache.Size =
+        1 // TODO replace this with something to avoid weights entirely
     }
 
     def newInstance(configuration: caching.Configuration): Cache =
