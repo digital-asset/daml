@@ -43,7 +43,7 @@ object TriggerDao {
     val createTriggerTable: Fragment = sql"""
         create table running_triggers(
           trigger_id uuid primary key,
-          party text not null,
+          party_token text not null,
           trigger_name text not null
         )
       """
