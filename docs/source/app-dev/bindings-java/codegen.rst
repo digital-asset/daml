@@ -88,7 +88,9 @@ In the following example the logging is set to print most of the output with det
 Integrate with build tools
 --------------------------
 
-While we currently don’t provide direct integration with Maven, Groovy, SBT, etc., you can run the Java codegen as described in :ref:`daml-codegen-java-running` just like any other external process (for example the protobuf compiler).
+If you are using Maven there is a plugin available at https://github.com/digital-asset/daml-maven-plugin.
+
+We currently don’t provide direct integration with other build tools like Groovy, SBT, etc. You can run the Java codegen as described in :ref:`daml-codegen-java-running` just like any other external process (for example the protobuf compiler).
 
 .. _daml-codegen-java-compiling:
 
