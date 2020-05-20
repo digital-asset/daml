@@ -2348,10 +2348,10 @@
                     "org.scala-lang:scala-library:2.12.11",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "com.storm-enroute:scalameter-core_2.12:0.10.1",
+                    "io.spray:spray-json_2.12:1.3.5",
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.9",
                     "org.apache.commons:commons-math3:3.2",
-                    "org.scala-lang.modules:scala-xml_2.12:1.0.6",
-                    "io.spray:spray-json_2.12:1.3.3"
+                    "org.scala-lang.modules:scala-xml_2.12:1.0.6"
                 ],
                 "dependencies": [
                     "org.ow2.asm:asm:5.0.4",
@@ -2367,6 +2367,7 @@
                     "org.mongodb:mongodb-driver-async:3.6.4",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "com.storm-enroute:scalameter-core_2.12:0.10.1",
+                    "io.spray:spray-json_2.12:1.3.5",
                     "org.mongodb:bson:3.6.4",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:2.9.9",
                     "com.fasterxml.jackson.core:jackson-core:2.9.9",
@@ -2374,8 +2375,7 @@
                     "org.apache.commons:commons-math3:3.2",
                     "org.apache.commons:commons-lang3:3.9",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
-                    "org.mongodb:mongodb-driver-core:3.6.4",
-                    "io.spray:spray-json_2.12:1.3.3"
+                    "org.mongodb:mongodb-driver-core:3.6.4"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/storm-enroute/scalameter_2.12/0.10.1/scalameter_2.12-0.10.1.jar",
                 "mirror_urls": [
@@ -2387,9 +2387,9 @@
                 "coord": "com.storm-enroute:scalameter_2.12:jar:sources:0.10.1",
                 "file": "v1/https/repo1.maven.org/maven2/com/storm-enroute/scalameter_2.12/0.10.1/scalameter_2.12-0.10.1-sources.jar",
                 "directDependencies": [
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.9",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
                     "commons-io:commons-io:jar:sources:2.5",
                     "org.apache.commons:commons-math3:jar:sources:3.2",
@@ -2399,11 +2399,11 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
                     "com.fasterxml.jackson.core:jackson-core:jar:sources:2.9.9",
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.9",
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.9.3",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5",
                     "org.apache.commons:commons-lang3:jar:sources:3.9",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
                     "com.thoughtworks.paranamer:paranamer:jar:sources:2.8",
@@ -2881,15 +2881,15 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-http-spray-json_2.12/10.1.11/akka-http-spray-json_2.12-10.1.11.jar",
                 "directDependencies": [
                     "com.typesafe.akka:akka-http_2.12:10.1.11",
-                    "io.spray:spray-json_2.12:1.3.3",
+                    "io.spray:spray-json_2.12:1.3.5",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
                     "com.typesafe.akka:akka-parsing_2.12:10.1.11",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.typesafe.akka:akka-http_2.12:10.1.11",
-                    "com.typesafe.akka:akka-http-core_2.12:10.1.11",
-                    "io.spray:spray-json_2.12:1.3.3"
+                    "io.spray:spray-json_2.12:1.3.5",
+                    "com.typesafe.akka:akka-http-core_2.12:10.1.11"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-http-spray-json_2.12/10.1.11/akka-http-spray-json_2.12-10.1.11.jar",
                 "mirror_urls": [
@@ -2902,11 +2902,11 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-http-spray-json_2.12/10.1.11/akka-http-spray-json_2.12-10.1.11-sources.jar",
                 "directDependencies": [
                     "com.typesafe.akka:akka-http_2.12:jar:sources:10.1.11",
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5",
                     "com.typesafe.akka:akka-parsing_2.12:jar:sources:10.1.11",
                     "com.typesafe.akka:akka-http_2.12:jar:sources:10.1.11",
                     "com.typesafe.akka:akka-http-core_2.12:jar:sources:10.1.11",
@@ -5117,34 +5117,34 @@
                 "sha256": "b51dec822a48b32742c73b38bb4c22ce25fc9ff52a507ae22c9a37837a477c81"
             },
             {
-                "coord": "io.spray:spray-json_2.12:1.3.3",
-                "file": "v1/https/repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.3/spray-json_2.12-1.3.3.jar",
+                "coord": "io.spray:spray-json_2.12:1.3.5",
+                "file": "v1/https/repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.5/spray-json_2.12-1.3.5.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.3/spray-json_2.12-1.3.3.jar",
+                "url": "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.5/spray-json_2.12-1.3.5.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.3/spray-json_2.12-1.3.3.jar"
+                    "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.5/spray-json_2.12-1.3.5.jar"
                 ],
-                "sha256": "7e881bc7cabf18f3e1c54149af619c2e6a2e99206b5c0489ac8a75d4aa7868b9"
+                "sha256": "83ace1f85b0db3b6405e1cf4522884a2aebb2119318c5b3030dfdd17b62a8079"
             },
             {
-                "coord": "io.spray:spray-json_2.12:jar:sources:1.3.3",
-                "file": "v1/https/repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.3/spray-json_2.12-1.3.3-sources.jar",
+                "coord": "io.spray:spray-json_2.12:jar:sources:1.3.5",
+                "file": "v1/https/repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.5/spray-json_2.12-1.3.5-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.3/spray-json_2.12-1.3.3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.5/spray-json_2.12-1.3.5-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.3/spray-json_2.12-1.3.3-sources.jar"
+                    "https://repo1.maven.org/maven2/io/spray/spray-json_2.12/1.3.5/spray-json_2.12-1.3.5-sources.jar"
                 ],
-                "sha256": "66d7eb38d4a12d7f74959f918eadc05020ed063f6e64f6fa1b684cc316f2853b"
+                "sha256": "450c5bd181246d2cd0a10bab3807a9bdd086fa1a9b1c0ccd95217a49ebf61a31"
             },
             {
                 "coord": "io.zipkin.brave:brave:4.6.0",
@@ -6624,72 +6624,72 @@
                 "sha256": "ef71f902b3b1505e40a83a4e1e08a13b21ecf2ee29693f5b5709591d5d6b9d83"
             },
             {
-                "coord": "org.gnieh:diffson-core_2.12:3.1.0",
-                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.0/diffson-core_2.12-3.1.0.jar",
+                "coord": "org.gnieh:diffson-core_2.12:3.1.1",
+                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.1/diffson-core_2.12-3.1.1.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.0/diffson-core_2.12-3.1.0.jar",
+                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.1/diffson-core_2.12-3.1.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.0/diffson-core_2.12-3.1.0.jar"
+                    "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.1/diffson-core_2.12-3.1.1.jar"
                 ],
-                "sha256": "a4bdcf37e1168de51ec624072fc6eb31dadc594f73069142013b2351bc15a77f"
+                "sha256": "93745d68dba4a8328f10e7b7187dec7da8d6d17444228f4f91c5e0fdb4770141"
             },
             {
-                "coord": "org.gnieh:diffson-core_2.12:jar:sources:3.1.0",
-                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.0/diffson-core_2.12-3.1.0-sources.jar",
+                "coord": "org.gnieh:diffson-core_2.12:jar:sources:3.1.1",
+                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.1/diffson-core_2.12-3.1.1-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.0/diffson-core_2.12-3.1.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.1/diffson-core_2.12-3.1.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.0/diffson-core_2.12-3.1.0-sources.jar"
+                    "https://repo1.maven.org/maven2/org/gnieh/diffson-core_2.12/3.1.1/diffson-core_2.12-3.1.1-sources.jar"
                 ],
-                "sha256": "ceff8bf97c870f7f35ae1ecfc32fecf821aa5f7c057e668f3965a51273261de7"
+                "sha256": "a2005b256e95e34c7eedf9dcbc930435241838fcd2364b254315bd3a4026a226"
             },
             {
-                "coord": "org.gnieh:diffson-spray-json_2.12:3.1.0",
-                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.0/diffson-spray-json_2.12-3.1.0.jar",
+                "coord": "org.gnieh:diffson-spray-json_2.12:3.1.1",
+                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.1/diffson-spray-json_2.12-3.1.1.jar",
                 "directDependencies": [
-                    "io.spray:spray-json_2.12:1.3.3",
-                    "org.gnieh:diffson-core_2.12:3.1.0",
+                    "io.spray:spray-json_2.12:1.3.5",
+                    "org.gnieh:diffson-core_2.12:3.1.1",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "org.gnieh:diffson-core_2.12:3.1.0",
                     "org.scala-lang:scala-library:2.12.11",
-                    "io.spray:spray-json_2.12:1.3.3"
+                    "org.gnieh:diffson-core_2.12:3.1.1",
+                    "io.spray:spray-json_2.12:1.3.5"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.0/diffson-spray-json_2.12-3.1.0.jar",
+                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.1/diffson-spray-json_2.12-3.1.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.0/diffson-spray-json_2.12-3.1.0.jar"
+                    "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.1/diffson-spray-json_2.12-3.1.1.jar"
                 ],
-                "sha256": "e29c52379a144b9652403eb7da3118b512dc17412ec175e6b64d58c961fc3ffc"
+                "sha256": "247f5f712c2b87ef901e71d0e275c8f43bed4c1174c74cd43aec9e5eeae99dd8"
             },
             {
-                "coord": "org.gnieh:diffson-spray-json_2.12:jar:sources:3.1.0",
-                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.0/diffson-spray-json_2.12-3.1.0-sources.jar",
+                "coord": "org.gnieh:diffson-spray-json_2.12:jar:sources:3.1.1",
+                "file": "v1/https/repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.1/diffson-spray-json_2.12-3.1.1-sources.jar",
                 "directDependencies": [
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
-                    "org.gnieh:diffson-core_2.12:jar:sources:3.1.0",
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5",
+                    "org.gnieh:diffson-core_2.12:jar:sources:3.1.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
+                    "org.gnieh:diffson-core_2.12:jar:sources:3.1.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
-                    "org.gnieh:diffson-core_2.12:jar:sources:3.1.0",
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3"
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.0/diffson-spray-json_2.12-3.1.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.1/diffson-spray-json_2.12-3.1.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.0/diffson-spray-json_2.12-3.1.0-sources.jar"
+                    "https://repo1.maven.org/maven2/org/gnieh/diffson-spray-json_2.12/3.1.1/diffson-spray-json_2.12-3.1.1-sources.jar"
                 ],
-                "sha256": "6c5c5cb80b84f93d526aa49c5ab5814d7236e58ef8cfcd3e06d3803c87234602"
+                "sha256": "b42e02db27f7a87bbdebc43fad02fa9e93a15ff6f5726d0746133d2fecd7bc64"
             },
             {
                 "coord": "org.hamcrest:hamcrest-all:1.3",
@@ -8228,72 +8228,72 @@
                 "sha256": "76c0e62f6ecc8117d7408bfa78ab9dddeac7d903735d2acc413dd7ba2fe7509c"
             },
             {
-                "coord": "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.3",
-                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.3/sangria-marshalling-api_2.12-1.0.3.jar",
+                "coord": "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.4",
+                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.4/sangria-marshalling-api_2.12-1.0.4.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.3/sangria-marshalling-api_2.12-1.0.3.jar",
+                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.4/sangria-marshalling-api_2.12-1.0.4.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.3/sangria-marshalling-api_2.12-1.0.3.jar"
+                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.4/sangria-marshalling-api_2.12-1.0.4.jar"
                 ],
-                "sha256": "31c665e7d653e600fc5bafabd4cfcc87278717dc55620dc71198ece99c18ca97"
+                "sha256": "322dd7e4a4b60dae8dc1b68035eee2344bfd7583e4824da5981207359cc8b577"
             },
             {
-                "coord": "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.3",
-                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.3/sangria-marshalling-api_2.12-1.0.3-sources.jar",
+                "coord": "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.4",
+                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.4/sangria-marshalling-api_2.12-1.0.4-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.3/sangria-marshalling-api_2.12-1.0.3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.4/sangria-marshalling-api_2.12-1.0.4-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.3/sangria-marshalling-api_2.12-1.0.3-sources.jar"
+                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-marshalling-api_2.12/1.0.4/sangria-marshalling-api_2.12-1.0.4-sources.jar"
                 ],
-                "sha256": "b0926ba3d86257ccf8ba49a79a157d25f5ead18d90a55e716fe79891a2e7a9d5"
+                "sha256": "3106842c6d0f9a01a2f0909276270e1e5f246ad756543238c32f555b74c38335"
             },
             {
-                "coord": "org.sangria-graphql:sangria-spray-json_2.12:1.0.1",
-                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.1/sangria-spray-json_2.12-1.0.1.jar",
+                "coord": "org.sangria-graphql:sangria-spray-json_2.12:1.0.2",
+                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.2/sangria-spray-json_2.12-1.0.2.jar",
                 "directDependencies": [
-                    "io.spray:spray-json_2.12:1.3.3",
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.3",
+                    "io.spray:spray-json_2.12:1.3.5",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.4",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.3",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.4",
                     "org.scala-lang:scala-library:2.12.11",
-                    "io.spray:spray-json_2.12:1.3.3"
+                    "io.spray:spray-json_2.12:1.3.5"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.1/sangria-spray-json_2.12-1.0.1.jar",
+                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.2/sangria-spray-json_2.12-1.0.2.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.1/sangria-spray-json_2.12-1.0.1.jar"
+                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.2/sangria-spray-json_2.12-1.0.2.jar"
                 ],
-                "sha256": "e5a4621f7648f73b41fb9b72547f1f7bdbc517ecd4e0b52119a9178eaee8814b"
+                "sha256": "f7b5797a674b0af78d3d006c4e6e07e9155ab6a3e7482d9ecbb88fc53b242b09"
             },
             {
-                "coord": "org.sangria-graphql:sangria-spray-json_2.12:jar:sources:1.0.1",
-                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.1/sangria-spray-json_2.12-1.0.1-sources.jar",
+                "coord": "org.sangria-graphql:sangria-spray-json_2.12:jar:sources:1.0.2",
+                "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.2/sangria-spray-json_2.12-1.0.2-sources.jar",
                 "directDependencies": [
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.3",
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.4",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.4",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.3",
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3"
+                    "io.spray:spray-json_2.12:jar:sources:1.3.5"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.1/sangria-spray-json_2.12-1.0.1-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.2/sangria-spray-json_2.12-1.0.2-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.1/sangria-spray-json_2.12-1.0.1-sources.jar"
+                    "https://repo1.maven.org/maven2/org/sangria-graphql/sangria-spray-json_2.12/1.0.2/sangria-spray-json_2.12-1.0.2-sources.jar"
                 ],
-                "sha256": "f56a19398fb90892c23f2cc6c03dfc1c43b34a9211d184653ebcd9e870848e8f"
+                "sha256": "625f872e38a97d8594c2629f9c4ebb7defdf3b5cbe391bf63242c5ace7501cc4"
             },
             {
                 "coord": "org.sangria-graphql:sangria-streaming-api_2.12:1.0.0",
@@ -8332,7 +8332,7 @@
                     "org.sangria-graphql:macro-visit_2.12:0.1.1",
                     "org.scala-lang:scala-reflect:2.12.11",
                     "org.scala-lang:scala-library:2.12.11",
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.3",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.4",
                     "org.sangria-graphql:sangria-streaming-api_2.12:1.0.0",
                     "org.parboiled:parboiled_2.12:2.1.4"
                 ],
@@ -8341,8 +8341,8 @@
                     "org.scala-lang:scala-reflect:2.12.11",
                     "org.typelevel:macro-compat_2.12:1.1.1",
                     "org.scala-lang:scala-library:2.12.11",
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.3",
                     "com.chuusai:shapeless_2.12:2.3.2",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:1.0.4",
                     "org.sangria-graphql:sangria-streaming-api_2.12:1.0.0",
                     "org.parboiled:parboiled_2.12:2.1.4"
                 ],
@@ -8356,7 +8356,7 @@
                 "coord": "org.sangria-graphql:sangria_2.12:jar:sources:1.4.2",
                 "file": "v1/https/repo1.maven.org/maven2/org/sangria-graphql/sangria_2.12/1.4.2/sangria_2.12-1.4.2-sources.jar",
                 "directDependencies": [
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.3",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.4",
                     "org.parboiled:parboiled_2.12:jar:sources:2.1.4",
                     "org.sangria-graphql:macro-visit_2.12:jar:sources:0.1.1",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.11",
@@ -8364,7 +8364,7 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.3",
+                    "org.sangria-graphql:sangria-marshalling-api_2.12:jar:sources:1.0.4",
                     "org.parboiled:parboiled_2.12:jar:sources:2.1.4",
                     "com.chuusai:shapeless_2.12:jar:sources:2.3.2",
                     "org.sangria-graphql:macro-visit_2.12:jar:sources:0.1.1",
@@ -14756,6 +14756,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 1934002487
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 1427001216
     }
 }
