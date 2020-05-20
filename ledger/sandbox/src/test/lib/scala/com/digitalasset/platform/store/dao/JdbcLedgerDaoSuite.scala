@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{GenTransaction, Node}
 import com.daml.lf.value.Value.{
@@ -441,16 +441,24 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
         yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
     ledgerDao
-      .storeTransaction(
-        submitterInfo = submitterInfo,
-        workflowId = entry.workflowId,
-        transactionId = entry.transactionId,
-        transaction = entry.transaction.mapNodeId(splitOrThrow),
-        recordTime = entry.recordedAt,
-        ledgerEffectiveTime = entry.ledgerEffectiveTime,
-        offset = offset,
-        divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
-      )
+      .storeTransactions(
+        List(offset -> v1.Update.TransactionAccepted(
+          optSubmitterInfo = submitterInfo,
+          transactionMeta = v1.TransactionMeta(
+            ledgerEffectiveTime = Time.Timestamp.assertFromInstant(entry.ledgerEffectiveTime),
+            workflowId = entry.workflowId,
+            submissionTime = Time.Timestamp.Epoch,
+            submissionSeed = None,
+            optUsedPackages = None,
+            optNodeSeeds = None,
+            optByKeyNodes = None
+          ),
+          transaction = entry.transaction.mapNodeId(splitOrThrow),
+          transactionId = entry.transactionId,
+          recordTime = Time.Timestamp.assertFromInstant(entry.recordedAt),
+          divulgedContracts =
+            divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
+        )))
       .map(_ => offsetAndTx)
   }
 

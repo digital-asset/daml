@@ -4,11 +4,11 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.BatchSql
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
-import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.{EventId, TransactionId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.metrics.{Metrics, Timed}
@@ -22,8 +22,7 @@ private[dao] object TransactionsWriter {
       flatTransactionWitnessesBatch: Option[BatchSql],
       complementWitnessesBatch: Option[BatchSql],
       contractBatches: ContractsTable#PreparedBatches,
-      deleteWitnessesBatch: Option[BatchSql],
-      insertWitnessesBatch: Option[BatchSql],
+      contractWitnessesBatches: WitnessesTable[ContractId]#PreparedBatches,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics
@@ -36,7 +35,7 @@ private[dao] object TransactionsWriter {
       // respect the foreign key constraint of the underlying storage
       Timed.value(
         storeTransactionDbMetrics.deleteContractWitnessesBatch,
-        deleteWitnessesBatch.map(_.execute()))
+        contractWitnessesBatches.deletions.map(_.execute()))
       for ((_, deleteContractsBatch) <- contractBatches.deletions) {
         Timed.value(storeTransactionDbMetrics.deleteContractsBatch, deleteContractsBatch.execute())
       }
@@ -50,7 +49,7 @@ private[dao] object TransactionsWriter {
       // contracts (e.g. via divulging a contract with fetch).
       Timed.value(
         storeTransactionDbMetrics.insertContractWitnessesBatch,
-        insertWitnessesBatch.foreach(_.execute()))
+        contractWitnessesBatches.insertions.foreach(_.execute()))
     }
   }
 
@@ -117,107 +116,181 @@ private[dao] final class TransactionsWriter(
         .foldLeft[WitnessRelation[ContractId]](Map.empty)(Relation.merge)
     }
 
-  private def prepareWitnessesBatch(
+  private def fullDivulgence(
       toBeInserted: Set[ContractId],
       toBeDeleted: Set[ContractId],
       transient: Set[ContractId],
       transaction: Transaction,
       blinding: BlindingInfo,
-  ): Option[BatchSql] = {
+  ): WitnessRelation[ContractId] = {
     val localDivulgence = divulgence(transaction, blinding.disclosure, toBeInserted)
     val fullDivulgence = Relation.union(
       localDivulgence,
       blinding.globalDivulgence.filterKeys(cid => !toBeDeleted(cid) && !transient(cid))
     )
-    val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
-    if (localDivulgence.nonEmpty) {
-      assert(insertWitnessesBatch.nonEmpty, "No witness found for contracts marked for insertion")
+    fullDivulgence
+  }
+
+  private case class AccumulatingBatches private[TransactionsWriter] (
+      eventBatches: EventsTable.AccumulatingBatches,
+      eventFlatWitnessesBatches: WitnessesTable.ForFlatTransactions.AccumulatingBatches,
+      eventTreeWitnessesBatches: WitnessesTable.ForTransactionTrees.AccumulatingBatches,
+      contractBatches: contractsTable.AccumulatingBatches,
+      contractWitnessesBatches: contractWitnessesTable.AccumulatingBatches,
+  ) {
+    def add(offset: Offset, tx: TransactionAccepted): AccumulatingBatches = tx match {
+      case TransactionAccepted(
+          submitterInfo,
+          transactionMeta,
+          transaction,
+          transactionId,
+          _,
+          divulgedContracts
+          ) =>
+        // Console.println(s"XXX Processing TX [${transaction.nodes.toList.map {case (k,v) => s"${k.index}->${v.getClass.getSimpleName}"}.mkString(",")}]")
+
+        val blinding = Blinding.blind(transaction)
+
+        // --------------------------------------------------------------------
+        // Event data - append only
+        // --------------------------------------------------------------------
+        val newEventFlatWitnessesBatches = eventFlatWitnessesBatches.add(
+          computeDisclosureForFlatTransaction(transactionId, transaction),
+        )
+
+        val newEventTreeWitnessesBatches = eventTreeWitnessesBatches.add(
+          computeDisclosureForTransactionTree(transactionId, transaction, blinding),
+        )
+
+        val newEventBatches = EventsTable.prepareBatchInsert(
+          submitterInfo = submitterInfo,
+          workflowId = transactionMeta.workflowId,
+          transactionId = transactionId,
+          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+          offset = offset,
+          transaction = transaction,
+          previous = eventBatches
+        )
+
+        // --------------------------------------------------------------------
+        // Contract data - insert and delete
+        // --------------------------------------------------------------------
+
+        // First, collect contract insertions and deletions from the current transaction only
+        val transactionContractBatches = contractsTable.prepareBatchInsert(
+          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+          transaction = transaction,
+          divulgedContracts = divulgedContracts,
+        )
+        //Console.println(s"XXX transactionContractBatches: ${transactionContractBatches}")
+
+        // Then, compute witnesses changes from the above
+        val contractWitnessesInsertions = fullDivulgence(
+          toBeInserted = transactionContractBatches.insertions.keySet,
+          toBeDeleted = transactionContractBatches.deletions.keySet,
+          transient = transactionContractBatches.transientContracts,
+          transaction = transaction,
+          blinding = blinding,
+        )
+        val contractWitnessesDeletions = transactionContractBatches.deletions.keySet
+        //Console.println(s"XXX contractWitnessesInsertions: ${contractWitnessesInsertions}")
+        //Console.println(s"XXX contractWitnessesDeletions: ${contractWitnessesDeletions}")
+
+        // Finally, merge all contract and witness changes with previously accumulated ones
+        val newContractWitnessesBatches = contractWitnessesBatches.add(
+          contractWitnessesInsertions,
+          contractWitnessesDeletions,
+        )
+        val newContractBatches = contractBatches.add(transactionContractBatches)
+        //Console.println(s"XXX newContractBatches: ${newContractBatches}")
+        //Console.println(s"XXX newContractWitnessesBatches: ${newContractWitnessesBatches}")
+
+        copy(
+          eventBatches = newEventBatches,
+          eventFlatWitnessesBatches = newEventFlatWitnessesBatches,
+          eventTreeWitnessesBatches = newEventTreeWitnessesBatches,
+          contractBatches = newContractBatches,
+          contractWitnessesBatches = newContractWitnessesBatches,
+        )
     }
-    insertWitnessesBatch
+
+    def prepare(): RawBatches = {
+      new RawBatches(
+        eventBatches = eventBatches.prepare,
+        eventFlatWitnessesBatches = eventFlatWitnessesBatches,
+        eventTreeWitnessesBatches = eventTreeWitnessesBatches,
+        contractBatches = contractBatches.prepare,
+        contractWitnessesBatches = contractWitnessesBatches,
+      )
+    }
+  }
+
+  private object AccumulatingBatches {
+    def empty: AccumulatingBatches = AccumulatingBatches(
+      eventBatches = EventsTable.AccumulatingBatches.empty,
+      eventFlatWitnessesBatches = WitnessesTable.ForFlatTransactions.AccumulatingBatches.empty,
+      eventTreeWitnessesBatches = WitnessesTable.ForTransactionTrees.AccumulatingBatches.empty,
+      contractBatches = contractsTable.AccumulatingBatches.empty,
+      contractWitnessesBatches = contractWitnessesTable.AccumulatingBatches.empty,
+    )
+  }
+
+  private final class RawBatches private[TransactionsWriter] (
+      eventBatches: EventsTable.RawBatches,
+      eventFlatWitnessesBatches: WitnessesTable.ForFlatTransactions.AccumulatingBatches,
+      eventTreeWitnessesBatches: WitnessesTable.ForTransactionTrees.AccumulatingBatches,
+      contractBatches: contractsTable.RawBatches,
+      contractWitnessesBatches: contractWitnessesTable.AccumulatingBatches,
+  ) {
+    def applySerialization(): SerializedBatches = {
+      new SerializedBatches(
+        eventBatches = eventBatches.applySerialization(lfValueTranslation),
+        contractBatches = contractBatches.applySerialization(lfValueTranslation),
+        eventFlatWitnessesBatches = eventFlatWitnessesBatches,
+        eventTreeWitnessesBatches = eventTreeWitnessesBatches,
+        contractWitnessesBatches = contractWitnessesBatches,
+      )
+    }
+  }
+
+  private final class SerializedBatches private[TransactionsWriter] (
+      eventBatches: EventsTable.SerializedBatches,
+      eventFlatWitnessesBatches: WitnessesTable.ForFlatTransactions.AccumulatingBatches,
+      eventTreeWitnessesBatches: WitnessesTable.ForTransactionTrees.AccumulatingBatches,
+      contractBatches: contractsTable.SerializedBatches,
+      contractWitnessesBatches: contractWitnessesTable.AccumulatingBatches,
+  ) {
+    def applyBatching(): TransactionsWriter.PreparedInsert =
+      new TransactionsWriter.PreparedInsert(
+        eventBatches = eventBatches.applyBatching(),
+        contractBatches = contractBatches.applyBatching(),
+        flatTransactionWitnessesBatch = eventFlatWitnessesBatches.prepare.insertions,
+        complementWitnessesBatch = eventTreeWitnessesBatches.prepare.insertions,
+        contractWitnessesBatches = contractWitnessesBatches.prepare,
+      )
   }
 
   def prepare(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: Transaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      updates: List[(Offset, TransactionAccepted)],
   ): TransactionsWriter.PreparedInsert = {
 
-    val rawEventBatches = EventsTable.prepareBatchInsert(
-      submitterInfo = submitterInfo,
-      workflowId = workflowId,
-      transactionId = transactionId,
-      ledgerEffectiveTime = ledgerEffectiveTime,
-      offset = offset,
-      transaction = transaction,
-    )
+    //Console.println(s"XXX Preparing ${updates.length} updates")
 
-    val blinding = Blinding.blind(transaction)
+    // Collect data from all transactions
+    val raw = updates.foldLeft(AccumulatingBatches.empty) {
+      case (acc, (offset, update)) => acc.add(offset, update)
+    }
 
-    val disclosureForFlatTransaction =
-      computeDisclosureForFlatTransaction(transactionId, transaction)
+    // Turn data into partial SQL arguments
+    val prepared = raw.prepare()
 
-    val disclosureForTransactionTree =
-      computeDisclosureForTransactionTree(transactionId, transaction, blinding)
+    // Apply serialization, returning full SQL arguments
+    val serialized = Timed.value(
+      metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
+      prepared.applySerialization())
 
-    // Prepare batch inserts for flat transactions
-    val flatTransactionWitnessesBatch =
-      WitnessesTable.ForFlatTransactions.prepareBatchInsert(
-        witnesses = disclosureForFlatTransaction,
-      )
-
-    // Prepare batch inserts for all witnesses except those for flat transactions
-    val complementWitnessesBatch =
-      WitnessesTable.ForTransactionTrees.prepareBatchInsert(
-        witnesses = disclosureForTransactionTree,
-      )
-
-    val rawContractBatches = contractsTable.prepareBatchInsert(
-      ledgerEffectiveTime = ledgerEffectiveTime,
-      transaction = transaction,
-      divulgedContracts = divulgedContracts,
-    )
-
-    val deleteWitnessesBatch =
-      for ((deleted, _) <- rawContractBatches.deletions) yield {
-        val deletedWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
-        deletedWitnessesBatch.getOrElse(
-          throw new IllegalArgumentException("No witness found for contracts marked for deletion")
-        )
-      }
-
-    val insertWitnessesBatch = prepareWitnessesBatch(
-      toBeInserted = rawContractBatches.insertions.fold(Set.empty[ContractId])(_._1),
-      toBeDeleted = rawContractBatches.deletions.fold(Set.empty[ContractId])(_._1),
-      transient = rawContractBatches.transientContracts,
-      transaction = transaction,
-      blinding = blinding,
-    )
-
-    val (serializedEventBatches, serializedContractBatches) =
-      Timed.value(
-        metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
-        (
-          rawEventBatches.applySerialization(lfValueTranslation),
-          rawContractBatches.applySerialization(lfValueTranslation)
-        )
-      )
-
-    val eventBatches = serializedEventBatches.applyBatching()
-    val contractBatches = serializedContractBatches.applyBatching()
-
-    new TransactionsWriter.PreparedInsert(
-      eventBatches = eventBatches,
-      flatTransactionWitnessesBatch = flatTransactionWitnessesBatch,
-      complementWitnessesBatch = complementWitnessesBatch,
-      contractBatches = contractBatches,
-      deleteWitnessesBatch = deleteWitnessesBatch,
-      insertWitnessesBatch = insertWitnessesBatch,
-    )
-
+    // Convert lists of arguments into BatchSql objects
+    serialized.applyBatching()
   }
 
 }

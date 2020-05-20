@@ -19,29 +19,63 @@ private[events] sealed abstract class WitnessesTable[Id: ToStatement](
 
   protected val insert: String
 
-  final def prepareBatchInsert(witnesses: WitnessRelation[Id]): Option[BatchSql] = {
-    val flattenedWitnesses = Relation.flatten(witnesses)
-    if (flattenedWitnesses.nonEmpty) {
-      val ws = flattenedWitnesses.map {
-        case (id, party) => Vector[NamedParameter](idColumn -> id, witnessColumn -> party)
-      }.toSeq
-      Some(BatchSql(insert, ws.head, ws.tail: _*))
-    } else {
-      None
+  case class AccumulatingBatches private[WitnessesTable] (
+      insertions: WitnessRelation[Id],
+      deletions: Set[Id],
+  ) {
+    def add(newInsertions: WitnessRelation[Id]): AccumulatingBatches = {
+      copy(
+        insertions = Relation.union(insertions, newInsertions)
+      )
     }
+
+    def add(newInsertions: WitnessRelation[Id], newDeletions: Set[Id]): AccumulatingBatches = {
+      val totalDeletions = deletions.union(newDeletions)
+      val totalInsertions =
+        Relation.union(insertions, newInsertions).filterKeys(id => !totalDeletions.contains(id))
+      copy(
+        insertions = totalInsertions,
+        deletions = totalDeletions,
+      )
+    }
+
+    private def prepareBatchInsert(witnesses: WitnessRelation[Id]): Option[BatchSql] = {
+      val flattenedWitnesses = Relation.flatten(witnesses)
+      if (flattenedWitnesses.nonEmpty) {
+        val ws = flattenedWitnesses.map {
+          case (id, party) => Vector[NamedParameter](idColumn -> id, witnessColumn -> party)
+        }.toSeq
+        Some(BatchSql(insert, ws.head, ws.tail: _*))
+      } else {
+        None
+      }
+    }
+
+    private val delete = s"delete from $tableName where $idColumn = {$idColumn}"
+
+    private def prepareBatchDelete(ids: Seq[Id]): Option[BatchSql] = {
+      if (ids.nonEmpty) {
+        val parameters = ids.map(id => Vector[NamedParameter](idColumn -> id))
+        Some(BatchSql(delete, parameters.head, parameters.tail: _*))
+      } else {
+        None
+      }
+    }
+
+    def prepare: PreparedBatches = new PreparedBatches(
+      insertions = prepareBatchInsert(insertions),
+      deletions = prepareBatchDelete(deletions.toSeq),
+    )
   }
 
-  protected val delete = s"delete from $tableName where $idColumn = {$idColumn}"
-
-  final def prepareBatchDelete(ids: Seq[Id]): Option[BatchSql] = {
-    if (ids.nonEmpty) {
-      val parameters = ids.map(id => Vector[NamedParameter](idColumn -> id))
-      Some(BatchSql(delete, parameters.head, parameters.tail: _*))
-    } else {
-      None
-    }
+  object AccumulatingBatches {
+    def empty: AccumulatingBatches = AccumulatingBatches(Map.empty, Set.empty)
   }
 
+  case class PreparedBatches private[WitnessesTable] (
+      insertions: Option[BatchSql],
+      deletions: Option[BatchSql],
+  ) {}
 }
 
 private[events] object WitnessesTable {

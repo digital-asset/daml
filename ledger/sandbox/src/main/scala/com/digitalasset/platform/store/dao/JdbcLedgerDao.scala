@@ -22,10 +22,11 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails
 }
+import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.{EventId, WorkflowId}
+import com.daml.ledger.EventId
 import com.daml.lf.archive.Decode
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, NodeId}
@@ -465,60 +466,97 @@ private class JdbcLedgerDao(
   private def splitOrThrow(id: EventId): NodeId =
     split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
-  override def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      recordTime: Instant,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+  override def storeTransactions(
+      updates: List[(Offset, TransactionAccepted)],
   ): Future[PersistenceResponse] = {
-    val preparedTransactionInsert =
-      Timed.value(
+    if (performPostCommitValidation) {
+      // With post commit validation, transactions need to be written one by one,
+      // as post-commit validation depends on previous transactions
+      implicit val ec: ExecutionContext = executionContext
+      Future
+        .traverse(updates) {
+          case (offset, update) =>
+            val preparedTransactionInsert = Timed.value(
+              metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
+              transactionsWriter.prepare(List(offset -> update)))
+            dbDispatcher
+              .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
+                val error = Timed.value(
+                  metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
+                  postCommitValidation.validate(
+                    transaction = update.transaction,
+                    transactionLedgerEffectiveTime =
+                      update.transactionMeta.ledgerEffectiveTime.toInstant,
+                    divulged = update.divulgedContracts.map(_.contractId).toSet,
+                  )
+                )
+                if (error.isEmpty) {
+                  preparedTransactionInsert.write(metrics)
+                  Timed.value(
+                    metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
+                    update.optSubmitterInfo
+                      .map(
+                        prepareCompletionInsert(
+                          _,
+                          offset,
+                          update.transactionId,
+                          update.recordTime.toInstant))
+                      .foreach(_.execute())
+                  )
+                } else {
+                  for (info @ SubmitterInfo(submitter, _, commandId, _) <- update.optSubmitterInfo) {
+                    stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
+                    prepareRejectionInsert(info, offset, update.recordTime.toInstant, error.get)
+                      .execute()
+                  }
+                }
+                Timed.value(
+                  metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
+                  updateLedgerEnd(offset)
+                )
+              }
+        }
+        .map(_ => Ok)
+    } else {
+      // Without post commit validation:
+      // - transactions can be written in batches
+      // - completions can be written in batches
+      // - there are no rejections or changes to deduplication data
+      val (preparedTransactionInsert, preparedCompletionInserts) = Timed.value(
         metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
-        transactionsWriter.prepare(
-          submitterInfo = submitterInfo,
-          workflowId = workflowId,
-          transactionId = transactionId,
-          ledgerEffectiveTime = ledgerEffectiveTime,
-          offset = offset,
-          transaction = transaction,
-          divulgedContracts = divulged,
+        (
+          transactionsWriter.prepare(updates),
+          updates
+            .flatMap {
+              case (offset, update) =>
+                update.optSubmitterInfo
+                  .map(
+                    prepareCompletionInsert(
+                      _,
+                      offset,
+                      update.transactionId,
+                      update.recordTime.toInstant))
+                  .toList
+            }
         )
       )
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-        val error =
-          Timed.value(
-            metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
-            postCommitValidation.validate(
-              transaction = transaction,
-              transactionLedgerEffectiveTime = ledgerEffectiveTime,
-              divulged = divulged.iterator.map(_.contractId).toSet,
-            )
-          )
-        if (error.isEmpty) {
-          preparedTransactionInsert.write(metrics)
-          Timed.value(
-            metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
-            submitterInfo
-              .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
-              .foreach(_.execute())
-          )
-        } else {
-          for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
-            stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
-            prepareRejectionInsert(info, offset, recordTime, error.get).execute()
-          }
-        }
+
+      dbDispatcher.executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
+        preparedTransactionInsert.write(metrics)
+
+        Timed.value(
+          metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
+          preparedCompletionInserts.foreach(_.execute())
+        )
+
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          updateLedgerEnd(offset)
+          updateLedgerEnd(updates.last._1)
         )
         Ok
       }
+    }
+
   }
 
   override def storeRejection(
@@ -552,16 +590,25 @@ private class JdbcLedgerDao(
                   for (submitter <- tx.submittingParty; appId <- tx.applicationId;
                     cmdId <- tx.commandId)
                     yield SubmitterInfo(submitter, appId, cmdId, Instant.EPOCH)
+                // Note: Update.TransactionAccepted contains more data than is used by transactionsWriter.
+                // For some of the fields (e.g., recordTime), we need to make up values.
                 transactionsWriter
-                  .prepare(
-                    submitterInfo = submitterInfo,
-                    workflowId = tx.workflowId,
-                    transactionId = tx.transactionId,
-                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
-                    offset = offset,
+                  .prepare(List(offset -> Update.TransactionAccepted(
+                    optSubmitterInfo = submitterInfo,
+                    transactionMeta = TransactionMeta(
+                      ledgerEffectiveTime = Time.Timestamp.assertFromInstant(tx.ledgerEffectiveTime),
+                      workflowId = tx.workflowId,
+                      submissionTime = Time.Timestamp.Epoch,
+                      submissionSeed = None,
+                      optUsedPackages = None,
+                      optNodeSeeds = None,
+                      optByKeyNodes = None,
+                    ),
                     transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    transactionId = tx.transactionId,
+                    recordTime = Time.Timestamp.Epoch,
                     divulgedContracts = Nil,
-                  )
+                  )))
                   .write(metrics)
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
