@@ -9,42 +9,20 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.adapter._
-
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives._
 import akka.http.scaladsl.server.Route
-
 import akka.stream.{Materializer}
 import akka.stream.scaladsl.{Source}
 import akka.util.{ByteString, Timeout}
-import java.io.ByteArrayInputStream
-import java.time.Duration
-import java.util.UUID
-import java.util.zip.ZipInputStream
 
-import scalaz.syntax.show._
-import scalaz.syntax.std.option._
-import scalaz.syntax.traverse._
-import scalaz.{\/, -\/}
-
-import com.daml.jwt.{JwtDecoder}
-import com.daml.jwt.domain.{DecodedJwt}
-import com.daml.jwt.domain.Jwt
-
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec}
-
-import scala.concurrent.{ExecutionContext, Future, Await}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
-import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
@@ -55,14 +33,26 @@ import com.daml.lf.engine.{
   ResultDone,
   ResultNeedPackage
 }
-
 import com.daml.lf.language.Ast._
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.ApiTypes.Party
+
+import scalaz.syntax.traverse._
+
+import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 import scala.sys.ShutdownHookThread
+
+import java.io.ByteArrayInputStream
+import java.time.Duration
+import java.util.UUID
+import java.util.zip.ZipInputStream
 
 case class LedgerConfig(
     host: String,
@@ -78,8 +68,6 @@ object Server {
   private final case class Started(binding: ServerBinding) extends Message
   final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
   final case object Stop extends Message
-
-  import TokenMgt._
 
   private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
@@ -192,10 +180,10 @@ object Server {
               request =>
                 entity(as[StartParams]) {
                   params =>
-                    TokenMgt
+                    TokenManagement
                       .findJwt(request)
                       .flatMap { jwt =>
-                        TokenMgt.decodeAndParsePayload(jwt, decodeJwt)
+                        TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
                       }
                       .fold(
                         unauthorized =>
@@ -260,42 +248,47 @@ object Server {
           },
           // List triggers currently running for the given party.
           path("v1" / "list") {
-            extractRequest { request =>
-              TokenMgt
-                .findJwt(request)
-                .flatMap { jwt =>
-                  TokenMgt.decodeAndParsePayload(jwt, decodeJwt)
-                }
-                .map { token =>
-                  listTriggers(token)
-                }
-                .fold(
-                  unauthorized =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                  triggerIds => complete(successResponse(triggerIds))
-                )
+            extractRequest {
+              request =>
+                TokenManagement
+                  .findJwt(request)
+                  .flatMap { jwt =>
+                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                  }
+                  .map { token =>
+                    listTriggers(token)
+                  }
+                  .fold(
+                    unauthorized =>
+                      complete(
+                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                    triggerIds => complete(successResponse(triggerIds))
+                  )
             }
           }
         )
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
-          extractRequest { request =>
-            TokenMgt
-              .findJwt(request)
-              .flatMap { jwt =>
-                TokenMgt.decodeAndParsePayload(jwt, decodeJwt)
-              }
-              .map { token =>
-                stopTrigger(uuid, token)
-              }
-              .fold(
-                unauthorized =>
-                  complete(errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                triggerId => complete(successResponse(triggerId))
-              )
-          }
+        pathPrefix("v1" / "stop" / JavaUUID) {
+          uuid =>
+            extractRequest {
+              request =>
+                TokenManagement
+                  .findJwt(request)
+                  .flatMap { jwt =>
+                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                  }
+                  .map { token =>
+                    stopTrigger(uuid, token)
+                  }
+                  .fold(
+                    unauthorized =>
+                      complete(
+                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                    triggerId => complete(successResponse(triggerId))
+                  )
+            }
         }
       },
     )
@@ -421,51 +414,5 @@ object ServiceMain {
           val _: Future[ServerBinding] = Await.ready(serviceF, 5.seconds)
         }
     }
-  }
-}
-
-object TokenMgt {
-
-  case class Unauthorized(message: String) extends Error(message)
-  case class JwtPayload(ledgerId: String, applicationId: String, party: String)
-
-  def decodeJwt(jwt: Jwt): Unauthorized \/ DecodedJwt[String] = {
-    JwtDecoder.decode(jwt).leftMap(e => Unauthorized(e.shows))
-  }
-
-  def findJwt(req: HttpRequest): Unauthorized \/ Jwt = {
-    req.headers
-      .collectFirst {
-        case Authorization(OAuth2BearerToken(token)) => Jwt(token)
-      }
-      .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
-  }
-
-  def decodeAndParsePayload(jwt: Jwt, decodeJwt: Jwt => Unauthorized \/ DecodedJwt[String])
-    : Unauthorized \/ (jwt.type, JwtPayload) =
-    for {
-      a <- decodeJwt(jwt)
-      p <- parsePayload(a)
-    } yield (jwt, p)
-
-  def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload = {
-    // AuthServiceJWTCodec is the JWT reader used by the sandbox and
-    // some DAML-on-X ledgers. Most JWT fields are optional for the
-    // sandbox, but not for the trigger service (exactly as the case
-    // as for the http-json serive).
-    AuthServiceJWTCodec
-      .readFromString(jwt.payload)
-      .fold(
-        e => -\/(Unauthorized(e.getMessage)),
-        payload =>
-          for {
-            ledgerId <- payload.ledgerId.toRightDisjunction(
-              Unauthorized("ledgerId missing in access token"))
-            applicationId <- payload.applicationId.toRightDisjunction(
-              Unauthorized("applicationId missing in access token"))
-            party <- payload.party.toRightDisjunction(
-              Unauthorized("party missing or not unique in access token"))
-          } yield JwtPayload(ledgerId, applicationId, party)
-      )
   }
 }
