@@ -282,6 +282,7 @@ test_deps = [
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/sample-service",
     "//ledger-api/testing-utils",
+    "//ledger/caching",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-common",

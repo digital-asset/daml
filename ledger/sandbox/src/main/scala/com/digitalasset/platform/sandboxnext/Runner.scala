@@ -13,7 +13,6 @@ import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.caching
-import com.daml.caching.Cache
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
