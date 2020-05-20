@@ -110,7 +110,7 @@ to_v s = case Split.splitOn "-" s of
 build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
 build_docs_folder path versions current = do
     restore_sha $ do
-        latest_release_notes_sha <- shell "git log -n1 --format=%H HEAD -- LATEST"
+        latest_release_notes_sha <- init <$> shell "git log -n1 --format=%H HEAD -- LATEST"
         let old = path </> "old"
         let new = path </> "new"
         shell_ $ "mkdir -p " <> new
