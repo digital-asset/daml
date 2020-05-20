@@ -170,7 +170,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     allowExistingSchema = true,
                   ),
                   metrics = metrics,
-                  lfValueTranslationCache = lfValueTranslationCache
+                  lfValueTranslationCache = lfValueTranslationCache,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
