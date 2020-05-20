@@ -31,7 +31,7 @@ private[caching] final class DropwizardStatsCounter(
 
   override def recordEviction(weight: Int, cause: RemovalCause): Unit = {
     metrics.evictionCount.inc()
-    metrics.evictionWeight.inc(weight)
+    metrics.evictionWeight.inc(weight.toLong)
   }
 
   override def recordEviction(): Unit = {
