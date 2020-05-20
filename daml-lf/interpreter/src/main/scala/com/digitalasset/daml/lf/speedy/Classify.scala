@@ -9,7 +9,7 @@ import com.daml.lf.speedy.SExpr._
 
 object Classify { // classify the machine state w.r.t what step occurs next
 
-  case class Counts(
+  final class Counts(
       var ctrlExpr: Int = 0,
       var ctrlValue: Int = 0,
       // expression classification (ctrlExpr)

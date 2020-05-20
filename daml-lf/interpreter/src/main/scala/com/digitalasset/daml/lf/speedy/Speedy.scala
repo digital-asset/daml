@@ -49,7 +49,7 @@ object Speedy {
   object Instrumentation {
     def apply(): Instrumentation = {
       Instrumentation(
-        classifyCounts = Classify.Counts(),
+        classifyCounts = new Classify.Counts(),
         countPushesKont = 0,
         countPushesEnv = 0,
         maxDepthKont = 0,
