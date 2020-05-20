@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * This is the interface that the validator works against. However, ledger
   * integrations need not implement this directly.
   * You can create a DamlLedgerStateReader instance via the factory methods
-  * available in [[???]]
+  * available in [[com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory]]
   * We're required to work at this level of abstraction in order to implement
   * efficient caching (e.g. package DamlStateValue is too large to be always
   * decompressed and deserialized from bytes).
@@ -20,7 +20,7 @@ trait DamlLedgerStateReader {
   def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]]
 }
 
-object DamlLedgerStateReader {
+private[validator] object DamlLedgerStateReader {
   def from(
       ledgerStateReader: LedgerStateReader,
       keySerializationStrategy: StateKeySerializationStrategy)(

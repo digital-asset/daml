@@ -29,6 +29,19 @@ object BatchedSubmissionValidatorFactory {
     override def read(keys: Seq[Key]): Future[Seq[Option[Value]]] = delegate.readState(keys)
   }
 
+  def readerAndCommitStrategyFrom[LogResult](
+      ledgerStateOperations: LedgerStateOperations[LogResult],
+      keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy)(
+      implicit executionContext: ExecutionContext)
+    : (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
+    val ledgerStateReader = DamlLedgerStateReader.from(
+      new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
+      keySerializationStrategy)
+    val commitStrategy =
+      new LogAppendingCommitStrategy[LogResult](ledgerStateOperations, keySerializationStrategy)
+    (ledgerStateReader, commitStrategy)
+  }
+
   def cachingReaderAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
       stateCache: Cache[DamlStateKey, DamlStateValue],

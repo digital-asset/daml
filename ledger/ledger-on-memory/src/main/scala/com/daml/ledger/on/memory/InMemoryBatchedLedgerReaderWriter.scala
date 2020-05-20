@@ -17,10 +17,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
+  BatchedSubmissionValidatorFactory,
   BatchedSubmissionValidatorParameters,
   ConflictDetection
 }
@@ -46,11 +46,8 @@ final class InMemoryBatchedLedgerReaderWriter(
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
-        val reader = DamlLedgerStateReader.from(
-          new InMemoryLedgerStateReader(ledgerStateOperations),
-          keySerializationStrategy)
-        val commitStrategy =
-          new LogAppendingCommitStrategy[Index](ledgerStateOperations, keySerializationStrategy)
+        val (reader, commitStrategy) = BatchedSubmissionValidatorFactory
+          .readerAndCommitStrategyFrom(ledgerStateOperations, keySerializationStrategy)
         validator
           .validateAndCommit(envelope, correlationId, now(), participantId, reader, commitStrategy)
           .transformWith {
@@ -75,12 +72,6 @@ final class InMemoryBatchedLedgerReaderWriter(
   private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
   private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
-
-  private class InMemoryLedgerStateReader(ledgerStateOperations: LedgerStateOperations[Index])
-      extends LedgerStateReader {
-    override def read(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      ledgerStateOperations.readState(keys)
-  }
 }
 
 object InMemoryBatchedLedgerReaderWriter {
