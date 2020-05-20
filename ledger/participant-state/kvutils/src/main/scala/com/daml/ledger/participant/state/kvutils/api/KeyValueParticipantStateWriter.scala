@@ -77,8 +77,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
-  private def nextSubmissionId(): String = UUID.randomUUID().toString
-
   private def commit(
       correlationId: String,
       submission: DamlSubmission): CompletionStage[SubmissionResult] =
