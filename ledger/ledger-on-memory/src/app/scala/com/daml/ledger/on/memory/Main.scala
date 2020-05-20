@@ -51,21 +51,27 @@ object Main {
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
-          createMetrics(participantConfig, config))
+          createMetrics(participantConfig, config),
+        )
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
-    ): ResourceOwner[InMemoryLedgerReaderWriter] =
+    ): ResourceOwner[InMemoryLedgerReaderWriter] = {
+      val metrics = createMetrics(participantConfig, config)
       new InMemoryLedgerReaderWriter.Owner(
         initialLedgerId = config.ledgerId,
         participantId = participantConfig.participantId,
-        metrics = createMetrics(participantConfig, config),
-        stateValueCache = caching.Cache.from(config.stateValueCache),
+        metrics = metrics,
+        stateValueCache = caching.Cache.from(
+          configuration = config.stateValueCache,
+          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+        ),
         dispatcher = dispatcher,
         state = state,
         engine = engine,
       )
+    }
 
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
       LedgerConfiguration.defaultLocalLedger

@@ -14,7 +14,9 @@ da_scala_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//ledger/metrics",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     ],
 )

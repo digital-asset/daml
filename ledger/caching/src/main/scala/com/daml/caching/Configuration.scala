@@ -6,5 +6,7 @@ package com.daml.caching
 final case class Configuration(maximumWeight: Long) extends AnyVal
 
 object Configuration {
+
   val none: Configuration = Configuration(maximumWeight = 0)
+
 }
