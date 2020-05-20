@@ -1079,7 +1079,12 @@ private[lf] final case class Compiler(
     }
   }
 
-  // Modify/extend `remaps` to reflect when new values are pushed on the stack. For SELet and SECase bindings
+  // Modify/extend `remaps` to reflect when new values are pushed on the stack.  This
+  // happens as we traverse into SELet and SECase bodies which have bindings which at
+  // runtime will appear on the stack.
+  // We must modify `remaps` because it is keyed by indexes relative to the end of the stack.
+  // And any values in the map which are of the form SELocS must also be _shifted_
+  // because SELocS indexes are also relative to the end of the stack.
   def shift(remaps: Map[Int, SELoc], n: Int): Map[Int, SELoc] = {
 
     // We must update both the keys of the map (the relative-indexes from the original SEVar)
