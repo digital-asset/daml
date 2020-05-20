@@ -133,7 +133,7 @@ object SExpr {
       with SomeArrayEquals {
 
     def execute(machine: Machine): Unit = {
-      val sValues = new Array[SValue](fvs.length)
+      val sValues = Array.ofDim[SValue](fvs.length)
       var i = 0
       while (i < fvs.length) {
         sValues(i) = fvs(i).lookup(machine)

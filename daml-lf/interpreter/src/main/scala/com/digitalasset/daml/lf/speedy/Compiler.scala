@@ -1083,7 +1083,7 @@ private[lf] final case class Compiler(
 
     // We must update both the keys of the map (the relative-indexes from the original SEVar)
     // And also any values in the map which are stack located (SELocS), which are also indexed relatively
-    val m1 = remaps.toList.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }.toMap
+    val m1 = remaps.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }
 
     // And create mappings for the `n` new stack items
     val m2 = (1 to n).map(i => (i, SELocS(i)))
@@ -1093,8 +1093,7 @@ private[lf] final case class Compiler(
 
   def shiftLoc(loc: SELoc, n: Int): SELoc = loc match {
     case SELocS(i) => SELocS(i + n)
-    case SELocA(_) => loc
-    case SELocF(_) => loc
+    case SELocA(_) | SELocF(_) => loc
   }
 
   /** Compute the free variables in a speedy expression.

@@ -81,7 +81,7 @@ object PlaySpeedy {
     println(s"example name: $name")
 
     machine.run() match {
-      case SResultFinalValue(value) => {
+      case SResultFinalValue(value) =>
         println(s"final-value: $value")
         value match {
           case SInt64(got) =>
@@ -91,7 +91,6 @@ object PlaySpeedy {
           case _ =>
             throw new MachineProblem(s"Expected final-value to be an integer")
         }
-      }
       case res =>
         throw new MachineProblem(s"Unexpected result from machine $res")
     }
