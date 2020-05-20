@@ -24,20 +24,44 @@ class SpeedyTest extends WordSpec with Matchers {
   import SpeedyTest._
   import defaultParserParameters.{defaultPackageId => pkgId}
 
-  "free variables" should {
+  val pkgs = typeAndCompile(p"")
 
-    val pkgs = typeAndCompile(p"")
+  "application arguments" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        (\ (a: Int64) (b: Int64) -> SUB_INT64 a b) 88 33
+      """,
+        pkgs
+        // Test should fail if we get the order of the function arguments wrong.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
 
-    "be captured correctly" in {
+  "stack variables" should {
+    "be handled correctly" in {
       eval(
         e"""
         let a : Int64 = 88 in
         let b : Int64 = 33 in
-        (\ (x: Unit) -> SUB_INT64 a b) ()
+        SUB_INT64 a b
       """,
         pkgs
-        // If the get the order of the free variables wrong, this test should fail because
-        // the subtraction performed will be (33-88) and so result in (-55).
+        // Test should fail if we access the stack with incorrect indexing.
+      ) shouldEqual Right(SInt64(55))
+    }
+  }
+
+  "free variables" should {
+    "be handled correctly" in {
+      eval(
+        e"""
+        (\(a : Int64) ->
+         let b : Int64 = 33 in
+         (\ (x: Unit) -> SUB_INT64 a b) ()) 88
+      """,
+        pkgs
+        // Test should fail if we index free-variables of a closure incorrectly.
       ) shouldEqual Right(SInt64(55))
     }
   }
