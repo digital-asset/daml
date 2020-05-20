@@ -588,7 +588,7 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
       pkgs = map (T.unpack . fst3 . nodeFromVertex) $ reverse (topSort g)
   withCurrentDirectory optOutputDir $ do
     BSL.writeFile "package.json" $ encodePretty packageJson
-    yarn ["install", "--pure-lockfile"]
+    yarn ["install"]
     createDirectoryIfMissing True $ "node_modules" </> scope
     mapM_ build pkgs
     removeFile "package.json" -- Any subsequent runs will regenerate it.
