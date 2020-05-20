@@ -34,7 +34,7 @@ DAML SDK documentation
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
-   daml/good-daml
+   /daml/patterns
 
 .. toctree::
    :titlesonly:
