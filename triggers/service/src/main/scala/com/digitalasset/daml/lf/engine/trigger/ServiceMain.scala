@@ -98,13 +98,13 @@ object Server {
     }
   }
 
-  case class TriggerRunnerWithParty(
+  case class TriggerRunnerWithToken(
       ref: ActorRef[TriggerRunner.Message],
-      party: Party,
+      token: Jwt,
   )
 
-  private var triggers: Map[UUID, TriggerRunnerWithParty] = Map.empty
-  private var triggersByParty: Map[Party, Set[UUID]] = Map.empty
+  private var triggers: Map[UUID, TriggerRunnerWithToken] = Map.empty
+  private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty
   private val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
 
   private def startTrigger(
@@ -131,9 +131,9 @@ object Server {
           party),
         ident),
       ident + "-monitor")
-    triggers = triggers + (uuid -> TriggerRunnerWithParty(ref, party))
-    val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
-    triggersByParty = triggersByParty + (party -> newTriggerSet)
+    triggers = triggers + (uuid -> TriggerRunnerWithToken(ref, jwt))
+    val newTriggerSet = triggersByToken.getOrElse(jwt, Set()) + uuid
+    triggersByToken = triggersByToken + (jwt -> newTriggerSet)
     val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
     triggerIdResult
   }
@@ -144,12 +144,12 @@ object Server {
     //TODO(SF, 2020-05-20): Check that the provided token
     //is the same as the one used to start the trigger and
     //fail with 'Unauthorized' if not.
-    val actorWithParty = triggers.get(uuid).get
-    actorWithParty.ref ! TriggerRunner.Stop
+    val actorWithToken = triggers.get(uuid).get
+    actorWithToken.ref ! TriggerRunner.Stop
     triggers = triggers - uuid
-    val party = actorWithParty.party
-    val newTriggerSet = triggersByParty.get(party).get - uuid
-    triggersByParty = triggersByParty + (party -> newTriggerSet)
+    val token = actorWithToken.token
+    val newTriggerSet = triggersByToken.get(token).get - uuid
+    triggersByToken = triggersByToken + (token -> newTriggerSet)
     val stoppedTriggerId = JsObject(("triggerId", uuid.toString.toJson))
     stoppedTriggerId
   }
@@ -157,9 +157,8 @@ object Server {
   private def listTriggers(token: (Jwt, JwtPayload))(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): JsValue = {
-    val jwtPayload: JwtPayload = token._2
-    val party: Party = Party(jwtPayload.party);
-    val triggerList = triggersByParty.getOrElse(party, Set()).map(_.toString).toList
+    val jwt: Jwt = token._1
+    val triggerList = triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
     JsObject(("triggerIds", triggerList.toJson))
   }
 
