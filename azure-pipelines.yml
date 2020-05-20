@@ -275,14 +275,14 @@ jobs:
           ./release.sh check
 
           changes_release_files() {
-              changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
+              changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
               stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
               snapshot="LATEST"
               [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
 
           changes_one_line_in_latest() {
-              changed="$(git diff-tree --no-commit-id --numstat -r $(branch_sha) $(fork_sha) -- LATEST | awk '{print $1 "_" $2}')"
+              changed="$(git diff-tree --no-commit-id --numstat -r $(fork_sha) $(branch_sha) -- LATEST | awk '{print $1 "_" $2}')"
               add_one="1_0"
               change_one="1_1"
               [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
@@ -294,7 +294,7 @@ jobs:
           }
 
           added_line() {
-              echo "$(git diff $(branch_sha) $(fork_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
+              echo "$(git diff $(fork_sha) $(branch_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
           }
 
           if changes_release_files; then
