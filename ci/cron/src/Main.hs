@@ -110,12 +110,12 @@ to_v s = case Split.splitOn "-" s of
 build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
 build_docs_folder path versions current = do
     restore_sha $ do
+        latest_release_notes_sha <- shell "git log -n1 --format=%H HEAD -- LATEST"
         let old = path </> "old"
         let new = path </> "new"
         shell_ $ "mkdir -p " <> new
         shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
-        latest_release_notes_sha <- shell "git log -n1 --format=%H master -- LATEST"
         documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\gh_version -> do
             let version = name gh_version
             putStrLn $ "Building " <> version <> "..."
