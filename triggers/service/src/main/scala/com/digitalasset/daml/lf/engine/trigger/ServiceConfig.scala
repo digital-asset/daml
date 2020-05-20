@@ -30,8 +30,8 @@ final case class JdbcConfig(
 )
 
 object JdbcConfig {
-  implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(url=${a.url}, user=${a.user})")
+  implicit val showInstance: Show[JdbcConfig] =
+    Show.shows(a => s"JdbcConfig(url=${a.url}, user=${a.user})")
 
   val driver: String = "org.postgresql.Driver"
 
@@ -50,10 +50,7 @@ object JdbcConfig {
   private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
 
-  lazy val usage: String = helpString(
-    "<JDBC connection url>",
-    "<user>",
-    "<password>")
+  lazy val usage: String = helpString("<JDBC connection url>", "<user>", "<password>")
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
@@ -65,10 +62,7 @@ object JdbcConfig {
       "operator",
       "password")
 
-  private def helpString(
-                          url: String,
-                          user: String,
-                          password: String): String =
+  private def helpString(url: String, user: String, password: String): String =
     s"""\"url=$url,user=$user,password=$password\""""
 
   private val indent: String = List.fill(8)(" ").mkString
@@ -120,7 +114,8 @@ object ServiceConfig {
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
     opt[Map[String, String]]("jdbc")
-      .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity))))
+      .action((x, c) =>
+        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity))))
       .optional()
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")

@@ -47,7 +47,13 @@ import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
+import com.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
 import com.daml.lf.language.Ast._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -406,7 +412,8 @@ object ServiceMain {
             system.log.error("No JDBC configuration for database initialization.")
             sys.exit(1)
           case (true, Some(jdbcConfig)) =>
-            val triggerDao = TriggerDao(JdbcConfig.driver, jdbcConfig.url, jdbcConfig.user, jdbcConfig.password)
+            val triggerDao =
+              TriggerDao(JdbcConfig.driver, jdbcConfig.url, jdbcConfig.user, jdbcConfig.password)
             Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
               case Success(()) =>
                 system.log.info("Initialized database.")

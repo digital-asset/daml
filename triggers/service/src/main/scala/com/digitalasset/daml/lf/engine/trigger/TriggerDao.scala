@@ -18,7 +18,7 @@ object Connection {
   type T = Transactor.Aux[IO, Unit]
 
   def connect(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(
-    implicit cs: ContextShift[IO]): T =
+      implicit cs: ContextShift[IO]): T =
     Transactor
       .fromDriverManager[IO](jdbcDriver, jdbcUrl, username, password)(IO.ioConcurrentEffect(cs), cs)
 }
@@ -34,7 +34,7 @@ class TriggerDao(xa: Connection.T) {
 
 object TriggerDao {
   def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(
-    implicit ec: ExecutionContext): TriggerDao = {
+      implicit ec: ExecutionContext): TriggerDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     new TriggerDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
   }
