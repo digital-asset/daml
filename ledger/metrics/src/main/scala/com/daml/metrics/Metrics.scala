@@ -323,11 +323,8 @@ class Metrics(val registry: MetricRegistry) {
         val getActiveContracts: DatabaseMetrics = createDatabaseMetrics("get_active_contracts")
 
         object translation {
-
           val prefix: MetricName = db.prefix :+ "translation"
-
           val cache = new CacheMetrics(registry, prefix :+ "cache")
-
         }
 
       }
