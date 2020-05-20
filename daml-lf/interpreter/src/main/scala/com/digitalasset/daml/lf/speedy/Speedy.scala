@@ -58,6 +58,26 @@ object Speedy {
     }
   }
 
+  /*
+   Speedy uses a caller-saves strategy for managing the environment.  In a Speedy machine,
+   the environment is represented by the `frame` and `env` components.
+
+   Continuations are responsible for restoring their own environment. In the general case,
+   an arbitrary amount of computation may have occurred between the continuation being
+   pushed and then later entered.
+
+   When we push a continuation which requires it's environment to be preserved, we record
+   the current Frame and the current env-stack depth within the continuation. Then, when
+   the continuation is entered, it will call `restoreEnv`.
+
+   We do this for KArg, KMatch, KPushTo, KCatch.
+
+   We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
+   changes `frame` to point to itself, and there will be no references to existing
+   stack-variables within the body of the function. (They will have been translated to
+   free-var reference by the compiler).
+   */
+
   /** The speedy CEK machine. */
   final case class Machine(
       /* The control is what the machine should be evaluating. If this is not
@@ -331,20 +351,16 @@ object Speedy {
       }
     }
 
-    def enterFullyAppliedFunction(
-        newFrame: KFun,
-        prim: Prim,
-        args: util.ArrayList[SValue]): Unit = {
+    def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
       prim match {
         case PClosure(label, expr, _) =>
           if (label != null) {
             profile.addOpenEvent(label)
             pushKont(KLeaveClosure(label))
           }
-          // Set the frame to enable access for Arg/Free variable references
-          frame = newFrame
-
-          // And start evaluating the body of the closure.
+          // Start evaluating the body of the closure. (We dont do anything with the
+          // function arguments or free-varables, because the frame will have been set to
+          // allow their access within the body).
           ctrl = expr
 
         case PBuiltin(b) =>
@@ -641,26 +657,6 @@ object Speedy {
     def execute(v: SValue, machine: Machine): Unit
   }
 
-  /*
-   Speedy uses a caller-saves strategy for managing the environment.  In a Speedy machine,
-   the environment is represented by the `frame` and `env` components.
-
-   Continuations are responsible for restoring their own environment. In the general case,
-   an arbitrary amount of computation may have occurred between the continuation being
-   pushed and then later entered.
-
-   When we push a continuation which requires it's environment to be preserved, we record
-   the current Frame and the current env-stack depth within the continuation. Then, when
-   the continuation is entered, it will call `restoreEnv`.
-
-   We do this for KArg, KMatch, KPushTo, KCatch.
-
-   We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
-   changes `frame` to point to itself, and there will be no references to existing
-   stack-variables within the body of the function. (They will have been translated to
-   free-var reference by the compiler).
-   */
-
   /** Final continuation; machine has computed final value */
   final case object KFinished extends Kont {
     def execute(v: SValue, machine: Machine) = {
@@ -718,7 +714,9 @@ object Speedy {
     def execute(v: SValue, machine: Machine) = {
       args.add(v) // Add last argument
       if (args.size == arity) {
-        machine.enterFullyAppliedFunction(this, prim, args)
+        // Set the frame to enable access for Arg/Free variable references
+        machine.frame = this
+        machine.enterFullyAppliedFunction(prim, args)
       } else {
         // args.size < arity (we already dealt with args.size > args in Karg)
         machine.returnValue = SPAP(prim, args, arity)

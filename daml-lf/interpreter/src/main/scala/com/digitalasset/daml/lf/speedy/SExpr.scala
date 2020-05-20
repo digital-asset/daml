@@ -435,7 +435,7 @@ object SExpr {
       )
 
     private val equalListBody: SExpr =
-      // equalList f xs ys = //A3,2,1
+      // equalList f xs ys =
       SEMakeClo(
         Array(),
         3,

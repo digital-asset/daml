@@ -1023,11 +1023,12 @@ private[lf] final case class Compiler(
           case (orig, i) =>
             (orig + arity) -> SELocF(i)
         }.toMap
-        val newRemapsA: Map[Int, SELoc] = (1 to arity).map {
+        val newRemapsA = (1 to arity).map {
           case i =>
             i -> SELocA(arity - i)
-        }.toMap
-        val newBody = closureConvert(newRemapsA ++ newRemapsF, body)
+        }
+        // The keys in newRemapsF and newRemapsA are disjoint
+        val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
         SEMakeClo(fvs.map(remap).toArray, arity, newBody)
 
       case x: SELoc =>
