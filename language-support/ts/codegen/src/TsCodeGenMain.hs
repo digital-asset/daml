@@ -620,9 +620,12 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
       -- We need to use `shell` instead of `proc` since at least in some cases
       -- `yarn` is called `yarn.cmd` which will not be picked up by `proc`.
       -- We could hardcode `yarn.cmd` on Windows but that seems rather fragile.
-      (exitCode, _, err) <- readCreateProcessWithExitCode (shell $ unwords $ "yarn" : args) ""
+      (exitCode, out, err) <- readCreateProcessWithExitCode (shell $ unwords $ "yarn" : args) ""
       unless (exitCode == ExitSuccess) $ do
         putStrLn $ "Failure: \"yarn " <> unwords args <> "\" exited with " <> show exitCode
+        -- User reports suggest that yarn writes its errors to stdout
+        -- rather than stderr. Accordingly, we capture both.
+        putStrLn out
         putStrLn err
         exitFailure
 
