@@ -123,7 +123,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   config.metricsReporter,
                   config.metricsReportingInterval,
                 )
-                lfValueTranslationCache: LfValueTranslation.Cache = Cache.none
+                lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
+                  configuration = config.lfValueTranslationCacheConfiguration,
+                  metrics = metrics,
+                )
                 timeServiceBackend = timeProviderType match {
                   case TimeProviderType.Static =>
                     Some(TimeServiceBackend.simple(Instant.EPOCH))
