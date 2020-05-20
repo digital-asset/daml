@@ -56,6 +56,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
+
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
       verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
     }
@@ -66,6 +67,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
+
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
       verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
     }
@@ -76,6 +78,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics)
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
+
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
       verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
     }
@@ -114,12 +117,12 @@ object KeyValueParticipantStateWriterSpec {
     writer
   }
 
-  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
+  private def submitterInfo(recordTime: Timestamp, party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      deduplicateUntil = rt.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
+      deduplicateUntil = recordTime.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
     )
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
