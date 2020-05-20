@@ -24,7 +24,6 @@ case class ServiceConfig(
 )
 
 final case class JdbcConfig(
-    driver: String,
     url: String,
     user: String,
     password: String,
@@ -32,51 +31,47 @@ final case class JdbcConfig(
 
 object JdbcConfig {
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user})")
+    s"JdbcConfig(url=${a.url}, user=${a.user})")
 
-  lazy val help: String =
-    "Contains comma-separated key-value pairs. Where:\n" +
-      s"${indent}driver -- JDBC driver class name, only org.postgresql.Driver supported right now,\n" +
-      s"${indent}url -- JDBC connection URL, only jdbc:postgresql supported right now,\n" +
-      s"${indent}user -- user name for database user with permissions to create tables,\n" +
-      s"${indent}password -- password of database user,\n" +
-      s"${indent}Example: " + helpString(
-      "org.postgresql.Driver",
-      "jdbc:postgresql://localhost:5432/triggers",
-      "operator",
-      "password")
-
-  lazy val usage: String = helpString(
-    "<JDBC driver class name>",
-    "<JDBC connection url>",
-    "<user>",
-    "<password>")
-
-  private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
-    m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
+  val driver: String = "org.postgresql.Driver"
 
   def create(x: Map[String, String]): Either[String, JdbcConfig] =
     for {
-      driver <- requiredField(x)("driver")
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
     } yield
       JdbcConfig(
-        driver = driver,
         url = url,
         user = user,
         password = password,
       )
 
-  private val indent: String = List.fill(8)(" ").mkString
+  private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
+    m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
+
+  lazy val usage: String = helpString(
+    "<JDBC connection url>",
+    "<user>",
+    "<password>")
+
+  lazy val help: String =
+    "Contains comma-separated key-value pairs. Where:\n" +
+      s"${indent}url -- JDBC connection URL, beginning with jdbc:postgresql,\n" +
+      s"${indent}user -- user name for database user with permissions to create tables,\n" +
+      s"${indent}password -- password of database user,\n" +
+      s"${indent}Example: " + helpString(
+      "jdbc:postgresql://localhost:5432/triggers",
+      "operator",
+      "password")
 
   private def helpString(
-                          driver: String,
                           url: String,
                           user: String,
                           password: String): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password\""""
+    s"""\"url=$url,user=$user,password=$password\""""
+
+  private val indent: String = List.fill(8)(" ").mkString
 }
 
 object ServiceConfig {
