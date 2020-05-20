@@ -154,7 +154,7 @@ class Metrics(val registry: MetricRegistry) {
           val commitSubmission: Timer = registry.timer(prefix :+ "commit_submission")
           val transformSubmission: Timer = registry.timer(prefix :+ "transform_submission")
 
-          val stateValueCache = new CacheMetrics(registry, validator.prefix :+ "state_value_cache")
+          val stateValueCache = new CacheMetrics(registry, prefix :+ "state_value_cache")
         }
       }
 
