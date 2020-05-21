@@ -14,6 +14,10 @@ import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 
+import scala.concurrent.duration._
+
+class InitializationException(s: String) extends Exception(s) {}
+
 object TriggerRunner {
   type Config = TriggerRunnerImpl.Config
 
@@ -35,14 +39,27 @@ class TriggerRunner(
 
   import TriggerRunner.{Message, Stop}
 
+  // Spawn a trigger runner impl. Supervise it. If it fails to start
+  // its runner, send it a stop message (the server will later send us
+  // a stop message in due course in this case so this actor will get
+  // garbage collected too). If it something bad happens when the
+  // trigger is running, try to restart it up to 3 times.
   private val child =
-    ctx.spawn(Behaviors.supervise(TriggerRunnerImpl(config)).onFailure(restart), name)
+    ctx.spawn(
+      Behaviors
+        .supervise(
+          Behaviors
+            .supervise(TriggerRunnerImpl(ctx.self, config))
+            .onFailure[InitializationException](stop))
+        .onFailure[RuntimeException](
+          restart.withLimit(maxNrOfRetries = 3, withinTimeRange = 10.seconds)),
+      name
+    )
 
   override def onMessage(msg: Message): Behavior[Message] =
     Behaviors.receiveMessagePartial[Message] {
       case Stop =>
-        child ! Stop
-        Behaviors.stopped
+        Behaviors.stopped // Automatically stops the child actor if running.
     }
 
   override def onSignal: PartialFunction[Signal, Behavior[Message]] = {

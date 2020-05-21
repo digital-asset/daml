@@ -191,19 +191,27 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   }
 
   it should "start a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
+    def chk() = {
+      for {
+            resp <- listTriggers(uri, "Alice")
+            result <- parseTriggerIds(resp)
+          } yield result
+    }
+
     for {
       resp <- uploadDar(uri, darPath)
       JsObject(fields) <- parseResult(resp)
       Some(JsString(mainPackageId)) = fields.get("mainPackageId")
       _ <- mainPackageId should not be empty
-
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
       triggerId <- parseTriggerId(resp)
-
-      resp <- listTriggers(uri, "Alice")
-      result <- parseTriggerIds(resp)
-      _ <- result should equal(Vector(triggerId))
-
+      _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Alice")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector(triggerId))
+      }}
       resp <- stopTrigger(uri, triggerId, "Alice")
       stoppedTriggerId <- parseTriggerId(resp)
       _ <- stoppedTriggerId should equal(triggerId)
@@ -213,45 +221,65 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       for {
-        // no triggers running initially
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector())
         // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
-        resp <- listTriggers(uri, "Alice")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(aliceTrigger))
-        // start trigger for Bob
+        _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Alice")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector(aliceTrigger))
+        }}
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(bobTrigger1))
-        // start another trigger for Bob
+        _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Bob")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector(bobTrigger1))
+        }}
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
-        // stop Alice's trigger
+        _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Bob")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector(bobTrigger1, bobTrigger2))
+        }}
         resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
-        resp <- listTriggers(uri, "Alice")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector())
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
-        // stop Bob's triggers
+        _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Alice")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector())
+        }}
+        _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Bob")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector(bobTrigger1, bobTrigger2))
+        }}
+        // Stop Bob's triggers
         resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector())
+        _ <- Future { eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Bob")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert (r == Vector())
+        }}
       } yield succeed
   }
 
