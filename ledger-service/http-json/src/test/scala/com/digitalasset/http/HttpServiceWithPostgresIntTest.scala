@@ -7,6 +7,7 @@ import com.daml.http.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
 
+import scala.collection.compat._
 import scala.concurrent.Future
 
 class HttpServiceWithPostgresIntTest
@@ -55,6 +56,7 @@ class HttpServiceWithPostgresIntTest
     }
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def selectAllDbContracts
     : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
     import com.daml.http.dbbackend.Queries.Implicits._
@@ -66,7 +68,7 @@ class HttpServiceWithPostgresIntTest
       sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
         .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
 
-    dao.transact(q.to[List]).unsafeToFuture()
+    dao.transact(q.to(List)).unsafeToFuture()
   }
 
   private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
