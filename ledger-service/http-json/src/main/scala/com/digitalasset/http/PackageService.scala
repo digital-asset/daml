@@ -179,7 +179,7 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
-    packageStore.flatMap { case (_, interface) => getChoices(interface) }(collection.breakOut)
+    packageStore.flatMap { case (_, interface) => getChoices(interface) }
 
   private def getChoices(
       interface: iface.Interface): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
@@ -201,7 +201,7 @@ object PackageService {
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getKeyTypeMap(packageStore: PackageStore): KeyTypeMap =
-    packageStore.flatMap { case (_, interface) => getKeys(interface) }(collection.breakOut)
+    packageStore.flatMap { case (_, interface) => getKeys(interface) }
 
   private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, iface.Type] =
     interface.typeDecls.collect {
