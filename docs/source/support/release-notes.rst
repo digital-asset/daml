@@ -322,7 +322,7 @@ The only non-backwards compatible change compared to previous
 versions is the removal of queries on lists and maps in the HTTP JSON
 API. There is no trivial migration for this. If you were relying on
 these capabilities please get in touch with us via community@daml.com
-or on Slack. We’d like to hear how you were making use of the feature
+or `on our forum <https://discuss.daml.com>`_. We’d like to hear how you were making use of the feature
 so that we can replace it with something better, and we will make
 some suggestions to work around the removal.
 
