@@ -32,6 +32,7 @@ da_scala_binary(
     srcs = glob(["src/main/**/ExploreDar.scala"]),
     data = [
         ":Examples.dar",
+        ":Examples.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.ExploreDar",
     runtime_deps = [
