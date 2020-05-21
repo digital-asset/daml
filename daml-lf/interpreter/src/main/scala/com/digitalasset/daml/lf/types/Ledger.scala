@@ -642,7 +642,7 @@ object Ledger {
         ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId],
         actingParties: Set[Party],
         authorization: Authorization,
-        controllers: Set[Party],
+        controllersDifferFromActors: Boolean,
     ): EnrichState = {
       // well-authorized by A : actors == controllers(c)
       //                        && actors subsetOf A
@@ -654,12 +654,12 @@ object Ledger {
           this
             .authorize(
               nodeId = nodeId,
-              passIf = controllers.nonEmpty,
+              passIf = actingParties.nonEmpty,
               failWith = FANoControllers(ex.templateId, ex.choiceId, ex.optLocation),
             )
             .authorize(
               nodeId = nodeId,
-              passIf = actingParties == controllers,
+              passIf = !controllersDifferFromActors,
               failWith = FAActorMismatch(
                 templateId = ex.templateId,
                 choiceId = ex.choiceId,
@@ -903,7 +903,7 @@ object Ledger {
               ex,
               actingParties = ex.actingParties,
               authorization = authorization,
-              controllers = ex.controllers,
+              controllersDifferFromActors = ex.controllersDifferFromActors,
             )
 
           // Then enrich and authorize the children.
@@ -914,7 +914,7 @@ object Ledger {
             enrichNode(
               s,
               witnesses,
-              authorization.map(_ => ex.controllers union ex.signatories),
+              authorization.map(_ => ex.actingParties union ex.signatories),
               childNodeId,
             )
           }

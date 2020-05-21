@@ -155,7 +155,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
           chosenVal @ _,
           stakeholders @ _,
           signatories @ _,
-          controllers @ _,
+          controllersDifferFromActors @ _,
           children @ _,
           exerciseResult @ _,
           key @ _) =>
