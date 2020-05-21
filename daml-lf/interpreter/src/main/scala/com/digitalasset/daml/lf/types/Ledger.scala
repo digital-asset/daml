@@ -512,7 +512,6 @@ object Ledger {
       templateId: Identifier,
       choiceId: ChoiceName,
       optLocation: Option[Location],
-      controllers: Set[Party],
       givenActors: Set[Party],
   ) extends FailedAuthorization
 
@@ -664,7 +663,6 @@ object Ledger {
                 templateId = ex.templateId,
                 choiceId = ex.choiceId,
                 optLocation = ex.optLocation,
-                controllers = controllers,
                 givenActors = actingParties,
               ),
             )

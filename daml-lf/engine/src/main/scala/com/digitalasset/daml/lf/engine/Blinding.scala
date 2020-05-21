@@ -27,8 +27,7 @@ object Blinding {
               case nc: FANoControllers =>
                 s"node $id (${nc.templateId}) has no controllers"
               case am: FAActorMismatch =>
-                s"node $id (${am.templateId}) requires controllers: ${am.controllers
-                  .mkString(",")}, but only ${am.givenActors.mkString(",")} were given"
+                s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
               case ma: FACreateMissingAuthorization =>
                 s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
                   .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
