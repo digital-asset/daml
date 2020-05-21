@@ -370,6 +370,15 @@ object ServiceMain {
     bindingFuture.map(server => (server, system))
   }
 
+  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, TriggerDao] = {
+    val triggerDao = TriggerDao(JdbcConfig.driver, c.url, c.user, c.password)(ec)
+    val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
+    Try(transaction.unsafeRunSync()) match {
+      case Failure(err) => Left(err.toString)
+      case Success(()) => Right(triggerDao)
+    }
+  }
+
   def main(args: Array[String]): Unit = {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
@@ -406,15 +415,13 @@ object ServiceMain {
             system.log.error("No JDBC configuration for database initialization.")
             sys.exit(1)
           case (true, Some(jdbcConfig)) =>
-            val triggerDao =
-              TriggerDao(JdbcConfig.driver, jdbcConfig.url, jdbcConfig.user, jdbcConfig.password)
-            Try(triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler)).unsafeRunSync()) match {
-              case Success(()) =>
+            initDatabase(jdbcConfig) match {
+              case Left(err) =>
+                system.log.error(err)
+                sys.exit(1)
+              case Right(triggerDao) =>
                 system.log.info("Initialized database.")
                 sys.exit(0)
-              case Failure(err) =>
-                system.log.error(err.toString)
-                sys.exit(1)
             }
           case _ =>
         }
