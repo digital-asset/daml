@@ -44,6 +44,8 @@ object TriggerDao {
         create table running_triggers(
           trigger_id uuid primary key,
           party_token text not null,
+          package_id text not null,
+          module_name text not null,
           trigger_name text not null
         )
       """
