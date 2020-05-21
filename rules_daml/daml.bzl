@@ -238,6 +238,20 @@ _daml_validate_test = rule(
     test = True,
 )
 
+def _inspect_dar(base):
+    name = base + "-inspect"
+    dar = base + ".dar"
+    pp = base + ".dar.pp"
+    native.genrule(
+        name = name,
+        srcs = [
+            dar,
+            "//compiler/damlc",
+        ],
+        outs = [pp],
+        cmd = "$(location //compiler/damlc) inspect $(location :" + dar + ") > $@",
+    )
+
 _default_project_version = "1.0.0"
 
 def daml_compile(
@@ -265,6 +279,9 @@ def daml_compile(
         dar_dict = {},
         dar = name + ".dar",
         **kwargs
+    )
+    _inspect_dar(
+        base = name,
     )
 
 def daml_compile_with_dalf(
