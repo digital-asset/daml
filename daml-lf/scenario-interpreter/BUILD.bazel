@@ -53,6 +53,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
         ":CollectAuthority.dar",
+        ":CollectAuthority.dar.pp",
     ],
     visibility = ["//visibility:public"],
     deps = [
