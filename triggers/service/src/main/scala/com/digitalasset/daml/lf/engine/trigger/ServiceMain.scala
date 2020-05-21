@@ -68,6 +68,11 @@ object Server {
   private final case class Started(binding: ServerBinding) extends Message
   final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
   final case object Stop extends Message
+  final case class TriggerStarted(
+      triggerId: UUID,
+      jwt: Jwt,
+      runner: ActorRef[TriggerRunner.Message])
+      extends Message
 
   private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
@@ -112,6 +117,9 @@ object Server {
     val ref = ctx.spawn(
       TriggerRunner(
         new TriggerRunner.Config(
+          ctx.self,
+          uuid,
+          jwt,
           compiledPackages,
           trigger,
           ledgerConfig,
@@ -119,11 +127,7 @@ object Server {
           party),
         ident),
       ident + "-monitor")
-    triggers = triggers + (uuid -> TriggerRunnerWithToken(ref, jwt))
-    val newTriggerSet = triggersByToken.getOrElse(jwt, Set()) + uuid
-    triggersByToken = triggersByToken + (jwt -> newTriggerSet)
-    val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
-    triggerIdResult
+    JsObject(("triggerId", uuid.toString.toJson))
   }
 
   private def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload))(
@@ -306,6 +310,11 @@ object Server {
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same
+          case TriggerStarted(uuid, jwt, runner) =>
+            triggers = triggers + (uuid -> TriggerRunnerWithToken(runner, jwt))
+            val newTriggerSet = triggersByToken.getOrElse(jwt, Set()) + uuid
+            triggersByToken = triggersByToken + (jwt -> newTriggerSet)
+            Behaviors.same
           case Stop =>
             ctx.log.info(
               "Stopping server http://{}:{}/",
@@ -344,6 +353,8 @@ object Server {
           // we got a stop message but haven't completed starting yet,
           // we cannot stop until starting has completed
           starting(wasStopped = true, req = None)
+        case _ =>
+          Behaviors.unhandled
       }
 
     starting(wasStopped = false, req = None)

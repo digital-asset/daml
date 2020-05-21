@@ -189,6 +189,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
       triggerId <- parseTriggerId(resp)
 
+      _ <- Future { Thread.sleep(1000); true }
       resp <- listTriggers(uri, "Alice")
       result <- parseTriggerIds(resp)
       _ <- result should equal(Vector(triggerId))
@@ -202,31 +203,34 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       for {
-        // no triggers running initially
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector())
         // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
+        _ <- Future { Thread.sleep(1000); true }
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector(aliceTrigger))
         // start trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
+        _ <- Future { Thread.sleep(1000); true }
         resp <- listTriggers(uri, "Bob")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector(bobTrigger1))
         // start another trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
+        _ <- Future { Thread.sleep(1000); true }
         resp <- listTriggers(uri, "Bob")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
         // stop Alice's trigger
         resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
+        _ <- Future { Thread.sleep(1000); true }
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector())
@@ -238,6 +242,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
+        _ <- Future { Thread.sleep(1000); true }
         resp <- listTriggers(uri, "Bob")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector())

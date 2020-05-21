@@ -3,6 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
+import akka.actor.typed.{ActorRef}
 import akka.actor.typed.{Behavior, PostStop}
 import akka.actor.typed.PostStop
 import akka.actor.typed.PreRestart
@@ -24,9 +25,15 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.jwt.domain.Jwt
+
+import java.util.UUID
 
 object TriggerRunnerImpl {
   case class Config(
+      server: ActorRef[Server.Message],
+      triggerId: UUID, // trigger id
+      jwt: Jwt, // trigger token
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
@@ -35,12 +42,15 @@ object TriggerRunnerImpl {
   )
 
   import TriggerRunner.{Message, Stop}
+  import Server.{TriggerStarted}
+
+  final case class Acknowledged() extends Message
   final case class Failed(error: Throwable) extends Message
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
       extends Message
 
-  def apply(config: Config)(
+  def apply(parent: ActorRef[TriggerRunner.Message], config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[Message] =
     Behaviors.setup { ctx =>
@@ -86,6 +96,10 @@ object TriggerRunnerImpl {
                 case Success(_) => Failed(new RuntimeException("Trigger exited unexpectedly"))
                 case Failure(cause) => Failed(cause)
               }
+
+              // We are entering the running state. Update the running
+              // trigger table.
+              config.server ! TriggerStarted(config.triggerId, config.jwt, parent)
               running(killSwitch)
             }
           case Stop =>

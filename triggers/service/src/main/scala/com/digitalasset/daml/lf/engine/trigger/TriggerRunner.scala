@@ -36,7 +36,7 @@ class TriggerRunner(
   import TriggerRunner.{Message, Stop}
 
   private val child =
-    ctx.spawn(Behaviors.supervise(TriggerRunnerImpl(config)).onFailure(restart), name)
+    ctx.spawn(Behaviors.supervise(TriggerRunnerImpl(ctx.self, config)).onFailure(restart), name)
 
   override def onMessage(msg: Message): Behavior[Message] =
     Behaviors.receiveMessagePartial[Message] {
