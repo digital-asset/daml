@@ -47,13 +47,13 @@ object TriggerDao {
           trigger_name text not null
         )
       """
-    val createDarTable: Fragment = sql"""
-        create table dar_packages(
+    val createDalfTable: Fragment = sql"""
+        create table dalfs(
           package_id text primary key,
-          package text not null
+          package bytea not null
         )
       """
     (createTriggerTable.update.run
-      *> createDarTable.update.run).void
+      *> createDalfTable.update.run).void
   }
 }
