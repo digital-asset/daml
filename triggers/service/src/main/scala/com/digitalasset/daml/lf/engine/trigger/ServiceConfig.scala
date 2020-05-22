@@ -21,6 +21,7 @@ case class ServiceConfig(
     commandTtl: Duration,
     init: Boolean,
     jdbcConfig: Option[JdbcConfig],
+    serviceDbUser: Option[DbUser],
 )
 
 final case class JdbcConfig(
@@ -64,6 +65,41 @@ object JdbcConfig {
 
   private def helpString(url: String, user: String, password: String): String =
     s"""\"url=$url,user=$user,password=$password\""""
+
+  private val indent: String = List.fill(8)(" ").mkString
+}
+
+final case class DbUser(
+    user: String,
+    password: String,
+)
+
+object DbUser {
+  def create(x: Map[String, String]): Either[String, DbUser] =
+    for {
+      user <- requiredField(x)("user")
+      password <- requiredField(x)("password")
+    } yield
+      DbUser(
+        user = user,
+        password = password,
+      )
+
+  private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
+    m.get(k).filter(_.nonEmpty).toRight(s"Invalid database user, must contain '$k' field")
+
+  lazy val usage: String = helpString("<user>", "<password>")
+
+  lazy val help: String =
+    "Contains comma-separated key-value pairs. Where:\n" +
+      s"${indent}user -- user name for database user to create with permissions to read and write tables,\n" +
+      s"${indent}password -- password of database user to be created,\n" +
+      s"${indent}Example: " + helpString(
+      "service",
+      "servicepass")
+
+  private def helpString(user: String, password: String): String =
+    s"""\"user=$user,password=$password\""""
 
   private val indent: String = List.fill(8)(" ").mkString
 }
@@ -115,7 +151,7 @@ object ServiceConfig {
 
     opt[Map[String, String]]("jdbc")
       .action((x, c) =>
-        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity))))
+        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(sys.error, identity))))
       .optional()
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
@@ -123,6 +159,12 @@ object ServiceConfig {
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")
+      .children(
+        opt[Map[String, String]]("service-db-user")
+          .action((x, c) => c.copy(serviceDbUser = Some(DbUser.create(x).fold(sys.error, identity))))
+          .valueName(DbUser.usage)
+          .text("Database user to be created with permissions to read and write to tables.")
+      )
   }
 
   def parse(args: Array[String]): Option[ServiceConfig] =
@@ -138,6 +180,7 @@ object ServiceConfig {
         commandTtl = Duration.ofSeconds(30L),
         init = false,
         jdbcConfig = None,
+        serviceDbUser = None,
       ),
     )
 }

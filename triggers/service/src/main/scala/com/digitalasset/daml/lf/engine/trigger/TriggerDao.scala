@@ -55,7 +55,19 @@ object TriggerDao {
           package bytea not null
         )
       """
+    val createServiceRole: Fragment = sql"""
+        create role service login password 'servicepass'
+      """
+    val grantRunningTriggersAccess: Fragment = sql"""
+        grant select, insert, delete on table running_triggers to service
+      """
+    val grantDalfAccess: Fragment = sql"""
+        grant select, insert on table dalfs to service
+      """
     (createTriggerTable.update.run
-      *> createDalfTable.update.run).void
+      *> createDalfTable.update.run
+      *> createServiceRole.update.run
+      *> grantRunningTriggersAccess.update.run
+      *> grantDalfAccess.update.run).void
   }
 }
