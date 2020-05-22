@@ -42,27 +42,32 @@ sealed trait Envelope {
   val transactionSizeKb: Int
   val throughput: Int
   val latencyMs: Int
+  val inFlightLimit: Int
 }
 
 object Envelope {
 
   /** test will unlikely fail */
   case object ProofOfConcept extends Envelope {
-    val name = "PoC"; val transactionSizeKb = 1; val throughput = 0; val latencyMs = 60000
+    val name = "PoC"; val transactionSizeKb = 1; val throughput = 0; val latencyMs = 60000;
+    val inFlightLimit = 1;
   }
 
   /** test will fail if performance is lower than alpha envelope */
   case object Alpha extends Envelope {
-    val name = "Alpha"; val transactionSizeKb = 100; val throughput = 5; val latencyMs = 3000
+    val name = "Alpha"; val transactionSizeKb = 100; val throughput = 5; val latencyMs = 3000;
+    val inFlightLimit = 10;
   }
 
   /** test will fail if performance is lower then beta envelope */
   case object Beta extends Envelope {
-    val name = "Beta"; val transactionSizeKb = 1000; val throughput = 20; val latencyMs = 1000
+    val name = "Beta"; val transactionSizeKb = 1000; val throughput = 20; val latencyMs = 1000;
+    val inFlightLimit = 25;
   }
 
   case object Public extends Envelope {
-    val name = "Public"; val transactionSizeKb = 5000; val throughput = 50; val latencyMs = 1000
+    val name = "Public"; val transactionSizeKb = 5000; val throughput = 50; val latencyMs = 1000;
+    val inFlightLimit = 60;
   }
 
   case object Enterprise extends Envelope {
@@ -70,6 +75,7 @@ object Envelope {
     val transactionSizeKb = 25000
     val throughput = 500
     val latencyMs = 500
+    val inFlightLimit = 600
   }
 
   // [FT] Could use macros as in https://riptutorial.com/scala/example/26215/using-sealed-trait-and-case-objects-and-allvalues-macro
@@ -81,7 +87,6 @@ trait PerformanceEnvelope {
 
   def logger: Logger
   def envelope: Envelope
-  def maxInflight: Int
   protected implicit def ec: ExecutionContext
 
   protected def waitForParties(participants: Seq[Allocation.Participant]): Unit = {
@@ -334,14 +339,12 @@ object PerformanceEnvelope {
   /** Throughput test
     *
     * @param numPings  how many pings to run during the throughput test
-    * @param maxInflight how many inflight commands we can have. set it high enough such that the system saturates, keep it low enough to not hit timeouts.
     * @param numWarmupPings how many pings to run before the perf test to warm up the system
     */
   class ThroughputTest(
       val logger: Logger,
       val envelope: Envelope,
       val numPings: Int = 200,
-      val maxInflight: Int = 40,
       val numWarmupPings: Int = 40,
       reporter: (String, Double) => Unit)(session: LedgerSession)
       extends LedgerTestSuite(session)
@@ -387,7 +390,7 @@ object PerformanceEnvelope {
       extends LedgerTestSuite(session)
       with PerformanceEnvelope {
 
-    val maxInflight = 1 // will only be one
+    val maxInflight = envelope.inFlightLimit
     require(numPings > 0 && numWarmupPings >= 0)
 
     test(
@@ -431,7 +434,7 @@ object PerformanceEnvelope {
       extends LedgerTestSuite(session)
       with PerformanceEnvelope {
 
-    val maxInflight = 10
+    val maxInflight = envelope.inFlightLimit
 
     test(
       "perf-envelope-transaction-size",
