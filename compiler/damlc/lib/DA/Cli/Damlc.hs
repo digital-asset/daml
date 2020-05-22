@@ -18,6 +18,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.BuildInfo
+import qualified DA.Cli.Damlc.InspectDar as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
@@ -343,7 +344,12 @@ cmdInspectDar =
     command "inspect-dar" $
     info (helper <*> cmd) $ progDesc "Inspect a DAR archive" <> fullDesc
   where
-    cmd = execInspectDar <$> inputDarOpt
+    jsonOpt =
+        flag InspectDar.PlainText InspectDar.Json $
+        long "json" <> help "Output the information in JSON"
+    cmd = execInspectDar
+        <$> inputDarOpt
+        <*> jsonOpt
 
 cmdValidateDar :: Mod CommandFields Command
 cmdValidateDar =
@@ -705,30 +711,9 @@ errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
   Right x  -> return x
 
-execInspectDar :: FilePath -> Command
-execInspectDar inFile =
-  Command InspectDar Nothing effect
-  where
-    effect = do
-      bytes <- B.readFile inFile
-
-      putStrLn "DAR archive contains the following files: \n"
-      let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
-      let files = [ZipArchive.eRelativePath e | e <- ZipArchive.zEntries dar]
-      mapM_ putStrLn files
-
-      putStrLn "\nDAR archive contains the following packages: \n"
-      let dalfEntries =
-              [e | e <- ZipArchive.zEntries dar, ".dalf" `isExtensionOf` ZipArchive.eRelativePath e]
-      forM_ dalfEntries $ \dalfEntry -> do
-          let dalf = BSL.toStrict $ ZipArchive.fromEntry dalfEntry
-          pkgId <-
-              errorOnLeft
-                  ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchivePackageId dalf)
-          putStrLn $
-              (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
-              show (LF.unPackageId pkgId)
+execInspectDar :: FilePath -> InspectDar.Format -> Command
+execInspectDar inFile jsonOutput =
+  Command InspectDar Nothing (InspectDar.inspectDar inFile jsonOutput)
 
 execValidateDar :: FilePath -> Command
 execValidateDar inFile =
