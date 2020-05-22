@@ -99,7 +99,8 @@ renderInfo PlainText InspectInfo{..} = T.unlines $ concat
              dropExtension (takeFileName dalfFilePath) <> " " <>
              show (LF.unPackageId pkgId)
         )
-        (HashMap.toList packages)
+        -- Sort to not depend on the hash of the package id.
+        (sortOn (dalfFilePath . snd) $ HashMap.toList packages)
   ]
 renderInfo Json info =
     TL.toStrict (TL.toLazyText (encodePrettyToTextBuilder info))
