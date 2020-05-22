@@ -33,7 +33,7 @@ To inspect a DAR and get information about the packages inside it, you
 can use the ``daml damlc inspect-dar`` command. This is often useful
 to find the package id of the project you just built.
 
-You can run ``damlc damlc inspect-dar /path/to/your.dar`` to get a
+You can run ``daml damlc inspect-dar /path/to/your.dar`` to get a
 human-readable listing of the files inside it and a list of packages
 and their package ids. Here is a (shortened) example output:
 
