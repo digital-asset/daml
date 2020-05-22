@@ -14,8 +14,6 @@ import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 
-import scala.concurrent.duration._
-
 class InitializationException(s: String) extends Exception(s) {}
 
 object TriggerRunner {
@@ -52,7 +50,7 @@ class TriggerRunner(
             .supervise(TriggerRunnerImpl(ctx.self, config))
             .onFailure[InitializationException](stop))
         .onFailure[RuntimeException](
-          restart.withLimit(maxNrOfRetries = 3, withinTimeRange = 10.seconds)),
+          restart.withLimit(config.maxFailureNumberOfRetries, config.failureRetryTimeRange)),
       name
     )
 

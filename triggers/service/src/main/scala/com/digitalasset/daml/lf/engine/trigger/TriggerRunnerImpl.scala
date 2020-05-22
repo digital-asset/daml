@@ -28,16 +28,19 @@ import com.daml.ledger.client.configuration.{
 import com.daml.jwt.domain.Jwt
 
 import java.util.UUID
+import java.time.Duration
 
 object TriggerRunnerImpl {
   case class Config(
       server: ActorRef[Server.Message],
-      triggerId: UUID, // trigger id
-      jwt: Jwt, // trigger token
+      triggerId: UUID,
+      jwt: Jwt,
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       maxInboundMessageSize: Int,
+      maxFailureNumberOfRetries: Int,
+      failureRetryTimeRange: Duration,
       party: Party,
   )
 
@@ -183,7 +186,6 @@ object TriggerRunnerImpl {
               Behaviors.same
           }
 
-      // The ACS query is a future.
       val acsQuery: Future[QueriedACS] = for {
         client <- LedgerClient
           .fromBuilder(

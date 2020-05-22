@@ -68,7 +68,10 @@ object TriggerServiceFixture {
         0,
         ledgerConfig,
         ServiceConfig.DefaultMaxInboundMessageSize,
-        dar)
+        ServiceConfig.DefaultMaxFailureNumberOfRetries,
+        ServiceConfig.DefaultFailureRetryTimeRange,
+        dar
+      )
     } yield service
 
     val fa: Future[A] = for {

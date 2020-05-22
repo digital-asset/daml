@@ -17,6 +17,10 @@ case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     maxInboundMessageSize: Int,
+    // These 2 parameters mean that a failing trigger will be
+    // restarted up to n times within k seconds.
+    maxFailureNumberOfRetries: Int,
+    failureRetryTimeRange: Duration, // in seconds
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
@@ -71,6 +75,8 @@ object JdbcConfig {
 object ServiceConfig {
   val DefaultHttpPort: Int = 8088
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
+  val DefaultMaxFailureNumberOfRetries: Int = 3
+  val DefaultFailureRetryTimeRange: Duration = Duration.ofSeconds(60)
 
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
@@ -99,7 +105,20 @@ object ServiceConfig {
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}")
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}.")
+
+    opt[Int]("max-failure-number-of-retries")
+      .action((x, c) => c.copy(maxFailureNumberOfRetries = x))
+      .optional()
+      .text(
+        s"Max number of times to try to restart a failing trigger (within allowed time range). Defaults to ${DefaultMaxFailureNumberOfRetries}.")
+
+    opt[Long]("failure-retry-time-range")
+      .action { (t, c) =>
+        c.copy(failureRetryTimeRange = Duration.ofSeconds(t))
+      }
+      .text(
+        "Allow up to max number of restarts of a failing trigger within this many seconds. Defaults to " + DefaultFailureRetryTimeRange.getSeconds.toString + "s.")
 
     opt[Unit]('w', "wall-clock-time")
       .action { (t, c) =>
@@ -134,6 +153,8 @@ object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        maxFailureNumberOfRetries = DefaultMaxFailureNumberOfRetries,
+        failureRetryTimeRange = DefaultFailureRetryTimeRange,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
