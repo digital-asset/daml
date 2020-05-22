@@ -139,7 +139,8 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
       case Model.DamlLfPrimType.List => {
         case JsArray(v) =>
-          V.ValueList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
+          V.ValueList(
+            v.iterator.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to(FrontStack))
       }
       case Model.DamlLfPrimType.Optional =>
         val typArg = prim.typArgs.head
