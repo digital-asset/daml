@@ -39,7 +39,7 @@ object TriggerDao {
     new TriggerDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
   }
 
-  def initialize(implicit log: LogHandler): ConnectionIO[Unit] = {
+  def initialize(serviceDbUser: DbUser)(implicit log: LogHandler): ConnectionIO[Unit] = {
     val createTriggerTable: Fragment = sql"""
         create table running_triggers(
           trigger_id uuid primary key,
@@ -55,15 +55,18 @@ object TriggerDao {
           package bytea not null
         )
       """
-    val createServiceRole: Fragment = sql"""
-        create role service login password 'servicepass'
-      """
-    val grantRunningTriggersAccess: Fragment = sql"""
-        grant select, insert, delete on table running_triggers to service
-      """
-    val grantDalfAccess: Fragment = sql"""
-        grant select, insert on table dalfs to service
-      """
+
+    // Create database role for the service to run as after initialization.
+    // This means the client does not need to know details of the tables we use
+    // and permission a user correctly themselves.
+    // FIXME(RJR): Validate service username and password against injection attacks
+    val service = serviceDbUser.user
+    val createServiceRole: Fragment =
+      Fragment.const(s"create role $service login password '${serviceDbUser.password}'")
+    val grantRunningTriggersAccess: Fragment =
+      Fragment.const(s"grant select, insert, delete on table running_triggers to $service")
+    val grantDalfAccess: Fragment =
+      Fragment.const(s"grant select, insert on table dalfs to $service")
     (createTriggerTable.update.run
       *> createDalfTable.update.run
       *> createServiceRole.update.run

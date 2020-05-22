@@ -94,9 +94,7 @@ object DbUser {
     "Contains comma-separated key-value pairs. Where:\n" +
       s"${indent}user -- user name for database user to create with permissions to read and write tables,\n" +
       s"${indent}password -- password of database user to be created,\n" +
-      s"${indent}Example: " + helpString(
-      "service",
-      "servicepass")
+      s"${indent}Example: " + helpString("service", "servicepass")
 
   private def helpString(user: String, password: String): String =
     s"""\"user=$user,password=$password\""""
@@ -150,8 +148,7 @@ object ServiceConfig {
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
     opt[Map[String, String]]("jdbc")
-      .action((x, c) =>
-        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(sys.error, identity))))
+      .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(sys.error, identity))))
       .optional()
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
@@ -161,7 +158,8 @@ object ServiceConfig {
       .text("Initialize database and terminate.")
       .children(
         opt[Map[String, String]]("service-db-user")
-          .action((x, c) => c.copy(serviceDbUser = Some(DbUser.create(x).fold(sys.error, identity))))
+          .action(
+            (x, c) => c.copy(serviceDbUser = Some(DbUser.create(x).fold(sys.error, identity))))
           .valueName(DbUser.usage)
           .text("Database user to be created with permissions to read and write to tables.")
       )

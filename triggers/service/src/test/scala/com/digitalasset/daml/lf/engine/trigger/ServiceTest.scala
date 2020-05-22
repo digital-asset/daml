@@ -169,8 +169,9 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   it should "initialize database" in {
     connectToPostgresqlServer()
     createNewDatabase()
-    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
-    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
+    val jdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "operatorpass")
+    val serviceUser = DbUser(user = "service", password = "servicepass")
+    assert(ServiceMain.initDatabase(jdbcConfig, serviceUser).isRight)
     dropDatabase()
     succeed
   }

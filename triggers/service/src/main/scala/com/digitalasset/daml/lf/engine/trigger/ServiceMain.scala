@@ -23,7 +23,6 @@ import akka.util.{ByteString, Timeout}
 import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
@@ -42,14 +41,12 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.Party
-
 import scalaz.syntax.traverse._
 
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import scala.sys.ShutdownHookThread
-
 import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
@@ -370,9 +367,11 @@ object ServiceMain {
     bindingFuture.map(server => (server, system))
   }
 
-  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, TriggerDao] = {
+  def initDatabase(c: JdbcConfig, serviceDbUser: DbUser)(
+      implicit ec: ExecutionContext): Either[String, TriggerDao] = {
     val triggerDao = TriggerDao(JdbcConfig.driver, c.url, c.user, c.password)(ec)
-    val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
+    val transaction =
+      triggerDao.transact(TriggerDao.initialize(serviceDbUser)(triggerDao.logHandler))
     Try(transaction.unsafeRunSync()) match {
       case Failure(err) => Left(err.toString)
       case Success(()) => Right(triggerDao)
@@ -410,12 +409,15 @@ object ServiceMain {
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
 
-        (config.init, config.jdbcConfig) match {
-          case (true, None) =>
+        (config.init, config.jdbcConfig, config.serviceDbUser) match {
+          case (true, None, _) =>
             system.log.error("No JDBC configuration for database initialization.")
             sys.exit(1)
-          case (true, Some(jdbcConfig)) =>
-            initDatabase(jdbcConfig) match {
+          case (true, _, None) =>
+            system.log.error("Database username and password required to create role for service.")
+            sys.exit(1)
+          case (true, Some(jdbcConfig), Some(serviceDbUser)) =>
+            initDatabase(jdbcConfig, serviceDbUser) match {
               case Left(err) =>
                 system.log.error(err)
                 sys.exit(1)
