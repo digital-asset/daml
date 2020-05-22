@@ -8,13 +8,14 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.{Identifier => ApiIdentifier}
 import com.daml.platform.store.Conversions._
 
-private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
+private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset, Event] {
 
   protected def singleWildcardParty(
       offset: Offset,
       party: Party,
       pageSize: Int,
-      rowOffset: Long,
+      rowOffset: Long, // TODO(Leo): remove rowOffset when LIMIT OFFSET clause refactoring is complete
+      lastEvent: Option[Event],
   ): SimpleSql[Row]
 
   protected def singlePartyWithTemplates(
@@ -60,6 +61,7 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
       filter: FilterRelation,
       pageSize: Int,
       rowOffset: Long,
+      lastEvent: Option[Event],
   ): SimpleSql[Row] = {
     require(filter.nonEmpty, "The request must be issued by at least one party")
 
@@ -68,7 +70,7 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
       val (party, templateIds) = filter.toIterator.next
       if (templateIds.isEmpty) {
         // Single-party request, no specific template identifier
-        singleWildcardParty(offset, party, pageSize, rowOffset)
+        singleWildcardParty(offset, party, pageSize, rowOffset, lastEvent)
       } else {
         // Single-party request, restricted to a set of template identifiers
         singlePartyWithTemplates(offset, party, templateIds, pageSize, rowOffset)
@@ -131,15 +133,30 @@ private[events] object EventsTableFlatEventsRangeQueries {
       flatEventsTable: String,
       groupByColumns: String,
       orderByColumns: String,
-  ) extends EventsTableFlatEventsRangeQueries[(Offset, Offset)] {
+  ) extends EventsTableFlatEventsRangeQueries[(Offset, Offset), (Offset, Int)] {
+
+//    private def offsetClause(
+//        between: (Offset, Offset),
+//        lastEvent: Option[(Offset, Int)]
+//    ) = {
+//      val prevPageClause = lastEvent.fold("") {
+//        case (lastOffset, lastNodeIndex) =>
+//          s"or (event_offset = $lastOffset and node_index > $lastNodeIndex)"
+//      }
+//      s"(event_offset > ${between._1} #$prevPageClause) and event_offset <= ${between._2}"
+//    }
 
     override protected def singleWildcardParty(
         between: (Offset, Offset),
         party: Party,
         pageSize: Int,
-        rowOffset: Long,
-    ): SimpleSql[Row] =
-      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from #$flatEventsTable where event_offset > ${between._1} and event_offset <= ${between._2} and event_witness = $party order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+        rowOffset: Long, // TODO(Leo): remove rowOffset argument
+        lastEvent: Option[(Offset, Int)],
+    ): SimpleSql[Row] = {
+      // TODO(Leo): clean it up, figure out how offsetClause can be re-used
+      val (lastOffset, lastNodeIndex) = lastEvent.getOrElse((Offset.begin, Integer.MAX_VALUE))
+      SQL"""select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $lastOffset and node_index > $lastNodeIndex)) and event_offset <= ${between._2} and event_witness = $party order by (#$orderByColumns) limit $pageSize"""
+    }
 
     override protected def singlePartyWithTemplates(
         between: (Offset, Offset),
@@ -198,13 +215,15 @@ private[events] object EventsTableFlatEventsRangeQueries {
       flatEventsTable: String,
       groupByColumns: String,
       orderByColumns: String,
-  ) extends EventsTableFlatEventsRangeQueries[Offset] {
+  ) extends EventsTableFlatEventsRangeQueries[Offset, (Offset, Int)] {
 
+    // TODO(Leo): we might also want to optimize this query using lastEvent
     override protected def singleWildcardParty(
         activeAt: Offset,
         party: Party,
         pageSize: Int,
         rowOffset: Long,
+        lastEvent: Option[(Offset, Int)] = None,
     ): SimpleSql[Row] =
       SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and event_offset <= $activeAt and (create_consumed_at is null or create_consumed_at > $activeAt) and event_witness = $party order by (#$orderByColumns) limit $pageSize offset $rowOffset"
 

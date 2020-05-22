@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -56,16 +57,17 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val events =
-      PaginatingAsyncStream(pageSize) { offset =>
+    val events: Source[EventsTable.Entry[Event], NotUsed] =
+      PaginatingAsyncStream(startExclusive, pageSize, eventDetails) { (offset, nodeId) =>
         val query =
           EventsTable
             .preparePagedGetFlatTransactions(
-              startExclusive = startExclusive,
+              startExclusive = offset,
               endInclusive = endInclusive,
               filter = filter,
               pageSize = pageSize,
-              rowOffset = offset,
+              rowOffset = 0, // not used
+              lastEvent = nodeId.map(x => (offset, x)),
             )
             .withFetchSize(Some(pageSize))
         val rawEventsFuture =
@@ -87,6 +89,9 @@ private[dao] final class TransactionsReader(
         Source(response.map(r => offsetFor(r) -> r))
       }
   }
+
+  private def eventDetails(a: EventsTable.Entry[Event]): (Offset, Int) =
+    (a.eventOffset, a.nodeIndex)
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -182,6 +187,7 @@ private[dao] final class TransactionsReader(
               filter = filter,
               pageSize = pageSize,
               rowOffset = offset,
+              lastEvent = None,
             )
             .withFetchSize(Some(pageSize))
         val rawEvents =

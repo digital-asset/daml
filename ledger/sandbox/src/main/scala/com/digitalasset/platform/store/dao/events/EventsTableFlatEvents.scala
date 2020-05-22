@@ -12,10 +12,11 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -35,10 +36,11 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private val archivedFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -58,6 +60,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     Seq(
       "event_offset",
       "transaction_id",
+      "node_index",
       "ledger_effective_time",
       "workflow_id",
       "participant_events.event_id",
@@ -132,8 +135,14 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       filter: FilterRelation,
       pageSize: Int,
       rowOffset: Long,
+      lastEvent: Option[(Offset, Int)],
   ): SimpleSql[Row] =
-    getFlatTransactionsQueries((startExclusive, endInclusive), filter, pageSize, rowOffset)
+    getFlatTransactionsQueries(
+      (startExclusive, endInclusive),
+      filter,
+      pageSize,
+      rowOffset,
+      lastEvent)
 
   private val getActiveContractsQueries =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
@@ -149,7 +158,8 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       filter: FilterRelation,
       pageSize: Int,
       rowOffset: Long,
+      lastEvent: Option[(Offset, Int)]
   ): SimpleSql[Row] =
-    getActiveContractsQueries(activeAt, filter, pageSize, rowOffset)
+    getActiveContractsQueries(activeAt, filter, pageSize, rowOffset, lastEvent)
 
 }

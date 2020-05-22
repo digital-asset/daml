@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.participant.state.v1.Offset
 
 import scala.concurrent.Future
 
@@ -40,6 +41,26 @@ object PaginatingAsyncStream {
             val resultSize = result.size.toLong
             val newQueryOffset = if (resultSize < pageSize) None else Some(queryOffset + pageSize)
             Some(newQueryOffset -> result)
+          }(DirectExecutionContext)
+      }
+      .flatMapConcat(Source(_))
+  }
+
+  // Leo's experiment: trying to replace row offset with (event_offset, node_id)
+  def apply[T](start: Offset, pageSize: Int, f: T => (Offset, Int))(
+      query: (Offset, Option[Int]) => Future[Vector[T]]
+  ): Source[T, NotUsed] = {
+    Source
+      .unfoldAsync(Option((start, Option.empty[Int]))) {
+        case None =>
+          Future.successful(None) // finished reading the whole thing
+        case Some((lastOffset, lastNodeId)) =>
+          query(lastOffset, lastNodeId).map { result =>
+            val newState = result.lastOption.map { t =>
+              val event: (Offset, Int) = f(t)
+              (event._1, Some(event._2))
+            }
+            Some((newState, result))
           }(DirectExecutionContext)
       }
       .flatMapConcat(Source(_))
