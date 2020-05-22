@@ -22,7 +22,7 @@ object PlaySpeedy {
 
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)
-    val compiler: Compiler = Compiler(Map.empty, Compiler.NoProfile)
+    val compiler: Compiler = Compiler(Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
 
     val names: List[String] = config.names match {
       case Nil => examples.toList.map(_._1)
@@ -66,7 +66,7 @@ object PlaySpeedy {
 
   def makeMachine(sexpr: SExpr): Machine = {
     val compiledPackages: CompiledPackages =
-      PureCompiledPackages(Map.empty, Compiler.NoProfile).right.get
+      PureCompiledPackages(Map.empty, Compiler.NoStackTrace, Compiler.NoProfile).right.get
     Machine.fromSExpr(
       sexpr,
       compiledPackages,

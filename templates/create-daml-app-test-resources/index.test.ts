@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// Keep in sync with compatibility/bazel_tools/create-daml-app/index.test.ts
+
 import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import { promises as fs } from 'fs';
 import puppeteer, { Browser, Page } from 'puppeteer';

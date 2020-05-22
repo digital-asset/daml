@@ -476,7 +476,8 @@ class OrderingSpec
   private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
   private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
     sexpr = expr,
-    compiledPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.NoProfile),
+    compiledPackages =
+      PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile),
     submissionTime = Time.Timestamp.now(),
     seeding = InitialSeeding.TransactionSeed(txSeed),
     globalCids = Set.empty,

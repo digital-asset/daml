@@ -12,6 +12,7 @@ da_haskell_binary(
     srcs = ["Main.hs"],
     hackage_deps = [
         "aeson",
+        "aeson-extra",
         "base",
         "bytestring",
         "conduit",
@@ -34,4 +35,12 @@ da_haskell_binary(
         "//bazel_tools/test_utils",
         "@rules_haskell//tools/runfiles",
     ],
+)
+
+exports_files(
+    [
+        "testDeps.json",
+        "index.test.ts",
+    ],
+    visibility = ["//visibility:public"],
 )

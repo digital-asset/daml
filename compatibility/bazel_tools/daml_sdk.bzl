@@ -109,6 +109,11 @@ export PATH=$JAVA_HOME/bin:$PATH
 $(rlocation daml-sdk-{version}/sdk/bin/daml) $@
 """.format(version = ctx.attr.version, runfiles_library = runfiles_library),
     )
+    ctx.template(
+        "daml.cc",
+        Label("@compatibility//bazel_tools:daml.cc.tpl"),
+        substitutions = {"{SDK_VERSION}": ctx.attr.version},
+    )
     ctx.file(
         "BUILD",
         content =
@@ -120,11 +125,11 @@ sh_binary(
   data = [":ledger-api-test-tool.jar"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
 )
-sh_binary(
+cc_binary(
   name = "daml",
-  srcs = [":daml.sh"],
+  srcs = ["daml.cc"],
   data = [":sdk/bin/daml"],
-  deps = ["@bazel_tools//tools/bash/runfiles"],
+  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 # Needed to provide the same set of DARs to the ledger that
 # are used by the ledger API test tool.

@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
 import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
@@ -16,10 +16,11 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives._
 import akka.http.scaladsl.server.Route
-import akka.stream.{Materializer}
-import akka.stream.scaladsl.{Source}
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 
+import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -368,6 +369,16 @@ object ServiceMain {
     val bindingFuture = system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
     bindingFuture.map(server => (server, system))
   }
+
+  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, TriggerDao] = {
+    val triggerDao = TriggerDao(JdbcConfig.driver, c.url, c.user, c.password)(ec)
+    val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
+    Try(transaction.unsafeRunSync()) match {
+      case Failure(err) => Left(err.toString)
+      case Success(()) => Right(triggerDao)
+    }
+  }
+
   def main(args: Array[String]): Unit = {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
@@ -398,6 +409,22 @@ object ServiceMain {
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
+
+        (config.init, config.jdbcConfig) match {
+          case (true, None) =>
+            system.log.error("No JDBC configuration for database initialization.")
+            sys.exit(1)
+          case (true, Some(jdbcConfig)) =>
+            initDatabase(jdbcConfig) match {
+              case Left(err) =>
+                system.log.error(err)
+                sys.exit(1)
+              case Right(triggerDao) =>
+                system.log.info("Initialized database.")
+                sys.exit(0)
+            }
+          case _ =>
+        }
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =

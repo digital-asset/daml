@@ -281,6 +281,7 @@ class Runner(
       override def packages = compiledPackages.packages
       def packageIds = compiledPackages.packageIds
       override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
+      override def stackTraceMode = Compiler.FullStackTrace
       override def profilingMode = Compiler.NoProfile
     }
   }
