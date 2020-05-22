@@ -14,6 +14,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadPackageStore)
@@ -147,7 +148,7 @@ object PackageService {
       all: Set[TemplateId.RequiredPkg]): Map[TemplateId.NoPkg, TemplateId.RequiredPkg] =
     all
       .groupBy(k => key2(k))
-      .collect { case (k, v) if v.size == 1 => (k, v.head) }
+      .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
   def resolveTemplateId(m: TemplateIdMap)(
       a: TemplateId.OptionalPkg): Option[TemplateId.RequiredPkg] =
