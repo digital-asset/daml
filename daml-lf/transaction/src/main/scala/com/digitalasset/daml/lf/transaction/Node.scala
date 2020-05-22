@@ -63,79 +63,61 @@ object Node {
         f2: A2 => B2,
         f3: A3 => B3,
     ): GenNode[A1, A2, A3] => GenNode[B1, B2, B3] = {
-      case NodeCreate(
-          coid,
-          coinst,
-          optLocation,
-          signatories,
-          stakeholders,
-          key,
+      case self @ NodeCreate(
+            coid,
+            coinst,
+            _,
+            _,
+            _,
+            key,
           ) =>
-        NodeCreate(
+        self copy (
           coid = f2(coid),
           coinst = value.Value.ContractInst.map1(f3)(coinst),
-          optLocation = optLocation,
-          signatories = signatories,
-          stakeholders = stakeholders,
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
-      case NodeFetch(
-          coid,
-          templateId,
-          optLocation,
-          actingParties,
-          signatories,
-          stakeholders,
-          key,
+      case self @ NodeFetch(
+            coid,
+            _,
+            _,
+            _,
+            _,
+            _,
+            key,
           ) =>
-        NodeFetch(
+        self copy (
           coid = f2(coid),
-          templateId = templateId,
-          optLocation = optLocation,
-          actingParties = actingParties,
-          signatories = signatories,
-          stakeholders = stakeholders,
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
-      case NodeExercises(
-          targetCoid,
-          templateId,
-          choiceId,
-          optLocation,
-          consuming,
-          actingParties,
-          chosenValue,
-          stakeholders,
-          signatories,
-          controllers,
-          children,
-          exerciseResult,
-          key,
+      case self @ NodeExercises(
+            targetCoid,
+            _,
+            _,
+            _,
+            _,
+            _,
+            chosenValue,
+            _,
+            _,
+            _,
+            children,
+            exerciseResult,
+            key,
           ) =>
-        NodeExercises(
+        self copy (
           targetCoid = f2(targetCoid),
-          templateId = templateId,
-          choiceId = choiceId,
-          optLocation = optLocation,
-          consuming = consuming,
-          actingParties = actingParties,
           chosenValue = f3(chosenValue),
-          stakeholders = stakeholders,
-          signatories = signatories,
-          controllers = controllers,
           children = children.map(f1),
           exerciseResult = exerciseResult.map(f3),
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
-      case NodeLookupByKey(
-          templateId,
-          optLocation,
-          key,
-          result,
+      case self @ NodeLookupByKey(
+            _,
+            _,
+            key,
+            result,
           ) =>
-        NodeLookupByKey(
-          templateId = templateId,
-          optLocation = optLocation,
+        self copy (
           key = KeyWithMaintainers.map1(f3)(key),
           result = result.map(f2),
         )
