@@ -1182,7 +1182,7 @@ request and response elements demonstrated below or otherwise
 implemented by the API.  We welcome feedback about the API on `our issue
 tracker
 <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on our forum <https://discuss.daml.com>`_.
+or `on our forum <https://discuss.daml.com>`_ or `on Slack <https://slack.daml.com>`_.
 
 Please keep in mind that the presence of **/v1** prefix in the the
 WebSocket URLs does not mean that the endpoint interfaces are
