@@ -21,21 +21,21 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamResponse
 }
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.client.binding.{Primitive => P}
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{GetTransactionsRequest, GetTransactionsResponse}
-import io.grpc.{Context, Status}
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import io.grpc.stub.StreamObserver
+import io.grpc.{Context, Status}
+import org.slf4j.Logger
 import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Random, Success, Try}
-import com.daml.ledger.test.performance.{PingPong => PingPongModule}
-import org.slf4j.Logger
 
 sealed trait Envelope {
   val name: String
@@ -49,25 +49,37 @@ object Envelope {
 
   /** test will unlikely fail */
   case object ProofOfConcept extends Envelope {
-    val name = "PoC"; val transactionSizeKb = 1; val throughput = 0; val latencyMs = 60000;
-    val inFlightLimit = 1;
+    val name = "PoC"
+    val transactionSizeKb = 1
+    val throughput = 0
+    val latencyMs = 60000
+    val inFlightLimit = 1
   }
 
   /** test will fail if performance is lower than alpha envelope */
   case object Alpha extends Envelope {
-    val name = "Alpha"; val transactionSizeKb = 100; val throughput = 5; val latencyMs = 3000;
-    val inFlightLimit = 10;
+    val name = "Alpha"
+    val transactionSizeKb = 100
+    val throughput = 5
+    val latencyMs = 3000
+    val inFlightLimit = 10
   }
 
   /** test will fail if performance is lower then beta envelope */
   case object Beta extends Envelope {
-    val name = "Beta"; val transactionSizeKb = 1000; val throughput = 20; val latencyMs = 1000;
-    val inFlightLimit = 25;
+    val name = "Beta"
+    val transactionSizeKb = 1000
+    val throughput = 20
+    val latencyMs = 1000
+    val inFlightLimit = 40
   }
 
   case object Public extends Envelope {
-    val name = "Public"; val transactionSizeKb = 5000; val throughput = 50; val latencyMs = 1000;
-    val inFlightLimit = 60;
+    val name = "Public"
+    val transactionSizeKb = 5000
+    val throughput = 50
+    val latencyMs = 1000
+    val inFlightLimit = 60
   }
 
   case object Enterprise extends Envelope {
@@ -86,7 +98,9 @@ object Envelope {
 trait PerformanceEnvelope {
 
   def logger: Logger
+
   def envelope: Envelope
+
   protected implicit def ec: ExecutionContext
 
   protected def waitForParties(participants: Seq[Allocation.Participant]): Unit = {
@@ -133,12 +147,14 @@ trait PerformanceEnvelope {
       queued.add(promise)
 
       // start one immediately (might be some other task we start)
-      if (inflight.incrementAndGet() <= maxInflight) {
+      if (inflight.incrementAndGet() <= envelope.inFlightLimit) {
         Option(queued.poll()).foreach(_.success(()))
       }
       for {
         // wait for our turn
-        _ <- blocking { promise.future }
+        _ <- blocking {
+          promise.future
+        }
         // build request
         request = submitRequest(
           participantAlice,
@@ -221,7 +237,6 @@ trait PerformanceEnvelope {
               ledgerId = participant.ledgerId,
               begin = Some(offset),
               end = None,
-              verbose = false,
               filter = Some(
                 TransactionFilter(filtersByParty = Map(party.unwrap -> Filters(inclusive = None))))
             ),
@@ -324,7 +339,9 @@ trait PerformanceEnvelope {
                   }
               }
             }
+
             override def onError(t: Throwable): Unit = {}
+
             override def onCompleted(): Unit = {}
           }
       ))
@@ -338,7 +355,7 @@ object PerformanceEnvelope {
 
   /** Throughput test
     *
-    * @param numPings  how many pings to run during the throughput test
+    * @param numPings       how many pings to run during the throughput test
     * @param numWarmupPings how many pings to run before the perf test to warm up the system
     */
   class ThroughputTest(
@@ -363,6 +380,7 @@ object PerformanceEnvelope {
           to = participants.participants(1),
           workflowIds = (1 to num).map(x => s"$description-$x").toList,
           payload = description)
+
       for {
         _ <- runTest(numWarmupPings, "throughput-warmup")
         timings <- runTest(numPings, "throughput-test")
@@ -434,7 +452,7 @@ object PerformanceEnvelope {
       extends LedgerTestSuite(session)
       with PerformanceEnvelope {
 
-    val maxInflight = envelope.inFlightLimit
+    private val maxInflight = envelope.inFlightLimit
 
     test(
       "perf-envelope-transaction-size",
