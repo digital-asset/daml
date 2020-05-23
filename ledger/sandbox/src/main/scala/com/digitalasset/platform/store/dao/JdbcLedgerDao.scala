@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 import java.util.{Date, UUID}
 
 import akka.NotUsed
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
@@ -84,7 +85,7 @@ private class JdbcLedgerDao(
     eventsPageSize: Int,
     performPostCommitValidation: Boolean,
     metrics: Metrics,
-)(implicit logCtx: LoggingContext)
+)(implicit mat: Materializer, logCtx: LoggingContext)
     extends LedgerDao {
 
   private val queries = dbType match {
@@ -877,7 +878,7 @@ private class JdbcLedgerDao(
     new TransactionsWriter(dbType, metrics)
 
   override val transactionsReader: TransactionsReader =
-    new TransactionsReader(dbDispatcher, eventsPageSize, metrics)(executionContext)
+    new TransactionsReader(dbDispatcher, eventsPageSize, metrics)(executionContext, mat)
 
   private val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, dbType, metrics)(executionContext)
@@ -907,7 +908,7 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       eventsPageSize: Int,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
     owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = false, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
@@ -918,7 +919,7 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       eventsPageSize: Int,
       metrics: Metrics
-  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
@@ -931,7 +932,7 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       eventsPageSize: Int,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
@@ -946,7 +947,7 @@ object JdbcLedgerDao {
       eventsPageSize: Int,
       validate: Boolean,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
       executor <- ResourceOwner.forExecutorService(() => Executors.newWorkStealingPool())

@@ -38,6 +38,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
+  implicit val asys: ActorSystem = ActorSystem("RecoveringIndexerIntegrationSpec")
+  implicit val mat: Materializer = Materializer(asys)
+
   private[this] var testId: UUID = _
 
   override def beforeEach(): Unit = {
@@ -198,7 +201,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     } yield participantState
   }
 
-  private def index(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
+  private def index(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     JdbcLedgerDao.writeOwner(

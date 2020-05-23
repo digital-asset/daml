@@ -4,15 +4,11 @@
 package com.daml.platform.store.dao.events
 
 import akka.NotUsed
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
@@ -30,7 +26,7 @@ private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     pageSize: Int,
     metrics: Metrics,
-)(implicit executionContext: ExecutionContext) {
+)(implicit executionContext: ExecutionContext, mat: Materializer) {
 
   private val dbMetrics = metrics.daml.index.db
 
@@ -54,6 +50,7 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+
     val events =
       PaginatingAsyncStream(pageSize) { offset =>
         val query =
@@ -66,7 +63,14 @@ private[dao] final class TransactionsReader(
               rowOffset = offset,
             )
             .withFetchSize(Some(pageSize))
-        val rawEventsFuture =
+
+        val sourceF: Future[Source[EventsTable.Entry[Raw.FlatEvent], Future[Int]]] = dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
+          val stream: Source[EventsTable.Entry[Raw.FlatEvent], Future[Int]] = anorm.AkkaStream.source(query, EventsTable.rawFlatEventParser)
+          stream
+        }
+
+
+        val rawEventsFuture: Future[Vector[EventsTable.Entry[Raw.FlatEvent]]] =
           dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
             query.asVectorOf(EventsTable.rawFlatEventParser)
           }
