@@ -136,15 +136,15 @@ object PartialTransaction {
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
   *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and absolute contract ids. We must
-  *              do this because absolute contract ids can be archived as
+  *              info both about relative and contract ids. We must
+  *              do this because contract ids can be archived as
   *              part of execution, and we must record these archivals locally.
   *              Note: it is important for keys that we know to not be present
   *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for absolute contract ids that
+  *              record the "no key" information for contract ids that
   *              we archive. This is not an optimization and is required for
   *              correct semantics, since otherwise lookups for keys for
-  *              locally archived absolute contract ids will succeed wrongly.
+  *              locally archived contract ids will succeed wrongly.
   */
 case class PartialTransaction(
     submissionTime: Time.Timestamp,

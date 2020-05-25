@@ -15,7 +15,7 @@ import com.daml.lf.value.Value.ContractId
   * "Divulgence" tells us what to communicate to
   * each participant node so that they can perform post-commit
   * validation. Note that divulgence can also divulge
-  * absolute contract ids -- e.g. contract ids that were created
+  * contract ids -- e.g. contract ids that were created
   * _outside_ this transaction.
   * See also https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   */
@@ -25,9 +25,9 @@ case class BlindingInfo(
     /** Divulgence, specified in terms of local node IDs */
     localDivulgence: Relation[Transaction.NodeId, Party],
     /**
-      * Divulgence, specified in terms of absolute contract IDs.
+      * Divulgence, specified in terms of contract IDs.
       * Note that if this info was produced by blinding a transaction
-      * containing only absolute contract ids, this map may also
+      * containing only contract ids, this map may also
       * contain contracts produced in the same transaction.
       */
     globalDivulgence: Relation[ContractId, Party],

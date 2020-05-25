@@ -31,7 +31,7 @@ object Ledger {
 
   /** This is the function that we use to turn relative contract ids (which are made of
     * transaction node ids) in the still
-    * to be committed transaction into absolute contract ids in the ledger.
+    * to be committed transaction into contract ids in the ledger.
     */
   //  The prefix should be smaller than 244 chars.
   @inline
@@ -123,7 +123,7 @@ object Ledger {
       // A relation between a node id and the parties to which this node get implictly disclosed
       // (aka divulgence)
       localImplicitDisclosure: Relation[Transaction.NodeId, Party],
-      // A relation between absolute contract id and the parties to which the contract id gets
+      // A relation between contract id and the parties to which the contract id gets
       // explicitly disclosed.
       globalImplicitDisclosure: Relation[ContractId, Party],
       // A map from node ids to authorizations that failed for them.

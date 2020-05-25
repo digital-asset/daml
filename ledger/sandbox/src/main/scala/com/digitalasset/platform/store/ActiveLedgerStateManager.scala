@@ -131,7 +131,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   contract = nc.coinst,
                   witnesses = disclosure(nodeId),
                   // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
-                  // But this field is always empty in transactions with only absolute contract ids.
+                  // But this field is always empty in transactions with only contract ids.
                   divulgences = Map.empty,
                   key =
                     nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),

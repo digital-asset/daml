@@ -93,7 +93,7 @@ object ValueCoder {
         .fromString(s)
         .left
         .map(_ => //
-          DecodeError(s"""cannot parse absolute contractId "$s""""))
+          DecodeError(s"""cannot parse contractId "$s""""))
 
     override def decodeOptional(
         sv: SpecifiedVersion,
