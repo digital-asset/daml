@@ -74,6 +74,30 @@ conditionalTests = testGroup "Conditionals"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccD - content"
         Success result
+  , testCase "Success E" $ do
+      condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "SuccE"
+          field = FieldName "content"
+      result <- verify condDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for SuccE - content"
+        Success result
+  , testCase "Success F" $ do
+      condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "SuccF"
+          field = FieldName "content"
+      result <- verify condDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for SuccF - content"
+        Success result
+  -- , testCase "Success G" $ do
+  --     condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
+  --     let tmpl = TypeConName ["Iou"]
+  --         choice = ChoiceName "SuccG"
+  --         field = FieldName "content"
+  --     result <- verify condDar debug tmpl choice tmpl field
+  --     assertEqual "Verification failed for SuccG - content"
+  --       Success result
   , testCase "Fail A" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -91,6 +115,15 @@ conditionalTests = testGroup "Conditionals"
       verify condDar debug tmpl choice tmpl field >>= \case
         Success -> assertFailure "Verification wrongfully passed for FailB - content"
         Unknown -> assertFailure "Verification inconclusive for FailB - content"
+        Fail _ -> return ()
+  , testCase "Fail C" $ do
+      condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "FailC"
+          field = FieldName "content"
+      verify condDar debug tmpl choice tmpl field >>= \case
+        Success -> assertFailure "Verification wrongfully passed for FailC - content"
+        Unknown -> assertFailure "Verification inconclusive for FailC - content"
         Fail _ -> return ()
   ]
 

@@ -405,14 +405,36 @@ data Cid
   deriving (Generic, Hashable, Eq, Show)
 
 -- | Convert an expression to a contract id, if possible.
+-- The function can optionally refresh the contract id, and returns both the
+-- converted contract id, and the substitution originating from the refresh.
 expr2cid :: MonadEnv m ph
-  => Expr
+  => Bool
+  -- ^ Whether or not the refresh the contract id.
+  -> Expr
   -- ^ The expression to be converted.
-  -> m Cid
-expr2cid (EVar x) = return $ CidVar x
-expr2cid (ERecProj _ f (EVar x)) = return $ CidRec x f
-expr2cid (EStructProj f (EVar x)) = return $ CidRec x f
-expr2cid _ = throwError ExpectCid
+  -> m (Cid, ExprSubst)
+expr2cid b (EVar x) = do
+  (y, subst) <- refresh_cid b x
+  return (CidVar y, subst)
+expr2cid b (ERecProj _ f (EVar x)) = do
+  (y, subst) <- refresh_cid b x
+  return (CidRec y f, subst)
+expr2cid b (EStructProj f (EVar x)) = do
+  (y, subst) <- refresh_cid b x
+  return (CidRec y f, subst)
+expr2cid _ _ = throwError ExpectCid
+
+-- | Internal function, for refreshing a given contract id.
+refresh_cid :: MonadEnv m ph
+  => Bool
+  -- ^ Whether or not the refresh the contract id.
+  -> ExprVarName
+  -- ^ The variable name to refresh.
+  -> m (ExprVarName, ExprSubst)
+refresh_cid False x = return (x, emptyExprSubst)
+refresh_cid True x = do
+  y <- genRenamedVar x
+  return (y, singleExprSubst x (EVar y))
 
 -- | Data type containing the data stored for a choice definition.
 data ChoiceData (ph :: Phase) = ChoiceData
@@ -449,7 +471,7 @@ fresh :: MonadEnv m ph => m String
 fresh = do
   (cur,env) <- get
   put (cur + 1,env)
-  return $ show cur
+  return $ "_" ++ show cur
 
 -- | Evaluate the MonadEnv to produce an error message or the final environment.
 runEnv :: StateT (Int, Env ph) (Either Error) ()
@@ -530,22 +552,37 @@ extDatsEnv hmap = do
   env <- getEnv
   putEnv $ setEnvDats (hmap `HM.union` envDats env) env
 
--- | Extend the environment with a new contract id, and the variable to which
--- the fetched contract is bound.
+-- | Extend the environment with a refreshed contract id, and the variable to
+-- which the fetched contract is bound. Returns a substitution, mapping the
+-- given contract id, to the refreshed one.
+-- While it might seem counter intuitive, the function only refreshes the
+-- contract id on its first encounter. The reason is that it needs to be able to
+-- keep track of old bindings.
+-- Note that instead of overwriting old bindings, the function creates a new
+-- synonym between the old and new binding.
 extCidEnv :: (IsPhase ph, MonadEnv m ph)
-  => Expr
+  => Bool
+  -- ^ Flag denoting whether the contract id should be refreshed.
+  -- Note that even with the flag on, contract id are only refreshed on their
+  -- first encounter.
+  -> Expr
   -- ^ The contract id expression.
   -> ExprVarName
   -- ^ The variable name to which the fetched contract is bound.
-  -> m ()
-extCidEnv exp var = do
-  prev <- do
-    { (cur, old) <- lookupCid exp
-    ; return $ cur : old }
-    `catchError` (\_ -> return [])
-  cid <- expr2cid exp
-  env <- getEnv
-  putEnv $ setEnvCids (HM.insert cid (var, prev) $ envCids env) env
+  -> m ExprSubst
+extCidEnv b exp var = do
+  case exp of
+    -- Filter out any bindings to `_`.
+    EVar (ExprVarName "ds2") -> return emptyExprSubst
+    _ -> do
+      prev <- do
+        { (cur, old) <- lookupCid exp
+        ; return $ cur : old }
+        `catchError` (\_ -> return [])
+      (cid, subst) <- expr2cid (b && null prev) exp
+      env <- getEnv
+      putEnv $ setEnvCids (HM.insert cid (var, prev) $ envCids env) env
+      return subst
 
 -- | Extend the environment with additional equality constraints, between a
 -- variable and its field values.
@@ -647,7 +684,7 @@ lookupCid :: (IsPhase ph, MonadEnv m ph)
   -- ^ The contract id to lookup.
   -> m (ExprVarName, [ExprVarName])
 lookupCid exp = do
-  cid <- expr2cid exp
+  (cid, _) <- expr2cid False exp
   cids <- envCids <$> getEnv
   case HM.lookup cid cids of
     Nothing -> throwError $ UnknownCid cid

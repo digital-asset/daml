@@ -55,7 +55,7 @@ instance Pretty ConstraintExpr where
   pretty (CInt i) = pretty i
   pretty (CReal i) = pretty $ show i
   pretty (CVar x) = pretty $ unExprVarName x
-  pretty (CAdd e1 e2) = pretty e1 <+> " <+> " <+> pretty e2
+  pretty (CAdd e1 e2) = pretty e1 <+> " + " <+> pretty e2
   pretty (CSub e1 e2) = pretty e1 <+> " - " <+> pretty e2
   pretty (CEq e1 e2) = pretty e1 <+> " == " <+> pretty e2
   pretty (CAnd e1 e2) = pretty e1 <+> " and " <+> pretty e2
@@ -113,6 +113,7 @@ instance ConstrExpr Expr where
 instance ConstrExpr a => ConstrExpr (Cond a) where
   toCExp syns (Determined x) = toCExp syns x
   -- TODO: Can we assume this should always be a sum?
+  -- TODO: Simplify when left and right are equal.
   toCExp syns (Conditional b x y) = CIf (toCExp syns b)
     (addMany $ map (toCExp syns) x)
     (addMany $ map (toCExp syns) y)

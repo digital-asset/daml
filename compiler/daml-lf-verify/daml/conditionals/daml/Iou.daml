@@ -43,6 +43,22 @@ template Iou with
           create Iou with owner; content = content
         else create Iou with owner; content = content
 
+    nonconsuming choice SuccE: ()
+      controller owner
+      do let _ = create Iou with owner; content = 1
+         pure ()
+
+    nonconsuming choice SuccF: ()
+      controller owner
+      do let x = create Iou with owner; content = 0
+         _ <- x
+         pure ()
+
+    -- nonconsuming choice SuccG: ()
+    --   controller owner
+    --   do let _ = archive self
+    --      pure ()
+
     choice FailA: ContractId Iou
       controller owner
       do
@@ -58,4 +74,10 @@ template Iou with
         else do 
           _ <- create Iou with owner; content = content
           create Iou with owner; content = content
+
+    nonconsuming choice FailC: ()
+      controller owner
+      do let x = create Iou with owner; content = 1
+         _ <- x
+         pure ()
 
