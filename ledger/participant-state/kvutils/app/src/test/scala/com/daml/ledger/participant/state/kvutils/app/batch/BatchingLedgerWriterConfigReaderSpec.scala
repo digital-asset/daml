@@ -4,13 +4,13 @@
 package com.daml.ledger.participant.state.kvutils.app.batch
 
 import com.daml.ledger.participant.state.kvutils.api.BatchingLedgerWriterConfig
+import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader.optionsReader
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
 
 class BatchingLedgerWriterConfigReaderSpec extends WordSpec with Matchers {
   "optionsReader" should {
-    import BatchingLedgerWriterConfigReader.optionsReader
 
     "return defaults for options not specified" in {
       val actual = optionsReader.reads("enable=true")
