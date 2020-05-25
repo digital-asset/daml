@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.memory
 
-import java.util.concurrent.Semaphore
+import java.util.concurrent.locks.StampedLock
 
 import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Bytes
@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
-  private val lockCurrentState = new Semaphore(1, true)
+  private val lockCurrentState = new StampedLock()
   @volatile private var lastLogEntryIndex = 0
 
   def readLog[A](action: ImmutableLog => A): A =
@@ -25,15 +25,16 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 
   def write[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
-  ): Future[A] = {
-    lockCurrentState.acquire()
-    action(log, state)
-      .andThen {
-        case _ =>
-          lastLogEntryIndex = log.size - 1
-          lockCurrentState.release()
-      }
-  }
+  ): Future[A] =
+    for {
+      stamp <- Future(lockCurrentState.writeLock())
+      result <- action(log, state)
+        .andThen {
+          case _ =>
+            lastLogEntryIndex = log.size - 1
+            lockCurrentState.unlock(stamp)
+        }
+    } yield result
 }
 
 object InMemoryState {
