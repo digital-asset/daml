@@ -70,12 +70,6 @@ class CachingDamlLedgerStateReaderSpec
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
     val cache = Caffeine
       .newBuilder()
-      .expireAfterWrite(java.time.Duration.ofHours(1))
-      .maximumWeight(1 * 1024 * 1024)
-      .weigher[DamlStateKey, DamlStateValue] {
-        case (key: DamlStateKey, value: DamlStateValue) =>
-          key.getSerializedSize + value.getSerializedSize
-      }
       .build[DamlStateKey, DamlStateValue]
     new CachingDamlLedgerStateReader(cache, keySerializationStrategy, damlLedgerStateReader)
   }

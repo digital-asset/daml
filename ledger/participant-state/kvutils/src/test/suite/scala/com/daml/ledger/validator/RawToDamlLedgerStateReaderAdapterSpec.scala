@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.validator.TestHelper.{invalidEnvelope, makePartySubmission}
+import com.daml.ledger.validator.TestHelper.{anInvalidEnvelope, makePartySubmission}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -39,12 +39,13 @@ class RawToDamlLedgerStateReaderAdapterSpec extends AsyncWordSpec with Matchers 
     "throw in case of an invalid envelope returned from underlying reader" in {
       val mockReader = mock[LedgerStateReader]
       when(mockReader.read(any[Seq[LedgerStateOperations.Key]]()))
-        .thenReturn(Future.successful(Seq(Some(invalidEnvelope))))
+        .thenReturn(Future.successful(Seq(Some(anInvalidEnvelope))))
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
 
       instance.readState(Seq(aDamlStateKey())).failed.map { actual =>
-        actual.getLocalizedMessage should include("failed")
+        actual shouldBe a[RuntimeException]
+        actual.getLocalizedMessage should include("Opening enveloped")
       }
     }
 
@@ -57,7 +58,8 @@ class RawToDamlLedgerStateReaderAdapterSpec extends AsyncWordSpec with Matchers 
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
 
       instance.readState(Seq(aDamlStateKey())).failed.map { actual =>
-        actual.getLocalizedMessage should include("failed")
+        actual shouldBe a[RuntimeException]
+        actual.getLocalizedMessage should include("Opening enveloped")
       }
     }
   }
