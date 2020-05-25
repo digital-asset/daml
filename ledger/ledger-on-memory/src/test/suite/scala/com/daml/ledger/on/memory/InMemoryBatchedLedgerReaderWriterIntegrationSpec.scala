@@ -19,10 +19,10 @@ import com.daml.resources.ResourceOwner
 
 import scala.concurrent.duration._
 
-class InMemoryBatchedLedgerReaderWriterIntegrationSpec
+class InMemoryBatchedLedgerReaderWriterIntegrationSpec(enableBatching: Boolean = true)
     extends ParticipantStateIntegrationSpecBase(
-      "In-memory ledger/participant with parallel validation") {
-  private val enableBatching = true
+      s"In-memory ledger/participant with parallel validation ${if (enableBatching) "enabled"
+      else "disabled"}") {
   private val batchingLedgerWriterConfig =
     BatchingLedgerWriterConfig(
       enableBatching = enableBatching,
