@@ -6,7 +6,7 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:versions.bzl", "version_to_name")
+load("//bazel_tools:versions.bzl", "cmp_version", "version_to_name")
 load("//:versions.bzl", "latest_stable_version")
 
 # Indexed first by test tool version and then by sandbox version.
@@ -14,269 +14,166 @@ load("//:versions.bzl", "latest_stable_version")
 # is sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
 # for details.
+# PRs that resulted in exclusions:
+# - ContractKeysIT:
+#   - https://github.com/digital-asset/daml/pull/5608
+# - ContractKeysSubmitterIsMaintainerIT:
+#   - https://github.com/digital-asset/daml/pull/5611
 excluded_test_tool_tests = {
-    "1.0.0": {
-        "1.1.0-snapshot.20200430.4057.0.681c862d": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "0.0.0": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200424.3917.0.16093690": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.1": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "1.0.1-snapshot.20200417.3908.1.722bac90": {
-        "0.0.0": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200424.3917.0.16093690": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200430.4057.0.681c862d": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.1": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "1.0.1-snapshot.20200424.3917.0.16093690": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200430.4057.0.681c862d": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "1.1.1": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "0.0.0": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-    },
-    "1.0.1": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200430.4057.0.681c862d": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "1.1.1": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-        "0.0.0": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-        ],
-    },
-    "1.1.0-snapshot.20200422.3991.0.6391ee9f": {
-        "1.0.1-snapshot.20200424.3917.0.16093690": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200430.4057.0.681c862d": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200506.4107.0.7e448d81": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.1": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.2.0-snapshot.20200513.4172.0.021f4af3": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "0.0.0": [
-            # This restriction has been removed in https://github.com/digital-asset/daml/pull/5611.
-            "ContractKeysSubmitterIsMaintainerIT",
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "1.1.0-snapshot.20200430.4057.0.681c862d": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "1.1.0-snapshot.20200506.4107.0.7e448d81": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "1.1.1": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "1.2.0-snapshot.20200513.4172.0.021f4af3": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
-    "0.0.0": {
-        "1.0.0": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.0.1-snapshot.20200417.3908.1.722bac90": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-        "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-            # Fix for https://github.com/digital-asset/daml/issues/5562
-            "ContractKeysIT",
-        ],
-    },
+    "1.0.0": [
+        {
+            "start": "1.0.1-snapshot.20200424.3917.0.16093690",
+            "end": "1.0.1",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+            "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
+        },
+    ],
+    "1.0.1-snapshot.20200417.3908.1.722bac90": [
+        {
+            "start": "1.0.1-snapshot.20200424.3917.0.16093690",
+            "end": "1.0.1",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+            "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
+        },
+    ],
+    "1.0.1-snapshot.20200424.3917.0.16093690": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+            "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
+        },
+    ],
+    "1.0.1": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+            "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
+        },
+    ],
+    "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
+        {
+            "start": "1.0.1-snapshot.20200424.3917.0.16093690",
+            "end": "1.0.1",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+            "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
+        },
+    ],
+    "1.1.0-snapshot.20200430.4057.0.681c862d": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
+    "1.1.0-snapshot.20200506.4107.0.7e448d81": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
+    "1.1.1": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
+    "1.2.0-snapshot.20200513.4172.0.021f4af3": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
+    "1.2.0-snapshot.20200520.4224.0.2af134ca": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
+    "1.2.0-snapshot.20200520.4228.0.595f1e27": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
+    "0.0.0": [
+        {
+            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+            "exclusions": ["ContractKeysIT"],
+        },
+        {
+            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+            "exclusions": ["ContractKeysIT"],
+        },
+    ],
 }
 
 def get_excluded_tests(test_tool_version, sandbox_version):
-    return excluded_test_tool_tests.get(test_tool_version, default = {}).get(sandbox_version, default = [])
+    exclusion_ranges = excluded_test_tool_tests.get(test_tool_version, default = [])
+    exclusions = []
+    for range in exclusion_ranges:
+        start = range.get("start")
+        end = range.get("end")
+        if start and sandbox_version != "0.0.0" and cmp_version(sandbox_version, start) < 0:
+            continue
+        if end and (cmp_version(sandbox_version, end) > 0 or sandbox_version == "0.0.0"):
+            continue
+        exclusions += range["exclusions"]
+    return exclusions
 
 def extra_tags(sdk_version, platform_version):
     if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable_version]):
