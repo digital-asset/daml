@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new Semaphore(1, true)
-  private @volatile var lastLogEntryIndex = 0
+  @volatile private var lastLogEntryIndex = 0
 
   def readLog[A](action: ImmutableLog => A): A =
     action(log) // `log` is mutable, but the interface is immutable
