@@ -14,7 +14,6 @@ import Data.Conduit ((.|), runConduitRes)
 import qualified Data.Conduit.Combinators as Conduit
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.Conduit.Zlib as Zlib
-import Data.List.Extra
 import Data.Maybe
 import Data.Proxy
 import Data.Tagged
@@ -38,6 +37,7 @@ data Tools = Tools
   , patchPath :: FilePath
   , testDepsPath :: FilePath
   , testTsPath :: FilePath
+  , codegenPath :: FilePath
   }
 
 newtype DamlOption = DamlOption FilePath
@@ -103,6 +103,13 @@ instance IsOption TestTsOption where
   optionName = Tagged "test-ts"
   optionHelp = Tagged "path to index.test.ts"
 
+newtype CodegenOption = CodegenOption FilePath
+instance IsOption CodegenOption where
+  defaultValue = CodegenOption ""
+  parseValue = Just . CodegenOption
+  optionName = Tagged "codegen"
+  optionHelp = Tagged "path to codegen output"
+
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
   askOption $ \(DamlOption damlPath) -> do
@@ -114,6 +121,7 @@ withTools tests = do
   askOption $ \(PatchOption patchPath) -> do
   askOption $ \(TestDepsOption testDepsPath) -> do
   askOption $ \(TestTsOption testTsPath) -> do
+  askOption $ \(CodegenOption codegenPath) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -132,6 +140,7 @@ withTools tests = do
           , patchPath
           , testDepsPath
           , testTsPath
+          , codegenPath
           }
   tests tools
 
@@ -148,6 +157,7 @@ main = do
         , Option @PatchOption Proxy
         , Option @TestDepsOption Proxy
         , Option @TestTsOption Proxy
+        , Option @CodegenOption Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
@@ -156,75 +166,32 @@ main = do
         [ test getTools
         ]
   where
-    test getTools = testCaseSteps "Getting Starte Guide" $ \step -> withTempDir $ \tmpDir -> do
+    test getTools = testCaseSteps "Getting Started Guide" $ \step -> withTempDir $ \tmpDir -> do
         Tools{..} <- getTools
-        -- daml codegen js assumes Yarn is in PATH.
-        -- Setting PATH in the bash script ends up in a mess of
-        -- Unix/Windows path conversions so we do it here instead.
-        path <- getSearchPath
-        setEnv "PATH" (intercalate [searchPathSeparator] (takeDirectory yarnPath : path)) True
         setEnv "CI" "yes" True
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callProcess damlBinary ["new", "create-daml-app", "create-daml-app"]
         let cdaDir = tmpDir </> "create-daml-app"
-        -- First test the base application (without the user-added feature).
-        withCurrentDirectory cdaDir $ do
-          step "Build DAML model for base application"
-          callProcess damlBinary ["build"]
-          step "Set up TypeScript libraries and Yarn workspaces for codegen"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"])
-              [(DamlTypes, damlTypesPath), (DamlLedger, damlLedgerPath)]
-          step "Run JavaScript codegen"
-          callProcess damlBinary ["codegen", "js", "-o", "daml.js", ".daml/dist/create-daml-app-0.1.0.dar"]
-        assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
-        withCurrentDirectory (cdaDir </> "ui") $ do
-          -- NOTE(MH): We set up the yarn env again to avoid having all the
-          -- dependencies of the UI already in scope when `daml2js` runs
-          -- `yarn install`. Some of the UI dependencies are a bit flaky to
-          -- install and might need some retries.
-          step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"])
-              [(DamlLedger, damlLedgerPath), (DamlReact, damlReactPath), (DamlTypes, damlTypesPath)]
-          step "Install dependencies for UI"
-          retry 3 (callProcessSilent yarnPath ["install"])
-          step "Run linter"
-          callProcessSilent yarnPath ["lint", "--max-warnings", "0"]
-          step "Build the application UI"
-          callProcessSilent yarnPath ["build"]
-        assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
-
         step "Patch the application code with messaging feature"
         withCurrentDirectory cdaDir $ do
           callProcessSilent patchPath ["-p2", "-i", messagingPatch]
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
-          step "Build the new DAML model"
-          callProcessSilent damlBinary ["build"]
-          step "Set up TypeScript libraries and Yarn workspaces for codegen again"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"])
-            [ (DamlTypes, damlTypesPath), (DamlLedger, damlLedgerPath) ]
-          step "Run JavaScript codegen for new DAML model"
-          callProcessSilent damlBinary ["codegen", "js", "-o", "daml.js", ".daml/dist/create-daml-app-0.1.0.dar"]
+        step "Extract codegen output"
+        runConduitRes
+            $ Conduit.sourceFile codegenPath
+            .| Zlib.ungzip
+            .| Tar.untar (restoreFile (\a b -> fail (T.unpack $ a <> b)) (cdaDir </> "daml.js"))
         withCurrentDirectory (cdaDir </> "ui") $ do
-          step "Set up libraries and workspaces again for UI build"
+          step "Set up libraries and workspaces"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"])
             [(DamlLedger, damlLedgerPath), (DamlReact, damlReactPath), (DamlTypes, damlTypesPath)]
-          step "Install UI dependencies again, forcing rebuild of generated code"
-          callProcessSilent yarnPath ["install", "--force", "--frozen-lockfile"]
-          step "Run linter again"
-          callProcessSilent yarnPath ["lint", "--max-warnings", "0"]
-          step "Build the new UI"
-          callProcessSilent yarnPath ["build"]
-
-        -- Run end to end testing for the app.
-        withCurrentDirectory (cdaDir </> "ui") $ do
           step "Install Jest, Puppeteer and other dependencies"
           addTestDependencies "package.json" testDepsPath
           retry 3 (callProcessSilent yarnPath ["install"])
           step "Run Puppeteer end-to-end tests"
           copyFile testTsPath (cdaDir </> "ui" </> "src" </> "index.test.ts")
-          callProcess yarnPath ["node", "--version"]
           callProcess yarnPath ["run", "test", "--ci", "--all"]
 
 addTestDependencies :: FilePath -> FilePath -> IO ()

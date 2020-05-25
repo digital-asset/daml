@@ -330,6 +330,69 @@ def daml_ledger_test(
         **kwargs
     )
 
+def create_daml_app_dar(sdk_version):
+    daml = "@daml-sdk-{sdk_version}//:daml".format(
+        sdk_version = sdk_version,
+    )
+    messaging_patch = "@daml-sdk-{sdk_version}//:create_daml_app.patch".format(
+        sdk_version = sdk_version,
+    )
+    native.genrule(
+        name = "create-daml-app-dar-{sdk_version}".format(
+            sdk_version = version_to_name(sdk_version),
+        ),
+        outs = ["create-daml-app-{sdk_version}.dar".format(
+            sdk_version = version_to_name(sdk_version),
+        )],
+        srcs = [messaging_patch],
+        tools = [daml, "@patch_dev_env//:patch"],
+        cmd = """\
+set -euo pipefail
+TMP_DIR=$$(mktemp -d)
+cleanup() {{ rm -rf $$TMP_DIR; }}
+trap cleanup EXIT
+$(execpath {daml}) new $$TMP_DIR/create-daml-app create-daml-app
+$(execpath @patch_dev_env//:patch) -s -d $$TMP_DIR/create-daml-app -p2 < $(execpath {messaging_patch})
+$(execpath {daml}) build --project-root=$$TMP_DIR/create-daml-app -o $$PWD/$(OUTS)
+""".format(
+            daml = daml,
+            sdk_version = sdk_version,
+            messaging_patch = messaging_patch,
+        ),
+    )
+
+def create_daml_app_codegen(sdk_version):
+    daml = "@daml-sdk-{}//:daml".format(sdk_version)
+    daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version)
+    daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version)
+    dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version))
+    native.genrule(
+        name = "create-daml-app-codegen-{}".format(version_to_name(sdk_version)),
+        outs = ["create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version))],
+        srcs = [dar, daml_types, daml_ledger],
+        tools = [daml, "//bazel_tools/create-daml-app:run-with-yarn"],
+        cmd = """\
+set -euo pipefail
+TMP_DIR=$$(mktemp -d)
+cleanup() {{ rm -rf $$TMP_DIR; }}
+trap cleanup EXIT
+mkdir -p $$TMP_DIR/daml-types $$TMP_DIR/daml-ledger
+tar xf $(rootpath {daml_types}) --strip-components=1 -C $$TMP_DIR/daml-types
+tar xf $(rootpath {daml_ledger}) --strip-components=1 -C $$TMP_DIR/daml-ledger
+$(execpath //bazel_tools/create-daml-app:run-with-yarn) $$TMP_DIR $$PWD/$(execpath {daml}) codegen js -o $$TMP_DIR/daml.js $(execpath {dar})
+rm -rf $$TMP_DIR/daml.js/node_modules
+tar c --format=ustar -C $$TMP_DIR daml.js \
+  --owner=0 --group=0 --numeric-owner --mtime="2000-01-01 00:00Z" --sort=name \
+  | gzip -n > $@
+""".format(
+            daml = daml,
+            daml_types = daml_types,
+            daml_ledger = daml_ledger,
+            dar = dar,
+            sdk_version = sdk_version,
+        ),
+    )
+
 def create_daml_app_test(
         name,
         daml,
@@ -341,8 +404,8 @@ def create_daml_app_test(
         daml_react,
         daml_ledger,
         messaging_patch,
-        sandbox_args = [],
-        json_api_args = [],
+        codegen_output,
+        dar,
         data = [],
         **kwargs):
     native.sh_test(
@@ -351,25 +414,26 @@ def create_daml_app_test(
         # we need the sh_test.
         srcs = ["//bazel_tools:create_daml_app_test.sh"],
         args = [
-                   "$(rootpath //bazel_tools/create-daml-app:runner)",
-                   #"--daml",
-                   "$(rootpath %s)" % daml,
-                   #"--sandbox",
-                   "$(rootpath %s)" % sandbox,
-                   sandbox_version,
-                   #"--json-api",
-                   "$(rootpath %s)" % json_api,
-                   json_api_version,
-                   "$(rootpath %s)" % daml_types,
-                   "$(rootpath %s)" % daml_ledger,
-                   "$(rootpath %s)" % daml_react,
-                   "$(rootpath %s)" % messaging_patch,
-                   "$(rootpath @nodejs//:yarn)",
-                   "$(rootpath @patch_dev_env//:patch)",
-                   "$(rootpath //bazel_tools/create-daml-app:testDeps.json)",
-                   "$(rootpath //bazel_tools/create-daml-app:index.test.ts)",
-               ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]) +
-               _concat([["--json-api-arg", arg] for arg in json_api_args]),
+            "$(rootpath //bazel_tools/create-daml-app:runner)",
+            #"--daml",
+            "$(rootpath %s)" % daml,
+            #"--sandbox",
+            "$(rootpath %s)" % sandbox,
+            sandbox_version,
+            #"--json-api",
+            "$(rootpath %s)" % json_api,
+            json_api_version,
+            "$(rootpath %s)" % daml_types,
+            "$(rootpath %s)" % daml_ledger,
+            "$(rootpath %s)" % daml_react,
+            "$(rootpath %s)" % messaging_patch,
+            "$(rootpath @nodejs//:yarn)",
+            "$(rootpath @patch_dev_env//:patch)",
+            "$(rootpath //bazel_tools/create-daml-app:testDeps.json)",
+            "$(rootpath //bazel_tools/create-daml-app:index.test.ts)",
+            "$(rootpath %s)" % codegen_output,
+            "$(rootpath %s)" % dar,
+        ],
         data = data + depset(direct = [
             "//bazel_tools/create-daml-app:runner",
             "@nodejs//:yarn",
@@ -384,6 +448,8 @@ def create_daml_app_test(
             daml_react,
             daml_ledger,
             messaging_patch,
+            codegen_output,
+            dar,
         ]).to_list(),
         deps = [
             "@bazel_tools//tools/bash/runfiles",
@@ -494,8 +560,8 @@ def sdk_platform_test(sdk_version, platform_version):
         daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
         daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
         messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
-        sandbox_args = sandbox_args,
-        json_api_args = json_api_args,
+        codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
+        dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
         size = "large",
         # Yarn gets really unhappy if it is called in parallel
         # so we mark this exclusive for now.
