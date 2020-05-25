@@ -26,11 +26,7 @@ class InMemoryBatchedLedgerReaderWriterIntegrationSpec(enableBatching: Boolean =
   private val batchingLedgerWriterConfig =
     BatchingLedgerWriterConfig(
       enableBatching = enableBatching,
-      // In case of serial validation, we need a queue length of 1000 because the
-      // "process many party allocations" test case will be sending in that many requests at once
-      // (otherwise some of those would be rejected).
-      // See [[ParticipantStateIntegrationSpecBase]].
-      maxBatchQueueSize = if (enableBatching) 100 else 1000,
+      maxBatchQueueSize = 100,
       maxBatchSizeBytes = 4 * 1024 * 1024 /* 4MB */,
       maxBatchWaitDuration = 100.millis,
       // In-memory ledger doesn't support concurrent commits.
