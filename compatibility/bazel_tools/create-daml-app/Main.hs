@@ -3,13 +3,13 @@
 module Main (main) where
 
 import qualified Bazel.Runfiles
-import Control.Applicative
 import Control.Exception.Extra
 import Control.Monad
 import DA.Test.Process
 import DA.Test.Tar
 import DA.Test.Util
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Extra as Aeson
 import Data.Conduit ((.|), runConduitRes)
 import qualified Data.Conduit.Combinators as Conduit
 import qualified Data.Conduit.Tar as Tar
@@ -30,16 +30,14 @@ import Test.Tasty.Options
 
 data Tools = Tools
   { damlBinary :: FilePath
-  , sandboxBinary :: FilePath
-  , sandboxArgs :: [String]
-  , jsonApiBinary :: FilePath
-  , jsonApiArgs :: [String]
   , damlLedgerPath :: FilePath
   , damlTypesPath :: FilePath
   , damlReactPath :: FilePath
   , messagingPatch :: FilePath
   , yarnPath :: FilePath
   , patchPath :: FilePath
+  , testDepsPath :: FilePath
+  , testTsPath :: FilePath
   }
 
 newtype DamlOption = DamlOption FilePath
@@ -48,38 +46,6 @@ instance IsOption DamlOption where
   parseValue = Just . DamlOption
   optionName = Tagged "daml"
   optionHelp = Tagged "runfiles path to the daml executable"
-
-newtype SandboxOption = SandboxOption FilePath
-instance IsOption SandboxOption where
-  defaultValue = SandboxOption $ "sandbox"
-  parseValue = Just . SandboxOption
-  optionName = Tagged "sandbox"
-  optionHelp = Tagged "runfiles path to the sandbox executable"
-
-newtype SandboxArgsOption = SandboxArgsOption { unSandboxArgsOption :: [String] }
-instance IsOption SandboxArgsOption where
-  defaultValue = SandboxArgsOption []
-  parseValue = Just . SandboxArgsOption . (:[])
-  optionName = Tagged "sandbox-arg"
-  optionHelp = Tagged "extra arguments to pass to sandbox executable"
-  optionCLParser = concatMany (mkOptionCLParser mempty)
-    where concatMany = fmap (SandboxArgsOption . concat) . many . fmap unSandboxArgsOption
-
-newtype JsonApiOption = JsonApiOption FilePath
-instance IsOption JsonApiOption where
-  defaultValue = JsonApiOption $ "json-api"
-  parseValue = Just . JsonApiOption
-  optionName = Tagged "json-api"
-  optionHelp = Tagged "runfiles path to the json-api executable"
-
-newtype JsonApiArgsOption = JsonApiArgsOption { unJsonApiArgsOption :: [String] }
-instance IsOption JsonApiArgsOption where
-  defaultValue = JsonApiArgsOption []
-  parseValue = Just . JsonApiArgsOption . (:[])
-  optionName = Tagged "json-api-arg"
-  optionHelp = Tagged "extra arguments to pass to json-api executable"
-  optionCLParser = concatMany (mkOptionCLParser mempty)
-    where concatMany = fmap (JsonApiArgsOption . concat) . many . fmap unJsonApiArgsOption
 
 newtype DamlLedgerOption = DamlLedgerOption FilePath
 instance IsOption DamlLedgerOption where
@@ -123,19 +89,31 @@ instance IsOption PatchOption where
   optionName = Tagged "patch"
   optionHelp = Tagged "path to patch"
 
+newtype TestDepsOption = TestDepsOption FilePath
+instance IsOption TestDepsOption where
+  defaultValue = TestDepsOption ""
+  parseValue = Just . TestDepsOption
+  optionName = Tagged "test-deps"
+  optionHelp = Tagged "path to testDeps.json"
+
+newtype TestTsOption = TestTsOption FilePath
+instance IsOption TestTsOption where
+  defaultValue = TestTsOption ""
+  parseValue = Just . TestTsOption
+  optionName = Tagged "test-ts"
+  optionHelp = Tagged "path to index.test.ts"
+
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
   askOption $ \(DamlOption damlPath) -> do
-  askOption $ \(SandboxOption sandboxPath) -> do
-  askOption $ \(SandboxArgsOption sandboxArgs) -> do
-  askOption $ \(JsonApiOption jsonApiPath) -> do
-  askOption $ \(JsonApiArgsOption jsonApiArgs) -> do
   askOption $ \(DamlLedgerOption damlLedgerPath) -> do
   askOption $ \(DamlTypesOption damlTypesPath) -> do
   askOption $ \(DamlReactOption damlReactPath) -> do
   askOption $ \(MessagingPatchOption messagingPatch) -> do
   askOption $ \(YarnOption yarnPath) -> do
   askOption $ \(PatchOption patchPath) -> do
+  askOption $ \(TestDepsOption testDepsPath) -> do
+  askOption $ \(TestTsOption testTsPath) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -144,20 +122,16 @@ withTools tests = do
   withResource createRunfiles (\_ -> pure ()) $ \locateRunfiles -> do
   let tools = do
         damlBinary <- locateRunfiles <*> pure damlPath
-        sandboxBinary <- locateRunfiles <*> pure sandboxPath
-        jsonApiBinary <- locateRunfiles <*> pure jsonApiPath
         pure Tools
           { damlBinary
-          , sandboxBinary
-          , jsonApiBinary
-          , sandboxArgs
-          , jsonApiArgs
           , damlLedgerPath
           , damlTypesPath
           , damlReactPath
           , messagingPatch
           , yarnPath
           , patchPath
+          , testDepsPath
+          , testTsPath
           }
   tests tools
 
@@ -166,16 +140,14 @@ main = do
   setEnv "TASTY_NUM_THREADS" "1" True
   let options =
         [ Option @DamlOption Proxy
-        , Option @SandboxOption Proxy
-        , Option @SandboxArgsOption Proxy
-        , Option @JsonApiOption Proxy
-        , Option @JsonApiArgsOption Proxy
         , Option @DamlLedgerOption Proxy
         , Option @DamlTypesOption Proxy
         , Option @DamlReactOption Proxy
         , Option @MessagingPatchOption Proxy
         , Option @YarnOption Proxy
         , Option @PatchOption Proxy
+        , Option @TestDepsOption Proxy
+        , Option @TestTsOption Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
@@ -187,10 +159,11 @@ main = do
     test getTools = testCaseSteps "Getting Starte Guide" $ \step -> withTempDir $ \tmpDir -> do
         Tools{..} <- getTools
         -- daml codegen js assumes Yarn is in PATH.
-        -- To keep things as simple as possible, we just use `setEnv`
-        -- instead of copying `withEnv` from the `daml` workspace.
+        -- Setting PATH in the bash script ends up in a mess of
+        -- Unix/Windows path conversions so we do it here instead.
         path <- getSearchPath
         setEnv "PATH" (intercalate [searchPathSeparator] (takeDirectory yarnPath : path)) True
+        setEnv "CI" "yes" True
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callProcess damlBinary ["new", "create-daml-app", "create-daml-app"]
@@ -243,6 +216,31 @@ main = do
           callProcessSilent yarnPath ["lint", "--max-warnings", "0"]
           step "Build the new UI"
           callProcessSilent yarnPath ["build"]
+
+        -- Run end to end testing for the app.
+        withCurrentDirectory (cdaDir </> "ui") $ do
+          step "Install Jest, Puppeteer and other dependencies"
+          addTestDependencies "package.json" testDepsPath
+          retry 3 (callProcessSilent yarnPath ["install"])
+          step "Run Puppeteer end-to-end tests"
+          copyFile testTsPath (cdaDir </> "ui" </> "src" </> "index.test.ts")
+          callProcess yarnPath ["node", "--version"]
+          callProcess yarnPath ["run", "test", "--ci", "--all"]
+
+addTestDependencies :: FilePath -> FilePath -> IO ()
+addTestDependencies packageJsonFile extraDepsFile = do
+    packageJson <- readJsonFile packageJsonFile
+    extraDeps <- readJsonFile extraDepsFile
+    let newPackageJson = Aeson.lodashMerge packageJson extraDeps
+    Aeson.encodeFile packageJsonFile newPackageJson
+  where
+    readJsonFile :: FilePath -> IO Aeson.Value
+    readJsonFile path = do
+        -- Read file strictly to avoid lock being held when we subsequently write to it.
+        mbContent <- Aeson.decodeFileStrict' path
+        case mbContent of
+            Nothing -> fail ("Could not decode JSON object from " <> path)
+            Just val -> return val
 
 data TsLibrary
     = DamlLedger

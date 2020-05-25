@@ -180,7 +180,7 @@ object Repl {
       profiling: Compiler.ProfilingMode) {
     private val build = Speedy.Machine
       .newBuilder(
-        PureCompiledPackages(packages, profiling).right.get,
+        PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get,
         Time.Timestamp.MinValue,
         nextSeed())
       .fold(err => sys.error(err.toString), identity)
@@ -389,7 +389,8 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val defs = assertRight(Compiler.compilePackages(state.packages, Compiler.NoProfile))
+    val defs = assertRight(
+      Compiler.compilePackages(state.packages, Compiler.FullStackTrace, Compiler.NoProfile))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage

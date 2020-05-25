@@ -319,6 +319,7 @@ def daml_ledger_test(
             #"--sandbox",
             "$(rootpath %s)" % sandbox,
         ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]),
+        deps = ["@bazel_tools//tools/bash/runfiles"],
         data = data + depset(direct = [
             "//bazel_tools/daml_ledger:runner",
             "//bazel_tools/daml_ledger:test-certificates",
@@ -333,7 +334,9 @@ def create_daml_app_test(
         name,
         daml,
         sandbox,
+        sandbox_version,
         json_api,
+        json_api_version,
         daml_types,
         daml_react,
         daml_ledger,
@@ -353,20 +356,26 @@ def create_daml_app_test(
                    "$(rootpath %s)" % daml,
                    #"--sandbox",
                    "$(rootpath %s)" % sandbox,
+                   sandbox_version,
                    #"--json-api",
                    "$(rootpath %s)" % json_api,
+                   json_api_version,
                    "$(rootpath %s)" % daml_types,
                    "$(rootpath %s)" % daml_ledger,
                    "$(rootpath %s)" % daml_react,
                    "$(rootpath %s)" % messaging_patch,
                    "$(rootpath @nodejs//:yarn)",
                    "$(rootpath @patch_dev_env//:patch)",
+                   "$(rootpath //bazel_tools/create-daml-app:testDeps.json)",
+                   "$(rootpath //bazel_tools/create-daml-app:index.test.ts)",
                ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]) +
                _concat([["--json-api-arg", arg] for arg in json_api_args]),
         data = data + depset(direct = [
             "//bazel_tools/create-daml-app:runner",
             "@nodejs//:yarn",
             "@patch_dev_env//:patch",
+            "//bazel_tools/create-daml-app:testDeps.json",
+            "//bazel_tools/create-daml-app:index.test.ts",
             # Deduplicate if daml and sandbox come from the same release.
             daml,
             sandbox,
@@ -376,6 +385,9 @@ def create_daml_app_test(
             daml_ledger,
             messaging_patch,
         ]).to_list(),
+        deps = [
+            "@bazel_tools//tools/bash/runfiles",
+        ],
         **kwargs
     )
 
@@ -466,11 +478,18 @@ def sdk_platform_test(sdk_version, platform_version):
         size = "large",
         tags = extra_tags(sdk_version, platform_version),
     )
+
+    # For now, we only cover the DABL usecase where
+    # sandbox and the JSON API come from the same SDK.
+    # However, the test setup is flexible enough, that we
+    # can control them individually.
     create_daml_app_test(
         name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
         daml = daml_assistant,
         sandbox = sandbox,
+        sandbox_version = platform_version,
         json_api = json_api,
+        json_api_version = platform_version,
         daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
         daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
         daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
@@ -478,7 +497,7 @@ def sdk_platform_test(sdk_version, platform_version):
         sandbox_args = sandbox_args,
         json_api_args = json_api_args,
         size = "large",
-        # Yarn gets really unhappy on Windows if it is called in parallel
+        # Yarn gets really unhappy if it is called in parallel
         # so we mark this exclusive for now.
-        tags = extra_tags(sdk_version, platform_version) + (["exclusive"] if is_windows else []),
+        tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
     )

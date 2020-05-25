@@ -6,6 +6,7 @@ module DA.Daml.Preprocessor.Records
     ( importGenerated
     , mkImport
     , recordDotPreprocessor
+    , onExp
     ) where
 
 

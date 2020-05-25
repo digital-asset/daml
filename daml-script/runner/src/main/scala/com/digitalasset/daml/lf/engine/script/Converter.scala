@@ -209,7 +209,7 @@ object Converter {
       2,
       SEApp(
         SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
-        Array(SEVar(2), SEVar(1))),
+        Array(SELocA(0), SELocA(1))),
     )
     val machine =
       Speedy.Machine.fromSExpr(

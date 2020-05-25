@@ -272,7 +272,7 @@ class Runner(
   private val extendedCompiledPackages = {
     val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SEVar(1))
+        SEMakeClo(Array(), 1, SELocA(0))
     }
     new CompiledPackages {
       def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
@@ -281,6 +281,7 @@ class Runner(
       override def packages = compiledPackages.packages
       def packageIds = compiledPackages.packageIds
       override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
+      override def stackTraceMode = Compiler.FullStackTrace
       override def profilingMode = Compiler.NoProfile
     }
   }

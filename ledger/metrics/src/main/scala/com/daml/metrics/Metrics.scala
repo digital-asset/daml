@@ -154,13 +154,7 @@ class Metrics(val registry: MetricRegistry) {
           val commitSubmission: Timer = registry.timer(prefix :+ "commit_submission")
           val transformSubmission: Timer = registry.timer(prefix :+ "transform_submission")
 
-          object stateValueCache {
-            val prefix: MetricName = validator.prefix :+ "state_value_cache"
-            def size(value: () => Long): Gauge[Nothing] =
-              gauge(prefix :+ "size", () => () => value())
-            def weight(value: () => Long): Gauge[Nothing] =
-              gauge(prefix :+ "weight", () => () => value())
-          }
+          val stateValueCache = new CacheMetrics(registry, prefix :+ "state_value_cache")
         }
       }
 
@@ -346,6 +340,11 @@ class Metrics(val registry: MetricRegistry) {
         val lookupTransactionTreeById: DatabaseMetrics = createDatabaseMetrics(
           "lookup_transaction_tree_by_id")
         val getActiveContracts: DatabaseMetrics = createDatabaseMetrics("get_active_contracts")
+
+        object translation {
+          val prefix: MetricName = db.prefix :+ "translation"
+          val cache = new CacheMetrics(registry, prefix :+ "cache")
+        }
 
       }
     }

@@ -6,15 +6,20 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
-import Control.Lens hiding (para)
+import Control.Monad (guard)
+import Data.Maybe (mapMaybe)
+import Data.List (foldl')
+import Data.Foldable (fold, toList)
 import Data.Functor.Foldable (cata, embed)
+import qualified Data.Graph as G
 import qualified Data.Text as T
+import qualified Data.Set as Set
+import qualified Data.NameMap as NM
 import qualified Safe
 import qualified Safe.Exact as Safe
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Subst
-import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.FreeVars
 
@@ -356,6 +361,31 @@ simplifyExpr world = fst . cata go
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
+exprRefs :: Expr -> Set.Set (Qualified ExprValName)
+exprRefs = cata $ \case
+    EValF x -> Set.singleton x
+    e -> fold e
+
+topoSortDefValues :: Module -> [DefValue]
+topoSortDefValues m =
+    let isLocal Qualified{..} = do
+            PRSelf <- pure qualPackage
+            guard (moduleName m == qualModule)
+            Just qualObject
+        dvalDeps = mapMaybe isLocal . Set.toList . exprRefs . dvalBody
+        dvalName = fst . dvalBinder
+        dvalNode dval = (dval, dvalName dval, dvalDeps dval)
+        sccs = G.stronglyConnComp . map dvalNode . NM.toList $ moduleValues m
+    in concatMap toList sccs
+
+simplifyDefValue :: World -> DefValue -> DefValue
+simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dval) }
+
 simplifyModule :: World -> Module -> Module
 simplifyModule world m =
-    over moduleExpr (simplifyExpr (extendWorldSelf m world)) m
+    let step accum dval =
+            let m' = m { moduleValues = accum }
+                w' = extendWorldSelf m' world
+                d' = simplifyDefValue w' dval
+            in NM.insert d' accum
+    in m { moduleValues = foldl' step NM.empty (topoSortDefValues m) }

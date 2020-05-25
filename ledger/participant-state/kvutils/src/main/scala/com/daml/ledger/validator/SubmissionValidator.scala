@@ -57,9 +57,6 @@ class SubmissionValidator[LogResult] private[validator] (
 
   private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
 
-  metrics.daml.kvutils.submission.validator.stateValueCache.size(() => stateValueCache.size)
-  metrics.daml.kvutils.submission.validator.stateValueCache.weight(() => stateValueCache.weight)
-
   def validate(
       envelope: Bytes,
       correlationId: String,

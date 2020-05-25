@@ -274,20 +274,41 @@ jobs:
 
           ./release.sh check
 
-          is_release_commit() {
-              changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
+          changes_release_files() {
+              changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
               stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
               snapshot="LATEST"
               [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
 
-          if is_release_commit; then
-              echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
-              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(branch_sha)"
-              echo "##vso[task.setvariable variable=release_sha;isOutput=true]$(cat LATEST | awk '{print $1}')"
-              echo "##vso[task.setvariable variable=release_tag;isOutput=true]$(cat LATEST | awk '{print $2}')"
+          changes_one_line_in_latest() {
+              changed="$(git diff-tree --no-commit-id --numstat -r $(fork_sha) $(branch_sha) -- LATEST | awk '{print $1 "_" $2}')"
+              add_one="1_0"
+              change_one="1_1"
+              [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
+          }
+
+          setvar() {
+              echo "Setting '$1' to '$2'"
+              echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+          }
+
+          added_line() {
+              echo "$(git diff $(fork_sha) $(branch_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
+          }
+
+          if changes_release_files; then
+              if changes_one_line_in_latest; then
+                  setvar is_release true
+                  setvar trigger_sha $(branch_sha)
+                  setvar release_sha "$(added_line | awk '{print $1}')"
+                  setvar release_tag "$(added_line | awk '{print $2}')"
+              else
+                  echo "Release commit should only add one version."
+                  exit 1
+              fi
           else
-              echo "##vso[task.setvariable variable=is_release;isOutput=true]false"
+              setvar is_release false
           fi
         name: out
 
@@ -320,8 +341,7 @@ jobs:
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -330,6 +350,8 @@ jobs:
       windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
       windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
       protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
+      daml-on-sql: $[ dependencies.Linux.outputs['publish.daml-on-sql'] ]
+      json-api: $[ dependencies.Linux.outputs['publish.json-api'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -342,6 +364,7 @@ jobs:
           if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
+            mkdir $(Build.StagingDirectory)/bucket
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
@@ -370,6 +393,16 @@ jobs:
           artifactName: $(protos-zip)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(daml-on-sql)
+          targetPath: $(Build.StagingDirectory)/bucket
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(json-api)
+          targetPath: $(Build.StagingDirectory)/bucket
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
           KEY_FILE=$(mktemp)
@@ -383,6 +416,10 @@ jobs:
           cd $(Build.StagingDirectory)/release
           # Note: relies on our release artifacts not having spaces in their
           # names. Creates a ${f}.asc with the signature for each $f.
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+          cd ../bucket
           for f in *; do
               gpg --homedir $GPG_DIR -ab $f
           done
@@ -401,6 +438,31 @@ jobs:
           title: '$(release_tag)'
           addChangeLog: false
           isPrerelease: true
+          releaseNotesSource: 'input'
+          releaseNotes: "This is a pre-release. Use at your own risk."
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+
+          GCS_KEY=$(mktemp)
+          cleanup () {
+              rm -f $GCS_KEY
+          }
+          trap cleanup EXIT
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          export BOTO_CONFIG=/dev/null
+
+          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql) \
+                    gs://daml-binaries/daml-on-sql/$(daml-on-sql)
+          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql).asc \
+                    gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
+          gsutil cp $(Build.StagingDirectory)/bucket/$(json-api) \
+                    gs://daml-binaries/json-api/$(json-api)
+          gsutil cp $(Build.StagingDirectory)/bucket/$(json-api).asc \
+                    gs://daml-binaries/json-api/$(json-api).asc
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -412,8 +474,7 @@ jobs:
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+                   eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]

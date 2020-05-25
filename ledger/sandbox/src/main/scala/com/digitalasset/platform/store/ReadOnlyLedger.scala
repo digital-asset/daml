@@ -59,10 +59,9 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       parties: Set[Ref.Party]): Source[(Offset, CompletionStreamResponse), NotUsed]
 
   def activeContracts(
-      activeAt: Offset,
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  ): Source[GetActiveContractsResponse, NotUsed]
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset)
 
   def lookupContract(
       contractId: Value.AbsoluteContractId,

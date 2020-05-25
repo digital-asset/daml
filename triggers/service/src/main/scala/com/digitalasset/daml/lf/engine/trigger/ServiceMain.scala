@@ -3,34 +3,27 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
 import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.directives.FileInfo
+import akka.http.scaladsl.server.directives._
 import akka.http.scaladsl.server.Route
-import akka.stream.{Materializer}
-import akka.stream.scaladsl.{Source}
+import akka.stream.Materializer
+import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
-import java.io.ByteArrayInputStream
-import java.time.Duration
-import java.util.UUID
-import java.util.zip.ZipInputStream
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
-
-import scala.concurrent.{ExecutionContext, Future, Await}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
-import scalaz.syntax.traverse._
+import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.PackageId
@@ -42,12 +35,25 @@ import com.daml.lf.engine.{
   ResultNeedPackage
 }
 import com.daml.lf.language.Ast._
+import com.daml.lf.engine.trigger.Request.StartParams
+import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
-import com.daml.lf.engine.trigger.Response._
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.ApiTypes.Party
+
+import scalaz.syntax.traverse._
+
+import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 import scala.sys.ShutdownHookThread
+
+import java.io.ByteArrayInputStream
+import java.time.Duration
+import java.util.UUID
+import java.util.zip.ZipInputStream
 
 case class LedgerConfig(
     host: String,
@@ -81,10 +87,69 @@ object Server {
     }
   }
 
-  case class TriggerRunnerWithParty(
+  case class TriggerRunnerWithToken(
       ref: ActorRef[TriggerRunner.Message],
-      party: Party,
+      token: Jwt,
   )
+
+  private var triggers: Map[UUID, TriggerRunnerWithToken] = Map.empty
+  private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty
+  private val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+
+  private def startTrigger(
+      ctx: ActorContext[Server.Message],
+      token: (Jwt, JwtPayload),
+      trigger: Trigger,
+      params: StartParams,
+      ledgerConfig: LedgerConfig,
+      maxInboundMessageSize: Int)(
+      implicit esf: ExecutionSequencerFactory,
+      mat: Materializer): JsValue = {
+    val jwt: Jwt = token._1
+    val jwtPayload: JwtPayload = token._2
+    val party: Party = Party(jwtPayload.party);
+    val uuid = UUID.randomUUID
+    val ident = uuid.toString
+    val ref = ctx.spawn(
+      TriggerRunner(
+        new TriggerRunner.Config(
+          compiledPackages,
+          trigger,
+          ledgerConfig,
+          maxInboundMessageSize,
+          party),
+        ident),
+      ident + "-monitor")
+    triggers = triggers + (uuid -> TriggerRunnerWithToken(ref, jwt))
+    val newTriggerSet = triggersByToken.getOrElse(jwt, Set()) + uuid
+    triggersByToken = triggersByToken + (jwt -> newTriggerSet)
+    val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
+    triggerIdResult
+  }
+
+  private def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload))(
+      implicit esf: ExecutionSequencerFactory,
+      mat: Materializer): JsValue = {
+    //TODO(SF, 2020-05-20): Check that the provided token
+    //is the same as the one used to start the trigger and
+    //fail with 'Unauthorized' if not.
+    val actorWithToken = triggers.get(uuid).get
+    actorWithToken.ref ! TriggerRunner.Stop
+    triggers = triggers - uuid
+    val token = actorWithToken.token
+    val newTriggerSet = triggersByToken.get(token).get - uuid
+    triggersByToken = triggersByToken + (token -> newTriggerSet)
+    val stoppedTriggerId = JsObject(("triggerId", uuid.toString.toJson))
+    stoppedTriggerId
+  }
+
+  private def listTriggers(token: (Jwt, JwtPayload))(
+      implicit esf: ExecutionSequencerFactory,
+      mat: Materializer): JsValue = {
+    val jwt: Jwt = token._1
+    val triggerList = triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
+    JsObject(("triggerIds", triggerList.toJson))
+  }
 
   def apply(
       host: String,
@@ -99,11 +164,6 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    var triggers: Map[UUID, TriggerRunnerWithParty] = Map.empty
-    var triggersByParty: Map[Party, Set[UUID]] = Map.empty
-
-    // Mutable in preparation for dynamic package upload.
-    val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
     dar.foreach(addDar(compiledPackages, _))
 
     // 'fileUpload' triggers this warning we don't have a fix right
@@ -116,30 +176,35 @@ object Server {
           // should be running as.  Returns a UUID for the newly
           // started trigger.
           path("v1" / "start") {
-            entity(as[StartParams]) {
-              params =>
-                Trigger.fromIdentifier(compiledPackages, params.identifier) match {
-                  case Left(err) =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                  case Right(trigger) =>
-                    val party = params.party
-                    val uuid = UUID.randomUUID
-                    val ident = uuid.toString
-                    val ref = ctx.spawn(
-                      TriggerRunner(
-                        new TriggerRunner.Config(
-                          compiledPackages,
-                          trigger,
-                          ledgerConfig,
-                          maxInboundMessageSize,
-                          party),
-                        ident),
-                      ident + "-monitor")
-                    triggers = triggers + (uuid -> TriggerRunnerWithParty(ref, party))
-                    val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
-                    triggersByParty = triggersByParty + (party -> newTriggerSet)
-                    val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
-                    complete(successResponse(triggerIdResult))
+            extractRequest {
+              request =>
+                entity(as[StartParams]) {
+                  params =>
+                    TokenManagement
+                      .findJwt(request)
+                      .flatMap { jwt =>
+                        TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                      }
+                      .fold(
+                        unauthorized =>
+                          complete(
+                            errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                        token =>
+                          Trigger.fromIdentifier(compiledPackages, params.identifier) match {
+                            case Left(err) =>
+                              complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                            case Right(trigger) => {
+                              val triggerId = startTrigger(
+                                ctx,
+                                token,
+                                trigger,
+                                params,
+                                ledgerConfig,
+                                maxInboundMessageSize)
+                              complete(successResponse(triggerId))
+                            }
+                        }
+                      )
                 }
             }
           },
@@ -181,30 +246,49 @@ object Server {
           path("v1" / "health") {
             complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
           },
-          // List triggers currently running for the given party
+          // List triggers currently running for the given party.
           path("v1" / "list") {
-            entity(as[ListParams]) { params =>
-              {
-                val triggerList =
-                  triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList
-                val result = JsObject(("triggerIds", triggerList.toJson))
-                complete(successResponse(result))
-              }
+            extractRequest {
+              request =>
+                TokenManagement
+                  .findJwt(request)
+                  .flatMap { jwt =>
+                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                  }
+                  .map { token =>
+                    listTriggers(token)
+                  }
+                  .fold(
+                    unauthorized =>
+                      complete(
+                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                    triggerIds => complete(successResponse(triggerIds))
+                  )
             }
           }
         )
       },
       // Stop a trigger given its UUID
       delete {
-        pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
-          val actorWithParty = triggers.get(uuid).get
-          actorWithParty.ref ! TriggerRunner.Stop
-          triggers = triggers - uuid
-          val party = actorWithParty.party
-          val newTriggerSet = triggersByParty.get(party).get - uuid
-          triggersByParty = triggersByParty + (party -> newTriggerSet)
-          val stoppedTriggerId = JsObject(("triggerId", uuid.toString.toJson))
-          complete(successResponse(stoppedTriggerId))
+        pathPrefix("v1" / "stop" / JavaUUID) {
+          uuid =>
+            extractRequest {
+              request =>
+                TokenManagement
+                  .findJwt(request)
+                  .flatMap { jwt =>
+                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                  }
+                  .map { token =>
+                    stopTrigger(uuid, token)
+                  }
+                  .fold(
+                    unauthorized =>
+                      complete(
+                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                    triggerId => complete(successResponse(triggerId))
+                  )
+            }
         }
       },
     )
@@ -285,6 +369,16 @@ object ServiceMain {
     val bindingFuture = system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
     bindingFuture.map(server => (server, system))
   }
+
+  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, TriggerDao] = {
+    val triggerDao = TriggerDao(JdbcConfig.driver, c.url, c.user, c.password)(ec)
+    val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
+    Try(transaction.unsafeRunSync()) match {
+      case Failure(err) => Left(err.toString)
+      case Success(()) => Right(triggerDao)
+    }
+  }
+
   def main(args: Array[String]): Unit = {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
@@ -315,6 +409,22 @@ object ServiceMain {
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
+
+        (config.init, config.jdbcConfig) match {
+          case (true, None) =>
+            system.log.error("No JDBC configuration for database initialization.")
+            sys.exit(1)
+          case (true, Some(jdbcConfig)) =>
+            initDatabase(jdbcConfig) match {
+              case Left(err) =>
+                system.log.error(err)
+                sys.exit(1)
+              case Right(triggerDao) =>
+                system.log.info("Initialized database.")
+                sys.exit(0)
+            }
+          case _ =>
+        }
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
