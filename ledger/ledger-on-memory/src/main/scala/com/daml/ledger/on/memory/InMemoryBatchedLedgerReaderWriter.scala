@@ -120,7 +120,11 @@ object InMemoryBatchedLedgerReaderWriter {
     ): Resource[InMemoryBatchedLedgerReaderWriter] = {
       val ledgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      val keyValueCommitting = new KeyValueCommitting(engine, metrics)
+      val keyValueCommitting =
+        new KeyValueCommitting(
+          engine,
+          metrics,
+          inStaticTimeMode = needStaticTimeModeFor(timeProvider))
       val validator = BatchedSubmissionValidator[Index](
         BatchedSubmissionValidatorParameters.default,
         keyValueCommitting,
@@ -139,4 +143,7 @@ object InMemoryBatchedLedgerReaderWriter {
         ))
     }
   }
+
+  private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
+    timeProvider != TimeProvider.UTC
 }
