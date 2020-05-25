@@ -15,7 +15,7 @@ import com.daml.metrics.Metrics
 
 class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
-  private val metrics = damlMetrics.daml.kvutils.ConflictDetection
+  private val metrics = damlMetrics.daml.kvutils.conflictdetection
 
   /**
     * Detect conflicts in a log entry and attempt to recover.

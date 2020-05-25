@@ -19,7 +19,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val logEntry = aPartyLogEntry("Alice")
       val outputState = Map(aliceKey -> DamlStateValue.getDefaultInstance)
       val damlMetrics = metrics()
-      val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
+      val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
@@ -77,7 +77,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val outputState = Map(aliceKey -> DamlStateValue.getDefaultInstance)
       val invalidatedKeys = Set(aliceKey)
       val damlMetrics = metrics()
-      val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
+      val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val result = LoggingContext.newLoggingContext { implicit logCtx =>
@@ -103,7 +103,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
         .build
       val invalidatedKeys = Set(packageUploadKey)
       val damlMetrics = metrics()
-      val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
+      val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val result = LoggingContext.newLoggingContext { implicit logCtx =>
@@ -157,7 +157,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val outputState = Map(aliceKey -> aStateValue)
       val logEntry = aPartyLogEntry("Alice")
       val damlMetrics = metrics()
-      val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
+      val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
@@ -188,7 +188,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val outputStateValue = DamlStateValue.getDefaultInstance
       val outputState = Map(aliceKey -> outputStateValue)
       val damlMetrics = metrics()
-      val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
+      val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
       val conflictDetection = new ConflictDetection(damlMetrics)
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
@@ -209,7 +209,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
 
   private def conflictingTransactionTest(key: DamlStateKey): DamlTransactionRejectionEntry = {
     val damlMetrics = metrics()
-    val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
+    val conflictDetectionMetrics = damlMetrics.daml.kvutils.conflictdetection
     val conflictDetection = new ConflictDetection(damlMetrics)
     val outputState = Map(key -> DamlStateValue.getDefaultInstance)
     val invalidatedKeys = Set(key)

@@ -164,7 +164,7 @@ class Metrics(val registry: MetricRegistry) {
         val commit: Timer = registry.timer(prefix :+ "commit")
       }
 
-      object ConflictDetection {
+      object conflictdetection {
         private val Prefix = kvutils.prefix :+ "conflict_detection"
 
         val accepted: Counter =
