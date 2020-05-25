@@ -4,7 +4,6 @@
 package com.daml.ledger.on.memory
 
 import java.util.concurrent.Semaphore
-import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Bytes
@@ -17,12 +16,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new Semaphore(1, true)
-  private val lastLogEntryIndex = new AtomicInteger()
+  private @volatile var lastLogEntryIndex = 0
 
   def readLog[A](action: ImmutableLog => A): A =
     action(log) // `log` is mutable, but the interface is immutable
 
-  def newHeadSinceLastWrite(): Int = lastLogEntryIndex.get()
+  def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
   def write[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
@@ -31,7 +30,7 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
     action(log, state)
       .andThen {
         case _ =>
-          lastLogEntryIndex.set(log.size - 1)
+          lastLogEntryIndex = log.size - 1
           lockCurrentState.release()
       }
   }
