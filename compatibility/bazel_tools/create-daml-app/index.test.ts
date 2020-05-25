@@ -23,7 +23,7 @@ import { User } from "@daml.js/create-daml-app";
 import { computeCredentials } from "./Credentials";
 import semver from "semver";
 
-const DAR_PATH = ".daml/dist/create-daml-app-0.1.0.dar";
+const DAR_PATH = process.env.DAR_PATH;
 const SANDBOX_LEDGER_ID = "create-daml-app-sandbox";
 const SANDBOX_PORT_FILE_NAME = "sandbox.port";
 const JSON_API_PORT_FILE_NAME = "json-api.port";
@@ -140,7 +140,7 @@ beforeAll(async () => {
   const extraJsonApiOptions = semver.gte(
     process.env.JSON_API_VERSION,
     "1.1.0-snapshot.20200430.4057.0.681c862d"
-  )
+  ) || process.env.JSON_API_VERSION === "0.0.0"
     ? ["--allow-insecure-tokens"]
     : [];
   jsonApi = spawn(

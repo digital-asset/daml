@@ -13,6 +13,12 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 set -euo pipefail
 
+canonicalize_rlocation() {
+    # Bazel will add a . at the beginning of locations in the root package
+    # which breaks rlocation.
+    rlocation $(realpath -L -s -m --relative-to=$PWD $TEST_WORKSPACE/$1)
+}
+
 RUNNER="$(rlocation "$TEST_WORKSPACE/$1")"
 DAML="$(rlocation "$TEST_WORKSPACE/$2")"
 # These things are only used in the jest tests so rather
@@ -26,12 +32,12 @@ DAML_TYPES="$(rlocation "$TEST_WORKSPACE/$7")"
 DAML_LEDGER="$(rlocation "$TEST_WORKSPACE/$8")"
 DAML_REACT="$(rlocation "$TEST_WORKSPACE/$9")"
 MESSAGING_PATCH="$(rlocation "$TEST_WORKSPACE/${10}")"
-# Adding yarn to path here seems tempting but ends up in a mess
-# due to unix/windows paths so we only do that in the Haskell code.
 YARN="$(rlocation "$TEST_WORKSPACE/${11}")"
 PATCH="$(rlocation "$TEST_WORKSPACE/${12}")"
 TEST_DEPS="$(rlocation "$TEST_WORKSPACE/${13}")"
 TEST_TS="$(rlocation "$TEST_WORKSPACE/${14}")"
+CODEGEN_OUTPUT="$(canonicalize_rlocation "${15}")"
+export DAR_PATH="$(canonicalize_rlocation "${16}")"
 
 "$RUNNER" \
   --daml "$DAML" \
@@ -43,3 +49,4 @@ TEST_TS="$(rlocation "$TEST_WORKSPACE/${14}")"
   --patch "$PATCH" \
   --test-deps "$TEST_DEPS" \
   --test-ts "$TEST_TS" \
+  --codegen "$CODEGEN_OUTPUT" \
