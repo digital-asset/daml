@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.google.protobuf.ByteString
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new StampedLock()
@@ -27,7 +27,11 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
       implicit executionContext: ExecutionContext
   ): Future[A] =
     for {
-      stamp <- Future(lockCurrentState.writeLock())
+      stamp <- Future {
+        blocking {
+          lockCurrentState.writeLock()
+        }
+      }
       result <- action(log, state)
         .andThen {
           case _ =>
