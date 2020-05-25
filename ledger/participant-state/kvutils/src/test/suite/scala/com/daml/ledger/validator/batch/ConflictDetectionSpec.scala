@@ -21,7 +21,6 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val damlMetrics = metrics()
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
       val conflictDetection = new ConflictDetection(damlMetrics)
-      val expectedAcceptedCount = conflictDetectionMetrics.accepted.getCount + 1
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
         implicit logCtx =>
@@ -34,8 +33,8 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       }
 
       result should be(logEntry -> outputState)
-      actualInvalidatedKeys should contain(aliceKey)
-      conflictDetectionMetrics.accepted.getCount should be(expectedAcceptedCount)
+      actualInvalidatedKeys should be(Set(aliceKey))
+      conflictDetectionMetrics.accepted.getCount should be(1)
     }
 
     "return new output key as invalidated in case of no conflicts" in {
@@ -52,7 +51,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
         )
       }
 
-      actualInvalidatedKeys should contain(aliceKey)
+      actualInvalidatedKeys should be(Set(aliceKey))
     }
 
     "report conflict for new output key also part of input invalidated key set" in {
@@ -80,8 +79,6 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val damlMetrics = metrics()
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
       val conflictDetection = new ConflictDetection(damlMetrics)
-      val expectedConflictedCount = conflictDetectionMetrics.conflicted.getCount + 1
-      val expectedDroppedCount = conflictDetectionMetrics.dropped.getCount + 1
 
       val result = LoggingContext.newLoggingContext { implicit logCtx =>
         conflictDetection.detectConflictsAndRecover(
@@ -93,8 +90,8 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       }
 
       result should be(None)
-      conflictDetectionMetrics.conflicted.getCount should be(expectedConflictedCount)
-      conflictDetectionMetrics.dropped.getCount should be(expectedDroppedCount)
+      conflictDetectionMetrics.conflicted.getCount should be(1)
+      conflictDetectionMetrics.dropped.getCount should be(1)
     }
 
     "drop conflicting package upload" in {
@@ -108,7 +105,6 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val damlMetrics = metrics()
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
       val conflictDetection = new ConflictDetection(damlMetrics)
-      val expectedDroppedCount = conflictDetectionMetrics.dropped.getCount + 1
 
       val result = LoggingContext.newLoggingContext { implicit logCtx =>
         conflictDetection.detectConflictsAndRecover(
@@ -120,7 +116,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       }
 
       result should be(None)
-      conflictDetectionMetrics.dropped.getCount should be(expectedDroppedCount)
+      conflictDetectionMetrics.dropped.getCount should be(1)
     }
 
     "recover transaction conflicting on contract id" in {
@@ -163,9 +159,6 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val damlMetrics = metrics()
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
       val conflictDetection = new ConflictDetection(damlMetrics)
-      val expectedConflictedTransientCount = conflictDetectionMetrics.removedTransientKey.getCount + 1
-      val expectedConflictedCount = conflictDetectionMetrics.conflicted.getCount
-      val expectedDroppedCount = conflictDetectionMetrics.dropped.getCount
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
         implicit logCtx =>
@@ -179,10 +172,9 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
 
       result should be(logEntry -> outputState)
       actualInvalidatedKeys should not contain aliceKey
-      conflictDetectionMetrics.removedTransientKey.getCount should be(
-        expectedConflictedTransientCount)
-      conflictDetectionMetrics.conflicted.getCount should be(expectedConflictedCount)
-      conflictDetectionMetrics.dropped.getCount should be(expectedDroppedCount)
+      conflictDetectionMetrics.removedTransientKey.getCount should be(1)
+      conflictDetectionMetrics.conflicted.getCount should be(0)
+      conflictDetectionMetrics.dropped.getCount should be(0)
     }
 
     "return altered input key in invalidated keys" in {
@@ -198,7 +190,6 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       val damlMetrics = metrics()
       val conflictDetectionMetrics = damlMetrics.daml.kvutils.ConflictDetection
       val conflictDetection = new ConflictDetection(damlMetrics)
-      val expectedAcceptedCount = conflictDetectionMetrics.accepted.getCount + 1
 
       val Some((actualInvalidatedKeys, result)) = LoggingContext.newLoggingContext {
         implicit logCtx =>
@@ -211,8 +202,8 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       }
 
       result should be(logEntry -> outputState)
-      actualInvalidatedKeys should contain(aliceKey)
-      conflictDetectionMetrics.accepted.getCount should be(expectedAcceptedCount)
+      actualInvalidatedKeys should be(Set(aliceKey))
+      conflictDetectionMetrics.accepted.getCount should be(1)
     }
   }
 
@@ -222,7 +213,6 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
     val conflictDetection = new ConflictDetection(damlMetrics)
     val outputState = Map(key -> DamlStateValue.getDefaultInstance)
     val invalidatedKeys = Set(key)
-    val expectedRecoveredCount = conflictDetectionMetrics.recovered.getCount + 1
     val Some((_, (newLogEntry, newOutputState))) = LoggingContext.newLoggingContext {
       implicit logCtx =>
         conflictDetection.detectConflictsAndRecover(
@@ -238,7 +228,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
     val txRejectionEntry = newLogEntry.getTransactionRejectionEntry
     txRejectionEntry.getReasonCase should be(DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT)
 
-    conflictDetectionMetrics.recovered.getCount should be(expectedRecoveredCount)
+    conflictDetectionMetrics.recovered.getCount should be(1)
 
     txRejectionEntry
   }

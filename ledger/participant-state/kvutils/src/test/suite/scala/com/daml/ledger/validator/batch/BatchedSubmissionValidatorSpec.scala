@@ -303,7 +303,6 @@ class BatchedSubmissionValidatorSpec
           val expectedSubmissionSizes = submissions.map(_.getSerializedSize)
           validator.Metrics.receivedSubmissionBytes.getSnapshot.getValues.toSet should contain allElementsOf
             expectedSubmissionSizes
-          succeed
         }
     }
   }
