@@ -209,11 +209,11 @@ The submission performs the following steps:
 * If the transaction succeeds, the output is a *submitted transaction*
 
 
-Depending of the ledger implementation, the local contract IDs are
-suffixed with a suffix in a latter step. This yields the *committed
+Depending on the ledger implementation, the local contract IDs are
+suffixed with a suffix in a later step. This yields the *committed
 transaction*. For ledgers that do not require suffixing, committed and submitted
-transaction coincide. Committed transactions are the source of true to
-describe the state if the ledger.
+transactions coincide. Committed transactions are the source of truth to
+derive the state of the ledger.
 
 
 
