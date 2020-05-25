@@ -156,6 +156,7 @@ def daml_deps():
         http_archive(
             name = "com_google_protobuf",
             sha256 = "1e622ce4b84b88b6d2cdf1db38d1a634fe2392d74f0b7b74ff98f3a51838ee53",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
             strip_prefix = "protobuf-3.8.0",
             urls = ["https://github.com/google/protobuf/archive/v3.8.0.zip"],
             patches = [

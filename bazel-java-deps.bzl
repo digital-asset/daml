@@ -35,7 +35,6 @@ def install_java_deps():
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:24.0-jre",
             "com.google.j2objc:j2objc-annotations:1.1",
-            "com.google.protobuf:protobuf-java:3.8.0",
             "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_2.12:0.5.3",
             "commons-io:commons-io:2.5",
@@ -43,11 +42,6 @@ def install_java_deps():
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_2.12:0.10.1",
             "com.storm-enroute:scalameter-core_2.12:0.10.1",
-            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
-            "com.thesamet.scalapb:lenses_2.12:0.9.0",
-            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
-            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
             "com.typesafe.akka:akka-actor_2.12:2.6.1",
             "com.typesafe.akka:akka-actor-typed_2.12:2.6.1",
             "com.typesafe.akka:akka-http_2.12:10.1.11",
@@ -72,17 +66,45 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-graphite:4.1.2",
             "io.dropwizard.metrics:metrics-jmx:4.1.2",
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.grpc:grpc-api:1.22.1",
-            "io.grpc:grpc-core:1.22.1",
-            "io.grpc:grpc-netty:1.22.1",
-            "io.grpc:grpc-protobuf:1.22.1",
-            "io.grpc:grpc-services:1.22.1",
-            "io.grpc:grpc-stub:1.22.1",
-            "io.netty:netty-codec-http2:4.1.50.Final",
-            "io.netty:netty-handler:4.1.50.Final",
-            "io.netty:netty-handler-proxy:4.1.50.Final",
-            "io.netty:netty-resolver:4.1.50.Final",
+
+            # Bumping versions of io.grpc:* has a few implications:
+            # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
+            #    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
+            #    ScalaPB also depends on a version of protobuf-java, but for the most part we expect here a
+            #    version mismatch between ScalaPBs declared protobuf-java dependency and the version on the
+            #    classpath doesn't matter.
+            #
+            # 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
+            # in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
+            #
+            # * io.grpc:grpc-netty
+            # * io.netty:netty-handler
+            # * io.netty:netty-tcnative-boringssl-static
+            #
+            # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
+            # need to be updated with careful consideration.
+            # grpc
+            "io.grpc:grpc-api:1.29.0",
+            "io.grpc:grpc-core:1.29.0",
+            "io.grpc:grpc-netty:1.29.0",
+            "io.grpc:grpc-protobuf:1.29.0",
+            "io.grpc:grpc-services:1.29.0",
+            "io.grpc:grpc-stub:1.29.0",
+            # netty
+            "io.netty:netty-codec-http2:4.1.48.Final",
+            "io.netty:netty-handler:4.1.48.Final",
+            "io.netty:netty-handler-proxy:4.1.48.Final",
+            "io.netty:netty-resolver:4.1.48.Final",
             "io.netty:netty-tcnative-boringssl-static:2.0.30.Final",
+            # protobuf
+            "com.google.protobuf:protobuf-java:3.8.0",
+            #scalapb
+            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
+            "com.thesamet.scalapb:lenses_2.12:0.9.0",
+            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
+            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
+            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
+            # ---- end of grpc-protobuf-netty block
             "io.protostuff:protostuff-core:1.5.2",
             "io.reactivex.rxjava2:rxjava:2.2.1",
             "io.spray:spray-json_2.12:1.3.5",
