@@ -224,7 +224,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   private type Outputs1 = Indexed[FetchedInput]
 
   // Third stage validates the submission, adding in the validation results.
-  private type ValidatedSubmission = (CorrelatedSubmission, DamlInputState, LogEntryAndState)
+  private case class ValidatedSubmission(
+      correlatedSubmission: CorrelatedSubmission,
+      inputState: DamlInputState,
+      logEntryAndState: LogEntryAndState)
   private type Outputs2 = Indexed[ValidatedSubmission]
 
   // Fourth stage collects the results.
@@ -279,7 +282,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
         val invalidatedKeys = mutable.Set.empty[DamlStateKey]
 
         {
-          case (correlatedSubmission, inputState, logEntryAndOutputState) =>
+          case ValidatedSubmission(correlatedSubmission, inputState, logEntryAndOutputState) =>
             detectConflictsAndRecover(
               correlatedSubmission,
               inputState,
@@ -289,7 +292,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       }
       // Commit the results.
       .mapAsync[Outputs6](params.commitParallelism) {
-        case (correlatedSubmission, inputState, logEntryAndOutputState) =>
+        case ValidatedSubmission(correlatedSubmission, inputState, logEntryAndOutputState) =>
           commitResult(
             participantId,
             correlatedSubmission,
@@ -337,7 +340,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             participantId,
             inputState
           )
-          (correlatedSubmission, inputState, logEntryAndState)
+          ValidatedSubmission(correlatedSubmission, inputState, logEntryAndState)
         }
       )
     }
@@ -362,7 +365,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             .map {
               case (newInvalidatedKeys, (newLogEntry, newState)) =>
                 invalidatedKeys ++= newInvalidatedKeys
-                (correlatedSubmission, inputState, (newLogEntry, newState)) :: Nil
+                ValidatedSubmission(correlatedSubmission, inputState, (newLogEntry, newState)) :: Nil
             }
             .getOrElse {
               logger.info(
