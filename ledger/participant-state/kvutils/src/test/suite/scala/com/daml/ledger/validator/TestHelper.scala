@@ -24,7 +24,6 @@ private[validator] object TestHelper {
       .build()
 
   lazy val anInvalidEnvelope: ByteString = ByteString.copyFromUtf8("invalid data")
-  lazy val invalidEnvelope: ByteString = anInvalidEnvelope
 
   def makePartySubmission(party: String): DamlSubmission = {
     val builder = DamlSubmission.newBuilder
