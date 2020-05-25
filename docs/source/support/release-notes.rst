@@ -2527,7 +2527,7 @@ Sandbox
 
 - The active contract service correctly serves stakeholders. See `#2070
   <https://github.com/digital-asset/daml/issues/2070>`__.
-- Added the ``--maxInboundMessageSize`` CLI parameter to set the maximux size
+- Added the ``--maxInboundMessageSize`` CLI parameter to set the maximum size
   of messages received through the Ledger API. If the value is not set the
   current default is preserved (4 MB).
 - Makes package uploads idempotent and tolerate partial duplicates. See `#2130
