@@ -353,7 +353,7 @@ class ContractsService(
 object ContractsService {
   private type ApiValue = api.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   case class Error(id: Symbol, message: String)
 

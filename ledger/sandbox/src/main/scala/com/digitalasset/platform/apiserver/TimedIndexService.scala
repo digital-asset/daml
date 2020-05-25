@@ -118,8 +118,8 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
 
   override def lookupActiveContract(
       submitter: Party,
-      contractId: Value.AbsoluteContractId
-  ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
+      contractId: Value.ContractId
+  ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
     Timed.future(
       metrics.daml.services.indexService.lookupActiveContract,
       delegate.lookupActiveContract(submitter, contractId))
@@ -127,13 +127,13 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
   override def lookupContractKey(
       submitter: Party,
       key: Node.GlobalKey
-  ): Future[Option[Value.AbsoluteContractId]] =
+  ): Future[Option[Value.ContractId]] =
     Timed.future(
       metrics.daml.services.indexService.lookupContractKey,
       delegate.lookupContractKey(submitter, key))
 
   override def lookupMaximumLedgerTime(
-      ids: Set[Value.AbsoluteContractId],
+      ids: Set[Value.ContractId],
   ): Future[Option[Instant]] =
     Timed.future(
       metrics.daml.services.indexService.lookupMaximumLedgerTime,

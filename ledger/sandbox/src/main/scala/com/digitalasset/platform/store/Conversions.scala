@@ -87,18 +87,16 @@ object Conversions {
   def participantId(columnName: String): RowParser[Ref.ParticipantId] =
     SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId)
 
-  // AbsoluteContractId
+  implicit val columnToContractId: Column[Value.ContractId] =
+    stringColumnToX(Value.ContractId.fromString)
 
-  implicit val columnToContractId: Column[Value.AbsoluteContractId] =
-    stringColumnToX(Value.AbsoluteContractId.fromString)
-
-  implicit object ContractIdToStatement extends ToStatement[Value.AbsoluteContractId] {
-    override def set(s: PreparedStatement, index: Int, v: Value.AbsoluteContractId): Unit =
+  implicit object ContractIdToStatement extends ToStatement[Value.ContractId] {
+    override def set(s: PreparedStatement, index: Int, v: Value.ContractId): Unit =
       ToStatement.stringToStatement.set(s, index, v.coid)
   }
 
-  def contractId(columnName: String): RowParser[Value.AbsoluteContractId] =
-    SqlParser.get[Value.AbsoluteContractId](columnName)(columnToContractId)
+  def contractId(columnName: String): RowParser[Value.ContractId] =
+    SqlParser.get[Value.ContractId](columnName)(columnToContractId)
 
   // ContractIdString
 

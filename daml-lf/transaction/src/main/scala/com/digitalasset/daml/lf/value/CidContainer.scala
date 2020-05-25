@@ -4,7 +4,7 @@
 package com.daml.lf
 package value
 
-import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.Bytes
 
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
@@ -33,13 +33,8 @@ object CidMapper {
 
   type NoCidChecker[-A1, +A2] = CidChecker[A1, A2, Nothing]
 
-  type NoRelCidChecker[-A1, +A2] = CidChecker[A1, A2, Value.AbsoluteContractId]
-
-  type RelCidResolver[-A1, +A2] =
-    CidMapper[A1, A2, Value.RelativeContractId, Ref.ContractIdString]
-
   type CidSuffixer[-A1, +A2] =
-    CidMapper[A1, A2, Value.ContractId, Value.AbsoluteContractId.V1]
+    CidMapper[A1, A2, Value.ContractId, Value.ContractId.V1]
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val _trivialMapper: CidMapper[Any, Any, Nothing, Any] =
@@ -54,21 +49,6 @@ object CidMapper {
     new CidMapper[Cid1, Cid2, Cid1, Cid2] {
       override def map(f: Cid1 => Cid2): Cid1 => Cid2 = f
     }
-
-  private[value] val basicCidResolverInstance
-    : RelCidResolver[Value.ContractId, Value.AbsoluteContractId] =
-    new CidMapper[
-      Value.ContractId,
-      Value.AbsoluteContractId,
-      Value.RelativeContractId,
-      Ref.ContractIdString] {
-      override def map(
-          f: Value.RelativeContractId => Ref.ContractIdString,
-      ): Value.ContractId => Value.AbsoluteContractId = {
-        case acoid: Value.AbsoluteContractId => acoid
-        case rcoid: Value.RelativeContractId => Value.AbsoluteContractId.V0(f(rcoid))
-      }
-    }
 }
 
 trait CidContainer[+A] {
@@ -76,11 +56,6 @@ trait CidContainer[+A] {
   import CidMapper._
 
   protected val self: A
-
-  final def resolveRelCid[B](f: Value.RelativeContractId => Ref.ContractIdString)(
-      implicit resolver: RelCidResolver[A, B]
-  ): B =
-    resolver.map(f)(self)
 
   final def ensureNoCid[B](
       implicit checker: NoCidChecker[A, B]
@@ -92,35 +67,20 @@ trait CidContainer[+A] {
   ): B =
     data.assertRight(ensureNoCid.left.map(message))
 
-  final def ensureNoRelCid[B](
-      implicit checker: NoRelCidChecker[A, B]
-  ): Either[Value.RelativeContractId, B] =
-    checker.traverse[Value.RelativeContractId] {
-      case acoid: Value.AbsoluteContractId => Right(acoid)
-      case rcoid: Value.RelativeContractId => Left(rcoid)
-    }(self)
-
-  // Sets the suffix of any the V1 AbsoluteContractId `coid` of the container that are not already suffixed.
+  // Sets the suffix of any the V1 ContractId `coid` of the container that are not already suffixed.
   // Uses `f(coid.discriminator)` as suffix.
   final def suffixCid[B](f: crypto.Hash => Bytes)(
       implicit suffixer: CidSuffixer[A, B]
   ): Either[String, B] = {
     suffixer.traverse[String] {
-      case Value.AbsoluteContractId.V1(discriminator, Bytes.Empty) =>
-        Value.AbsoluteContractId.V1.build(discriminator, f(discriminator))
-      case acoid @ Value.AbsoluteContractId.V1(_, _) =>
+      case Value.ContractId.V1(discriminator, Bytes.Empty) =>
+        Value.ContractId.V1.build(discriminator, f(discriminator))
+      case acoid @ Value.ContractId.V1(_, _) =>
         Right(acoid)
-      case acoid @ Value.AbsoluteContractId.V0(_) =>
+      case acoid @ Value.ContractId.V0(_) =>
         Left(s"expect a Contract ID V1, found $acoid")
-      case rcoid @ Value.RelativeContractId(_) =>
-        Left(s"expect a Contract Id V1, found $rcoid")
     }(self)
   }
-
-  final def assertNoRelCid[B](message: Value.ContractId => String)(
-      implicit checker: NoRelCidChecker[A, B]
-  ): B =
-    data.assertRight(ensureNoRelCid.left.map(message))
 
 }
 
@@ -145,26 +105,10 @@ trait CidContainer1[F[_]] {
   ): NoCidChecker[F[A1], F[A2]] =
     cidMapperInstance[A1, A2, Value.ContractId, Nothing]
 
-  final implicit def noRelCidCheckerInstance[A1, A2](
-      implicit checker1: NoRelCidChecker[A1, A2],
-  ): NoRelCidChecker[F[A1], F[A2]] =
-    cidMapperInstance[A1, A2, Value.ContractId, Value.AbsoluteContractId]
-
   final implicit def cidSuffixerInstance[A1, A2](
       implicit resolver1: CidSuffixer[A1, A2],
   ): CidSuffixer[F[A1], F[A2]] =
     cidMapperInstance
-
-}
-
-trait CidContainer1WithDefaultCidResolver[F[_]] extends CidContainer1[F] {
-
-  import CidMapper._
-
-  final implicit def cidResolverInstance[A1, A2](
-      implicit resolver1: RelCidResolver[A1, A2],
-  ): RelCidResolver[F[A1], F[A2]] =
-    cidMapperInstance(resolver1)
 
 }
 
@@ -195,31 +139,11 @@ trait CidContainer3[F[_, _, _]] {
       }
     }
 
-  final implicit def noRelCidCheckerInstance[A1, B1, C1, A2, B2, C2](
-      implicit checker1: NoRelCidChecker[A1, A2],
-      checker2: NoRelCidChecker[B1, B2],
-      checker3: NoRelCidChecker[C1, C2],
-  ): NoRelCidChecker[F[A1, B1, C1], F[A2, B2, C2]] =
-    cidMapperInstance
-
   final implicit def cidSuffixerInstance[A1, B1, C1, A2, B2, C2](
       implicit suffixer1: CidSuffixer[A1, A2],
       suffixer2: CidSuffixer[B1, B2],
       suffixer3: CidSuffixer[C1, C2],
   ): CidSuffixer[F[A1, B1, C1], F[A2, B2, C2]] =
-    cidMapperInstance
-
-}
-
-trait CidContainer3WithDefaultCidResolver[F[_, _, _]] extends CidContainer3[F] {
-
-  import CidMapper._
-
-  final implicit def cidResolverInstance[A1, B1, C1, A2, B2, C2](
-      implicit resolver1: RelCidResolver[A1, A2],
-      resolver2: RelCidResolver[B1, B2],
-      resolver3: RelCidResolver[C1, C2],
-  ): RelCidResolver[F[A1, B1, C1], F[A2, B2, C2]] =
     cidMapperInstance
 
 }

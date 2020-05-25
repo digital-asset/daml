@@ -28,7 +28,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value.{AbsoluteContractId, NodeId}
+import com.daml.lf.value.Value.{ContractId, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -455,7 +455,7 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(forParty, key)
 
   private def splitOrThrow(id: EventId): NodeId =
@@ -582,14 +582,14 @@ private class JdbcLedgerDao(
   private val PageSize = 100
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]] =
     contractsReader.lookupMaximumLedgerTime(contractIds)
 
   override def lookupActiveOrDivulgedContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       forParty: Party,
-  ): Future[Option[AbsoluteContractInst]] =
+  ): Future[Option[ContractInst]] =
     contractsReader.lookupActiveContract(forParty, contractId)
 
   private val SQL_SELECT_MULTIPLE_PARTIES =

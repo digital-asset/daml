@@ -4,7 +4,7 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.CompiledPackages
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.Transaction._
@@ -28,13 +28,13 @@ object SResult {
 
   /** Update interpretation requires access to a contract on the ledger. */
   final case class SResultNeedContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       templateId: TypeConName,
       committers: Set[Party],
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value[AbsoluteContractId]] => Unit,
+      cbPresent: ContractInst[Value[ContractId]] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was
@@ -92,11 +92,11 @@ object SResult {
 
   sealed abstract class SKeyLookupResult
   object SKeyLookupResult {
-    final case class Found(coid: AbsoluteContractId) extends SKeyLookupResult
+    final case class Found(coid: ContractId) extends SKeyLookupResult
     final case object NotFound extends SKeyLookupResult
     final case object NotVisible extends SKeyLookupResult
 
-    def apply(coid: Option[AbsoluteContractId]): SKeyLookupResult =
+    def apply(coid: Option[ContractId]): SKeyLookupResult =
       coid.fold[SKeyLookupResult](NotFound)(Found)
   }
 

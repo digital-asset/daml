@@ -262,7 +262,7 @@ final class Engine {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-      globalCids: Set[Value.AbsoluteContractId],
+      globalCids: Set[Value.ContractId],
   ): Result[(Tx.Transaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)

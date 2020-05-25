@@ -69,7 +69,7 @@ object Version {
     *   1: * Use hashing to serialize contract keys. Backwards incompatible to avoid having to do two lookups
     *        of a single contract key.
     *
-    *   2: * Deprecate use of relative contract identifiers. The transaction is submitted with absolute contract
+    *   2: * Deprecate use of relative contract identifiers. The transaction is submitted with contract
     *        identifiers. Backwards incompatible to remove unnecessary traversal of the transaction when consuming
     *        it and to make it possible to remove DamlLogEntryId.
     *
