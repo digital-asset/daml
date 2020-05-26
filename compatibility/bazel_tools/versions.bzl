@@ -90,10 +90,23 @@ def _cmp_prerelease_part(part1, part2):
     else:
         return _cmp(part1, part2)
 
-def cmp_version(version1, version2):
+def _cmp_version(version1, version2):
     """Semver comparison of version1 and version2.
     Returns 1 if version1 > version2, 0 if version1 == version2 and -1 if version1 < version2.
     """
+
+    # Handle special-cases for 0.0.0 which is always the latest.
+    if version1 == '0.0.0' and version2 == '0.0.0':
+      return 0
+    elif version1 == '0.0.0':
+      return 1
+    elif version2 == '0.0.0':
+      return -1
+
+    # No version is 0.0.0 so use a proper semver comparison.
+    # Note that the comparisons in skylib ignore the prerelease
+    # so they aren’t suitable if we have one.
+
     (core1, prerelease1, _) = _semver_components(version1)
     (core2, prerelease2, _) = _semver_components(version2)
     core1_parsed = _bazel_versions.parse(core1)
@@ -119,3 +132,14 @@ def cmp_version(version1, version2):
             if cmp_result != 0:
                 return cmp_result
         return _cmp(len(a), len(b))
+
+def _is_at_least(version1, version2):
+  return _cmp_version(version1, version2) >= 0
+
+def _is_at_most(version1, version2):
+  return _cmp_version(version1, version2) <= 0
+
+versions = struct(
+    is_at_most = _is_at_most,
+    is_at_least = _is_at_least,
+)

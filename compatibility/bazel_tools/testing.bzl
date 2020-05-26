@@ -6,10 +6,11 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:versions.bzl", "cmp_version", "version_to_name")
+load("//bazel_tools:versions.bzl", "versions", "version_to_name")
 load("//:versions.bzl", "latest_stable_version")
 
-# Indexed first by test tool version and then by sandbox version.
+# Indexed first by test tool version and then a list of ranges
+# of sandbox versions and their corresponding exclusions.
 # Note that at this point the granularity for disabling tests
 # is sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
@@ -168,9 +169,9 @@ def get_excluded_tests(test_tool_version, sandbox_version):
     for range in exclusion_ranges:
         start = range.get("start")
         end = range.get("end")
-        if start and sandbox_version != "0.0.0" and cmp_version(sandbox_version, start) < 0:
+        if start and not versions.is_at_least(sandbox_version, start):
             continue
-        if end and (cmp_version(sandbox_version, end) > 0 or sandbox_version == "0.0.0"):
+        if end and not versions.is_at_most(sandbox_version, end):
             continue
         exclusions += range["exclusions"]
     return exclusions
