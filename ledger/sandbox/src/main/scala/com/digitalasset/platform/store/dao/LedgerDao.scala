@@ -160,7 +160,7 @@ trait LedgerWriteDao extends ReportsHealth {
     *
     * @param ledgerId the ledger id to be stored
     */
-  def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit]
+  def initializeLedger(ledgerId: LedgerId): Future[Unit]
 
   def storeTransaction(
       submitterInfo: Option[SubmitterInfo],

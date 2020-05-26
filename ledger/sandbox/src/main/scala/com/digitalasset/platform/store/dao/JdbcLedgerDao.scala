@@ -110,10 +110,13 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
+  /**
+    * Defaults to Offset.begin if ledger_end is unset
+    */
   override def lookupLedgerEnd(): Future[Offset] =
     dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd) { implicit conn =>
       SQL_SELECT_LEDGER_END
-        .as(offset("ledger_end").single)
+        .as(offset("ledger_end").?.map(_.getOrElse(Offset.begin)).single)
     }
 
   private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
@@ -124,13 +127,12 @@ private class JdbcLedgerDao(
         .as(offset("ledger_end").?.single)
     }
 
-  private val SQL_INITIALIZE = SQL(
-    "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
+  private val SQL_INITIALIZE = SQL("insert into parameters(ledger_id) VALUES({LedgerId})")
 
-  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerId): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) { implicit conn =>
       val _ = SQL_INITIALIZE
-        .on("LedgerId" -> ledgerId.unwrap, "LedgerEnd" -> ledgerEnd)
+        .on("LedgerId" -> ledgerId.unwrap)
         .execute()
       ()
     }
@@ -139,7 +141,7 @@ private class JdbcLedgerDao(
   // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
   // is advancing it.
   private val SQL_UPDATE_LEDGER_END = SQL(
-    "update parameters set ledger_end = {LedgerEnd} where ledger_end < {LedgerEnd}")
+    "update parameters set ledger_end = {LedgerEnd} where (ledger_end is null or ledger_end < {LedgerEnd})")
 
   private def updateLedgerEnd(ledgerEnd: Offset)(implicit conn: Connection): Unit = {
     SQL_UPDATE_LEDGER_END
