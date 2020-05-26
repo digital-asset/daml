@@ -9,7 +9,7 @@ import com.google.common.io.BaseEncoding
 object Pretty {
 
   /** Pretty-printing of the entry identifier. Uses the same hexadecimal encoding as is used
-    * for absolute contract identifiers.
+    * for contract identifiers.
     */
   def prettyEntryId(entryId: DamlLogEntryId): String =
     BaseEncoding.base16.encode(entryId.getEntryId.toByteArray)

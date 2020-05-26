@@ -21,8 +21,9 @@ import waitOn from "wait-on";
 import Ledger from "@daml/ledger";
 import { User } from "@daml.js/create-daml-app";
 import { computeCredentials } from "./Credentials";
+import semver from "semver";
 
-const DAR_PATH = ".daml/dist/create-daml-app-0.1.0.dar";
+const DAR_PATH = process.env.DAR_PATH;
 const SANDBOX_LEDGER_ID = "create-daml-app-sandbox";
 const SANDBOX_PORT_FILE_NAME = "sandbox.port";
 const JSON_API_PORT_FILE_NAME = "json-api.port";
@@ -131,18 +132,27 @@ beforeAll(async () => {
 
   const jsonApiOptions = [
     "json-api",
-    "--allow-insecure-tokens",
     "--ledger-host=localhost",
     `--ledger-port=${sandboxPort}`,
     `--http-port=${JSON_API_PORT}`,
     `--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
-  jsonApi = spawn(process.env.DAML_JSON_API, jsonApiOptions, {
-    cwd: "..",
-    stdio: "inherit",
-    detached: detached,
-    env: { ...process.env, DAML_SDK_VERSION: process.env.JSON_API_VERSION },
-  });
+  const extraJsonApiOptions = semver.gte(
+    process.env.JSON_API_VERSION,
+    "1.1.0-snapshot.20200430.4057.0.681c862d"
+  ) || process.env.JSON_API_VERSION === "0.0.0"
+    ? ["--allow-insecure-tokens"]
+    : [];
+  jsonApi = spawn(
+    process.env.DAML_JSON_API,
+    jsonApiOptions.concat(extraJsonApiOptions),
+    {
+      cwd: "..",
+      stdio: "inherit",
+      detached: detached,
+      env: { ...process.env, DAML_SDK_VERSION: process.env.JSON_API_VERSION },
+    }
+  );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
   uiProc = spawn("yarn", ["start"], {

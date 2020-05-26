@@ -439,7 +439,7 @@ object Endpoints {
   private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)

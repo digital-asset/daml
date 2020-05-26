@@ -8,7 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -54,9 +54,7 @@ object Node {
       GenNode.foreach3(fNid, fCid, fVal)(self)
   }
 
-  object GenNode
-      extends WithTxValue3[GenNode]
-      with value.CidContainer3WithDefaultCidResolver[GenNode] {
+  object GenNode extends WithTxValue3[GenNode] with value.CidContainer3[GenNode] {
 
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
@@ -326,7 +324,7 @@ object Node {
       KeyWithMaintainers.foreach1(f)(self)
   }
 
-  object KeyWithMaintainers extends value.CidContainer1WithDefaultCidResolver[KeyWithMaintainers] {
+  object KeyWithMaintainers extends value.CidContainer1[KeyWithMaintainers] {
     implicit def equalInstance[Val: Equal]: Equal[KeyWithMaintainers[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
@@ -411,7 +409,7 @@ object Node {
     */
   final class GlobalKey private (
       val templateId: Identifier,
-      val key: Value[AbsoluteContractId],
+      val key: Value[ContractId],
       val hash: Hash
   ) extends {
     override def equals(obj: Any): Boolean = obj match {
@@ -427,10 +425,10 @@ object Node {
       new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
 
     // Will fail if key contains contract ids
-    def build(templateId: Identifier, key: Value[AbsoluteContractId]): Either[String, GlobalKey] =
+    def build(templateId: Identifier, key: Value[ContractId]): Either[String, GlobalKey] =
       Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
-    def assertBuild(templateId: Identifier, key: Value[AbsoluteContractId]): GlobalKey =
+    def assertBuild(templateId: Identifier, key: Value[ContractId]): GlobalKey =
       data.assertRight(build(templateId, key))
   }
 

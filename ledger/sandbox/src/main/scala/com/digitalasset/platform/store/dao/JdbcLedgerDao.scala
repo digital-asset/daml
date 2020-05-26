@@ -12,6 +12,7 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
+import com.daml.caching.Cache
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
@@ -28,7 +29,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value.{AbsoluteContractId, NodeId}
+import com.daml.lf.value.Value.{ContractId, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -40,6 +41,7 @@ import com.daml.platform.store._
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.daml.platform.store.dao.events.{
   ContractsReader,
+  LfValueTranslation,
   PostCommitValidation,
   TransactionsReader,
   TransactionsWriter
@@ -84,6 +86,7 @@ private class JdbcLedgerDao(
     eventsPageSize: Int,
     performPostCommitValidation: Boolean,
     metrics: Metrics,
+    lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit logCtx: LoggingContext)
     extends LedgerDao {
 
@@ -455,7 +458,7 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(forParty, key)
 
   private def splitOrThrow(id: EventId): NodeId =
@@ -582,14 +585,14 @@ private class JdbcLedgerDao(
   private val PageSize = 100
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]] =
     contractsReader.lookupMaximumLedgerTime(contractIds)
 
   override def lookupActiveOrDivulgedContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       forParty: Party,
-  ): Future[Option[AbsoluteContractInst]] =
+  ): Future[Option[ContractInst]] =
     contractsReader.lookupActiveContract(forParty, contractId)
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
@@ -873,11 +876,14 @@ private class JdbcLedgerDao(
       val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
     }
 
+  private val translation: LfValueTranslation =
+    new LfValueTranslation(lfValueTranslationCache)
+
   private val transactionsWriter: TransactionsWriter =
-    new TransactionsWriter(dbType, metrics)
+    new TransactionsWriter(dbType, metrics, translation)
 
   override val transactionsReader: TransactionsReader =
-    new TransactionsReader(dbDispatcher, eventsPageSize, metrics)(executionContext)
+    new TransactionsReader(dbDispatcher, eventsPageSize, metrics, translation)(executionContext)
 
   private val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, dbType, metrics)(executionContext)
@@ -907,23 +913,39 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       eventsPageSize: Int,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
-    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = false, metrics)
-      .map(new MeteredLedgerReadDao(_, metrics))
+    owner(
+      serverRole,
+      jdbcUrl,
+      maxConnections,
+      eventsPageSize,
+      validate = false,
+      metrics,
+      lfValueTranslationCache,
+    ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
   def writeOwner(
       serverRole: ServerRole,
       jdbcUrl: String,
       eventsPageSize: Int,
-      metrics: Metrics
+      metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = false, metrics)
-      .map(new MeteredLedgerDao(_, metrics))
+    owner(
+      serverRole,
+      jdbcUrl,
+      maxConnections,
+      eventsPageSize,
+      validate = false,
+      metrics,
+      lfValueTranslationCache,
+    ).map(new MeteredLedgerDao(_, metrics))
   }
 
   def validatingWriteOwner(
@@ -935,7 +957,7 @@ object JdbcLedgerDao {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = true, metrics)
+    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = true, metrics, Cache.none)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -946,6 +968,7 @@ object JdbcLedgerDao {
       eventsPageSize: Int,
       validate: Boolean,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
@@ -958,7 +981,8 @@ object JdbcLedgerDao {
         ExecutionContext.fromExecutor(executor),
         eventsPageSize,
         validate,
-        metrics
+        metrics,
+        lfValueTranslationCache,
       )
 
   sealed trait Queries {

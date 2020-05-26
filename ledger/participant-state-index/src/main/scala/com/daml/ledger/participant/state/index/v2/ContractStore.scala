@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.concurrent.Future
 
@@ -19,15 +19,15 @@ import scala.concurrent.Future
 trait ContractStore {
   def lookupActiveContract(
       submitter: Ref.Party,
-      contractId: AbsoluteContractId
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
+      contractId: ContractId
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
-  def lookupContractKey(submitter: Party, key: GlobalKey): Future[Option[AbsoluteContractId]]
+  def lookupContractKey(submitter: Party, key: GlobalKey): Future[Option[ContractId]]
 
   /**
     * @return The maximum ledger effective time of all contracts in ids, fails as follows:
     *         - if ids is empty or not all the non-divulged ids can be found, a failed [[Future]]
     *         - if all ids are found but each refer to a divulged contract, a successful [[None]]
     */
-  def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Option[Instant]]
+  def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]]
 }

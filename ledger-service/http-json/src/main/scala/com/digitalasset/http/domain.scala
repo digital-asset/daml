@@ -48,7 +48,7 @@ object domain {
     }
   }
 
-  type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   case class JwtPayload(ledgerId: LedgerId, applicationId: ApplicationId, party: Party)
 

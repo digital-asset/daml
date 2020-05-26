@@ -3,10 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.google.protobuf.ByteString
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.concurrent.Eventually
@@ -68,7 +69,7 @@ class BatchingQueueSpec
 
     "not commit empty batches" in {
       val mockCommit =
-        mock[Function[Seq[DamlSubmissionBatch.CorrelatedSubmission], Future[Unit]]]
+        mock[Function[Seq[CorrelatedSubmission], Future[Unit]]]
       val maxWaitDuration = 1.millis
       val queue = DefaultBatchingQueue(
         maxQueueSize = 1,
@@ -77,12 +78,13 @@ class BatchingQueueSpec
         maxConcurrentCommits = 1)
       queue.run(mockCommit)
       verify(mockCommit, Mockito.timeout(10 * maxWaitDuration.toMillis).times(0))
+        .apply(any[Seq[CorrelatedSubmission]]())
       succeed
     }
 
     "commit batch after maxWaitDuration" in {
       val maxWait = 5.millis
-      val batches = mutable.ListBuffer.empty[Seq[DamlSubmissionBatch.CorrelatedSubmission]]
+      val batches = mutable.ListBuffer.empty[Seq[CorrelatedSubmission]]
       val queue =
         DefaultBatchingQueue(
           maxQueueSize = 10,
@@ -95,9 +97,9 @@ class BatchingQueueSpec
           }
 
       val correlatedSubmission1 =
-        DamlSubmissionBatch.CorrelatedSubmission.newBuilder.setCorrelationId("1").build
+        CorrelatedSubmission.newBuilder.setCorrelationId("1").build
       val correlatedSubmission2 =
-        DamlSubmissionBatch.CorrelatedSubmission.newBuilder.setCorrelationId("2").build
+        CorrelatedSubmission.newBuilder.setCorrelationId("2").build
 
       for {
         res1 <- queue.offer(correlatedSubmission1)
@@ -146,7 +148,7 @@ class BatchingQueueSpec
     "commit batch after maxBatchSizeBytes exceeded" in {
       val correlatedSubmission1 = createCorrelatedSubmission("1")
       val correlatedSubmission2 = createCorrelatedSubmission("2")
-      val batches = mutable.ListBuffer.empty[Seq[DamlSubmissionBatch.CorrelatedSubmission]]
+      val batches = mutable.ListBuffer.empty[Seq[CorrelatedSubmission]]
 
       val maxWaitDuration = 50.millis
 
@@ -193,8 +195,8 @@ class BatchingQueueSpec
 
 object BatchingQueueSpec {
 
-  def createCorrelatedSubmission(correlationId: String): DamlSubmissionBatch.CorrelatedSubmission =
-    DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+  def createCorrelatedSubmission(correlationId: String): CorrelatedSubmission =
+    CorrelatedSubmission.newBuilder
       .setCorrelationId(correlationId)
       .setSubmission(ByteString.copyFromUtf8("helloworld"))
       .build

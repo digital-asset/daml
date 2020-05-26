@@ -84,6 +84,7 @@ da_scala_test(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/jwt",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",

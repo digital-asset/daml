@@ -29,12 +29,7 @@ final class Conversions(
   private val ptxCoidToNodeId = machine.ptx.nodes
     .collect {
       case (nodeId, node: N.NodeCreate.WithTxValue[V.ContractId]) =>
-        node.coid match {
-          case acoid: V.AbsoluteContractId =>
-            acoid -> ledger.ptxNodeId(nodeId)
-          case V.RelativeContractId(_) =>
-            throw new IllegalArgumentException("unexpected relative contract id")
-        }
+        node.coid -> ledger.ptxNodeId(nodeId)
     }
 
   private val coidToNodeId = ledger.ledgerData.coidToNodeId ++ ptxCoidToNodeId
@@ -302,17 +297,9 @@ final class Conversions(
   def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): ContractRef =
     ContractRef.newBuilder
       .setRelative(false)
-      .setContractId(convertContractId(coid))
+      .setContractId(coidToNodeId(coid))
       .setTemplateId(convertIdentifier(templateId))
       .build
-
-  def convertContractId(coid: V.ContractId): String =
-    coid match {
-      case acoid: V.AbsoluteContractId =>
-        coidToNodeId(acoid)
-      case V.RelativeContractId(_) =>
-        throw new IllegalArgumentException("unexpected relative contract id")
-    }
 
   def convertScenarioStep(
       stepId: Int,
@@ -421,7 +408,7 @@ final class Conversions(
       .map(nodeId => builder.setParent(convertNodeId(nodeId)))
 
     nodeInfo.node match {
-      case create: N.NodeCreate[V.AbsoluteContractId, Tx.Value[V.AbsoluteContractId]] =>
+      case create: N.NodeCreate[V.ContractId, Tx.Value[V.ContractId]] =>
         val createBuilder =
           Node.Create.newBuilder
             .setContractInstance(
@@ -435,7 +422,7 @@ final class Conversions(
 
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch.WithTxValue[V.AbsoluteContractId] =>
+      case fetch: N.NodeFetch.WithTxValue[V.ContractId] =>
         builder.setFetch(
           Node.Fetch.newBuilder
             .setContractId(coidToNodeId(fetch.coid))
@@ -446,9 +433,9 @@ final class Conversions(
         )
       case ex: N.NodeExercises[
             Ledger.ScenarioNodeId,
-            V.AbsoluteContractId,
+            V.ContractId,
             Tx.Value[
-              V.AbsoluteContractId,
+              V.ContractId,
             ]] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
@@ -470,7 +457,7 @@ final class Conversions(
             .build,
         )
 
-      case lbk: N.NodeLookupByKey[V.AbsoluteContractId, Tx.Value[V.AbsoluteContractId]] =>
+      case lbk: N.NodeLookupByKey[V.ContractId, Tx.Value[V.ContractId]] =>
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
@@ -516,7 +503,7 @@ final class Conversions(
       case fetch: N.NodeFetch.WithTxValue[V.ContractId] =>
         builder.setFetch(
           Node.Fetch.newBuilder
-            .setContractId(convertContractId(fetch.coid))
+            .setContractId(coidToNodeId(fetch.coid))
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
@@ -526,7 +513,7 @@ final class Conversions(
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
-            .setTargetContractId(convertContractId(ex.targetCoid))
+            .setTargetContractId(coidToNodeId(ex.targetCoid))
             .setTemplateId(convertIdentifier(ex.templateId))
             .setChoiceId(ex.choiceId)
             .setConsuming(ex.consuming)
@@ -548,7 +535,7 @@ final class Conversions(
         builder.setLookupByKey({
           val builder = Node.LookupByKey.newBuilder
             .setKeyWithMaintainers(convertKeyWithMaintainers(lookup.key))
-          lookup.result.foreach(cid => builder.setContractId(convertContractId(cid)))
+          lookup.result.foreach(cid => builder.setContractId(coidToNodeId(cid)))
           builder.build
         })
     }
@@ -630,7 +617,7 @@ final class Conversions(
         tycon.foreach(x => eBuilder.setEnumId(convertIdentifier(x)))
         builder.setEnum(eBuilder.build)
       case V.ValueContractId(coid) =>
-        builder.setContractId(convertContractId(coid))
+        builder.setContractId(coidToNodeId(coid))
       case V.ValueList(values) =>
         builder.setList(
           v1.List.newBuilder

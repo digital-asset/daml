@@ -247,19 +247,19 @@ object Pretty {
 
     val ni = l.ledgerData.nodeInfos(nodeId) /* Ekke Ekke Ekke Ekke Ptang Zoo Boing! */
     val ppNode = ni.node match {
-      case create: NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
+      case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
         val d = "create" &: prettyContractInst(create.coinst)
         create.key match {
           case None => d
           case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
-      case ea: NodeFetch[AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
+      case ea: NodeFetch[ContractId, Transaction.Value[ContractId]] =>
         "ensure active" &: prettyContractId(ea.coid)
       case ex: NodeExercises[
             L.ScenarioNodeId,
-            AbsoluteContractId,
+            ContractId,
             Transaction.Value[
-              AbsoluteContractId
+              ContractId
             ]] =>
         val children =
           if (ex.children.nonEmpty)
@@ -271,7 +271,7 @@ object Pretty {
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyVersionedValue(false)(ex.chosenValue) / children)
             .nested(4)
-      case lbk: NodeLookupByKey[AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
+      case lbk: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -329,10 +329,7 @@ object Pretty {
     text(tycon.qualifiedName.toString) + char('@') + prettyPackageId(tycon.packageId)
 
   def prettyContractId(coid: ContractId): Doc =
-    coid match {
-      case acoid: AbsoluteContractId => text(acoid.coid)
-      case RelativeContractId(rcoid) => str(rcoid)
-    }
+    text(coid.coid)
 
   def prettyActiveContracts(c: L.LedgerData): Doc =
     fill(
@@ -400,9 +397,7 @@ object Pretty {
         }) +
           text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
-      case ValueContractId(acoid: AbsoluteContractId) => text(acoid.coid)
-      case ValueContractId(RelativeContractId(rcoid)) =>
-        char('~') + text(rcoid.toString)
+      case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")
       case ValueBool(b) => str(b)
       case ValueList(lst) =>

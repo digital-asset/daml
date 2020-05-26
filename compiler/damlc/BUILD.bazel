@@ -258,6 +258,7 @@ genrule(
         ":daml-base-rst-template",
     ],
     outs = [
+        "daml-base-anchors.json",
         "daml-base-rst.tar.gz",
         "daml-base-hoogle.txt",
     ],
@@ -273,6 +274,7 @@ genrule(
             --hoogle-template=$(location :daml-base-hoogle-template) \
             --base-url=https://docs.daml.com/daml/stdlib \
             --output-hoogle=$(location :daml-base-hoogle.txt) \
+            --output-anchor=$(location :daml-base-anchors.json) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         tar c daml-base-rst \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \

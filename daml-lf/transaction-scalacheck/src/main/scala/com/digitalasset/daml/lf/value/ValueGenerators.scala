@@ -150,44 +150,39 @@ object ValueGenerators {
 
   def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
 
-  private val genRel: Gen[ContractId] =
-    Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
   private val genHash: Gen[crypto.Hash] =
     Gen
       .containerOfN[Array, Byte](crypto.Hash.underlyingHashLength, arbitrary[Byte]) map crypto.Hash.assertFromByteArray
   private val genSuffixes: Gen[Bytes] = for {
-    sz <- Gen.chooseNum(0, AbsoluteContractId.V1.maxSuffixLength)
+    sz <- Gen.chooseNum(0, ContractId.V1.maxSuffixLength)
     ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
   } yield Bytes fromByteArray ab
 
-  val absCoidV0Gen: Gen[AbsoluteContractId.V0] =
-    Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
-  private val genAbsCidV1: Gen[AbsoluteContractId.V1] =
+  val cidV0Gen: Gen[ContractId.V0] =
+    Gen.alphaStr.map(t => Value.ContractId.V0.assertFromString('#' +: t))
+  private val cidV1Gen: Gen[ContractId.V1] =
     Gen.zip(genHash, genSuffixes) map {
-      case (h, b) => AbsoluteContractId.V1.assertBuild(h, b)
+      case (h, b) => ContractId.V1.assertBuild(h, b)
     }
 
-  def absCoidGen: Gen[AbsoluteContractId] = Gen.oneOf(absCoidV0Gen, genAbsCidV1)
-
-  /** Universes of totally-ordered AbsoluteContractIds. */
-  def comparableAbsCoidsGen: Seq[Gen[AbsoluteContractId]] =
+  /** Universes of totally-ordered ContractIds. */
+  def comparableCoidsGen: Seq[Gen[ContractId]] =
     Seq(
       Gen.oneOf(
-        absCoidV0Gen,
-        Gen.zip(genAbsCidV1, arbitrary[Byte]) map {
+        cidV0Gen,
+        Gen.zip(cidV1Gen, arbitrary[Byte]) map {
           case (b1, b) =>
-            AbsoluteContractId.V1
+            ContractId.V1
               .assertBuild(
                 b1.discriminator,
                 if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b)
               )
         }
       ),
-      Gen.oneOf(absCoidV0Gen, genAbsCidV1 map (cid => AbsoluteContractId.V1(cid.discriminator))),
+      Gen.oneOf(cidV0Gen, cidV1Gen map (cid => ContractId.V1(cid.discriminator))),
     )
 
-  def coidGen: Gen[ContractId] =
-    Gen.frequency((1, genRel), (3, absCoidV0Gen))
+  def coidGen: Gen[ContractId] = Gen.oneOf(cidV0Gen, cidV1Gen)
 
   def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
@@ -439,7 +434,7 @@ object ValueGenerators {
       disclosed1 <- nodePartiesGen
       disclosed2 <- nodePartiesGen
       divulged <- Gen.mapOf(
-        absCoidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: AbsoluteContractId) -> ps)))
+        cidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: ContractId) -> ps)))
     } yield BlindingInfo(disclosed1, disclosed2, divulged)
   }
 

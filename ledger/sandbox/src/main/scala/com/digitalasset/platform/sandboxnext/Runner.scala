@@ -38,6 +38,7 @@ import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
@@ -121,6 +122,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   config.metricsReporter,
                   config.metricsReportingInterval,
                 )
+                lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
+                  configuration = config.lfValueTranslationCacheConfiguration,
+                  metrics = metrics,
+                )
                 timeServiceBackend = timeProviderType match {
                   case TimeProviderType.Static =>
                     Some(TimeServiceBackend.simple(Instant.EPOCH))
@@ -167,6 +172,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     allowExistingSchema = true,
                   ),
                   metrics = metrics,
+                  lfValueTranslationCache = lfValueTranslationCache,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -213,6 +219,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   timeServiceBackend = timeServiceBackend,
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
+                  lfValueTranslationCache = lfValueTranslationCache,
                 )
                 _ = promise.completeWith(apiServer.servicesClosed())
               } yield {

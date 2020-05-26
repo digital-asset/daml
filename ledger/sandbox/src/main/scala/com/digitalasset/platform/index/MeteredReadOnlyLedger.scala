@@ -26,7 +26,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -71,12 +71,12 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics) extends Re
     ledger.activeContracts(filter, verbose)
 
   override def lookupContract(
-      contractId: Value.AbsoluteContractId,
+      contractId: Value.ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParty))
 
-  override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[ContractId]] =
     Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParty))
 
   override def lookupFlatTransactionById(
@@ -98,7 +98,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics) extends Re
     )
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]] =
     Timed.future(
       metrics.daml.index.lookupMaximumLedgerTime,

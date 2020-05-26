@@ -206,14 +206,14 @@ The submission performs the following steps:
   discriminator is not `fresh <Discriminator Freshness_>`_, abort the
   interpretation. The submitter can restart the interpretation, which will pick
   another submission seed.
-* If the transaction succeeds, the output is a *raw transaction*
+* If the transaction succeeds, the output is a *submitted transaction*
 
 
-Depending of the ledger implementation, the local contract IDs are
-suffixed with a suffix in a latter step. This yields the *ready
-transaction*. For ledgers that do not require suffixing, raw and ready
-transaction coincide. Ready transactions are the source of true to
-describe the state if the ledger.
+Depending on the ledger implementation, the local contract IDs are
+suffixed with a suffix in a later step. This yields the *committed
+transaction*. For ledgers that do not require suffixing, committed and submitted
+transactions coincide. Committed transactions are the source of truth to
+derive the state of the ledger.
 
 
 

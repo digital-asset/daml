@@ -25,6 +25,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     eventsPageSize: Int,
     stateValueCache: caching.Configuration,
+    lfValueTranslationCache: caching.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -62,6 +63,7 @@ object Config {
       participants = Vector.empty,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       stateValueCache = caching.Configuration.none,
+      lfValueTranslationCache = caching.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -155,6 +157,14 @@ object Config {
         .action((maximumStateValueCacheSize, config) =>
           config.copy(stateValueCache =
             config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
+
+      opt[Long]("max-lf-value-translation-cache-entries")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+        .action((maximumLfValueTranslationCacheEntries, config) =>
+          config.copy(lfValueTranslationCache = config.lfValueTranslationCache.copy(
+            maximumWeight = maximumLfValueTranslationCacheEntries)))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

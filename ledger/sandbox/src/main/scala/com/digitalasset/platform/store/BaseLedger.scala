@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.TransactionId
@@ -56,7 +56,7 @@ abstract class BaseLedger(
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     ledgerDao.lookupKey(key, forParty)
 
   override def flatTransactions(
@@ -105,9 +105,9 @@ abstract class BaseLedger(
   }
 
   override def lookupContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupFlatTransactionById(
@@ -123,7 +123,7 @@ abstract class BaseLedger(
     ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]] =
     ledgerDao.lookupMaximumLedgerTime(contractIds)
 
