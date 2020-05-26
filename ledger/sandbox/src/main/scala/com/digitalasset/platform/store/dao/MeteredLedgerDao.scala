@@ -168,8 +168,8 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       metrics.daml.index.db.storeInitialState,
       ledgerDao.storeInitialState(ledgerEntries, newLedgerEnd))
 
-  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit] =
-    ledgerDao.initializeLedger(ledgerId, ledgerEnd)
+  override def initializeLedger(ledgerId: LedgerId): Future[Unit] =
+    ledgerDao.initializeLedger(ledgerId)
 
   override def reset(): Future[Unit] =
     ledgerDao.reset()

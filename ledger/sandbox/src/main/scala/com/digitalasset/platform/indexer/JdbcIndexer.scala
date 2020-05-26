@@ -109,7 +109,7 @@ final class JdbcIndexerFactory(
       ledgerDao: LedgerDao,
   ): Future[Unit] = {
     logger.info(s"Initializing ledger with ID: $providedLedgerId")
-    ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
+    ledgerDao.initializeLedger(providedLedgerId)
   }
 }
 
