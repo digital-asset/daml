@@ -34,7 +34,7 @@ import scala.annotation.tailrec
 
 object TransactionConversion {
 
-  private type ContractId = Lf.AbsoluteContractId
+  private type ContractId = Lf.ContractId
   private type Transaction = GenTransaction.WithTxValue[EventId, ContractId]
   private type Node = GenNode.WithTxValue[EventId, ContractId]
   private type Create = NodeCreate.WithTxValue[ContractId]

@@ -12,8 +12,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
+import com.daml.caching.Cache
 import com.daml.ledger.on.memory.InMemoryBatchedLedgerReaderWriter
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  BatchingLedgerWriterConfig,
+  KeyValueParticipantState
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
@@ -194,6 +198,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           restartDelay = restartDelay,
         ),
         metrics = new Metrics(new MetricRegistry),
+        lfValueTranslationCache = Cache.none,
       )(materializer, logCtx)
     } yield participantState
   }
@@ -206,6 +211,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
       metrics = new Metrics(new MetricRegistry),
+      lfValueTranslationCache = Cache.none,
     )
   }
 }
@@ -234,6 +240,7 @@ object RecoveringIndexerIntegrationSpec {
       val metrics = new Metrics(new MetricRegistry)
       new InMemoryBatchedLedgerReaderWriter.SingleParticipantOwner(
         ledgerId,
+        BatchingLedgerWriterConfig.reasonableDefault,
         participantId,
         metrics = metrics,
         engine = Engine()

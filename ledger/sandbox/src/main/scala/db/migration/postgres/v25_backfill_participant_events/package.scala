@@ -11,7 +11,7 @@ package db.migration.postgres
 package object v25_backfill_participant_events {
 
   import com.daml.lf.value.{Value => lfval}
-  type ContractId = lfval.AbsoluteContractId
+  type ContractId = lfval.ContractId
 
   import com.daml.lf.{transaction => lftx}
   type NodeId = lftx.Transaction.NodeId

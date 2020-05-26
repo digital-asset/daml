@@ -9,7 +9,7 @@ import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{GenTransaction, Node}
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId, ValueText, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, ContractInst, NodeId, ValueText, VersionedValue}
 import com.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
 
@@ -17,7 +17,7 @@ import scala.collection.immutable.HashMap
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
-  def makeCreateNode(cid: AbsoluteContractId, signatories: Set[Party], stakeholders: Set[Party]) =
+  def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
       coid = cid,
       coinst = ContractInst(
@@ -34,7 +34,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     )
 
   def makeExeNode(
-      target: AbsoluteContractId,
+      target: ContractId,
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -62,7 +62,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
   }
 
   private def toCid(nid: NodeId) =
-    AbsoluteContractId.V1(crypto.Hash.hashPrivateKey(nid.toString))
+    ContractId.V1(crypto.Hash.hashPrivateKey(nid.toString))
 
   "computePerPartyProjectionRoots" should {
 

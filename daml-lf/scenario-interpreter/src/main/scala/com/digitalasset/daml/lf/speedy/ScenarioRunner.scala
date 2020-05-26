@@ -8,7 +8,7 @@ import com.daml.lf.types.Ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.Transaction._
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.Node.GlobalKey
@@ -144,11 +144,7 @@ final case class ScenarioRunner(
         throw SRunnerException(ScenarioErrorCommitError(fas))
       case Right(result) =>
         ledger = result.newLedger
-        callback(
-          value
-            .mapContractId(coid =>
-              Ledger
-                .contractIdToAbsoluteContractId(result.transactionId, coid)))
+        callback(value)
     }
   }
 
@@ -158,10 +154,10 @@ final case class ScenarioRunner(
   }
 
   private def lookupContract(
-      acoid: AbsoluteContractId,
+      acoid: ContractId,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value[AbsoluteContractId]] => Unit) = {
+      cbPresent: ContractInst[Value[ContractId]] => Unit) = {
 
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
