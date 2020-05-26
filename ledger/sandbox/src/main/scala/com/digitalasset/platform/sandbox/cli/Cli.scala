@@ -142,6 +142,10 @@ object Cli {
         .text(
           s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
 
+      opt[Int]("maxInboundMessageSize")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .text(s"This flag is deprecated -- please use --max-inbound-message-size.")
+
       opt[String]("jdbcurl")
         .optional()
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
