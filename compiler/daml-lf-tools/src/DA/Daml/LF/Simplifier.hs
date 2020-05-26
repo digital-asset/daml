@@ -333,7 +333,7 @@ simplifyExpr = fmap fst . cata go'
                 , Right ty <- runGamma world version (typeOf' e)
                 -> do
                     name <- freshExprVarName
-                    modify $ addDefValue DefValue -- todo cacheing??
+                    addDefValue DefValue -- todo cacheing??
                         { dvalBinder = (name, ty)
                         , dvalBody = e
                         , dvalLocation = Nothing
@@ -475,19 +475,8 @@ sWorldExtended SimplifierState{..} = extendWorldSelf sModule sWorld
 
 type Simplifier t = State SimplifierState t
 
-runSimplifier :: World -> Version -> Module -> Simplifier t -> t
-runSimplifier world version mod m = evalState m (initialState world version mod)
-
-initialState :: World -> Version -> Module -> SimplifierState
-initialState w v m = SimplifierState
-    { sWorld = w
-    , sVersion = v
-    , sModule = m { moduleValues = NM.empty }
-    , sReserved = Set.fromList (NM.names (moduleValues m))
-    }
-
-addDefValue :: DefValue -> SimplifierState -> SimplifierState
-addDefValue dval s@SimplifierState{..} = s
+addDefValue :: DefValue -> Simplifier ()
+addDefValue dval = modify $ \s@SimplifierState{..} -> s
     { sModule = sModule { moduleValues = NM.insert dval (moduleValues sModule) }
     , sReserved = Set.insert (fst (dvalBinder dval)) sReserved
     }
@@ -501,14 +490,10 @@ freshExprVarName = do
     pure name
 
 selfQualify :: t -> Simplifier (Qualified t)
-selfQualify x = do
-    m <- gets sModule
-    pure Qualified
-        { qualPackage = PRSelf
-        , qualModule = moduleName m
-        , qualObject = x
-        }
-
+selfQualify qualObject = do
+    qualModule <- gets (moduleName . sModule)
+    let qualPackage = PRSelf
+    pure Qualified {..}
 
 exprRefs :: Expr -> Set.Set (Qualified ExprValName)
 exprRefs = cata $ \case
@@ -531,5 +516,11 @@ simplifyModule :: World -> Version -> Module -> Module
 simplifyModule world version m = runSimplifier world version m $ do
     forM_ (topoSortDefValues m) $ \ dval -> do
         body' <- simplifyExpr (dvalBody dval)
-        modify (addDefValue dval { dvalBody = body' })
+        addDefValue dval { dvalBody = body' }
     gets sModule
+
+runSimplifier :: World -> Version -> Module -> Simplifier t -> t
+runSimplifier sWorld sVersion m x =
+    let sModule = m { moduleValues = NM.empty }
+        sReserved = Set.fromList (NM.names (moduleValues m))
+    in evalState x SimplifierState {..}
