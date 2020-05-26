@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
@@ -67,7 +67,7 @@ object InMemoryBatchedLedgerReaderWriter {
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
       metrics: Metrics,
       engine: Engine,
   )(implicit materializer: Materializer)
@@ -97,7 +97,7 @@ object InMemoryBatchedLedgerReaderWriter {
       participantId: ParticipantId,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
@@ -120,7 +120,10 @@ object InMemoryBatchedLedgerReaderWriter {
         metrics,
         engine)
       val committer =
-        BatchedValidatingCommitter[Index](() => timeProvider.getCurrentTime, validator)
+        BatchedValidatingCommitter[Index](
+          () => timeProvider.getCurrentTime,
+          validator,
+          stateValueCache)
       Resource.successful(
         new InMemoryBatchedLedgerReaderWriter(
           participantId,

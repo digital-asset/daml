@@ -3,6 +3,7 @@
 
 package com.daml.ledger.validator.batch
 
+import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.{
@@ -19,7 +20,6 @@ import com.daml.ledger.validator.{
 }
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
-import com.github.benmanes.caffeine.cache.Cache
 
 import scala.concurrent.{ExecutionContext, Future}
 

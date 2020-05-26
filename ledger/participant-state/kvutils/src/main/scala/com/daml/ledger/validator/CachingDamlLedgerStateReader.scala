@@ -3,13 +3,12 @@
 
 package com.daml.ledger.validator
 
+import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.validator.LedgerStateOperations.Key
-import com.github.benmanes.caffeine.cache.Cache
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.JavaConverters._
 
 /** Queries the set of state reads that have been performed.
   * Must include both cached and actual reads.
@@ -37,9 +36,12 @@ class CachingDamlLedgerStateReader(
 
   override def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]] = {
     this.synchronized { readSet ++= keys }
-    val cachedValues = cache.getAllPresent(keys.asJava).asScala.map {
-      case (key, value) => key -> Some(value)
-    }
+    val cachedValues = keys
+      .map { key =>
+        key -> cache.getIfPresent(key)
+      }
+      .filter(_._2.isDefined)
+      .toMap
     val keysToRead = keys.toSet -- cachedValues.keySet
     if (keysToRead.nonEmpty) {
       delegate
