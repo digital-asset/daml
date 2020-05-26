@@ -43,14 +43,14 @@ final class V32_1__Fix_key_hashes extends BaseJavaMigration {
       val _ = fixHash.executeBatch()
 
     } finally {
+      if (keysRows != null) {
+        keysRows.close()
+      }
       if (selectKeys != null) {
         selectKeys.close()
       }
       if (fixHash != null) {
         fixHash.close()
-      }
-      if (keysRows != null) {
-        keysRows.close()
       }
     }
   }
