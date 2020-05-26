@@ -1,16 +1,25 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module DA.Daml.Options.Packaging.Metadata
   ( PackageDbMetadata(..),
     writeMetadata,
     readMetadata,
+    renamingToFlag,
   ) where
 
 import Data.Aeson
-import DA.Daml.Options.Types (projectPackageDatabase)
+import Data.List
+import DA.Daml.Package.Config ()
+import Data.Map.Strict (Map)
+import qualified Data.Text as T
+import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.Options.Types
+    ( projectPackageDatabase
+    , ModRenaming(..)
+    , PackageArg(..)
+    , PackageFlag(..)
+    )
 import Development.IDE.Types.Location
 import GHC.Generics
 import qualified "ghc-lib-parser" Module as Ghc
@@ -27,17 +36,29 @@ import System.FilePath
 data PackageDbMetadata = PackageDbMetadata
   { directDependencies :: [Ghc.UnitId]
   -- ^ Unit ids of direct dependencies. These are exposed by default
+  , moduleRenamings :: Map Ghc.UnitId (Ghc.ModuleName, [LF.ModuleName])
+  -- ^ Map frm GHC unit id to the prefix and a list of all modules in this package.
+  -- We do not bother differentiating between exposed and unexposed modules
+  -- since we already warn on non-exposed modules anyway and this
+  -- is intended for data-dependencies where everything is exposed.
   } deriving Generic
+
+renamingToFlag :: Ghc.UnitId -> Ghc.ModuleName -> [LF.ModuleName] -> PackageFlag
+renamingToFlag unitId prefix modules =
+    ExposePackage
+        ("Prefix " <> Ghc.unitIdString unitId <> " with " <> Ghc.moduleNameString prefix)
+        (UnitIdArg unitId)
+        ModRenaming
+          { modRenamingWithImplicit = False
+          , modRenamings =
+            [ ( Ghc.mkModuleName (T.unpack $ LF.moduleNameString m)
+              , Ghc.mkModuleName (intercalate "." (Ghc.moduleNameString prefix : map T.unpack (LF.unModuleName m))))
+            | m <- modules
+            ]
+          }
 
 instance ToJSON PackageDbMetadata
 instance FromJSON PackageDbMetadata
-
--- Orphan instances for converting UnitIds to/from JSON.
-instance ToJSON Ghc.UnitId where
-    toJSON unitId = toJSON (Ghc.unitIdString unitId)
-
-instance FromJSON Ghc.UnitId where
-    parseJSON s = Ghc.stringToUnitId <$> parseJSON s
 
 -- | Given the path to the project root, write out the package db metadata.
 writeMetadata :: NormalizedFilePath -> PackageDbMetadata -> IO ()

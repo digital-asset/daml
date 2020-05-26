@@ -230,3 +230,16 @@ This will alias the ``X`` in ``foo-1.0.0`` as ``Foo1.X``, and alias the ``X`` in
 
   import qualified Foo1.X
   import qualified Foo2.X
+
+It is also possible to add a prefix to all modules in a package using
+the ``module-prefixes`` field in your ``daml.yaml``. For the example
+above you can use the following:
+
+.. code-block:: yaml
+
+  module-prefixes:
+    foo-1.0.0: Foo1
+    foo-2.0.0: Foo2
+
+That will allow you to import module ``X`` from package ``foo-1.0.0``
+as ``Foo1.X`` and ``X`` from package ``-foo-2.0.0`` as ``Foo2``.
