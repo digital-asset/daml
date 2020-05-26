@@ -4,14 +4,19 @@
 package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.caching
+import com.daml.ledger.participant.state.kvutils.api.{
+  BatchingLedgerWriterConfig,
+  KeyValueParticipantState
+}
+import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader
+import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader.optionsReader
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   LedgerFactory,
   ParticipantConfig,
   Runner
 }
-import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -56,10 +61,11 @@ object Main {
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
-    ): ResourceOwner[InMemoryLedgerReaderWriter] = {
+    ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
-      new InMemoryLedgerReaderWriter.Owner(
+      new InMemoryBatchedLedgerReaderWriter.Owner(
         initialLedgerId = config.ledgerId,
+        config.extra.batchingLedgerWriterConfig,
         participantId = participantConfig.participantId,
         metrics = metrics,
         stateValueCache = caching.Cache.from(
@@ -85,6 +91,18 @@ object Main {
         .action((maxInboundMessageSize, config) => {
           val extra = config.extra
           config.copy(extra = extra.copy(maxInboundMessageSize = maxInboundMessageSize))
+        })
+      parser
+        .opt[BatchingLedgerWriterConfig]("batching")
+        .optional()
+        .text(BatchingLedgerWriterConfigReader.UsageText)
+        .action({
+          case (parsedBatchingConfig, config) =>
+            config.copy(
+              extra = config.extra.copy(
+                batchingLedgerWriterConfig = parsedBatchingConfig
+              )
+            )
         })
       ()
     }

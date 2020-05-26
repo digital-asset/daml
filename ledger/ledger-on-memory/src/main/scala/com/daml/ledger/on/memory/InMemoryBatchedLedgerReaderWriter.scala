@@ -12,7 +12,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.validator._
@@ -23,6 +23,7 @@ import com.daml.ledger.validator.batch.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.resources.{Resource, ResourceOwner}
@@ -65,21 +66,23 @@ object InMemoryBatchedLedgerReaderWriter {
 
   final class SingleParticipantOwner(
       initialLedgerId: Option[LedgerId],
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
       metrics: Metrics,
       engine: Engine,
   )(implicit materializer: Materializer)
-      extends ResourceOwner[InMemoryBatchedLedgerReaderWriter] {
+      extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
-    ): Resource[InMemoryBatchedLedgerReaderWriter] = {
+    ): Resource[KeyValueLedger] = {
       val state = InMemoryState.empty
       for {
         dispatcher <- InMemoryLedgerReader.dispatcher.acquire()
         readerWriter <- new Owner(
           initialLedgerId,
+          batchingLedgerWriterConfig,
           participantId,
           metrics,
           timeProvider,
@@ -94,6 +97,7 @@ object InMemoryBatchedLedgerReaderWriter {
 
   final class Owner(
       initialLedgerId: Option[LedgerId],
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -102,10 +106,10 @@ object InMemoryBatchedLedgerReaderWriter {
       state: InMemoryState,
       engine: Engine,
   )(implicit materializer: Materializer)
-      extends ResourceOwner[InMemoryBatchedLedgerReaderWriter] {
+      extends ResourceOwner[KeyValueLedger] {
     override def acquire()(
         implicit executionContext: ExecutionContext
-    ): Resource[InMemoryBatchedLedgerReaderWriter] = {
+    ): Resource[KeyValueLedger] = {
       val ledgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
       val keyValueCommitting =
@@ -124,7 +128,7 @@ object InMemoryBatchedLedgerReaderWriter {
           () => timeProvider.getCurrentTime,
           validator,
           stateValueCache)
-      Resource.successful(
+      val readerWriter =
         new InMemoryBatchedLedgerReaderWriter(
           participantId,
           ledgerId,
@@ -132,7 +136,30 @@ object InMemoryBatchedLedgerReaderWriter {
           state,
           committer,
           metrics
-        ))
+        )
+      if (batchingLedgerWriterConfig.enableBatching) {
+        val combinedReaderWriter = newLoggingContext { implicit logCtx =>
+          val batchingLedgerWriter = new BatchingLedgerWriter(
+            BatchingQueueFactory.batchingQueueFrom(batchingLedgerWriterConfig),
+            readerWriter)
+          new LedgerReader with LedgerWriter {
+            override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
+              readerWriter.events(startExclusive)
+
+            override def ledgerId(): LedgerId = readerWriter.ledgerId
+
+            override def currentHealth(): HealthStatus = readerWriter.currentHealth()
+
+            override def participantId: ParticipantId = readerWriter.participantId
+
+            override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+              batchingLedgerWriter.commit(correlationId, envelope)
+          }
+        }
+        Resource.successful(combinedReaderWriter)
+      } else {
+        Resource.successful(readerWriter)
+      }
     }
   }
 
