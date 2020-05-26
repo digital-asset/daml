@@ -12,6 +12,7 @@ load(
 load(
     "//bazel_tools/daml_trigger:daml_trigger.bzl",
     "daml_trigger_dar",
+    "daml_trigger_test",
 )
 load("//sandbox-migration:util.bzl", "migration_test")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
@@ -76,6 +77,20 @@ config_setting(
 [
     daml_trigger_dar(sdk_version)
     for sdk_version in sdk_versions
+]
+
+[
+    daml_trigger_test(
+        compiler_version = sdk_version,
+        runner_version = platform_version,
+    )
+    for sdk_version in sdk_versions
+    for platform_version in platform_versions
+    # Test that the DAML trigger runner can run DARs built with an older SDK
+    # version. I.e. where the runner version is at least the SDK version or
+    # more recent. The HEAD version 0.0.0 is a special case.
+    if versions.is_at_least(sdk_version, platform_version) and sdk_version != "0.0.0" or
+       platform_version == "0.0.0"
 ]
 
 test_suite(
