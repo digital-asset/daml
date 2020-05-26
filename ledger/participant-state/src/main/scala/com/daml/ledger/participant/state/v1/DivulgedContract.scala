@@ -11,10 +11,10 @@ import com.daml.lf.value.Value
   * For more information on divulgence, see:
   * https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   *
-  * @param contractId: The absolute contract identifier.
+  * @param contractId: The contract identifier.
   * @param contractInst: The contract instance.
   */
 final case class DivulgedContract(
-    contractId: Value.AbsoluteContractId,
-    contractInst: AbsoluteContractInst
+    contractId: Value.ContractId,
+    contractInst: ContractInst
 )

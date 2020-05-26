@@ -22,6 +22,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.FlywayMigrations
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,6 +33,7 @@ final class JdbcIndexerFactory(
     config: IndexerConfig,
     readService: ReadService,
     metrics: Metrics,
+    lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -59,6 +61,7 @@ final class JdbcIndexerFactory(
         config.jdbcUrl,
         config.eventsPageSize,
         metrics,
+        lfValueTranslationCache,
       )
       _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
@@ -73,6 +76,7 @@ final class JdbcIndexerFactory(
         config.jdbcUrl,
         config.eventsPageSize,
         metrics,
+        lfValueTranslationCache,
       )
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
     } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)

@@ -76,10 +76,12 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       exercises: Option[RawBatch],
       archives: Option[BatchSql],
   ) {
-    def applySerialization(): SerializedBatches =
+    def applySerialization(
+        lfValueTranslation: LfValueTranslation,
+    ): SerializedBatches =
       new SerializedBatches(
-        creates = creates.map(_.applySerialization()),
-        exercises = exercises.map(_.applySerialization()),
+        creates = creates.map(_.applySerialization(lfValueTranslation)),
+        exercises = exercises.map(_.applySerialization(lfValueTranslation)),
         archives = archives,
       )
   }

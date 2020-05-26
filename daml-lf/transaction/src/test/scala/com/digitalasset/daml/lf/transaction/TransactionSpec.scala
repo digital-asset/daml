@@ -187,8 +187,8 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
       )
 
       val mapping2: V.ContractId => V.ContractId = Map(
-        cid1 -> V.AbsoluteContractId.V1.assertBuild(cid1.discriminator, suffix1),
-        cid2 -> V.AbsoluteContractId.V1.assertBuild(cid2.discriminator, suffix2),
+        cid1 -> V.ContractId.V1.assertBuild(cid1.discriminator, suffix1),
+        cid2 -> V.ContractId.V1.assertBuild(cid2.discriminator, suffix2),
       )
 
       dummyCreateNode("dd").coinst.suffixCid(mapping1)
@@ -236,7 +236,7 @@ object TransactionSpec {
       key = None,
     )
 
-  val dummyCid = V.AbsoluteContractId.V1.assertBuild(
+  val dummyCid = V.ContractId.V1.assertBuild(
     toCid("dummyCid").discriminator,
     Bytes.assertFromString("f00d"),
   )
@@ -260,7 +260,7 @@ object TransactionSpec {
 
   implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
-  implicit def toCid(s: String): V.AbsoluteContractId.V1 =
-    V.AbsoluteContractId.V1(crypto.Hash.hashPrivateKey(s))
+  implicit def toCid(s: String): V.ContractId.V1 =
+    V.ContractId.V1(crypto.Hash.hashPrivateKey(s))
 
 }

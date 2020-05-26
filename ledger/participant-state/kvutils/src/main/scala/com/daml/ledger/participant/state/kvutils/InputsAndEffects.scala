@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.daml.lf.data.Ref._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.Transaction
-import com.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
@@ -32,10 +32,9 @@ private[kvutils] object InputsAndEffects {
         * contracts should be created. The key should be a combination of the transaction
         * id and the relative contract id (that is, the node index).
         */
-      createdContracts: List[
-        (DamlStateKey, NodeCreate[AbsoluteContractId, VersionedValue[AbsoluteContractId]])],
+      createdContracts: List[(DamlStateKey, NodeCreate[ContractId, VersionedValue[ContractId]])],
       /** The contract keys created or updated as part of the transaction. */
-      updatedContractKeys: Map[DamlStateKey, Option[AbsoluteContractId]]
+      updatedContractKeys: Map[DamlStateKey, Option[ContractId]]
   )
   object Effects {
     val empty = Effects(List.empty, List.empty, Map.empty)
@@ -64,7 +63,7 @@ private[kvutils] object InputsAndEffects {
 
     val localContract = tx.localContracts
 
-    def addContractInput(coid: AbsoluteContractId): Unit =
+    def addContractInput(coid: ContractId): Unit =
       if (!localContract.isDefinedAt(coid))
         inputs += contractIdToStateKey(coid)
 

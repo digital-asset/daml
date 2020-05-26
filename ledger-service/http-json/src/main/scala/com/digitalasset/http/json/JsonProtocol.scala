@@ -6,7 +6,7 @@ package com.daml.http.json
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
@@ -27,16 +27,16 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
+  implicit val DomainContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
 
-  implicit val AbsoluteContractIdFormat: JsonFormat[AbsoluteContractId] =
-    new JsonFormat[AbsoluteContractId] {
-      override def write(obj: AbsoluteContractId) =
+  implicit val ContractIdFormat: JsonFormat[ContractId] =
+    new JsonFormat[ContractId] {
+      override def write(obj: ContractId) =
         JsString(obj.coid)
       override def read(json: JsValue) = json match {
         case JsString(s) =>
-          AbsoluteContractId fromString s fold (deserializationError(_), identity)
+          ContractId fromString s fold (deserializationError(_), identity)
         case _ => deserializationError("ContractId must be a string")
       }
     }
@@ -75,13 +75,13 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     jsonFormat2(domain.AllocatePartyRequest)
 
   object LfValueCodec
-      extends ApiCodecCompressed[AbsoluteContractId](
+      extends ApiCodecCompressed[ContractId](
         encodeDecimalAsString = true,
         encodeInt64AsString = true)
 
   // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
-      extends ApiCodecCompressed[AbsoluteContractId](
+      extends ApiCodecCompressed[ContractId](
         encodeDecimalAsString = false,
         encodeInt64AsString = false) {
     private[http] def asLfValueCodec(jv: JsValue): JsValue = jv match {

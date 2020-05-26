@@ -120,8 +120,7 @@ object RunnerMain {
           result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
           _ <- Future {
             config.outputFile.foreach { outputFile =>
-              val jsVal = LfValueCodec.apiValueToJsValue(
-                result.toValue.assertNoRelCid(rcoid => s"Unexpected relative contract id $rcoid"))
+              val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
               Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
             }
           }

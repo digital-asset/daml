@@ -11,7 +11,7 @@ import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.platform.store.Conversions._
 import db.migration.translation.TransactionSerializer
@@ -19,7 +19,7 @@ import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V4_1__Collect_Parties extends BaseJavaMigration {
 
-  private type Transaction = GenTransaction.WithTxValue[EventId, AbsoluteContractId]
+  private type Transaction = GenTransaction.WithTxValue[EventId, ContractId]
 
   // the number of contracts proceeded in a batch.
   private val batchSize = 10 * 1000
@@ -100,21 +100,21 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
       .fold[Set[Ref.Party]](Set.empty) {
         case (parties, (_, node)) =>
           node match {
-            case nf: NodeFetch.WithTxValue[AbsoluteContractId] =>
+            case nf: NodeFetch.WithTxValue[ContractId] =>
               parties
                 .union(nf.signatories)
                 .union(nf.stakeholders)
                 .union(nf.actingParties.getOrElse(Set.empty))
-            case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
+            case nc: NodeCreate.WithTxValue[ContractId] =>
               parties
                 .union(nc.signatories)
                 .union(nc.stakeholders)
-            case ne: NodeExercises.WithTxValue[_, AbsoluteContractId] =>
+            case ne: NodeExercises.WithTxValue[_, ContractId] =>
               parties
                 .union(ne.signatories)
                 .union(ne.stakeholders)
                 .union(ne.actingParties)
-            case _: NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
+            case _: NodeLookupByKey.WithTxValue[ContractId] =>
               parties
           }
       }

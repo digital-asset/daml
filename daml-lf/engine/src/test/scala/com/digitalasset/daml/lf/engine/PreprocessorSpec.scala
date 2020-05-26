@@ -61,7 +61,7 @@ class PreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyCh
       TParty ->
         ValueParty(Ref.Party.assertFromString("Alice")),
       TContractId(TTyCon(recordCon)) ->
-        ValueContractId(AbsoluteContractId.assertFromString("#contractId")),
+        ValueContractId(ContractId.assertFromString("#contractId")),
       TList(TText) ->
         ValueList(FrontStack(ValueText("a"), ValueText("b"))),
       TTextMap(TBool) ->
