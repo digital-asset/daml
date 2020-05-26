@@ -168,15 +168,15 @@ private class JdbcLedgerDao(
   }
 
   private val currentConfigurationParser: ResultSetParser[Option[(Offset, Configuration)]] =
-    (offset("ledger_end") ~
+    (offset("ledger_end").? ~
       byteArray("configuration").? map flatten).single
       .map {
-        case (_, None) => None
-        case (offset, Some(configBytes)) =>
+        case (Some(offset), Some(configBytes)) =>
           Configuration
             .decode(configBytes)
             .toOption
             .map(config => offset -> config)
+        case _ => None
       }
 
   private def selectLedgerConfiguration(implicit conn: Connection) =
