@@ -69,8 +69,6 @@ object InMemoryLedgerReaderWriter {
 
   private val NamespaceLogEntries = "L"
 
-  private[memory] val StartIndex: Index = 0
-
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
@@ -89,7 +87,7 @@ object InMemoryLedgerReaderWriter {
     ): Resource[InMemoryLedgerReaderWriter] = {
       val state = InMemoryState.empty
       for {
-        dispatcher <- dispatcher.acquire()
+        dispatcher <- InMemoryLedgerReader.dispatcher.acquire()
         readerWriter <- new Owner(
           initialLedgerId,
           participantId,
@@ -134,13 +132,4 @@ object InMemoryLedgerReaderWriter {
         ))
     }
   }
-
-  def dispatcher: ResourceOwner[Dispatcher[Index]] =
-    ResourceOwner.forCloseable(
-      () =>
-        Dispatcher(
-          "in-memory-key-value-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-      ))
 }
