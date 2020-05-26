@@ -8,6 +8,7 @@ load(
     "da_scala_test",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 
 da_scala_library(
     name = "trigger-service",
@@ -72,7 +73,10 @@ da_scala_binary(
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":test-model.dar"],
+    data = [
+        ":test-model.dar",
+        "@toxiproxy_nix//:bin/toxiproxy-cmd",
+    ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":trigger-service",
@@ -91,14 +95,16 @@ da_scala_test(
         "//ledger/sandbox",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
+        "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
-)
+) if not is_windows else None  # For now while we don't have Toxiproxy support on Windows.
 
 genrule(
     name = "test-model",

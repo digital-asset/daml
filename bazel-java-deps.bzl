@@ -63,6 +63,7 @@ def install_java_deps():
             "com.typesafe.slick:slick_2.12:3.3.0",
             "com.typesafe.slick:slick-hikaricp_2.12:3.3.0",
             "com.zaxxer:HikariCP:3.2.0",
+            "eu.rekawek.toxiproxy:toxiproxy-java:2.1.3",
             "io.circe:circe-core_2.12:0.10.0",
             "io.circe:circe-generic_2.12:0.10.0",
             "io.circe:circe-parser_2.12:0.10.0",
