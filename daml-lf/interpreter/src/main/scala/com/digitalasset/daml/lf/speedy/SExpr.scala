@@ -36,13 +36,22 @@ sealed abstract class SExpr extends Product with Serializable {
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
 
+  val optimizeAtomicApps: Boolean = true //dev-time switch
+
+  sealed abstract class SExprAtomic extends SExpr {
+    def evaluate(machine: Machine): SValue
+  }
+
   /** Reference to a variable. 'index' is the 1-based de Bruijn index,
     * that is, SEVar(1) points to the nearest enclosing variable binder.
     * which could be an SELam, SELet, or a binding variant of SECasePat.
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     * This expression form is only allowed prior to closure conversion
     */
-  final case class SEVar(index: Int) extends SExpr {
+  final case class SEVar(index: Int) extends SExprAtomic {
+    def evaluate(machine: Machine): SValue = {
+      crash("unexpected SEVar, expected SELoc(S/A/F)")
+    }
     def execute(machine: Machine): Unit = {
       crash("unexpected SEVar, expected SELoc(S/A/F)")
     }
@@ -77,7 +86,16 @@ object SExpr {
   }
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltin) extends SExpr {
+  final case class SEBuiltin(b: SBuiltin) extends SExprAtomic {
+    def evaluate(machine: Machine): SValue = {
+      /* special case for nullary record constructors */
+      b match {
+        case SBRecCon(id, fields) if b.arity == 0 =>
+          SRecord(id, fields, new ArrayList())
+        case _ =>
+          SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
+      }
+    }
     def execute(machine: Machine): Unit = {
       /* special case for nullary record constructors */
       machine.returnValue = b match {
@@ -90,7 +108,10 @@ object SExpr {
   }
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
-  final case class SEValue(v: SValue) extends SExpr {
+  final case class SEValue(v: SValue) extends SExprAtomic {
+    def evaluate(machine: Machine): SValue = {
+      v
+    }
     def execute(machine: Machine): Unit = {
       machine.returnValue = v
     }
@@ -101,10 +122,26 @@ object SExpr {
   /** Function application. Apply 'args' to function 'fun', where 'fun'
     * evaluates to a builtin or a closure.
     */
-  final case class SEApp(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+  final case class SEAppE(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KArg(args, machine.frame, machine.actuals, machine.env.size))
       machine.ctrl = fun
+    }
+  }
+
+  final case class SEAppA(fun: SExprAtomic, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+    def execute(machine: Machine): Unit = {
+      val vfun = fun.evaluate(machine)
+      executeApplication(machine, vfun, args)
+    }
+  }
+
+  object SEApp {
+    def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
+      (optimizeAtomicApps, fun) match {
+        case (true, vfun: SExprAtomic) => SEAppA(vfun, args)
+        case _ => SEAppE(fun, args)
+      }
     }
   }
 
@@ -148,8 +185,11 @@ object SExpr {
     This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
     S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
     */
-  sealed abstract class SELoc extends SExpr {
+  sealed abstract class SELoc extends SExprAtomic {
     def lookup(machine: Machine): SValue
+    def evaluate(machine: Machine): SValue = {
+      lookup(machine)
+    }
     def execute(machine: Machine): Unit = {
       machine.returnValue = lookup(machine)
     }
