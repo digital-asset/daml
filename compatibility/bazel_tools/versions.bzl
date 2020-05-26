@@ -96,12 +96,12 @@ def _cmp_version(version1, version2):
     """
 
     # Handle special-cases for 0.0.0 which is always the latest.
-    if version1 == '0.0.0' and version2 == '0.0.0':
-      return 0
-    elif version1 == '0.0.0':
-      return 1
-    elif version2 == '0.0.0':
-      return -1
+    if version1 == "0.0.0" and version2 == "0.0.0":
+        return 0
+    elif version1 == "0.0.0":
+        return 1
+    elif version2 == "0.0.0":
+        return -1
 
     # No version is 0.0.0 so use a proper semver comparison.
     # Note that the comparisons in skylib ignore the prerelease
@@ -134,10 +134,10 @@ def _cmp_version(version1, version2):
         return _cmp(len(a), len(b))
 
 def _is_at_least(version1, version2):
-  return _cmp_version(version1, version2) >= 0
+    return _cmp_version(version1, version2) >= 0
 
 def _is_at_most(version1, version2):
-  return _cmp_version(version1, version2) <= 0
+    return _cmp_version(version1, version2) <= 0
 
 versions = struct(
     is_at_most = _is_at_most,

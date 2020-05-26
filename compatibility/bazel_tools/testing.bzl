@@ -6,7 +6,7 @@ load(
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:versions.bzl", "versions", "version_to_name")
+load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
 # Indexed first by test tool version and then a list of ranges
