@@ -1659,11 +1659,11 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0.jar",
                 "directDependencies": [
                     "com.google.code.gson:gson:2.8.2",
-                    "com.google.protobuf:protobuf-java:3.8.0"
+                    "com.google.protobuf:protobuf-java:3.11.0"
                 ],
                 "dependencies": [
-                    "com.google.code.gson:gson:2.8.2",
-                    "com.google.protobuf:protobuf-java:3.8.0"
+                    "com.google.protobuf:protobuf-java:3.11.0",
+                    "com.google.code.gson:gson:2.8.2"
                 ],
                 "exclusions": [
                     "com.google.guava:guava",
@@ -1680,10 +1680,10 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0-sources.jar",
                 "directDependencies": [
                     "com.google.code.gson:gson:jar:sources:2.8.2",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.google.code.gson:gson:jar:sources:2.8.2"
                 ],
                 "exclusions": [
@@ -1697,26 +1697,26 @@
                 "sha256": "9bf1911bb1a4e30e1f20451257f6c7063406fa8e9c7ea961411cc1d3a0fcd4c7"
             },
             {
-                "coord": "com.google.protobuf:protobuf-java:3.8.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.8.0/protobuf-java-3.8.0.jar",
+                "coord": "com.google.protobuf:protobuf-java:3.11.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.8.0/protobuf-java-3.8.0.jar",
+                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.8.0/protobuf-java-3.8.0.jar"
+                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0.jar"
                 ],
-                "sha256": "94ba90a869ddad07eb49afaa8f39e676c2554b5b1c417ad9e1188257e79be60f"
+                "sha256": "123d8b260cfdbb91a208931c2d3ea0988c6942f4f4d9303b008f005ef3a4124c"
             },
             {
-                "coord": "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.8.0/protobuf-java-3.8.0-sources.jar",
+                "coord": "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.8.0/protobuf-java-3.8.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.8.0/protobuf-java-3.8.0-sources.jar"
+                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0-sources.jar"
                 ],
-                "sha256": "1982b2a96f752cf0d64c3066b5e9e4016f9cc825591f3d1a9c40a017203fcb2f"
+                "sha256": "d02e967398a4dda1e88ff156854d11d2430d0e155bc99ecccad977b46937842c"
             },
             {
                 "coord": "com.h2database:h2:1.4.200",
@@ -2454,14 +2454,14 @@
                 "coord": "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-lang:scala-library:2.12.11",
-                    "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
-                    "com.google.protobuf:protobuf-java:3.8.0"
+                    "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0.jar",
                 "mirror_urls": [
@@ -2473,14 +2473,14 @@
                 "coord": "com.thesamet.scalapb:compilerplugin_2.12:jar:sources:0.9.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.8",
-                    "org.scala-lang:scala-library:jar:sources:2.12.11",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0"
+                    "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0-sources.jar",
                 "mirror_urls": [
@@ -2563,8 +2563,8 @@
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.api.grpc:proto-google-common-protos:1.17.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "io.grpc:grpc-context:1.29.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "io.grpc:grpc-api:1.29.0",
@@ -2596,8 +2596,8 @@
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "io.grpc:grpc-protobuf:jar:sources:1.29.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
                     "io.grpc:grpc-stub:jar:sources:1.29.0",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
@@ -2622,14 +2622,14 @@
                 "coord": "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.thesamet.scalapb:lenses_2.12:0.9.0",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
                     "com.thesamet.scalapb:lenses_2.12:0.9.0",
-                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.lihaoyi:sourcecode_2.12:0.1.7"
@@ -2644,14 +2644,14 @@
                 "coord": "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.0",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
@@ -2718,13 +2718,13 @@
                 "coord": "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
                 "file": "v1/https/repo1.maven.org/maven2/com/trueaccord/scalapb/scalapb-runtime_2.12/0.6.0-pre2/scalapb-runtime_2.12-0.6.0-pre2.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.trueaccord.lenses:lenses_2.12:0.4.10",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
@@ -2740,14 +2740,14 @@
                 "coord": "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
                 "file": "v1/https/repo1.maven.org/maven2/com/trueaccord/scalapb/scalapb-runtime_2.12/0.6.0-pre2/scalapb-runtime_2.12-0.6.0-pre2-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "com.trueaccord.lenses:lenses_2.12:jar:sources:0.4.10",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.trueaccord.lenses:lenses_2.12:jar:sources:0.4.10",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
@@ -3026,10 +3026,10 @@
                 "coord": "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.8.0"
+                    "com.google.protobuf:protobuf-java:3.11.0"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.8.0"
+                    "com.google.protobuf:protobuf-java:3.11.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar",
                 "mirror_urls": [
@@ -3041,10 +3041,10 @@
                 "coord": "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
@@ -3105,9 +3105,9 @@
                 "dependencies": [
                     "com.typesafe.akka:akka-actor_2.12:2.6.1",
                     "com.typesafe.akka:akka-testkit_2.12:2.6.1",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.typesafe.akka:akka-stream_2.12:2.6.1",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
@@ -3130,7 +3130,7 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.6.1",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
@@ -3160,8 +3160,8 @@
                 ],
                 "dependencies": [
                     "com.typesafe.akka:akka-actor_2.12:2.6.1",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
@@ -3186,7 +3186,7 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
@@ -4405,7 +4405,7 @@
                 "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0.jar",
                 "directDependencies": [
                     "com.google.api.grpc:proto-google-common-protos:1.17.0",
-                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "io.grpc:grpc-api:1.29.0",
                     "io.grpc:grpc-protobuf-lite:1.29.0",
                     "com.google.guava:guava:24.0-jre"
@@ -4414,8 +4414,8 @@
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.api.grpc:proto-google-common-protos:1.17.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "io.grpc:grpc-context:1.29.0",
                     "io.grpc:grpc-api:1.29.0",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
@@ -4433,7 +4433,7 @@
                 "coord": "io.grpc:grpc-protobuf:jar:sources:1.29.0",
                 "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
                     "com.google.guava:guava:jar:sources:24.0-jre",
                     "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
@@ -4442,7 +4442,7 @@
                 "dependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
                     "io.grpc:grpc-context:jar:sources:1.29.0",
@@ -4471,8 +4471,8 @@
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.api.grpc:proto-google-common-protos:1.17.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "io.grpc:grpc-core:1.29.0",
                     "com.google.protobuf:protobuf-java-util:3.11.0",
                     "com.google.android:annotations:4.1.1.4",
@@ -4505,9 +4505,9 @@
                 "dependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "com.google.android:annotations:jar:sources:4.1.1.4",
                     "io.grpc:grpc-protobuf:jar:sources:1.29.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
                     "io.grpc:grpc-core:jar:sources:1.29.0",
                     "com.google.protobuf:protobuf-java-util:jar:sources:3.11.0",
@@ -8643,6 +8643,7 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
@@ -8650,7 +8651,6 @@
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
                     "org.scala-sbt:util-tracking_2.12:1.1.3",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
@@ -8733,11 +8733,11 @@
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scala-sbt:util-position_2.12:jar:sources:1.1.3",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:run_2.12:jar:sources:1.1.4",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:collections_2.12:jar:sources:1.1.4",
@@ -9628,6 +9628,7 @@
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
                     "org.scala-sbt:logic_2.12:1.1.4",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
@@ -9635,7 +9636,6 @@
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
                     "org.scala-sbt:util-tracking_2.12:1.1.3",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scala-sbt:protocol_2.12:1.1.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
@@ -9736,12 +9736,12 @@
                     "org.scala-sbt:util-position_2.12:jar:sources:1.1.3",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "org.scala-sbt:template-resolver:jar:sources:0.1",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:run_2.12:jar:sources:1.1.4",
                     "com.github.cb372:scalacache-caffeine_2.12:jar:sources:0.20.0",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:main-settings_2.12:jar:sources:1.1.4",
                     "org.scala-sbt:protocol_2.12:jar:sources:1.1.4",
@@ -10017,6 +10017,7 @@
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
                     "org.scala-sbt:logic_2.12:1.1.4",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
@@ -10024,7 +10025,6 @@
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
                     "org.scala-sbt:util-tracking_2.12:1.1.3",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scala-sbt:protocol_2.12:1.1.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
@@ -10109,12 +10109,12 @@
                     "org.scala-sbt:util-position_2.12:jar:sources:1.1.3",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "org.scala-sbt:template-resolver:jar:sources:0.1",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:run_2.12:jar:sources:1.1.4",
                     "com.github.cb372:scalacache-caffeine_2.12:jar:sources:0.20.0",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:main-settings_2.12:jar:sources:1.1.4",
                     "org.scala-sbt:protocol_2.12:jar:sources:1.1.4",
@@ -11366,10 +11366,10 @@
                     "org.scala-sbt:util-relation_2.12:1.1.3",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
@@ -11413,10 +11413,10 @@
                 "dependencies": [
                     "org.scala-sbt:util-interface:jar:sources:1.1.3",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
@@ -11466,12 +11466,12 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
                     "com.typesafe:config:1.4.0",
@@ -11534,10 +11534,10 @@
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scala-sbt:util-position_2.12:jar:sources:1.1.3",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
@@ -11715,10 +11715,10 @@
                 ],
                 "dependencies": [
                     "org.scalameta:transversers_2.12:1.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scalameta:dialects_2.12:1.8.0",
                     "org.scalameta:tokens_2.12:1.8.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scalameta:tokenizers_2.12:1.8.0",
                     "org.scalameta:common_2.12:1.8.0",
                     "org.scalameta:inputs_2.12:1.8.0",
@@ -11750,7 +11750,7 @@
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scalameta:common_2.12:jar:sources:1.8.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scalameta:tokens_2.12:jar:sources:1.8.0",
                     "org.scalameta:parsers_2.12:jar:sources:1.8.0",
                     "org.scalameta:inline_2.12:jar:sources:1.8.0",
@@ -12103,10 +12103,10 @@
                 ],
                 "dependencies": [
                     "org.scalameta:transversers_2.12:1.8.0",
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scalameta:dialects_2.12:1.8.0",
                     "org.scalameta:tokens_2.12:1.8.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scalameta:tokenizers_2.12:1.8.0",
                     "org.scalameta:common_2.12:1.8.0",
                     "org.scalameta:inputs_2.12:1.8.0",
@@ -12147,7 +12147,7 @@
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scalameta:common_2.12:jar:sources:1.8.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scalameta:tokens_2.12:jar:sources:1.8.0",
                     "org.scalameta:parsers_2.12:jar:sources:1.8.0",
                     "org.scalameta:inline_2.12:jar:sources:1.8.0",
@@ -12181,10 +12181,10 @@
                     "org.scalameta:trees_2.12:1.8.0"
                 ],
                 "dependencies": [
+                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scalameta:dialects_2.12:1.8.0",
                     "org.scalameta:tokens_2.12:1.8.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
-                    "com.google.protobuf:protobuf-java:3.8.0",
                     "org.scalameta:tokenizers_2.12:1.8.0",
                     "org.scalameta:common_2.12:1.8.0",
                     "org.scalameta:inputs_2.12:1.8.0",
@@ -12215,7 +12215,7 @@
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scalameta:common_2.12:jar:sources:1.8.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scalameta:tokens_2.12:jar:sources:1.8.0",
                     "org.scalameta:parsers_2.12:jar:sources:1.8.0",
                     "org.scalameta:tokenizers_2.12:jar:sources:1.8.0",
@@ -14756,6 +14756,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -258301563
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 950073724
     }
 }
