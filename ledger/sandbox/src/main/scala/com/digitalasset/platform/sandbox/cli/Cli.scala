@@ -271,6 +271,18 @@ object Cli {
         .text(
           "The maximum number of parallel command submissions. Only applicable to sandbox-classic.")
 
+      opt[Long]("max-lf-value-translation-cache-entries")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+        .action(
+          (maximumLfValueTranslationCacheEntries, config) =>
+            config.copy(
+              lfValueTranslationCacheConfiguration = config.lfValueTranslationCacheConfiguration
+                .copy(maximumWeight = maximumLfValueTranslationCacheEntries)
+          )
+        )
+
       help("help").text("Print the usage text")
 
       checkConfig(c => {

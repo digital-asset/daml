@@ -86,9 +86,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       val deletions: Option[(Set[ContractId], BatchSql)],
       val transientContracts: Set[ContractId],
   ) {
-    def applySerialization(): SerializedBatches =
+    def applySerialization(lfValueTranslation: LfValueTranslation): SerializedBatches =
       new SerializedBatches(
-        insertions = insertions.map { case (ids, rawBatch) => (ids, rawBatch.applySerialization()) },
+        insertions = insertions.map {
+          case (ids, rawBatch) => (ids, rawBatch.applySerialization(lfValueTranslation))
+        },
         deletions = deletions,
         transientContracts = transientContracts,
       )
