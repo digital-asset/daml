@@ -65,8 +65,6 @@ final class InMemoryLedgerReaderWriter private (
 }
 
 object InMemoryLedgerReaderWriter {
-  type Index = Int
-
   private val NamespaceLogEntries = "L"
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC

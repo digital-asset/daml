@@ -6,7 +6,7 @@ package com.daml.ledger.on.memory
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.on.memory.InMemoryLedgerReader.{Index, StartIndex}
+import com.daml.ledger.on.memory.InMemoryLedgerReader.StartIndex
 import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
@@ -44,8 +44,6 @@ class InMemoryLedgerReader(
 }
 
 object InMemoryLedgerReader {
-  type Index = Int
-
   private val StartIndex: Index = 0
 
   def dispatcher: ResourceOwner[Dispatcher[Index]] =
