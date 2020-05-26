@@ -26,13 +26,12 @@ class ValuePredicateTest
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
   import ValuePredicateTest._
-  type Cid = V.AbsoluteContractId
+  type Cid = V.ContractId
   private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(
-    Gen.alphaStr map (t => V.AbsoluteContractId.V0 assertFromString ('#' +: t)))
+    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t)))
   // only V0 supported in this test atm
-  private[this] implicit val ordCid: Order[Cid] = Order[V.AbsoluteContractId.V0] contramap (inside(
-    _) {
-    case a0 @ V.AbsoluteContractId.V0(_) => a0
+  private[this] implicit val ordCid: Order[Cid] = Order[V.ContractId.V0] contramap (inside(_) {
+    case a0 @ V.ContractId.V0(_) => a0
   })
 
   private[this] val dummyId = Ref.Identifier(

@@ -71,3 +71,75 @@ def version_to_name(version):
         name = version
 
     return name
+
+def _cmp(a, b):
+    if a == b:
+        return 0
+    elif a > b:
+        return 1
+    else:
+        return -1
+
+def _cmp_prerelease_part(part1, part2):
+    if part1.isdigit() and part2.isdigit():
+        return _cmp(int(part1), int(part2))
+    elif part1.isdigit():
+        return False
+    elif part2.isdigit():
+        return True
+    else:
+        return _cmp(part1, part2)
+
+def _cmp_version(version1, version2):
+    """Semver comparison of version1 and version2.
+    Returns 1 if version1 > version2, 0 if version1 == version2 and -1 if version1 < version2.
+    """
+
+    # Handle special-cases for 0.0.0 which is always the latest.
+    if version1 == "0.0.0" and version2 == "0.0.0":
+        return 0
+    elif version1 == "0.0.0":
+        return 1
+    elif version2 == "0.0.0":
+        return -1
+
+    # No version is 0.0.0 so use a proper semver comparison.
+    # Note that the comparisons in skylib ignore the prerelease
+    # so they aren’t suitable if we have one.
+
+    (core1, prerelease1, _) = _semver_components(version1)
+    (core2, prerelease2, _) = _semver_components(version2)
+    core1_parsed = _bazel_versions.parse(core1)
+    core2_parsed = _bazel_versions.parse(core2)
+
+    # First compare (major, minor, patch) triples
+    if core1_parsed > core2_parsed:
+        return 1
+    elif core1_parsed < core2_parsed:
+        return -1
+    elif not prerelease1 and not prerelease2:
+        return 0
+    elif not prerelease1:
+        return 1
+    elif not prerelease2:
+        return -1
+    else:
+        # Finally compare the prerelease.
+        parts1 = prerelease1.split(".")
+        parts2 = prerelease2.split(".")
+        for a, b in zip(parts1, parts2):
+            cmp_result = _cmp_prerelease_part(a, b)
+            if cmp_result != 0:
+                return cmp_result
+        return _cmp(len(a), len(b))
+
+def _is_at_least(version1, version2):
+    return _cmp_version(version1, version2) >= 0
+
+def _is_at_most(version1, version2):
+    return _cmp_version(version1, version2) <= 0
+
+versions = struct(
+    is_at_most = _is_at_most,
+    is_at_least = _is_at_least,
+)

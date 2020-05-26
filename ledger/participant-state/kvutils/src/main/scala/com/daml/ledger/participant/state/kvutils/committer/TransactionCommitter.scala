@@ -22,7 +22,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
 import com.daml.lf.transaction.Transaction.AbsTransaction
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
@@ -172,7 +172,7 @@ private[kvutils] class TransactionCommitter(
         // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
         // which are not evidenced in the transaction itself and hence the contract key state is
         // not included in the inputs.
-        lazy val knownKeys: Map[DamlContractKey, Value.AbsoluteContractId] =
+        lazy val knownKeys: Map[DamlContractKey, Value.ContractId] =
           commitContext.inputs.collect {
             case (key, Some(value))
                 if value.hasContractState
@@ -338,7 +338,7 @@ private[kvutils] class TransactionCommitter(
   ): StepResult[DamlTransactionEntrySummary] = {
     val effects = InputsAndEffects.computeEffects(transactionEntry.absoluteTransaction)
 
-    val cid2nid: Value.AbsoluteContractId => Value.NodeId =
+    val cid2nid: Value.ContractId => Value.NodeId =
       transactionEntry.absoluteTransaction.localContracts
 
     val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
@@ -434,7 +434,7 @@ private[kvutils] class TransactionCommitter(
   private def updateContractKeyWithContractKeyState(
       ledgerEffectiveTime: ProtoTimestamp,
       key: DamlStateKey,
-      contractKeyState: Option[AbsoluteContractId]): (DamlStateKey, DamlStateValue) = {
+      contractKeyState: Option[ContractId]): (DamlStateKey, DamlStateValue) = {
     logger.trace(s"updating contract key $key to $contractKeyState")
     key ->
       DamlStateValue.newBuilder
@@ -456,8 +456,8 @@ private[kvutils] class TransactionCommitter(
   private def lookupContract(
       transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap)(
-      coid: Value.AbsoluteContractId,
-  ): Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]] = {
+      coid: Value.ContractId,
+  ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
@@ -516,8 +516,8 @@ private[kvutils] class TransactionCommitter(
   private def lookupKey(
       transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap,
-      knownKeys: Map[DamlContractKey, Value.AbsoluteContractId],
-  )(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
+      knownKeys: Map[DamlContractKey, Value.ContractId],
+  )(key: Node.GlobalKey): Option[Value.ContractId] = {
     // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
     // this is not a problem, because:
     // a) if the lookup was negative and we actually found a contract,

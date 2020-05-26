@@ -183,7 +183,10 @@ class ReplService(
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     packages = packages + (pkgId -> pkg)
-    compiledDefinitions = compiledDefinitions ++ Compiler(packages, Compiler.NoProfile)
+    compiledDefinitions = compiledDefinitions ++ Compiler(
+      packages,
+      Compiler.FullStackTrace,
+      Compiler.NoProfile)
       .unsafeCompilePackage(pkgId)
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
@@ -219,9 +222,14 @@ class ReplService(
     }
 
     val allPkgs = packages + (homePackageId -> pkg)
-    val defs = Compiler(allPkgs, Compiler.NoProfile).unsafeCompilePackage(homePackageId)
+    val defs = Compiler(allPkgs, Compiler.FullStackTrace, Compiler.NoProfile)
+      .unsafeCompilePackage(homePackageId)
     val compiledPackages =
-      PureCompiledPackages(allPkgs, compiledDefinitions ++ defs, Compiler.NoProfile)
+      PureCompiledPackages(
+        allPkgs,
+        compiledDefinitions ++ defs,
+        Compiler.FullStackTrace,
+        Compiler.NoProfile)
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),

@@ -18,7 +18,7 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
   private val otherPartyWhoSeesEvents = Ref.Party.assertFromString("otherParty")
   private val packageId = "myPackage"
   private val eventId = Ref.LedgerString.assertFromString("someEventId")
-  private val contractId = Value.AbsoluteContractId.assertFromString("#someContractId")
+  private val contractId = Value.ContractId.assertFromString("#someContractId")
   private val party1 = Ref.Party.assertFromString("party1")
   private val party2 = Ref.Party.assertFromString("party2")
   private val module1 = "module1"

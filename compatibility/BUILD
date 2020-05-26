@@ -3,7 +3,7 @@
 
 load("@bazel_skylib//lib:versions.bzl", "versions")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "sdk_platform_test")
+load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
     "daml_script_dar",
@@ -11,6 +11,7 @@ load(
 )
 load("//sandbox-migration:util.bzl", "migration_test")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
+load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 config_setting(
     name = "ghci_data",
@@ -30,6 +31,14 @@ config_setting(
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for version in platform_versions
+]
+
+[
+    [
+        create_daml_app_dar(sdk_version),
+        create_daml_app_codegen(sdk_version),
+    ]
+    for sdk_version in sdk_versions
 ]
 
 [

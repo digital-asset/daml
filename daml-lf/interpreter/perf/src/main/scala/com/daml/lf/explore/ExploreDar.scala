@@ -33,6 +33,7 @@ object PlaySpeedy {
   def parseArgs(args0: List[String]): Config = {
     var funcName: String = "triangle"
     var argValue: Long = 10
+    var stacktracing: Compiler.StackTraceMode = Compiler.NoStackTrace
     def loop(args: List[String]): Unit = args match {
       case Nil => {}
       case "-h" :: _ => usage()
@@ -40,17 +41,21 @@ object PlaySpeedy {
       case "--arg" :: x :: args =>
         argValue = x.toLong
         loop(args)
+      case "--stacktracing" :: args =>
+        stacktracing = Compiler.FullStackTrace
+        loop(args)
       case x :: args =>
         funcName = x
         loop(args)
     }
     loop(args0)
-    Config(funcName, argValue)
+    Config(funcName, argValue, stacktracing)
   }
 
   final case class Config(
       funcName: String,
       argValue: Long,
+      stacktracing: Compiler.StackTraceMode,
   )
 
   def main(args0: List[String]) = {
@@ -68,8 +73,11 @@ object PlaySpeedy {
         case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
       }.toMap
 
-    println("Compiling packages...")
-    val compiledPackages: CompiledPackages = PureCompiledPackages(packagesMap).right.get
+    println(s"Compiling packages... ${config.stacktracing}")
+    val compiledPackages: CompiledPackages = PureCompiledPackages(
+      packagesMap,
+      config.stacktracing
+    ).right.get
 
     val machine: Machine = {
       println(s"Setup machine for: ${config.funcName}(${config.argValue})")

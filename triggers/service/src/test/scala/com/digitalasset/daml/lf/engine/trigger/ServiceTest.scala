@@ -14,28 +14,30 @@ import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
 import java.util.UUID
+
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
-import scala.concurrent.{Await}
+
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.show._
 import spray.json._
-
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, InclusiveFilters}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.testing.postgresql.PostgresAroundSuite
 
-class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
+class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundSuite {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -162,6 +164,15 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         case _ => fail("""Non-string element of "triggerIds" field""")
       }
     } yield triggerIds
+  }
+
+  it should "initialize database" in {
+    connectToPostgresqlServer()
+    createNewDatabase()
+    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
+    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
+    dropDatabase()
+    succeed
   }
 
   it should "fail to start non-existent trigger" in withHttpService(Some(dar)) {

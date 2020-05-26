@@ -55,15 +55,15 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   @throws[PreprocessorException]
   def unsafePreprocessCreate(
       templateId: Ref.Identifier,
-      argument: Value[Value.AbsoluteContractId],
-  ): (speedy.Command.Create, Set[Value.AbsoluteContractId]) = {
+      argument: Value[Value.ContractId],
+  ): (speedy.Command.Create, Set[Value.ContractId]) = {
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
     speedy.Command.Create(templateId, arg) -> argCids
   }
 
   def unsafePreprocessFetch(
       templateId: Ref.Identifier,
-      coid: Value.AbsoluteContractId,
+      coid: Value.ContractId,
   ): speedy.Command.Fetch =
     speedy.Command.Fetch(templateId, SValue.SContractId(coid))
 
@@ -72,13 +72,13 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
       templateId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
-      argument: Value[Value.AbsoluteContractId],
-  ): (speedy.Command.Exercise, Set[Value.AbsoluteContractId]) = {
+      argument: Value[Value.ContractId],
+  ): (speedy.Command.Exercise, Set[Value.ContractId]) = {
     val template = unsafeGetTemplate(templateId)
     val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val cids = contractId match {
-      case acoid: Value.AbsoluteContractId => argCids + acoid
+      case acoid: Value.ContractId => argCids + acoid
       case _ => argCids
     }
     speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> cids
@@ -87,10 +87,10 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   @throws[PreprocessorException]
   def unsafePreprocessExerciseByKey(
       templateId: Ref.Identifier,
-      contractKey: Value[Value.AbsoluteContractId],
+      contractKey: Value[Value.ContractId],
       choiceId: Ref.ChoiceName,
-      argument: Value[Value.AbsoluteContractId],
-  ): (speedy.Command.ExerciseByKey, Set[Value.AbsoluteContractId]) = {
+      argument: Value[Value.ContractId],
+  ): (speedy.Command.ExerciseByKey, Set[Value.ContractId]) = {
     val template = unsafeGetTemplate(templateId)
     val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
     val ckTtype = unsafeGetContractKeyType(templateId, template)
@@ -105,10 +105,10 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   @throws[PreprocessorException]
   def unsafePreprocessCreateAndExercise(
       templateId: Ref.ValueRef,
-      createArgument: Value[Value.AbsoluteContractId],
+      createArgument: Value[Value.ContractId],
       choiceId: Ref.ChoiceName,
-      choiceArgument: Value[Value.AbsoluteContractId],
-  ): (speedy.Command.CreateAndExercise, Set[Value.AbsoluteContractId]) = {
+      choiceArgument: Value[Value.ContractId],
+  ): (speedy.Command.CreateAndExercise, Set[Value.ContractId]) = {
     val (createArg, createArgCids) =
       valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), createArgument)
     val template = unsafeGetTemplate(templateId)
@@ -136,12 +136,12 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   @throws[PreprocessorException]
   def unsafePreprocessCommands(
       cmds: ImmArray[command.Command],
-  ): (ImmArray[speedy.Command], Set[Value.AbsoluteContractId]) = {
+  ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
 
-    var cids = Set.empty[Value.AbsoluteContractId]
+    var cids = Set.empty[Value.ContractId]
 
     @inline
-    def handleNewCids[X](tuple: (X, Set[Value.AbsoluteContractId])) = {
+    def handleNewCids[X](tuple: (X, Set[Value.ContractId])) = {
       val (cmd, newCids) = tuple
       cids = cids | newCids
       cmd

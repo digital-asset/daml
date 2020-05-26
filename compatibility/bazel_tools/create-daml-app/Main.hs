@@ -3,18 +3,17 @@
 module Main (main) where
 
 import qualified Bazel.Runfiles
-import Control.Applicative
 import Control.Exception.Extra
 import Control.Monad
 import DA.Test.Process
 import DA.Test.Tar
 import DA.Test.Util
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Extra as Aeson
 import Data.Conduit ((.|), runConduitRes)
 import qualified Data.Conduit.Combinators as Conduit
 import qualified Data.Conduit.Tar as Tar
 import qualified Data.Conduit.Zlib as Zlib
-import Data.List.Extra
 import Data.Maybe
 import Data.Proxy
 import Data.Tagged
@@ -30,16 +29,15 @@ import Test.Tasty.Options
 
 data Tools = Tools
   { damlBinary :: FilePath
-  , sandboxBinary :: FilePath
-  , sandboxArgs :: [String]
-  , jsonApiBinary :: FilePath
-  , jsonApiArgs :: [String]
   , damlLedgerPath :: FilePath
   , damlTypesPath :: FilePath
   , damlReactPath :: FilePath
   , messagingPatch :: FilePath
   , yarnPath :: FilePath
   , patchPath :: FilePath
+  , testDepsPath :: FilePath
+  , testTsPath :: FilePath
+  , codegenPath :: FilePath
   }
 
 newtype DamlOption = DamlOption FilePath
@@ -48,38 +46,6 @@ instance IsOption DamlOption where
   parseValue = Just . DamlOption
   optionName = Tagged "daml"
   optionHelp = Tagged "runfiles path to the daml executable"
-
-newtype SandboxOption = SandboxOption FilePath
-instance IsOption SandboxOption where
-  defaultValue = SandboxOption $ "sandbox"
-  parseValue = Just . SandboxOption
-  optionName = Tagged "sandbox"
-  optionHelp = Tagged "runfiles path to the sandbox executable"
-
-newtype SandboxArgsOption = SandboxArgsOption { unSandboxArgsOption :: [String] }
-instance IsOption SandboxArgsOption where
-  defaultValue = SandboxArgsOption []
-  parseValue = Just . SandboxArgsOption . (:[])
-  optionName = Tagged "sandbox-arg"
-  optionHelp = Tagged "extra arguments to pass to sandbox executable"
-  optionCLParser = concatMany (mkOptionCLParser mempty)
-    where concatMany = fmap (SandboxArgsOption . concat) . many . fmap unSandboxArgsOption
-
-newtype JsonApiOption = JsonApiOption FilePath
-instance IsOption JsonApiOption where
-  defaultValue = JsonApiOption $ "json-api"
-  parseValue = Just . JsonApiOption
-  optionName = Tagged "json-api"
-  optionHelp = Tagged "runfiles path to the json-api executable"
-
-newtype JsonApiArgsOption = JsonApiArgsOption { unJsonApiArgsOption :: [String] }
-instance IsOption JsonApiArgsOption where
-  defaultValue = JsonApiArgsOption []
-  parseValue = Just . JsonApiArgsOption . (:[])
-  optionName = Tagged "json-api-arg"
-  optionHelp = Tagged "extra arguments to pass to json-api executable"
-  optionCLParser = concatMany (mkOptionCLParser mempty)
-    where concatMany = fmap (JsonApiArgsOption . concat) . many . fmap unJsonApiArgsOption
 
 newtype DamlLedgerOption = DamlLedgerOption FilePath
 instance IsOption DamlLedgerOption where
@@ -123,19 +89,39 @@ instance IsOption PatchOption where
   optionName = Tagged "patch"
   optionHelp = Tagged "path to patch"
 
+newtype TestDepsOption = TestDepsOption FilePath
+instance IsOption TestDepsOption where
+  defaultValue = TestDepsOption ""
+  parseValue = Just . TestDepsOption
+  optionName = Tagged "test-deps"
+  optionHelp = Tagged "path to testDeps.json"
+
+newtype TestTsOption = TestTsOption FilePath
+instance IsOption TestTsOption where
+  defaultValue = TestTsOption ""
+  parseValue = Just . TestTsOption
+  optionName = Tagged "test-ts"
+  optionHelp = Tagged "path to index.test.ts"
+
+newtype CodegenOption = CodegenOption FilePath
+instance IsOption CodegenOption where
+  defaultValue = CodegenOption ""
+  parseValue = Just . CodegenOption
+  optionName = Tagged "codegen"
+  optionHelp = Tagged "path to codegen output"
+
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
   askOption $ \(DamlOption damlPath) -> do
-  askOption $ \(SandboxOption sandboxPath) -> do
-  askOption $ \(SandboxArgsOption sandboxArgs) -> do
-  askOption $ \(JsonApiOption jsonApiPath) -> do
-  askOption $ \(JsonApiArgsOption jsonApiArgs) -> do
   askOption $ \(DamlLedgerOption damlLedgerPath) -> do
   askOption $ \(DamlTypesOption damlTypesPath) -> do
   askOption $ \(DamlReactOption damlReactPath) -> do
   askOption $ \(MessagingPatchOption messagingPatch) -> do
   askOption $ \(YarnOption yarnPath) -> do
   askOption $ \(PatchOption patchPath) -> do
+  askOption $ \(TestDepsOption testDepsPath) -> do
+  askOption $ \(TestTsOption testTsPath) -> do
+  askOption $ \(CodegenOption codegenPath) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -144,20 +130,17 @@ withTools tests = do
   withResource createRunfiles (\_ -> pure ()) $ \locateRunfiles -> do
   let tools = do
         damlBinary <- locateRunfiles <*> pure damlPath
-        sandboxBinary <- locateRunfiles <*> pure sandboxPath
-        jsonApiBinary <- locateRunfiles <*> pure jsonApiPath
         pure Tools
           { damlBinary
-          , sandboxBinary
-          , jsonApiBinary
-          , sandboxArgs
-          , jsonApiArgs
           , damlLedgerPath
           , damlTypesPath
           , damlReactPath
           , messagingPatch
           , yarnPath
           , patchPath
+          , testDepsPath
+          , testTsPath
+          , codegenPath
           }
   tests tools
 
@@ -166,16 +149,15 @@ main = do
   setEnv "TASTY_NUM_THREADS" "1" True
   let options =
         [ Option @DamlOption Proxy
-        , Option @SandboxOption Proxy
-        , Option @SandboxArgsOption Proxy
-        , Option @JsonApiOption Proxy
-        , Option @JsonApiArgsOption Proxy
         , Option @DamlLedgerOption Proxy
         , Option @DamlTypesOption Proxy
         , Option @DamlReactOption Proxy
         , Option @MessagingPatchOption Proxy
         , Option @YarnOption Proxy
         , Option @PatchOption Proxy
+        , Option @TestDepsOption Proxy
+        , Option @TestTsOption Proxy
+        , Option @CodegenOption Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
@@ -184,65 +166,48 @@ main = do
         [ test getTools
         ]
   where
-    test getTools = testCaseSteps "Getting Starte Guide" $ \step -> withTempDir $ \tmpDir -> do
+    test getTools = testCaseSteps "Getting Started Guide" $ \step -> withTempDir $ \tmpDir -> do
         Tools{..} <- getTools
-        -- daml codegen js assumes Yarn is in PATH.
-        -- To keep things as simple as possible, we just use `setEnv`
-        -- instead of copying `withEnv` from the `daml` workspace.
-        path <- getSearchPath
-        setEnv "PATH" (intercalate [searchPathSeparator] (takeDirectory yarnPath : path)) True
+        setEnv "CI" "yes" True
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callProcess damlBinary ["new", "create-daml-app", "create-daml-app"]
         let cdaDir = tmpDir </> "create-daml-app"
-        -- First test the base application (without the user-added feature).
-        withCurrentDirectory cdaDir $ do
-          step "Build DAML model for base application"
-          callProcess damlBinary ["build"]
-          step "Set up TypeScript libraries and Yarn workspaces for codegen"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"])
-              [(DamlTypes, damlTypesPath), (DamlLedger, damlLedgerPath)]
-          step "Run JavaScript codegen"
-          callProcess damlBinary ["codegen", "js", "-o", "daml.js", ".daml/dist/create-daml-app-0.1.0.dar"]
-        assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
-        withCurrentDirectory (cdaDir </> "ui") $ do
-          -- NOTE(MH): We set up the yarn env again to avoid having all the
-          -- dependencies of the UI already in scope when `daml2js` runs
-          -- `yarn install`. Some of the UI dependencies are a bit flaky to
-          -- install and might need some retries.
-          step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"])
-              [(DamlLedger, damlLedgerPath), (DamlReact, damlReactPath), (DamlTypes, damlTypesPath)]
-          step "Install dependencies for UI"
-          retry 3 (callProcessSilent yarnPath ["install"])
-          step "Run linter"
-          callProcessSilent yarnPath ["lint", "--max-warnings", "0"]
-          step "Build the application UI"
-          callProcessSilent yarnPath ["build"]
-        assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
-
         step "Patch the application code with messaging feature"
         withCurrentDirectory cdaDir $ do
           callProcessSilent patchPath ["-p2", "-i", messagingPatch]
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
-          step "Build the new DAML model"
-          callProcessSilent damlBinary ["build"]
-          step "Set up TypeScript libraries and Yarn workspaces for codegen again"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"])
-            [ (DamlTypes, damlTypesPath), (DamlLedger, damlLedgerPath) ]
-          step "Run JavaScript codegen for new DAML model"
-          callProcessSilent damlBinary ["codegen", "js", "-o", "daml.js", ".daml/dist/create-daml-app-0.1.0.dar"]
+        step "Extract codegen output"
+        runConduitRes
+            $ Conduit.sourceFile codegenPath
+            .| Zlib.ungzip
+            .| Tar.untar (restoreFile (\a b -> fail (T.unpack $ a <> b)) (cdaDir </> "daml.js"))
         withCurrentDirectory (cdaDir </> "ui") $ do
-          step "Set up libraries and workspaces again for UI build"
+          step "Set up libraries and workspaces"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"])
             [(DamlLedger, damlLedgerPath), (DamlReact, damlReactPath), (DamlTypes, damlTypesPath)]
-          step "Install UI dependencies again, forcing rebuild of generated code"
-          callProcessSilent yarnPath ["install", "--force", "--frozen-lockfile"]
-          step "Run linter again"
-          callProcessSilent yarnPath ["lint", "--max-warnings", "0"]
-          step "Build the new UI"
-          callProcessSilent yarnPath ["build"]
+          step "Install Jest, Puppeteer and other dependencies"
+          addTestDependencies "package.json" testDepsPath
+          retry 3 (callProcessSilent yarnPath ["install"])
+          step "Run Puppeteer end-to-end tests"
+          copyFile testTsPath (cdaDir </> "ui" </> "src" </> "index.test.ts")
+          callProcess yarnPath ["run", "test", "--ci", "--all"]
+
+addTestDependencies :: FilePath -> FilePath -> IO ()
+addTestDependencies packageJsonFile extraDepsFile = do
+    packageJson <- readJsonFile packageJsonFile
+    extraDeps <- readJsonFile extraDepsFile
+    let newPackageJson = Aeson.lodashMerge packageJson extraDeps
+    Aeson.encodeFile packageJsonFile newPackageJson
+  where
+    readJsonFile :: FilePath -> IO Aeson.Value
+    readJsonFile path = do
+        -- Read file strictly to avoid lock being held when we subsequently write to it.
+        mbContent <- Aeson.decodeFileStrict' path
+        case mbContent of
+            Nothing -> fail ("Could not decode JSON object from " <> path)
+            Just val -> return val
 
 data TsLibrary
     = DamlLedger

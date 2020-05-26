@@ -4,7 +4,7 @@
 package com.daml.lf.transaction
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.DecodeError
 import com.daml.lf.{blinding => proto}
 import com.google.protobuf.ProtocolStringList
@@ -92,7 +92,7 @@ object BlindingCoder {
     }
   }
 
-  private def toContractId(s: String): Either[DecodeError, AbsoluteContractId] =
-    AbsoluteContractId.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
+  private def toContractId(s: String): Either[DecodeError, ContractId] =
+    ContractId.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
 
 }

@@ -12,9 +12,7 @@ import com.daml.ledger.api.v1.event.{
   ExercisedEvent => PbExercisedEvent
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
-import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.serialization.ValueSerializer
 
 /**
   * An event as it's fetched from the participant index, before
@@ -28,73 +26,31 @@ sealed trait Raw[+E] {
     * Fill the blanks left in the raw event by running
     * the deserialization on contained values.
     *
+    * @param lfValueTranslation The delegate in charge of applying deserialization
     * @param verbose If true, field names of records will be included
     */
-  def applyDeserialization(verbose: Boolean): E
+  def applyDeserialization(lfValueTranslation: LfValueTranslation, verbose: Boolean): E
 
 }
 
 object Raw {
-
-  private def toApiValue(
-      value: InputStream,
-      verbose: Boolean,
-      attribute: => String,
-  ): ApiValue =
-    LfEngineToApi.assertOrRuntimeEx(
-      failureContext = s"attempting to deserialize persisted $attribute to value",
-      LfEngineToApi
-        .lfVersionedValueToApiValue(
-          verbose = verbose,
-          value = ValueSerializer.deserializeValue(value),
-        ),
-    )
-
-  private def toApiRecord(
-      value: InputStream,
-      verbose: Boolean,
-      attribute: => String,
-  ): ApiRecord =
-    LfEngineToApi.assertOrRuntimeEx(
-      failureContext = s"attempting to deserialize persisted $attribute to record",
-      LfEngineToApi
-        .lfVersionedValueToApiRecord(
-          verbose = verbose,
-          recordValue = ValueSerializer.deserializeValue(value),
-        ),
-    )
 
   /**
     * Since created events can be both a flat event or a tree event
     * we share common code between the two variants here. What's left
     * out is wrapping the result in the proper envelope.
     */
-  private[events] sealed abstract class Created[E] private[Raw] (
-      raw: PbCreatedEvent,
-      createArgument: InputStream,
-      createKeyValue: Option[InputStream],
+  private[events] sealed abstract class Created[E](
+      val partial: PbCreatedEvent,
+      val createArgument: InputStream,
+      val createKeyValue: Option[InputStream],
   ) extends Raw[E] {
     protected def wrapInEvent(event: PbCreatedEvent): E
-    final override def applyDeserialization(verbose: Boolean): E =
-      wrapInEvent(
-        raw.copy(
-          contractKey = createKeyValue.map(
-            key =>
-              toApiValue(
-                value = key,
-                verbose = verbose,
-                attribute = "create key",
-            )
-          ),
-          createArguments = Some(
-            toApiRecord(
-              value = createArgument,
-              verbose = verbose,
-              attribute = "create argument",
-            )
-          ),
-        )
-      )
+    final override def applyDeserialization(
+        lfValueTranslation: LfValueTranslation,
+        verbose: Boolean,
+    ): E =
+      wrapInEvent(lfValueTranslation.deserialize(this, verbose))
   }
 
   private object Created {
@@ -120,15 +76,7 @@ object Raw {
       )
   }
 
-  /**
-    * Defines a couple of methods on flat events to allow the events
-    * to be manipulated before running deserialization (specifically,
-    * removing transient contracts).
-    */
-  sealed trait FlatEvent extends Raw[PbFlatEvent] {
-    def isCreated: Boolean
-    def contractId: String
-  }
+  sealed trait FlatEvent extends Raw[PbFlatEvent]
 
   object FlatEvent {
 
@@ -138,8 +86,6 @@ object Raw {
         createKeyValue: Option[InputStream],
     ) extends Raw.Created[PbFlatEvent](raw, createArgument, createKeyValue)
         with FlatEvent {
-      override val isCreated: Boolean = true
-      override val contractId: String = raw.contractId
       override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
         PbFlatEvent(PbFlatEvent.Event.Created(event))
     }
@@ -177,9 +123,10 @@ object Raw {
     final class Archived private[Raw] (
         raw: PbArchivedEvent,
     ) extends FlatEvent {
-      override val isCreated: Boolean = false
-      override val contractId: String = raw.contractId
-      override def applyDeserialization(verbose: Boolean): PbFlatEvent =
+      override def applyDeserialization(
+          lfValueTranslation: LfValueTranslation,
+          verbose: Boolean,
+      ): PbFlatEvent =
         PbFlatEvent(PbFlatEvent.Event.Archived(raw))
     }
 
@@ -207,7 +154,7 @@ object Raw {
 
   object TreeEvent {
 
-    final class Created private[Raw] (
+    final class Created(
         raw: PbCreatedEvent,
         createArgument: InputStream,
         createKeyValue: Option[InputStream],
@@ -245,31 +192,15 @@ object Raw {
     }
 
     final class Exercised(
-        base: PbExercisedEvent,
-        exerciseArgument: InputStream,
-        exerciseResult: Option[InputStream],
+        val partial: PbExercisedEvent,
+        val exerciseArgument: InputStream,
+        val exerciseResult: Option[InputStream],
     ) extends TreeEvent {
-      override def applyDeserialization(verbose: Boolean): PbTreeEvent =
-        PbTreeEvent(
-          PbTreeEvent.Kind.Exercised(
-            base.copy(
-              choiceArgument = Some(
-                toApiValue(
-                  value = exerciseArgument,
-                  verbose = verbose,
-                  attribute = "exercise argument",
-                )
-              ),
-              exerciseResult = exerciseResult.map(
-                result =>
-                  toApiValue(
-                    value = result,
-                    verbose = verbose,
-                    attribute = "exercise result",
-                )
-              ),
-            )
-          ))
+      override def applyDeserialization(
+          lfValueTranslation: LfValueTranslation,
+          verbose: Boolean,
+      ): PbTreeEvent =
+        PbTreeEvent(PbTreeEvent.Kind.Exercised(lfValueTranslation.deserialize(this, verbose)))
     }
 
     object Exercised {
@@ -286,7 +217,7 @@ object Raw {
           eventWitnesses: Array[String],
       ): Raw.TreeEvent.Exercised =
         new Raw.TreeEvent.Exercised(
-          base = PbExercisedEvent(
+          partial = PbExercisedEvent(
             eventId = eventId,
             contractId = contractId,
             templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),

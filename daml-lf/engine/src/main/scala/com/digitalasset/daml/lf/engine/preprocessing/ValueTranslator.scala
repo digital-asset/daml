@@ -54,13 +54,12 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
     }
 
   @throws[PreprocessorException]
-  private def labeledRecordToMap(fields: ImmArray[(Option[String], Value[AbsoluteContractId])])
-    : Option[Map[String, Value[AbsoluteContractId]]] = {
+  private def labeledRecordToMap(fields: ImmArray[(Option[String], Value[ContractId])])
+    : Option[Map[String, Value[ContractId]]] = {
     @tailrec
     def go(
-        fields: ImmArray[(Option[String], Value[AbsoluteContractId])],
-        map: Map[String, Value[AbsoluteContractId]])
-      : Option[Map[String, Value[AbsoluteContractId]]] = {
+        fields: ImmArray[(Option[String], Value[ContractId])],
+        map: Map[String, Value[ContractId]]): Option[Map[String, Value[ContractId]]] = {
       fields match {
         case ImmArray() => Some(map)
         case ImmArrayCons((None, _), _) => None
@@ -81,12 +80,12 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
   @throws[PreprocessorException]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
-      value: Value[AbsoluteContractId],
-  ): (SValue, Set[Value.AbsoluteContractId]) = {
+      value: Value[ContractId],
+  ): (SValue, Set[Value.ContractId]) = {
 
-    val cids = Set.newBuilder[Value.AbsoluteContractId]
+    val cids = Set.newBuilder[Value.ContractId]
 
-    def go(ty: Type, value: Value[AbsoluteContractId], nesting: Int = 0): SValue =
+    def go(ty: Type, value: Value[ContractId], nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         fail(s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
       } else {
@@ -115,13 +114,11 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
 
           // optional
           case (TOptional(elemType), ValueOptional(mb)) =>
-            SValue.SOptional(
-              mb.map((value: Value[AbsoluteContractId]) => go(elemType, value, newNesting)))
+            SValue.SOptional(mb.map((value: Value[ContractId]) => go(elemType, value, newNesting)))
 
           // list
           case (TList(elemType), ValueList(ls)) =>
-            SValue.SList(
-              ls.map((value: Value[AbsoluteContractId]) => go(elemType, value, newNesting)))
+            SValue.SList(ls.map((value: Value[ContractId]) => go(elemType, value, newNesting)))
 
           // textMap
           case (TTextMap(elemType), ValueTextMap(map)) =>
@@ -234,7 +231,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
   }
 
   // This does not try to pull missing packages, return an error instead.
-  def translateValue(ty: Type, value: Value[AbsoluteContractId]): Either[Error, SValue] =
+  def translateValue(ty: Type, value: Value[ContractId]): Either[Error, SValue] =
     safelyRun(unsafeTranslateValue(ty, value)._1)
 
 }

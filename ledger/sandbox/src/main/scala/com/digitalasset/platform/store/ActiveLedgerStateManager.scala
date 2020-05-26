@@ -7,14 +7,14 @@ import java.time.Instant
 
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{Disputed, Inconsistent, InvalidLedgerTime}
-import com.daml.ledger.participant.state.v1.AbsoluteContractInst
+import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{GenTransaction, Node => N}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
 
 /**
@@ -28,7 +28,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       acc: Option[ALS],
       errs: Set[RejectionReason],
       parties: Set[Party],
-      archivedIds: Set[AbsoluteContractId]) {
+      archivedIds: Set[ContractId]) {
 
     def mapAcs(f: ALS => ALS): AddTransactionState = copy(acc = acc map f)
 
@@ -63,10 +63,10 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
-      transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
+      transaction: GenTransaction.WithTxValue[EventId, ContractId],
       disclosure: Relation[EventId, Party],
-      globalDivulgence: Relation[AbsoluteContractId, Party],
-      divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
+      globalDivulgence: Relation[ContractId, Party],
+      divulgedContracts: List[(Value.ContractId, ContractInst)])
     : Either[Set[RejectionReason], ALS] = {
     // NOTE(RA): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
     // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
@@ -86,7 +86,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
           case (ats @ AddTransactionState(Some(acc), errs, parties, archivedIds), (nodeId, node)) =>
             // If some node requires a contract, check that we have that contract, and check that that contract is not
             // created after the current let.
-            def contractCheck(cid: AbsoluteContractId): Option[RejectionReason] =
+            def contractCheck(cid: ContractId): Option[RejectionReason] =
               acc lookupContractLet cid match {
                 case Some(Let(otherContractLet)) =>
                   // Existing active contract, check its LET
@@ -108,7 +108,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
               }
 
             node match {
-              case nf: N.NodeFetch.WithTxValue[AbsoluteContractId] =>
+              case nf: N.NodeFetch.WithTxValue[ContractId] =>
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties.getOrElse(Set.empty))
@@ -118,7 +118,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   parties.union(nodeParties),
                   archivedIds
                 )
-              case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
+              case nc: N.NodeCreate.WithTxValue[ContractId] =>
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
@@ -131,7 +131,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   contract = nc.coinst,
                   witnesses = disclosure(nodeId),
                   // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
-                  // But this field is always empty in transactions with only absolute contract ids.
+                  // But this field is always empty in transactions with only contract ids.
                   divulgences = Map.empty,
                   key =
                     nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
@@ -159,7 +159,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                       )
                     }
                 }
-              case ne: N.NodeExercises.WithTxValue[EventId, AbsoluteContractId] =>
+              case ne: N.NodeExercises.WithTxValue[EventId, ContractId] =>
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
@@ -173,7 +173,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   parties = parties.union(nodeParties),
                   archivedIds = if (ne.consuming) archivedIds + ne.targetCoid else archivedIds
                 )
-              case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
+              case nlkup: N.NodeLookupByKey.WithTxValue[ContractId] =>
                 // Check that the stored lookup result matches the current result
                 val key = nlkup.key.key.ensureNoCid.fold(
                   coid =>

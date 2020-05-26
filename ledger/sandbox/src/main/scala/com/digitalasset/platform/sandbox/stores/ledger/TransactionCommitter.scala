@@ -21,7 +21,7 @@ object StandardTransactionCommitter extends TransactionCommitter {
       transactionId: Ref.LedgerString,
       transaction: SubmittedTransaction
   ): CommittedTransaction =
-    transaction.assertNoRelCid(_ => "Unexpected relative contract ID")
+    transaction
 }
 
 // Committer emulating Contract ID legacy scheme
@@ -34,23 +34,12 @@ object LegacyTransactionCommitter extends TransactionCommitter {
 
     val prefix = "#" + transactionId + ":"
 
-    type AbsCoid = Value.AbsoluteContractId
-    val contractMap: AbsCoid => AbsCoid =
-      transaction.localContracts
-        .collect[(AbsCoid, AbsCoid), Map[AbsCoid, AbsCoid]] {
-          case (acoid: AbsCoid, nid) =>
-            acoid ->
-              Value.AbsoluteContractId.V0(
-                Ref.ContractIdString.assertFromString(prefix + nid.index.toString))
-        }
+    val contractMapping =
+      transaction
+        .localContracts[Value.ContractId]
+        .transform((_, nid) =>
+          Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString)))
         .withDefault(identity)
-
-    val contractMapping: Transaction.TContractId => Value.AbsoluteContractId = {
-      case acoid: Value.AbsoluteContractId =>
-        contractMap(acoid)
-      case _: Value.RelativeContractId =>
-        throw new RuntimeException("Unexpected relative contract ID")
-    }
 
     GenTransaction.map3(
       identity[Transaction.NodeId],

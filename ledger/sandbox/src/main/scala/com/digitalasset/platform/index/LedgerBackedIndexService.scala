@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
@@ -182,17 +182,17 @@ abstract class LedgerBackedIndexService(
 
   override def lookupActiveContract(
       submitter: Ref.Party,
-      contractId: AbsoluteContractId,
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+      contractId: ContractId,
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     ledger.lookupContract(contractId, submitter)
 
-  override def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
       submitter: Party,
       key: GlobalKey,
-  ): Future[Option[AbsoluteContractId]] =
+  ): Future[Option[ContractId]] =
     ledger.lookupKey(key, submitter)
 
   // PartyManagementService

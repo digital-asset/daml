@@ -181,7 +181,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
-  type LfV = V[V.AbsoluteContractId]
+  type LfV = V[V.ContractId]
   type SqlWhereClause = Vector[Fragment]
 
   val AlwaysFails: SqlWhereClause = Vector(sql"1 = 2")

@@ -283,7 +283,7 @@ object SExpr {
     * calls. Rather, we set the control to this expression and then crash when executing.
     */
   final case class SEWronglyTypeContractId(
-      acoid: V.AbsoluteContractId,
+      acoid: V.ContractId,
       expected: TypeConName,
       actual: TypeConName,
   ) extends SExpr {

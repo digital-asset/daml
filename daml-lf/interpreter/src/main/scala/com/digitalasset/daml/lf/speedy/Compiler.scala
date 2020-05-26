@@ -38,6 +38,10 @@ private[lf] object Compiler {
   case object NoProfile extends ProfilingMode
   case object FullProfile extends ProfilingMode
 
+  sealed abstract class StackTraceMode extends Product with Serializable
+  case object NoStackTrace extends StackTraceMode
+  case object FullStackTrace extends StackTraceMode
+
   private val SEGetTime = SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltin) =
@@ -62,10 +66,11 @@ private[lf] object Compiler {
     */
   def compilePackages(
       packages: Map[PackageId, Package],
+      stacktracing: StackTraceMode,
       profiling: ProfilingMode,
       validation: Boolean = true,
   ): Either[String, Map[SDefinitionRef, SExpr]] = {
-    val compiler = Compiler(packages, profiling)
+    val compiler = Compiler(packages, stacktracing, profiling)
     try {
       Right(
         packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
@@ -82,9 +87,18 @@ private[lf] object Compiler {
 
 private[lf] final case class Compiler(
     packages: PackageId PartialFunction Package,
+    stacktracing: Compiler.StackTraceMode,
     profiling: Compiler.ProfilingMode) {
 
   import Compiler._
+
+  // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
+  def maybeSELocation(loc: Location, sexp: SExpr): SExpr = {
+    stacktracing match {
+      case NoStackTrace => sexp
+      case FullStackTrace => SELocation(loc, sexp)
+    }
+  }
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -620,13 +634,13 @@ private[lf] final case class Compiler(
         }
 
       case ELocation(loc, EScenario(scen)) =>
-        SELocation(loc, translateScenario(scen, Some(loc)))
+        maybeSELocation(loc, translateScenario(scen, Some(loc)))
 
       case EScenario(scen) =>
         translateScenario(scen, None)
 
       case ELocation(loc, e) =>
-        SELocation(loc, translate(e))
+        maybeSELocation(loc, translate(e))
 
       case EToAny(ty, e) =>
         SEApp(SEBuiltin(SBToAny(ty)), Array(translate(e)))
@@ -966,12 +980,6 @@ private[lf] final case class Compiler(
     withEnv { _ =>
       env = (binders foldLeft env)(_ addExprVar _)
       f(())
-    }
-
-  def stripLocation(e: SExpr): SExpr =
-    e match {
-      case SELocation(_, e2) => stripLocation(e2)
-      case _ => e
     }
 
   /** Convert abstractions in a speedy expression into

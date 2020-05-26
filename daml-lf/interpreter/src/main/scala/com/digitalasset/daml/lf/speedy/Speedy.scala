@@ -230,16 +230,15 @@ object Speedy {
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
-        case V.AbsoluteContractId.V1(discriminator, _)
-            if globalDiscriminators.contains(discriminator) =>
+        case V.ContractId.V1(discriminator, _) if globalDiscriminators.contains(discriminator) =>
           crash("Conflicting discriminators between a global and local contract ID.")
         case _ =>
           localContracts = localContracts.updated(coid, templateId -> SValue)
       }
 
     def addGlobalCid(cid: V.ContractId) = cid match {
-      case V.AbsoluteContractId.V1(discriminator, _) =>
-        if (localContracts.isDefinedAt(V.AbsoluteContractId.V1(discriminator)))
+      case V.ContractId.V1(discriminator, _) =>
+        if (localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
           crash("Conflicting discriminators between a global and local contract ID.")
         else
           globalDiscriminators = globalDiscriminators + discriminator
@@ -525,7 +524,7 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
-        globalCids: Set[V.AbsoluteContractId]
+        globalCids: Set[V.ContractId]
     ) =
       Machine(
         ctrl = null,
@@ -543,7 +542,7 @@ object Speedy {
         dependsOnTime = false,
         localContracts = Map.empty,
         globalDiscriminators = globalCids.collect {
-          case V.AbsoluteContractId.V1(discriminator, _) => discriminator
+          case V.ContractId.V1(discriminator, _) => discriminator
         },
         steps = 0,
         track = Instrumentation(),
@@ -572,7 +571,7 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         seeds: InitialSeeding,
-        globalCids: Set[V.AbsoluteContractId],
+        globalCids: Set[V.ContractId],
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
@@ -614,7 +613,7 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         seeding: InitialSeeding,
-        globalCids: Set[V.AbsoluteContractId],
+        globalCids: Set[V.ContractId],
     ): Machine =
       initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = sexpr)
   }

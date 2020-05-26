@@ -142,6 +142,7 @@ da_scala_test(
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
         "//ledger-service/utils",
+        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",

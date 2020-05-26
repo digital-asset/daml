@@ -302,7 +302,7 @@ class TransactionCoderSpec
 
     "do tx with a lot of root nodes" in {
       val node =
-        Node.NodeCreate[Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
+        Node.NodeCreate[Value.ContractId, Value.VersionedValue[Value.ContractId]](
           coid = absCid("#test-cid"),
           coinst = ContractInst(
             Identifier(
@@ -401,7 +401,7 @@ class TransactionCoderSpec
     )
   }
 
-  private def absCid(s: String): Value.AbsoluteContractId =
-    Value.AbsoluteContractId.assertFromString(s)
+  private def absCid(s: String): Value.ContractId =
+    Value.ContractId.assertFromString(s)
 
 }

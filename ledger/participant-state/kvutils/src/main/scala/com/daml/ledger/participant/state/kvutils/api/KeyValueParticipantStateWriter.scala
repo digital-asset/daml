@@ -29,7 +29,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
         transactionMeta,
-        transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
+        transaction,
       )
     commit(correlationId = submitterInfo.commandId, submission = submission)
   }

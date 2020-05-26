@@ -7,7 +7,7 @@ import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueVersions}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -67,8 +67,8 @@ class ContractDiscriminatorFreshnessCheckSpec
   private val keyId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Key"))
   private val tmplId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Contract"))
 
-  private def contractId(discriminator: crypto.Hash, suffix: Bytes): Value.AbsoluteContractId =
-    Value.AbsoluteContractId.V1.assertBuild(discriminator, suffix)
+  private def contractId(discriminator: crypto.Hash, suffix: Bytes): Value.ContractId =
+    Value.ContractId.V1.assertBuild(discriminator, suffix)
 
   private def keyRecord(party: Ref.Party, idx: Int) =
     Value.ValueRecord(
@@ -79,7 +79,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
     )
 
-  private def contractRecord(party: Ref.Party, idx: Int, cids: List[AbsoluteContractId]) =
+  private def contractRecord(party: Ref.Party, idx: Int, cids: List[ContractId]) =
     Value.ValueRecord(
       Some(tmplId),
       ImmArray(
@@ -94,7 +94,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   private val suffix2 = Utf8.getBytes("extension")
   private val suffix3 = Utf8.getBytes("final-addition")
 
-  private def contractInstance(party: Ref.Party, idx: Int, cids: List[AbsoluteContractId]) =
+  private def contractInstance(party: Ref.Party, idx: Int, cids: List[ContractId]) =
     Value.ContractInst(
       tmplId,
       ValueVersions.assertAsVersionedValue(contractRecord(party, idx, cids)),
@@ -117,9 +117,8 @@ class ContractDiscriminatorFreshnessCheckSpec
 
   private def submit(
       cmds: ImmArray[command.Command],
-      pcs: Value.AbsoluteContractId => Option[
-        Value.ContractInst[Value.VersionedValue[AbsoluteContractId]]],
-      keys: Node.GlobalKey => Option[AbsoluteContractId]
+      pcs: Value.ContractId => Option[Value.ContractInst[Value.VersionedValue[ContractId]]],
+      keys: Node.GlobalKey => Option[ContractId]
   ) =
     engine
       .submit(

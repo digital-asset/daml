@@ -126,7 +126,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
-  def translateValue(ty0: Ast.Type, v0: Value[Value.AbsoluteContractId]): Result[SValue] =
+  def translateValue(ty0: Ast.Type, v0: Value[Value.ContractId]): Result[SValue] =
     safelyRun(getDependencies(List(ty0), List.empty)) {
       unsafeTranslateValue(ty0, v0)
     }.map(_._1)
@@ -136,7 +136,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     */
   def preprocessCommands(
       cmds: data.ImmArray[command.Command],
-  ): Result[(ImmArray[speedy.Command], Set[Value.AbsoluteContractId])] =
+  ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
       unsafePreprocessCommands(cmds)
     }
@@ -168,7 +168,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
 
   def translateNode[Cid <: Value.ContractId](
       node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid],
-  ): Result[(speedy.Command, Set[Value.AbsoluteContractId])] =
+  ): Result[(speedy.Command, Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
       val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
       cmd -> globalCids
@@ -176,7 +176,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
 
   def translateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
-  ): Result[(ImmArray[speedy.Command], Set[Value.AbsoluteContractId])] =
+  ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
       getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))
     ) {
