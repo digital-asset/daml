@@ -82,9 +82,7 @@ class IsPhase ph => GenPhase (ph :: Phase) where
 
   -- | Analyse a value reference.
   genForVal :: MonadEnv m ph
-    => Bool
-    -- ^ Flag denoting whether updates should be analysed.
-    -> Qualified ExprValName
+    => Qualified ExprValName
     -- ^ The value reference to be analysed.
     -> m (Output ph)
 
@@ -92,17 +90,17 @@ instance GenPhase 'ValueGathering where
   genModule pac mod = do
     extDatsEnv (NM.toHashMap (moduleDataTypes mod))
     mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
-  genForVal _updFlag w = return $ Output (EVal w) (setUpdSetValues [Determined w] emptyUpdateSet)
+  genForVal w = return $ Output (EVal w) (setUpdSetValues [Determined w] emptyUpdateSet)
 
 instance GenPhase 'ChoiceGathering where
   genModule pac mod =
     mapM_ (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
-  genForVal _updFlag w = lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
+  genForVal w = lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
 
 instance GenPhase 'Solving where
   genModule _pac _mod =
     error "Impossible: genModule can't be used in the solving phase"
-  genForVal _updFlag _w = error "Impossible: genForVal can't be used in the solving phase"
+  genForVal _w = error "Impossible: genForVal can't be used in the solving phase"
 
 -- | Generate an environment for a given list of packages.
 -- Depending on the generator phase, this either adds all value and data type
@@ -134,7 +132,7 @@ genValue :: (GenPhase ph, MonadEnv m ph)
   -- ^ The value to be analysed and added.
   -> m ()
 genValue pac mod val = do
-  expOut <- genExpr False (instPRSelf pac $ dvalBody val)
+  expOut <- genExpr True (instPRSelf pac $ dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
@@ -166,7 +164,7 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   argFs <- recTypFields (snd chcArgBinder)
   let subst = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   extRecEnv arg argFs
-  expOut <- genExpr False
+  expOut <- genExpr True
     $ substituteTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)])
     $ instPRSelf pac chcUpdate
   let out = if chcConsuming
@@ -204,7 +202,7 @@ genTemplate pac mod Template{..} = do
 -- evaluation result and the set of performed updates.
 genExpr :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Argument denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> Expr
   -- ^ The expression to be analysed.
   -> m (Output ph)
@@ -212,44 +210,51 @@ genExpr updFlag = \case
   ETmApp fun arg -> genForTmApp updFlag fun arg
   ETyApp expr typ -> genForTyApp updFlag expr typ
   ELet bind body -> genForLet updFlag bind body
-  EVar name -> genForVar updFlag name
-  EVal w -> genForVal updFlag w
+  EVar name -> genForVar name
+  EVal w -> genForVal w
   ERecProj tc f e -> genForRecProj updFlag tc f e
   EStructProj f e -> genForStructProj updFlag f e
   ELocation _ expr -> genExpr updFlag expr
   ECase e cs -> genForCase updFlag e cs
-  EUpdate upd -> do
-    (out, _, _) <- genUpdate updFlag upd
-    return out
+  EUpdate upd -> if updFlag
+    then do
+      (out, _, _) <- genUpdate upd
+      return out
+    else return $ emptyOut $ EUpdate upd
+  -- TODO: Remove?
+  -- EUpdate (UPure typ expr) -> do
+  --   out <- genExpr updFlag expr
+  --   return $ updateOutExpr (EUpdate $ UPure typ (_oExpr out)) out
+  -- EUpdate (UBind bind expr) -> if updFlag
+  --   then do
+  --     (out, _, _) <- genForBind bind expr
+  --     return out
+  --   else return $ emptyOut $ EUpdate (UBind bind expr)
   -- TODO: Extend additional cases
   e -> return $ emptyOut e
 
 -- | Analyse an update expression, and produce both an Output, its return type
 -- and potentially the field values of any created contracts.
--- Note that binds are analysed, independently of the updFlag.
 genUpdate :: (GenPhase ph, MonadEnv m ph)
-  => Bool
-  -- ^ Argument denoting whether updates should be analysed.
-  -> Update
+  => Update
   -- ^ The update expression to be analysed.
   -> m (Output ph, Type, Maybe Expr)
-genUpdate _ (UBind bind expr) = genForBind bind expr
-genUpdate False upd = return (emptyOut $ EUpdate upd, TBuiltin BTUnit, Nothing)
-genUpdate True upd = case upd of
-  UCreate tem arg -> genForCreate tem arg
-  UExercise tem ch cid par arg -> genForExercise tem ch cid par arg
+genUpdate = \case
+  UBind bind expr -> genForBind bind expr
   UPure typ expr -> do
     out <- genExpr True expr
     let out' = updateOutExpr (EUpdate $ UPure typ (_oExpr out)) out
     return (out', typ, Nothing)
-  -- TODO: Extend additional cases
+  UCreate tem arg -> genForCreate tem arg
+  UExercise tem ch cid par arg -> genForExercise tem ch cid par arg
   UGetTime -> return (emptyOut (EUpdate UGetTime), TBuiltin BTTimestamp, Nothing)
+  -- TODO: Extend additional cases
   u -> error ("Update not implemented yet: " ++ show u)
 
 -- | Analyse a term application expression.
 genForTmApp :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Flag denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> Expr
   -- ^ The function expression.
   -> Expr
@@ -272,7 +277,7 @@ genForTmApp updFlag fun arg = do
 -- | Analyse a type application expression.
 genForTyApp :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Flag denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> Expr
   -- ^ The function expression.
   -> Type
@@ -291,14 +296,14 @@ genForTyApp updFlag expr typ = do
 -- | Analyse a let binding expression.
 genForLet :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Flag denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> Binding
   -- ^ The binding to be bound.
   -> Expr
   -- ^ The expression in which the binding should be available.
   -> m (Output ph)
 genForLet updFlag bind body = do
-  bindOut <- genExpr updFlag (bindingBound bind)
+  bindOut <- genExpr False (bindingBound bind)
   let subst = singleExprSubst (fst $ bindingBinder bind) (_oExpr bindOut)
       resExpr = substituteTm subst body
   resOut <- genExpr updFlag resExpr
@@ -306,17 +311,15 @@ genForLet updFlag bind body = do
 
 -- | Analyse an expression variable.
 genForVar :: (GenPhase ph, MonadEnv m ph)
-  => Bool
-  -- ^ Flag denoting whether updates should be analysed.
-  -> ExprVarName
+  => ExprVarName
   -- ^ The expression variable to be analysed.
   -> m (Output ph)
-genForVar _updFlag name = lookupVar name >> return (emptyOut (EVar name))
+genForVar name = lookupVar name >> return (emptyOut (EVar name))
 
 -- | Analyse a record projection expression.
 genForRecProj :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Flag denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> TypeConApp
   -- ^ The type constructor of the record which is projected.
   -> FieldName
@@ -343,7 +346,7 @@ genForRecProj updFlag tc f body = do
 -- | Analyse a struct projection expression.
 genForStructProj :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Flag denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> FieldName
   -- ^ The field which is projected.
   -> Expr
@@ -369,7 +372,7 @@ genForStructProj updFlag f body = do
 -- TODO: Atm only boolean cases are supported
 genForCase :: (GenPhase ph, MonadEnv m ph)
   => Bool
-  -- ^ Flag denoting whether updates should be analysed.
+  -- ^ Flag denoting whether to analyse update expressions.
   -> Expr
   -- ^ The expression to match on.
   -> [CaseAlternative]
@@ -463,7 +466,7 @@ genForBind bind body = do
       _ <- bindCids False (TContractId (TCon tc)) cid (EVar var1) Nothing
       return (emptyUpdateSet, subst)
     EUpdate upd -> do
-      (updOut, updTyp, creFs) <- genUpdate True upd
+      (updOut, updTyp, creFs) <- genUpdate upd
       this <- genRenamedVar (ExprVarName "this")
       subst <- bindCids True updTyp (EVar $ fst $ bindingBinder bind) (EVar this) creFs
       return (_oUpdate updOut, subst)
@@ -472,7 +475,7 @@ genForBind bind body = do
   bodyOut <- genExpr False $ substituteTm subst body
   case _oExpr bodyOut of
     EUpdate bodyUpd -> do
-      (bodyUpdOut, bodyTyp, creFs) <- genUpdate True bodyUpd
+      (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
       return ( Output
                  (_oExpr bodyUpdOut)
                  (_oUpdate bindOut
