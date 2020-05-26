@@ -38,15 +38,12 @@ class InMemoryBatchedLedgerReaderWriterIntegrationSpec(enableBatching: Boolean =
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] = {
+  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     new InMemoryBatchedLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
       batchingLedgerWriterConfig,
       participantId,
       metrics = metrics,
       engine = Engine()
-    ).map { readerWriter =>
-      new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-    }
-  }
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }
