@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Instant
 import java.util.UUID
 
 import akka.NotUsed
@@ -19,7 +18,6 @@ import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, Su
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
-  BatchedSubmissionValidatorFactory,
   BatchedSubmissionValidatorParameters,
   ConflictDetection
 }
@@ -30,31 +28,22 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.Success
 
 final class InMemoryBatchedLedgerReaderWriter(
     override val participantId: ParticipantId,
     override val ledgerId: LedgerId,
-    now: () => Instant,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-    validator: BatchedSubmissionValidator[Index],
+    committer: BatchedValidatingCommitter[Index],
     metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
-        val (reader, commitStrategy) = BatchedSubmissionValidatorFactory
-          .readerAndCommitStrategyFrom(ledgerStateOperations, keySerializationStrategy)
-        validator
-          .validateAndCommit(envelope, correlationId, now(), participantId, reader, commitStrategy)
-          .transformWith {
-            case Success(_) =>
-              Future.successful(SubmissionResult.Acknowledged)
-            case Failure(exception) =>
-              Future.successful(SubmissionResult.InternalError(exception.getLocalizedMessage))
-          }
+        committer
+          .commit(correlationId, envelope, participantId, ledgerStateOperations)
       }
       .andThen {
         case Success(SubmissionResult.Acknowledged) =>
@@ -67,8 +56,6 @@ final class InMemoryBatchedLedgerReaderWriter(
   override def currentHealth(): HealthStatus = Healthy
 
   private val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
-
-  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
   private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
 }
@@ -132,14 +119,15 @@ object InMemoryBatchedLedgerReaderWriter {
         new ConflictDetection(metrics),
         metrics,
         engine)
+      val committer =
+        BatchedValidatingCommitter[Index](() => timeProvider.getCurrentTime, validator)
       Resource.successful(
         new InMemoryBatchedLedgerReaderWriter(
           participantId,
           ledgerId,
-          () => timeProvider.getCurrentTime,
           dispatcher,
           state,
-          validator,
+          committer,
           metrics
         ))
     }

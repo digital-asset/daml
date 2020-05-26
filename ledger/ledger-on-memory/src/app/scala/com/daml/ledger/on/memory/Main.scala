@@ -4,7 +4,6 @@
 package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
-import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter.Index
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -25,7 +24,7 @@ import scopt.OptionParser
 object Main {
   def main(args: Array[String]): Unit = {
     val resource = for {
-      dispatcher <- InMemoryLedgerReaderWriter.dispatcher
+      dispatcher <- InMemoryLedgerReader.dispatcher
       sharedState = InMemoryState.empty
       factory = new InMemoryLedgerFactory(dispatcher, sharedState)
       runner <- new Runner("In-Memory Ledger", factory).owner(args)
