@@ -9,6 +9,7 @@ module DA.Daml.LF.Ast.FreeVars
     , freeExprVar
     , bindTypeVar
     , bindExprVar
+    , freeVarsNull
     , isFreeTypeVar
     , isFreeExprVar
     , freeVarsInType
@@ -40,6 +41,10 @@ instance Semigroup FreeVars where
 
 instance Monoid FreeVars where
     mempty = FreeVars Set.empty Set.empty
+
+freeVarsNull :: FreeVars -> Bool
+freeVarsNull FreeVars{..} =
+    Set.null freeTypeVars && Set.null freeExprVars
 
 freeTypeVar :: TypeVarName -> FreeVars
 freeTypeVar x = FreeVars (Set.singleton x) Set.empty

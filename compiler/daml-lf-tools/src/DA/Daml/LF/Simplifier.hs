@@ -6,10 +6,9 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
-import Control.Lens (over)
-import Control.Monad (guard)
+import Control.Monad (guard, forM, forM_)
+import Control.Monad.State.Strict (State, evalState, gets, modify)
 import Data.Maybe (mapMaybe)
-import Data.List (foldl')
 import Data.Foldable (fold, toList)
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.Graph as G
@@ -24,6 +23,8 @@ import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.FreeVars
 import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.TypeChecker.Check
+import DA.Daml.LF.TypeChecker.Env
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -313,12 +314,43 @@ getTypeClassDictionary world = \case
     _ ->
         Nothing
 
-simplifyExpr :: World -> Expr -> Expr
-simplifyExpr world = fst . cata go
+simplifyExpr :: Expr -> Simplifier Expr
+simplifyExpr = fmap fst . cata go'
   where
+    go' :: ExprF (Simplifier (Expr, Info)) -> Simplifier (Expr, Info)
+    go' ms = do
+        es <- sequence ms
+        world <- gets sWorldExtended
+        let v' = freeVarsStep (fmap (freeVars . snd) es)
+        if freeVarsNull v'
+          then pure (go world es)
+          else do -- constant lifting
+            version <- gets sVersion
+            es' <- forM es $ \case
+              (e,i)
+                | freeVarsNull (freeVars i)
+                , isWorthLifting e
+                , Right ty <- runGamma world version (typeOf' e)
+                -> do
+                    name <- freshExprVarName
+                    modify $ addDefValue DefValue -- todo cacheing??
+                        { dvalBinder = (name, ty)
+                        , dvalBody = e
+                        , dvalLocation = Nothing
+                        , dvalNoPartyLiterals = HasNoPartyLiterals True -- FIXME
+                        , dvalIsTest = IsTest False
+                        }
+                    qname <- selfQualify name
+                    pure (EVal qname, i)
 
-    go :: ExprF (Expr, Info) -> (Expr, Info)
-    go = \case
+                | otherwise
+                -> pure (e,i)
+
+            world' <- gets sWorldExtended
+            pure (go world' es')
+
+    go :: World -> ExprF (Expr, Info) -> (Expr, Info)
+    go world = \case
 
       ETmAppF (_, i1) (_, i2)
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
@@ -330,7 +362,7 @@ simplifyExpr world = fst . cata go
                   -- a repeated beta-reduction of a closed expression
                   -- (the dictionary function) applied to subterms of
                   -- the argument whose free variables are tracked in i2.
-          -> cata go e'
+          -> cata (go world) e'
 
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
@@ -360,9 +392,10 @@ simplifyExpr world = fst . cata go
         , and bs ->
             (ERecCon t fes1, s)
         where
-          matchField (f1, _) (f2, e2)
-            | f1 == f2, EStructProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
-            | otherwise = False
+          matchField (f1, _) = \case
+              (f2, EStructProj f3 (EVar x3)) ->
+                  (f1 == f2) && (f1 == f3) && (x1 == x3)
+              _ -> False
 
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
       ELetF (BindingF (x, _) e1) e2
@@ -400,6 +433,83 @@ simplifyExpr world = fst . cata go
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
+isWorthLifting :: Expr -> Bool
+isWorthLifting = \case
+    EVar _ -> False
+    EVal _ -> False
+    EBuiltin _ -> False
+    ETmLam _ _ -> False
+    ETyLam _ _ -> False
+    ETmApp _ _ -> True
+    ETyApp _ _ -> True
+    ERecCon _ _ -> True
+    ERecProj _ _ _ -> True
+    ERecUpd _ _ _ _ -> True
+    EVariantCon _ _ _ -> True
+    EEnumCon _ _ -> False
+    EStructCon _ -> True
+    EStructProj _ _ -> True
+    EStructUpd _ _ _ -> True
+    ECase _ _ -> True
+    ELet _ _ -> False
+    ENil _ -> False
+    ECons _ _ _ -> True
+    ENone _ -> False
+    ESome _ _ -> True
+    EToAny _ _ -> True
+    EFromAny _ _ -> True
+    ETypeRep _ -> True
+    EUpdate _ -> False
+    EScenario _ -> False
+    ELocation _ e -> isWorthLifting e
+
+data SimplifierState = SimplifierState
+    { sWorld :: World
+    , sVersion :: Version
+    , sModule :: Module
+    , sReserved :: Set.Set ExprValName
+    }
+
+sWorldExtended :: SimplifierState -> World
+sWorldExtended SimplifierState{..} = extendWorldSelf sModule sWorld
+
+type Simplifier t = State SimplifierState t
+
+runSimplifier :: World -> Version -> Module -> Simplifier t -> t
+runSimplifier world version mod m = evalState m (initialState world version mod)
+
+initialState :: World -> Version -> Module -> SimplifierState
+initialState w v m = SimplifierState
+    { sWorld = w
+    , sVersion = v
+    , sModule = m { moduleValues = NM.empty }
+    , sReserved = Set.fromList (NM.names (moduleValues m))
+    }
+
+addDefValue :: DefValue -> SimplifierState -> SimplifierState
+addDefValue dval s@SimplifierState{..} = s
+    { sModule = sModule { moduleValues = NM.insert dval (moduleValues sModule) }
+    , sReserved = Set.insert (fst (dvalBinder dval)) sReserved
+    }
+
+freshExprVarName :: Simplifier ExprValName
+freshExprVarName = do
+    reserved <- gets sReserved
+    let candidates = [ExprValName (T.pack ("$sc" ++ show i)) | i <- [1 :: Int ..]]
+        name = Safe.findJust (`Set.notMember` reserved) candidates
+    modify (\s -> s { sReserved = Set.insert name reserved })
+    pure name
+
+selfQualify :: t -> Simplifier (Qualified t)
+selfQualify x = do
+    m <- gets sModule
+    pure Qualified
+        { qualPackage = PRSelf
+        , qualModule = moduleName m
+        , qualObject = x
+        }
+
+
 exprRefs :: Expr -> Set.Set (Qualified ExprValName)
 exprRefs = cata $ \case
     EValF x -> Set.singleton x
@@ -417,16 +527,9 @@ topoSortDefValues m =
         sccs = G.stronglyConnComp . map dvalNode . NM.toList $ moduleValues m
     in concatMap toList sccs
 
-simplifyDefValue :: World -> DefValue -> DefValue
-simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dval) }
-
-simplifyModule :: World -> Module -> Module
-simplifyModule world0 mod0 =
-    let step accum dval =
-            let m' = mod0 { moduleValues = accum }
-                w' = extendWorldSelf m' world0
-                d' = simplifyDefValue w' dval
-            in NM.insert d' accum
-        mod1 = mod0 { moduleValues = foldl' step NM.empty (topoSortDefValues mod0) }
-        world1 = extendWorldSelf mod1 world0
-    in mod1 { moduleTemplates = NM.map (over templateExpr (simplifyExpr world1)) (moduleTemplates mod1) }
+simplifyModule :: World -> Version -> Module -> Module
+simplifyModule world version m = runSimplifier world version m $ do
+    forM_ (topoSortDefValues m) $ \ dval -> do
+        body' <- simplifyExpr (dvalBody dval)
+        modify (addDefValue dval { dvalBody = body' })
+    gets sModule
