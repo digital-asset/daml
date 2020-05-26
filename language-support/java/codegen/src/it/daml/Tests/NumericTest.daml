@@ -1,0 +1,14 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Tests.NumericTest where
+
+data NestedNumericBox = NoMore | Nested NumericBox
+
+data NumericBox = NumericBox {
+  decimal: Decimal,
+  numeric0: Numeric 0,
+  numeric37: Numeric 37,
+  nestedBox: NestedNumericBox
+}

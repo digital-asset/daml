@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Overview: template structure
@@ -29,6 +29,11 @@ template body
     ``where`` keyword
 
     Can include:
+
+    :ref:`template-local definitions <daml-ref-template-let>`
+        ``let`` keyword
+
+        Lets you make definitions that have access to the contract arguments and are available in the rest of the template definition.
 
     :ref:`signatories <daml-ref-signatories>`
         ``signatory`` keyword
@@ -90,10 +95,9 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     Who can exercise the choice.
 
-:ref:`consumability <daml-ref-anytime>`
-    ``nonconsuming`` keyword
-
-    By default, contracts are archived when a choice on them is exercised, which means that choices can no longer be exercised on them. If you include ``nonconsuming``, this choice can be exercised over and over.
+:ref:`consumption annotation <daml-ref-consumability>`
+    Optionally one of ``preconsuming``, ``postconsuming``, ``nonconsuming``, which changes the behavior of the choice with respect to privacy and if and when the contract is archived.
+    See :ref:`contract consumption in choices <daml-ref-consumability>` for more details.
 
 :ref:`a name <daml-ref-choice-name>`
     Must begin with a capital letter. Must be unique - choices in different templates can't have the same name.
@@ -135,7 +139,7 @@ The update expressions are:
 
     ``fetchedContract <- fetch IdOfContract``
 
-:ref:`fetch <daml-ref-fetch-by-key>`
+:ref:`fetchByKey <daml-ref-fetch-by-key>`
     Like ``fetch``, but uses a :doc:`contract key </daml/reference/contract-keys>` rather than an ID.
 
     ``fetchedContract <- fetchByKey @ContractType contractKey``

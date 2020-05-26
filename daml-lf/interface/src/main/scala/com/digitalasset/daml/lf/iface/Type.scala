@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 
 import java.{util => j}
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.{Numeric, Ref}
+import com.daml.lf.data.Ref.Identifier
 import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
   * yet another?
   *
   * The reason we have chosen to use the [[Core.Type]] in the
-  * `typeDecls` field of [[com.digitalasset.daml.core.Package.PackageInterface]]
+  * `typeDecls` field of [[com.daml.core.Package.PackageInterface]]
   * is because other programs besides the DAML Scala code generator inspect
   * this data structure. (e.g. Integration Adapter as of 07 Sep 2017).
   *
@@ -37,7 +37,7 @@ import scala.collection.JavaConverters._
   * polymorphic Scala data structures.
   *
   * Only a subset of [[Core.Type]] values can be translated to [[Type]] values.
-  * The method [[com.digitalasset.daml.core.Package#validTypeSynonymRHS]]
+  * The method [[com.daml.core.Package#validTypeSynonymRHS]]
   * returns {{{true}}} when a [[Core.Type]] value can be translated.
   */
 sealed abstract class Type extends Product with Serializable {
@@ -49,11 +49,16 @@ sealed abstract class Type extends Product with Serializable {
     *       `Z`, but we have not done that for closer analogy to pattern
     *       matching.
     */
-  def fold[Z](typeCon: TypeCon => Z, typePrim: TypePrim => Z, typeVar: TypeVar => Z): Z =
+  def fold[Z](
+      typeCon: TypeCon => Z,
+      typePrim: TypePrim => Z,
+      typeVar: TypeVar => Z,
+      typeNum: TypeNumeric => Z): Z =
     this match {
       case t @ TypeCon(_, _) => typeCon(t)
       case t @ TypePrim(_, _) => typePrim(t)
       case t @ TypeVar(_) => typeVar(t)
+      case t @ TypeNumeric(_) => typeNum(t)
     }
 
   /** Map all type variables that occur anywhere within this type */
@@ -62,6 +67,7 @@ sealed abstract class Type extends Product with Serializable {
       case t @ TypeVar(_) => f(t)
       case t @ TypeCon(_, _) => TypeCon(t.name, t.typArgs.map(_.mapTypeVars(f)))
       case t @ TypePrim(_, _) => TypePrim(t.typ, t.typArgs.map(_.mapTypeVars(f)))
+      case t @ TypeNumeric(_) => t
     }
 
   /** Fold over the [[TypeConNameOrPrimType]]s therein. */
@@ -70,7 +76,7 @@ sealed abstract class Type extends Product with Serializable {
       f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
     case TypePrim(typ, typArgs) =>
       f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
-    case TypeVar(_) => mzero[Z]
+    case TypeVar(_) | TypeNumeric(_) => mzero[Z]
   }
 }
 
@@ -93,6 +99,8 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
       }
     }
 }
+
+final case class TypeNumeric(scale: Numeric.Scale) extends Type
 
 final case class TypePrim(typ: PrimType, typArgs: ImmArraySeq[Type])
     extends Type
@@ -125,7 +133,6 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
     this match {
       case Bool => bool
       case Int64 => int64
-      case Decimal => decimal
       case Text => text
       case Date => date
       case Timestamp => timestamp
@@ -134,7 +141,8 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
       case List => list
       case Unit => unit
       case Optional => optional
-      case Map => map
+      case TextMap => map
+      case GenMap => genMap
     }
   }
 }
@@ -142,7 +150,6 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
 object PrimType {
   final val Bool = PrimTypeBool
   final val Int64 = PrimTypeInt64
-  final val Decimal = PrimTypeDecimal
   final val Text = PrimTypeText
   final val Date = PrimTypeDate
   final val Timestamp = PrimTypeTimestamp
@@ -151,12 +158,14 @@ object PrimType {
   final val List = PrimTypeList
   final val Unit = PrimTypeUnit
   final val Optional = PrimTypeOptional
-  final val Map = PrimTypeMap
+  final val TextMap = PrimTypeTextMap
+  @deprecated("Use TextMap", since = "0.13.38")
+  final val Map = TextMap
+  final val GenMap = PrimTypeGenMap
 }
 
 case object PrimTypeBool extends PrimType
 case object PrimTypeInt64 extends PrimType
-case object PrimTypeDecimal extends PrimType
 case object PrimTypeText extends PrimType
 case object PrimTypeDate extends PrimType
 case object PrimTypeTimestamp extends PrimType
@@ -165,12 +174,12 @@ case object PrimTypeContractId extends PrimType
 case object PrimTypeList extends PrimType
 case object PrimTypeUnit extends PrimType
 case object PrimTypeOptional extends PrimType
-case object PrimTypeMap extends PrimType
+case object PrimTypeTextMap extends PrimType
+case object PrimTypeGenMap extends PrimType
 
 trait PrimTypeVisitor[+Z] {
   def bool: Z
   def int64: Z
-  def decimal: Z
   def text: Z
   def date: Z
   def timestamp: Z
@@ -180,4 +189,5 @@ trait PrimTypeVisitor[+Z] {
   def unit: Z
   def optional: Z
   def map: Z
+  def genMap: Z
 }

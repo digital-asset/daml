@@ -1,7 +1,6 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE BlockArguments #-}
@@ -16,21 +15,30 @@ is an estimate of the amount of data sent over the network. Once the data sent
 reaches a limit it will stop being sent. This will retry whenever a new message
 is added.
 -}
-module DA.Service.Logger.Impl.GCP (
-    gcpLogger
-  , logOptOut
-  -- * Test hooks
-  , sendData
-  , dfPath
-  , test
-  ) where
+module DA.Service.Logger.Impl.GCP
+    ( withGcpLogger
+    , GCPConfig(..)
+    , GCPState(..)
+    , initialiseGcpState
+    , setOptIn
+    , logOptOut
+    , logIgnored
+    , logMetaData
+    , SendResult(..)
+    , isSuccess
+    , sendData
+    , sentDataFile
+    -- * Test hooks
+    , test
+    ) where
 
 import GHC.Generics(Generic)
 import Data.Int
-import Data.Tuple
-import Text.Read(readMaybe)
+import Text.Read (readMaybe)
 import Data.Aeson as Aeson
+import Data.Char (toUpper)
 import Control.Monad
+import Control.Monad.Loops
 import GHC.Stack
 import System.Directory
 import System.Environment
@@ -39,117 +47,210 @@ import System.Info
 import System.Timeout
 import System.Random
 import qualified DA.Service.Logger as Lgr
-import qualified DA.Service.Logger.Impl.IO as Lgr.IO
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DAML.Project.Consts
+import DA.Daml.Project.Consts
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
-import Data.Text.Encoding (encodeUtf8, decodeUtf8)
+import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as UTFBS
+import Data.String
+import Control.Applicative
 import Data.Time as Time
-import Data.UUID
+import Data.UUID (UUID)
+import qualified Data.UUID as UUID
+import Control.Concurrent.Async
 import Control.Concurrent.Extra
-import Control.Monad.Managed
-import Control.Exception
-import System.IO.Unsafe (unsafePerformIO)
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Class
+import Control.Concurrent.STM
+import Control.Exception.Safe
 import Network.HTTP.Simple
-import Network.HTTP.Types.Status
+import SdkVersion
 
+-- Type definitions
 
-data GCPState = GCPState {
-    _env :: Env
-  , _logQueue :: Var [LogEntry]
-  }
+-- | Tag used to distinguish between different components that use the
+-- GCP logger, such as "daml" or "ide". This should be a valid suffix
+-- for a file name.
+newtype GCPTag = GCPTag { unGCPTag :: String }
+    deriving (IsString)
 
--- | Cached attempt to build an environment, on an exception try again next time
-data Env = Env
-    { envLogger :: Lgr.Handle IO
-    , sessionID :: UUID
+-- | Configuration for setting up GCP logger.
+data GCPConfig = GCPConfig
+    { gcpConfigTag :: GCPTag
+    , gcpConfigDamlPath :: Maybe FilePath
     }
 
-fallBackLogger :: IO (Lgr.Handle IO)
-fallBackLogger = Lgr.IO.newStderrLogger Lgr.Debug "Telemetry"
+data GCPState = GCPState
+    { gcpFallbackLogger :: Lgr.Handle IO
+    -- ^ Fallback logger to log exceptions caused by the GCP logging itself.
+    , gcpLogChan :: TChan (LogEntry, IO ())
+    -- ^ Unsent logs. The IO action is a finalizer that is run when the log entry
+    -- has been sent successfully.
+    , gcpSessionID :: UUID
+    -- ^ Identifier for the current session
+    , gcpDamlDir :: FilePath
+    -- ^ Directory where we store various files such as the amount of
+    -- data sent so far.
+    , gcpSentDataFileLock :: Lock
+    -- ^ Lock for accessing sendData.
+    -- Note that this is not safe if there are multiple damlc executables
+    -- running. However, we can handle a corrupted data file gracefully
+    -- and cross-platform file locking is annoying so we do not bother
+    -- with a lock that works across processes.
+    , gcpTag :: GCPTag
+    -- ^ A tag to keep different SDK components that use the GCP logger from
+    -- interfering with each other. This is all so we don't have to deal with
+    -- cross-platform file locking.
+    }
 
--- | This is where I'm going to put all the user data
-initialiseEnv :: HasCallStack => IO Env
-initialiseEnv = Env <$> fallBackLogger <*> randomIO
+newtype SentBytes = SentBytes { getSentBytes :: Int64 }
+    deriving (Eq, Ord, Num)
+
+data SentData = SentData
+    { date :: Time.Day
+    , sent :: SentBytes
+    }
+
+-- Parameters
+
+-- | Timeout on log requests
+requestTimeout :: Int
+requestTimeout = 5_000_000
+
+-- Files used to record data that should persist over restarts.
+
+sentDataFile :: GCPState -> FilePath
+sentDataFile GCPState{..} =
+    gcpDamlDir </> (".sent_data_" <> unGCPTag gcpTag)
+
+machineIDFile :: GCPState -> FilePath
+machineIDFile GCPState{gcpDamlDir} = gcpDamlDir </> ".machine_id"
+
+optedOutFile :: GCPState -> FilePath
+optedOutFile GCPState{gcpDamlDir} = gcpDamlDir </> ".opted_out"
+
+optedInFile :: GCPState -> FilePath
+optedInFile GCPState{gcpDamlDir} = gcpDamlDir </> ".opted_in"
+
+noSentData :: IO SentData
+noSentData = SentData <$> today <*> pure (SentBytes 0)
+
+showSentData :: SentData -> T.Text
+showSentData SentData{..} = T.unlines [T.pack $ show date, T.pack $ show $ getSentBytes sent]
+
+-- | Reads the data file but doesn't check the values are valid
+parseSentData :: T.Text -> Maybe SentData
+parseSentData s = do
+  (date',sent') <-
+    case T.lines s of
+      [date, sent] -> Just (T.unpack date, T.unpack sent)
+      _ -> Nothing
+  date <- readMaybe date'
+  sent <- SentBytes <$> readMaybe sent'
+  pure SentData{..}
+
+-- | Resets to an empty data file if the recorded data
+-- is not from today.
+validateSentData :: Maybe SentData -> IO SentData
+validateSentData = \case
+  Nothing -> noSentData
+  Just sentData -> do
+    today' <- today
+    if date sentData == today'
+      then pure sentData
+      else noSentData
+
+initialiseGcpState :: GCPConfig -> Lgr.Handle IO -> IO GCPState
+initialiseGcpState GCPConfig{..} gcpFallbackLogger = do
+    gcpLogChan <- newTChanIO
+    gcpSessionID <- randomIO
+    gcpDamlDir <- getDamlDir gcpConfigDamlPath
+    gcpSentDataFileLock <- newLock
+    let gcpTag = gcpConfigTag
+    pure GCPState {..}
+
+-- | Read everything from the chan that you can within a single transaction.
+drainChan :: TChan a -> IO [a]
+drainChan chan = atomically $ unfoldM (tryReadTChan chan)
 
 -- | retains the normal logging capacities of the handle but adds logging
 --   to GCP
 --   will attempt to flush the logs
-gcpLogger ::
-    HasCallStack =>
-    (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
+withGcpLogger
+    :: GCPConfig
+    -> (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
     -> Lgr.Handle IO
-    -> Managed (Lgr.Handle IO)
-gcpLogger p hnd =
-    fmap snd $ managed $ bracket
-      initialiseState
-      (\(gcp,_) -> flushLogsGCP gcp Lgr.Info logsFlushed)
+    -> (GCPState -> Lgr.Handle IO -> IO a)
+    -- ^ We give access to both the GCPState as well as the modified logger
+    -- since the GCPState can be useful to bypass the message filter, e.g.,
+    -- for metadata messages which have info prio.
+    -> IO a
+withGcpLogger config p hnd f = do
+    gcpState <- initialiseGcpState config hnd
+    let logger = hnd
+            { Lgr.logJson = newLogJson gcpState
+            }
+    let worker = forever $ mask_ $ do
+            -- We mask to avoid messages getting lost.
+            entry <- atomically (readTChan (gcpLogChan gcpState))
+            sendLogs gcpState [entry]
+    (withAsync worker $ \_ -> do
+        f gcpState logger) `finally` do
+        logs <- drainChan (gcpLogChan gcpState)
+        sendLogs gcpState logs
+        Lgr.logJson hnd Lgr.Info ("Flushed " <> show (length logs) <> " logs")
   where
+      newLogJson ::
+          HasCallStack =>
+          Aeson.ToJSON a =>
+          GCPState -> Lgr.Priority -> a -> IO ()
+      newLogJson gcp priority js = do
+          Lgr.logJson hnd priority js
+          when (p priority) $
+              logGCP gcp priority js (pure ())
 
-  initialiseState :: HasCallStack => IO (GCPState, Lgr.Handle IO)
-  initialiseState = do
-    env <- initialiseEnv
-    logQueue <- newVar mempty
-    let gcp = GCPState env logQueue
-    let logger = hnd{Lgr.logJson = newLogJson gcp}
-    -- this is here because it should be sent regardless of filtering
-    logGCP gcp Lgr.Info =<< metaData
-    pure (gcp, logger)
-
-  logsFlushed :: T.Text
-  logsFlushed = "Logs have been flushed"
-
-  newLogJson ::
-      HasCallStack =>
-      Aeson.ToJSON a =>
-      GCPState -> Lgr.Priority -> a -> IO ()
-  newLogJson gcp priority js = do
-    Lgr.logJson hnd priority js
-    when (p priority) $
-      logGCP gcp priority js
-
-data LogEntry = LogEntry {
-      severity :: !Lgr.Priority
+data LogEntry = LogEntry
+    { severity :: !Lgr.Priority
     , timeStamp :: !UTCTime
     , message :: !(WithSession Value)
     }
 
 instance ToJSON LogEntry where
-    toJSON LogEntry{..} =
-        Object $ HM.fromList [
-          priorityToGCP severity
+    toJSON LogEntry{..} = Object $ HM.fromList
+        [ priorityToGCP severity
         , ("timestamp", toJSON timeStamp)
         , ("jsonPayload", toJSON message)
         ]
 
 -- | this stores information about the users machine and is transmitted at the
 --   start of every session
-data MetaData = MetaData {
-      machineID :: !UUID
+data MetaData = MetaData
+    { machineID :: !UUID
     , operatingSystem :: !T.Text
-    , version :: !(Maybe T.Text)
+    , version :: !T.Text
     } deriving Generic
 instance ToJSON MetaData
 
-metaData :: IO MetaData
-metaData = do
-    machineID <- fetchMachineID
+logMetaData :: GCPState -> IO ()
+logMetaData gcpState = do
+    metadata <- getMetaData gcpState
+    logGCP gcpState Lgr.Info metadata (pure ())
+
+getMetaData :: GCPState -> IO MetaData
+getMetaData gcp = do
+    machineID <- fetchMachineID gcp
     v <- lookupEnv sdkVersionEnvVar
-    let version = case v of
-            Nothing -> Nothing
-            Just "" -> Nothing
-            Just vs -> Just $ T.pack vs
-    pure MetaData{
-        machineID
-      , operatingSystem=T.pack os
-      , version
-      }
+    let version = T.pack $ case v of
+            Just vs | not (null vs) -> vs
+            -- If damlc is invoked directly which people might do when using other LSP clients, e.g.,
+            -- vim we cannot rely on the version being set by the assistant.
+            -- Therefore we fall back on the SDK version at built time which
+            -- should be correct with the exception of daml-sdk-head where it will not be set to 0.0.0.
+            _ -> sdkVersion
+    pure MetaData
+        { machineID
+        , operatingSystem=T.pack os
+        , version
+        }
 
 -- | This associates the message payload with an individual session and the meta
 data WithSession a = WithSession {wsID :: UUID, wsContents :: a}
@@ -161,10 +262,9 @@ instance ToJSON a => ToJSON (WithSession a) where
             toJsonObject $
             toJSON wsContents
 
-createLog :: (Aeson.ToJSON a, HasCallStack)
-          => Env -> Lgr.Priority -> a -> IO LogEntry
-createLog env severity m = do
-    let message = WithSession (sessionID env) $ toJSON m
+toLogEntry :: Aeson.ToJSON a => GCPState -> Lgr.Priority -> a -> IO LogEntry
+toLogEntry GCPState{gcpSessionID} severity m = do
+    let message = WithSession gcpSessionID $ toJSON m
     timeStamp <- getCurrentTime
     pure LogEntry{..}
 
@@ -173,6 +273,8 @@ createLog env severity m = do
 --   "Bool" and "Null"
 --   it will return objects unchanged
 --   The payload must be a JSON object
+-- TODO (MK) This encoding is stupid and wrong but we might have some queries
+-- that rely on it, so for now let’s keep it.
 toJsonObject :: Aeson.Value
              -> HM.HashMap T.Text Value
 toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
@@ -184,66 +286,38 @@ toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
     Aeson.Bool _ -> Left "Bool"
     Aeson.Null -> Left "Null"
 
+-- | Map from our custom severities to Google Cloud Stackdriver's LogSeverity.
+-- Most severity levels are named the same, though we map Telemetry to NOTICE.
+-- This is necessary as a log message is rejected if its severity is not valid.
 priorityToGCP :: Lgr.Priority -> (T.Text, Value)
-priorityToGCP = (,) "severity". \case
-  Lgr.Error -> "ERROR"
-  Lgr.Warning -> "WARNING"
-  Lgr.Info -> "INFO"
-  Lgr.Debug -> "DEBUG"
-
--- | This attempts to send all the logs off to the server but will give up
---   after 5 seconds
-flushLogsGCP
-  :: Aeson.ToJSON a
-  => GCPState
-  -> Lgr.Priority
-  -> a
-  -- ^ explain why you're flushing the logs e.g. crash, shutdown ect
-  -> IO ()
-flushLogsGCP gcp priority js = do
-    le <- createLog (_env gcp) priority js
-    pushLogQueue gcp [le]
-    void $ sendLogQueue gcp Sync
-
-minBatchSize, maxBatchSize :: Int
-minBatchSize = 10
-maxBatchSize = 50
-
--- | Try to log something, if it doesn't work we won't tell you, but we'll try
---   again later, requests will be batched
-logGCP
-  :: Aeson.ToJSON a
-  => GCPState
-  -> Lgr.Priority
-  -> a
-  -> IO ()
-logGCP gcp priority js = do
-    le <- createLog (_env gcp) priority js
-    pushLogQueue gcp [le]
-    len <- logQueueLength gcp
-    when (len >= minBatchSize) $
-        sendLogQueue gcp Async
-
--- | try sending logs and return the ones that weren't sent
---   don't use this directly, instead use sendLogQueue
-sendLogs :: [LogEntry] -> IO [LogEntry]
-sendLogs contents =
-  fmap getRemainder $ sendData send $ encode contents
+priorityToGCP prio = ("severity", prio')
     where
-        send ::
-            LBS.ByteString ->
-            IO Bool -- ^ Was sent successfully
-        send = fmap (statusIsSuccessful . getResponseStatus)
-             . httpNoBody
-             . toRequest
-        getRemainder :: Maybe Bool -> [LogEntry]
-        getRemainder = \case
-            -- The limit has been reached so don't re-add anything
-            Nothing -> []
-            -- Sending failed so re-add
-            Just False -> contents
-            -- Sending succeeded so don't re-add
-            Just True -> []
+      prio' = case prio of
+        Lgr.Telemetry -> "NOTICE"
+        _ -> toJSON $ map toUpper $ show prio
+
+-- | Add something to the log queue.
+logGCP
+    :: Aeson.ToJSON a
+    => GCPState
+    -> Lgr.Priority
+    -> a
+    -> IO ()
+    -> IO ()
+logGCP gcp@GCPState{gcpLogChan} priority js finalizer = do
+    le <- toLogEntry gcp priority js
+    atomically $ writeTChan gcpLogChan (le, finalizer)
+
+-- | Try sending logs. If anything fails, the logs are simply discarded.
+-- sendLogs also takes care of adding a timeout.
+sendLogs :: GCPState -> [(LogEntry, IO ())] -> IO ()
+sendLogs gcp (unzip -> (entries, finalizers)) = unless (null entries) $ do
+    res <- timeout requestTimeout $ sendData gcp (void . httpNoBody . toRequest) $ encode entries
+    case res of
+        Nothing -> Lgr.logJson (gcpFallbackLogger gcp) Lgr.Info ("Timeout while sending log request" :: T.Text)
+        Just (HttpError e) -> logException gcp e
+        Just ReachedDataLimit -> pure ()
+        Just SendSuccess -> sequence_ (map (void . tryAny) finalizers)
 
 logsHost :: BS.ByteString
 logsHost = "logs.daml.com"
@@ -257,221 +331,131 @@ toRequest le =
     $ setRequestPath "log/ide/"
     $ addRequestHeader "Content-Type" "application/json; charset=utf-8"
     $ setRequestBodyLBS le
+    $ setRequestCheckStatus
       defaultRequest
 
-pushLogQueue ::
-    GCPState ->
-    [LogEntry] ->
-    IO ()
-pushLogQueue GCPState{..} logs =
-    modifyVar_ _logQueue (pure . (logs ++))
-
-popLogQueue ::
-    GCPState ->
-    IO [LogEntry]
-popLogQueue GCPState{..} =
-    modifyVar
-    _logQueue
-  $ pure . swap . splitAt maxBatchSize
-
-logQueueLength ::
-    GCPState ->
-    IO Int
-logQueueLength GCPState{..} =
-    withVar _logQueue (pure . length)
-
-data RunSync =
-    Async
-  | Sync
-
-sendLogQueue ::
-    GCPState ->
-    RunSync ->
-    IO ()
-sendLogQueue gcp@GCPState{..} runSync = do
-  let lgr = Lgr.logJson $ envLogger _env
-      lgString = lgr Lgr.Error
-  toSend <- popLogQueue gcp
-  -- return True on success
-  let handleResult = \case
-          Left (err :: SomeException) -> do
-              lgString $ displayException err
-              pushLogQueue gcp toSend
-          Right [] ->
-              pure ()
-          Right unsent -> do
-              pushLogQueue gcp unsent
-  let send = sendLogs toSend
-  case runSync of
-      Sync ->
-          void $
-          timeout 5_000_000 $
-          handleResult =<< try send
-      Async ->
-          void $
-          forkFinally send (handleResult)
-
-
---------------------------------------------------------------------------------
--- Prevent sending too much data -----------------------------------------------
---------------------------------------------------------------------------------
-{-
-This creates a file with todays date and the number of bytes of telemetry
-data we have sent today, before sending it checks that this isn't in excess
-of the maximum allowable amount of data. If the date doesn't match todays date
-or the file is unreadable reset it to 0.
--}
-
-data DataFile = DataFile {date :: Time.Day, sent :: DataSent}
-
-type DataSent = Int64
+-- | We log exceptions at Info priority instead of Error since the most likely cause
+-- is a firewall.
+logException :: Exception e => GCPState -> e -> IO ()
+logException GCPState{gcpFallbackLogger} e = Lgr.logJson gcpFallbackLogger Lgr.Info $ displayException e
 
 -- | This machine ID is created once and read at every subsequent startup
 --   it's a random number which is used to identify machines
-fetchMachineID :: IO UUID
-fetchMachineID = do
-    fp <- fmap (</> ".machine_id") damlDir
+fetchMachineID :: GCPState -> IO UUID
+fetchMachineID gcp = do
+    let fp = machineIDFile gcp
     let generateID = do
         mID <- randomIO
-        BS.writeFile fp $ encodeUtf8 $ toText mID
+        T.writeFileUtf8 fp $ UUID.toText mID
         pure mID
     exists <- doesFileExist fp
     if exists
        then do
-        uid <- fromText . decodeUtf8 <$> BS.readFile fp
+        uid <- UUID.fromText <$> T.readFileUtf8 fp
         maybe generateID pure uid
        else
         generateID
 
--- | If it hasn't already been done log that the user has opted out of telemetry
-logOptOut :: IO ()
-logOptOut = do
-    fp <- fmap (</> ".opted_out") damlDir
-    exists <- doesFileExist fp
-    env <- initialiseEnv
-    let msg :: T.Text = "Opted out of telemetry"
-    optOut <- createLog env Lgr.Info msg
+-- | Write out a `.opted_in` file to the daml home directory, if it doesn't exist,
+-- and remove any existing `.opted_out`.
+setOptIn :: GCPState -> IO ()
+setOptIn gcp = do
+    let fpOut = optedOutFile gcp
+        fpIn = optedInFile gcp
+    writeFile fpIn ""
+    removePathForcibly fpOut
+
+-- | If it hasn't already been done log that the user has opted out of telemetry.
+logOptOut :: GCPState -> IO ()
+logOptOut gcp = do
+    let fpOut = optedOutFile gcp
+        fpIn = optedInFile gcp
+    removePathForcibly fpIn
+    exists <- doesFileExist fpOut
+    metadata <- getMetaData gcp
+    let val = disabledMessage metadata "Opted out of telemetry"
     unless exists do
-        res <- sendLogs [optOut]
-        when (Prelude.null res) $
-            writeFile fp ""
+        logGCP gcp Lgr.Info val $ do
+            writeFile fpOut ""
 
--- | Reads the data file but doesn't check the values are valid
-readDF :: UTFBS.ByteString -> Maybe DataFile
-readDF s = do
-  let t = UTFBS.toString s
-  (date',sent') <-
-    case lines t of
-      [date, sent] -> Just (date, sent)
-      _ -> Nothing
-  date <- readMaybe date'
-  sent <- readMaybe sent'
-  pure DataFile{..}
+-- | Turn a message describing why telemetry was disabled (opt-out or no choice made) into an Aeson value
+-- that includes the machine id.
+disabledMessage :: MetaData -> T.Text -> Aeson.Value
+disabledMessage metadata msg =
+    -- The slightly odd format here is to make sure that we don’t break old queries before machineID was part of opt-out messages.
+    toJSON $ HM.insert "machineID" (toJSON $ machineID metadata) $ toJsonObject (toJSON msg)
 
--- | ensure the datatracker data is from today
-validDF :: Maybe DataFile -> IO DataFile
-validDF = \case
-  Nothing -> emptyDF
-  Just df -> do
-    today' <- today
-    if date df == today'
-      then pure df
-      else emptyDF
-
-showDF :: DataFile -> UTFBS.ByteString
-showDF DataFile{..} = UTFBS.fromString $ unlines [show date, show sent]
+-- Log that the user clicked away the telemetry popup without making a choice.
+logIgnored :: GCPState -> IO ()
+logIgnored gcp = do
+    metadata <- getMetaData gcp
+    let val = disabledMessage metadata "No telemetry choice"
+    logGCP gcp Lgr.Info val (pure ())
 
 today :: IO Time.Day
 today = Time.utctDay <$> getCurrentTime
 
--- | An empty DataFile with no data sent
-emptyDF :: IO DataFile
-emptyDF = DataFile <$> today <*> pure 0
-
 -- | We decided 8MB a day is a fair max amount of data to send in telemetry
 --   this was decided somewhat arbitrarily
-maxDataPerDay :: DataSent -- ^ In bytes
-maxDataPerDay = 8388608
-
-{-# NOINLINE dataLock #-}
--- | acquire this lock if you're going to change data tracking file
-dataLock :: Lock
-dataLock = unsafePerformIO newLock
+maxDataPerDay :: SentBytes
+maxDataPerDay = SentBytes (8 * 2 ^ (20 :: Int))
 
 -- | The DAML home folder, getting this ensures the folder exists
-damlDir :: IO FilePath
-damlDir = do
+getDamlDir :: Maybe FilePath -> IO FilePath
+getDamlDir damlPathM = do
     dh <- lookupEnv damlPathEnvVar
-    dir <- case dh of
+    dir <- case damlPathM <|> dh of
         Nothing -> fallback
         Just "" -> fallback
         Just var -> pure var
-    liftIO $ createDirectoryIfMissing True dir
+    createDirectoryIfMissing True dir
     pure dir
     where fallback = getAppUserDataDirectory "daml"
 
--- | Get the filename, this is locked until the managed monad is run
---   the file is guaranteed to exist
-dfPath :: Managed FilePath
-dfPath = do
-  dir <- liftIO damlDir
-  pth <- managed $ \action ->
-    withLock dataLock $ action $ dir </> ".sent_data"
-  exists <- liftIO $ doesFileExist pth
-  let zeroDF = showDF <$> emptyDF
-  unless exists
-    $ liftIO $ BS.writeFile pth =<< zeroDF
-  pure pth
+-- | Get the file for recording the sent data and acquire the corresponding lock.
+withSentDataFile :: GCPState -> (FilePath -> IO a) -> IO a
+withSentDataFile gcp@GCPState{gcpSentDataFileLock} f =
+  withLock gcpSentDataFileLock $ do
+      let fp = sentDataFile gcp
+      exists <- doesFileExist fp
+      let noSentData' = showSentData <$> noSentData
+      unless exists (T.writeFileUtf8 fp =<< noSentData')
+      f fp
 
-overDataSent :: StateT DataSent IO r
-             -> Managed r
-overDataSent st = do
-  pth <- dfPath
-  contents <- liftIO $ BS.readFile pth
-  df <- liftIO $ validDF $ readDF contents
-  (ret, sentOut) <- liftIO $ runStateT st $ sent df
-  liftIO $ BS.writeFile pth $ showDF df{sent=sentOut}
-  pure ret
+data SendResult
+    = ReachedDataLimit
+    | HttpError SomeException
+    | SendSuccess
 
+isSuccess :: SendResult -> Bool
+isSuccess SendSuccess = True
+isSuccess _ = False
 
+-- | This is parametrized over the actual send function to make it testable.
+sendData :: GCPState -> (LBS.ByteString -> IO ()) -> LBS.ByteString -> IO SendResult
+sendData gcp sendRequest payload = withSentDataFile gcp $ \sentDataFile -> do
+    sentData <- validateSentData . parseSentData =<< T.readFileUtf8 sentDataFile
+    let newSentData = addPayloadSize sentData
+    T.writeFileUtf8 sentDataFile $ showSentData newSentData
+    if sent newSentData >= maxDataPerDay
+       then pure ReachedDataLimit
+       else do
+           r <- try $ sendRequest payload
+           case r of
+               Left e -> pure (HttpError e)
+               Right _ -> pure SendSuccess
+    where
+        addPayloadSize :: SentData -> SentData
+        addPayloadSize SentData{..} = SentData date (min maxDataPerDay (sent + payloadSize))
+        payloadSize = SentBytes $ LBS.length payload
 
-{- | This sends data up to the logs provided the data limit hasn't been hit
-     This returns Nothing if the limit has been hit
--}
-sendData :: forall a.
-            (LBS.ByteString -> IO a)
-         -> LBS.ByteString
-         -> IO (Maybe a)
-sendData f js = with (overDataSent wrk) pure where
-  reqSize :: DataSent
-  reqSize = LBS.length js
-  wrk :: StateT DataSent IO (Maybe a)
-  wrk = do
-    sent <- get
-    if
-      | sent >= maxDataPerDay ->
-        pure Nothing
-      | sent + reqSize >= maxDataPerDay -> do
-        {-
-        To keep the logs simple, when you try and send a packet and that packet
-        would have gone over the limit we increase the amount of data sent but
-        do not actually send the data, this is to stop some small logs getting
-        through when you're near the data cap
-        -}
-        modify' (reqSize+)
-        pure Nothing
-      | otherwise -> do
-        modify' (reqSize+)
-        Just <$> (lift $ f js)
 --------------------------------------------------------------------------------
 -- TESTS -----------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -- | These are not in the test suite because it hits an external endpoint
 test :: IO ()
-test = runManaged do
-    (hnd :: Lgr.Handle IO) <- gcpLogger (Lgr.Error ==) Lgr.Pure.makeNopHandle
+test = withGcpLogger (GCPConfig "test" Nothing) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
     let lg = Lgr.logError hnd
     let (ls :: [T.Text]) = replicate 13 $ "I like short songs!"
-    liftIO do
-        mapM_ lg ls
-        putStrLn "Done!"
+    mapM_ lg ls
+    putStrLn "Done!"

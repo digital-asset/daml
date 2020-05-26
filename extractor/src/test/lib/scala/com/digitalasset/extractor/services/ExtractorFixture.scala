@@ -1,59 +1,64 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.services
+package com.daml.extractor.services
 
-import com.digitalasset.extractor.Extractor
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.targets.PostgreSQLTarget
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.sandbox.persistence.PostgresAround
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-
-import scalaz.OneAnd
 import cats.effect.{ContextShift, IO}
+import com.daml.extractor.Extractor
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.targets.PostgreSQLTarget
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.ports.Port
+import com.daml.testing.postgresql.{PostgresAround, PostgresAroundSuite}
 import doobie._
 import doobie.implicits._
-
+import doobie.util.transactor.Transactor.Aux
 import org.scalatest._
+import scalaz.OneAnd
 
-import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
-trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
+trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Types {
   self: Suite =>
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
-  protected val baseConfig = ExtractorConfig(
+  protected val baseConfig: ExtractorConfig = ExtractorConfig(
     "127.0.0.1",
-    666, // doesn't matter, will/must be overriden in the test cases
+    ledgerPort = Port(666), // doesn't matter, will/must be overridden in the test cases
+    ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
     OneAnd(Party assertFromString "Bob", List.empty),
+    Set.empty,
     TlsConfiguration(
       enabled = false,
       None,
       None,
-      None
-    )
+      None,
+    ),
+    None,
   )
+
+  protected def outputFormat: String = "single-table"
 
   protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
 
-  protected lazy val target: PostgreSQLTarget = PostgreSQLTarget(
-    connectUrl = postgresFixture.jdbcUrl,
-    user = "test",
-    password = "",
-    outputFormat = "combined",
+  protected def target: PostgreSQLTarget = PostgreSQLTarget(
+    connectUrl = postgresDatabase.url,
+    user = postgresDatabase.userName,
+    password = postgresDatabase.password,
+    outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,
     stripPrefix = None
   )
 
-  protected implicit lazy val xa = Transactor.fromDriverManager[IO](
+  protected implicit lazy val xa: Aux[IO, Unit] = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver", // driver classname
     target.connectUrl, // connect URL (driver-specific)
     target.user,
@@ -91,9 +96,9 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
+    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort))
 
-    extractor = new Extractor(config, target)
+    extractor = new Extractor(config, target)()
 
     val res = extractor.run()
 

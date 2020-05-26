@@ -1,0 +1,131 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+)
+load(
+    "//bazel_tools/client_server:client_server_test.bzl",
+    "client_server_test",
+)
+load("@build_environment//:configuration.bzl", "sdk_version")
+
+genrule(
+    name = "acs",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//triggers/daml:daml-trigger.dar",
+            "//docs:source/triggers/template-root/src/CopyTrigger.daml",
+        ],
+    outs = ["acs.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Retry.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/ExerciseByKey.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/CreateAndExercise.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MaxInboundMessageTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Numeric.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/CommandId.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/PendingSet.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TemplateIdFilter.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: acs
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-trigger.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "test-utils",
+    srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+# For now turning this into a scala_test_suite has too much overhead and ends up making
+# things slower rather than faster. Once we have more tests, we might want to reconsider.
+da_scala_test(
+    name = "trigger-integration-tests",
+    srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
+    ],
+    data = [
+        ":acs.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = ["//triggers/runner:src/main/resources/logback.xml"],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)

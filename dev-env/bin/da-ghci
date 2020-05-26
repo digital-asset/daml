@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 """Bazel-aware wrapper for GHCi.
@@ -41,8 +41,8 @@ def main():
             "target",
             metavar="TARGET",
             nargs="?",
-            default="//:damlc",
-            help="Bazel target or source file to load into GHCi. Default: damlc")
+            default="//:repl",
+            help="Bazel target or source file to load into GHCi. Default: //:repl")
     parser.add_argument(
             "ghci_args",
             metavar="...",
@@ -59,6 +59,9 @@ def main():
 
         # Discover the Haskell target.
         target = query_haskell_target(source_file)
+
+        # This isn't a haskell_repl target
+        is_repl = False
     else:
         # No specific module to load.
         module_name = None
@@ -66,18 +69,21 @@ def main():
         # Assume we were given a Bazel target.
         target = args.target
 
+        # Find out if it's a haskell_repl target
+        is_repl = 'haskell_repl' in query_target_kind(target)
+
     # In auto mode we try to build with data "yes" first, and fall back to data
     # "no" on failure. We separate the build step so that we can check for
     # build failure in isolation. In non-auto mode we don't need to separate
     # the build step and can call `bazel run` right away.
     with_data = args.data == "yes" or args.data == "auto"
-    bazel_args = mk_bazel_args(target, with_data)
+    bazel_args = mk_bazel_args(target, with_data=with_data, is_repl=is_repl)
     if args.data == "auto":
         try:
             bazel_build(bazel_args)
         except subprocess.CalledProcessError:
             print("WARNING: Build with runfiles failed. Retrying without runfiles.", file=sys.stderr)
-            bazel_args = mk_bazel_args(target, False)
+            bazel_args = mk_bazel_args(target, with_data=False, is_repl=is_repl)
             try:
                 bazel_build(bazel_args)
             except subprocess.CalledProcessError:
@@ -112,14 +118,32 @@ def run_repl(bazel_args, ghci_args, module_name):
             os.remove(script_path)
 
 
-def mk_bazel_args(target, with_data):
-    bazel_args = ["{}@ghci".format(target)]
+def mk_bazel_args(target, with_data, is_repl):
+    bazel_args = [target if is_repl else "{}@ghci".format(target)]
 
     if with_data:
         bazel_args += ["--define", "ghci_data=True"]
 
     return bazel_args
 
+def query_target_kind(target):
+    # See query_haskell_target below.
+    subprocess.run(
+            ["bazel", "fetch", "--keep_going", "//..."],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL)
+
+    ret = subprocess.run(
+        ["bazel", "query", "--output", "label_kind", target],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL
+    )
+    if ret.returncode != 0:
+        print("ERROR: Could not determine target kind.", file=sys.stderr)
+        sys.exit(1)
+    return ret.stdout.decode()
 
 def query_haskell_target(source_file):
     # If Bazel needs to reload external dependencies, e.g. on a fresh checkout,

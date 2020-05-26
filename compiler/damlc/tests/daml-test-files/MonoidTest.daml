@@ -1,0 +1,15 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+
+module MonoidTest where
+
+import DA.Monoid
+
+testSum = scenario do
+  assert $ Sum (1 : Int) <> Sum 2 == Sum (1 + 2)
+  assert $ mempty == Sum (aunit : Int)
+
+testProduct = scenario do
+  assert $ Product (2 : Int) <> Product 3 == Product (2 * 3)
+  assert $ mempty == Product (munit : Int)

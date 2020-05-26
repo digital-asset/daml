@@ -1,147 +1,151 @@
-- target: //release:sdk-release-tarball
-  type: targz
-  platformDependent: True
-  location:
-    groupId: com.digitalasset
-    artifactId: sdk-tarball
-- target: //daml-lf/archive:daml_lf_archive_java
-  type: jar
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+- target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
+  type: jar-scala
+- target: //daml-lf/archive:daml_lf_1.6_archive_java_proto
+  type: jar-lib
+  javadoc-jar: daml_lf_1.6_archive_java_proto_javadoc.jar
+- target: //daml-lf/archive:daml_lf_1.7_archive_java_proto
+  type: jar-lib
+  javadoc-jar: daml_lf_1.7_archive_java_proto_javadoc.jar
+- target: //daml-lf/archive:daml_lf_1.8_archive_java_proto
+  type: jar-lib
+  javadoc-jar: daml_lf_1.8_archive_java_proto_javadoc.jar
+- target: //daml-lf/archive:daml_lf_dev_archive_java_proto
+  type: jar-lib
+  javadoc-jar: daml_lf_dev_archive_java_proto_javadoc.jar
+- target: //daml-lf/archive:daml_lf_archive_reader
+  type: jar-scala
 - target: //daml-lf/data:data
-  type: jar
-- target: //release:sdk-metadata-tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: sdk
-  bintrayPackage: sdk
-- target: //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist
-  type: targz
-  platformDependent: True
-  location:
-    groupId: com.digitalasset
-    artifactId: damlc
-- target: //daml-foundations/daml-tools/damlc-jar:damlc_jar
-  type: jar-deploy
-  platformDependent: True
-- target: //daml-foundations/daml-tools/daml-extension:dist
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-extension
-- target: //daml-lf/archive:daml_lf_archive_scala
-  type: jar
-- target: //daml-lf/archive:daml_lf_archive_protos_zip
-  type: zip
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-archive-protos
-- target: //daml-lf/archive:daml_lf_archive_protos_tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-archive-protos
-- target: //daml-lf/transaction/src/main/protobuf:value_java_proto
-  type: jar-proto
-- target: //daml-lf/transaction/src/main/protobuf:transaction_java_proto
-  type: jar-proto
-- target: //daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto
-  type: jar-proto
-- target: //daml-lf/transaction:transaction
   type: jar-scala
-- target: //daml-lf/transaction-scalacheck:transaction-scalacheck
-  type: jar
-- target: //daml-lf/lfpackage:lfpackage
-  type: jar-scala
-- target: //daml-lf/interface:interface
-  type: jar-scala
-- target: //daml-lf/validation:validation
-  type: jar-scala
-- target: //daml-lf/interpreter:interpreter
-  type: jar-scala
-- target: //daml-lf/scenario-interpreter:scenario-interpreter
+- target: //daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
 - target: //daml-lf/engine:engine
   type: jar-scala
-- target: //daml-lf/repl:repl
-  type: jar
-- target: //daml-lf/testing-tools:testing-tools
+- target: //daml-lf/interface:interface
   type: jar-scala
-- target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: ledger-api-protos
-- target: //ledger-api/rs-grpc-bridge:rs-grpc-bridge
-  type: jar-lib
+- target: //daml-lf/interpreter:interpreter
+  type: jar-scala
+- target: //daml-lf/language:language
+  type: jar-scala
+- target: //daml-lf/scenario-interpreter:scenario-interpreter
+  type: jar-scala
+- target: //daml-lf/transaction:blindinginfo_java_proto
+  type: jar-proto
+- target: //daml-lf/transaction:transaction
+  type: jar-scala
+- target: //daml-lf/transaction:transaction_java_proto
+  type: jar-proto
+- target: //daml-lf/transaction:value_java_proto
+  type: jar-proto
+- target: //daml-lf/transaction-scalacheck:transaction-scalacheck
+  type: jar-scala
+- target: //daml-lf/validation:validation
+  type: jar-scala
+- target: //language-support/codegen-common:codegen-common
+  type: jar-scala
+- target: //language-support/codegen-main:shaded_binary
+  type: jar-scala
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
   type: jar-lib
-- target: //docs:quickstart-java
-  type: targz
-  location:
-    groupId: com.digitalasset.docs
-    artifactId: quickstart-java
-- target: //ledger/sandbox:sandbox-tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: sandbox
-- target: //extractor:extractor-binary
-  type: jar-deploy
-- target: //ledger-api/grpc-definitions:ledger-api-scalapb
-  type: jar
-- target: //ledger-api/testing-utils:testing-utils
+- target: //language-support/java/codegen:lib
+  type: jar-scala
+- target: //language-support/java/codegen:shaded_binary
   type: jar-scala
 - target: //language-support/scala/bindings:bindings
   type: jar-scala
+- target: //language-support/scala/bindings-akka:bindings-akka
+  type: jar-scala
+- target: //language-support/scala/codegen:codegen
+  type: jar-scala
+- target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
+  type: targz
+  location:
+    groupId: com.daml
+    artifactId: ledger-api-protos
+- target: //ledger-api/grpc-definitions:ledger-api-scalapb
+  type: jar-scala
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
+  type: jar-scala
+- target: //ledger-api/rs-grpc-bridge:rs-grpc-bridge
+  type: jar-lib
+- target: //ledger-api/rs-grpc-testing-utils:rs-grpc-testing-utils
+  type: jar-scala
+- target: //ledger-api/testing-utils:testing-utils
+  type: jar-scala
+- target: //ledger/caching:caching
   type: jar-scala
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
-- target: //scala-protoc-plugins/scala-logging:scala-logging-lib
+- target: //ledger/ledger-api-auth:ledger-api-auth
   type: jar-scala
-- target: //ledger/ledger-api-scala-logging:ledger-api-scala-logging
-  type: jar-scala
-- target: //ledger/backend-api:backend-api
-  type: jar-scala
+- target: //ledger/ledger-api-auth-client:ledger-api-auth-client
+  type: jar-lib
 - target: //ledger/ledger-api-client:ledger-api-client
-  type: jar-scala
-- target: //ledger/ledger-api-domain:ledger-api-domain
   type: jar-scala
 - target: //ledger/ledger-api-common:ledger-api-common
   type: jar-scala
-- target: //ledger/sandbox:sandbox
+- target: //ledger/ledger-api-domain:ledger-api-domain
   type: jar-scala
-- target: //ledger/ledger-api-integration-tests:semantic-test-runner
-  type: jar-deploy
+- target: //ledger/ledger-api-health:ledger-api-health
+  type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
-- target: //language-support/scala/codegen:codegen
-  type: jar
-- target: //language-support/scala/codegen:codegen-main
-  type: jar
-- target: //language-support/scala/bindings-akka:bindings-akka
+- target: //ledger/ledger-on-sql:ledger-on-sql
   type: jar-scala
-- target: //language-support/java/codegen:shaded_binary
-  type: jar
-- target: //navigator/backend:navigator-binary
-  type: jar-deploy
-- target: //language-support/codegen-common:codegen-common
-  type: jar
-- target: //language-support/codegen-main:shaded_binary
-  type: jar
+- target: //ledger/metrics:metrics
+  type: jar-scala
 - target: //ledger/participant-state:participant-state
-  type: jar-scala
-- target: //ledger/participant-state/reference:reference
-  type: jar-scala
-- target: //ledger/participant-state-index:participant-state-index
-  type: jar-scala
-- target: //ledger/participant-state-index/reference:reference
-  type: jar-scala
-- target: //ledger/api-server-damlonx:api-server-damlonx
   type: jar-scala
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
   type: jar-proto
 - target: //ledger/participant-state/kvutils:kvutils
   type: jar-scala
+- target: //ledger/participant-state/kvutils/app:app
+  type: jar-scala
+- target: //ledger/participant-state/protobuf:ledger_configuration_java_proto
+  type: jar-proto
+- target: //ledger/participant-state-index:participant-state-index
+  type: jar-scala
+- target: //ledger/participant-state-metrics:participant-state-metrics
+  type: jar-scala
+- target: //ledger/sandbox:ledger-api-server
+  type: jar-scala
+- target: //ledger/sandbox:sandbox
+  type: jar-scala
+- target: //ledger-service/db-backend:db-backend
+  type: jar-scala
+- target: //ledger-service/http-json:http-json
+  type: jar-scala
+- target: //ledger-service/lf-value-json:lf-value-json
+  type: jar-scala
+- target: //ledger-service/cli-opts:cli-opts
+  type: jar-scala
+- target: //ledger-service/jwt:jwt
+  type: jar-scala
+- target: //ledger-service/utils:utils
+  type: jar-scala
+- target: //libs-scala/auth-utils:auth-utils
+  type: jar-scala
+- target: //libs-scala/contextualized-logging:contextualized-logging
+  type: jar-scala
+- target: //libs-scala/direct-execution-context:direct-execution-context
+  type: jar-scala
+- target: //libs-scala/grpc-utils:grpc-utils
+  type: jar-scala
+- target: //libs-scala/ports:ports
+  type: jar-scala
+- target: //libs-scala/resources:resources
+  type: jar-scala
+- target: //libs-scala/resources-akka:resources-akka
+  type: jar-scala
+- target: //libs-scala/timer-utils:timer-utils
+  type: jar-scala
+- target: //triggers/runner:trigger-runner-lib
+  type: jar-scala
+- target: //libs-scala/build-info:build-info
+  type: jar-scala
+

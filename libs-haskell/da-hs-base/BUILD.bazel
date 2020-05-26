@@ -1,15 +1,17 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "da-hs-base",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "aeson",
         "ansi-terminal",
+        "async",
         "base",
         "base16-bytestring",
         "base64-bytestring",
@@ -27,14 +29,14 @@ da_haskell_library(
         "http-conduit",
         "http-types",
         "lens",
-        "managed",
-        "monad-control",
+        "monad-loops",
         "mtl",
         "optparse-applicative",
         "pretty-show",
         "pretty",
         "random",
         "safe",
+        "safe-exceptions",
         "stm",
         "tar-conduit",
         "tasty-hunit",
@@ -50,21 +52,21 @@ da_haskell_library(
         "utf8-string",
         "uuid",
         "vector",
-    ],
+    ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//daml-assistant:daml-project-config",
-        "//libs-haskell/prettyprinter-syntax",
     ],
 )
 
 da_haskell_test(
     name = "da-hs-base-tests",
     srcs = glob(["tests/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
-        "managed",
+        "extra",
         "tasty",
         "base",
         "directory",

@@ -1,7 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
+
+import scalaz.{Cord, Show}
+
+import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
+import scala.collection.immutable.{AbstractMap, HashMap, Map, Queue}
 
 /**
   * Insert-ordered Map (like ListMap), but with efficient lookups.
@@ -11,61 +16,52 @@ package com.digitalasset.daml.lf.data
   *  get: O(1)
   *  insert: O(1)
   *  remove: O(n)
+  *  in order traversal: O(n)
   */
-import scala.collection.immutable.{HashMap, Map, Queue}
+final class InsertOrdMap[K, +V] private (
+    override val keys: Queue[K],
+    hashMap: HashMap[K, V]
+) extends AbstractMap[K, V]
+    with Map[K, V]
+    with MapKOps[K, V, InsertOrdMap[K, +?]] {
 
-sealed abstract class InsertOrdMap[K, +V] extends Map[K, V] {
-  def _keys: Queue[K]
-  def _hashMap: Map[K, V]
+  override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 
-  override def empty = InsertOrdMap.empty
+  override def size: Int = hashMap.size
 
-  override def size: Int = _hashMap.size
+  override def iterator: Iterator[(K, V)] =
+    keys.iterator.map(k => (k, hashMap(k)))
 
-  def iterator: Iterator[(K, V)] =
-    _keys.map(k => (k, _hashMap(k))).reverse.iterator
+  override def get(key: K): Option[V] = hashMap.get(key)
 
-  def get(key: K): Option[V] = _hashMap.get(key)
+  override def updated[V1 >: V](key: K, value: V1): InsertOrdMap[K, V1] =
+    new InsertOrdMap(if (hashMap.contains(key)) keys else keys :+ key, hashMap.updated(key, value))
 
-  def +[V2 >: V](kv: (K, V2)): InsertOrdMap[K, V2] =
-    if (_hashMap.contains(kv._1))
-      NonEmptyInsertOrdMap(
-        _keys,
-        _hashMap + kv
-      )
-    else
-      NonEmptyInsertOrdMap(
-        kv._1 +: _keys,
-        _hashMap + kv
-      )
+  override def +[V1 >: V](kv: (K, V1)): InsertOrdMap[K, V1] = {
+    val (key, value) = kv
+    updated(key, value)
+  }
 
-  def -(k: K): InsertOrdMap[K, V] =
-    NonEmptyInsertOrdMap(
-      _keys.filter(k2 => k != k2),
-      _hashMap - k
-    )
+  override def -(k: K): InsertOrdMap[K, V] =
+    new InsertOrdMap(keys.filter(_ != k), hashMap - k)
 
-  override def mapValues[V2](f: V => V2): InsertOrdMap[K, V2] =
-    NonEmptyInsertOrdMap(_keys, _hashMap.mapValues(f))
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-final case object EmptyInsertOrdMap extends InsertOrdMap[Any, Nothing] {
-  override def _keys = Queue[Any]()
-  override def _hashMap = HashMap[Any, Nothing]()
-}
+object InsertOrdMap extends ImmutableMapFactory[InsertOrdMap] {
 
-final case class NonEmptyInsertOrdMap[K, V](
-    override val _keys: Queue[K],
-    override val _hashMap: Map[K, V])
-    extends InsertOrdMap[K, V]
+  private val Empty: InsertOrdMap[Unit, Nothing] = new InsertOrdMap(Queue.empty, HashMap.empty)
 
-object InsertOrdMap {
-  def empty[K, V] = EmptyInsertOrdMap.asInstanceOf[InsertOrdMap[K, V]]
+  def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
-  def fromMap[K, V](m: Map[K, V]): InsertOrdMap[K, V] =
-    NonEmptyInsertOrdMap(Queue(m.keys.toSeq: _*), m)
+  implicit def canBuildFrom[A, B]: CanBuildFrom[Coll, (A, B), InsertOrdMap[A, B]] =
+    new MapCanBuildFrom[A, B]
 
-  def fromSeq[K, V](s: Seq[(K, V)]): InsertOrdMap[K, V] =
-    NonEmptyInsertOrdMap(Queue(s.reverse.map(_._1): _*), HashMap(s: _*))
+  implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
+    Show.show { m =>
+      "InsertOrdMap[" +:
+        Cord.mkCord(", ", m.toSeq.map { x =>
+        Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
+      }: _*) :+ "]"
+    }
+
 }

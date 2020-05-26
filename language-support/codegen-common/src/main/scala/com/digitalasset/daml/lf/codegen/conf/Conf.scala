@@ -1,15 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.conf
+package com.daml.lf.codegen.conf
 
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
+import com.daml.buildinfo.BuildInfo
 import scopt.{OptionParser, Read}
-
-import scala.io.Source
-import scala.util.Try
 
 /**
   *
@@ -22,7 +20,8 @@ final case class Conf(
     darFiles: Map[Path, Option[String]] = Map(),
     outputDirectory: Path,
     decoderPkgAndClass: Option[(String, String)] = None,
-    verbosity: Level = Level.ERROR
+    verbosity: Level = Level.ERROR,
+    roots: List[String] = Nil
 )
 
 object Conf {
@@ -34,7 +33,7 @@ object Conf {
     parser.parse(args, Conf(Map.empty, Paths.get(".")))
 
   def parser: OptionParser[Conf] = new scopt.OptionParser[Conf]("codegen") {
-    head("codegen", Version)
+    head("codegen", BuildInfo.Version)
     note("Code generator for the DAML ledger bindings.\n")
 
     arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(
@@ -57,19 +56,25 @@ object Conf {
       .action((l, c) => c.copy(verbosity = l))
       .text("Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0")
 
+    opt[String]('r', "root")(Read.stringRead)
+      .unbounded()
+      .action((rexp, c) => c.copy(roots = rexp :: c.roots))
+      .text(
+        "Regular expression for fully-qualified names of templates to generate -- defaults to .*")
+
     help("help").text("This help text")
 
   }
 
   private[conf] val readPath: scopt.Read[Path] = scopt.Read.stringRead.map(s => Paths.get(s))
 
-  private[conf] val readClassName: scopt.Read[(String, String)] = scopt.Read.stringRead.map {
+  val readClassName: scopt.Read[(String, String)] = scopt.Read.stringRead.map {
     case PackageAndClassRegex(p, c) => (p, c)
     case _ =>
       throw new IllegalArgumentException("Expected a Full Qualified Class Name")
   }
 
-  private[conf] val readVerbosity: scopt.Read[Level] = scopt.Read.stringRead.map {
+  val readVerbosity: scopt.Read[Level] = scopt.Read.stringRead.map {
     case "0" => Level.ERROR
     case "1" => Level.WARN
     case "2" => Level.INFO
@@ -96,9 +101,5 @@ object Conf {
         }
       }
     }
-
-  lazy val Version: String =
-    Try(Source.fromResource("COMPONENT-VERSION").getLines.reduce((t, u) => t + u).trim)
-      .getOrElse("{component version not found on classpath}")
 
 }

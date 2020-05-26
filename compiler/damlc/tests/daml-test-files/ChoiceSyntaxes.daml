@@ -1,0 +1,32 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that all syntaxes for defining choices can be parsed.
+
+module ChoiceSyntaxes where
+
+template T with
+    p : Party
+  where
+    signatory p
+
+    choice C1 : () with
+        q : Party
+      controller [p, q]
+      do
+        pure ()
+
+    choice C2 : ()
+      controller p
+      do
+        pure ()
+
+    controller p can
+      C3 : () with
+          x : ()
+        do
+          pure  ()
+
+      C4 : ()
+        do
+          pure  ()

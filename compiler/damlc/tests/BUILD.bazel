@@ -1,0 +1,588 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
+load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
+load("//rules_daml:daml.bzl", "daml_compile")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("//compiler/damlc:util.bzl", "ghc_pkg")
+
+# Tests for the lax CLI parser
+da_haskell_test(
+    name = "damlc-cliparser",
+    srcs = ["src/CliParser.hs"],
+    hackage_deps = [
+        "tasty",
+        "base",
+        "optparse-applicative",
+        "tasty-hunit",
+    ],
+    main_function = "Cli.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+    ],
+)
+
+# Tests for the dar reader
+da_haskell_test(
+    name = "daml-lf-reader",
+    srcs = ["src/DarReaderTest.hs"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DarReaderTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//compiler/daml-lf-reader",
+    ],
+)
+
+# Tests for visualization
+da_haskell_test(
+    name = "visualization",
+    srcs = ["src/DamlcVisualize.hs"],
+    data = [
+        "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "either",
+        "extra",
+        "filepath",
+        "tasty",
+        "tasty-expected-failure",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DamlcVisualize.main",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Tests for damlc test
+da_haskell_test(
+    name = "damlc-test",
+    srcs = ["src/DamlcTest.hs"],
+    data = [
+        "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DamlcTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Integration tests for all non-dev DAML-LF versions
+damlc_integration_test("integration-stable", "DA.Test.DamlcIntegration.mainAll")
+
+# Integration tests for DAML-LF 1.dev
+damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
+
+# Tests for daml-doc
+da_haskell_test(
+    name = "daml-doc",
+    srcs = ["src/DA/Test/DamlDoc.hs"],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+    ],
+    hackage_deps = [
+        "base",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlDoc.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Unit tests for daml-doctest
+da_haskell_test(
+    name = "daml-doctest",
+    srcs = ["src/DA/Test/DamlDocTest.hs"],
+    data = ["//compiler/damlc/pkg-db"],
+    hackage_deps = [
+        "base",
+        "data-default",
+        "extra",
+        "filepath",
+        "ghcide",
+        "haskell-lsp-types",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlDocTest.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doctest",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Integration test for damlc doctest
+da_haskell_test(
+    name = "daml-doctest-integration",
+    srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
+    data = ["//compiler/damlc"],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.DamlDocTestIntegration.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+# Tests of damlc at the Shake API layer
+da_haskell_test(
+    name = "shake",
+    size = "large",
+    # this test takes a while and often time out -- tell that to bazel
+    timeout = "long",
+    srcs = ["src/DA/Test/ShakeIdeClient.hs"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    hackage_deps = [
+        "base",
+        "directory",
+        "ghcide",
+        "tasty-hunit",
+        "text",
+        "containers",
+    ],
+    main_function = "DA.Test.ShakeIdeClient.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/damlc/daml-visual",
+        "//compiler/scenario-service/client",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Tests for incremental builds
+da_haskell_test(
+    name = "incremental",
+    srcs = ["src/DA/Test/IncrementalBuilds.hs"],
+    data = [
+        "//compiler/damlc",
+        "//daml-lf/repl",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.IncrementalBuilds.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Tests for packaging
+da_haskell_test(
+    name = "packaging",
+    timeout = "long",
+    srcs = ["src/DA/Test/Packaging.hs"],
+    data = [
+        "//compiler/damlc",
+        "//compiler/damlc/tests:generate-simple-dalf",
+        "//daml-lf/repl",
+        "@davl-v3//:released/davl-v3.dar",
+        # Feel free to update this to 0.13.55 once that is frozen.
+        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "ghc-lib-parser",
+        "filepath",
+        "process",
+        "safe-exceptions",
+        "tasty",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DA.Test.Packaging.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+genrule(
+    name = "repl-test",
+    srcs = [
+        "ReplTest.daml",
+    ],
+    outs = ["repl-test.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location ReplTest.daml) $$TMP_DIR/daml
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: repl-test
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-stdlib
+  - daml-prim
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "repl",
+    srcs = ["src/DA/Test/Repl.hs"],
+    data = [
+        ":repl-test.dar",
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/sandbox:sandbox-binary",
+        "//ledger/test-common/test-certificates",
+    ],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "process",
+        "regex-tdfa",
+        "safe",
+        "safe-exceptions",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "unordered-containers",
+    ],
+    main_function = "DA.Test.Repl.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "repl-functests",
+    srcs = ["src/DA/Test/Repl/FuncTests.hs"],
+    data = [
+        ":repl-test.dar",
+        ghc_pkg,
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/repl-service/server:repl_service_jar",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "async",
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "ghcide",
+        "hspec",
+        "process",
+        "regex-tdfa",
+        "safe",
+        "safe-exceptions",
+        "silently",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.Repl.FuncTests.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
+        "//compiler/repl-service/client",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Memory tests
+
+da_haskell_binary(
+    name = "generate-module-tree",
+    srcs = ["src/DA/Test/GenerateModuleTree.hs"],
+    hackage_deps = [
+        "base",
+        "filepath",
+    ],
+    main_function = "DA.Test.GenerateModuleTree.main",
+    src_strip_prefix = "src",
+    deps = ["//libs-haskell/da-hs-base"],
+)
+
+genrule(
+    name = "module-tree-test",
+    outs = ["FatTree{i}.daml".format(i = i) for i in range(1, 19)],
+    cmd = "$(location :generate-module-tree) $(@D) 18",
+    tools = [":generate-module-tree"],
+    visibility = ["//visibility:public"],
+)
+
+damlc_compile_test(
+    name = "memory-module-tree",
+    srcs = [":module-tree-test"],
+    main = "FatTree18.daml",
+    visibility = ["//visibility:public"],
+)
+
+damlc_compile_test(
+    name = "memory-examples",
+    srcs = [":daml-test-files"],
+    heap_limit = "200M",
+    main = "daml-test-files/Examples.daml",
+    stack_limit = "230K",
+)
+
+damlc_compile_test(
+    name = "memory-bond-trading",
+    srcs = [":bond-trading"],
+    heap_limit = "200M" if is_windows else "100M",
+    main = "bond-trading/Test.daml",
+    stack_limit = "100K" if is_windows else "70K",
+)
+
+filegroup(
+    name = "daml-test-files",
+    srcs = glob(["daml-test-files/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "bond-trading",
+    srcs = glob(["bond-trading/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "query-lf-lib",
+    srcs = glob(["src/*.jq"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
+# Check that DAML compilation is deterministic.
+
+sh_test(
+    name = "deterministic",
+    srcs = ["src/daml-ghc-deterministic.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        "$(location @com_google_protobuf//:protoc)",
+        "$(POSIX_DIFF)",
+    ],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc",
+        "//compiler/damlc/pkg-db",
+        "@com_google_protobuf//:protoc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "inspect-dar",
+    srcs = ["src/inspect-dar.sh"],
+    args = [
+        "$(rootpath //compiler/damlc)",
+        "$(rootpath @jq_dev_env//:jq)",
+        "$(rootpath //ledger/test-common:Test-dev.dar)",
+    ],
+    data = [
+        "//compiler/damlc",
+        "//ledger/test-common:Test-dev.dar",
+        "@jq_dev_env//:jq",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+da_haskell_test(
+    name = "unstable-types",
+    srcs = ["src/DA/Test/UnstableTypes.hs"],
+    data = [
+        "//compiler/damlc/pkg-db",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.UnstableTypes.main",
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+sh_test(
+    name = "stable-packages",
+    srcs = ["src/stable-packages.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        sdk_version,
+        "$(POSIX_DIFF)",
+    ],
+    data = [
+        "//compiler/damlc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+# Generate a simple DALF for plain DALF import testing
+
+genrule(
+    name = "simple-dalf",
+    outs = ["simple-dalf.dalf"],
+    cmd = "$(location :generate-simple-dalf) $@",
+    tools = [":generate-simple-dalf"],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_binary(
+    name = "generate-simple-dalf",
+    srcs = ["src/DA/Test/GenerateSimpleDalf.hs"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "text",
+    ],
+    main_function = "DA.Test.GenerateSimpleDalf.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//libs-haskell/da-hs-base",
+    ],
+)

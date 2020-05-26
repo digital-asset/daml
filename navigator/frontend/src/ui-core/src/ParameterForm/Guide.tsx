@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -66,15 +66,15 @@ const exampleRecord: DamlLfRecord = {
     { name: 'text parameter', value: DamlLfTypeF.text() },
     { name: 'party parameter', value: DamlLfTypeF.party() },
     { name: 'contractId parameter', value: DamlLfTypeF.contractid() },
-    { name: 'decimal parameter', value: DamlLfTypeF.decimal() },
+    { name: 'numeric parameter', value: DamlLfTypeF.numeric(10) },
     { name: 'integer parameter', value: DamlLfTypeF.int64() },
     { name: 'time parameter', value: DamlLfTypeF.timestamp() },
     { name: 'date parameter', value: DamlLfTypeF.date() },
     { name: 'bool parameter', value: DamlLfTypeF.bool() },
   ],
 };
-const exampleRecordDef: DamlLfDefDataType = { dataType: exampleRecord, typeVars: []}
-const exampleRecordTc: DamlLfTypeCon = { type: 'typecon', name: exampleRecordId, args: [] }
+const exampleRecordDef: DamlLfDefDataType = { dataType: exampleRecord, typeVars: []};
+const exampleRecordTc: DamlLfTypeCon = { type: 'typecon', name: exampleRecordId, args: [] };
 
 const typeProvider: TypeProvider = {
   fetchType(id: DamlLfIdentifier,
@@ -85,7 +85,7 @@ const typeProvider: TypeProvider = {
       onResult(id, undefined);
     }
   },
-}
+};
 
 export interface State {
   value: DamlLfValue;
@@ -106,7 +106,7 @@ export default class ParameterFormGuide extends React.Component<{}, State> {
         {label: 'text parameter', value: DamlLfValueF.text('')},
         {label: 'party parameter', value: DamlLfValueF.party('')},
         {label: 'contractId parameter', value: DamlLfValueF.contractid('')},
-        {label: 'decimal parameter', value: DamlLfValueF.decimal('0')},
+        {label: 'numeric parameter', value: DamlLfValueF.numeric('0')},
         {label: 'integer parameter', value: DamlLfValueF.int64('0')},
         {label: 'time parameter', value: DamlLfValueF.timestamp('')},
         {label: 'bool parameter', value: DamlLfValueF.bool(false)},

@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.ledger.types
+package com.daml.extractor.ledger.types
 
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.ledger.api.{v1 => api}
+import com.daml.lf.value.{Value => V}
+import com.daml.ledger.api.{v1 => api}
 import Identifier._
 import LedgerValue._
 import api.event
@@ -12,21 +12,20 @@ import api.event
 import scalaz._
 import Scalaz._
 
-sealed trait Event
+sealed trait Event extends Serializable with Product
 
 final case class CreatedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
     createArguments: OfCid[V.ValueRecord],
-    witnessParties: Set[String]
+    stakeholders: Set[String]
 ) extends Event
 
 final case class ExercisedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
-    contractCreatingEventId: String,
     choice: String,
     choiceArgument: LedgerValue,
     actingParties: Set[String],
@@ -58,7 +57,7 @@ object Event {
     def convert: String \/ CreatedEvent = {
       for {
         apiTemplateId <- createdTemplateIdLens(apiEvent)
-        templateId <- apiTemplateId.convert
+        templateId = apiTemplateId.convert
         apiRecord <- createdArgumentsLens(apiEvent)
         createArguments <- apiRecord.convert
       } yield
@@ -67,7 +66,7 @@ object Event {
           apiEvent.contractId,
           templateId,
           createArguments,
-          apiEvent.witnessParties.toSet
+          (apiEvent.observers ++ apiEvent.signatories).toSet
         )
     }
   }
@@ -76,7 +75,7 @@ object Event {
     def convert: String \/ ExercisedEvent = {
       for {
         apiTemplateId <- exercisedTemplateIdLens(apiEvent)
-        templateId <- apiTemplateId.convert
+        templateId = apiTemplateId.convert
         apiChoiceArg <- exercisedChoiceArgLens(apiEvent)
         choiceArg <- apiChoiceArg.convert
       } yield
@@ -84,7 +83,6 @@ object Event {
           apiEvent.eventId,
           apiEvent.contractId,
           templateId,
-          apiEvent.contractCreatingEventId,
           apiEvent.choice,
           choiceArg,
           apiEvent.actingParties.toSet,

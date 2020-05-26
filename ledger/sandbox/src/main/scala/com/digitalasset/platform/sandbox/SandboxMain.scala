@@ -1,36 +1,20 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
-import java.util.concurrent.atomic.AtomicBoolean
+import com.daml.platform.sandbox.cli.Cli
+import com.daml.platform.sandbox.config.InvalidConfigException
+import com.daml.resources.ProgramResource
 
-import com.digitalasset.platform.sandbox.cli.Cli
-import org.slf4j.LoggerFactory
-
-import scala.util.control.NonFatal
-
-object SandboxMain extends App {
-
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
-  Cli.parse(args).fold(sys.exit(1)) { config =>
-    val server = SandboxServer(config)
-
-    val closed = new AtomicBoolean(false)
-
-    def closeServer(): Unit = {
-      if (closed.compareAndSet(false, true)) server.close()
+object SandboxMain {
+  def main(args: Array[String]): Unit = {
+    val config = Cli.parse(args).getOrElse(sys.exit(1))
+    if (!config.implicitPartyAllocation) {
+      throw new InvalidConfigException(
+        "This version of Sandbox does not support disabling implicit party allocation.")
     }
-
-    try {
-      Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
-    } catch {
-      case NonFatal(t) => {
-        logger.error("Shutting down Sandbox application because of initialization error", t)
-        closeServer()
-      }
-    }
+    config.logLevel.foreach(GlobalLogLevel.set)
+    new ProgramResource(SandboxServer.owner(config)).run()
   }
-
 }

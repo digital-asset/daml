@@ -1,23 +1,22 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.codahale.metrics.MetricRegistry
 import org.scalatest.BeforeAndAfterAll
 
 trait MetricsAround extends BeforeAndAfterAll {
   self: org.scalatest.Suite =>
 
-  @volatile implicit var metricsManager: MetricsManager = _
+  @volatile protected var metrics: MetricRegistry = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    metricsManager = MetricsManager()
+    metrics = new MetricRegistry
   }
 
   override protected def afterAll(): Unit = {
-    metricsManager.close()
     super.afterAll()
   }
 }

@@ -1,7 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2 module PrimitiveTypes where
+module PrimitiveTypes where
 
 import DA.Date
 import DA.TextMap as TM
@@ -11,6 +11,8 @@ template BasicPrimitiveTypes
     reference: Text
     int_field: Int
     decimal_field: Decimal
+    numeric0_field: Numeric 0
+    numeric37_field: Numeric 37
     text_field: Text
     bool_field: Bool
     party_field: Party
@@ -66,6 +68,8 @@ primitives =
         reference = "Simple values"
         int_field = 5
         decimal_field = 5.5
+        numeric0_field = 42.0
+        numeric37_field = 0.25
         text_field = "Hey"
         bool_field = True
         party_field = bob
@@ -74,7 +78,9 @@ primitives =
       create BasicPrimitiveTypes with
         reference = "Positive extremes"
         int_field = 9223372036854775807
-        decimal_field = 9999999999999999999999999999.9999999999
+        decimal_field   = 9999999999999999999999999999.9999999999
+        numeric0_field  = 99999999999999999999999999999999999999.0
+        numeric37_field = 9.9999999999999999999999999999999999999
         text_field = "Hey"
         bool_field = True
         party_field = bob
@@ -83,7 +89,9 @@ primitives =
       create BasicPrimitiveTypes with
         reference = "Negative extremes"
         int_field = -9223372036854775808
-        decimal_field = -9999999999999999999999999999.9999999999
+        decimal_field   = -9999999999999999999999999999.9999999999
+        numeric0_field  = -99999999999999999999999999999999999999.0
+        numeric37_field = -9.9999999999999999999999999999999999999
         text_field = "Hey"
         bool_field = True
         party_field = bob
@@ -125,7 +133,7 @@ optionals =
         deep_optional = Some None
         party = bob
 
-maps =
+textMaps =
   scenario do
     bob <- getParty "Bob"
     submit bob do

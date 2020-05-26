@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import com.digitalasset.daml.lf.data.Ref.{DottedName, LedgerString, PackageId, Party, QualifiedName}
-import org.scalatest.{FreeSpec, Matchers}
+import com.daml.lf.data.Ref.{DottedName, Identifier, LedgerString, PackageId, Party, QualifiedName}
+import org.scalatest.{EitherValues, FreeSpec, Matchers}
 
-class RefTest extends FreeSpec with Matchers {
+class RefTest extends FreeSpec with Matchers with EitherValues {
   "DottedName" - {
     "rejects bad segments" - {
       "digit at the start" in {
@@ -69,84 +69,113 @@ class RefTest extends FreeSpec with Matchers {
       QualifiedName.fromString(":bar") shouldBe 'left
       QualifiedName.fromString("bar:") shouldBe 'left
     }
+
+    "accepts valid qualified names" in {
+      QualifiedName.fromString("foo:bar").right.value shouldBe QualifiedName(
+        module = DottedName.assertFromString("foo"),
+        name = DottedName.assertFromString("bar")
+      )
+      QualifiedName.fromString("foo.bar:baz").right.value shouldBe QualifiedName(
+        module = DottedName.assertFromString("foo.bar"),
+        name = DottedName.assertFromString("baz")
+      )
+      QualifiedName.fromString("foo:bar.baz").right.value shouldBe QualifiedName(
+        module = DottedName.assertFromString("foo"),
+        name = DottedName.assertFromString("bar.baz")
+      )
+      QualifiedName.fromString("foo.bar:baz.quux").right.value shouldBe QualifiedName(
+        module = DottedName.assertFromString("foo.bar"),
+        name = DottedName.assertFromString("baz.quux")
+      )
+    }
+  }
+
+  "Identifier" - {
+
+    val errorMessageBeginning =
+      "Separator ':' between package identifier and qualified name not found in "
+
+    "rejects strings without any colon" in {
+      Identifier.fromString("foo").left.value should startWith(errorMessageBeginning)
+    }
+
+    "rejects strings with empty segments but the error is caught further down the stack" in {
+      Identifier.fromString(":bar").left.value should not startWith errorMessageBeginning
+      Identifier.fromString("bar:").left.value should not startWith errorMessageBeginning
+      Identifier.fromString("::").left.value should not startWith errorMessageBeginning
+      Identifier.fromString("bar:baz").left.value should not startWith errorMessageBeginning
+    }
+
+    "accepts valid identifiers" in {
+      Identifier.fromString("foo:bar:baz").right.value shouldBe Identifier(
+        packageId = PackageId.assertFromString("foo"),
+        qualifiedName = QualifiedName.assertFromString("bar:baz"),
+      )
+    }
   }
 
   "Party and PackageId" - {
 
-    val simpleChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
+    val packageIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
+    val partyIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_ "
+    val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-#/ "
 
-    "accepts simple characters" in {
-      for (c <- simpleChars) {
-        Party.fromString(s"the character $c is simple") shouldBe 'right
-        PackageId.fromString(s"the character $c is simple") shouldBe 'right
-      }
-    }
+    def makeString(c: Char): String = s"the character $c is not US-ASCII"
 
     "rejects the empty string" in {
-      Party.fromString("") shouldBe 'left
       PackageId.fromString("") shouldBe 'left
+      Party.fromString("") shouldBe 'left
+      LedgerString.fromString("") shouldBe 'left
     }
 
-    "rejects non simple US-ASCII characters" in {
-      for (c <- '\u0001' to '\u007f' if !simpleChars.contains(c)) {
-        Party.fromString(s"the US-ASCII character $c is not simple") shouldBe 'left
-        PackageId.fromString(s"the US-ASCII character $c is not simple") shouldBe 'left
+    "treats US-ASCII characters as expected" in {
+      for (c <- '\u0001' to '\u007f') {
+        val s = makeString(c)
+        PackageId.fromString(s) shouldBe (if (packageIdChars.contains(c)) 'right else 'left)
+        Party.fromString(s) shouldBe (if (partyIdChars.contains(c)) 'right else 'left)
+        LedgerString.fromString(s) shouldBe (if (ledgerStringChars.contains(c)) 'right else 'left)
       }
     }
 
     "rejects no US-ASCII characters" in {
+
+      val negativeTestCase = makeString('a')
+
+      PackageId.fromString(negativeTestCase) shouldBe 'right
+      Party.fromString(negativeTestCase) shouldBe 'right
+      LedgerString.fromString(negativeTestCase) shouldBe 'right
+
       for (c <- '\u0080' to '\u00ff') {
-        Party.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
-        PackageId.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
+        val positiveTestCase = makeString(c)
+        PackageId.fromString(positiveTestCase) shouldBe 'left
+        Party.fromString(positiveTestCase) shouldBe 'left
+        LedgerString.fromString(positiveTestCase) shouldBe 'left
       }
-      for (s <- List(
+      for (positiveTestCase <- List(
           "español",
           "東京",
           "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
         )) {
-        Party.fromString(s) shouldBe 'left
-        PackageId.fromString(s) shouldBe 'left
+        Party.fromString(positiveTestCase) shouldBe 'left
+        PackageId.fromString(positiveTestCase) shouldBe 'left
       }
+    }
+
+    "reject too long string" in {
+      Party.fromString("p" * 255) shouldBe 'right
+      Party.fromString("p" * 256) shouldBe 'left
     }
   }
 
   "LedgerString" - {
-
-    val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-# "
-
-    "accepts simple characters" in {
-      for (c <- ledgerStringChars) {
-        LedgerString.fromString(s"the_character_${c}_should_be_accepted") shouldBe 'right
-      }
-    }
-
-    "rejects the empty string" in {
-      LedgerString.fromString("") shouldBe 'left
-    }
-
-    "reject too long string" in {
-      LedgerString.fromString("a" * 255) shouldBe 'right
-      LedgerString.fromString("a" * 256) shouldBe 'left
-      LedgerString.fromString("a" * 500) shouldBe 'left
-    }
-
-    "rejects non allowed US-ASCII characters" in {
-      for (c <- '\u0001' to '\u007f' if !ledgerStringChars.contains(c)) {
-        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
-      }
-    }
-
-    "rejects no US-ASCII characters" in {
-      for (c <- '\u0080' to '\u00ff') {
-        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
-      }
-      for (s <- List(
-          "español",
-          "東京",
-          "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
-        )) {
-        LedgerString.fromString(s) shouldBe 'left
-      }
+    "reject too long strings" in {
+      val negativeTestCase = "a" * 255
+      val positiveTestCase1 = "a" * 256
+      val positiveTestCase2 = "a" * 500
+      LedgerString.fromString(negativeTestCase) shouldBe 'right
+      LedgerString.fromString(positiveTestCase1) shouldBe 'left
+      LedgerString.fromString(positiveTestCase2) shouldBe 'left
     }
   }
+
 }

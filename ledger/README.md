@@ -2,40 +2,19 @@
 
 Home of our reference ledger implementation (Sandbox) and various ledger related libraries.
 
-## v1 gRPC API
-
-The v1 gRPC API is described [here](API.md)
-
 ## Logging
 
 ### Logging Configuration
 
-Ledger Server uses [Logback](https://logback.qos.ch/) for logging configuration.
+The Sandbox and Ledger API Server use [Logback](https://logback.qos.ch/) for logging configuration.
 
 #### Log Files
 
-By [default our log configuration](https://github.com/DACH-NY/da/blob/master/ledger/platform-deployment/src/main/resources/logback.xml) creates two log files:
-- a plaintext file `logs/ledger.log`
-- a json file `logs/ledger.json.log` (for Logstash type log processors)
-
-The path the file is stored in can be adjusted by setting `-Dlogging.location=some/other/path`.
-The filename used can be adjusted by setting `-Dlogging.file=my-process-logs`.
-
-By default no output is sent to stdout (beyond logs from the logging setup itself).
-
-#### standard streams logging
-
-For development and testing it can be useful to send all logs to stdout & stderr rather than files (for instance to use the IntelliJ console or getting useful output from docker containers).
-
-We [ship a logging configuration for this](https://github.com/DACH-NY/da/blob/master/ledger/platform-deployment/src/main/resources/logback-standard.xml) which can be enabled by using `-Dlogback.configurationFile=classpath:logback-standard.xml -Dlogging.config=classpath:logback-standard.xml`.
-
-INFO level and below goes to stdout. WARN and above goes to stderr.
-
-_Note: always use both `-Dlogback.configurationFile` and `-Dlogging.config`. Logback is first initialized with the configuration file from `logback.configurationFile`. When the Spring framework boots it recreates logback and uses the configuration specified in `logging.config`.
+The Sandbox logs at `INFO` level to standard out and to the file `sandbox.log` in the current working directory.
 
 ### Log levels
 
-As most Java libraries and frameworks, ledger server uses INFO as the default logging level. This level is for minimal 
+As most Java libraries and frameworks, the Sandbox and Ledger API Server use INFO as the default logging level. This level is for minimal
 and important information (usually only startup and normal shutdown events). INFO level logging should not produce
 increasing volume of logging during normal operation.
 
@@ -43,6 +22,86 @@ WARN level should be used for transition between healthy/unhealthy state, or in 
 
 DEBUG level should be turned on only when investigating issues in the system, and usually that means we want the trail
 loggers. Normal loggers at DEBUG level can be useful sometimes (e.g. DAML interpretation).
+
+## Metrics
+
+Sandbox and Ledger API Server provide a couple of useful metrics:
+
+### Sandbox and Ledger API Server
+
+The Ledger API Server exposes basic metrics for all gRPC services and some additional ones.
+<table>
+<thead><tr><td>Metric Name</td><td>Description</td></tr>
+<tbody>
+<tr><td><pre>LedgerApi.com.daml.ledger.api.v1.$SERVICE.$METHOD</pre></td><td>A <i>meter</i> that tracks the number of calls to the respective service and method.
+<tr><td><pre>CommandSubmission.failedCommandInterpretations</pre></td><td>A <i>meter</i> that tracks the failed command interpretations.
+<tr><td><pre>CommandSubmission.submittedTransactions</pre></td><td>A <i>timer</i> that tracks the commands submitted to the backing ledger.
+</tbody>
+</table>
+
+### Indexer
+<table>
+<thead><tr><td>Metric Name</td><td>Description</td></tr></thead>
+<tbody>
+<tr><td><pre>JdbcIndexer.processedStateUpdates</pre></td><td>A <i>timer</i> that tracks duration of state update processing.</td></tr>
+<tr><td><pre>JdbcIndexer.lastReceivedRecordTime</pre></td><td>A <i>gauge</i> that returns the last received record time in milliseconds since EPOCH.</td></tr>
+<tr><td><pre>JdbcIndexer.lastReceivedOffset</pre></td><td>A <i>gauge</i> that returns that last received offset from the ledger.</td></tr>
+<tr><td><pre>JdbcIndexer.currentRecordTimeLag</pre></td><td>A <i>gauge</i> that returns the difference between the Indexer's wallclock time and the last received record time in milliseconds.</td></tr>
+</tbody>
+</table>
+
+### Metrics Reporting
+
+The Sandbox automatically makes all metrics available via JMX under the JMX domain `com.daml.platform.sandbox`.
+
+When building an Indexer or Ledger API Server the implementer/ledger integrator is responsible to set up
+a `MetricRegistry` and a suitable metric reporting strategy that fits their needs.
+
+## Health Checks
+
+### Ledger API Server health checks
+
+The Ledger API Server exposes health checks over the [gRPC Health Checking Protocol][]. You can check the health of
+the overall server by making a gRPC request to `grpc.health.v1.Health.Check`.
+
+You can also perform a streaming health check by making a request to `grpc.health.v1.Health.Watch`. The server will
+immediately send the current health of the Ledger API Server, and then send a new message whenever the health changes.
+
+The ledger may optionally expose health checks for underlying services and connections; the names of the services are
+ledger-dependent. For example, the Sandbox exposes two service health checks:
+
+- the `"index"` service tests the health of the connection to the index database
+- the `"write"` service tests the health of the connection to the ledger database
+
+To use these, make a request with the `service` field set to the name of the service. An unknown service name will
+result in a gRPC `NOT_FOUND` error.
+
+[gRPC Health Checking Protocol]: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
+
+### Indexer health checks
+
+The Indexer does not currently run a gRPC server, and so does not expose any health checks on its own.
+
+In the situation where it is run in the same process as the Ledger API Server, the authors of the binary are encouraged
+to add specific health checks for the Indexer. This is the case in the Sandbox and Reference implementations.
+
+### Checking the server health in production
+
+We encourage you to use the [grpc-health-probe][] tool to periodically check the health of your Ledger API Server in
+production. On the command line, you can run it as follows (changing the address to match your ledger):
+
+```shell
+$ grpc-health-probe -addr=localhost:6865
+status: SERVING
+```
+
+An example of how to naively configure Kubernetes to run the Sandbox, with accompanying health checks, can be found in
+[sandbox/kubernetes.yaml]().
+
+More details can be found on the Kubernetes blog, in the post titled _[Health checking gRPC servers on Kubernetes][]_.
+
+[grpc-health-probe]: https://github.com/grpc-ecosystem/grpc-health-probe
+[Health checking gRPC servers on Kubernetes]: https://kubernetes.io/blog/2018/10/01/health-checking-grpc-servers-on-kubernetes/
 
 ## gRPC and back-pressure
 

@@ -1,25 +1,24 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.codegen.types.Namespace
-import com.digitalasset.daml.lf.{Dar, UniversalArchiveReader, iface}
-import com.digitalasset.daml.lf.data.Ref
-import iface.{Type => _, _}
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import java.io._
 
-import scala.collection.breakOut
-import com.digitalasset.codegen.dependencygraph._
-import com.digitalasset.codegen.exception.PackageInterfaceException
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.codegen.types.Namespace
+import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.iface
+import com.daml.lf.data.Ref
+import com.daml.lf.iface.{Type => _, _}
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.codegen.dependencygraph._
+import com.daml.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
-import com.digitalasset.daml_lf.DamlLf
+import com.daml.lf.data.Ref._
+import com.daml.lf.iface.reader.Errors.ErrorLoc
+import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.Logger
-import scalaz._
+import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
 import scalaz.std.list._
 import scalaz.std.set._
@@ -29,7 +28,9 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
+import scala.collection.breakOut
 import scala.util.{Failure, Success}
+import scala.util.matching.Regex
 
 object CodeGen {
 
@@ -59,12 +60,17 @@ object CodeGen {
   @throws[PackageInterfaceException](
     cause = "either decoding a package from a file or extracting" +
       " the package interface failed")
-  def generateCode(files: List[File], packageName: String, outputDir: File, mode: Mode): Unit =
+  def generateCode(
+      files: List[File],
+      packageName: String,
+      outputDir: File,
+      mode: Mode,
+      roots: Seq[String] = Seq()): Unit =
     files match {
       case Nil =>
         throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
       case f :: fs =>
-        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode)
+        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode, roots)
           .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
     }
 
@@ -75,9 +81,11 @@ object CodeGen {
       files: NonEmptyList[File],
       packageName: String,
       outputDir: File,
-      mode: Mode): ValidationNel[String, Unit] =
+      mode: Mode,
+      roots: Seq[String]): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
-      val combinedIface: EnvironmentInterface = combineEnvInterfaces(ifaces)
+      val combinedIface: EnvironmentInterface =
+        combineEnvInterfaces(ifaces map filterTemplatesBy(roots map (_.r)))
       packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
     }
 
@@ -135,22 +143,42 @@ object CodeGen {
   private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
     as.suml1
 
+  // Template names can be filtered by given regexes (default: use all templates)
+  // If a template does not match any regex, it becomes a "normal" datatype.
+  private[codegen] def filterTemplatesBy(regexes: Seq[Regex])(
+      ei: EnvironmentInterface): EnvironmentInterface = {
+
+    def matchesRoots(qualName: Ref.Identifier): Boolean =
+      regexes.exists(_.findFirstIn(qualName.qualifiedName.qualifiedName).isDefined)
+    // scala-2.13-M4: _.matches(qualName.qualifiedName.qualifiedName)
+
+    if (regexes.isEmpty) ei
+    else {
+      val EnvironmentInterface(tds) = ei
+      EnvironmentInterface(tds transform {
+        case (id, tpl @ InterfaceType.Template(_, _)) if !matchesRoots(id) =>
+          InterfaceType.Normal(tpl.`type`)
+        case (_, other) => other
+      })
+    }
+  }
+
   private def packageInterfaceToScalaCode(util: Util): Unit = {
     val interface = util.iface
 
     val orderedDependencies
       : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[util.TemplateInterface]] =
       util.orderedDependencies(interface)
-    val (supportedTemplateIds, typeDeclsToGenerate): (
+    val (templateIds, typeDeclsToGenerate): (
         Map[Identifier, util.TemplateInterface],
-        Vector[ScopedDataType.FWT]) = {
+        List[ScopedDataType.FWT]) = {
 
       /* Here we collect templates and the
        * [[TypeDecl]]s without generating code for them.
        */
       val templateIdOrTypeDecls
-        : Vector[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
-        orderedDependencies.deps.flatMap {
+        : List[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
+        orderedDependencies.deps.toList.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
             Seq(Right(ScopedDataType fromDefDataType (templateId, typeDecl)))
           case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
@@ -161,13 +189,13 @@ object CodeGen {
     }
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
-    writeTemplatesAndTypes(util)(WriteParams(supportedTemplateIds, typeDeclsToGenerate))
+    writeTemplatesAndTypes(util)(WriteParams(templateIds, typeDeclsToGenerate))
 
     logger.info(
       s"""Scala Codegen result:
-          |Number of generated templates: ${supportedTemplateIds.size}
+          |Number of generated templates: ${templateIds.size}
           |Number of not generated templates: ${util
-           .templateCount(interface) - supportedTemplateIds.size}
+           .templateCount(interface) - templateIds.size}
           |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
     )
   }
@@ -179,18 +207,17 @@ object CodeGen {
 
     // New prep steps for LF codegen
     // 1. collect records, search variants and splat/filter
-    val (unassociatedRecords, splattedVariants) = splatVariants(recordsAndVariants)
+    val (unassociatedRecords, splattedVariants, enums) = splatVariants(definitions)
 
     // 2. put templates/types into single Namespace.fromHierarchy
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
         val ntdRights =
-          (widenDDT(unassociatedRecords.map {
-            case ((q, tp), rec) => ScopedDataType(q, ImmArraySeq(tp: _*), rec)
-          }) ++ splattedVariants)
+          (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
             .map(sdt => (sdt.name, \/-(sdt)))
-        val tmplLefts = supportedTemplateIds.transform((_, v) => -\/(v))
+        val tmplLefts = templateIds.transform((_, v) => -\/(v))
+
         (ntdRights ++ tmplLefts) map {
           case (ddtIdent @ Identifier(_, qualName), body) =>
             (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
@@ -204,26 +231,35 @@ object CodeGen {
 
     // Finally we generate the "event decoder" and "package ID source"
     val specials =
-      Seq(
-        lf.EventDecoderGen.generate(util, supportedTemplateIds.keySet),
-        lf.PackageIDsGen.generate(util))
+      Seq(lf.EventDecoderGen.generate(util, templateIds.keySet), lf.PackageIDsGen.generate(util))
 
     val specialPlans = specials map { case (fp, t) => \/-((None, fp, t)) }
 
     filePlans ++ specialPlans
   }
 
-  type LHSIndexedRecords[+RT] = Map[(Identifier, List[Ref.Name]), Record[RT]]
+  private[this] def splitNTDs[RT, VT](definitions: List[ScopedDataType.DT[RT, VT]]): (
+      List[ScopedDataType[Record[RT]]],
+      List[ScopedDataType[Variant[VT]]],
+      List[ScopedDataType[Enum]]
+  ) = {
 
-  private[this] def splitNTDs[RT, VT](recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
-    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[VT]]]) =
-    partitionEithers(recordsAndVariants map {
+    val (recordAndVariants, enums) = partitionEithers(definitions map {
       case sdt @ ScopedDataType(qualName, typeVars, ddt) =>
         ddt match {
-          case r: Record[RT] => Left(((qualName, typeVars.toList), r))
-          case v: Variant[VT] => Right(sdt copy (dataType = v))
+          case r: Record[RT] =>
+            Left(Left(sdt copy (dataType = r)))
+          case v: Variant[VT] =>
+            Left(Right(sdt copy (dataType = v)))
+          case e: Enum =>
+            Right(sdt copy (dataType = e))
         }
-    })(breakOut, breakOut)
+    })
+
+    val (records, variants) = partitionEithers(recordAndVariants)
+
+    (records, variants, enums)
+  }
 
   /** Replace every VT that refers to some apparently-nominalized record
     * type in the argument list with the fields of that record, and drop
@@ -234,16 +270,24 @@ object CodeGen {
     * unchanged.
     */
   private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
-      recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
-    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]]) = {
+      definitions: List[ScopedDataType.DT[RT, VT]]): (
+      List[ScopedDataType[Record[RT]]],
+      List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
+      List[ScopedDataType[Enum]]
+  ) = {
 
-    val (recordMap, variants) = splitNTDs(recordsAndVariants)
+    val (records, variants, enums) = splitNTDs(definitions)
+
+    val recordMap: Map[(ScopedDataType.Name, List[Ref.Name]), ScopedDataType[Record[RT]]] =
+      records.map {
+        case ddt @ ScopedDataType(name, vars, _) => (name -> vars.toList) -> ddt
+      }(breakOut)
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
     // both traverseU can change to traverse with -Ypartial-unification
     // or Scala 2.13
     val (deletedRecords, newVariants) =
-      variants.traverseU {
+      variants.toList.traverseU {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = Util simplyDelegates vTypeVars
           val (deleted, sdt) = fields.traverseU {
@@ -256,12 +300,14 @@ object CodeGen {
               typeVarDelegate(vt)
                 .filter((_: Identifier) == syntheticRecord)
                 .flatMap(_ => recordMap get key)
-                .cata(nr => (Set(key), (vn, -\/(nr.fields.toList))), (noDeletion, (vn, \/-(vt))))
+                .cata(
+                  nr => (Set(key), (vn, -\/(nr.dataType.fields.toList))),
+                  (noDeletion, (vn, \/-(vt))))
           }
           (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))
       }
 
-    (recordMap -- deletedRecords, newVariants)
+    ((recordMap -- deletedRecords).values.toList, newVariants, enums.toList)
   }
 
   private[this] def writeTemplatesAndTypes(util: Util)(

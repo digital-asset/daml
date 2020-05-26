@@ -1,23 +1,16 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  absoluteContractIdToLogEntryId,
-  absoluteContractIdToStateKey,
-  relativeContractIdToStateKey
-}
-import com.daml.ledger.participant.state.v1.SubmittedTransaction
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId}
+import scala.collection.mutable
+import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.v1.TransactionMeta
+import com.daml.lf.data.Ref._
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
@@ -39,84 +32,130 @@ private[kvutils] object InputsAndEffects {
         * contracts should be created. The key should be a combination of the transaction
         * id and the relative contract id (that is, the node index).
         */
-      createdContracts: List[DamlStateKey]
+      createdContracts: List[(DamlStateKey, NodeCreate[ContractId, VersionedValue[ContractId]])],
+      /** The contract keys created or updated as part of the transaction. */
+      updatedContractKeys: Map[DamlStateKey, Option[ContractId]]
   )
+  object Effects {
+    val empty = Effects(List.empty, List.empty, Map.empty)
+  }
 
-  /** Compute the inputs to a DAML transaction, that is, the referenced contracts
+  /** Compute the inputs to a DAML transaction, that is, the referenced contracts, keys
     * and packages.
     */
-  def computeInputs(tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {
-    val packageInputs: List[DamlStateKey] = tx.usedPackages.map { pkgId =>
-      DamlStateKey.newBuilder.setPackageId(pkgId).build
-    }.toList
+  def computeInputs(
+      tx: Transaction.AbsTransaction,
+      meta: TransactionMeta,
+  ): List[DamlStateKey] = {
+    val inputs = mutable.LinkedHashSet[DamlStateKey]()
 
-    def addLogEntryInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
-      coid match {
-        case acoid: AbsoluteContractId =>
-          absoluteContractIdToLogEntryId(acoid)._1 :: inputs
-        case _ =>
-          inputs
-      }
-    def addStateInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
-      coid match {
-        case acoid: AbsoluteContractId =>
-          absoluteContractIdToStateKey(acoid) :: inputs
-        case _ =>
-          inputs
-      }
-
-    tx.fold(GenTransaction.TopDown, (List.empty[DamlLogEntryId], packageInputs)) {
-      case ((logEntryInputs, stateInputs), (nodeId, node)) =>
-        node match {
-          case fetch: NodeFetch[ContractId] =>
-            (
-              addLogEntryInput(logEntryInputs, fetch.coid),
-              addStateInput(stateInputs, fetch.coid)
-            )
-          case create: NodeCreate[_, _] =>
-            (logEntryInputs, stateInputs)
-          case exe: NodeExercises[_, ContractId, _] =>
-            (
-              addLogEntryInput(logEntryInputs, exe.targetCoid),
-              addStateInput(stateInputs, exe.targetCoid)
-            )
-          case l: NodeLookupByKey[_, _] =>
-            sys.error("computeInputs: NodeLookupByKey not implemented!")
-        }
+    {
+      import PackageId.ordering
+      inputs ++=
+        meta.optUsedPackages
+          .getOrElse(
+            throw new InternalError("Transaction was not annotated with used packages")
+          )
+          .toList
+          .sorted
+          .map(DamlStateKey.newBuilder.setPackageId(_).build)
     }
+
+    val localContract = tx.localContracts
+
+    def addContractInput(coid: ContractId): Unit =
+      if (!localContract.isDefinedAt(coid))
+        inputs += contractIdToStateKey(coid)
+
+    def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
+      import Party.ordering
+      parties.toList.sorted.map(partyStateKey)
+    }
+
+    tx.foreach {
+      case (_, node) =>
+        node match {
+          case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
+            addContractInput(fetch.coid)
+            fetch.key.foreach { keyWithMaintainers =>
+              inputs += globalKeyToStateKey(
+                GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
+            }
+
+          case create @ NodeCreate(_, _, _, _, _, _) =>
+            create.key.foreach { keyWithMaintainers =>
+              inputs += globalKeyToStateKey(
+                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
+            }
+
+          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            addContractInput(exe.targetCoid)
+
+          case lookup @ NodeLookupByKey(_, _, _, _) =>
+            // We need both the contract key state and the contract state. The latter is used to verify
+            // that the submitter can access the contract.
+            lookup.result.foreach(addContractInput)
+            inputs += globalKeyToStateKey(
+              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key.value)))
+        }
+
+        inputs ++= partyInputs(node.informeesOfNode)
+    }
+
+    inputs.toList
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
-  def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
-    tx.fold(GenTransaction.TopDown, Effects(List.empty, List.empty)) {
+  def computeEffects(tx: Transaction.AbsTransaction): Effects = {
+    // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
+    // fold bottom up (with reversed roots!) and skip creates of archived contracts.
+    tx.fold(Effects.empty) {
       case (effects, (nodeId, node)) =>
         node match {
-          case fetch: NodeFetch[ContractId] =>
+          case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
             effects
-          case create: NodeCreate[_, _] =>
-            // FIXME(JM): Track created keys
+          case create @ NodeCreate(_, _, _, _, _, _) =>
             effects.copy(
-              createdContracts =
-                relativeContractIdToStateKey(entryId, create.coid.asInstanceOf[RelativeContractId])
-                  :: effects.createdContracts
-            )
-          case exe: NodeExercises[_, ContractId, _] =>
-            if (exe.consuming) {
-              exe.targetCoid match {
-                case acoid: AbsoluteContractId =>
-                  effects.copy(
-                    consumedContracts = absoluteContractIdToStateKey(acoid) :: effects.consumedContracts
+              createdContracts = contractIdToStateKey(create.coid) -> create :: effects.createdContracts,
+              updatedContractKeys = create.key
+                .fold(effects.updatedContractKeys)(
+                  keyWithMaintainers =>
+                    effects.updatedContractKeys.updated(
+                      (globalKeyToStateKey(
+                        GlobalKey
+                          .build(
+                            create.coinst.template,
+                            keyWithMaintainers.key.value
+                          )
+                          .fold(
+                            _ =>
+                              throw Err.InvalidSubmission(
+                                "Unexpected contract id in contract key."),
+                            identity))),
+                      Some(create.coid)
                   )
-                case _ =>
-                  effects
-              }
+                )
+            )
+
+          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            if (exe.consuming) {
+              effects.copy(
+                consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
+                updatedContractKeys = exe.key
+                  .fold(effects.updatedContractKeys)(
+                    key =>
+                      effects.updatedContractKeys.updated(
+                        (globalKeyToStateKey(
+                          GlobalKey(exe.templateId, forceNoContractIds(key.key.value)))),
+                        None)
+                  )
+              )
             } else {
               effects
             }
-          case l: NodeLookupByKey[_, _] =>
-            sys.error("computeEffects: NodeLookupByKey not implemented!")
+          case l @ NodeLookupByKey(_, _, _, _) =>
+            effects
         }
     }
   }
-
 }

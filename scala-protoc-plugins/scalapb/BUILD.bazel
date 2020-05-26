@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
@@ -6,15 +6,12 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 da_scala_binary(
     name = "compiler_plugin",
     srcs = glob(["*.scala"]),
-    main_class = "ScalaPbCompilerPlugin",
+    main_class = "com.daml.protoc.plugins.scalapb.ScalaPbCompilerPlugin",
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@com_github_scalapb_scalapb//:scala-library",
-    ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/thesamet/scalapb:compilerplugin",
-        "//3rdparty/jvm/com/thesamet/scalapb:protoc_bridge",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_compilerplugin_2_12",
+        "@maven//:com_thesamet_scalapb_protoc_bridge_2_12",
     ],
 )
 

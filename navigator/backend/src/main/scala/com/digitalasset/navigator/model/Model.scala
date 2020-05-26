@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.{@@, Tag}
 
 // ------------------------------------------------------------------------------------------------
@@ -147,7 +147,10 @@ final case class ContractCreated(
     contractId: ApiTypes.ContractId,
     templateId: DamlLfIdentifier,
     argument: ApiRecord,
-    agreementText: Option[String]
+    agreementText: Option[String],
+    signatories: List[ApiTypes.Party],
+    observers: List[ApiTypes.Party],
+    key: Option[ApiValue]
 ) extends Event
 
 final case class ChoiceExercised(
@@ -157,7 +160,6 @@ final case class ChoiceExercised(
     witnessParties: List[ApiTypes.Party],
     workflowId: ApiTypes.WorkflowId,
     contractId: ApiTypes.ContractId,
-    contractCreateEvent: ApiTypes.EventId,
     templateId: DamlLfIdentifier,
     choice: ApiTypes.Choice,
     argument: ApiValue,
@@ -174,7 +176,10 @@ final case class Contract(
     id: ApiTypes.ContractId,
     template: Template,
     argument: ApiRecord,
-    agreementText: Option[String]
+    agreementText: Option[String],
+    signatories: List[ApiTypes.Party],
+    observers: List[ApiTypes.Party],
+    key: Option[ApiValue]
 ) extends TaggedNode[ApiTypes.ContractIdTag]
 
 // ------------------------------------------------------------------------------------------------
@@ -184,7 +189,8 @@ final case class Contract(
 /** Template for instantiating contracts. */
 final case class Template(
     id: DamlLfIdentifier,
-    choices: List[Choice]
+    choices: List[Choice],
+    key: Option[DamlLfType]
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())

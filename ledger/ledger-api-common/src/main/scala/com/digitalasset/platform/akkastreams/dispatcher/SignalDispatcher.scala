@@ -1,15 +1,16 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
-import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
+import com.daml.dec.DirectExecutionContext
+import org.slf4j.LoggerFactory
 
 /**
   * A fanout signaller that can be subscribed to dynamically.
@@ -18,6 +19,8 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SignalDispatcher private () extends AutoCloseable {
+
+  val logger = LoggerFactory.getLogger(getClass)
 
   private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
     new AtomicReference(Some(Set.empty))
@@ -46,9 +49,7 @@ class SignalDispatcher private () extends AutoCloseable {
         } match {
           // We do this here, since updateAndGet is not guaranteed once-only.
           case Some(_) =>
-            if (signalOnSubscribe) {
-              q.offer(Signal)
-            }
+            if (signalOnSubscribe) q.offer(Signal)
           case None =>
             q.complete() // avoid a leak
             throwClosed()
@@ -84,5 +85,5 @@ object SignalDispatcher {
   final case object Signal extends Signal
 
   /** Construct a new SignalDispatcher. Created Sources will consume Akka resources until closed. */
-  def apply(): SignalDispatcher = new SignalDispatcher()
+  def apply[T](): SignalDispatcher = new SignalDispatcher()
 }

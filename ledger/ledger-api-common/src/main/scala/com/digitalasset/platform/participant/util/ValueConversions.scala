@@ -1,29 +1,28 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.participant.util
+package com.daml.platform.participant.util
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.Value.Sum.{
+import com.daml.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  ExerciseByKeyCommand,
+  ExerciseCommand
+}
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.Value.Sum.{
   ContractId,
-  Decimal,
+  Numeric,
   Int64,
   Party,
   Text,
   Timestamp,
   List => DamlListValue
 }
-import com.digitalasset.ledger.api.v1.value.{
-  Identifier,
-  Record,
-  RecordField,
-  Value,
-  List => DamlList
-}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, List => DamlList}
 
 import scala.language.implicitConversions
 
@@ -33,7 +32,7 @@ object ValueConversions {
 
   implicit class StringValues(val s: String) extends AnyVal {
     def asParty: Value = Value(Party(s))
-    def asDecimal: Value = Value(Decimal(s))
+    def asNumeric: Value = Value(Numeric(s))
     def asText: Value = Value(Text(s))
     def asContractId: Value = Value(ContractId(s))
   }
@@ -78,6 +77,10 @@ object ValueConversions {
 
   implicit class ExerciseCommands(val exercise: ExerciseCommand) extends AnyVal {
     def wrap = Command(Command.Command.Exercise(exercise))
+  }
+
+  implicit class ExerciseByKeyCommands(val exerciseByKey: ExerciseByKeyCommand) extends AnyVal {
+    def wrap = Command(Command.Command.ExerciseByKey(exerciseByKey))
   }
 
   implicit class CreateCommands(val create: CreateCommand) extends AnyVal {

@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
-import com.digitalasset.ledger.client.binding.encoding.{LfTypeEncodingSpec => t}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+package com.daml.ledger.client.binding.encoding
+import com.daml.ledger.client.binding.encoding.{LfTypeEncodingSpec => t}
+import com.daml.ledger.client.binding.{Primitive => P}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.equal._
 
@@ -15,9 +15,7 @@ class EqualityEncodingSpec extends WordSpec with Matchers {
     implicit val lfenc: LfEncodable[A]
     lazy val equality: EqualityEncoding.Fn[A] = LfEncodable.encoding[A](EqualityEncoding)
     implicit lazy val ` show`: scalaz.Show[A] = LfEncodable.encoding[A](ShowEncoding)
-    implicit lazy val ` equal`: scalaz.Equal[A] = new scalaz.Equal[A] {
-      def equal(a1: A, a2: A): Boolean = equality.apply(a1, a2)
-    }
+    implicit lazy val ` equal`: scalaz.Equal[A] = equality.apply(_, _)
   }
 
   new EqualityEncodingBehavior {

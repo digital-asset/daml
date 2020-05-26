@@ -1,8 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The TubeSurfaceArea example.
-daml 1.2
+
 module TubeSurfaceArea where
 
 

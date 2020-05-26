@@ -1,24 +1,36 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("util.bzl", "protos_zip", "sdk_tarball")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
     name = "release",
-    srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    srcs = glob(["src/**/*.hs"]) + ["//:SdkVersion.hs"],
+    hackage_deps = [
         "aeson",
+        "async",
         "ansi-terminal",
         "base",
+        "base64-bytestring",
         "bytestring",
         "conduit",
         "conduit-extra",
         "containers",
+        "connection",
+        "cryptohash",
         "directory",
         "exceptions",
         "extra",
         "fast-logger",
         "filepath",
+        "ghc",
+        "http-client",
+        "http-client-tls",
+        "http-conduit",
+        "http-types",
         "lifted-async",
         "lifted-base",
         "monad-control",
@@ -27,9 +39,13 @@ da_haskell_binary(
         "path",
         "path-io",
         "process",
+        "retry",
         "safe",
         "safe-exceptions",
+        "split",
+        "time",
         "text",
+        "temporary",
         "transformers",
         "unliftio-core",
         "unordered-containers",
@@ -42,114 +58,9 @@ da_haskell_binary(
     deps = [],
 )
 
-# NOTE(MH): This tarball contains only metadata for an SDK release. The SDK
-# assistant uses this metadata to download the actual data.
-# TODO(#520): Put changelog in tarball.
-genrule(
-    name = "sdk-metadata-tarball",
-    srcs = [
-        "//:LICENSE",
-        "//:NOTICES",
-        "//:VERSION",
-        "//:component-version",
-        "//:git-revision",
-        "//:CHANGELOG",
-        "sdk.yaml",
-    ],
-    outs = ["sdk-metadata-tarball.tar.gz"],
-    cmd = """
-        VERSION=$$(cat $(location //:VERSION))
-        COMPONENT_VERSION=$$(cat $(location //:component-version))
-        DIR=tmp/sdk
-        mkdir -p $$DIR
-        # NOTE(MH): The sdk assistant operates under the assumption that
-        # there is a template directory. We don't populate it anymore though.
-        mkdir -p $$DIR/templates
-        cp -L $(SRCS) $$DIR
-        rm $$DIR/$$(basename $(location //:component-version))
-        sed -i "s/__VERSION__/$$COMPONENT_VERSION/" $$DIR/sdk.yaml
-        tar zcf $@ -C tmp sdk
-    """,
-)
+# Disabled on Windows since directory outputs can cause issues.
+protos_zip(
+    name = "protobufs",
+) if not is_windows else None
 
-# This tarball is used by the new daml assistant.sdk
-genrule(
-    name = "sdk-release-tarball",
-    srcs = [
-        ":sdk-config.yaml.tmpl",
-        ":install.sh",
-        ":install.bat",
-        "//:VERSION",
-        "//daml-assistant:daml-dist",
-        "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
-        "//daml-foundations/daml-tools/daml-extension:dist",
-        "//daml-assistant/daml-helper:daml-helper-dist",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
-        "//navigator/backend:navigator-binary_deploy.jar",
-        "//extractor:extractor-binary_deploy.jar",
-        "//templates:templates-tarball.tar.gz",
-    ],
-    outs = ["sdk-release-tarball.tar.gz"],
-    cmd = """
-      # damlc
-      VERSION=$$(cat $(location //:VERSION))
-      OUT=sdk-$$VERSION
-      mkdir -p $$OUT
-
-      cp $(location :install.sh) $$OUT/install.sh
-      cp $(location :install.bat) $$OUT/install.bat
-
-      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
-
-      mkdir -p $$OUT/daml
-      tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
-
-      mkdir -p $$OUT/damlc
-      tar xf $(location //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist) --strip-components=1 -C $$OUT/damlc
-
-      mkdir -p $$OUT/daml-helper
-      tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
-
-      mkdir -p $$OUT/studio
-      tar xf $(location //daml-foundations/daml-tools/daml-extension:dist) --strip-components=1 -C $$OUT/studio
-
-      mkdir -p $$OUT/sandbox
-      cp $(location //ledger/sandbox:sandbox-binary_deploy.jar) $$OUT/sandbox/sandbox.jar
-
-      mkdir -p $$OUT/navigator
-      cp $(location //navigator/backend:navigator-binary_deploy.jar) $$OUT/navigator/navigator.jar
-
-      mkdir -p $$OUT/extractor
-      cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
-
-      mkdir -p $$OUT/templates
-      tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates
-
-      tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
-    """,
-    visibility = ["//visibility:public"],
-)
-
-# Same as the above, but with head version 0.0.0.
-genrule(
-    name = "sdk-head-tarball",
-    srcs = [
-        ":sdk-config.yaml.tmpl",
-        ":sdk-release-tarball.tar.gz",
-    ],
-    outs = ["sdk-head-tarball.tar.gz"],
-    cmd = """
-
-      VERSION=0.0.0
-      OUT=sdk-head
-      mkdir -p $$OUT
-      tar xf $(location sdk-release-tarball.tar.gz) --strip-components=1 -C $$OUT
-
-      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
-
-      tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
-    """,
-    visibility = ["//visibility:public"],
-)
+sdk_tarball("sdk-release-tarball", sdk_version)

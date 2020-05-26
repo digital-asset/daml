@@ -1,115 +1,140 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
-import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-import com.digitalasset.ledger.client.impl.LedgerClientImpl
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
-import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
-import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import io.grpc.ManagedChannel
+import java.io.Closeable
+import java.util.concurrent.TimeUnit
+
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.client.LedgerCallCredentials
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
+import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
+import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
+import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.ledger.client.services.admin.PackageManagementClient
+import com.daml.ledger.client.services.admin.PartyManagementClient
+import com.daml.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.client.services.transactions.TransactionClient
+import io.grpc.{Channel, ManagedChannel}
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.stub.AbstractStub
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait LedgerClient {
+final class LedgerClient private (
+    val channel: Channel,
+    config: LedgerClientConfiguration,
+    val ledgerId: LedgerId
+)(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
+    extends Closeable {
 
-  def ledgerId: LedgerId
+  val activeContractSetClient =
+    new ActiveContractSetClient(
+      ledgerId,
+      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token))
 
-  def activeContractSetClient: ActiveContractSetClient
+  val commandClient: CommandClient =
+    new CommandClient(
+      LedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
+      LedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
+      ledgerId,
+      config.applicationId,
+      config.commandClient
+    )
 
-  def commandClient: CommandClient
+  val commandServiceClient: SynchronousCommandClient =
+    new SynchronousCommandClient(LedgerClient.stub(CommandServiceGrpc.stub(channel), config.token))
 
-  def commandServiceClient: SynchronousCommandClient
+  val packageClient: PackageClient =
+    new PackageClient(ledgerId, LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token))
 
-  def packageClient: PackageClient
+  val packageManagementClient: PackageManagementClient =
+    new PackageManagementClient(
+      LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token))
 
-  def transactionClient: TransactionClient
+  val partyManagementClient: PartyManagementClient =
+    new PartyManagementClient(
+      LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token))
 
+  val transactionClient: TransactionClient =
+    new TransactionClient(
+      ledgerId,
+      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token))
+
+  override def close(): Unit =
+    channel match {
+      case channel: ManagedChannel =>
+        val _ = channel.shutdown().awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+      case _ => // do nothing
+    }
 }
 
 object LedgerClient {
 
   def apply(
-      ledgerIdentityService: LedgerIdentityService,
-      transactionService: TransactionService,
-      activeContractsService: ActiveContractsService,
-      commandSubmissionService: CommandSubmissionService,
-      commandCompletionService: CommandCompletionService,
-      commandService: CommandService,
-      packageService: PackageService,
-      ledgerClientConfiguration: LedgerClientConfiguration
+      channel: Channel,
+      config: LedgerClientConfiguration
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-
     for {
-      ledgerId <- new LedgerIdentityClient(ledgerIdentityService)
-        .satisfies(ledgerClientConfiguration.ledgerIdRequirement)
+      ledgerId <- new LedgerIdentityClient(
+        stub(LedgerIdentityServiceGrpc.stub(channel), config.token))
+        .satisfies(config.ledgerIdRequirement)
     } yield {
-      new LedgerClientImpl(
-        transactionService,
-        activeContractsService,
-        commandSubmissionService,
-        commandCompletionService,
-        commandService,
-        packageService,
-        ledgerClientConfiguration,
-        ledgerId
-      )
+      new LedgerClient(channel, config, ledgerId)
     }
   }
 
+  private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
+    token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
+
+  /**
+    * A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
+    * flexible alternative.
+    */
   def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+      esf: ExecutionSequencerFactory): Future[LedgerClient] =
+    fromBuilder(NettyChannelBuilder.forAddress(hostIp, port), configuration)
 
-    val builder: NettyChannelBuilder = NettyChannelBuilder
-      .forAddress(hostIp, port)
+  @deprecated("Use the safer and more flexible `fromBuilder` method", "0.13.35")
+  def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory): Future[LedgerClient] =
+    apply(channel, configuration)
 
-    configuration.sslContext
-      .fold {
-        builder.usePlaintext()
-      } { sslContext =>
-        builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
-      }
-
-    val channel = builder.build()
-
-    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
-
-    forChannel(configuration, channel)
-
-  }
-  def forChannel(configuration: LedgerClientConfiguration, channel: ManagedChannel)(
+  /**
+    * Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
+    * that cannot be specified though the [[LedgerClientConfiguration]] (e.g. a set of
+    * default [[io.grpc.CallCredentials]] to be used with all calls unless explicitly
+    * set on a per-call basis), sets the relevant options specified by the configuration
+    * (possibly overriding the existing builder settings), and returns a [[LedgerClient]].
+    *
+    * A shutdown hook is also added to close the channel when the JVM stops.
+    *
+    */
+  def fromBuilder(builder: NettyChannelBuilder, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    apply(
-      LedgerIdentityServiceGrpc.stub(channel),
-      TransactionServiceGrpc.stub(channel),
-      ActiveContractsServiceGrpc.stub(channel),
-      CommandSubmissionServiceGrpc.stub(channel),
-      CommandCompletionServiceGrpc.stub(channel),
-      CommandServiceGrpc.stub(channel),
-      PackageServiceGrpc.stub(channel),
-      configuration
-    )
+    configuration.sslContext.fold(builder.usePlaintext())(
+      builder.sslContext(_).negotiationType(NegotiationType.TLS))
+    val channel = builder.build()
+    sys.addShutdownHook {
+      if (!channel.isShutdown) {
+        val _ = channel.shutdownNow()
+      }
+    }
+    apply(channel, configuration)
   }
+
 }

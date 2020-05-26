@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.perf.util
+package com.daml.ledger.api.perf.util
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import com.digitalasset.ledger.api.testing.utils.Resource
+import akka.stream.Materializer
+import com.daml.ledger.api.testing.utils.Resource
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
@@ -18,7 +18,7 @@ abstract class AkkaStreamPerformanceTest extends PerformanceTest {
   type ResourceType
 
   @volatile protected var system: ActorSystem = _
-  @volatile protected var materializer: ActorMaterializer = _
+  @volatile protected var materializer: Materializer = _
   @transient protected implicit val ec: ExecutionContextExecutor = ExecutionContext.global
 
   protected def resource: Resource[ResourceType]
@@ -27,7 +27,7 @@ abstract class AkkaStreamPerformanceTest extends PerformanceTest {
     resource.setup()
     implicit val sys: ActorSystem = ActorSystem(this.getClass.getSimpleName.stripSuffix("$"))
     system = sys
-    materializer = ActorMaterializer()
+    materializer = Materializer(system)
   }
 
   protected def teardown(): Unit = {

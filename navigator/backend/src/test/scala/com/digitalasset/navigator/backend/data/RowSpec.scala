@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model.{
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.{
   ChoiceExercised,
   CommandStatusError,
   CommandStatusSuccess,
@@ -23,7 +23,7 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.util.Success
 
 class RowSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+  import com.daml.navigator.{DamlConstants => C}
 
   private val registry: PackageRegistry = PackageRegistry().withPackages(List(C.iface))
 
@@ -115,6 +115,11 @@ class RowSpec extends WordSpec with Matchers {
   }
 
   "EventRow" when {
+
+    val alice = ApiTypes.Party("Alice")
+    val bob = ApiTypes.Party("Bob")
+    val charlie = ApiTypes.Party("Charlie")
+
     "converting ContractCreated" should {
       val value = ContractCreated(
         ApiTypes.EventId("e01"),
@@ -125,7 +130,10 @@ class RowSpec extends WordSpec with Matchers {
         ApiTypes.ContractId("c01"),
         C.complexRecordId,
         C.complexRecordV,
-        Some("agreement")
+        Some("agreement"),
+        List(alice),
+        List(bob, charlie),
+        None
       )
 
       "not change the value" in {
@@ -141,7 +149,6 @@ class RowSpec extends WordSpec with Matchers {
         List(ApiTypes.Party("p01")),
         ApiTypes.WorkflowId("w01"),
         ApiTypes.ContractId("c01"),
-        ApiTypes.EventId("e02"),
         C.complexRecordId,
         ApiTypes.Choice("text"),
         C.simpleTextV,

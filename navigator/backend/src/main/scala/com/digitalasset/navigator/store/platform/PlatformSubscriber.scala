@@ -1,30 +1,29 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store.platform
+package com.daml.navigator.store.platform
 
-import com.digitalasset.navigator.store.Store._
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.digitalasset.daml_lf.DamlLf
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.daml.lf.archive.Reader
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
-import com.digitalasset.ledger.api.{v1 => V1}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.model.converter.TypeNotFoundError
-import com.digitalasset.navigator.store.Store.StoreException
-import com.digitalasset.util.Ctx
+import com.daml.lf.archive.Reader
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.package_service.GetPackageResponse
+import com.daml.ledger.api.{v1 => V1}
+import com.daml.ledger.client.LedgerClient
+import com.daml.navigator.model._
+import com.daml.navigator.model.converter.TypeNotFoundError
+import com.daml.navigator.store.Store.{StoreException, _}
+import com.daml.util.Ctx
+import scalaz.Tag
+import scalaz.syntax.tag._
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
-import scalaz.{Tag, \/-}
-import scalaz.syntax.tag._
+import scala.util.{Failure, Success}
 
 object PlatformSubscriber {
   // Actor messages
@@ -40,9 +39,10 @@ object PlatformSubscriber {
   def props(
       ledgerClient: LedgerClient,
       party: PartyState,
-      applicationId: DamlLfRef.LedgerString
+      applicationId: DamlLfRef.LedgerString,
+      token: Option[String]
   ) =
-    Props(classOf[PlatformSubscriber], ledgerClient, party, applicationId)
+    Props(classOf[PlatformSubscriber], ledgerClient, party, applicationId, token)
 }
 
 /** Actor subscribing to platform event stream of a single DA party. */
@@ -50,7 +50,8 @@ object PlatformSubscriber {
 class PlatformSubscriber(
     ledgerClient: LedgerClient,
     party: PartyState,
-    applicationId: DamlLfRef.LedgerString)
+    applicationId: DamlLfRef.LedgerString,
+    token: Option[String])
     extends Actor
     with ActorLogging
     with Stash {
@@ -59,12 +60,11 @@ class PlatformSubscriber(
   // Global immutable state - mutable state is stored in parameters of the receive methods
   // ----------------------------------------------------------------------------------------------
   private val system = context.system
-  private val packagesActor = context.actorSelection("../packages")
   private val killSwitch = KillSwitches.shared("platform-subscriber")
 
   import system.dispatcher
 
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val materializer: Materializer = Materializer(system)
   import PlatformSubscriber._
 
   // ----------------------------------------------------------------------------------------------
@@ -74,9 +74,9 @@ class PlatformSubscriber(
     log.debug("Starting actor for '{}'", party.name)
 
     val started = for {
-      packages <- fetchPackages(ledgerClient)
+      _ <- fetchPackages(ledgerClient)
       tracker <- startTrackingCommands()
-      txStream <- startStreamingTransactions()
+      _ <- startStreamingTransactions()
     } yield {
       Started(tracker)
     }
@@ -205,7 +205,7 @@ class PlatformSubscriber(
     // Create a source (transactions stream from ledger)
     val treeSource: Source[NotUsed, NotUsed] =
       ledgerClient.transactionClient
-        .getTransactionTrees(ledgerBegin, None, transactionFilter)
+        .getTransactionTrees(ledgerBegin, None, transactionFilter, token = token)
         .mapAsync(1)(tx =>
           processTransaction(tx.transactionId, tx, converter.LedgerApiV1.readTransactionTree))
 
@@ -224,7 +224,7 @@ class PlatformSubscriber(
     : Future[SourceQueueWithComplete[Ctx[Command, SubmitRequest]]] = {
     for {
       commandTracker <- ledgerClient.commandClient
-        .trackCommands[Command](List(Tag.unwrap(party.name)))
+        .trackCommands[Command](List(Tag.unwrap(party.name)), token)
     } yield
     // Note: this uses a buffer of 1000 commands awaiting handling by the command client.
     // The command client itself can process (config.maxParallelSubmissions) commands in parallel.
@@ -268,14 +268,15 @@ class PlatformSubscriber(
     it can re-fetch the packages from the server to get the metadata it needs to make sense of them.
    */
   private def fetchPackages(ledgerClient: LedgerClient): Future[Unit] = {
-    ledgerClient.packageClient.listPackages
+    ledgerClient.packageClient
+      .listPackages(token)
       .flatMap(response => {
         Future.traverse(response.packageIds)(id => {
           party.packageRegistry.pack(DamlLfRef.PackageId.assertFromString(id)) match {
-            case Some(pack) =>
+            case Some(_) =>
               Future.successful(None)
             case None =>
-              ledgerClient.packageClient.getPackage(id).map(Some(_))
+              ledgerClient.packageClient.getPackage(id, token).map(Some(_))
           }
         })
       })
@@ -297,8 +298,7 @@ class PlatformSubscriber(
     val cos = Reader.damlLfCodedInputStream(res.archivePayload.newInput)
     val payload = DamlLf.ArchivePayload.parseFrom(cos)
     val (errors, out) =
-      InterfaceReader.readInterface(() =>
-        \/-((DamlLfRef.PackageId.assertFromString(res.hash), payload.getDamlLf1)))
+      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash) -> payload)
     if (!errors.equals(Errors.zeroErrors)) {
       log.error("Errors loading package {}: {}", res.hash, errors.toString)
     }
@@ -312,12 +312,9 @@ class PlatformSubscriber(
       command: Command,
       sender: ActorRef
   ): Unit = {
-    // Delay for observing this command in the completion stream before considering it lost, in seconds.
-    val maxRecordDelay: Long = 30L
-
     // Convert to ledger API command
     converter.LedgerApiV1
-      .writeCommands(party, command, maxRecordDelay, ledgerClient.ledgerId.unwrap, applicationId)
+      .writeCommands(party, command, ledgerClient.ledgerId.unwrap, applicationId)
       .fold[Unit](
         error => {
           // Failed to convert command. Most likely, the argument is incomplete.
@@ -355,12 +352,6 @@ class PlatformSubscriber(
           sender ! Success(command.id)
         }
       )
-  }
-
-  private def apiFailure[T]: PartialFunction[Throwable, Try[T]] = {
-    case exception: Exception =>
-      log.error("Unable to perform API operation: {}", exception.getMessage)
-      Failure(StoreException(exception.getMessage))
   }
 
   private def apiFailureF[T]: PartialFunction[Throwable, Future[T]] = {

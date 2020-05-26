@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import {
@@ -32,21 +32,21 @@ const Header = styled.div`
 
 export const SubHeader = styled.p`
   font-size: 1.25rem;
-`
+`;
 
 const Content = styled.div`
   padding-left: 2.5rem;
   padding-right: 2.5rem;
-`
+`;
 
 const ColumnContainer = styled.div`
   width: 100%;
   display: flex;
-`
+`;
 
 const Column = styled.div`
   width: 50%;
-`
+`;
 
 interface ActiveLinkProps extends OwnProps {
   isActive: boolean;
@@ -81,6 +81,12 @@ const ChoiceLink = styled(ActiveLink)`
 const AgreementText = ({text}: {text: string}) => (
     <span><SubHeader><Strong>Agreement Text</Strong></SubHeader>
         <span>{text}</span>
+    </span>
+);
+
+const Parties = ({title, parties}: {title: string, parties: string[]}) => (
+    <span><SubHeader><Strong>{title}</Strong></SubHeader>
+        <span>{parties.join(', ')}</span>
     </span>
 );
 
@@ -150,7 +156,11 @@ export default (props: Props) => {
         <p>{isArchived ? 'ARCHIVED' : null}</p>
         <ColumnContainer>
           <Column>
-              {contract.agreementText && <AgreementText text={contract.agreementText} />}
+            {contract.agreementText && <AgreementText text={contract.agreementText} />}
+            {contract.signatories.length > 0 && <Parties title="Signatories" parties={contract.signatories} />}
+            {contract.observers.length > 0 && <Parties title="Observers" parties={contract.observers} />}
+            {contract.key && <SubHeader><Strong>Contract key</Strong></SubHeader>}
+            {contract.key && <ArgumentDisplay argument={contract.key}/>}
             <SubHeader><Strong>Contract details</Strong></SubHeader>
             <ArgumentDisplay
               argument={contract.argument}

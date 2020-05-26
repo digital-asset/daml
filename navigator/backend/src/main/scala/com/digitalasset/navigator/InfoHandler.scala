@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
@@ -9,12 +9,12 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import com.digitalasset.navigator.config.Arguments
-import com.digitalasset.navigator.store.Store._
+import com.daml.navigator.config.Arguments
+import com.daml.navigator.store.Store._
 import spray.json._
 import DefaultJsonProtocol._
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.time.TimeProviderType
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.time.TimeProviderType
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -37,7 +37,6 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
       "port" -> obj.port.toJson,
       "assets" -> obj.assets.toJson,
       "time" -> TimeProviderType.write(obj.time).toJson,
-      "requirePassword" -> obj.requirePassword.toJson,
       "configFile" -> obj.configFile.map(p => p.toString).toJson,
       "startConsole" -> obj.startConsole.toJson,
       "tlsConfig" -> obj.tlsConfig
@@ -54,10 +53,10 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
   }
   private implicit object actorInfoWriter extends RootJsonWriter[PartyActorInfo] {
     override def write(obj: PartyActorInfo): JsValue = obj match {
-      case info: PartyActorStarting => JsString("Starting")
-      case info: PartyActorStarted => JsString("Started")
+      case _: PartyActorStarting => JsString("Starting")
+      case _: PartyActorStarted => JsString("Started")
       case info: PartyActorFailed => JsString(s"Failed: ${info.error.getMessage}")
-      case info: PartyActorUnresponsive => JsString("Unresponsive")
+      case _: PartyActorUnresponsive => JsString("Unresponsive")
     }
   }
   private implicit object appInfoWriter extends RootJsonWriter[ApplicationStateInfo] {

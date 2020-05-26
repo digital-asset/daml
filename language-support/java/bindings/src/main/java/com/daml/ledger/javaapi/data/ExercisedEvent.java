@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.EventOuterClass;
+import com.daml.ledger.api.v1.EventOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
@@ -18,8 +18,6 @@ public class ExercisedEvent implements TreeEvent {
     private final Identifier templateId;
 
     private final String contractId;
-
-    private final String contractCreatingEventId;
 
     private final String choice;
 
@@ -37,7 +35,6 @@ public class ExercisedEvent implements TreeEvent {
                           @NonNull String eventId,
                           @NonNull Identifier templateId,
                           @NonNull String contractId,
-                          @NonNull String contractCreatingEventId,
                           @NonNull String choice,
                           @NonNull Value choiceArgument,
                           @NonNull List<@NonNull String> actingParties,
@@ -48,7 +45,6 @@ public class ExercisedEvent implements TreeEvent {
         this.eventId = eventId;
         this.templateId = templateId;
         this.contractId = contractId;
-        this.contractCreatingEventId = contractCreatingEventId;
         this.choice = choice;
         this.choiceArgument = choiceArgument;
         this.actingParties = actingParties;
@@ -79,11 +75,6 @@ public class ExercisedEvent implements TreeEvent {
     @Override
     public String getContractId() {
         return contractId;
-    }
-
-    @NonNull
-    public String getContractCreatingEventId() {
-        return contractCreatingEventId;
     }
 
     @NonNull
@@ -124,7 +115,6 @@ public class ExercisedEvent implements TreeEvent {
                 Objects.equals(eventId, that.eventId) &&
                 Objects.equals(templateId, that.templateId) &&
                 Objects.equals(contractId, that.contractId) &&
-                Objects.equals(contractCreatingEventId, that.contractCreatingEventId) &&
                 Objects.equals(choice, that.choice) &&
                 Objects.equals(choiceArgument, that.choiceArgument) &&
                 Objects.equals(actingParties, that.actingParties) &&
@@ -134,7 +124,7 @@ public class ExercisedEvent implements TreeEvent {
     @Override
     public int hashCode() {
 
-        return Objects.hash(witnessParties, eventId, templateId, contractId, contractCreatingEventId, choice, choiceArgument, actingParties, consuming, exerciseResult);
+        return Objects.hash(witnessParties, eventId, templateId, contractId, choice, choiceArgument, actingParties, consuming, exerciseResult);
     }
 
     @Override
@@ -144,7 +134,6 @@ public class ExercisedEvent implements TreeEvent {
                 ", eventId='" + eventId + '\'' +
                 ", templateId=" + templateId +
                 ", contractId='" + contractId + '\'' +
-                ", contractCreatingEventId='" + contractCreatingEventId + '\'' +
                 ", choice='" + choice + '\'' +
                 ", choiceArgument=" + choiceArgument +
                 ", actingParties=" + actingParties +
@@ -162,7 +151,6 @@ public class ExercisedEvent implements TreeEvent {
                 .setConsuming(isConsuming())
                 .setContractId(getContractId())
                 .setTemplateId(getTemplateId().toProto())
-                .setContractCreatingEventId(getContractCreatingEventId())
                 .addAllActingParties(getActingParties())
                 .addAllWitnessParties(getWitnessParties())
                 .addAllChildEventIds(getChildEventIds())
@@ -176,7 +164,6 @@ public class ExercisedEvent implements TreeEvent {
                 exercisedEvent.getEventId(),
                 Identifier.fromProto(exercisedEvent.getTemplateId()),
                 exercisedEvent.getContractId(),
-                exercisedEvent.getContractCreatingEventId(),
                 exercisedEvent.getChoice(),
                 Value.fromProto(exercisedEvent.getChoiceArgument()),
                 exercisedEvent.getActingPartiesList(),

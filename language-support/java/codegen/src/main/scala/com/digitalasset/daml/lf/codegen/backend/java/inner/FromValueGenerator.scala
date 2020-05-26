@@ -1,15 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
-
-import java.util.stream.Collectors
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.codegen.backend.java.{JavaEscaper}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -97,7 +95,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       "$T $L = $L",
       toJavaTypeName(fieldType, packagePrefixes),
       field,
-      composite(fieldType, field, accessor, Iterator.from(0).map(n => s"v$$$n"), packagePrefixes))
+      extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes))
 
   // Primitive extractors that map a type to the method to retrieve it
   // Missing on purpose: `Record` and `Variant` -- those should be dealt
@@ -106,7 +104,6 @@ private[inner] object FromValueGenerator extends StrictLogging {
     Map[PrimType, (String, Option[String])](
       (PrimTypeBool, ("asBool", Some(".getValue()"))),
       (PrimTypeInt64, ("asInt64", Some(".getValue()"))),
-      (PrimTypeDecimal, ("asDecimal", Some(".getValue()"))),
       (PrimTypeText, ("asText", Some(".getValue()"))),
       (PrimTypeTimestamp, ("asTimestamp", Some(".getValue()"))),
       (PrimTypeParty, ("asParty", Some(".getValue()"))),
@@ -140,14 +137,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
   /**
     * Generates extractor for types that are not immediately covered by primitive extractors
-    * Relies on the underlying [[nested]] method to generate extractor recursively
-    * @param typeName The type of the field being accessed
+    * @param damlType The type of the field being accessed
     * @param field The name of the field being accessed
     * @param accessor The [[CodeBlock]] that defines how to access the item in the first place
-    * @param args An iterator providing diverse argument names to be used in [[nested]]
+    * @param args An iterator providing argument names for nested calls without shadowing
     * @return A [[CodeBlock]] that defines the extractor for the whole composite type
     */
-  private def composite(
+  private[inner] def extractor(
       damlType: Type,
       field: String,
       accessor: CodeBlock,
@@ -169,38 +165,38 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
         val optMapArg = args.next()
         val listMapArg = args.next()
-        CodeBlock
-          .builder()
-          .add(CodeBlock.of("$L.asList().map($L -> ", accessor, optMapArg))
-          .add(CodeBlock
-            .of("$L.getValues().stream().map($L -> ", optMapArg, listMapArg))
-          .add(CodeBlock.of(
-            "$L",
-            composite(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes)))
-          .add(
-            CodeBlock
-              .of(
-                ").collect($T.<$L>toList()))",
-                classOf[Collectors],
-                toJavaTypeName(param, packagePrefixes)))
-          .add(orElseThrow(apiType, field))
-          .build()
+        CodeBlock.of(
+          """$L.asList()
+            |    .map($L -> $L.toList($L ->
+            |        $L
+            |    ))
+            |    $L
+            |""".stripMargin,
+          accessor,
+          optMapArg,
+          optMapArg,
+          listMapArg,
+          extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes),
+          orElseThrow(apiType, field)
+        )
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
-        val outerOptArg = args.next()
-        val innerOptArg = args.next()
-        CodeBlock
-          .builder()
-          .add(CodeBlock.of(
-            "$L.asOptional().map($L -> $L.getValue().map($L -> $L))",
-            accessor,
-            outerOptArg,
-            outerOptArg,
-            innerOptArg,
-            composite(param, innerOptArg, CodeBlock.of("$L", innerOptArg), args, packagePrefixes)
-          ))
-          .add(orElseThrow(apiType, field))
-          .build()
+        val optOptArg = args.next()
+        val valArg = args.next()
+        CodeBlock.of(
+          """$L.asOptional()
+            |    .map($L -> $L.toOptional($L ->
+            |        $L
+            |    ))
+            |    $L
+          """.stripMargin,
+          accessor,
+          optOptArg,
+          optOptArg,
+          valArg,
+          extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
+          orElseThrow(apiType, field)
+        )
 
       case TypePrim(PrimTypeContractId, _) =>
         CodeBlock.of(
@@ -209,31 +205,47 @@ private[inner] object FromValueGenerator extends StrictLogging {
           accessor,
           orElseThrow(apiType, field))
 
-      case TypePrim(PrimTypeMap, ImmArraySeq(param)) =>
+      case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         val optMapArg = args.next()
         val entryArg = args.next()
-        CodeBlock
-          .builder()
-          .add(CodeBlock.of("$L.asMap().map($L -> ", accessor, optMapArg))
-          .add(CodeBlock.of(
-            "$L.getMap().entrySet().stream().collect($T.<java.util.Map.Entry<String,Value>,String,$L>toMap(",
-            optMapArg,
-            classOf[Collectors],
-            toJavaTypeName(param, packagePrefixes)
-          ))
-          .add(CodeBlock.of("java.util.Map.Entry::getKey,$L -> ", entryArg))
-          .add(
-            CodeBlock.of(
-              "$L",
-              composite(
-                param,
-                entryArg,
-                CodeBlock.of("$L.getValue()", entryArg),
-                args,
-                packagePrefixes)))
-          .add(CodeBlock.of(")))"))
-          .add(orElseThrow(apiType, field))
-          .build()
+        CodeBlock.of(
+          """$L.asTextMap()
+            |    .map($L -> $L.toMap($L ->
+            |        $L
+            |    ))
+            |    $L
+          """.stripMargin,
+          accessor,
+          optMapArg,
+          optMapArg,
+          entryArg,
+          extractor(param, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
+          orElseThrow(apiType, field)
+        )
+
+      case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
+        val optMapArg = args.next()
+        val entryArg = args.next()
+        CodeBlock.of(
+          """$L.asGenMap()
+              |    .map($L -> $L.toMap(
+              |        $L -> $L,
+              |        $L -> $L
+              |    ))
+              |    $L
+          """.stripMargin,
+          accessor,
+          optMapArg,
+          optMapArg,
+          entryArg,
+          extractor(keyType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
+          entryArg,
+          extractor(valueType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
+          orElseThrow(apiType, field)
+        )
+
+      case TypeNumeric(_) =>
+        CodeBlock.of("$L.asNumeric()$L.getValue()", accessor, orElseThrow(apiType, field))
 
       case TypePrim(prim, _) =>
         primitive(prim, apiType, field, accessor).getOrElse(
@@ -248,7 +260,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
             "$L -> $L",
             innerArg,
-            composite(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes))
+            extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes))
         }.unzip
 
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")

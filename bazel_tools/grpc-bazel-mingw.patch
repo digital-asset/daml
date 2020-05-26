@@ -20,3 +20,4 @@ index 0349e31bb3..d2e7408dbf 100644
 +#define _WIN32_WINNT 0x0A00
  
  #include <windows.h>
+

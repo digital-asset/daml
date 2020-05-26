@@ -1,23 +1,25 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.api.refinements.ApiTypes
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 import scalaz.{OneAnd, Plus}
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.vector._
+import scalaz.syntax.foldable._
 import scalaz.syntax.plus._
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class GenEncoding extends LfTypeEncoding {
-  import GenEncoding.{primitiveImpl, VariantCasesImpl}
+  import GenEncoding.{VariantCasesImpl, primitiveImpl}
 
   type Out[A] = Gen[A]
 
@@ -35,6 +37,13 @@ abstract class GenEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = o
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  override def enumAll[A](
+      enumId: rpcvalue.Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    Gen.oneOf(cases.toVector.map(_._2))
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
     cases.tail match {
@@ -54,6 +63,8 @@ abstract class GenEncoding extends LfTypeEncoding {
 }
 
 object GenEncoding extends GenEncoding {
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
       a <+> b
@@ -62,7 +73,7 @@ object GenEncoding extends GenEncoding {
   class primitiveImpl extends ValuePrimitiveEncoding[Out] {
     override val valueInt64: Out[P.Int64] = arbitrary[P.Int64]
 
-    override val valueDecimal: Out[P.Decimal] = arbitrary[BigDecimal](DamlDecimalGen.arbDamlDecimal)
+    override val valueNumeric: Out[P.Numeric] = arbitrary[BigDecimal](DamlDecimalGen.arbDamlDecimal)
 
     override val valueParty: Out[P.Party] = P.Party.subst(Gen.identifier)
 
@@ -89,9 +100,15 @@ object GenEncoding extends GenEncoding {
       arbitrary[P.Optional[A]]
     }
 
-    override def valueMap[A](implicit ev: Out[A]): Out[P.Map[A]] = {
+    override def valueTextMap[A](implicit ev: Out[A]): Out[P.TextMap[A]] = {
       implicit val elt: Arbitrary[A] = Arbitrary(ev)
-      arbitrary[P.Map[A]]
+      P.TextMap.leibniz[A].subst(arbitrary[collection.immutable.Map[String, A]])
+    }
+
+    override def valueGenMap[K, V](implicit evK: Out[K], evV: Out[V]): Out[P.GenMap[K, V]] = {
+      implicit val eltK: Arbitrary[K] = Arbitrary(evK)
+      implicit val eltV: Arbitrary[V] = Arbitrary(evV)
+      arbitrary[P.GenMap[K, V]]
     }
   }
 

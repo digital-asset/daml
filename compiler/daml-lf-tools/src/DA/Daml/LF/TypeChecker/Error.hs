@@ -1,18 +1,21 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
     TemplatePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
-    errorLocation
+    errorLocation,
+    toDiagnostic,
     ) where
 
 import DA.Pretty
 import qualified Data.Text as T
+import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
+import Numeric.Natural
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
@@ -21,6 +24,7 @@ import DA.Daml.LF.Ast.Pretty
 -- | Type checking context for error reporting purposes.
 data Context
   = ContextNone
+  | ContextDefTypeSyn !Module !DefTypeSyn
   | ContextDefDataType !Module !DefDataType
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
@@ -49,31 +53,41 @@ data UnserializabilityReason
   | URForall  -- ^ It has higher rank.
   | URUpdate  -- ^ It contains an update action.
   | URScenario  -- ^ It contains a scenario action.
-  | URTuple  -- ^ It contains a structural record.
+  | URStruct  -- ^ It contains a structural record.
   | URList  -- ^ It contains an unapplied list type constructor.
   | UROptional  -- ^ It contains an unapplied optional type constructor.
   | URMap  -- ^ It contains an unapplied map type constructor.
+  | URGenMap  -- ^ It contains an unapplied GenMap type constructor.
   | URContractId  -- ^ It contains a ContractId which is not applied to a template type.
   | URDataType !(Qualified TypeConName)  -- ^ It uses a data type which is not serializable.
   | URHigherKinded !TypeVarName !Kind  -- ^ A data type has a higher kinded parameter.
   | URUninhabitatedType  -- ^ A type without values, e.g., a variant with no constructors.
+  | URNumeric -- ^ It contains an unapplied Numeric type constructor.
+  | URNumericNotFixed
+  | URNumericOutOfRange !Natural
+  | URTypeLevelNat
+  | URAny -- ^ It contains a value of type Any.
+  | URTypeRep -- ^ It contains a value of type TypeRep.
+  | URTypeSyn  -- ^ It contains a type synonym.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
-  | EShadowingTypeVar      !TypeVarName
   | EUnknownExprVar        !ExprVarName
   | EUnknownDefinition     !LookupError
   | ETypeConAppWrongArity  !TypeConApp
+  | EDuplicateTypeParam    !TypeVarName
   | EDuplicateField        !FieldName
-  | EDuplicateVariantCon   !VariantConName
+  | EDuplicateConstructor  !VariantConName
   | EDuplicateModule       !ModuleName
   | EDuplicateScenario     !ExprVarName
+  | EEnumTypeWithParams
   | EExpectedRecordType    !TypeConApp
   | EFieldMismatch         !TypeConApp ![(FieldName, Expr)]
   | EExpectedVariantType   !(Qualified TypeConName)
-  | EUnknownVariantCon     !VariantConName
+  | EExpectedEnumType      !(Qualified TypeConName)
+  | EUnknownDataCon        !VariantConName
   | EUnknownField          !FieldName
-  | EExpectedTupleType     !Type
+  | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EExpectedHigherKind    !Kind
@@ -82,26 +96,30 @@ data Error
   | EExpectedUpdateType    !Type
   | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
+  | EExpectedAnyType !Type
   | ETypeConMismatch       !(Qualified TypeConName) !(Qualified TypeConName)
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
   | EEmptyCase
+  | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
-  | EImportCycle           ![ModuleName]
-  | EDataTypeCycle         ![TypeConName]
+  | EImportCycle           ![ModuleName] -- TODO: implement check for this error
+  | ETypeSynCycle          ![TypeSynName]
+  | EDataTypeCycle         ![TypeConName] -- TODO: implement check for this error
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
   | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
   | EContext               !Context !Error
-  | ENonValueDefinition    ![(String, Expr)] -- contains the non-value subexpressions and why they're bad
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
-  | EInvalidKeyExpression !Expr
+  | EForbiddenNameCollision !T.Text ![T.Text]
+  | ESynAppWrongArity       !DefTypeSyn ![Type]
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
   ContextNone            -> Nothing
+  ContextDefTypeSyn _ s  -> synLocation s
   ContextDefDataType _ d -> dataLocation d
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
@@ -114,6 +132,8 @@ errorLocation = \case
 instance Show Context where
   show = \case
     ContextNone -> "<none>"
+    ContextDefTypeSyn m ts ->
+      "type synonym " <> show (moduleName m) <> "." <> show (synName ts)
     ContextDefDataType m dt ->
       "data type " <> show (moduleName m) <> "." <> show (dataTypeCon dt)
     ContextTemplate m t p ->
@@ -142,20 +162,28 @@ instance Pretty SerializabilityRequirement where
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
-    URFreeVar v -> "free type variable" <-> prettyName v
+    URFreeVar v -> "free type variable" <-> pretty v
     URFunction -> "function type"
     URForall -> "higher-ranked type"
     URUpdate -> "Update"
     URScenario -> "Scenario"
-    URTuple -> "structual record"
+    URStruct -> "structual record"
     URList -> "unapplied List"
     UROptional -> "unapplied Optional"
     URMap -> "unapplied Map"
+    URGenMap -> "unapplied GenMap"
     URContractId -> "ContractId not applied to a template type"
     URDataType tcon ->
-      "unserializable data type" <-> prettyQualified prettyDottedName tcon
-    URHigherKinded v k -> "higher-kinded type variable" <-> prettyName v <:> pretty k
+      "unserializable data type" <-> pretty tcon
+    URHigherKinded v k -> "higher-kinded type variable" <-> pretty v <:> pretty k
     URUninhabitatedType -> "variant type without constructors"
+    URNumeric -> "unapplied Numeric"
+    URNumericNotFixed -> "Numeric scale is not fixed"
+    URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
+    URTypeLevelNat -> "type-level nat"
+    URAny -> "Any"
+    URTypeRep -> "TypeRep"
+    URTypeSyn -> "type synonym"
 
 instance Pretty Error where
   pPrint = \case
@@ -165,15 +193,16 @@ instance Pretty Error where
       , nest 2 (pretty err)
       ]
 
-    EUnknownTypeVar v -> "unknown type variable: " <> prettyName v
-    EShadowingTypeVar v -> "shadowing type variable: " <> prettyName v
-    EUnknownExprVar v -> "unknown expr variable: " <> prettyName v
+    EUnknownTypeVar v -> "unknown type variable: " <> pretty v
+    EUnknownExprVar v -> "unknown expr variable: " <> pretty v
     EUnknownDefinition e -> pretty e
     ETypeConAppWrongArity tapp -> "wrong arity in typecon application: " <> string (show tapp)
-    EDuplicateField name -> "duplicate field: " <> prettyName name
-    EDuplicateVariantCon name -> "duplicate variant constructor: " <> prettyName name
-    EDuplicateModule mname -> "duplicate module: " <> prettyDottedName mname
-    EDuplicateScenario name -> "duplicate scenario: " <> prettyName name
+    EDuplicateTypeParam name -> "duplicate type parameter: " <> pretty name
+    EDuplicateField name -> "duplicate field: " <> pretty name
+    EDuplicateConstructor name -> "duplicate constructor: " <> pretty name
+    EDuplicateModule mname -> "duplicate module: " <> pretty mname
+    EDuplicateScenario name -> "duplicate scenario: " <> pretty name
+    EEnumTypeWithParams -> "enum type with type parameters"
     EExpectedRecordType tapp ->
       vcat [ "expected record type:", "* found: ", nest 4 $ string (show tapp) ]
     EFieldMismatch tapp rexpr ->
@@ -184,11 +213,12 @@ instance Pretty Error where
       , "* record expression: "
       , nest 4 (string $ show rexpr)
       ]
-    EExpectedVariantType qname -> "expected variant type: " <> prettyQualified prettyDottedName qname
-    EUnknownVariantCon name -> "unknown variant constructor: " <> prettyName name
-    EUnknownField name -> "unknown field: " <> prettyName name
-    EExpectedTupleType foundType ->
-      "expected tuple type, but found: " <> pretty foundType
+    EExpectedVariantType qname -> "expected variant type: " <> pretty qname
+    EExpectedEnumType qname -> "expected enum type: " <> pretty qname
+    EUnknownDataCon name -> "unknown data constructor: " <> pretty name
+    EUnknownField name -> "unknown field: " <> pretty name
+    EExpectedStructType foundType ->
+      "expected struct type, but found: " <> pretty foundType
 
     ETypeMismatch{foundType, expectedType, expr} ->
       vcat $
@@ -222,24 +252,28 @@ instance Pretty Error where
       vcat
       [ "type constructor mismatch:"
       , "* expected: "
-      , nest 4 (prettyQualified prettyDottedName expected)
+      , nest 4 (pretty expected)
       , "* found: "
-      , nest 4 (prettyQualified prettyDottedName found)
+      , nest 4 (pretty found)
       ]
     EExpectedDataType foundType ->
       "expected data type, but found: " <> pretty foundType
     EExpectedListType foundType ->
       "expected list type, but found: " <> pretty foundType
     EEmptyCase -> "empty case"
+    EClashingPatternVariables varName ->
+      "the variable " <> pretty varName <> " is used more than once in the pattern"
     EExpectedTemplatableType tpl ->
       "expected monomorphic record type in template definition, but found:"
-      <-> prettyDottedName tpl
+      <-> pretty tpl
     EImportCycle mods ->
-      "found import cycle:" $$ vcat (map (\m -> "*" <-> prettyDottedName m) mods)
+      "found import cycle:" $$ vcat (map (\m -> "*" <-> pretty m) mods)
+    ETypeSynCycle syns ->
+      "found type synonym cycle:" $$ vcat (map (\t -> "*" <-> pretty t) syns)
     EDataTypeCycle tycons ->
-      "found data type cycle:" $$ vcat (map (\t -> "*" <-> prettyDottedName t) tycons)
+      "found data type cycle:" $$ vcat (map (\t -> "*" <-> pretty t) tycons)
     EValueCycle names ->
-      "found value cycle:" $$ vcat (map (\n -> "*" <-> prettyName n) names)
+      "found value cycle:" $$ vcat (map (\n -> "*" <-> pretty n) names)
     EExpectedSerializableType reason foundType info ->
       vcat
       [ "expected serializable type:"
@@ -248,6 +282,8 @@ instance Pretty Error where
       , "* problem:"
       , nest 4 (pretty info)
       ]
+    EExpectedAnyType foundType ->
+      "expected a type containing neither type variables nor quantifiers, but found: " <> pretty foundType
     EImpredicativePolymorphism typ ->
       vcat
       [ "impredicative polymorphism is not supported:"
@@ -263,31 +299,40 @@ instance Pretty Error where
         badRefsDoc =
           vcat $
             "Found forbidden references to functions containing party literals:"
-            : map (\badRef -> "*" <-> prettyQualified prettyName badRef) badRefs
-    ENonValueDefinition badSubExprs -> do
-      vcat $ ("definition is not a value:" :) $ do
-        (reason, expr) <- badSubExprs
-        [string ("* " ++ reason), nest 4 (pretty expr)]
+            : map (\badRef -> "*" <-> pretty badRef) badRefs
     EKeyOperationOnTemplateWithNoKey tpl -> do
-      "tried to perform key lookup or fetch on template " <> prettyQualified prettyDottedName tpl
-    EInvalidKeyExpression expr ->
-      vcat
-      [ "expected valid key expression:"
-      , "* found:" <-> pretty expr
-      ]
+      "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
+    EForbiddenNameCollision name names ->
+      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
+    ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
+      vcat ["wrong arity in type synonym application: " <> pretty synName,
+            "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]
 
 instance Pretty Context where
   pPrint = \case
     ContextNone ->
       string "<none>"
+    ContextDefTypeSyn m ts ->
+      hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
-      hsep [ "data type", prettyDottedName (moduleName m) <> "." <>  prettyDottedName (dataTypeCon dt) ]
+      hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->
-      hsep [ "template", prettyDottedName (moduleName m) <> "." <>  prettyDottedName (tplTypeCon t), string (show p) ]
+      hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
-      hsep [ "value", prettyDottedName (moduleName m) <> "." <> prettyName (fst $ dvalBinder v) ]
+      hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+
+toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
+toDiagnostic sev err = Diagnostic
+    { _range = noRange
+    , _severity = Just sev
+    , _code = Nothing
+    , _tags = Nothing
+    , _source = Just "DAML-LF typechecker"
+    , _message = renderPretty err
+    , _relatedInformation = Nothing
+    }

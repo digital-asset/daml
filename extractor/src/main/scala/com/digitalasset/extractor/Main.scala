@@ -1,24 +1,25 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.extractor.config.ConfigParser
-import com.digitalasset.extractor.logging.Logging
+import com.daml.extractor.config.ConfigParser
+import com.typesafe.scalalogging.StrictLogging
 
-object Main extends App with Logging {
+object Main extends App with StrictLogging {
 
-  log.info("Starting DAML Extractor...")
-  log.trace("Parsing config...")
+  logger.info("Starting DAML Extractor...")
+  logger.trace("Parsing config...")
 
   private val (config, target) = ConfigParser.parse(args).getOrElse {
-    log.error("Failed to parse config, exiting...")
+    logger.error("Failed to parse config, exiting...")
     sys.exit(1)
   }
 
-  log.trace(s"Parsed config: ${config}")
+  logger.trace(s"Parsed config: ${config}")
 
-  val runner = new Extractor(config, target)
+  val runner =
+    new Extractor(config, target)()
 
   runner.run()
 }

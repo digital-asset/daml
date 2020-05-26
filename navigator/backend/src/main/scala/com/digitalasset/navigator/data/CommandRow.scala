@@ -1,14 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.json.{ApiCodecCompressed, ApiCodecVerbose}
-import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
-import com.digitalasset.navigator.model._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.json.ApiCodecVerbose
+import com.daml.lf.value.json.ApiCodecCompressed
+import ApiCodecCompressed.JsonImplicits._
+import com.daml.navigator.model._
 
 import scala.util.{Failure, Try}
 import scalaz.syntax.tag._
@@ -36,7 +37,7 @@ final case class CommandRow(
           recArgJson <- Try(recordArgument.get)
           anyArg <- Try(
             ApiCodecCompressed
-              .jsValueToApiType(recArgJson.parseJson, tid, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tid, types.damlLfDefDataType _))
           recArg <- Try(anyArg.asInstanceOf[ApiRecord])
         } yield {
           CreateCommand(

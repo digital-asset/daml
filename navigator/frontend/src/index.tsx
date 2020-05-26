@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Polyfills for older browsers (IE11)
@@ -9,7 +9,8 @@ import './styles/base.css';
 
 import * as Router from '@da/redux-router';
 import { defaultTheme, ThemeProvider } from '@da/ui-core';
-import * as introspectionQueryResultData from 'json-loader!@da/ui-core/lib/api/fragmentTypes.json';
+import * as introspectionQueryResultData from '@da/ui-core/lib/api/fragmentTypes.json';
+import { IntrospectionResultData } from 'apollo-client/data/fragmentMatcher'
 import * as React from 'react';
 import {
   ApolloClient,
@@ -47,7 +48,9 @@ const client = new ApolloClient({
   // https://www.apollographql.com/docs/react/advanced/fragments.html#fragment-matcher
 
   fragmentMatcher: new IntrospectionFragmentMatcher({
-    introspectionQueryResultData,
+    // TODO: The IntrospectionResultData type has a slightly wrong type definition inside apollo,
+    // work around this with an explicit type cast.
+    introspectionQueryResultData: introspectionQueryResultData as IntrospectionResultData,
   }),
 });
 
@@ -69,12 +72,13 @@ const store: Store<App.State> = createStore<App.State>(
   )),
 );
 
-ReactDOM.render(
-  <ApolloProvider store={store} client={client}>
-    <ThemeProvider theme={defaultTheme}>
-      <App.UI />
-    </ThemeProvider>
-  </ApolloProvider>,
+ReactDOM.render((
+    <ApolloProvider store={store} client={client}>
+      <ThemeProvider theme={defaultTheme}>
+        <App.UI />
+      </ThemeProvider>
+    </ApolloProvider>
+  ),
   document.getElementById('app'),
 );
 

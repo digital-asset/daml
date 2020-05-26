@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // This DateTimePicker code is based on the input-moment library.
@@ -84,7 +84,7 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
       moment: m,
       onChange,
       enableTime,
-      ...props,
+      ...props
     } = this.props;
 
     return (
@@ -95,21 +95,23 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
             defaultMoment={this.state.defaultMoment}
             onChange={this.onChange}
           />
-          {enableTime ?
-          <TimeInput
-            moment={this.state.moment}
-            defaultMoment={this.state.defaultMoment}
-            onChange={this.onChange}
-            onSubmit={this.onSubmit}
-          /> :
-          <CenteringWrapper>
-            <Button
-              type="main"
-              onClick={this.onSubmit}
-            >
-              Set
-            </Button>
-          </CenteringWrapper>}
+          {enableTime ? (
+            <TimeInput
+              moment={this.state.moment}
+              defaultMoment={this.state.defaultMoment}
+              onChange={this.onChange}
+              onSubmit={this.onSubmit}
+            />
+          ) : (
+            <CenteringWrapper>
+              <Button
+                type="main"
+                onClick={this.onSubmit}
+              >
+                Set
+              </Button>
+            </CenteringWrapper>
+          )}
         </div>
       </CalendarWrapper>
     );

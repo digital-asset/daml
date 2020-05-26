@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import {
@@ -48,13 +48,16 @@ export const columns: ContractColumn<Contract>[] = [
     createCell: ({cellData}) => (
       <ChoicesButton
         contract={cellData}
-        renderLink={(id, name) => (<Link
-          route={Routes.contract}
-          params={{id: encodeURIComponent(id), choice: name}}
-        >
-          <div>{name}</div>
-        </Link>)}
-      />),
+        renderLink={(id, name) => (
+          <Link
+            route={Routes.contract}
+            params={{id: encodeURIComponent(id), choice: name}}
+          >
+            <div>{name}</div>
+          </Link>
+        )}
+      />
+    ),
     sortable: false,
     width: 120,
     weight: 0,

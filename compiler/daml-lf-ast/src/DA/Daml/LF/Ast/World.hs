@@ -1,16 +1,20 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module DA.Daml.LF.Ast.World(
     World,
+    DalfPackage(..),
+    getWorldSelf,
+    getWorldImported,
     initWorld,
     initWorldSelf,
     extendWorldSelf,
+    ExternalPackage(..),
     LookupError,
     lookupTemplate,
+    lookupTypeSyn,
     lookupDataType,
     lookupChoice,
     lookupValue,
@@ -19,13 +23,16 @@ module DA.Daml.LF.Ast.World(
 
 import DA.Pretty
 
-import           Control.Lens
+import Control.DeepSeq
+import Control.Lens
+import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HMS
+import Data.List
 import qualified Data.NameMap as NM
+import GHC.Generics
 
 import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.Optics (moduleModuleRef)
-import DA.Daml.LF.Ast.Pretty
+import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
 
 -- | The 'World' contains all imported packages together with (a subset of)
@@ -36,27 +43,45 @@ data World = World
   , _worldSelf :: Package
   }
 
+
+getWorldSelf :: World -> Package
+getWorldSelf = _worldSelf
+
+getWorldImported :: World -> [ExternalPackage]
+getWorldImported world = map (uncurry ExternalPackage) $ HMS.toList (_worldImported world)
+
+-- | A package where all references to `PRSelf` have been rewritten
+-- to `PRImport`.
+data ExternalPackage = ExternalPackage
+  { extPackageId :: PackageId
+  , extPackagePkg :: Package
+  } deriving (Show, Eq, Generic)
+
+instance NFData ExternalPackage
+
 makeLensesFor [("_worldSelf","worldSelf")] ''World
 
+data DalfPackage = DalfPackage
+    { dalfPackageId :: PackageId
+    , dalfPackagePkg :: ExternalPackage
+    , dalfPackageBytes :: BS.ByteString
+    } deriving (Show, Eq, Generic)
+
+instance NFData DalfPackage
+
 -- | Construct the 'World' from only the imported packages.
-initWorld :: [(PackageId, Package)] -> Version -> World
+-- TODO (drsk) : hurraybit: please check that the duplicate package id check here is not needed.
+initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
-    (HMS.mapWithKey rewritePRSelf (foldl insertPkg HMS.empty importedPkgs))
-    (Package version NM.empty)
+    (foldl' insertPkg HMS.empty importedPkgs)
+    (Package version NM.empty Nothing)
   where
-    insertPkg hms (pkgId, pkg)
-      | pkgId `HMS.member` hms =
-          error $  "World.initWorld: duplicate package id " ++ show pkgId
-      | otherwise = HMS.insert pkgId pkg hms
-    rewritePRSelf :: PackageId -> Package -> Package
-    rewritePRSelf pkgId = over (_packageModules . NM.traverse . moduleModuleRef . _1) $ \case
-      PRSelf -> PRImport pkgId
-      ref@PRImport{} -> ref
+    insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 
 -- | Create a World with an initial self package
-initWorldSelf :: [(PackageId, Package)] -> Version -> Package -> World
-initWorldSelf a b c = (initWorld a b){_worldSelf = c}
+initWorldSelf :: [ExternalPackage] -> Package -> World
+initWorldSelf importedPkgs pkg = (initWorld importedPkgs $ packageLfVersion pkg){_worldSelf = pkg}
 
 -- | Extend the 'World' by a module in the current package.
 extendWorldSelf :: Module -> World -> World
@@ -65,6 +90,7 @@ extendWorldSelf = over (worldSelf . _packageModules) . NM.insert
 data LookupError
   = LEPackage !PackageId
   | LEModule !PackageRef !ModuleName
+  | LETypeSyn !(Qualified TypeSynName)
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
   | LETemplate !(Qualified TypeConName)
@@ -73,7 +99,7 @@ data LookupError
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
 lookupModule (Qualified pkgRef modName _) (World importedPkgs selfPkg) = do
-  Package _version mods <- case pkgRef of
+  Package { packageModules = mods } <- case pkgRef of
     PRSelf -> pure selfPkg
     PRImport pkgId ->
       case HMS.lookup pkgId importedPkgs of
@@ -96,6 +122,9 @@ lookupDefinition selDefs mkError ref world = do
     Nothing -> Left (mkError ref)
     Just def -> pure def
 
+lookupTypeSyn :: Qualified TypeSynName -> World -> Either LookupError DefTypeSyn
+lookupTypeSyn = lookupDefinition moduleSynonyms LETypeSyn
+
 lookupDataType :: Qualified TypeConName -> World -> Either LookupError DefDataType
 lookupDataType = lookupDefinition moduleDataTypes LEDataType
 
@@ -114,10 +143,11 @@ lookupChoice (tplRef, chName) world = do
 
 instance Pretty LookupError where
   pPrint = \case
-    LEPackage pkgId -> "unknown package:" <-> prettyName pkgId
-    LEModule PRSelf modName -> "unknown module:" <-> prettyDottedName modName
-    LEModule (PRImport pkgId) modName -> "unknown module:" <-> prettyName pkgId <> ":" <> prettyDottedName modName
-    LEDataType datRef -> "unknown data type:" <-> prettyQualified prettyDottedName datRef
-    LEValue valRef-> "unknown value:" <-> prettyQualified prettyName valRef
-    LETemplate tplRef -> "unknown template:" <-> prettyQualified prettyDottedName tplRef
-    LEChoice tplRef chName -> "unknown choice:" <-> prettyQualified prettyDottedName tplRef <> ":" <> prettyName chName
+    LEPackage pkgId -> "unknown package:" <-> pretty pkgId
+    LEModule PRSelf modName -> "unknown module:" <-> pretty modName
+    LEModule (PRImport pkgId) modName -> "unknown module:" <-> pretty pkgId <> ":" <> pretty modName
+    LETypeSyn synRef -> "unknown type synonym:" <-> pretty synRef
+    LEDataType datRef -> "unknown data type:" <-> pretty datRef
+    LEValue valRef-> "unknown value:" <-> pretty valRef
+    LETemplate tplRef -> "unknown template:" <-> pretty tplRef
+    LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName

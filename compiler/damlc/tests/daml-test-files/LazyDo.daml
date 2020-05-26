@@ -1,0 +1,25 @@
+
+module LazyDo where
+
+import DA.Assert
+
+none: Optional a
+none = do
+  None
+  error "optional"
+
+empty: [Bool]
+empty = do
+  []
+  error "list"
+
+left: Either () Party
+left = do
+  Left ()
+  error "either"
+
+main = scenario do
+  none === (None @Int)
+  none === (None @Text)
+  empty === []
+  left === Left ()

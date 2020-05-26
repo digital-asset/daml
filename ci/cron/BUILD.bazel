@@ -1,0 +1,30 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "cron",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "case-insensitive",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "http-client",
+        "http-client-tls",
+        "http-types",
+        "process",
+        "regex-tdfa",
+        "split",
+        "text",
+        "unordered-containers",
+        "utf8-string",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [],
+)

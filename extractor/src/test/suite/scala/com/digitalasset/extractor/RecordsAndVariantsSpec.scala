@@ -1,18 +1,17 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-
-import org.scalatest._
-import io.circe.parser._
 import java.io.File
 
-import scalaz._
-import Scalaz._
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
+import io.circe.parser._
+import org.scalatest._
+import scalaz.Scalaz._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class RecordsAndVariantsSpec
@@ -25,7 +24,7 @@ class RecordsAndVariantsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/RecordsAndVariants.dar")
+  override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
 
   override def scenario: Option[String] = Some("RecordsAndVariants:suite")
 
@@ -44,28 +43,28 @@ class RecordsAndVariantsSpec
           "party" : "Bob",
           "reference" : "All-in-one",
           "deepNested" : {
-            "MaybeRecRecordABRight" : {
+            "tag" : "MaybeRecRecordABRight",
+            "value" : {
               "baz" : {
                 "baz" : false,
                 "foo" : "foo"
               },
               "foo" : [
-                { "Some" : [1, 2, 3] },
-                { "None" : {} },
-                { "Some" : [4, 5, 6] },
-                { "None" : {} },
-                { "Some" : [7, 8, 9] }
+                [1, 2, 3],
+                null,
+                [4, 5, 6],
+                null,
+                [7, 8, 9]
               ]
             }
           },
-          "enumVariant" : {
-            "EitherRight" : {}
-          },
+          "enum" : "EitherRight",
           "simpleRecord" : {
             "foo" : true
           },
           "eitherVariant" : {
-            "RightM" : 7
+            "tag": "RightM",
+            "value" : 7
           },
           "recordTextInt" : {
             "baz" : 6,

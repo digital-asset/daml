@@ -1,11 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.validation
+package com.daml.platform.server.api.validation
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
+import java.time.Duration
+
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value.ContractId
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
 import scala.language.higherKinds
@@ -24,7 +28,7 @@ trait FieldValidations {
   def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument)
 
-  def requireIdentifier(
+  def requireName(
       s: String,
       fieldName: String
   ): Either[StatusRuntimeException, Ref.Name] =
@@ -65,6 +69,13 @@ trait FieldValidations {
   def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
+  def requireContractId(
+      s: String,
+      fieldName: String
+  ): Either[StatusRuntimeException, ContractId] =
+    if (s.isEmpty) Left(missingField(fieldName))
+    else ContractId.fromString(s).left.map(invalidField(fieldName, _))
+
   def requireDottedName(
       s: String,
       fieldName: String): Either[StatusRuntimeException, Ref.DottedName] =
@@ -78,6 +89,34 @@ trait FieldValidations {
 
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
+
+  def validateDeduplicationTime(
+      durationO: Option[com.google.protobuf.duration.Duration],
+      maxDeduplicationTimeO: Option[Duration],
+      fieldName: String): Either[StatusRuntimeException, Duration] =
+    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, Duration]](
+      Left(missingLedgerConfig()))(maxDeduplicationTime =>
+      durationO match {
+        case None =>
+          Right(maxDeduplicationTime)
+        case Some(duration) =>
+          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+          if (result.isNegative)
+            Left(invalidField(fieldName, "Duration must be positive"))
+          else if (result.compareTo(maxDeduplicationTime) > 0)
+            Left(invalidField(
+              fieldName,
+              s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+          else
+            Right(result)
+    })
+
+  def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
+    for {
+      packageId <- requirePackageId(identifier.packageId, "package_id")
+      mn <- requireDottedName(identifier.moduleName, "module_name")
+      en <- requireDottedName(identifier.entityName, "entity_name")
+    } yield Ref.Identifier(packageId, Ref.QualifiedName(mn, en))
 
 }
 

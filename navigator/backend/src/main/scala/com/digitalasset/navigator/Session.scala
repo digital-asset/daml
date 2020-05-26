@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
-import com.digitalasset.navigator.config.UserConfig
-import com.digitalasset.navigator.model.PartyState
+import com.daml.navigator.config.UserConfig
+import com.daml.navigator.model.PartyState
 import scalaz.Tag
 
 import scala.collection.immutable
@@ -18,12 +18,16 @@ final case class User(
     role: Option[String] = None,
     canAdvanceTime: Boolean = true)
 
+sealed trait SignInError
+case object InvalidCredentials extends SignInError
+case object NotConnected extends SignInError
+case object Unknown extends SignInError
+
 sealed abstract class Status
 final case class Session(user: User) extends Status
-final case class SignIn(method: SignInMethod, invalidCredentials: Boolean = false) extends Status
+final case class SignIn(method: SignInMethod, error: Option[SignInError] = None) extends Status
 
 sealed abstract class SignInMethod
-final case object SignInPassword extends SignInMethod
 final case class SignInSelect(userIds: Set[String]) extends SignInMethod
 
 case class LoginRequest(userId: String, maybePassword: Option[String])
@@ -131,14 +135,6 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
       }
   }
 
-  implicit object signInPasswordFormat extends RootJsonFormat[SignInPassword.type] {
-    override def read(json: JsValue): SignInPassword.type =
-      deserialize2(json, passwordType)(_ => SignInPassword)
-
-    override def write(obj: SignInPassword.type): JsValue =
-      JsObject(typeFieldName -> passwordType)
-  }
-
   implicit object signInSelectJsonFormat extends RootJsonFormat[SignInSelect] {
 
     def fromFields(fields: Map[String, JsValue]): SignInSelect =
@@ -163,16 +159,12 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
   implicit object signInMethodFormat extends JsonFormat[SignInMethod] {
     override def read(json: JsValue): SignInMethod =
       deserialize(json) {
-        case (`passwordType`, fields) =>
-          SignInPassword
         case (`selectType`, fields) =>
           signInSelectJsonFormat.fromFields(fields)
         case _ => throw DeserializationException(s"Unknown sign in method")
       }
 
     override def write(obj: SignInMethod): JsValue = obj match {
-      case SignInPassword =>
-        SignInPassword.toJson
       case select: SignInSelect =>
         select.toJson
     }
@@ -180,18 +172,22 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
 
   implicit object signInFormat extends RootJsonFormat[SignIn] {
     override def write(obj: SignIn): JsValue =
-      if (obj.invalidCredentials) {
-        JsObject(
-          typeFieldName -> signInType,
-          methodFieldName -> obj.method.toJson,
-          errorFieldName -> JsString("invalid-credentials")
-        )
-      } else {
+      obj.error.fold(
         JsObject(
           typeFieldName -> signInType,
           methodFieldName -> obj.method.toJson
         )
-      }
+      )(
+        error =>
+          JsObject(
+            typeFieldName -> signInType,
+            methodFieldName -> obj.method.toJson,
+            errorFieldName -> JsString(error match {
+              case InvalidCredentials => "invalid-credentials"
+              case NotConnected => "not-connected"
+              case _ => "unknown-error"
+            })
+        ))
 
     def fromFields(fields: Map[String, JsValue]): SignIn = {
       (fields.get(methodFieldName), fields.get(errorFieldName)) match {
@@ -201,7 +197,12 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
               s"${SignIn.getClass.getCanonicalName} because the field $methodFieldName is missing")
         case (Some(rawMethod), maybeError) =>
           val method = signInMethodFormat.read(rawMethod)
-          maybeError.fold(SignIn(method))(_ => SignIn(method, invalidCredentials = true))
+          maybeError.fold(SignIn(method))(error =>
+            SignIn(method, Some(error match {
+              case JsString("invalid-credentials") => InvalidCredentials
+              case JsString("not-connected") => NotConnected
+              case _ => Unknown
+            })))
       }
     }
 
@@ -265,24 +266,6 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
       case _ =>
         throw DeserializationException(
           s"JsString expected, but found ${jsValue.compactPrint} of type " +
-            jsValue.getClass.getCanonicalName)
-    }
-
-  /**
-    * Convert the jsValue to a `String` if jsValue is a `JsString`, otherwise throws `DeserializationException`
-    */
-  private def jsValueAsString(jsValue: JsValue): String =
-    jsValueAsJsString(jsValue).value
-
-  /**
-    * Convert the jsValue to a `Boolean` if jsValue is a `JsBoolean`, otherwise throws `DeserializationException`
-    */
-  private def jsValueAsBoolean(jsValue: JsValue): Boolean =
-    jsValue match {
-      case JsBoolean(boolean) => boolean
-      case _ =>
-        throw DeserializationException(
-          s"JsBoolean expected, but found ${jsValue.compactPrint} of type " +
             jsValue.getClass.getCanonicalName)
     }
 }

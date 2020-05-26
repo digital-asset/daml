@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data.Ref
+import com.daml.lf.testing.parser.Token._
 
 import scala.util.parsing.input.{NoPosition, Position}
 
@@ -30,14 +30,18 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     case _ => None
   })
 
+  val pkgName: Parser[Ref.PackageName] = accept("PackageName", Function unlift {
+    case SimpleString(s) => Ref.PackageName.fromString(s).toOption
+    case _ => None
+  })
+
+  val pkgVersion: Parser[Ref.PackageVersion] = accept("PackageVersion", Function unlift {
+    case SimpleString(s) => Ref.PackageVersion.fromString(s).toOption
+    case _ => None
+  })
+
   val dottedName: Parser[Ref.DottedName] =
     rep1sep(id, `.`) ^^ (s => Ref.DottedName.assertFromSegments(s))
-
-  val fullIdentifier: Parser[Ref.Identifier] =
-    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
-      case pkgId ~ modName ~ _ ~ name =>
-        Ref.Identifier(pkgId.getOrElse(defaultPkgId), Ref.QualifiedName(modName, name))
-    }
 
   def parseAll[A](p: Parser[A], s: String): A =
     phrase(p)(Reader(Lexer.lex(s))) match {
@@ -51,14 +55,14 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     def ~>![U](q: => Parser[U]): Parser[U] = {
       lazy val p = q // lazy argument
       OnceParser {
-        (for (a <- parser; b <- commit(p)) yield b).named("~>!")
+        (for (_ <- parser; b <- commit(p)) yield b).named("~>!")
       }
     }
 
     def <~![U](q: => Parser[U]): Parser[T] = {
       lazy val p = q // lazy argument
       OnceParser {
-        (for (a <- parser; b <- commit(p)) yield a).named("<~!")
+        (for (a <- parser; _ <- commit(p)) yield a).named("<~!")
       }
     }
   }

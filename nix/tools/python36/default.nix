@@ -1,5 +1,5 @@
 { pkgs, src }:
-let python = pkgs.python36.override {
+let python = pkgs.python37.override {
   packageOverrides = self: super: rec {
     # This override can be removed once pygraphviz is on v1.5
     pygraphviz = super.callPackage ./pygraphviz { };

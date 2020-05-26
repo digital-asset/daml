@@ -1,0 +1,15 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
+
+-- | This module tests the case where a class method contains a constraint
+-- not present in the class itself.
+module ConstrainedClassMethod where
+
+class A t where
+    foo : t -> t
+    bar : Eq t => t -> t
+
+-- This would create a recursive type synonym.
+-- For now, we do not support this. As a workaround
+-- you can do manual dictionary passing.
+-- class B t where
+--    baz : B b => b -> t

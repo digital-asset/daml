@@ -1,14 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.json.ApiCodecCompressed
-import com.digitalasset.navigator.json.ModelCodec.JsonImplicits._
-import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
-import com.digitalasset.navigator.model._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.lf.value.json.ApiCodecCompressed
+import ApiCodecCompressed.JsonImplicits._
+import com.daml.navigator.json.ModelCodec.JsonImplicits._
+import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
+import com.daml.navigator.model._
 
 import scala.util.{Failure, Try}
 import scalaz.syntax.tag._
@@ -24,25 +24,36 @@ final case class EventRow(
     subclassType: String,
     templateId: Option[String],
     recordArgument: Option[String],
-    contractCreateEventId: Option[String],
     choice: Option[String],
     argumentValue: Option[String],
     actingParties: Option[String],
     isConsuming: Option[Boolean],
-    agreementText: Option[String]) {
+    agreementText: Option[String],
+    signatories: String,
+    observers: String,
+    key: Option[String]) {
 
   def toEvent(types: PackageRegistry): Try[Event] = {
     subclassType match {
       case "ContractCreated" =>
         (for {
           wp <- Try(witnessParties.parseJson.convertTo[List[ApiTypes.Party]])
+          sig <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
+          obs <- Try(observers.parseJson.convertTo[List[ApiTypes.Party]])
           tpStr <- Try(templateId.get)
           tp <- Try(parseOpaqueIdentifier(tpStr).get)
           recArgJson <- Try(recordArgument.get)
           recArgAny <- Try(
             ApiCodecCompressed
-              .jsValueToApiType(recArgJson.parseJson, tp, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tp, types.damlLfDefDataType _))
           recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
+          template <- types
+            .template(tp)
+            .fold[Try[Template]](Failure(
+              new RuntimeException(s"No template in package registry with identifier $tp")))(Try(_))
+          key <- Try(
+            key.map(_.parseJson.convertTo[ApiValue](
+              ApiCodecCompressed.apiValueJsonReader(template.key.get, types.damlLfDefDataType _))))
         } yield {
           ContractCreated(
             ApiTypes.EventId(id),
@@ -53,7 +64,10 @@ final case class EventRow(
             ApiTypes.ContractId(contractId),
             tp,
             recArg,
-            agreementText
+            agreementText,
+            sig,
+            obs,
+            key
           )
         }).recoverWith {
           case e: Throwable =>
@@ -64,7 +78,6 @@ final case class EventRow(
       case "ChoiceExercised" =>
         (for {
           wp <- Try(witnessParties.parseJson.convertTo[List[ApiTypes.Party]])
-          createId <- Try(contractCreateEventId.get)
           chc <- Try(choice.get)
           argJson <- Try(argumentValue.get)
           tp <- Try(templateId.get)
@@ -74,7 +87,7 @@ final case class EventRow(
             t.choices.find(c => ApiTypes.Choice.unwrap(c.name) == chc).get.parameter)
           arg <- Try(
             ApiCodecCompressed
-              .jsValueToApiType(argJson.parseJson, choiceType, types.damlLfDefDataType _))
+              .jsValueToApiValue(argJson.parseJson, choiceType, types.damlLfDefDataType _))
           apJson <- Try(actingParties.get)
           ap <- Try(apJson.parseJson.convertTo[List[ApiTypes.Party]])
           consuming <- Try(isConsuming.get)
@@ -86,7 +99,6 @@ final case class EventRow(
             wp,
             ApiTypes.WorkflowId(workflowId),
             ApiTypes.ContractId(contractId),
-            ApiTypes.EventId(createId),
             tid,
             ApiTypes.Choice(chc),
             arg,
@@ -123,8 +135,10 @@ object EventRow {
           None,
           None,
           None,
-          None,
-          c.agreementText
+          c.agreementText,
+          c.signatories.toJson.compactPrint,
+          c.observers.toJson.compactPrint,
+          c.key.map(_.toJson.compactPrint)
         )
       case e: ChoiceExercised =>
         EventRow(
@@ -137,12 +151,14 @@ object EventRow {
           "ChoiceExercised",
           Some(e.templateId.asOpaqueString),
           None,
-          Some(e.contractCreateEvent.unwrap),
           Some(e.choice.unwrap),
           Some(e.argument.toJson.compactPrint),
           Some(e.actingParties.toJson.compactPrint),
           Some(e.consuming),
-          None
+          None,
+          "[]",
+          "[]",
+          None,
         )
     }
   }

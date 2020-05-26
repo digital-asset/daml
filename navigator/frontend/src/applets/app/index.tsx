@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { defaultTheme, Dispatch, ThemeInterface, ThemeProvider } from '@da/ui-core';
@@ -148,7 +148,7 @@ class Component extends React.Component<Props, ComponentState> {
       nextProps.state.configSource !== this.props.state.configSource
     ) {
 
-      this.setState(this.computeStateFromSession(nextProps));
+      this.setState<'config' | 'theme'>(this.computeStateFromSession(nextProps));
     }
   }
 

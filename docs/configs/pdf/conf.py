@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -36,7 +36,8 @@ sys.path.extend(map(os.path.abspath, glob.glob('packages/*')))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-  'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinx.ext.extlinks'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -53,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'DAML SDK'
-copyright = u'© Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
+copyright = u'© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -186,10 +187,10 @@ latex_elements = {
         %\fancyhead[LE]{\small \nouppercase{\leftmark}}
 
         %% for oneside: change footer at right side. If you want to use Left and right then use same as header defined above.
-        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny © Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny © Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
+        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny © Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny © Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
 
         %%% Alternating Footer for two side
-        %\fancyfoot[RO, RE]{\scriptsize © Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.}
+        %\fancyfoot[RO, RE]{\scriptsize © Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.}
 
         %%% page number
         \fancyfoot[CO, CE]{\thepage}
@@ -268,7 +269,7 @@ latex_elements = {
 
             %% \vfill adds at the bottom
             \vfill
-            \small \textit{© Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
+            \small \textit{© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
         \end{titlepage}
 
         \clearpage
@@ -326,7 +327,18 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
+
+extlinks = {
+    'github-asset': ('https://github.com/https://github.com/digital-asset/daml/releases/download/v{}/%s-{}.zip'.format(version, version), None),
+    # For some reason extlinks insists that you can use %s only once.
+    # We need it twice in the URL so we need one URL per Maven artifact.
+    # Using it zero times also doesn’t work so you still have to supply an argument.
+    'ledger-api-test-tool-maven': ('https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{}/%s-{}.jar'.format(version, version), None)
+}
+
 # Import the DAML lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())
+    from typescript import TypeScriptLexer
+    sphinx.add_lexer("tsx", TypeScriptLexer())

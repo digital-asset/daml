@@ -1,18 +1,18 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter
+package com.daml.grpc.adapter
 
 import akka.Done
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, ExtendedActorSystem, Props}
 import akka.pattern.{AskTimeoutException, ask}
 import akka.util.Timeout
-import com.digitalasset.grpc.adapter.RunnableSequencingActor.ShutdownRequest
+import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.daml.dec.DirectExecutionContext
 
 /**
   * Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
@@ -46,8 +46,16 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(
 object AkkaExecutionSequencer {
   def apply(name: String, terminationTimeout: FiniteDuration)(
       implicit system: ActorSystem): AkkaExecutionSequencer = {
-    new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor], name))(
-      Timeout.durationToTimeout(terminationTimeout))
+    system match {
+      case extendedSystem: ExtendedActorSystem =>
+        new AkkaExecutionSequencer(
+          extendedSystem.systemActorOf(Props[RunnableSequencingActor], name))(
+          Timeout.durationToTimeout(terminationTimeout))
+      case _ =>
+        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor], name))(
+          Timeout.durationToTimeout(terminationTimeout))
+
+    }
   }
 
   private val actorTerminatedRegex = """Recipient\[.*]\] had already been terminated.""".r

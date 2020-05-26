@@ -1,7 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2 module RecordsAndVariants where
+module RecordsAndVariants where
 
 data EitherM a b = LeftM a | RightM b deriving (Eq, Show)
 
@@ -28,7 +28,7 @@ template RecordsAndVariants
     simpleRecord: SimpleRecord
     recordTextInt: RecordAB Text Int
     eitherVariant: EitherM Text Int
-    enumVariant: EitherSimple
+    enum: EitherSimple
     deepNested: MaybeRecRecordAB Text Text [Optional [Int]] (RecordAB Text Bool)
   where
     signatory party
@@ -46,7 +46,7 @@ suite =
         simpleRecord = SimpleRecord with foo = True
         recordTextInt = RecordAB with foo = "Foo", baz = 6
         eitherVariant = RightM 7
-        enumVariant = EitherRight
+        enum = EitherRight
         deepNested = MaybeRecRecordABRight $ RecordAB with
           foo = [Some [1, 2, 3], None, Some [4, 5, 6], None, Some [7, 8, 9]]
           baz = RecordAB with

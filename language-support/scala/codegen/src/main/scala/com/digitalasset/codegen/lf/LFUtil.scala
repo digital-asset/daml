@@ -1,22 +1,16 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
-import com.digitalasset.{codegen => parent}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.{codegen => parent}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
-import com.digitalasset.daml.lf.iface
-import iface.{
-  PrimType => PT,
-  PrimTypeMap => PTMap,
-  PrimTypeOptional => PTOptional,
-  Type => IType,
-  _
-}
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.iface
+import iface.{PrimType => PT, Type => IType, _}
+import com.daml.lf.iface.reader.InterfaceType
 import java.io.File
 
 import scalaz._
@@ -86,14 +80,12 @@ final case class LFUtil(
       refType match {
         case PT.Bool => q"$primitiveObject.Bool"
         case PT.Int64 => q"$primitiveObject.Int64"
-        case PT.Decimal => q"$primitiveObject.Decimal"
         case PT.Party => q"$primitiveObject.Party"
         case PT.Text => q"$primitiveObject.Text"
         case PT.Date => q"$primitiveObject.Date"
         case PT.Timestamp => q"$primitiveObject.Timestamp"
         case PT.Unit => q"$primitiveObject.Unit"
-        // TODO add PT.Optional alias to iface, use here
-        case PT.List | PT.ContractId | PTOptional | PTMap =>
+        case PT.List | PT.ContractId | PT.Optional | PT.TextMap | PT.GenMap =>
           throw UnsupportedDamlTypeException(
             s"type $refType should not occur in a Data-kinded position; this is an invalid input LF")
         case TypeConName(tyCon) =>
@@ -108,12 +100,16 @@ final case class LFUtil(
       case TypePrim(PT.ContractId, ImmArraySeq(typ)) =>
         val templateType = genTypeToScalaType(typ)
         q"$primitiveObject.ContractId[$templateType]"
-      case TypePrim(PTOptional, ImmArraySeq(typ)) =>
+      case TypePrim(PT.Optional, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Optional[$optType]"
-      case TypePrim(PTMap, ImmArraySeq(typ)) =>
+      case TypePrim(PT.TextMap, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
-        q"$primitiveObject.Map[$optType]"
+        q"$primitiveObject.TextMap[$optType]"
+      case TypePrim(PT.GenMap, ImmArraySeq(keyType, valueType)) =>
+        val optKeyType = genTypeToScalaType(keyType)
+        val optValueType = genTypeToScalaType(valueType)
+        q"$primitiveObject.GenMap[$optKeyType, $optValueType]"
       case TypePrim(refType, ImmArraySeq()) => refTypeToIdent(refType)
       case TypeCon(name, ImmArraySeq()) => refTypeToIdent(name)
       case TypePrim(refType, typeArgs) =>
@@ -121,6 +117,7 @@ final case class LFUtil(
       case TypeCon(name, typeArgs) =>
         TypeApply(refTypeToIdent(name), typeArgs.toList map genTypeToScalaType)
       case TypeVar(name) => toIdent(name)
+      case TypeNumeric(_) => q"$primitiveObject.Numeric"
     }
   }
 
@@ -131,7 +128,7 @@ final case class LFUtil(
 
   /** Produces the for-comprehension body of a "reader" method.
     *
-    * Example: Take two variables "a: Int64", "b: Decimal", a nameOfRecord of "m"
+    * Example: Take two variables "a: Int64", "b: Numeric", a nameOfRecord of "m"
     * This will produce:
     *
     *   if (m.fields == 2) {
@@ -139,7 +136,7 @@ final case class LFUtil(
     *       RecordField("" | "a", Some(z0)) = m.fields(0)
     *       a <- Value.decode[Int64](zv0)
     *       RecordField("" | "b", Some(zv1)) = m.fields(1)
-    *       b <- Value.decode[Decimal](zv1)
+    *       b <- Value.decode[Numeric](zv1)
     *     } yield (...) // what the user passes in
     *   } else {
     *     None
@@ -372,14 +369,15 @@ object LFUtil {
   val higherKindsImport: Tree =
     q"import _root_.scala.language.higherKinds"
   val domainApiImport: Tree =
-    q"import _root_.com.digitalasset.ledger.client.{binding => ` lfdomainapi`}"
+    q"import _root_.com.daml.ledger.client.{binding => ` lfdomainapi`}"
   val rpcValueImport: Tree =
-    q"import _root_.com.digitalasset.ledger.api.v1.{value => ` rpcvalue`}"
+    q"import _root_.com.daml.ledger.api.v1.{value => ` rpcvalue`}"
   val rpcEventImport: Tree =
-    q"import _root_.com.digitalasset.ledger.api.v1.{event => ` rpcevent`}"
+    q"import _root_.com.daml.ledger.api.v1.{event => ` rpcevent`}"
   val primitiveObject: Tree = q"$domainApiAlias.Primitive"
   val stdMapType = tq"_root_.scala.collection.immutable.Map"
   val stdMapCompanion = q"_root_.scala.collection.immutable.Map"
+  val stdVectorType = tq"_root_.scala.collection.immutable.Vector"
   val stdSeqCompanion = q"_root_.scala.collection.immutable.Seq"
 
   def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"

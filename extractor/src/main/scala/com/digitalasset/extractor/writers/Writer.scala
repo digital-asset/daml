@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers
+package com.daml.extractor.writers
 
-import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types.{Identifier, TransactionTree}
-import com.digitalasset.extractor.targets._
+import com.daml.extractor.config.ExtractorConfig
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types.{Identifier, TransactionTree}
+import com.daml.extractor.targets._
 
 import scala.concurrent.Future
 import scalaz._
@@ -23,7 +23,7 @@ object Writer {
   final case class RefreshPackages(missing: Identifier)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def apply[T <: Target](config: ExtractorConfig, target: T, ledgerId: String): Writer =
+  def apply(config: ExtractorConfig, target: Target, ledgerId: String): Writer =
     target match {
       case TextPrintTarget => new SimpleTextWriter(println)
       case t: PrettyPrintTarget => new PrettyPrintWriter(t)

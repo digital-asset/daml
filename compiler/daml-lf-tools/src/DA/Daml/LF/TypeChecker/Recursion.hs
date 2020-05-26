@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module provides a function to check that a DAML-LF module does not
@@ -17,6 +17,7 @@ import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics (_PRSelfModule)
+import DA.Daml.LF.Ast.Type (referencedSyns)
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
@@ -38,6 +39,15 @@ exprRefs modName = cata go
 valueRefs :: ModuleName -> DefValue -> HS.HashSet ExprValName
 valueRefs modName = exprRefs modName . dvalBody
 
+synRefs :: ModuleName -> DefTypeSyn -> [TypeSynName]
+synRefs modName DefTypeSyn{synType} = do
+  -- Synonym-cycles which cross modules boundaries are impossible
+  -- because mutually recusive modules are impossible.  Therefore,
+  -- when checking for cycles within a given module, we stop following
+  -- references to synonyns defined in another module.
+  [ syn | Qualified{qualPackage=PRSelf,qualModule=m,qualObject=syn} <- HS.toList $ referencedSyns synType
+        , m == modName ]
+
 -- | Check that a module contains neither recursive data type definitions nor
 -- recursive value definition.
 --
@@ -58,7 +68,9 @@ checkModule :: MonadGamma m => Module -> m ()
 checkModule mod0 = do
   let modName = moduleName mod0
   let values = NM.toList (moduleValues mod0)
+  let synonyms = NM.toList (moduleSynonyms mod0)
   checkAcyclic EValueCycle dvalName (HS.toList . valueRefs modName) values
+  checkAcyclic ETypeSynCycle synName (synRefs modName) synonyms
 
 -- | Check whether a directed graph given by its adjacency list is acyclic. If
 -- it is not, throw an error.
@@ -73,4 +85,4 @@ checkAcyclic mkError name adjacent objs = do
   let graph = map (\obj -> (obj, name obj, nubOrd (adjacent obj))) objs
   for_ (G.stronglyConnComp graph) $ \case
     G.AcyclicSCC _ -> pure ()
-    G.CyclicSCC cicle -> throwWithContext (mkError (map name cicle))
+    G.CyclicSCC cycle -> throwWithContext (mkError (map name cycle))

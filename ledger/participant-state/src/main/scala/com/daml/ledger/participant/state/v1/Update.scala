@@ -1,12 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger
 package participant.state.v1
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml_lf.DamlLf
+import com.daml.lf.data.Time.Timestamp
+import com.daml.daml_lf_dev.DamlLf
 
 /** An update to the (abstract) participant state.
   *
@@ -21,44 +20,136 @@ sealed trait Update extends Product with Serializable {
 
   /** Short human-readable one-line description summarizing the state updates content. */
   def description: String
+
+  /** The record time at which the state change was committed. */
+  def recordTime: Timestamp
 }
 
 object Update {
 
-  /** Signal aliveness and the current record time.  */
-  final case class Heartbeat(recordTime: Timestamp) extends Update {
-    override def description: String = s"Heartbeat: $recordTime"
-  }
-
   /** Signal that the current [[Configuration]] has changed. */
-  final case class ConfigurationChanged(newConfiguration: Configuration) extends Update {
+  final case class ConfigurationChanged(
+      recordTime: Timestamp,
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      newConfiguration: Configuration)
+      extends Update {
     override def description: String =
-      s"Configuration changed to: $newConfiguration"
+      s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
   }
 
-  /** Signal that a party is hosted at this participant.
+  /** Signal that a configuration change submitted by this participant was rejected.
+    */
+  final case class ConfigurationChangeRejected(
+      recordTime: Timestamp,
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      proposedConfiguration: Configuration,
+      rejectionReason: String)
+      extends Update {
+    override def description: String = {
+      s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
+    }
+  }
+
+  /** Signal that a party is hosted at a participant.
     *
-    * As explained in the note on [[ReadService.stateUpdates]], the
-    * state updates are only expected to signal all updates pertaining
-    * to data affecting the parties hosted at the participant.
+    * @param party
+    *   The newly allocated party identifier.
+    *
+    * @param displayName
+    *   The user readable description of the party. May not be unique.
+    *
+    * @param participantId
+    *   The participant that this party was added to.
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the party was allocated.
+    *
+    * @param submissionId
+    *   The submissionId of the command which requested party to be added.
     *
     */
-  final case class PartyAddedToParticipant(party: Party) extends Update {
-    override def description: String = s"Add party '$party' to participant"
+  final case class PartyAddedToParticipant(
+      party: Party,
+      displayName: String,
+      participantId: ParticipantId,
+      recordTime: Timestamp,
+      submissionId: Option[SubmissionId])
+      extends Update {
+    override def description: String =
+      s"Add party '$party' to participant"
   }
 
-  /** Signal the uploading of a package that is publicly visible.
+  /** Signal that the party allocation request has been Rejected.
     *
-    * We expect that ledger or participant-node administrators issue such
-    * public uploads. The 'public' qualifier refers to the fact that all
-    * parties hosted by a participant (or even all parties connected to a
-    * ledger) will see the uploaded package. It is in contrast to a future
-    * extension where we plan to support per-party package visibility
+    * Initially this will be visible to all participants in the current open world,
+    * with a possible need to revisit as part of the per-party package visibility work
     * https://github.com/digital-asset/daml/issues/311.
     *
+    * @param submissionId
+    *   submissionId of the party allocation command.
+    *
+    * @param participantId
+    *   The participant to which the party was requested to be added. This field
+    *   is informative,
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the party was added.
+    *
+    * @param rejectionReason
+    *   reason for rejection of the party allocation entry
+    *
+    * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
+    * types needs to be handled for party allocation entry rejects
     */
-  final case class PublicPackageUploaded(archive: DamlLf.Archive) extends Update {
-    override def description: String = s"Public package ${archive.getHash} uploaded"
+  final case class PartyAllocationRejected(
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      recordTime: Timestamp,
+      rejectionReason: String)
+      extends Update {
+    override val description: String =
+      s"Request to add party to participant with submissionId '$submissionId' failed"
+  }
+
+  /** Signal that a set of new packages has been uploaded.
+    *
+    * @param archives:
+    *   The new packages that have been accepted.
+    * @param sourceDescription:
+    *   Description of the upload, if provided by the submitter.
+    * @param recordTime:
+    *   The ledger-provided timestamp at which the package upload was committed.
+    * @param submissionId:
+    *   The submission id of the upload. Unset if this participant was not the submitter.
+    */
+  final case class PublicPackageUpload(
+      archives: List[DamlLf.Archive],
+      sourceDescription: Option[String],
+      recordTime: Timestamp,
+      submissionId: Option[SubmissionId])
+      extends Update {
+    override def description: String =
+      s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
+  }
+
+  /** Signal that a package upload has been rejected.
+    *
+    * @param submissionId:
+    *   The submission id of the upload.
+    * @param recordTime:
+    *   The ledger-provided timestamp at which the package upload was committed.
+    * @param rejectionReason:
+    *   Reason why the upload was rejected.
+    */
+  final case class PublicPackageUploadRejected(
+      submissionId: SubmissionId,
+      recordTime: Timestamp,
+      rejectionReason: String)
+      extends Update {
+    override def description: String =
+      s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
   }
 
   /** Signal the acceptance of a transaction.
@@ -70,11 +161,11 @@ object Update {
     *   ledgers to implement a fine-grained privacy model.
     *
     * @param transactionMeta:
-    *   the metadata of the transaction that was provided by the submitter.
+    *   The metadata of the transaction that was provided by the submitter.
     *   It is visible to all parties that can see the transaction.
     *
     * @param transaction:
-    *   the view of the transaction that was accepted. This view must
+    *   The view of the transaction that was accepted. This view must
     *   include at least the projection of the accepted transaction to the
     *   set of all parties hosted at this participant. See
     *   https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
@@ -90,14 +181,8 @@ object Update {
     *   determines how this transaction's recordTime relates to its
     *   [[TransactionMeta.ledgerEffectiveTime]].
     *
-    * @param referencedContracts:
-    *   A list of all contracts that were created before this transaction
-    *   and referenced by it (via fetch, consuming, or non-consuming
-    *   exercise nodes). This list is provided to enable consumers of
-    *   [[ReadService.stateUpdates]] to implement the divulgence semantics
-    *   as described here:
-    *   https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
-    *
+    * @param divulgedContracts:
+    *   List of divulged contracts. See [[DivulgedContract]] for details.
     */
   final case class TransactionAccepted(
       optSubmitterInfo: Option[SubmitterInfo],
@@ -105,7 +190,7 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: TransactionId,
       recordTime: Timestamp,
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
+      divulgedContracts: List[DivulgedContract]
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
   }
@@ -116,6 +201,7 @@ object Update {
     * rejected.
     */
   final case class CommandRejected(
+      recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: RejectionReason,
   ) extends Update {
@@ -123,4 +209,5 @@ object Update {
       s"Reject command ${submitterInfo.commandId}: $reason"
     }
   }
+
 }

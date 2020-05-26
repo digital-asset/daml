@@ -1,0 +1,17 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module BuiltinMod {
+
+  val equal: forall (a: *). a -> a -> Bool =
+    EQUAL;
+  val less_eq: forall (a: *). a -> a -> Bool =
+    LESS_EQ;
+  val less: forall (a: *). a -> a -> Bool =
+    LESS;
+  val greater_eq: forall (a: *). a -> a -> Bool =
+    GREATER_EQ;
+  val greater: forall (a: *). a -> a -> Bool =
+    GREATER;
+
+}

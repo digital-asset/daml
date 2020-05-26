@@ -1,10 +1,9 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
   , TimeoutSeconds
@@ -12,21 +11,25 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , Handle
   , BackendError(..)
   , Error(..)
-  , start
+  , withScenarioService
   , ContextId
   , newCtx
   , cloneCtx
   , deleteCtx
   , gcCtxs
   , ContextUpdate(..)
+  , SkipValidation(..)
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
-  , encodeModule
+  , encodeScenarioModule
   , ScenarioServiceException(..)
   ) where
 
-import Conduit (runConduit, (.|))
+import Conduit (runConduit, (.|), MonadUnliftIO(..))
+import Data.Either
+import Data.Maybe
+import Data.IORef
 import GHC.Generics
 import Text.Read
 import Control.Concurrent.Async
@@ -34,19 +37,20 @@ import Control.Concurrent.MVar
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
-import Control.Monad.Managed
+import Control.Monad.IO.Class
+import DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit as C
-import Data.Conduit.Process (withCheckedProcessCleanup)
+import Data.Conduit.Process
 import qualified Data.Conduit.Text as C.T
 import Data.Int (Int64)
 import Data.List.Split (splitOn)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
-import Network.GRPC.HighLevel.Client (Client, ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
+import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..))
 import qualified Proto3.Suite as Proto
@@ -63,7 +67,9 @@ import qualified ScenarioService as SS
 
 data Options = Options
   { optServerJar :: FilePath
+  , optJvmOptions :: [String]
   , optRequestTimeout :: TimeoutSeconds
+  , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   }
@@ -71,12 +77,16 @@ data Options = Options
 type TimeoutSeconds = Int
 
 data Handle = Handle
-  { hClient :: Client
+  { hClient :: SS.ScenarioService ClientRequest ClientResult
   , hOptions :: Options
   }
 
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
+
+-- | If true, the scenario service server do not run package validations.
+newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
+  deriving Show
 
 data ContextUpdate = ContextUpdate
   { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
@@ -84,11 +94,12 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updDamlLfVersion :: LF.Version
+  , updSkipValidation :: SkipValidation
   }
 
-encodeModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeModule version m = case version of
-    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeModule version m))
+encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
+encodeScenarioModule version m = case version of
+    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError
@@ -141,16 +152,63 @@ validateJava Options{..} = do
         ExitFailure _ -> throwIO (ScenarioServiceException ("Failed to start `java -version`: " <> stderr))
         ExitSuccess -> pure ()
 
-start :: Options -> Managed Handle
-start opts@Options{..} = do
-  liftIO $ optLogInfo "Starting scenario service..."
-  serverJarExists <- liftIO $ doesFileExist optServerJar
-  unless serverJarExists $ do
-      liftIO $ throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
-  liftIO $ validateJava opts
-  cp <- liftIO $ javaProc ["-jar" , optServerJar]
-  port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
-          flip finally (System.IO.hClose stdinHdl) $ do
+-- | This is sadly not exposed by Data.Conduit.Process.
+terminateStreamingProcess :: MonadIO m => StreamingProcessHandle -> m ()
+terminateStreamingProcess = liftIO . terminateProcess . streamingProcessHandleRaw
+
+-- | Variant of withCheckedProcessCleanup that gives access to the
+-- StreamingProcessHandle.
+withCheckedProcessCleanup'
+    :: ( InputSource stdin
+       , OutputSink stderr
+       , OutputSink stdout
+       , MonadUnliftIO m
+       )
+    => CreateProcess
+    -> (StreamingProcessHandle -> stdin -> stdout -> stderr -> m b)
+    -> m b
+withCheckedProcessCleanup' cp f = withRunInIO $ \run -> bracket
+    (streamingProcess cp)
+    (\(_, _, _, sph) -> closeStreamingProcessHandle sph)
+    $ \(x, y, z, sph) -> do
+        res <- run (f sph x y z) `onException` terminateStreamingProcess sph
+        ec <- waitForStreamingProcess sph
+        if ec == ExitSuccess
+            then return res
+            else throwIO $ ProcessExitedUnsuccessfully cp ec
+
+handleCrashingScenarioService :: IORef Bool -> StreamingProcessHandle -> IO a -> IO a
+handleCrashingScenarioService exitExpected h act =
+    -- `race` doesn’t quite work here since we might end up
+    -- declaring an expected exit at the very end as a failure.
+    -- In particular, once we close stdin of the scenario service
+    -- `waitForStreamingProcess` can return before `act` returns.
+    -- See https://github.com/digital-asset/daml/pull/1974.
+    withAsync (waitForStreamingProcess h) $ \scenarioProcess ->
+    withAsync act $ \act' -> do
+        r <- waitEither scenarioProcess act'
+        case r of
+            Right a -> pure a
+            Left _ -> do
+                expected <- readIORef exitExpected
+                if expected
+                   then wait act'
+                   else fail "Scenario service exited unexpectedly"
+
+withScenarioService :: Options -> (Handle -> IO a) -> IO a
+withScenarioService opts@Options{..} f = do
+  optLogInfo "Starting scenario service..."
+  serverJarExists <- doesFileExist optServerJar
+  unless serverJarExists $
+      throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
+  validateJava opts
+  cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  exitExpected <- newIORef False
+  let closeStdin hdl = do
+          atomicWriteIORef exitExpected True
+          System.IO.hClose hdl
+  withCheckedProcessCleanup' cp $ \processHdl (stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
+          flip finally (closeStdin stdinHdl) $ handleCrashingScenarioService exitExpected processHdl $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line
             -- The last line should not be treated as an error.
@@ -179,66 +237,66 @@ start opts@Options{..} = do
         -- the callback. Note that on Windows, killThread will not be able to kill the conduits
         -- if they are blocked in hGetNonBlocking so it is crucial that we close stdin in the
         -- callback or withAsync will block forever.
-        flip finally (System.IO.hClose stdinHdl) $ do
-            System.IO.hFlush System.IO.stdout
-            either fail resume =<< takeMVar portMVar
-  liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
-  let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
-  client <- managed (withGRPCClient grpcConfig)
-  return $
-    Handle
-    { hClient = client
-    , hOptions = opts
-    }
+        flip finally (closeStdin stdinHdl) $ do
+            port <- either fail pure =<< takeMVar portMVar
+            liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
+            -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
+            -- and DNS lookups break, e.g., on Alpine linux.
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
+            withGRPCClient grpcConfig $ \client -> do
+                ssClient <- SS.scenarioServiceClient client
+                f Handle
+                    { hClient = ssClient
+                    , hOptions = opts
+                    }
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceNewContext ssClient)
+      (SS.scenarioServiceNewContext hClient)
       (optRequestTimeout hOptions)
       SS.NewContextRequest
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
 cloneCtx Handle{..} (ContextId ctxId) = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceCloneContext ssClient)
+      (SS.scenarioServiceCloneContext hClient)
       (optRequestTimeout hOptions)
       (SS.CloneContextRequest ctxId)
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
 deleteCtx :: Handle -> ContextId -> IO (Either BackendError ())
 deleteCtx Handle{..} (ContextId ctxId) = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceDeleteContext ssClient)
+      (SS.scenarioServiceDeleteContext hClient)
       (optRequestTimeout hOptions)
       (SS.DeleteContextRequest ctxId)
   pure (void res)
 
 gcCtxs :: Handle -> [ContextId] -> IO (Either BackendError ())
 gcCtxs Handle{..} ctxIds = do
-    ssClient <- SS.scenarioServiceClient hClient
     res <-
         performRequest
-            (SS.scenarioServiceGCContexts ssClient)
+            (SS.scenarioServiceGCContexts hClient)
             (optRequestTimeout hOptions)
             (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
     pure (void res)
 
 updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
 updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceUpdateContext ssClient)
-      (optRequestTimeout hOptions)
-      (SS.UpdateContextRequest ctxId (Just updModules) (Just updPackages) True)
+      (SS.scenarioServiceUpdateContext hClient)
+      (optRequestTimeout hOptions) $
+      SS.UpdateContextRequest
+          ctxId
+          (Just updModules)
+          (Just updPackages)
+          (getSkipValidation updSkipValidation)
   pure (void res)
   where
     updModules =
@@ -249,19 +307,22 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
       SS.UpdateContextRequest_UpdatePackages
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
-    encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
-    convModule :: (LF.ModuleName, BS.ByteString) -> SS.Module
-    -- FixMe(#415): the proper minor version should be passed instead of "0"
+    encodeName = TL.fromStrict . mangleModuleName
+    convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)
+            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
+
+mangleModuleName :: LF.ModuleName -> T.Text
+mangleModuleName (LF.ModuleName modName) =
+    T.intercalate "." $
+    map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) modName
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceRunScenario ssClient)
+      (SS.scenarioServiceRunScenario hClient)
       (optRequestTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of
@@ -275,10 +336,14 @@ runScenario Handle{..} (ContextId ctxId) name = do
       let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
             LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
             LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
+          mangledDefn =
+              fromRight (error "Failed to mangle scenario name") $
+              mangleIdentifier (LF.unExprValName defn)
+          mangledModName = mangleModuleName modName
       in
         SS.Identifier
           (Just ssPkgId)
-          (TL.fromStrict $ T.intercalate "." (LF.unModuleName modName) <> ":" <> LF.unExprValName defn)
+          (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))

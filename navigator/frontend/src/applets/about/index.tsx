@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Dispatch, styled, ThunkAction } from '@da/ui-core';
@@ -25,7 +25,6 @@ export interface BackendVersionInfo {
   id: string;
   name: string;
   version: string;
-  revision: string;
 }
 
 export type BackendVersionInfoResult
@@ -134,7 +133,6 @@ const BackendInfo: React.StatelessComponent<{info: BackendVersionInfoResult}>
     case 'loaded': return (
       <p>
         Version: {info.info.version} <br/>
-        Revision: {info.info.revision} <br/>
         Application ID: {info.info.id}
       </p>
     );
@@ -162,7 +160,7 @@ class Component extends React.Component<Props, {}> {
         <div>
         <p>
           Copyright Notice
-          Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.
+          Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.
           All rights reserved.
         </p>
         </div>

@@ -46,7 +46,6 @@ ghc-bindist
 ensime.sbt
 pipelinePerformance.xml
 **/database_test.manifest
-.gradle/
 .ghci
 .ghcid
 *.log
@@ -59,7 +58,6 @@ da-daml-equities-library.txt
 .flattened-pom.xml
 *~
 *.orig
-sqlite
 venv
 trace.*.dat
 node_modules/
@@ -80,6 +78,9 @@ ledger-api/.bin
 **/.history/
 ### Bazel: https://www.gitignore.io/api/bazel ###
 /bazel-*
+/compatibility/bazel-*
+/compatibility/.bazelrc
+/compatibility/head_sdk/
 .bazelrc.local
 .ijwb
 .bazelproject
@@ -88,3 +89,9 @@ ledger-api/.bin
 daml-lf/project
 daml-lf/gen
 daml-lf/build.sbt
+.markdown-preview.html
+compiler/damlc/output
+language-support/hs/bindings/gen
+language-support/hs/bindings/*.cabal
+language-support/hs/bindings/examples/nim/*.cabal
+.daml/

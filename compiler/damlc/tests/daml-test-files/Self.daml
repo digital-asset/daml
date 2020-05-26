@@ -1,0 +1,21 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+
+module Self where
+
+template Self with
+    p: Party
+  where
+  signatory p
+
+  controller p can
+    Same : ()
+      with other: ContractId Self
+      do assert (self == other)
+
+main = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+    cid1 <- create Self with p = alice
+    exercise cid1 Same with other = cid1

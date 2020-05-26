@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types.{CreatedEvent, ExercisedEvent, TransactionTree}
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.extractor.writers.postgresql.DataFormat.TemplateInfo
-import com.digitalasset.extractor.writers.postgresql.DataFormatState.SingleTableState
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types.{CreatedEvent, ExercisedEvent, TransactionTree}
+import com.daml.extractor.writers.Writer
+import com.daml.extractor.writers.postgresql.DataFormat.TemplateInfo
+import com.daml.extractor.writers.postgresql.DataFormatState.SingleTableState
 
 import cats.implicits._
 import doobie.implicits._
@@ -49,10 +49,19 @@ class SingleTableDataFormat extends DataFormat[SingleTableState.type] {
       transaction: TransactionTree,
       event: ExercisedEvent
   ): Writer.RefreshPackages \/ ConnectionIO[Unit] = {
-    val query =
-      setContractArchived(event.contractCreatingEventId, transaction.transactionId, event.eventId)
+    val update =
+      if (event.consuming)
+        setContractArchived(event.contractId, transaction.transactionId, event.eventId).update.run.void
+      else
+        connection.pure(())
 
-    query.update.run.void.right
+    val insert =
+      insertExercise(
+        event,
+        transaction.transactionId,
+        transaction.rootEventIds.contains(event.eventId)).update.run.void
+
+    (update *> insert).right
   }
 
   def handleCreatedEvent(

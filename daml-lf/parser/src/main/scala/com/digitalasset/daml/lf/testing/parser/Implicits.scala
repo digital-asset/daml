@@ -1,21 +1,33 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing
+package parser
 
-import com.digitalasset.daml.lf.data.{Decimal, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Package, Type}
+import com.daml.lf.data.{Numeric, Ref}
+import com.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
 
 object Implicits {
+
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+    defaultPackageId,
+    defaultLanguageVersion
+  )
 
   implicit class SyntaxHelper(val sc: StringContext) extends AnyVal {
     def k(args: Any*): Kind = interpolate(KindParser.kind)(args)
 
-    def t(args: Any*): Type = interpolate(TypeParser.typ)(args)
+    def t[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Type =
+      interpolate(new TypeParser[P](parserParameters).typ)(args)
 
-    def e(args: Any*): Expr = interpolate(ExprParser.expr)(args)
+    def e[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Expr =
+      interpolate(new ExprParser[P](parserParameters).expr)(args)
 
-    def p(args: Any*): Package = interpolate(ModParser.pkg)(args)
+    def p[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Package =
+      interpolate(new ModParser[P](parserParameters).pkg)(args)
+
+    def m[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Module =
+      interpolate(new ModParser[P](parserParameters).mod)(args)
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def n(args: Any*): Ref.Name =
@@ -27,7 +39,7 @@ object Implicits {
   }
 
   private def toString(x: BigDecimal) =
-    Decimal.toString(Decimal.assertFromBigDecimal(x))
+    Numeric.toUnscaledString(Numeric.assertFromUnscaledBigDecimal(x))
 
   private def prettyPrint(x: Any): String =
     x match {

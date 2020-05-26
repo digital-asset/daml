@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 /**
   * The simplified AST for the speedy interpreter.
@@ -9,12 +9,15 @@ package com.digitalasset.daml.lf.speedy
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
   */
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.Speedy._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SBuiltin._
+import java.util
+
+import com.daml.lf.language.Ast._
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SBuiltin._
 import java.util.ArrayList
 
 /** The speedy expression:
@@ -23,23 +26,25 @@ import java.util.ArrayList
   * - multi-argument applications and abstractions.
   * - all update and scenario operations converted to builtin functions.
   */
-sealed trait SExpr {
-  def apply(args: SExpr*): SExpr =
-    SExpr.SEApp(this, args.toArray)
-
-  def execute(machine: Machine): Ctrl
+sealed abstract class SExpr extends Product with Serializable {
+  def execute(machine: Machine): Unit
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  override def toString: String =
+    productPrefix + productIterator.map(SExpr.prettyPrint).mkString("(", ",", ")")
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
 
   /** Reference to a variable. 'index' is the 1-based de Bruijn index,
-    * that is, SEVar(1) points to the top-most value in the environment.
+    * that is, SEVar(1) points to the nearest enclosing variable binder.
+    * which could be an SELam, SELet, or a binding variant of SECasePat.
     * https://en.wikipedia.org/wiki/De_Bruijn_index
+    * This expression form is only allowed prior to closure conversion
     */
   final case class SEVar(index: Int) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
-      CtrlValue(machine.getEnv(index))
+    def execute(machine: Machine): Unit = {
+      crash("unexpected SEVar, expected SELoc(S/A/F)")
     }
   }
 
@@ -48,44 +53,58 @@ object SExpr {
     */
   final case class SEVal(
       ref: SDefinitionRef,
-      var cached: Option[SValue]
   ) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
+
+    // The variable `_cached` is used to cache the evaluation of the
+    // LF value defined by `ref` once it has been computed.  Hence we
+    // avoid both the lookup in the package definition HashMap and the
+    // full reevaluation of the body of the definition.
+    // Here we take advantage of the Java memory model
+    // (https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7)
+    // that guarantees the write of `_cache` (in the method
+    // `setCached`) is done atomically.
+    // This is similar how hashcode evaluation is cached in String
+    // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
+    private var _cached: Option[(SValue, List[Location])] = None
+
+    def cached: Option[(SValue, List[Location])] = _cached
+
+    def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
+      _cached = Some((sValue, stack_trace))
+
+    def execute(machine: Machine): Unit =
       machine.lookupVal(this)
-    }
   }
 
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       /* special case for nullary record constructors */
-      b match {
+      machine.returnValue = b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          CtrlValue(SRecord(id, fields, new ArrayList()))
+          SRecord(id, fields, new ArrayList())
         case _ =>
-          Ctrl.fromPrim(PBuiltin(b), b.arity)
+          SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
       }
     }
   }
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExpr {
-    def execute(machine: Machine): Ctrl = CtrlValue(v)
+    def execute(machine: Machine): Unit = {
+      machine.returnValue = v
+    }
   }
 
-  object SEValue {
-    val True = SEValue(SBool(true))
-    val False = SEValue(SBool(false))
-    val Unit = SEValue(SUnit(()))
-  }
+  object SEValue extends SValueContainer[SEValue]
 
   /** Function application. Apply 'args' to function 'fun', where 'fun'
     * evaluates to a builtin or a closure.
     */
   final case class SEApp(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KArg(args))
-      CtrlExpr(fun)
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KArg(args, machine.frame, machine.env.size))
+      machine.ctrl = fun
     }
   }
 
@@ -94,7 +113,7 @@ object SExpr {
     * can be written against this simplified expression type.
     */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr {
-    def execute(machine: Machine): Ctrl =
+    def execute(machine: Machine): Unit =
       crash("unexpected SEAbs, expected SEMakeClo")
   }
 
@@ -102,25 +121,69 @@ object SExpr {
     // Helper for constructing abstraction expressions:
     // SEAbs(1) { ... }
     def apply(arity: Int)(body: SExpr): SExpr = SEAbs(arity, body)
+
+    val identity: SEAbs = SEAbs(1, SEVar(1))
   }
 
   /** Closure creation. Create a new closure object storing the free variables
     * in 'body'.
     */
-  final case class SEMakeClo(fv: Array[Int], arity: Int, body: SExpr)
+  final case class SEMakeClo(fvs: Array[SELoc], arity: Int, body: SExpr)
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
-      Ctrl.fromPrim(PClosure(body, fv.map(machine.getEnv)), arity)
+
+    def execute(machine: Machine): Unit = {
+      val sValues = Array.ofDim[SValue](fvs.length)
+      var i = 0
+      while (i < fvs.length) {
+        sValues(i) = fvs(i).lookup(machine)
+        i += 1
+      }
+      machine.returnValue = SPAP(PClosure(null, body, sValues), new util.ArrayList[SValue](), arity)
+    }
+  }
+
+  /** SELoc -- Reference to the runtime location of a variable.
+
+    This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
+    S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
+    */
+  sealed abstract class SELoc extends SExpr {
+    def lookup(machine: Machine): SValue
+    def execute(machine: Machine): Unit = {
+      machine.returnValue = lookup(machine)
+    }
+  }
+
+  // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
+  final case class SELocS(n: Int) extends SELoc {
+    def lookup(machine: Machine): SValue = {
+      machine.getEnvStack(n)
+    }
+  }
+
+  // SELocS -- variable is located in the args array of the application
+  final case class SELocA(n: Int) extends SELoc {
+    def lookup(machine: Machine): SValue = {
+      machine.getEnvArg(n)
+    }
+  }
+
+  // SELocF -- variable is located in the free-vars array of the closure being applied
+  final case class SELocF(n: Int) extends SELoc {
+    def lookup(machine: Machine): SValue = {
+      machine.getEnvFree(n)
     }
   }
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KMatch(alts))
-      CtrlExpr(scrut)
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KMatch(alts, machine.frame, machine.env.size))
+      machine.ctrl = scrut
     }
+
+    override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
   }
 
   object SECase {
@@ -142,19 +205,19 @@ object SExpr {
     * with later expressions possibly referring to earlier.
     */
   final case class SELet(bounds: Array[SExpr], body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Ctrl = {
-      // Pop the block once we're done evaluating the body
-      machine.kont.add(KPop(bounds.size))
+    def execute(machine: Machine): Unit = {
 
       // Evaluate the body after we've evaluated the binders
-      machine.kont.add(KPushTo(machine.env, body))
+      machine.pushKont(
+        KPushTo(machine.env, body, machine.frame, machine.env.size + bounds.size - 1))
 
       // Start evaluating the let binders
       for (i <- 1 until bounds.size) {
         val b = bounds(bounds.size - i)
-        machine.kont.add(KPushTo(machine.env, b))
+        val expectedEnvSize = machine.env.size + bounds.size - i - 1
+        machine.pushKont(KPushTo(machine.env, b, machine.frame, expectedEnvSize))
       }
-      CtrlExpr(bounds.head)
+      machine.ctrl = bounds.head
     }
   }
 
@@ -180,9 +243,9 @@ object SExpr {
     * variable of the machine. When commit is begun the location is stored in 'commitLocation'.
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
-      machine.lastLocation = Some(loc)
-      CtrlExpr(expr)
+    def execute(machine: Machine): Unit = {
+      machine.pushLocation(loc)
+      machine.ctrl = expr
     }
   }
 
@@ -194,17 +257,55 @@ object SExpr {
     * to access the value returned from 'body'.
     */
   final case class SECatch(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KCatch(handler, fin, machine.env.size))
-      CtrlExpr(body)
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KCatch(handler, fin, machine.frame, machine.env.size))
+      machine.ctrl = body
+    }
+  }
+
+  /** This is used only during profiling. When a package is compiled with
+    * profiling enabled, the right hand sides of top-level and let bindings,
+    * lambdas and some builtins are wrapped into [[SELabelClosure]]. During
+    * runtime, if the value resulting from evaluating [[expr]] is a
+    * (partially applied) closure, the label of the closure is set to the
+    * [[label]] given here.
+    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * [[AnyRef]] for the label.
+    */
+  final case class SELabelClosure(label: AnyRef, expr: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KLabelClosure(label))
+      machine.ctrl = expr
+    }
+  }
+
+  /** When we fetch a contract id from upstream we cannot crash in the upstream
+    * calls. Rather, we set the control to this expression and then crash when executing.
+    */
+  final case class SEWronglyTypeContractId(
+      acoid: V.ContractId,
+      expected: TypeConName,
+      actual: TypeConName,
+  ) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      throw DamlEWronglyTypedContract(acoid, expected, actual)
+    }
+  }
+
+  final case class SEImportValue(value: V[V.ContractId]) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.importValue(value)
     }
   }
 
   /** Case patterns */
   sealed trait SCasePat
 
-  /** Match on a variant. On match the value is unboxed and pushed to environment. */
-  final case class SCPVariant(id: Identifier, variant: String) extends SCasePat
+  /** Match on a variant. On match the value is unboxed and pushed to stack. */
+  final case class SCPVariant(id: Identifier, variant: Name, constructorRank: Int) extends SCasePat
+
+  /** Match on a variant. On match the value is unboxed and pushed to stack. */
+  final case class SCPEnum(id: Identifier, constructor: Name, constructorRank: Int) extends SCasePat
 
   /** Match on a primitive constructor, that is on true, false or unit. */
   final case class SCPPrimCon(pc: PrimCon) extends SCasePat
@@ -212,7 +313,7 @@ object SExpr {
   /** Match on an empty list. */
   final case object SCPNil extends SCasePat
 
-  /** Match on a list. On match, the head and tail of the list is pushed to environment. */
+  /** Match on a list. On match, the head and tail of the list is pushed to the stack. */
   final case object SCPCons extends SCasePat
 
   /** Default match case. Always matches. */
@@ -247,7 +348,7 @@ object SExpr {
 
     import SEBuiltinRecursiveDefinition._
 
-    def execute(machine: Machine): Ctrl = {
+    def execute(machine: Machine): Unit = {
       val body = ref match {
         case Reference.FoldL => foldLBody
         case Reference.FoldR => foldRBody
@@ -277,20 +378,27 @@ object SExpr {
         Array(),
         3,
         // case xs of
-        SECase(SEVar(1)) of (
+        SECase(SELocA(2)) of (
           // nil -> z
-          SCaseAlt(SCPNil, SEVar(2)),
+          SCaseAlt(SCPNil, SELocA(1)),
           // cons y ys ->
           SCaseAlt(
             SCPCons,
             // foldl f (f z y) ys
-            FoldL(
-              SEVar(5), /* f */
-              SEVar(5)(
-                SEVar(4) /* z */,
-                SEVar(2) /* y */
-              ),
-              SEVar(1)) /* ys */
+            SEApp(
+              FoldL,
+              Array(
+                SELocA(0), /* f */
+                SEApp(
+                  SELocA(0),
+                  Array(
+                    SELocA(1), /* z */
+                    SELocS(2) /* y */
+                  )
+                ),
+                SELocS(1) /* ys */
+              )
+            )
           )
         )
       )
@@ -301,24 +409,29 @@ object SExpr {
         Array(),
         3,
         // case xs of
-        SECase(SEVar(1)) of (
-          // nil -> z
-          SCaseAlt(SCPNil, SEVar(2)),
-          // cons y ys ->
-          SCaseAlt(
-            SCPCons,
-            // f y (foldr f z ys)
-            SEVar(5)(
+        SECase(SELocA(2)) of (// nil -> z
+        SCaseAlt(SCPNil, SELocA(1)),
+        // cons y ys ->
+        SCaseAlt(
+          SCPCons,
+          // f y (foldr f z ys)
+          SEApp(
+            SELocA(0),
+            Array(
               /* f */
-              SEVar(2), /* y */
-              FoldR(
-                /* foldr f z ys */
-                SEVar(5), /* f */
-                SEVar(4), /* z */
-                SEVar(1) /* ys */
-              ))
+              SELocS(2), /* y */
+              SEApp(
+                FoldR,
+                Array(
+                  /* foldr f z ys */
+                  SELocA(0), /* f */
+                  SELocA(1), /* z */
+                  SELocS(1) /* ys */
+                )
+              )
+            )
           )
-        )
+        ))
       )
 
     private val equalListBody: SExpr =
@@ -327,30 +440,34 @@ object SExpr {
         Array(),
         3,
         // case xs of
-        SECase(SEVar(2) /* xs */ ) of (
+        SECase(SELocA(1) /* xs */ ) of (
           // nil ->
           SCaseAlt(
             SCPNil,
             // case ys of
             //   nil -> True
             //   default -> False
-            SECase(SEVar(1)) of (SCaseAlt(SCPNil, SEValue.True),
-            SCaseAlt(SCPDefault, SEValue.False))),
+            SECase(SELocA(2)) of (SCaseAlt(SCPNil, SEValue.True),
+            SCaseAlt(SCPDefault, SEValue.False))
+          ),
           // cons x xss ->
           SCaseAlt(
             SCPCons,
             // case ys of
             //       True -> listEqual f xss yss
             //       False -> False
-            SECase(SEVar(3) /* ys */ ) of (
+            SECase(SELocA(2) /* ys */ ) of (
               // nil -> False
               SCaseAlt(SCPNil, SEValue.False),
               // cons y yss ->
               SCaseAlt(
                 SCPCons,
                 // case f x y of
-                SECase(SEVar(7)(SEVar(4), SEVar(2))) of (
-                  SCaseAlt(SCPPrimCon(PCTrue), EqualList(SEVar(7), SEVar(1), SEVar(3))),
+                SECase(SEApp(SELocA(0), Array(SELocS(2), SELocS(4)))) of (
+                  SCaseAlt(
+                    SCPPrimCon(PCTrue),
+                    SEApp(EqualList, Array(SELocA(0), SELocS(1), SELocS(3))),
+                  ),
                   SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
                 )
               )
@@ -359,5 +476,15 @@ object SExpr {
         )
       )
   }
+
+  final case object AnonymousClosure
+
+  private def prettyPrint(x: Any): String =
+    x match {
+      case i: Array[Any] => i.mkString("[", ",", "]")
+      case i: Array[Int] => i.mkString("[", ",", "]")
+      case i: java.util.ArrayList[_] => i.toArray().mkString("[", ",", "]")
+      case other: Any => other.toString
+    }
 
 }

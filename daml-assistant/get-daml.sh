@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -10,14 +10,23 @@
 # For more information please visit https://daml.com/ and https://docs.daml.com/
 #
 
-set -eu
-cleanup() {
-  echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
-}
-trap cleanup EXIT
+#
+# USAGE:
+#    get-daml.sh            Download and install the latest DAML SDK release.
+#    get-daml.sh VERSION    Download and install given version of DAML SDK.
+#
 
+set -eu
+readonly SWD="$PWD"
 readonly TMPDIR="$(mktemp -d)"
 cd $TMPDIR
+
+cleanup() {
+  echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
+  cd $SWD
+  rm -rf $TMPDIR
+}
+trap cleanup EXIT
 
 #
 # Check if curl and tar are available.
@@ -40,15 +49,19 @@ if [ -n "$MISSING" ]; then
 fi
 
 #
-# Determine latest SDK version
+# Determine SDK version
 #
-echo "Determining latest SDK version..."
-readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
-if [ -z "$VERSION" ] ; then
-  echo "Failed to determine latest SDK version."
-  exit 1
+if [ -z "${1:-}" ] ; then
+  echo "Determining latest SDK version..."
+  readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
+  if [ -z "$VERSION" ] ; then
+    echo "Failed to determine latest SDK version."
+    exit 1
+  fi
+  echo "Latest SDK version is $VERSION"
+else
+  readonly VERSION="$1"
 fi
-echo "Latest SDK version is $VERSION."
 
 #
 # Determine operating system.
@@ -70,8 +83,8 @@ fi
 readonly TARBALL="daml-sdk-$VERSION-$OS.tar.gz"
 readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/$TARBALL"
 
-echo "$(tput setaf 3)Downloading latest DAML SDK. This may take a while.$(tput sgr 0)"
-curl -L $URL --output $TARBALL --progress-bar
+echo "$(tput setaf 3)Downloading DAML SDK $VERSION. This may take a while.$(tput sgr 0)"
+curl -SLf $URL --output $TARBALL --progress-bar
 if [ ! -f $TARBALL ] ; then
   echo "Failed to download SDK tarball."
   exit 1
@@ -103,4 +116,5 @@ fi
 #
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed DAML.$(tput sgr 0)"
-
+cd $SWD
+rm -rf $TMPDIR

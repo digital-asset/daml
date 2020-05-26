@@ -1,31 +1,47 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
-import java.util.Objects;
+import java.util.*;
+import java.util.function.Function;
 
-public class DamlOptional extends Value {
+public final class DamlOptional extends Value {
 
-    private static DamlOptional EMPTY = new DamlOptional(java.util.Optional.empty());
+    public static DamlOptional EMPTY = new DamlOptional(Optional.empty());
 
     private final Value value;
 
-    private DamlOptional(Value value) {
+    DamlOptional(Value value) {
         this.value = value;
     }
 
-    public DamlOptional(java.util.Optional<Value> value) {
-        this.value = value.orElse(null);
+    @Deprecated // use DamlOptional.of
+    public DamlOptional(Optional<@NonNull Value> value) {
+        this(value.orElse(null));
     }
 
-    public @Nonnull
-    java.util.Optional<Value> getValue() {
+
+    static public DamlOptional of(@NonNull Optional<@NonNull Value> value) {
+        if (value.isPresent())
+            return new DamlOptional((value.get()));
+        else
+            return EMPTY;
+    }
+
+    static public DamlOptional of(Value value){
+        return new DamlOptional(value);
+    }
+
+    public java.util.Optional<Value> getValue() {
         return java.util.Optional.ofNullable(value);
+    }
+
+    public @NonNull <V> Optional<V> toOptional(Function<@NonNull Value, @NonNull V> valueMapper){
+        return  (value == null) ? Optional.empty() : Optional.of(valueMapper.apply(value));
     }
 
     @Override
@@ -52,20 +68,21 @@ public class DamlOptional extends Value {
                 '}';
     }
 
-    public static @Nonnull  DamlOptional of(Value value) {
-        return value == null ? EMPTY : new DamlOptional(value);
-    }
-
-    public static @Nonnull DamlOptional empty() {
-        return (DamlOptional) EMPTY;
+    @Deprecated  // use DamlOptional::EMPTY
+    public static @NonNull DamlOptional empty() {
+        return EMPTY;
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.Optional.Builder ob = ValueOuterClass.Optional.newBuilder();
         if (value != null) ob.setValue(value.toProto());
         return ValueOuterClass.Value.newBuilder()
                 .setOptional(ob.build())
                 .build();
+    }
+
+    public static DamlOptional fromProto(ValueOuterClass.Optional optional) {
+        return (optional.hasValue()) ? new DamlOptional(fromProto(optional.getValue())) : EMPTY;
     }
 }

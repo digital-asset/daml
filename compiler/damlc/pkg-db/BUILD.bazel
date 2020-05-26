@@ -1,0 +1,65 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    ":util.bzl",
+    "daml_package_db",
+    "daml_package_rule",
+)
+
+DAML_LF_VERSIONS = [
+    "1.6",
+    "1.7",
+    "1.8",
+    "1.dev",
+]
+
+daml_package_db(
+    name = "package_db_for_daml-prim",
+    daml_lf_versions = DAML_LF_VERSIONS,
+    pkgs = [],
+    visibility = ["//visibility:public"],
+)
+
+[
+    daml_package_rule(
+        name = "daml-prim-{}".format(ver),
+        srcs = "//compiler/damlc/daml-prim-src",
+        daml_lf_version = ver,
+        package_db = ":package_db_for_daml-prim",
+        pkg_name = "daml-prim",
+        pkg_root = "compiler/damlc/daml-prim-src",
+        visibility = ["//visibility:public"],
+    )
+    for ver in DAML_LF_VERSIONS
+]
+
+[
+    daml_package_rule(
+        name = "daml-stdlib-{}".format(ver),
+        srcs = "//compiler/damlc/daml-stdlib-src",
+        daml_lf_version = ver,
+        dependencies = [":daml-prim-{}".format(ver)],
+        package_db = ":package_db_for_daml-stdlib",
+        pkg_name = "daml-stdlib",
+        pkg_root = "compiler/damlc/daml-stdlib-src",
+        visibility = ["//visibility:public"],
+    )
+    for ver in DAML_LF_VERSIONS
+]
+
+daml_package_db(
+    name = "package_db_for_daml-stdlib",
+    daml_lf_versions = DAML_LF_VERSIONS,
+    pkgs = [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS],
+    visibility = ["//visibility:public"],
+)
+
+daml_package_db(
+    name = "pkg-db",
+    daml_lf_versions = DAML_LF_VERSIONS,
+    pkgs =
+        [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS] +
+        [":daml-stdlib-{}".format(ver) for ver in DAML_LF_VERSIONS],
+    visibility = ["//visibility:public"],
+)

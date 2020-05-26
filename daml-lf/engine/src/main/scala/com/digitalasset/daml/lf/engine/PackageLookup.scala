@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
 
 object PackageLookup {
   def lookupDefinition(pkg: Package, identifier: QualifiedName): Either[Error, Definition] =
@@ -15,9 +15,12 @@ object PackageLookup {
     for {
       defn <- lookupDefinition(pkg, identifier)
       dataTyp <- defn match {
+        case dataType: DDataType => Right(dataType)
         case _: DValue =>
           Left(Error(s"Got value definition instead of datatype when looking up $identifier"))
-        case dataType: DDataType => Right(dataType)
+        case _: DTypeSyn =>
+          Left(
+            Error(s"Got type synonym definition instead of datatype when looking up $identifier"))
       }
     } yield dataTyp
 
@@ -30,6 +33,8 @@ object PackageLookup {
           Right((dataTyp.params, rec))
         case _: DataVariant =>
           Left(Error(s"Expecting record for identifier $identifier, got variant"))
+        case _: DataEnum =>
+          Left(Error(s"Expecting record for identifier $identifier, got enum"))
       }
     }
 
@@ -42,6 +47,21 @@ object PackageLookup {
           Right((dataTyp.params, v))
         case _: DataRecord =>
           Left(Error(s"Expecting variant for identifier $identifier, got record"))
+        case _: DataEnum =>
+          Left(Error(s"Expecting variant for identifier $identifier, got enum"))
+      }
+    }
+
+  def lookupEnum(pkg: Package, identifier: QualifiedName): Either[Error, DataEnum] =
+    lookupDataType(pkg, identifier).flatMap { dataTyp =>
+      dataTyp.cons match {
+        case v: DataEnum =>
+          Right(v)
+        case _: DataVariant =>
+          Left(Error(s"Expecting enum for identifier $identifier, got variant"))
+        case _: DataRecord =>
+          Left(Error(s"Expecting enum for identifier $identifier, got record"))
+
       }
     }
 
@@ -53,7 +73,9 @@ object PackageLookup {
         case DataRecord(_, None) =>
           Left(Error(s"Got record with no template when looking up $identifier"))
         case _: DataVariant =>
-          Left(Error(s"Got variant when looking up $identifier -- variants can't be templates"))
+          Left(Error(s"Expecting template for identifier $identifier, got variant"))
+        case _: DataEnum =>
+          Left(Error(s"Expecting template for identifier $identifier, got enum"))
       }
     } yield tpl
 }

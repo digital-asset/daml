@@ -1,18 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.prop.Checkers
-import org.scalacheck.{Arbitrary, Gen, Properties}
-import scalaz.Equal
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 import ImmArray.ImmArraySeq
 
-class ImmArrayTest extends FlatSpec with Matchers with Checkers {
-  import ImmArrayTest._
+class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
+  import DataArbitrary._
 
   behavior of "toString"
 
@@ -136,12 +133,24 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
     ImmArray[Int](1).relaxedSlice(0, -1) shouldBe ImmArray.empty[Int]
   }
 
+  it should "implement equals and hashCode correctly" in {
+    val long = ImmArray(1, 2, 3, 4)
+    val shortened = long.relaxedSlice(1, 3)
+
+    val short = ImmArray(2, 3)
+
+    shortened.hashCode() shouldBe short.hashCode()
+    shortened shouldEqual short
+  }
+
   behavior of "ImmArraySeq"
 
   it should "use CanBuildFrom of ImmArraySeq" in {
     val seq = ImmArray.ImmArraySeq("hello")
     val stillSeq: ImmArray.ImmArraySeq[String] = seq.map(_ => "hello")
     seq shouldBe stillSeq
+    val stillSeqAgain: ImmArray.ImmArraySeq[String] = seq.flatMap(_ => Seq("hello"))
+    seq shouldBe stillSeqAgain
   }
 
   it should "drop correctly" in {
@@ -151,30 +160,9 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
 
   behavior of "Equal instance"
 
-  checkLaws(ScalazProperties.equal.laws[ImmArray[IntInt]])
+  checkLaws(ScalazProperties.equal.laws[ImmArray[Unnatural[Int]]])
 
   behavior of "Traverse instance"
 
   checkLaws(ScalazProperties.traverse.laws[ImmArraySeq])
-
-  private def checkLaws(props: Properties) =
-    props.properties foreach { case (s, p) => it should s in check(p) }
-}
-
-object ImmArrayTest {
-  private final case class IntInt(i: Int)
-  private implicit val arbII: Arbitrary[IntInt] = Arbitrary(Arbitrary.arbitrary[Int] map IntInt)
-  private implicit val eqII: Equal[IntInt] = Equal.equal(_ == _)
-
-  implicit def arbImmArray[A: Arbitrary]: Arbitrary[ImmArray[A]] =
-    Arbitrary {
-      for {
-        raw <- Arbitrary.arbitrary[Seq[A]]
-        min <- Gen.choose(0, 0 max (raw.size - 1))
-        max <- Gen.choose(min, raw.size)
-      } yield if (min >= max) ImmArray(Seq()) else ImmArray(raw).strictSlice(min, max)
-    }
-
-  implicit def arbImmArraySeq[A: Arbitrary]: Arbitrary[ImmArraySeq[A]] =
-    Arbitrary(arbImmArray[A].arbitrary map (_.toSeq))
 }

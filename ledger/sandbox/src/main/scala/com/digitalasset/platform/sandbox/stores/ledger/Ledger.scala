@@ -1,98 +1,91 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.TransactionIdString
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.ledger.participant.state.v1._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.{GenTransaction, TransactionCommitter}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.EventId
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 
-/** Defines all the functionalities a Ledger needs to provide */
-trait Ledger extends AutoCloseable {
+trait Ledger extends ReadOnlyLedger {
 
-  def ledgerId: LedgerId
+  def publishTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction
+  ): Future[SubmissionResult]
 
-  def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
+  // Party management
+  def publishPartyAllocation(
+      submissionId: SubmissionId,
+      party: Party,
+      displayName: Option[String]
+  ): Future[SubmissionResult]
 
-  def ledgerEnd: Long
+  // Package management
+  def uploadPackages(
+      submissionId: SubmissionId,
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]
+  ): Future[SubmissionResult]
 
-  def snapshot(): Future[LedgerSnapshot]
+  // Configuration management
+  def publishConfiguration(
+      maxRecordTime: Timestamp,
+      submissionId: String,
+      config: Configuration
+  ): Future[SubmissionResult]
 
-  def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]]
-
-  def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]]
-
-  def publishHeartbeat(time: Instant): Future[Unit]
-
-  def publishTransaction(transactionSubmission: TransactionSubmission): Future[SubmissionResult]
-
-  def lookupTransaction(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]]
 }
 
 object Ledger {
 
-  type LedgerFactory = (ActiveContractsInMemory, Seq[LedgerEntry]) => Ledger
+  type TransactionForIndex =
+    GenTransaction[EventId, ContractId, Value.VersionedValue[ContractId]]
+  type DisclosureForIndex = Map[EventId, Set[Party]]
+  type GlobalDivulgence = Relation[ContractId, Party]
 
-  /**
-    * Creates an in-memory ledger
-    *
-    * @param ledgerId      the id to be used for the ledger
-    * @param timeProvider  the provider of time
-    * @param acs           the starting ACS store
-    * @param ledgerEntries the starting entries
-    * @return an in-memory Ledger
-    */
-  def inMemory(
-      ledgerId: LedgerId,
-      timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
-      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
-    new InMemoryLedger(ledgerId, timeProvider, acs, ledgerEntries)
+  def convertToCommittedTransaction(
+      committer: TransactionCommitter,
+      transactionId: TransactionId,
+      transaction: SubmittedTransaction
+  ): (TransactionForIndex, DisclosureForIndex, GlobalDivulgence) = {
 
-  /**
-    * Creates a Postgres backed ledger
-    *
-    * @param jdbcUrl       the jdbc url string containing the username and password as well
-    * @param ledgerId      the id to be used for the ledger
-    * @param timeProvider  the provider of time
-    * @param acs           the starting ACS store
-    * @param ledgerEntries the starting entries
-    * @param queueDepth    the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure upstream
-    * @param startMode     whether the ledger should be reset, or continued where it was
-    * @return a Postgres backed Ledger
-    */
-  def postgres(
-      jdbcUrl: String,
-      ledgerId: LedgerId,
-      timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
-      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
-      queueDepth: Int,
-      startMode: SqlStartMode
-  )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, acs, ledgerEntries, queueDepth, startMode)
+    // First we "commit" the transaction by converting all relative contractIds to absolute ones
+    val committedTransaction = committer.commitTransaction(transactionId, transaction)
 
-  /** Wraps the given Ledger adding metrics around important calls */
-  def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)
+    // here we just need to align the type for blinding
+    val blindingInfo = Blinding.blind(committedTransaction)
 
+    // At this point there should be no local-divulgences
+    assert(
+      blindingInfo.localDivulgence.isEmpty,
+      s"Encountered non-empty local divulgence. This is a bug! [transactionId={$transactionId}, blindingInfo={${blindingInfo.localDivulgence}}"
+    )
+
+    // convert LF NodeId to Index EventId
+    val disclosureForIndex: Map[EventId, Set[Party]] = blindingInfo.disclosure.map {
+      case (nodeId, parties) =>
+        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
+    }
+
+    val transactionForIndex: TransactionForIndex =
+      committedTransaction.mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _))
+
+    (transactionForIndex, disclosureForIndex, blindingInfo.globalDivulgence)
+  }
 }

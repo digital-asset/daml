@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -12,12 +12,12 @@ const exampleArgument: DamlLfValue = DamlLfValueF.record(exampleRecordId, [
   {label: 'text parameter', value: DamlLfValueF.text('text')},
   {label: 'party parameter', value: DamlLfValueF.party('party')},
   {label: 'contractId parameter', value: DamlLfValueF.contractid('1:23')},
-  {label: 'decimal parameter', value: DamlLfValueF.decimal('0')},
+  {label: 'numeric parameter', value: DamlLfValueF.numeric('0')},
   {label: 'integer parameter', value: DamlLfValueF.int64('0')},
   {label: 'time parameter', value: DamlLfValueF.timestamp('2017-01-01T11:30:10.001Z')},
   {label: 'date parameter', value: DamlLfValueF.date('2017-01-01')},
   {label: 'bool parameter', value: DamlLfValueF.bool(false)},
-])
+]);
 
 const description = `
 The ArgumentDisplay component displays a DAML-LF value.

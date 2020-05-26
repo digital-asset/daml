@@ -1,0 +1,38 @@
+{
+  "private": false,
+  "name": "@daml/types",
+  "version": "0.0.0-SDKVERSION",
+  "description": "Primitive types of the DAML language and their serialization.",
+  "keywords": [
+    "daml",
+    "API",
+    "types",
+    "serialization"
+  ],
+  "homepage": "https://daml.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/digital-asset/daml.git",
+    "directory": "language-support/ts/daml-types"
+  },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@mojotech/json-type-validation": "^3.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch",
+    "test": "jest",
+    "lint": "eslint --ext .ts --ignore-pattern lib/ --max-warnings 0 ./"
+  },
+  "devDependencies": {
+    "@types/jest": "^25.1.5",
+    "@typescript-eslint/eslint-plugin": "^2.16.0",
+    "@typescript-eslint/parser": "^2.16.0",
+    "eslint": "^6.8.0",
+    "jest": "^25.2.7",
+    "typescript": "~3.8.3"
+  }
+}

@@ -1,0 +1,22 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @INFO Use negate
+-- @INFO Use negate
+
+-- Test that foo does not overflow
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["foo"]) | .expr.prim_lit | lf::get_int64($pkg) == "1"
+
+-- Test that DAML-LF can hold maxBound :: Int64
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["bar"]) | .expr.prim_lit | lf::get_int64($pkg) == "9223372036854775807"
+
+module UseInteger where
+
+foo = 1
+bar = 9223372036854775807 -- maxBound :: Int64 (*)
+
+main = scenario do
+  alice <- getParty "alice"
+  submit alice do
+      assertMsg "Was not one" (foo == 1)
+      assert $ 0 - foo - bar == 0 - 2^62 - 2^62 -- minBound :: Int64

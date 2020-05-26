@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,18 +14,17 @@ da_scala_library(
         "//visibility:public",
     ],
     exports = [],
-    runtime_deps = [],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+    ],
     deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/github/pureconfig",
-        "//3rdparty/jvm/com/github/zafarkhaja:java_semver",
-        "//3rdparty/jvm/com/typesafe/akka:akka_http",
-        "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger/ledger-api-client",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

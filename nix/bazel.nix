@@ -4,24 +4,33 @@
 { system ? builtins.currentSystem
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
-rec {
+let shared = rec {
   inherit (pkgs)
+    coreutils
     curl
     docker
     gawk
     gnutar
+    grpc
+    grpcurl
     gzip
-    hlint
     imagemagick
     jdk8
+    jekyll
     jq
-    libffi
+    netcat-gnu
     nodejs
+    openssl
+    gnupatch
     patchelf
-    protobuf3_5
-    scala
+    postgresql_9_6
+    protobuf3_8
+    python3
+    toxiproxy
     zip
     ;
+
+  scala = pkgs.scala_2_12;
 
   # We need to have a file in GOPATH that we can use as
   # root_file in go_wrap_sdk.
@@ -30,14 +39,20 @@ rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  # the GHC version we use plus custom overrides to sync with the
-  # stackage version as specified in stack.yaml. Prefer to use this for
-  # haskell binaries to keep the dev-env closure size as small
-  # as possible.
-  ghc = import ./ghc.nix { inherit pkgs; };
-
-  # GHC with the package configurations patched for static only linking.
-  ghcStatic = ghc.ghcWithPackages (p: []);
+  # GHC configured for static linking only.
+  ghcStaticPkgs = (import ./ghc.nix { inherit pkgs; }).override {
+    overrides = self: super: {
+      mkDerivation = args: super.mkDerivation (args // {
+        enableLibraryProfiling = false;
+        doHoogle = false;
+        doHaddock = false;
+        doCheck = false;
+      });
+      hlint = pkgs.haskell.lib.justStaticExecutables super.hlint;
+    };
+  };
+  ghcStatic = ghcStaticPkgs.ghc;
+  hlint = ghcStaticPkgs.hlint;
 
 
   # Java 8 development
@@ -45,14 +60,20 @@ rec {
     exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
   '';
 
-  # The sass derivation in nixos-18.09 is broken, so we add our own
-  # created with bundix.
-  sass = pkgs.callPackage ./overrides/sass {};
+  # rules_nodejs expects nodejs in a subdirectory of a repository rule.
+  # We use a linkFarm to fulfill this requirement.
+  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs; }];
 
-  sphinx183 = import ./tools/sphinx183 {
-    inherit pkgs;
-    pythonPackages = pkgs.python36Packages;
-  };
+  sass = pkgs.sass;
+
+  # sphinx 2.2.2 causes build failures of //docs:pdf-docs.
+  sphinx183 = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
+    version = "1.8.3";
+    src = attrs.src.override {
+      inherit version;
+      sha256 = "c4cb17ba44acffae3d3209646b6baec1e215cad3065e852c68cc569d4df1b9f8";
+    };
+  });
 
   # Custom combination of latex packages for our latex needs
   texlive = pkgs.texlive.combine {
@@ -88,6 +109,7 @@ rec {
       titlesec
       tocbibind
       todonotes
+      transparent
       trimspaces
       varwidth
       wrapfig
@@ -95,9 +117,13 @@ rec {
     ;
   };
 
+  z3 = pkgs.z3;
+
   bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
-} // (if pkgs.stdenv.isLinux then {
+};
+in shared // (if pkgs.stdenv.isLinux then {
   inherit (pkgs)
     glibcLocales
     ;
+  ghcStaticDwarf = shared.ghcStatic.override { enableDwarf = true; };
   } else {})

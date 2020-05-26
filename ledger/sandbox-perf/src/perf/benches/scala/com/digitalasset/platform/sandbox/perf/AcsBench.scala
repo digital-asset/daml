@@ -1,29 +1,45 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
 import java.io.File
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.MockMessages
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.platform.sandbox.services.TestCommands
-import org.openjdk.jmh.annotations.Benchmark
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.testing.utils.MockMessages
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.platform.sandbox.services.TestCommands
+import org.openjdk.jmh.annotations.{Benchmark, Level, Setup}
+
+class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
+
+  def commandCount = 10000L
+
+  @Setup(Level.Invocation)
+  def submitCommands(): Unit = {
+    await(
+      dummyCreates(ledger.ledgerId)
+        .take(commandCount)
+        .mapAsync(100)(ledger.commandService.submitAndWait)
+        .runWith(Sink.ignore)(mat))
+    ()
+  }
+}
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File = new File("ledger/sandbox/Test.dar")
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
   private def generateCommand(
       sequenceNumber: Int,
       contractId: String,
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       template: Identifier): SubmitAndWaitRequest = {
     buildRequest(
       ledgerId = ledgerId,
@@ -38,12 +54,15 @@ class AcsBench extends TestCommands with InfAwait {
       template: Identifier): Option[String] = {
     val events = response.activeContracts.toSet
     events.collectFirst {
-      case CreatedEvent(contractId, _, Some(id), _, _, _) if id == template => contractId
+      case CreatedEvent(contractId, _, Some(id), _, _, _, _, _, _) if id == template => contractId
     }
   }
 
-  private def getContractIds(state: PerfBenchState, template: Identifier, ledgerId: String) =
-    new ActiveContractSetClient(domain.LedgerId(ledgerId), state.ledger.acsService)(state.esf)
+  private def getContractIds(
+      state: PerfBenchState,
+      template: Identifier,
+      ledgerId: domain.LedgerId) =
+    new ActiveContractSetClient(ledgerId, state.ledger.acsService)(state.esf)
       .getActiveContracts(MockMessages.transactionFilter)
       .map(extractContractId(_, template))
 

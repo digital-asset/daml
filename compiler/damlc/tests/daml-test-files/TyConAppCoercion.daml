@@ -1,0 +1,16 @@
+
+module TyConAppCoercion () where
+
+class MyClass a where
+  f1 : Optional a -> a
+  f1 = error ""
+
+  f2 : [a] -> a
+  f2 = error ""
+
+data X = X
+
+instance MyClass X where
+
+newtype Y = Y X
+  deriving MyClass

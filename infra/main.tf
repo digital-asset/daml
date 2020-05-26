@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 terraform {
@@ -11,11 +11,25 @@ terraform {
 provider "google" {
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
+  version = "3.5"
 }
 
 provider "google-beta" {
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
+  version = "3.5"
+}
+
+provider "secret" {
+  version = "1.1"
+}
+
+provider "template" {
+  version = "2.1.2"
+}
+
+data "google_project" "current" {
+  project_id = "${local.project}"
 }
 
 locals {
@@ -35,4 +49,6 @@ locals {
 
   // maintained by DA security
   ssl_certificate = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/da-ext-wildcard"
+
+  ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/daml-lang-hoogle-app-service-https-cert"
 }

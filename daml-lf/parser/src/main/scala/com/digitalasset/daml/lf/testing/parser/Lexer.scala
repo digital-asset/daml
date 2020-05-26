@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data
+import com.daml.lf.data.Time
+import com.daml.lf.testing.parser.Token._
 
 import scala.util.Try
 import scala.util.parsing.combinator.RegexParsers
@@ -39,7 +39,10 @@ private[parser] object Lexer extends RegexParsers {
     "fetch_by_key" -> `fetch_by_key`,
     "lookup_by_key" -> `lookup_by_key`,
     "by" -> `by`,
-    "to" -> `to`
+    "to" -> `to`,
+    "to_any" -> `to_any`,
+    "from_any" -> `from_any`,
+    "type_rep" -> `type_rep`
   )
 
   val token: Parser[Token] =
@@ -70,7 +73,7 @@ private[parser] object Lexer extends RegexParsers {
       """\"([^\\\"]|\\n|\\r|\\\"|\\\'|\\\\)*\"""".r >> toText |
       """\d+-\d+-\d+T\d+:\d+:\d+(\.\d+)?Z""".r >> toTimestamp |
       """\d{4}-\d{2}-\d{2}""".r >> toDate |
-      """-?\d+\.\d*""".r >> toDecimal |
+      """-?\d+\.\d*""".r >> toNumeric |
       """-?\d+""".r >> toNumber
 
   private def toTimestamp(s: String): Parser[Timestamp] =
@@ -89,10 +92,10 @@ private[parser] object Lexer extends RegexParsers {
           Error(s"cannot interpret $s as a Timestamp", in)
     }
 
-  private def toDecimal(s: String): Parser[Decimal] =
+  private def toNumeric(s: String): Parser[Numeric] =
     (in: Input) =>
-      data.Decimal.fromString(s) match {
-        case Right(x) => Success(Decimal(x), in)
+      data.Numeric.fromString(s) match {
+        case Right(x) => Success(Numeric(x), in)
         case Left(_) => Error(s"cannot interpret $s as a Decimal", in)
     }
 

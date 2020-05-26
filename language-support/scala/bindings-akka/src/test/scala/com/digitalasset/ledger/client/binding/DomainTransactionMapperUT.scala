@@ -1,26 +1,27 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import java.time.Instant
 
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.refinements.ApiTypes._
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record}
-import com.digitalasset.ledger.client.testing.AkkaTest
+import com.daml.ledger.api.refinements.ApiTypes._
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.value.{Identifier, Record}
+import com.daml.ledger.client.testing.AkkaTest
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.immutable
 
 class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
-  private val mockContract = Contract(Primitive.ContractId("contractId"), MockTemplate(), None)
+  private val mockContract =
+    Contract(Primitive.ContractId("contractId"), MockTemplate(), None, Seq.empty, Seq.empty, None)
   private val transactionMapper = new DomainTransactionMapper(createdEvent => Right(mockContract))
 
   private def getResult(source: immutable.Iterable[Transaction]): Seq[DomainTransaction] =
@@ -35,19 +36,23 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
         CreatedEvent(
           "createdEventId",
           contractId,
-          Some(Identifier("createdTemplateId")),
+          Some(Identifier("pkgId", "modName", "createdTemplateId")),
+          None,
           Some(Record()))))
 
   def archivedEvent(contractId: String) =
     Event(
       Archived(
-        ArchivedEvent("archivedEventId", contractId, Some(Identifier("archivedTemplateId")))))
+        ArchivedEvent(
+          "archivedEventId",
+          contractId,
+          Some(Identifier("pkgId", "modName", "archivedTemplateId")))))
 
   def domainCreatedEvent(contractId: String) =
     DomainCreatedEvent(
       EventId("createdEventId"),
       ContractId(contractId),
-      TemplateId(Identifier("createdTemplateId")),
+      TemplateId(Identifier("pkgId", "modName", "createdTemplateId")),
       List.empty,
       CreateArguments(Record()),
       mockContract
@@ -57,8 +62,9 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
     DomainArchivedEvent(
       EventId("archivedEventId"),
       ContractId(contractId),
-      TemplateId(Identifier("archivedTemplateId")),
-      List.empty)
+      TemplateId(Identifier("pkgId", "modName", "archivedTemplateId")),
+      List.empty
+    )
 
   case class MockTemplate() extends Template[MockTemplate] {
     override protected[this] def templateCompanion(
@@ -66,7 +72,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       new TemplateCompanion.Empty[MockTemplate] {
         override val onlyInstance = MockTemplate()
         override val id: Primitive.TemplateId[MockTemplate] =
-          ` templateId`("packageId", "moduleId", "templateId")
+          ` templateId`("packageId", "modName", "templateId")
         override val consumingChoices: Set[Choice] = Set.empty
       }
   }

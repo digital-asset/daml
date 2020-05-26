@@ -1,27 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.helpers
+package com.daml.extractor.helpers
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum.{
-  Decimal,
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.value.Value.Sum.{
+  Numeric,
   Int64,
   Party,
   Text,
   Timestamp,
   List => DamlListValue
 }
-import com.digitalasset.ledger.api.v1.value.{
-  Identifier,
-  Record,
-  RecordField,
-  Value,
-  List => DamlList
-}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, List => DamlList}
 
 import scala.language.implicitConversions
 
@@ -29,7 +23,7 @@ object ValueConversions {
 
   implicit class StringValues(val s: String) extends AnyVal {
     def asParty: Value = Value(Party(s))
-    def asDecimal: Value = Value(Decimal(s))
+    def asNumeric: Value = Value(Numeric(s))
     def asText: Value = Value(Text(s))
   }
 

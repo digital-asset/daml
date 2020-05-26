@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 const fs = require('fs');
@@ -53,7 +53,7 @@ const APP_NAME = 'Navigator';
 module.exports = (env) => {
   const paths_case_check = env && env.paths_case_check  || 'true';
   const in_dir           = env && env.bazel_in_dir  || __dirname;
-  const out_dir          = env && env.bazel_out_dir || path.join(__dirname, 'dist');
+  const out_dir          = env && env.bazel_out_dir || path.join(__dirname, 'dist');
   const build_version    = env && env.bazel_version_file ? fs.readFileSync(env.bazel_version_file, 'utf8').trim() : 'HEAD';
   const build_commit     = env && env.bazel_commit_file  ? fs.readFileSync(env.bazel_commit_file, 'utf8').trim()  : 'HEAD';
   const isProduction     = env ? (!!env.prod || !!env.production) : false;
@@ -102,6 +102,7 @@ module.exports = (env) => {
   }
 
   return {
+    mode: isProduction ? 'production' : 'development',
     entry: {
       browsercheck: './src/browsercheck.ts',
       bundle: './src/index.tsx',
@@ -127,7 +128,7 @@ module.exports = (env) => {
       rules: [
         {
           test: /\.modernizrrc$/,
-          use: [ 'modernizr-loader', 'json-loader' ]
+          loader: "modernizr-loader!json-loader",
         },
         {
           test: /\.tsx?$/,

@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-privacy:
@@ -9,12 +9,13 @@ Privacy
 The previous sections have addressed two out of three questions posed in the
 introduction: "what the ledger looks like", and "who may request which changes".
 This section addresses the last one, "who sees which changes and data". That is,
-it explains the privacy model for DA ledgers.
+it explains the privacy model for DAML ledgers.
 
-The privacy model of the DA platform is based on a **need-to-know
+The privacy model of DAML Ledgers is based on a **need-to-know
 basis**, and provides privacy **on the level of subtransactions**. Namely, a party learns only those
 parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
+And maintainers see all changes to the contract keys they maintain.
 
 To make this more precise, a stakeholder concept is needed.
 
@@ -24,7 +25,7 @@ Contract Observers and Stakeholders
 Intuitively, as signatories are bound by a contract, they have a stake in it.
 Actors might not be bound by the contract, but they still have a stake in their actions, as these are the actor's rights.
 Generalizing this, **observers** are parties who might not be bound by the contract, but still have the right to see the contract.
-For example, Alice should be an observer of the `PaintOffer`, such that she can is made aware that the offer exists.
+For example, Alice should be an observer of the `PaintOffer`, such that she is made aware that the offer exists.
 
 Signatories are already determined by the contract model discussed so far.
 The full **contract model** additionally specifies the observers on each contract.
@@ -34,7 +35,7 @@ Note that in DAML, as detailed :ref:`later <da-model-daml>`, controllers specifi
 
 In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
 
-.. https://www.lucidchart.com/documents/edit/33f1c8fc-001b-48e9-a9fc-d0d499dac943
+.. https://www.lucidchart.com/documents/edit/ea40a651-a2e0-4365-ae7d-4cee8cd07071/0
 .. image:: ./images/stakeholders-paint-offer.svg
    :align: center
    :width: 60%
@@ -47,7 +48,7 @@ Projections
 
 Stakeholders should see changes to contracts they hold a stake in, but that does not
 mean that they have to see the entirety of any transaction that their contract is
-involved in. This is made precise though *projections* of a transaction,
+involved in. This is made precise through *projections* of a transaction,
 which define the view that each party gets on a transaction.
 Intuitively, given a transaction within a commit, a party will see
 only the subtransaction consisting of all actions on contracts where the party
@@ -84,7 +85,7 @@ for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, the DA Platform shows to observers on a contract only the :ref:`state changing
+As a design choice, DAML Ledgers show to observers on a contract only the :ref:`state changing
 <def-contract-state>` actions on the contract.
 More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to the observers - except when they are
 the actors of these actions.
@@ -98,6 +99,8 @@ This motivates the following definition: a party `p` is an **informee** of an ac
   * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+
+  * `A` is a **NoSuchKey** `k` assertion and `p` is a maintainer of `k`.
 
 .. _def-tx-projection:
 
@@ -151,8 +154,13 @@ Ledger projections do not always satisfy the definition of
 consistency, even if the ledger does. For example, in P's view, `Iou Bank A` is
 exercised without ever being created, and thus without being made
 active. Furthermore, projections can in general be
-non-conformant. However, the projection for a party `p` is always internally consistent, and is consistent
-for all contracts on which `p` is a stakeholder. In other words,
+non-conformant. However, the projection for a party `p` is always
+
+- internally consistent for all contracts,
+- consistent for all contracts on which `p` is a stakeholder, and
+- consistent for the keys that `p` is a maintainer of.
+
+In other words,
 `p` is never a stakeholder on any input contracts of its projection. Furthermore, if the
 contract model is **subaction-closed**, which
 means that for every action `act` in the model, all subactions of
@@ -162,19 +170,46 @@ conformant. Lastly, as projections carry no information about the
 requesters, we cannot talk about authorization on the level of
 projections.
 
+
+.. _da-model-privacy-authorization:
+
+Privacy through authorization
++++++++++++++++++++++++++++++
+
+Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
+that parties cannot learn about the existence of a contract without having a right to know about their existence.
+So we use authorization to impose *access controls* that ensure confidentiality about the existence of contracts.
+For example, suppose now that for a `PaintAgreement` contract, both signatories are key maintainers, not only the painter.
+That is, we consider `PaintAgreement @A @P &P123` instead of `PaintAgreement $A @P &P123`.
+Then, when the painter's competitor `Q` passes by `A`'s house and sees that the house desperately needs painting,
+`Q` would like to know whether there is any point in spending marketing efforts and making a paint offer to `A`.
+Without key authorization, `Q` could test whether a ledger implementation accepts the action **NoSuchKey** `(A, P, refNo)` for different guesses of the reference number `refNo`.
+In particular, if the ledger does not accept the transaction for some `refNo`, then `Q` knows that `P` has some business with `A` and his chances of `A` accepting his offer are lower.
+Key authorization prevents this flow of information because the ledger always rejects `Q`\ 's action for violating the authorization rules.
+
+For these access controls, it suffices if one maintainer authorizes a **NoSuchKey** assertion.
+However, we demand that *all* maintainers must authorize it.
+This is to prevent spam in the projection of the maintainers.
+If only one maintainer sufficed to authorize a key assertion,
+then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester, arbitrary other parties.
+Unlike **Create** actions to observers, such assertions are of no value to the other parties.
+Since processing such assertions may be expensive, they can be considered spam.
+Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the problem.
+
+
 .. _da-model-divulgence:
 
 Divulgence: When Non-Stakeholders See Contracts
 +++++++++++++++++++++++++++++++++++++++++++++++
 
-The guiding principle for the privacy model of DA ledgers is that
+The guiding principle for the privacy model of DAML ledgers is that
 contracts should only be shown to their stakeholders. However,
 ledger projections can cause contracts to become visible to other
 parties as well.
 
 In the example of `ledger projections of the paint offer
 <#da-ledgers-projections-example>`__, the exercise on the `PaintOffer`
-is visible both the painter and to Alice.  As a consequence, the
+is visible to both the painter and Alice.  As a consequence, the
 exercise on the `Iou Bank A` is visible to the painter, and the
 creation of `Iou Bank P` is visible to Alice. As actions also contain
 the contracts they act on, `Iou Bank A` was thus shown to the painter
@@ -182,7 +217,7 @@ and `Iou Bank P` was shown to Alice.
 
 Showing contracts to non-stakeholders through ledger projections is
 called **divulgence**. Divulgence is a deliberate choice in the design
-of DA ledgers. In the paint offer example, the only proper way to
+of DAML ledgers. In the paint offer example, the only proper way to
 accept the offer is to transfer the money from Alice to the painter.
 Conceptually, at the instant where the offer is accepted, its
 stakeholders also gain a temporary stake in the actions on the two

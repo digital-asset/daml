@@ -1,0 +1,27 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that shadowing of type variables works.
+
+module TypeVarShadowing where
+
+-- This is basically the problem reported in #1915.
+type A = forall a. Eq a => a
+
+idA : A -> A
+idA x = x
+
+idA' : (forall a. Eq a => a) -> (forall a. Eq a => a)
+idA' x = x
+
+-- This breaks if we use the surface type variable names and not the unique names.
+type F f = forall a. f a
+
+shadow : forall a. F (Either a)
+shadow = error "shadow"
+
+-- This breaks if we don't allow for shadowing type variables in DAML-LF.
+type Kont a = forall r. (a -> r) -> r
+
+kont2 : Kont (Kont Int)
+kont2 x = kont2 x

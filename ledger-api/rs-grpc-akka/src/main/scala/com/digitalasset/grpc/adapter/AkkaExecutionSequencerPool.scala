@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter
+package com.daml.grpc.adapter
 
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -9,13 +9,14 @@ import akka.Done
 import akka.actor.ActorSystem
 
 import scala.collection.breakOut
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class AkkaExecutionSequencerPool(
     poolName: String,
     actorCount: Int = AkkaExecutionSequencerPool.defaultActorCount,
-    terminationTimeout: FiniteDuration = 30.seconds)(implicit system: ActorSystem)
+    terminationTimeout: FiniteDuration = 30.seconds,
+)(implicit system: ActorSystem)
     extends ExecutionSequencerFactory {
   require(actorCount > 0)
 
@@ -28,18 +29,18 @@ class AkkaExecutionSequencerPool(
   override def getExecutionSequencer: ExecutionSequencer =
     pool(counter.getAndIncrement() % actorCount)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  override def close(): Unit = {
-    implicit val ec: ExecutionContextExecutor = system.dispatcher
-    val eventualDones: Iterable[Future[Done]] = pool.map(_.closeAsync)(breakOut)
-    Await.result(
-      Future.firstCompletedOf[Any](
-        List(
-          system.whenTerminated, //  Cut it short if the actorsystem is down already
-          Future.sequence(eventualDones))),
-      terminationTimeout
+  override def close(): Unit =
+    Await.result(closeAsync(), terminationTimeout)
+
+  def closeAsync(): Future[Unit] = {
+    implicit val ec: ExecutionContext = system.dispatcher
+    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.map(_.closeAsync)(breakOut))
+    Future.firstCompletedOf(
+      Seq(
+        system.whenTerminated.map(_ => ()), //  Cut it short if the ActorSystem stops.
+        eventuallyClosed.map(_ => ()),
+      )
     )
-    ()
   }
 }
 

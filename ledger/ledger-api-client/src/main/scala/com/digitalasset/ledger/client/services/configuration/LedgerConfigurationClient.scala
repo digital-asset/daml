@@ -1,28 +1,32 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.configuration
+package com.daml.ledger.client.services.configuration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   LedgerConfiguration
 }
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
+import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.{
+  LedgerConfigurationServiceStub
+}
+import com.daml.ledger.client.LedgerClient
+import scalaz.syntax.tag._
 
 final class LedgerConfigurationClient(
-    ledgerId: String,
-    ledgerConfigurationService: LedgerConfigurationService)(
-    implicit esf: ExecutionSequencerFactory) {
+    ledgerId: domain.LedgerId,
+    service: LedgerConfigurationServiceStub)(implicit esf: ExecutionSequencerFactory) {
 
-  def getLedgerConfiguration: Source[LedgerConfiguration, NotUsed] =
+  def getLedgerConfiguration(token: Option[String] = None): Source[LedgerConfiguration, NotUsed] =
     ClientAdapter
       .serverStreaming(
-        GetLedgerConfigurationRequest(ledgerId),
-        ledgerConfigurationService.getLedgerConfiguration)
+        GetLedgerConfigurationRequest(ledgerId.unwrap),
+        LedgerClient.stub(service, token).getLedgerConfiguration)
       .map(_.ledgerConfiguration.getOrElse(sys.error("No LedgerConfiguration in response.")))
 
 }

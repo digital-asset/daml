@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,19 +10,24 @@ load(
 da_scala_library(
     name = "ledger-api-client",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-client:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-client:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/io/grpc:grpc_netty",
-        "//3rdparty/jvm/io/netty:netty_handler",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-domain",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/grpc-utils",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -31,12 +36,45 @@ da_scala_test_suite(
     srcs = glob(["src/test/suite/**/*.scala"]),
     deps = [
         ":ledger-api-client",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
-        "//3rdparty/jvm/org/awaitility",
-        "//3rdparty/jvm/org/scalatest",
         "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//libs-scala/direct-execution-context",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
+da_scala_test_suite(
+    name = "ledger-api-client-integration-tests",
+    srcs = glob(["src/it/**/*.scala"]),
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+    ],
+    resources = [
+        "src/it/resources/logback-test.xml",
+    ],
+    deps = [
+        ":ledger-api-client",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )

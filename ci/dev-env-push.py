@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This script builds the dev-env nix closures and pushes them into the cache
@@ -104,7 +104,7 @@ def main():
         shutil.rmtree(nix_cache_dir)
 
     # copy to nix cache
-    cmd = ["nix", "copy", "--to", store_url, "-f", "./nix", "tools", "cached"]
+    cmd = ["nix", "copy", "--to", store_url, "-f", "./nix", "tools", "ci-cached"]
     log_cmd(cmd)
     proc = subprocess.run(
             cmd,

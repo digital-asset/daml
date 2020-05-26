@@ -1,8 +1,10 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary")
 
+# Note that this whole library is currently an unused and
+# we do not have integration tests for navigator right now.
 da_scala_binary(
     name = "navigatortest-jar",
     srcs = glob(
@@ -10,20 +12,27 @@ da_scala_binary(
             "src/**/*.scala",
         ],
     ),
-    main_class = "com.digitalasset.navigator.test.Main",
+    main_class = "com.daml.navigator.test.Main",
     resource_strip_prefix = "navigator/integration-test/src/main/resources/",
     resources = ["src/main/resources/Main.daml"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
-        "//3rdparty/jvm/io/circe:circe_core",
-        "//3rdparty/jvm/io/circe:circe_generic",
-        "//3rdparty/jvm/io/circe:circe_parser",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/seleniumhq/selenium:selenium_java",
-        "//daml-foundations/daml-tools/damlc-jar:damlc_library_jar",
+    runtime_deps = [
         "//ledger/sandbox",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:io_circe_circe_core_2_12",
+        "@maven//:io_circe_circe_generic_2_12",
+        "@maven//:io_circe_circe_parser_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_seleniumhq_selenium_selenium_api",
+        "@maven//:org_seleniumhq_selenium_selenium_remote_driver",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_12",
     ],
 )

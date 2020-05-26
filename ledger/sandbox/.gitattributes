@@ -1,0 +1,3 @@
+# Enforce Unix newlines
+*.sql   text eol=lf
+*.sha256  text eol=lf

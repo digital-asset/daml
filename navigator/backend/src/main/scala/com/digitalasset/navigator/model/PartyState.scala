@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.{iface => DamlLfIface}
+import com.daml.ledger.api.refinements.ApiTypes
 
 import scalaz.Tag
 
@@ -15,7 +15,7 @@ case class State(ledger: Ledger, packageRegistry: PackageRegistry)
 /** A DA party and its ledger view(s). */
 class PartyState(val name: ApiTypes.Party, val useDatabase: Boolean) {
   private val stateRef: AtomicReference[State] = new AtomicReference(
-    State(Ledger(None, useDatabase), new PackageRegistry))
+    State(Ledger(name, None, useDatabase), new PackageRegistry))
 
   def ledger: Ledger = stateRef.get.ledger
   def packageRegistry: PackageRegistry = stateRef.get.packageRegistry

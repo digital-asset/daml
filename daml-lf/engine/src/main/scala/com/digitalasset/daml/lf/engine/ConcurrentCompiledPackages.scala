@@ -1,29 +1,33 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
-import com.digitalasset.daml.lf.speedy.Compiler.PackageNotFound
-import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
-import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.speedy
+import scala.collection.JavaConverters._
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
   */
-final class ConcurrentCompiledPackages extends CompiledPackages {
+final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   private[this] val _packages: ConcurrentHashMap[PackageId, Package] =
     new ConcurrentHashMap()
-  private[this] val _defns: ConcurrentHashMap[SDefinitionRef, SExpr] =
+  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
+    new ConcurrentHashMap()
+  private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
 
   def getPackage(pId: PackageId): Option[Package] = Option(_packages.get(pId))
-  def getDefinition(dref: SDefinitionRef): Option[SExpr] = Option(_defns.get(dref))
+  def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
+    Option(_defns.get(dref))
+
+  def stackTraceMode = speedy.Compiler.FullStackTrace
+  def profilingMode = speedy.Compiler.NoProfile
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -54,43 +58,65 @@ final class ConcurrentCompiledPackages extends CompiledPackages {
             case Some(pkg_) => pkg_
           }
 
-          val defns =
-            try {
-              Compiler(packages orElse state.packages).compilePackage(pkgId)
-            } catch {
-              // if we have a missing package, ask for it and then compile that one, too.
-              case PackageNotFound(dependency) =>
-                if (state.seenDependencies.contains(dependency)) {
-                  return ResultError(Error(s"Cyclical packages, stumbled upon $dependency twice"))
+          // Load dependencies of this package and transitively its dependencies.
+          for (dependency <- pkg.directDeps) {
+            if (!_packages.contains(dependency) && !state.seenDependencies.contains(dependency)) {
+              return ResultNeedPackage(
+                dependency, {
+                  case None => ResultError(Error(s"Could not find package $dependency"))
+                  case Some(dependencyPkg) =>
+                    addPackageInternal(
+                      AddPackageState(
+                        packages = state.packages + (dependency -> dependencyPkg),
+                        seenDependencies = state.seenDependencies + dependency,
+                        toCompile = dependency :: pkgId :: toCompile))
                 }
-                return ResultNeedPackage(
-                  dependency, {
-                    case None => ResultError(Error(s"Could not find package $dependency"))
-                    case Some(dependencyPkg) =>
-                      addPackageInternal(
-                        AddPackageState(
-                          packages = state.packages + (dependency -> dependencyPkg),
-                          seenDependencies = state.seenDependencies + dependency,
-                          toCompile = dependency :: pkgId :: toCompile))
-                  }
-                )
+              )
             }
-
-          // if we made it this far, update
-          _packages.put(pkgId, pkg)
-          for ((defnId, defn) <- defns) {
-            _defns.put(defnId, defn)
           }
+
+          // At this point all dependencies have been loaded. Update the packages
+          // map using 'computeIfAbsent' which will ensure we only compile the
+          // package once. Other concurrent calls to add this package will block
+          // waiting for the first one to finish.
+          _packages.computeIfAbsent(
+            pkgId, { _ =>
+              // Compile the speedy definitions for this package.
+              val defns =
+                speedy
+                  .Compiler(packages orElse state.packages, stackTraceMode, profilingMode)
+                  .unsafeCompilePackage(pkgId)
+              defns.foreach {
+                case (defnId, defn) => _defns.put(defnId, defn)
+              }
+              // Compute the transitive dependencies of the new package. Since we are adding
+              // packages in dependency order we can just union the dependencies of the
+              // direct dependencies to get the complete transitive dependencies.
+              val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
+                case (deps, dependency) =>
+                  deps union _packageDeps.get(dependency)
+              }
+              _packageDeps.put(pkgId, deps)
+              pkg
+            }
+          )
         }
       }
 
-      ResultDone(())
+      ResultDone.Unit
     }
 
   def clear(): Unit = this.synchronized[Unit] {
     _packages.clear()
+    _packageDeps.clear()
     _defns.clear()
   }
+
+  override def packageIds: Set[PackageId] =
+    _packages.keySet.asScala.toSet
+
+  def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
+    Option(_packageDeps.get(pkgId))
 }
 
 object ConcurrentCompiledPackages {

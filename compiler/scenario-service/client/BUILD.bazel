@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 da_haskell_library(
     name = "client",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "async",
         "base",
         "binary",
@@ -20,9 +20,10 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "grpc-haskell",
+        "grpc-haskell-core",
         "hashable",
         "lens",
-        "managed",
         "mtl",
         "process",
         "proto3-suite",
@@ -41,10 +42,10 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//nix/third-party/gRPC-haskell:grpc-haskell",
-        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
     ],
 )

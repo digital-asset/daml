@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 How DAML types are translated to DAML-LF
@@ -44,12 +44,12 @@ Most built-in types have the same name in DAML-LF as in DAML. These are the exac
    * - ``ContractId``
      - ``ContractId``
 
-Be aware that only the DAML primitive types exported by the :ref:`Prelude <stdlib-reference-base>` module map to the DAML-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the DAML-LF primitive ``Party``.
+Be aware that only the DAML primitive types exported by the :ref:`Prelude <module-prelude-6842>` module map to the DAML-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the DAML-LF primitive ``Party``.
 
 Tuple types
 ***********
 
-DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <stdlib-reference-base>` module.
+DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <module-prelude-6842>` module.
 
 The equivalent DAML-LF type constructors are ``daml-prim:DA.Types:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``).
 
@@ -58,12 +58,13 @@ For example: the DAML pair type ``(Int, Text)`` is translated to ``daml-prim:DA.
 Data types
 **********
 
-DAML-LF has two kinds of data declarations:
+DAML-LF has three kinds of data declarations:
 
 - **Record** types, which define a collection of data
 - **Variant** or **sum** types, which define a number of alternatives
+- **Enum**, which defines simplified **sum** types without type parameters nor argument.
 
-:ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to either record or variant types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
+:ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to record, variant or enum types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
 
 .. In the tables below, the left column uses DAML 1.2 syntax and the right column uses the notation from the `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
@@ -102,10 +103,14 @@ Variant declarations
      - DAML-LF translation
    * - ``data Foo = Bar Int | Baz Text``
      - ``variant Foo ↦ Bar Int64 | Baz Text``
-   * - ``data Foo = Bar Int | Baz ()``
-     - ``variant Foo ↦ Bar Int64 | Baz Unit``
-   * - ``data Foo = Bar Int | Baz``
-     - ``variant Foo ↦ Bar Int64 | Baz Unit``
+   * - ``data Foo a = Bar a | Baz Text``
+     - ``variant Foo a ↦ Bar a | Baz Text``
+   * - ``data Foo = Bar Unit | Baz Text``
+     - ``variant Foo ↦ Bar Unit | Baz Text``
+   * - ``data Foo = Bar Unit | Baz``
+     - ``variant Foo ↦ Bar Unit | Baz Unit``
+   * - ``data Foo a = Bar | Baz``
+     - ``variant Foo a ↦ Bar Unit | Baz Unit``
    * - ``data Foo = Foo Int``
      - ``variant Foo ↦ Foo Int64``
    * - ``data Foo = Bar Int``
@@ -122,6 +127,20 @@ Variant declarations
      - ``variant Foo ↦ Bar Foo.Bar | Baz Text``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``
    * - ``data Foo = Bar { bar1: Int; bar2: Decimal } | Baz { baz1: Text; baz2: Date }``
      - ``data Foo ↦ Bar Foo.Bar | Baz Foo.Baz``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``, ``record Foo.Baz ↦ { baz1: Text; baz2: Date }``
+
+Enum declarations
+=================
+
+.. list-table::
+   :widths: 10 15
+   :header-rows: 1
+
+   * - DAML declaration
+     - DAML-LF declaration
+   * - ``data Foo = Bar | Baz``
+     - ``enum Foo ↦ Bar | Baz``
+   * - ``data Color = Red | Green | Blue``
+     - ``enum Color ↦ Red | Green | Blue``
 
 Banned declarations
 ===================
@@ -158,7 +177,7 @@ Type synonyms
 
 For example, consider the following DAML type declarations.
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: type synonyms
    :end-before: -- end code snippet: type synonyms
@@ -183,14 +202,14 @@ Template data types
 
 Every contract template defines a record type for the parameters of the contract. For example, the template declaration:
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: template data types
    :end-before: -- end code snippet: template data types
 
 results in this record declaration:
 
-.. literalinclude:: code-snippets/daml-lf-result.daml
+.. literalinclude:: code-snippets/LfResults.daml
    :language: daml
    :start-after: -- start snippet: data from template
    :end-before: -- end snippet: data from template
@@ -206,14 +225,14 @@ Choice data types
 
 Every choice within a contract template results in a record type for the parameters of that choice. For example, let’s suppose the earlier ``Iou`` template has the following choices:
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: choice data types
    :end-before: -- end code snippet: choice data types
 
 This results in these two record types:
 
-.. literalinclude:: code-snippets/daml-lf-result.daml
+.. literalinclude:: code-snippets/LfResults.daml
    :language: daml
    :start-after: -- start snippet: data from choices
    :end-before: -- end snippet: data from choices

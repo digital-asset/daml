@@ -1,21 +1,22 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
+import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
-class LedgerConfigurationClientImplTest
+final class LedgerConfigurationClientImplTest
     extends FlatSpec
     with Matchers
-    with OptionValues
-    with DataLayerHelpers {
+    with AuthMatchers
+    with OptionValues {
 
-  val ledgerServices = new LedgerServices("ledger-configuration-service-ledger")
+  private val ledgerServices = new LedgerServices("ledger-configuration-service-ledger")
 
   behavior of "[5.1] LedgerConfigurationClientImpl.getLedgerConfiguration"
 
@@ -24,7 +25,6 @@ class LedgerConfigurationClientImplTest
       (client, _) =>
         // to test that we send a request to the Ledger, we check if there is a response
         client.getLedgerConfiguration
-          .take(1)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingFirst()
     }
@@ -42,4 +42,39 @@ class LedgerConfigurationClientImplTest
         service.getLastRequest.value.ledgerId shouldEqual ledgerServices.ledgerId
     }
   }
+
+  behavior of "Authorization"
+
+  def toAuthenticatedServer(fn: LedgerConfigurationClient => Any): Any =
+    ledgerServices.withConfigurationClient(
+      Seq(GetLedgerConfigurationResponse.defaultInstance),
+      mockedAuthService) { (client, _) =>
+      fn(client)
+    }
+
+  it should "deny access without a token" in {
+    expectUnauthenticated {
+      toAuthenticatedServer(
+        _.getLedgerConfiguration
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingFirst())
+    }
+  }
+
+  it should "deny access with insufficient authorization" in {
+    expectUnauthenticated {
+      toAuthenticatedServer(
+        _.getLedgerConfiguration(emptyToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingFirst())
+    }
+  }
+
+  it should "allow access with sufficient authorization" in {
+    toAuthenticatedServer(
+      _.getLedgerConfiguration(publicToken)
+        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+        .blockingFirst())
+  }
+
 }

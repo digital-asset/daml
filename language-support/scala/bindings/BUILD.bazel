@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,29 +7,31 @@ load(
     "da_scala_test_suite",
 )
 
-bindings_scala_deps = [
-    "//3rdparty/jvm/com/github/ghik:silencer_lib",
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//ledger-api/grpc-definitions:ledger-api-scalapb",
-]
-
 da_scala_library(
     name = "bindings",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "//external:jar/org/spire_math/kind_projector_2_12",
-        "//external:jar/com/github/ghik/silencer_plugin_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = [
         "-Xsource:2.13",
     ],
-    tags = ["maven_coordinates=com.daml.scala:bindings:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
-    exports = bindings_scala_deps,
-    deps = bindings_scala_deps,
+    exports = [
+        "//daml-lf/data",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )
 
 da_scala_test_suite(
@@ -37,16 +39,16 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
-        "//external:jar/org/spire_math/kind_projector_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = [
         "-Xsource:2.13",
     ],
     deps = [
         ":bindings",
-        "//3rdparty/jvm/com/chuusai:shapeless",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

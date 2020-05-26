@@ -1,26 +1,25 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package testing.parser
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.testing.parser.ExprParser.{expr, expr0}
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
-import com.digitalasset.daml.lf.testing.parser.TypeParser.{argTyp, typ, typeBinder}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
-private[parser] object ModParser {
+private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
-  private sealed trait Def extends Product with Serializable
+  import ModParser._
 
-  private final case class DataDef(name: DottedName, defn: Definition) extends Def
-  private final case class TemplDef(name: DottedName, defn: Template) extends Def
+  private[parser] val exprParser: ExprParser[P] = new ExprParser(parameters)
+  import exprParser.typeParser.{argTyp, typ, typeBinder}
+  import exprParser.{expr, expr0}
 
   private def split(defs: Seq[Def]) = {
-    ((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)]) /: defs) {
+    defs.foldLeft((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)])) {
       case ((definitions, templates), DataDef(name, defn)) =>
         ((name -> defn) +: definitions, templates)
       case ((definitions, templates), TemplDef(name, defn)) =>
@@ -29,7 +28,14 @@ private[parser] object ModParser {
   }
 
   lazy val pkg: Parser[Package] =
-    rep(mod) ^^ (Package(_))
+    opt(metadata) ~ rep(mod) ^^ {
+      case metadata ~ modules => Package(modules, Set.empty, metadata)
+    }
+
+  private lazy val metadata: Parser[PackageMetadata] =
+    Id("metadata") ~ `(` ~> pkgName ~ `:` ~ pkgVersion <~ `)` ^^ {
+      case name ~ _ ~ version => PackageMetadata(name, version)
+    }
 
   lazy val mod: Parser[Module] =
     Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {
@@ -38,11 +44,11 @@ private[parser] object ModParser {
         val flags = FeatureFlags(
           forbidPartyLiterals = modTag(noPartyLitsTag)
         )
-        Module(modName, definitions, templates, defaultLanguageVersion, flags)
+        Module(modName, definitions, templates, parameters.languageVersion, flags)
     }
 
   private lazy val definition: Parser[Def] =
-    recDefinition | variantDefinition | valDefinition | templateDefinition
+    synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition
 
   private def tags(allowed: Set[String]): Parser[Set[String]] =
     rep(`@` ~> id) ^^ { tags =>
@@ -55,6 +61,13 @@ private[parser] object ModParser {
 
   private lazy val binder: Parser[(Name, Type)] =
     id ~ `:` ~ typ ^^ { case id ~ _ ~ typ => id -> typ }
+
+  private lazy val synDefinition: Parser[DataDef] =
+    Id("synonym") ~>! dottedName ~ rep(typeBinder) ~
+      (`=` ~> typ) ^^ {
+      case id ~ params ~ typ =>
+        DataDef(id, DTypeSyn(ImmArray(params), typ))
+    }
 
   private lazy val recDefinition: Parser[DataDef] =
     Id("record") ~>! tags(dataDefTags) ~ dottedName ~ rep(typeBinder) ~
@@ -73,6 +86,15 @@ private[parser] object ModParser {
         DataDef(
           id,
           DDataType(defTags(serializableTag), ImmArray(params), DataVariant(ImmArray(variants)))
+        )
+    }
+
+  private lazy val enumDefinition: Parser[DataDef] =
+    Id("enum") ~>! tags(dataDefTags) ~ dottedName ~ (`=` ~> repsep(id, `|`)) ^^ {
+      case defTags ~ id ~ constructors =>
+        DataDef(
+          id,
+          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(ImmArray(constructors)))
         )
     }
 
@@ -103,27 +125,27 @@ private[parser] object ModParser {
             agreement ~
             choices ~
             key =>
-        TemplDef(
-          tycon,
-          Template(x, precon, signatories, agreement, choices.map(_(x)), observers, key))
+        TemplDef(tycon, Template(x, precon, signatories, agreement, choices, observers, key))
     }
 
-  private lazy val choiceParam: Parser[(Option[Name], Type)] =
-    `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => Some(name) -> typ } |
-      success(None -> TBuiltin(BTUnit))
+  private lazy val choiceParam: Parser[(Name, Type)] =
+    `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => name -> typ }
 
-  private lazy val templateChoice: Parser[ExprVarName => (ChoiceName, TemplateChoice)] =
-    Id("choice") ~> tags(templateChoiceTags) ~ id ~ choiceParam ~ `:` ~ typ ~ `by` ~ expr ~ `to` ~ expr ^^ {
-      case choiceTags ~ name ~ param ~ _ ~ retTyp ~ _ ~ controllers ~ _ ~ update =>
-        self =>
-          name -> TemplateChoice(
-            name,
-            !choiceTags(nonConsumingTag),
-            controllers,
-            self,
-            param,
-            retTyp,
-            update)
+  private lazy val selfBinder: Parser[Name] =
+    `(` ~> id <~ `)`
+
+  private lazy val templateChoice: Parser[(ChoiceName, TemplateChoice)] =
+    Id("choice") ~> tags(templateChoiceTags) ~ id ~ selfBinder ~ choiceParam ~ `:` ~ typ ~ `by` ~ expr ~ `to` ~ expr ^^ {
+      case choiceTags ~ name ~ self ~ param ~ _ ~ retTyp ~ _ ~ controllers ~ _ ~ update =>
+        name -> TemplateChoice(
+          name,
+          !choiceTags(nonConsumingTag),
+          controllers,
+          self,
+          param,
+          retTyp,
+          update,
+        )
     }
 
   private val serializableTag = "serializable"
@@ -135,5 +157,14 @@ private[parser] object ModParser {
   private val templateChoiceTags = Set(nonConsumingTag)
   private val valDefTags = Set(noPartyLitsTag, isTestTag)
   private val modTags = Set(noPartyLitsTag)
+
+}
+
+object ModParser {
+
+  private sealed trait Def extends Product with Serializable
+
+  private final case class DataDef(name: DottedName, defn: Definition) extends Def
+  private final case class TemplDef(name: DottedName, defn: Template) extends Def
 
 }

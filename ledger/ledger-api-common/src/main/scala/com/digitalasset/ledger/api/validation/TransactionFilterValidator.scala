@@ -1,23 +1,22 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.InclusiveFilters
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.server.api.validation.FieldValidations._
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
-import com.digitalasset.platform.server.api.validation.FieldValidations._
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.InclusiveFilters
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
 import scalaz.Traverse
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
+object TransactionFilterValidator {
 
   def validate(
       txFilter: TransactionFilter,
@@ -43,8 +42,7 @@ class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
         inclusive =>
           val validatedIdents =
             Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.Identifier]](
-              inclusive.templateIds.toList)((id: Identifier) =>
-              identifierResolver.resolveIdentifier(id))
+              inclusive.templateIds.toList)((id: Identifier) => validateIdentifier(id))
           validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))
       }
   }

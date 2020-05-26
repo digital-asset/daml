@@ -1,0 +1,69 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | DA.Action.State
+module DA.Action.State
+  ( State(..)
+  , evalState
+  , execState
+  , get
+  , put
+  , modify
+  ) where
+
+-- | A value of type `State s a` represents a computation that has access to a state variable
+-- of type `s` and produces a value of type `a`.
+--
+-- >>> runState (modify (+1)) 0
+-- ((), 1)
+--
+-- >>> evalState (modify (+1)) 0
+-- ()
+--
+-- >>> execState (modify (+1)) 0
+-- 1
+--
+-- Note that values of type `State s a` are not serializable.
+newtype State s a = State { runState : s -> (a, s) }
+  deriving Functor
+
+instance Applicative (State s) where
+  pure a = State (\s -> (a, s))
+  State f <*> State x = State $ \s ->
+    let (f', s') = f s
+        (x', s'') = x s'
+    in (f' x', s'')
+
+instance Action (State s) where
+  State x >>= f = State $ \s ->
+    let (x', s') = x s
+    in runState (f x') s'
+
+-- | Special case of `runState` that does not return the final state.
+evalState : State s a -> s -> a
+evalState a s = fst (runState a s)
+
+-- | Special case of `runState` that does only retun the final state.
+execState : State s a -> s -> s
+execState a s = snd (runState a s)
+
+-- | Fetch the current value of the state variable.
+--
+-- >>> runState (do x <- get; modify (+1); pure x) 0
+-- (0, 1)
+get : State s s
+get = State (\s -> (s, s))
+
+-- | Set the value of the state variable.
+--
+-- >>> runState (put 1) 0
+-- ((), 1)
+put : s -> State s ()
+put s = State (\_ -> ((), s))
+
+-- | Modify the state variable with the given function.
+--
+-- >>> runState (modify (+1)) 0
+-- ((), 1)
+modify : (s -> s) -> State s ()
+modify f = State (\s -> ((), f s))

@@ -1,0 +1,10 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR Aborted: BOOM
+
+module UnusedLet where
+
+main = scenario do
+  let _ = error "BOOM"
+  pure ()

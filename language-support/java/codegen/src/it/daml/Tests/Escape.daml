@@ -1,7 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
+
 module Tests.Escape where
 -- In this module we test that the codegen runs successfully for "poisonous" models with
 -- java reserved names in various places

@@ -1,0 +1,24 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module ReplTest where
+
+template T
+  with
+    proposer : Party
+    accepter : Party
+  where
+    signatory proposer, accepter
+
+template TProposal
+  with
+    proposer : Party
+    accepter : Party
+  where
+    signatory proposer
+    observer accepter
+    choice Accept : ContractId T
+      controller accepter
+      do  create (T proposer accepter)
+

@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.util.akkastreams
+package com.daml.util.akkastreams
 
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 
@@ -38,7 +38,7 @@ class ExtractSingleMaterializedValueTest
     }
 
     "there are multiple valid values" should {
-      "extract the first" in {
+      "extract the first matching element" in {
         val elemToExtract = -1
         val otherCandidateShuffledIn = -2
 

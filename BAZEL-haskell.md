@@ -31,27 +31,43 @@ This loads the contents of the files `http.bzl` and `git.bzl` from the external 
 Straight after the loading of those rules, `deps.bzl` reads,
 ```
 http_archive(
-  name = "io_tweag_rules_haskell",
+  name = "rules_haskell",
   strip_prefix = 'rules_haskell-%s' % rules_haskell_version,
   urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
 )
 ```
-This defines the workspace [`io_tweag_rules_haskell`](https://github.com/tweag/rules_haskell) (we call this "`rules_haskell`" informally - in short, build rules for Haskell) as an external workspace that is downloaded via http. From here on we can refer to things in that workspace by prefixing them with `@io_tweag_rules_haskell` as in the next command from `WORKSPACE`,
+This defines the workspace [`rules_haskell`](https://github.com/tweag/rules_haskell) (we call this "`rules_haskell`" informally - in short, build rules for Haskell) as an external workspace that is downloaded via http. From here on we can refer to things in that workspace by prefixing them with `@rules_haskell` as in the next command from `WORKSPACE`,
 ```
-load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 ```
-which has the effect of making the macro `haskell_repositories` available in the environment which provides "all repositories necessary for `rules_haskell` to function":
+which has the effect of making the macro `rules_haskell_dependencies` available in the environment which provides "all repositories necessary for `rules_haskell` to function":
 ```
-haskell_repositories()
+rules_haskell_dependencies()
 ```
 As mentioned earlier, targets of any `BUILD.bazel` file in a package are visible within `WORKSPACE`. In fact, its a rule that [toolchains](https://docs.bazel.build/versions/master/toolchains.html#defining-toolchains) can only be defined in `BUILD.bazel` files and registered in `WORKSPACE` files. [`register_toolchains`](https://docs.Bazel.build/versions/master/skylark/lib/globals.html#register_toolchains) registers a toolchain created with the `toolchain` rule so that it is available for toolchain resolution.
 ```
 register_toolchains(
-  "//:ghc",
   "//:c2hs-toolchain",
 )
 ```
 Those toolchains are defined in `BUILD` (we'll skip listing their definitions here).
+
+The GHC toolchain is registered within macros provided by `rules_haskell`:
+```
+haskell_register_ghc_nixpkgs(
+    attribute_path = "ghcStatic",
+    build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
+    compiler_flags = [ ... ],
+    ...
+    version = "8.6.5",
+)
+haskell_register_ghc_bindists(
+    compiler_flags = common_ghc_flags,
+    version = "8.6.5",
+) if is_windows else None
+```
+On Linux and macOS we import GHC from nixpkgs, while on Windows we download an
+official bindist.
 
 Rules for importing nix packages are provided in the workspace `io_tweag_rules_nixpkgs`:
 ```
@@ -93,59 +109,83 @@ dev_env_nix_repos = {
 }
 ```
 
-[`nixpkgs_package`](https://github.com/tweag/rules_nixpkgs#nixpkgs_package) provisions Bazel with our GHC toolchain from Nix:
+Finally, we use the `bazel-haskell-deps.bzl` file which is loaded from
+`WORKSPACE` to define the set of Hackage packages that we want to import into
+Bazel using the `stack_snapshot` macro.
 ```
-nixpkgs_package(
-  name = "ghc",
-  attribute_path = "ghcStatic",
-  nix_file = "//nix:default.nix",
-  repositories = dev_env_nix_repos,
-  build_file = "@ai_formation_hazel//:BUILD.ghc",
-)
+stack_snapshot(
+    name = "stackage",
+    packages = [
+        "aeson",
+        "aeson-pretty",
+        ...
+    ],
+    vendored_packages = {
+        "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
+        "proto3-suite": "@proto3_suite//:proto3-suite",
+    },
+    local_snapshot = "//:stack-snapshot.yaml",
+    flags = {
+        "integer-logarithms": ["-integer-gmp"],
+        "text": ["integer-simple"],
+        ...
+    },
+    tools = [
+        "@alex",
+        "@happy",
+        ...
+    ],
+    deps = {
+        "digest": ["@com_github_madler_zlib//:libz"],
+        "zlib": ["@com_github_madler_zlib//:libz"],
+    },
 ```
+This will generate an external workspace called `@stackage` that exports all
+the Hackage packages listed in `packages` or `vendored_packages`. We use a
+custom stack snapshot defined in `stack-snapshot.yaml`. The items listed in the
+`packages` attribute will be fetched using the `stack` tool as defined in the
+custom snapshot and will be built using the `Cabal` library. Additionally, we
+can provide custom Bazel build definitions for packages using the
+`vendored_packages` attribute.
 
-We see in the last macro invocation, forward reference to the [`ai_formation_hazel`]("https://github.com/DACH-NY/hazel) workspace. Here's its definition:
+The `flags` attribute can be used to override default Cabal flags. The `tools`
+attribute defines Bazel targets for known Cabal tools, e.g. `alex`, `happy`, or
+`c2hs`. Finally, the `deps` attribute can be used to define additional
+dependencies to individual packages. E.g. the `zlib` Hackage packages depends
+on the C library `libz`.
+
+If you wish to override the version of a package that is fetch from Hackage, or
+fetch it from a different source such as GitHub at a specific commit, then you
+should modify the `stack-snapshot.yaml` file. If, additionally, you wish to
+patch a package, e.g. to override Cabal version bounds, then you should define
+a custom Bazel build and add the package to the `vendored_packages` attribute.
+
+For example, to patch the `proto3-suite` package add the following snippet to
+the `bazel-haskell-deps.bzl` file.
 ```
 http_archive(
-  name = "ai_formation_hazel",
-  strip_prefix = "hazel-{}".format(hazel_version),
-#  XXX: Switch to upstream once necessary changes are merged.
-#  urls = ["https://github.com/formationai/hazel/archive/{}.tar.gz".format(hazel_version)],
-  urls = ["https://github.com/DACH-NY/hazel/archive/{}.tar.gz".format(hazel_version)],
+    name = "proto3_suite",
+    build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "proto3-suite",
+    version = "0.4.0.0",
+    srcs = glob(["**"]),
+    deps = packages["proto3-suite"].deps,
+    visibility = ["//visibility:public"],
+)
+    """,
+    patch_args = ["-p1"],
+    patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-proto3-suite.patch"],
+    sha256 = "6a803b1655824e5bec2c518b39b6def438af26135d631b60c9b70bf3af5f0db2",
+    strip_prefix = "proto3-suite-f5ca2bee361d518de5c60b9d05d0f54c5d2f22af",
+    urls = ["https://github.com/awakesecurity/proto3-suite/archive/f5ca2bee361d518de5c60b9d05d0f54c5d2f22af.tar.gz"],
 )
 ```
-Hazel is a Bazel framework of build rules for third-party Haskell dependencies - it autogenerates Bazel rules from Cabal files. From the `@ai_formation_hazel` workspace we load
-```
-load("@ai_formation_hazel//:hazel.bzl", "hazel_repositories", "hazel_custom_package_hackage")
-```
-Immediately thereafter we load from the DAML ``//hazel`` "package":
-```
-load("//hazel:packages.bzl", "core_packages", "packages")
-```
-and from there we the DAML `//bazel_tools` project the `add_extra_packages` macro for packages on Hackage but not in Stackage:
-```
-load("//bazel_tools:haskell.bzl", "add_extra_packages")
-```
-
-The [`hazel_repositories`](https://github.com/DACH-NY/hazel#using-hazel-in-build-rules) macro creates a separate external dependency for each package. It downloads Cabal tarballs from Hackage and constructs build rules for compiling the components of each such package:
-```
-hazel_repositories(
-  core_packages = core_packages (...),
-  packages = add_extra_packages (...),
-  ...
-)
-```
-Note that [`ghc-lib`](https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md) is added here as one such "extra package".
-
-We use `hazel_custom_package_hackage` if the default Bazel build that Hazel generates won't quite work and needs some overrides. The overrides go into a file that is pointed at by the `build_file` attribute:
-```
-hazel_custom_package_hackage(
-  package_name = "clock",
-  version = "0.7.2",
-  sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f",
-  build_file = "//3rdparty/haskell:BUILD.clock",
-)
-```
+This will fetch the sources from GitHub at the specified revision and apply the
+patch located in `bazel_tools/haskell-proto3-suite.patch` in the `daml`
+repository.
 
 ## `BUILD`
 
@@ -159,20 +199,17 @@ sets the default visibility property globally for our targets as `public`. This 
 
 The `load` statments
 ```
-load("@io_tweag_rules_haskell//haskell:haskell.bzl",
-  "haskell_toolchain", "haskell_toolchain_library", "haskell_cc_import",
+load("@rules_haskell//haskell:defs.bzl",
+  "haskell_toolchain", "haskell_toolchain_library",
 )
-load("@io_tweag_rules_haskell//haskell:c2hs.bzl",
+load("@rules_haskell//haskell:c2hs.bzl",
   "c2hs_toolchain",
 )
 ```
-bring the macros `haskell_toolchain`, `haskell_toolchain_library`, `haskell_cc_import` and `c2hs_toolchain` into scope from `rules_haskell`.
+bring the macros `haskell_toolchain`, `haskell_toolchain_library`, and `c2hs_toolchain` into scope from `rules_haskell`.
 
 `haskell_toolchain_library`:
 - import a package that is prebuilt outside of Bazel
-
-`haskell_cc_import`:
-- import a C library that is prebuilt outside of Bazel
 
 `haskell_toolchain`:
 -  declare a GHC compiler toolchain
@@ -184,28 +221,29 @@ Lastly, there are some aliases defined here. For example,
 ```
 alias(
   name = "damlc",
-  actual = "//daml-foundations/daml-tools/da-hs-damlc-app"
+  actual = "//compiler/damlc"
 )
 ```
 
-## Profiling
+## Editor integration
 
-To produce a binary with profiling information, you need to pass `-c
-dbg` to Bazel. E.g., `bazel build -c dbg damlc` will build a profiled
-version of `damlc`. Note that by default Bazel won’t automatically add
-cost centres in your code. To get cost centres, you can either add
-[cost centres manually](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html#inserting-cost-centres-by-hand)
-or use one of the
-[options provided by GHC](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html#compiler-options-for-profiling)
-to add them automatically.
-You can either add those options in the `compiler_flags` section of a
-specific target, modify the `da_haskell_library` wrapper in
-`bazel_tools/haskell.bzl` to add a flag to all DAML targets and
-libraries or use it for all targets by modifying the
-`compiler_flags` in the `haskell_toolchain`.
+The `daml` repository is configured to support [`ghcide`][ghcide] with Bazel
+and the `ghcide` executable is provided by the `dev-env`. Take a look at the
+[setup section][ghcide_setup] for example configurations for various editors.
+`ghcide` has to be built with the same `ghc` as the project you're working on.
+Be sure to either point your editor to the `dev-env` provided `ghcide` by
+absolute path, or make sure that the `dev-env` provided `ghcide` is in `$PATH`
+for your editor.
+
+Note, `ghcide` itself is built by Bazel and to load a target into the editor
+some of its dependencies have to be built by Bazel. This means that start-up
+may take some time if the required artifacts are not built or cached already.
+
+[ghcide]: https://github.com/digital-asset/ghcide
+[ghcide_setup]: https://github.com/digital-asset/ghcide#using-with-vs-code
 
 ## Further reading:
 
-- ["Bazel User Guide"](https://github.com/DACH-NY/da/blob/master/BAZEL.md) (DAML specific)
+- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/master/BAZEL.md) (DAML specific)
 - ["A Users's Guide to Bazel"](https://docs.bazel.build/versions/master/guide.html) (official documentation)
 - [`rules_haskell` documentation](https://api.haskell.build/index.html) (core Haskell rules, Haddock support, Linting, Defining toolchains, Support for protocol buffers, Interop with `cc_*` rules, Workspace rules)

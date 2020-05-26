@@ -1,13 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.{LanguageVersion, LanguageMajorVersion}
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util.{TContractId, TList, TMap, TOptional}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
 private[validation] object Serializability {
 
@@ -38,7 +37,7 @@ private[validation] object Serializability {
     def checkType(): Unit = checkType(typeToSerialize)
 
     def checkType(typ0: Type): Unit = typ0 match {
-      case TContractId(tArg) => {
+      case TApp(TBuiltin(BTContractId), tArg) => {
         if (supportsSerializablePolymorphicContractIds) {
           checkType(tArg)
         } else {
@@ -57,6 +56,9 @@ private[validation] object Serializability {
       }
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
+      case TNat(_) =>
+        unserializable(URNat)
+      case TSynApp(syn, _) => unserializable(URTypeSyn(syn))
       case TTyCon(tycon) =>
         lookupDefinition(ctx, tycon) match {
           case DDataType(true, _, _) =>
@@ -64,24 +66,32 @@ private[validation] object Serializability {
           case _ =>
             unserializable(URDataType(tycon))
         }
-      case TList(tArg) =>
+      case TApp(TBuiltin(BTNumeric), TNat(_)) =>
+      case TApp(TBuiltin(BTList), tArg) =>
         checkType(tArg)
-      case TOptional(tArg) =>
+      case TApp(TBuiltin(BTOptional), tArg) =>
         checkType(tArg)
-      case TMap(tArg) =>
+      case TApp(TBuiltin(BTTextMap), tArg) =>
         checkType(tArg)
+      case TApp(TApp(TBuiltin(BTGenMap), tKeys), tValues) =>
+        checkType(tKeys)
+        checkType(tValues)
       case TApp(tyfun, targ) =>
         checkType(tyfun)
         checkType(targ)
       case TBuiltin(builtinType) =>
         builtinType match {
-          case BTInt64 | BTDecimal | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTNumeric =>
+            unserializable(URNumeric)
           case BTList =>
             unserializable(URList)
           case BTOptional =>
             unserializable(UROptional)
-          case BTMap =>
-            unserializable(URMap)
+          case BTTextMap =>
+            unserializable(URTextMap)
+          case BTGenMap =>
+            unserializable(URGenMap)
           case BTUpdate =>
             unserializable(URUpdate)
           case BTScenario =>
@@ -90,11 +100,15 @@ private[validation] object Serializability {
             unserializable(URContractId)
           case BTArrow =>
             unserializable(URFunction)
+          case BTAny =>
+            unserializable(URAny)
+          case BTTypeRep =>
+            unserializable(URTypeRep)
         }
       case TForall(_, _) =>
         unserializable(URForall)
-      case TTuple(_) =>
-        unserializable(URTuple)
+      case TStruct(_) =>
+        unserializable(URStruct)
     }
   }
 
@@ -105,16 +119,18 @@ private[validation] object Serializability {
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
-    val env = (Env(version, world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
+    val env =
+      (params.iterator foldLeft Env(version, world, context, SRDataType, tyCon))(_.introVar(_))
     val typs = dataCons match {
-      case DataVariant(variants) if variants.isEmpty =>
-        env.unserializable(URUninhabitatedType)
       case DataVariant(variants) =>
-        variants.iterator.map(_._2)
+        if (variants.isEmpty) env.unserializable(URUninhabitatedType)
+        else variants.iterator.map(_._2)
+      case DataEnum(constructors) =>
+        if (constructors.isEmpty) env.unserializable(URUninhabitatedType)
+        else Iterator.empty
       case DataRecord(fields, _) =>
         fields.iterator.map(_._2)
     }
-
     typs.foreach(env.checkType)
   }
 
@@ -124,7 +140,8 @@ private[validation] object Serializability {
       version: LanguageVersion,
       world: World,
       tyCon: TTyCon,
-      template: Template): Unit = {
+      template: Template,
+  ): Unit = {
     val context = ContextTemplate(tyCon.tycon)
     Env(version, world, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>

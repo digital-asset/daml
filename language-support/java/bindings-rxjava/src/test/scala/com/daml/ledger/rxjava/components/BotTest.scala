@@ -1,53 +1,53 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
-import java.util.{Collections, Optional}
+import java.util.{Collections, Optional, function}
 
 import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
+import com.daml.ledger.rxjava.components.BotTest._
 import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
-import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient}
-import com.daml.ledger.testkit.services.TransactionServiceImpl
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
+import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.auth.AuthServiceWildcard
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
 }
-import com.digitalasset.ledger.api.{v1 => scalaAPI}
-import com.google.protobuf.{Empty => JEmpty}
+import com.daml.ledger.api.{v1 => scalaAPI}
 import com.google.protobuf.empty.Empty
+import com.google.protobuf.{Empty => JEmpty}
 import com.google.rpc.Status
+import com.google.rpc.code.Code.OK
 import io.grpc.Metadata
-import io.grpc.Status.Code
 import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
+import org.scalatest.concurrent.Eventually
 import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
+final class BotTest extends FlatSpec with Matchers with Eventually {
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
-  override def ledgerServices: LedgerServices = new LedgerServices("bot-test")
-  val ec: ExecutionContext = ledgerServices.executionContext
-  val logger = LoggerFactory.getLogger(this.getClass)
-
-  val random = new Random()
-  val zeroTimestamp = Instant.EPOCH
+  private def ledgerServices: LedgerServices = new LedgerServices("bot-test")
 
   "Bot" should "create a flowable of WorkflowEvents from the ACS" in {
     val acs = new TestFlowable[GetActiveContractsResponse]("acs")
@@ -80,7 +80,6 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
   }
 
   it should "create a flowable of WorkflowEvents from the transactions" in {
-//    val acs = new TestFlowable[GetActiveContractsResponse]("acs")
     val transactions = new TestFlowable[Transaction]("transactions")
     val templateId = new Identifier("pid", "mname", "ename")
     val ledgerClient = new DummyLedgerClient(
@@ -99,13 +98,12 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       "transactionId",
       "commandId",
       "workflowId",
-      zeroTimestamp,
+      ZeroTimestamp,
       List[Event](contract1).asJava,
       "1")
     val testSub = workflowEvents.test()
 
     transactions.emit(t1)
-//    acs.complete()
     transactions.complete()
 
     testSub
@@ -136,8 +134,9 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                 applicationId: String,
                 commandId: String,
                 party: String,
-                ledgerEffectiveTime: Instant,
-                maximumRecordTime: Instant,
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
                 commands: util.List[Command]): Single[JEmpty] = {
               submitted.append(
                 new SubmitCommandsRequest(
@@ -145,11 +144,38 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                   applicationId,
                   commandId,
                   party,
-                  ledgerEffectiveTime,
-                  maximumRecordTime,
+                  minLedgerTimeAbs,
+                  minLedgerTimeRel,
+                  deduplicationTime,
                   commands))
               Single.error(new RuntimeException("expected failure"))
             }
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                commands: util.List[Command]): Single[JEmpty] = untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] = untestedEndpoint
           }
       }
 
@@ -160,17 +186,16 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
     val finishedWork = new AtomicBoolean(false)
 
     val cid = "cid_1"
-    val bot =
-      new java.util.function.Function[LedgerView[AtomicInteger], Flowable[CommandsAndPendingSet]] {
-
+    val bot: function.Function[LedgerView[AtomicInteger], Flowable[CommandsAndPendingSet]] =
+      new function.Function[LedgerView[AtomicInteger], Flowable[CommandsAndPendingSet]] {
         private val logger = LoggerFactory.getLogger("TestBot")
 
         override def apply(fcs: LedgerView[AtomicInteger]): Flowable[CommandsAndPendingSet] = {
           logger.debug(s"apply(fcs: $fcs)")
           val contracts = fcs.getContracts(templateId)
           if (contracts.isEmpty) {
-            // this function gets called again after the contract has been set to pending, so we expect no free contract
-            // in the ledger view
+            // this function gets called again after the contract has been set to pending, so we
+            // expect no free contract in the ledger view
             Flowable.empty()
           } else {
             // after each failure, we expect to see the same initial contract again
@@ -187,8 +212,9 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                 appId,
                 s"commandId_${counter.get()}",
                 party,
-                zeroTimestamp,
-                zeroTimestamp,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 commandList
               )
               Flowable.fromArray(
@@ -204,20 +230,24 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       }
 
     val counter = new AtomicInteger(0)
-    Bot.wire(appId, ledgerClient, transactionFilter, bot, c => counter)
+    Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
 
     // when the bot is wired-up, no command should have been submitted to the server
-    ledgerClient.submitted.size shouldBe 0
+    ledgerClient.submitted should have size 0
     counter.get shouldBe 0
 
     // when the bot receives a transaction, a command should be submitted to the server
     val createdEvent1 = create(party, templateId, id = 1)
-    transactions.emit(transactionArray(createdEvent1))
+    transactions.emit(transaction(createdEvent1))
 
-    while (!finishedWork.get) Thread.sleep(1)
+    eventually {
+      finishedWork.get shouldBe true
+    }
 
-    ledgerClient.submitted.size shouldBe 3
+    ledgerClient.submitted should have size 3
     counter.get shouldBe 3
+
+    transactions.complete()
   }
 
   it should "wire a bot to the ledger-client" in {
@@ -245,8 +275,8 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
     // In this way we can see how many commands are submitted to the ledger-client and
     // verify the result
     val atomicCount = new AtomicInteger(0)
-    val bot =
-      new java.util.function.Function[LedgerView[CreatedContract], Flowable[CommandsAndPendingSet]] {
+    val bot: function.Function[LedgerView[CreatedContract], Flowable[CommandsAndPendingSet]] =
+      new function.Function[LedgerView[CreatedContract], Flowable[CommandsAndPendingSet]] {
 
         private val logger = LoggerFactory.getLogger("TestBot")
 
@@ -268,8 +298,9 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                       appId,
                       s"commandId_${atomicCount.incrementAndGet()}",
                       party,
-                      zeroTimestamp,
-                      zeroTimestamp,
+                      Optional.empty(),
+                      Optional.empty(),
+                      Optional.empty(),
                       commandList
                     )
                   logger.debug(s"commands: $commands")
@@ -284,42 +315,58 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
     Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
 
     // when the bot is wired-up, no command should have been submitted to the server
-    Thread.sleep(1l)
-    ledgerClient.submitted.size shouldBe 0
+    eventually {
+      ledgerClient.submitted should have size 0
+    }
 
     // when the bot receives a transaction, a command should be submitted to the server
     val createdEvent1 = create(party, templateId)
-    transactions.emit(transactionArray(createdEvent1))
-    Thread.sleep(1l)
-    ledgerClient.submitted.size shouldBe 1
+    transactions.emit(transaction(createdEvent1))
+    eventually {
+      ledgerClient.submitted should have size 1
+    }
 
     val archivedEvent1 = archive(createdEvent1)
     val createEvent2 = create(party, templateId)
     val createEvent3 = create(party, templateId)
-    transactions.emit(transactionArray(archivedEvent1, createEvent2, createEvent3))
-    Thread.sleep(1l)
-    ledgerClient.submitted.size shouldBe 3
+    transactions.emit(transaction(archivedEvent1, createEvent2, createEvent3))
+    eventually {
+      ledgerClient.submitted should have size 3
+    }
 
     // we complete the first command with success and then check that the client hasn't submitted a new command
     commandCompletions.emit(
       new CompletionStreamResponse(
-        Optional.of(new Checkpoint(zeroTimestamp, new LedgerOffset.Absolute(""))),
+        Optional.of(new Checkpoint(ZeroTimestamp, new LedgerOffset.Absolute(""))),
         List(
           scalaAPI.CompletionOuterClass.Completion
             .newBuilder()
             .setCommandId("commandId_0")
-            .setStatus(Status.newBuilder().setCode(Code.OK.value()).build())
+            .setStatus(Status.newBuilder().setCode(OK.value).build())
             .build()).asJava
       ))
-    Thread.sleep(1l)
-    ledgerClient.submitted.size shouldBe 3
+    Thread.sleep(100)
+    ledgerClient.submitted should have size 3
 
     // WARNING: THE FOLLOWING TEST IS NOT PASSING YET
-//    // we complete the second command with failure and then check that the client has submitted a new command
-//    commandCompletionsEmitter.emit(new CompletionStreamResponse(new Checkpoint(zeroTimestamp, new LedgerOffset.Absolute("")),
-//      List(CompletionOuterClass.Completion.newBuilder().setCommandId("commandId_1").setStatus(Status.newBuilder().setCode(Code.INVALID_ARGUMENT.value())).build()).asJava))
-//    Thread.sleep(1l)
-//    ledgerClient.submitted.size shouldBe 4
+    // // we complete the second command with failure and then check that the client has submitted a new command
+    // commandCompletions.emit(
+    //   new CompletionStreamResponse(
+    //     Optional.of(new Checkpoint(ZeroTimestamp, new LedgerOffset.Absolute(""))),
+    //     List(
+    //       CompletionOuterClass.Completion
+    //         .newBuilder()
+    //         .setCommandId("commandId_1")
+    //         .setStatus(Status.newBuilder().setCode(INVALID_ARGUMENT.value))
+    //         .build(),
+    //     ).asJava
+    //   ))
+    // eventually {
+    //   ledgerClient.submitted should have size 4
+    // }
+
+    transactions.complete()
+    commandCompletions.complete()
   }
 
   it should "query first the ACS and then the LedgerEnd sequentially so that there is not race condition and LedgerEnd >= ACS offset" in {
@@ -357,7 +404,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
      * of getACSDone.future.isCompleted
      */
     def dummyTransactionResponse(offset: String) =
-      TransactionServiceImpl.LedgerItem(
+      TransactionsServiceImpl.LedgerItem(
         "",
         "",
         "",
@@ -365,7 +412,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
         Seq(),
         offset,
         None)
-    val getTransactionsResponses = Observable.defer[TransactionServiceImpl.LedgerItem](
+    val getTransactionsResponses = Observable.defer[TransactionsServiceImpl.LedgerItem](
       () =>
         Observable.fromArray(
           dummyTransactionResponse(if (getACSDone.future.isCompleted) rightOffset else wrongOffset))
@@ -385,10 +432,11 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       Seq.empty,
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),
       Future.successful(scalaAPI.package_service.GetPackageResponse.defaultInstance),
-      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance)
+      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance),
+      AuthServiceWildcard
     ) { (server, _) =>
       val client =
-        DamlLedgerClient.forHostWithLedgerIdDiscovery("localhost", server.getPort, Optional.empty())
+        DamlLedgerClient.newBuilder("localhost", server.getPort).build()
       client.connect()
 
       /* The bot is wired here and inside wire is where the race condition can happen. We catch the possible
@@ -401,16 +449,15 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
           new FiltersByParty(Collections.emptyMap()),
           _ => Flowable.empty())
       } catch {
-        case e: io.grpc.StatusRuntimeException
-            if e.getStatus.getCode.equals(Code.INVALID_ARGUMENT) =>
-          /** the tests relies on specific implementation of the [[TransactionServiceImpl.getTransactions()]]  */
-          fail(e.getTrailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
+        case GrpcException(GrpcStatus.INVALID_ARGUMENT(), trailers) =>
+          /** the tests relies on specific implementation of the [[TransactionsServiceImpl.getTransactions()]]  */
+          fail(trailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
       }
 
       // test is passed, we wait a bit to avoid issues with gRPC and then close the client. If there is an exception,
       // we just ignore it as there are some problems with gRPC
       try {
-        Thread.sleep(100l)
+        Thread.sleep(100)
         client.close()
       } catch {
         case NonFatal(e) =>
@@ -419,88 +466,96 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       }
     }
   }
+}
 
-  def create(party: String, templateId: Identifier, id: Int = random.nextInt()): CreatedEvent =
+object BotTest {
+  private val ZeroTimestamp = Instant.EPOCH
+
+  private val logger = LoggerFactory.getLogger(classOf[BotTest])
+  private val random = new Random()
+
+  private def create(
+      party: String,
+      templateId: Identifier,
+      id: Int = random.nextInt(),
+  ): CreatedEvent =
     new CreatedEvent(
       List(party).asJava,
       s"eid_$id",
       templateId,
       s"cid_$id",
       new Record(List.empty[Record.Field].asJava),
-      Optional.empty())
+      Optional.empty(),
+      Optional.empty(),
+      Collections.emptySet(),
+      Collections.emptySet()
+    )
 
-  def archive(event: CreatedEvent): ArchivedEvent =
+  private def archive(event: CreatedEvent): ArchivedEvent =
     new ArchivedEvent(
       event.getWitnessParties,
       s"${event.getEventId}_archive",
       event.getTemplateId,
       event.getContractId)
 
-  def transaction(events: List[Event]): Transaction =
+  private def transaction(events: Event*): Transaction =
     new Transaction(
       "tid",
       s"cid_${random.nextInt()}",
       "wid",
-      zeroTimestamp,
-      events.asJava,
-      events.size.toString)
+      ZeroTimestamp,
+      events.toList.asJava,
+      events.toList.size.toString)
 
-  def transactionWithOffset(offset: String, events: List[Event]): Transaction =
-    new Transaction("tid", s"cid_${random.nextInt()}", "wid", zeroTimestamp, events.asJava, offset)
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private class TestFlowable[A](name: String) extends Flowable[A] {
+    private val logger = LoggerFactory.getLogger(s"${getClass.getSimpleName}($name)")
 
-  def transactionArray(events: Event*): Transaction = transaction(events.toList)
-}
+    private val buffer: mutable.Buffer[A] = mutable.Buffer.empty[A]
+    private var observerMay = Option.empty[Subscriber[_ >: A]]
+    private var isComplete = false
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class TestFlowable[A](name: String) extends Flowable[A] {
+    override def subscribeActual(observer: Subscriber[_ >: A]): Unit = {
+      observerMay match {
+        case Some(oldObserver) =>
+          throw new IllegalStateException(
+            s"${getClass.getSimpleName} supports only one subscriber. Currently subscribed $oldObserver, want to subscribe $observer")
+        case None =>
+          observerMay = Option(observer)
+          logger.debug(s"Subscribed observer $observer")
+          observer.onSubscribe(new Subscription {
+            override def request(n: Long): Unit = ()
 
-  private val buffer: mutable.Buffer[A] = mutable.Buffer.empty[A]
-  private var isComplete: Boolean = false
+            override def cancel(): Unit = ()
+          })
+          buffer.foreach(a => observer.onNext(a))
+          buffer.clear()
+          if (isComplete) {
+            observer.onComplete()
+          }
+      }
+    }
 
-  private val logger = LoggerFactory.getLogger(s"TestFlowable($name)")
+    def emit(a: A): Unit = {
+      observerMay match {
+        case None =>
+          logger.debug(s"no observer, buffering $a")
+          buffer.append(a)
+        case Some(observer) =>
+          logger.debug(s"emitting $a to subscribed $observer")
+          observer.onNext(a)
+      }
+    }
 
-  private var observerMay = Option.empty[Subscriber[_ >: A]]
-
-  override def subscribeActual(observer: Subscriber[_ >: A]): Unit = {
-    this.observerMay match {
-      case Some(oldObserver) =>
-        throw new RuntimeException(
-          this.getClass.getSimpleName + " supports only one subscriber. Currently" +
-            " subscribed " + oldObserver.toString + ", want to subscribe " + observer.toString)
-      case None =>
-        this.observerMay = Option(observer)
-        logger.debug("Subscribed observer " + observer.toString)
-        observer.onSubscribe(new Subscription {
-          override def request(n: Long): Unit = ()
-
-          override def cancel(): Unit = ()
-        })
-        buffer.foreach(a => observer.onNext(a))
-        buffer.clear()
-        if (this.isComplete) {
+    def complete(): Unit = {
+      observerMay match {
+        case None =>
+          logger.debug("no observer, buffering onComplete")
+          isComplete = true
+        case Some(observer) =>
+          logger.debug(s"calling onComplete() on subscribed $observer")
           observer.onComplete()
-        }
-    }
-  }
-
-  def emit(a: A): Unit = {
-    this.observerMay match {
-      case None =>
-        logger.debug(s"no observer, buffering $a")
-        this.buffer.append(a)
-      case Some(observer) =>
-        logger.debug(s"emitting $a to subscribed $observer")
-        observer.onNext(a)
-    }
-  }
-
-  def complete(): Unit = {
-    this.observerMay match {
-      case None =>
-        logger.debug("no observer, buffering onComplete")
-      case Some(observer) =>
-        logger.debug(s"calling onComplete() on subscribed $observer")
-        observer.onComplete()
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Frame as CoreFrame, makeSidebarLink } from '@da/ui-core';
@@ -51,20 +51,24 @@ const Frame = ({
         />
       )}
       left={[
-        (<Item
-          title="Contracts"
-          isActive={activeRoute === Routes.contracts}
-          route={Routes.contracts}
-          params={{}}
-          key="Contracts"
-        />),
-        (<Item
-          title="Templates"
-          isActive={activeRoute === Routes.templates}
-          route={Routes.templates}
-          params={{}}
-          key="Templates"
-        />),
+        (
+          <Item
+            title="Contracts"
+            isActive={activeRoute === Routes.contracts}
+            route={Routes.contracts}
+            params={{}}
+            key="Contracts"
+          />
+        ),
+        (
+          <Item
+            title="Templates"
+            isActive={activeRoute === Routes.templates}
+            route={Routes.templates}
+            params={{}}
+            key="Templates"
+          />
+        ),
         ...Object.keys(config.customViews).map((id) => {
           const {title} = config.customViews[id];
           return (

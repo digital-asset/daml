@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -22,7 +22,7 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPkgId, p.modules)
+    Recursion.checkPackage(defaultPackageId, p.modules)
 
   }
 
@@ -61,11 +61,48 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         ${module("E", "E")}
        """
 
-    Recursion.checkPackage(defaultPkgId, negativeCase.modules)
+    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
     an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPkgId, positiveCase1.modules)
+      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
     an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPkgId, positiveCase2.modules)
+      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+
+  }
+
+  "Recursion validation should detect type synonym cycles" in {
+
+    val negativeCase =
+      // module without a type-syn cycle
+      p"""
+         module Mod {
+           synonym SynInt = Int64 ;
+           synonym SynSynInt = |Mod:SynInt| ;
+         }
+       """
+
+    val positiveCase1 =
+      // module with a direct type-syn cycle
+      p"""
+         module Mod {
+           synonym SynCycle = |Mod:SynCycle| ;
+         }
+       """
+
+    val positiveCase2 =
+      // module with a mutual type-syn cycle
+      p"""
+         module Mod {
+           synonym SynInt = Int64 ;
+           synonym SynBad1 = |Mod:SynBad2| ;
+           synonym SynBad2 = List |Mod:SynBad1| ;
+         }
+       """
+
+    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
+    an[ETypeSynCycle] should be thrownBy
+      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
+    an[ETypeSynCycle] should be thrownBy
+      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
 
   }
 

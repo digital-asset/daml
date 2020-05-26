@@ -1,14 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
-import com.digitalasset.daml.lf.validation.SpecUtil._
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -27,7 +27,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
         t"List serializableType",
         t"serializableType serializableType",
         t"Int64",
-        t"Decimal",
+        t"(Numeric 10)",
         t"Text",
         t"Timestamp",
         t"Date",
@@ -50,6 +50,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       val testCases = Table(
         "type",
         t"unserializableType0",
+        t"Numeric",
+        t"10",
         t"Mod:R",
         t"Mod:f",
         t"List unserializableType",
@@ -156,7 +158,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
               observers Nil @Party,
               agreement "Agreement",
               choices {
-                choice Ch (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
+                choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
               }
             } ;
           }
@@ -170,7 +172,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:SerializableType) :
+                  choice Ch (self) (i : Mod:SerializableType) :
                     Mod:SerializableType by $partiesAlice
                       to upure @Mod:SerializableType (Mod:SerializableType {})
                 }
@@ -187,7 +189,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:UnserializableType) :     // disallowed unserializable type
+                  choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
                    Unit by $partiesAlice to
                        upure @Unit ()
                 }
@@ -203,7 +205,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:SerializableType) :
+                  choice Ch (self) (i : Mod:SerializableType) :
                     Mod:UnserializableType by $partiesAlice to       // disallowed unserializable type
                        upure @Mod:UnserializableType (Mod:UnserializableType {})
                 }
@@ -320,7 +322,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Ch (x: Int64) : Decimal by 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
+              choice Ch (self) (x: Int64) : Decimal by 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
             }
           } ;
 
@@ -332,14 +334,14 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
   private val defaultWorld =
     world(defaultPkg)
   private def world(pkg: Package) =
-    new World(Map(defaultPkgId -> pkg))
+    new World(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
-    val mod = w.lookupModule(NoContext, defaultPkgId, longModName)
-    require(Try(Typing.checkModule(w, defaultPkgId, mod)).isSuccess)
-    Serializability.checkModule(w, defaultPkgId, mod)
+    val mod = w.lookupModule(NoContext, defaultPackageId, longModName)
+    require(Try(Typing.checkModule(w, defaultPackageId, mod)).isSuccess)
+    Serializability.checkModule(w, defaultPackageId, mod)
   }
 
   private val partiesAlice = "(Cons @Party ['Alice'] (Nil @Party))"

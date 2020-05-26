@@ -1,9 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.daml.lf.iface
+import com.daml.lf.iface
+import com.daml.lf.iface.{Enum, TypeConName}
+import com.daml.ledger.service.LedgerReader.PackageStore
 import doobie.util.fragment.Fragment
 
 import scala.util.control.NoStackTrace
@@ -12,21 +14,43 @@ import scalaz._
 object Types {
 
   /**
-    * Like [[iface.Type]], without `TypeVar`s
+    * Like `iface.Type`, without `TypeVar`s
     */
   sealed abstract class FullyAppliedType extends Product with Serializable
 
   object FullyAppliedType {
+    final case class TypeNumeric(scale: Int) extends FullyAppliedType
     final case class TypePrim(typ: iface.PrimType, typArgs: List[FullyAppliedType])
         extends FullyAppliedType
-    final case class TypeCon(typ: iface.TypeConName, typArgs: List[FullyAppliedType])
+    final case class TypeCon(
+        typ: iface.TypeConName,
+        typArgs: List[FullyAppliedType],
+        isEnum: Boolean)
         extends FullyAppliedType
 
     object ops {
       final implicit class GenTypeOps(val genType: iface.Type) extends AnyVal {
-        def fat: FullyAppliedType = genType match {
-          case iface.TypePrim(typ, typArgs) => TypePrim(typ, typArgs.toList.map(_.fat))
-          case iface.TypeCon(typ, typArgs) => TypeCon(typ, typArgs.toList.map(_.fat))
+        private def isEnum(typeCon: TypeConName, packageStore: PackageStore) = {
+          val dataType = packageStore(typeCon.identifier.packageId)
+            .typeDecls(typeCon.identifier.qualifiedName)
+            .`type`
+            .dataType
+          dataType match {
+            case Enum(_) => true
+            case _ => false
+          }
+        }
+
+        def fat(packageStore: PackageStore): FullyAppliedType = genType match {
+          case iface.TypePrim(typ, typArgs) =>
+            TypePrim(typ, typArgs.toList.map(_.fat(packageStore)))
+          case iface.TypeCon(tyConName, typArgs) =>
+            TypeCon(
+              tyConName,
+              typArgs.toList.map(_.fat(packageStore)),
+              isEnum(tyConName, packageStore))
+          case iface.TypeNumeric(scale) =>
+            TypeNumeric(scale)
           case iface.TypeVar(_) =>
             throw new IllegalArgumentException(
               s"A `TypeVar` ($genType) cannot be converted to a `FullyAppliedType`"

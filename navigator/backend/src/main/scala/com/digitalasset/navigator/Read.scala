@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
@@ -15,7 +15,7 @@ sealed trait Read[To] {
   /**
     * Convert `from` to a value of type `To`
     *
-    * @return [[Right]] wrapping an instance of `To` in case of success in reading, a [[Left]] wrapping a `ReadFailed`
+    * @return `Right` wrapping an instance of `To` in case of success in reading, a `Left` wrapping a `ReadFailed`
     *        otherwise
     */
   def from(from: String): Either[ReadFailed, To]
@@ -30,7 +30,7 @@ object Read {
       override def from(from: String): Either[ReadFailed, To] = f(from)
     }
 
-  /** A failure while reading that wraps the failure inside a [[Left]] */
+  /** A failure while reading that wraps the failure inside a `Left` */
   def fail[To](implicit classTag: ClassTag[To]): Either[ReadFailed, To] =
     Left(ReadFailed(classTag.runtimeClass.getSimpleName))
 

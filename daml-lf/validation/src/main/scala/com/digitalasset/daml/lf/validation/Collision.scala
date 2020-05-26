@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.validation.NamedEntity._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
+import com.daml.lf.validation.NamedEntity._
+import com.daml.lf.validation.Util._
 
 private[validation] object Collision {
 
@@ -61,10 +61,17 @@ private[validation] object Collision {
       case dDef @ Ast.DDataType(_, _, Ast.DataVariant(variants)) =>
         val variantDef = NVarDef(module, defName, dDef)
         variantDef :: variants.toList.map { case (name, _) => NVarCon(variantDef, name) }
+      case dDef @ Ast.DDataType(_, _, Ast.DataEnum(values)) =>
+        val enumDef = NEnumDef(module, defName, dDef)
+        enumDef :: values.toList.map(NEnumCon(enumDef, _))
       case _: Ast.DValue =>
         // ignore values
         // List(NValDef(module, defName, vDef))
         List.empty
+
+      case _: Ast.DTypeSyn =>
+        List.empty // TODO #3616: check type synonyms
+
     }
 
 }

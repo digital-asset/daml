@@ -1,0 +1,854 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ApplicativeDo       #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiWayIf #-}
+
+-- | Main entry-point of the DAML compiler
+module DA.Cli.Damlc (main) where
+
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Exception
+import Control.Exception.Safe (catchIO)
+import Control.Monad.Except
+import Control.Monad.Extra (whenM)
+import DA.Bazel.Runfiles
+import qualified DA.Cli.Args as ParseArgs
+import DA.Cli.Damlc.Base
+import DA.Cli.Damlc.BuildInfo
+import qualified DA.Cli.Damlc.InspectDar as InspectDar
+import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
+import DA.Cli.Damlc.Packaging
+import DA.Cli.Damlc.Test
+import DA.Daml.Compiler.Dar
+import qualified DA.Daml.Compiler.Repl as Repl
+import DA.Daml.Compiler.DocTest
+import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
+import qualified DA.Daml.LF.ReplClient as ReplClient
+import DA.Daml.Compiler.Validate (validateDar)
+import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Reader
+import DA.Daml.LanguageServer
+import DA.Daml.Options.Types
+import DA.Daml.Package.Config
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
+import DA.Daml.Visual
+import qualified DA.Pretty
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
+import qualified DA.Service.Logger.Impl.IO as Logger.IO
+import DA.Signals
+import qualified Com.Daml.DamlLfDev.DamlLf as PLF
+import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+import qualified Data.ByteString.UTF8 as BSUTF8
+import Data.FileEmbed (embedFile)
+import qualified Data.HashSet as HashSet
+import Data.List.Extra
+import qualified Data.List.Split as Split
+import Data.Maybe
+import qualified Data.Text.Extended as T
+import Development.IDE.Core.API
+import Development.IDE.Core.Debouncer
+import Development.IDE.Core.IdeState.Daml
+import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..))
+import Development.IDE.Core.Rules
+import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
+import Development.IDE.Core.Service (runActionSync)
+import Development.IDE.Core.Shake
+import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
+import Development.IDE.Types.Location
+import Development.IDE.Types.Options (clientSupportsProgress)
+import "ghc-lib-parser" DynFlags
+import GHC.Conc
+import "ghc-lib-parser" Module (unitIdString)
+import qualified Network.Socket as NS
+import Options.Applicative.Extended
+import qualified Proto3.Suite as PS
+import qualified Proto3.Suite.JSONPB as Proto.JSONPB
+import System.Directory.Extra
+import System.Environment
+import System.Exit
+import System.FilePath
+import System.IO.Extra
+import System.Process (StdStream(..))
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
+import Development.IDE.Core.RuleTypes
+import "ghc-lib-parser" ErrUtils
+-- For dumps
+import "ghc-lib" GHC
+import "ghc-lib-parser" HsDumpAst
+import "ghc-lib" HscStats
+import "ghc-lib-parser" HscTypes
+import qualified "ghc-lib-parser" Outputable as GHC
+import qualified SdkVersion
+
+--------------------------------------------------------------------------------
+-- Commands
+--------------------------------------------------------------------------------
+
+data CommandName =
+    Build
+  | Clean
+  | Compile
+  | DamlDoc
+  | DocTest
+  | GenerateSrc
+  | GenerateGenerics
+  | Ide
+  | Init
+  | Inspect
+  | InspectDar
+  | ValidateDar
+  | License
+  | Lint
+  | MergeDars
+  | Package
+  | Test
+  | Visual
+  | Repl
+  deriving (Ord, Show, Eq)
+data Command = Command CommandName (Maybe ProjectOpts) (IO ())
+
+cmdIde :: Int -> Mod CommandFields Command
+cmdIde numProcessors =
+    command "ide" $ info (helper <*> cmd) $
+       progDesc
+        "Start the DAML language server on standard input/output."
+    <> fullDesc
+  where
+    cmd = execIde
+        <$> telemetryOpt
+        <*> debugOpt
+        <*> enableScenarioOpt
+        <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
+
+cmdLicense :: Mod CommandFields Command
+cmdLicense =
+    command "license" $ info (helper <*> pure execLicense) $
+       progDesc
+        "Show the licensing information!"
+    <> fullDesc
+
+cmdCompile :: Int -> Mod CommandFields Command
+cmdCompile numProcessors =
+    command "compile" $ info (helper <*> cmd) $
+        progDesc "Compile the DAML program into a Core/DAML-LF archive."
+    <> fullDesc
+  where
+    cmd = execCompile
+        <$> inputFileOpt
+        <*> outputFileOpt
+        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optWriteIface
+        <*> optional (strOption $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
+
+    optWriteIface =
+        fmap WriteInterface $
+        switch $
+        help "Produce interface files. This is used for building the package db for daml-prim and daml-stdib" <>
+        long "write-iface"
+
+
+cmdLint :: Int -> Mod CommandFields Command
+cmdLint numProcessors =
+    command "lint" $ info (helper <*> cmd) $
+        progDesc "Lint the DAML program."
+    <> fullDesc
+  where
+    cmd = execLint
+        <$> inputFileOpt
+        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+
+cmdTest :: Int -> Mod CommandFields Command
+cmdTest numProcessors =
+    command "test" $ info (helper <*> cmd) $
+       progDesc progDoc
+    <> fullDesc
+  where
+    progDoc = unlines
+      [ "Test the current DAML project or the given files by running all test declarations."
+      , "Must be in DAML project if --files is not set."
+      ]
+    cmd = runTestsInProjectOrFiles
+      <$> projectOpts "daml test"
+      <*> filesOpt
+      <*> fmap UseColor colorOutput
+      <*> junitOutput
+      <*> optionsParser numProcessors (EnableScenarioService True) optPackageName
+      <*> initPkgDbOpt
+    filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
+    filesDoc = "Only run test declarations in the specified files."
+    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    colorOutput = switch $ long "color" <> help "Colored test results"
+
+runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> InitPkgDb -> Command
+runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+  where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
+        initPackageDb cliOptions initPkgDb
+        withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
+            -- TODO: We set up one scenario service context per file that
+            -- we pass to execTest and scenario cnotexts are quite expensive.
+            -- Therefore we keep the behavior of only passing the root file
+            -- if source points to a specific file.
+            files <- getDamlRootFiles pSrc
+            execTest files color mbJUnitOutput cliOptions
+runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+  where effect = withProjectRoot' projectOpts $ \relativize -> do
+        initPackageDb cliOptions initPkgDb
+        inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
+        execTest inFiles' color mbJUnitOutput cliOptions
+
+cmdInspect :: Mod CommandFields Command
+cmdInspect =
+    command "inspect" $ info (helper <*> cmd)
+      $ progDesc "Pretty print a DALF file or the main DALF of a DAR file"
+    <> fullDesc
+  where
+    jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
+    detailOpt =
+        fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
+            optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
+
+cmdVisual :: Mod CommandFields Command
+cmdVisual =
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar (early access)" <> fullDesc
+    where
+      cmd = vis <$> inputDarOpt <*> dotFileOpt
+      vis a b = Command Visual Nothing $ execVisual a b
+
+cmdVisualWeb :: Mod CommandFields Command
+cmdVisualWeb =
+    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar (early access)" <> fullDesc
+    where
+      cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
+      vis a b browser = Command Visual Nothing $ execVisualHtml a b browser
+
+cmdBuild :: Int -> Mod CommandFields Command
+cmdBuild numProcessors =
+    command "build" $
+    info (helper <*> cmd) $
+    progDesc "Initialize, build and package the DAML project" <> fullDesc
+  where
+    cmd =
+        execBuild
+            <$> projectOpts "daml build"
+            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> optionalOutputFileOpt
+            <*> incrementalBuildOpt
+            <*> initPkgDbOpt
+
+cmdRepl :: Int -> Mod CommandFields Command
+cmdRepl numProcessors =
+    command "repl" $ info (helper <*> cmd) $
+    progDesc "Launch the DAML REPL." <>
+    fullDesc
+  where
+    cmd =
+        execRepl
+            <$> projectOpts "daml build"
+            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
+            -- ^ This is useful for tests and `bazel run`.
+            <*> strArgument (help "DAR to load in the repl" <> metavar "DAR")
+            <*> strOption (long "ledger-host" <> help "Host of the ledger API")
+            <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+            <*> accessTokenFileFlag
+            <*> sslConfig
+            <*> optional
+                    (option auto $
+                        long "max-inbound-message-size" <>
+                        help "Optional max inbound message size in bytes."
+                    )
+    accessTokenFileFlag = optional . option str $
+        long "access-token-file"
+        <> metavar "TOKEN_PATH"
+        <> help "Path to the token-file for ledger authorization"
+
+    sslConfig :: Parser (Maybe ReplClient.ClientSSLConfig)
+    sslConfig = do
+        tls <- switch $ mconcat
+            [ long "tls"
+            , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
+            ]
+        mbCACert <- optional $ strOption $ mconcat
+            [ long "cacrt"
+            , help "The crt file to be used as the the trusted root CA."
+            ]
+        mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
+            (strOption $ mconcat
+                 [ long "pem"
+                 , help "The pem file to be used as the private key in mutual authentication."
+                 ]
+            )
+            (strOption $ mconcat
+                 [ long "crt"
+                 , help "The crt file to be used as the cert chain in mutual authentication."
+                 ]
+            )
+        return $ case (tls, mbCACert, mbClientKeyCertPair) of
+            (False, Nothing, Nothing) -> Nothing
+            (_, _, _) -> Just ReplClient.ClientSSLConfig
+                { serverRootCert = mbCACert
+                , clientSSLKeyCertPair = mbClientKeyCertPair
+                , clientMetadataPlugin = Nothing
+                }
+
+
+cmdClean :: Mod CommandFields Command
+cmdClean =
+    command "clean" $
+    info (helper <*> cmd) $
+    progDesc "Remove DAML project build artifacts" <> fullDesc
+  where
+    cmd = execClean <$> projectOpts "daml clean"
+
+cmdInit :: Int -> Mod CommandFields Command
+cmdInit numProcessors =
+    command "init" $
+    info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
+  where
+    cmd = execInit <$> optionsParser numProcessors (EnableScenarioService False) (pure Nothing) <*> projectOpts "daml damlc init"
+
+cmdPackage :: Int -> Mod CommandFields Command
+cmdPackage numProcessors =
+    command "package" $ info (helper <*> cmd) $
+       progDesc "Compile the DAML program into a DAML Archive (DAR)"
+    <> fullDesc
+  where
+    cmd = execPackage
+        <$> projectOpts "daml damlc package"
+        <*> inputFileOpt
+        <*> optionsParser numProcessors (EnableScenarioService False) (Just <$> packageNameOpt)
+        <*> optionalOutputFileOpt
+        <*> optFromDalf
+
+    optFromDalf :: Parser FromDalf
+    optFromDalf = fmap FromDalf $
+      switch $
+      help "package an existing dalf file rather than compiling DAML sources" <>
+      long "dalf" <>
+      internal
+
+cmdInspectDar :: Mod CommandFields Command
+cmdInspectDar =
+    command "inspect-dar" $
+    info (helper <*> cmd) $ progDesc "Inspect a DAR archive" <> fullDesc
+  where
+    jsonOpt =
+        flag InspectDar.PlainText InspectDar.Json $
+        long "json" <> help "Output the information in JSON"
+    cmd = execInspectDar
+        <$> inputDarOpt
+        <*> jsonOpt
+
+cmdValidateDar :: Mod CommandFields Command
+cmdValidateDar =
+    command "validate-dar" $
+    info (helper <*> cmd) $ progDesc "Validate a DAR archive" <> fullDesc
+  where
+    cmd = execValidateDar <$> inputDarOpt
+
+cmdMergeDars :: Mod CommandFields Command
+cmdMergeDars =
+    command "merge-dars" $
+    info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
+  where
+    cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
+
+cmdDocTest :: Int -> Mod CommandFields Command
+cmdDocTest numProcessors =
+    command "doctest" $
+    info (helper <*> cmd) $
+    progDesc "doc tests" <> fullDesc
+  where
+    cmd = execDocTest
+        <$> optionsParser numProcessors (EnableScenarioService True) optPackageName
+        <*> many inputFileOpt
+
+--------------------------------------------------------------------------------
+-- Execution
+--------------------------------------------------------------------------------
+
+execLicense :: Command
+execLicense =
+  Command License Nothing effect
+  where
+    effect = B.putStr licenseData
+    licenseData :: B.ByteString
+    licenseData = $(embedFile "compiler/daml-licenses/licenses/licensing.md")
+
+execIde :: Telemetry
+        -> Debug
+        -> EnableScenarioService
+        -> Options
+        -> Command
+execIde telemetry (Debug debug) enableScenarioService options =
+    Command Ide Nothing effect
+  where effect = NS.withSocketsDo $ do
+          let threshold =
+                  if debug
+                  then Logger.Debug
+                  -- info is used pretty extensively for debug messages in our code base so
+                  -- I've set the no debug threshold at warning
+                  else Logger.Warning
+          loggerH <- Logger.IO.newIOLogger
+            stderr
+            (Just 5000)
+            -- NOTE(JM): ^ Limit the message length to 5000 characters as VSCode
+            -- performance will be significatly impacted by large log output.
+            threshold
+            "LanguageServer"
+          let gcpConfig = Logger.GCP.GCPConfig
+                  { gcpConfigTag = "ide"
+                  , gcpConfigDamlPath = Nothing
+                  }
+              withLogger f = case telemetry of
+                  TelemetryOptedIn ->
+                    let logOfInterest prio = prio `elem` [Logger.Telemetry, Logger.Warning, Logger.Error] in
+                    Logger.GCP.withGcpLogger gcpConfig logOfInterest loggerH $ \gcpState loggerH' -> do
+                      Logger.GCP.setOptIn gcpState
+                      Logger.GCP.logMetaData gcpState
+                      f loggerH'
+                  TelemetryOptedOut -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
+                      Logger.GCP.logOptOut gcpState
+                      f loggerH
+                  TelemetryIgnored -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
+                      Logger.GCP.logIgnored gcpState
+                      f loggerH
+                  TelemetryDisabled -> f loggerH
+          dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+          options <- pure options
+              { optScenarioService = enableScenarioService
+              , optSkipScenarioValidation = SkipScenarioValidation True
+              -- TODO(MH): The `optionsParser` does not provide a way to skip
+              -- individual options. As a stopgap we ignore the argument to
+              -- --jobs and the dlint config.
+              , optThreads = 0
+              , optDlintUsage = DlintEnabled dlintDataDir True
+              }
+          initPackageDb options (InitPkgDb True)
+          scenarioServiceConfig <- readScenarioServiceConfig
+          withLogger $ \loggerH ->
+              withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
+                  sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
+                  Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
+                  debouncer <- newAsyncDebouncer
+                  runLanguageServer loggerH enabledPlugins $ \getLspId sendMsg vfs caps ->
+                      getDamlIdeState options mbScenarioService loggerH debouncer caps getLspId sendMsg vfs (clientSupportsProgress caps)
+
+
+-- | Whether we should write interface files during `damlc compile`.
+newtype WriteInterface = WriteInterface Bool
+
+execCompile :: FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
+execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
+  Command Compile (Just projectOpts) effect
+  where
+    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    effect = withProjectRoot' projectOpts $ \relativize -> do
+      loggerH <- getLogger opts "compile"
+      inputFile <- toNormalizedFilePath' <$> relativize inputFile
+      opts <- pure opts { optIfaceDir = mbIfaceDir }
+      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+          setFilesOfInterest ide (HashSet.singleton inputFile)
+          runActionSync ide $ do
+            -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
+            dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
+            parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
+            liftIO $ do
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed "Parser" $ GHC.ppr parsed
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $ showAstData NoBlankSrcSpan parsed
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $ ppSourceStats False parsed
+
+            when writeInterface $ do
+                files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
+                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts) files
+                void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
+
+            mbDalf <- getDalf inputFile
+            dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
+            liftIO $ write dalf
+    write bs
+      | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
+      | otherwise = do
+        createDirectoryIfMissing True $ takeDirectory outputFile
+        B.writeFile outputFile $ Archive.encodeArchive bs
+
+execLint :: FilePath -> Options -> Command
+execLint inputFile opts =
+  Command Lint (Just projectOpts) effect
+  where
+     projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+     effect =
+       withProjectRoot' projectOpts $ \relativize ->
+       do
+         loggerH <- getLogger opts "lint"
+         inputFile <- toNormalizedFilePath' <$> relativize inputFile
+         opts <- setDlintDataDir opts
+         withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+             setFilesOfInterest ide (HashSet.singleton inputFile)
+             runActionSync ide $ getDlintIdeas inputFile
+             diags <- getDiagnostics ide
+             if null diags then
+               hPutStrLn stderr "No hints"
+             else
+               exitFailure
+     setDlintDataDir :: Options -> IO Options
+     setDlintDataDir opts = do
+       defaultDir <-locateRunfiles $
+         mainWorkspace </> "compiler/damlc/daml-ide-core"
+       return $ case optDlintUsage opts of
+         DlintEnabled _ _ -> opts
+         DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
+
+defaultProjectPath :: ProjectPath
+defaultProjectPath = ProjectPath "."
+
+-- | If we're in a daml project, read the daml.yaml field and create the project local package
+-- database. Otherwise do nothing.
+execInit :: Options -> ProjectOpts -> Command
+execInit opts projectOpts =
+  Command Init (Just projectOpts) effect
+  where effect = withProjectRoot' projectOpts $ \_relativize ->
+          initPackageDb
+            opts
+            (InitPkgDb True)
+
+initPackageDb :: Options -> InitPkgDb -> IO ()
+initPackageDb opts (InitPkgDb shouldInit) =
+    when shouldInit $ do
+        -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
+        -- This allows us to have a `daml.yaml` in the root of a multi-package project that just has an `sdk-version` field.
+        -- Once the IDE handles `initPackageDb` properly in multi-package projects instead of simply calling it once on
+        -- startup, this can be removed.
+        isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
+        when isProject $ do
+            projRoot <- getCurrentDirectory
+            withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
+                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pDependencies pDataDependencies
+
+execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
+execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
+  Command Build (Just projectOpts) effect
+  where effect = withProjectRoot' projectOpts $ \_relativize -> do
+            initPackageDb opts initPkgDb
+            withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
+                putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
+                loggerH <- getLogger opts "package"
+                withDamlIdeState
+                    opts
+                      { optMbPackageName = Just pName
+                      , optMbPackageVersion = pVersion
+                      , optIncrementalBuild = incrementalBuild
+                      }
+                    loggerH
+                    diagnosticsLogger $ \compilerH -> do
+                    mbDar <-
+                        buildDar
+                            compilerH
+                            pkgConfig
+                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
+                            (FromDalf False)
+                    dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
+                    let fp = targetFilePath $ unitIdString (pkgNameVersion pName pVersion)
+                    createDarFile fp dar
+            where
+                targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
+
+execRepl
+    :: ProjectOpts
+    -> Options
+    -> FilePath -> FilePath
+    -> String -> String
+    -> Maybe FilePath
+    -> Maybe ReplClient.ClientSSLConfig
+    -> Maybe ReplClient.MaxInboundMessageSize
+    -> Command
+execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize = Command Repl (Just projectOpts) effect
+  where effect = do
+            -- We change directory so make this absolute
+            mainDar <- makeAbsolute mainDar
+            opts <- pure opts
+                { optDlintUsage = DlintDisabled
+                , optScenarioService = EnableScenarioService False
+                }
+            logger <- getLogger opts "repl"
+            runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
+            let jar = runfilesDir </> "repl-service.jar"
+            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize Inherit) $ \replHandle _stdout _ph ->
+                withTempDir $ \dir ->
+                withCurrentDirectory dir $ do
+                sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
+                writeFileUTF8 "daml.yaml" $ unlines
+                    [ "sdk-version: " <> sdkVer
+                    , "name: repl"
+                    , "version: 0.0.1"
+                    , "source: ."
+                    , "dependencies:"
+                    , "- daml-prim"
+                    , "- daml-stdlib"
+                    , "- " <> show scriptDar
+                    , "- " <> show mainDar
+                    ]
+                initPackageDb opts (InitPkgDb True)
+                -- We want diagnostics to go to stdout in the repl.
+                withDamlIdeState opts logger (hDiagnosticsLogger stdout)
+                    (Repl.runRepl opts mainDar replHandle)
+
+-- | Remove any build artifacts if they exist.
+execClean :: ProjectOpts -> Command
+execClean projectOpts =
+  Command Clean (Just projectOpts) effect
+  where effect = do
+            withProjectRoot' projectOpts $ \_relativize -> do
+                isProject <- doesFileExist projectConfigName
+                when isProject $ do
+                    let removeAndWarn path = do
+                            whenM (doesDirectoryExist path) $ do
+                                putStrLn ("Removing directory " <> path)
+                                removePathForcibly path
+                            whenM (doesFileExist path) $ do
+                                putStrLn ("Removing file " <> path)
+                                removePathForcibly path
+                    removeAndWarn damlArtifactDir
+                    putStrLn "Removed build artifacts."
+
+execPackage :: ProjectOpts
+            -> FilePath -- ^ input file
+            -> Options
+            -> Maybe FilePath
+            -> FromDalf
+            -> Command
+execPackage projectOpts filePath opts mbOutFile dalfInput =
+  Command Package (Just projectOpts) effect
+  where
+    effect = withProjectRoot' projectOpts $ \relativize -> do
+      loggerH <- getLogger opts "package"
+      filePath <- relativize filePath
+      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+          -- We leave the sdk version blank and the list of exposed modules empty.
+          -- This command is being removed anytime now and not present
+          -- in the new daml assistant.
+          mbDar <- buildDar ide
+                            PackageConfigFields
+                              { pName = fromMaybe (LF.PackageName $ T.pack $ takeBaseName filePath) $ optMbPackageName opts
+                              , pSrc = filePath
+                              , pExposedModules = Nothing
+                              , pVersion = optMbPackageVersion opts
+                              , pDependencies = []
+                              , pDataDependencies = []
+                              , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
+                              }
+                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
+                            dalfInput
+          case mbDar of
+            Nothing -> do
+                hPutStrLn stderr "ERROR: Creation of DAR file failed."
+                exitFailure
+            Just dar -> createDarFile targetFilePath dar
+    -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
+    -- We could parametrize CliOptions by whether the package name is optional
+    -- but I don’t think that is worth the complexity of carrying around a type parameter.
+    name = fromMaybe (error "Internal error: Package name was not present") (optMbPackageName opts)
+
+    -- The default output filename is based on Maven coordinates if
+    -- the package name is specified via them, otherwise we use the
+    -- name.
+    defaultDarFile =
+      case Split.splitOn ":" (T.unpack $ LF.unPackageName name) of
+        [_g, a, v] -> a <> "-" <> v <> ".dar"
+        _otherwise -> (T.unpack $ LF.unPackageName name) <> ".dar"
+
+    targetFilePath = fromMaybe defaultDarFile mbOutFile
+
+-- | Given a path to a .dalf or a .dar return the bytes of either the .dalf file
+-- or the the main dalf from the .dar
+-- In addition to the bytes, we also return the basename of the dalf file.
+getDalfBytes :: FilePath -> IO (B.ByteString, FilePath)
+getDalfBytes fp
+  | "dar" `isExtensionOf` fp = do
+        dar <- B.readFile fp
+        let archive = ZipArchive.toArchive $ BSL.fromStrict dar
+        manifest <- either fail pure $ readDalfManifest archive
+        dalfs <- either fail pure $ readDalfs archive
+        pure (BSL.toStrict $ mainDalf dalfs, takeBaseName $ mainDalfPath manifest)
+  | otherwise = (, takeBaseName fp) <$> B.readFile fp
+
+execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
+execInspect inFile outFile jsonOutput lvl =
+  Command Inspect Nothing effect
+  where
+    effect = do
+      (bytes, _) <- getDalfBytes inFile
+      if jsonOutput
+      then do
+        payloadBytes <- PLF.archivePayload <$> errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
+        archive :: PLF.ArchivePayload <- errorOnLeft "Cannot decode archive payload" $ PS.fromByteString payloadBytes
+        writeOutputBSL outFile
+         $ Aeson.Pretty.encodePretty
+         $ Proto.JSONPB.toAesonValue archive
+      else do
+        (pkgId, lfPkg) <- errorOnLeft "Cannot decode package" $
+                   Archive.decodeArchive Archive.DecodeAsMain bytes
+        writeOutput outFile $ render Plain $
+          DA.Pretty.vsep
+            [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
+            , DA.Pretty.nest 2 (DA.Pretty.pPrintPrec lvl 0 lfPkg)
+            ]
+
+errorOnLeft :: Show a => String -> Either a b -> IO b
+errorOnLeft desc = \case
+  Left err -> ioError $ userError $ unlines [ desc, show err ]
+  Right x  -> return x
+
+execInspectDar :: FilePath -> InspectDar.Format -> Command
+execInspectDar inFile jsonOutput =
+  Command InspectDar Nothing (InspectDar.inspectDar inFile jsonOutput)
+
+execValidateDar :: FilePath -> Command
+execValidateDar inFile =
+  Command ValidateDar Nothing effect
+  where
+    effect = do
+      n <- validateDar inFile -- errors if validation fails
+      putStrLn $ "DAR is valid; contains " <> show n <> " packages."
+
+-- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
+-- manifest from the first.
+execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> Command
+execMergeDars darFp1 darFp2 mbOutFp =
+  Command MergeDars Nothing effect
+  where
+    effect = do
+      let outFp = fromMaybe darFp1 mbOutFp
+      bytes1 <- B.readFile darFp1
+      bytes2 <- B.readFile darFp2
+      let dar1 = ZipArchive.toArchive $ BSL.fromStrict bytes1
+      let dar2 = ZipArchive.toArchive $ BSL.fromStrict bytes2
+      mf <- mergeManifests dar1 dar2
+      let merged =
+              ZipArchive.Archive
+                  (nubSortOn ZipArchive.eRelativePath $ mf : ZipArchive.zEntries dar1 ++ ZipArchive.zEntries dar2)
+                  -- nubSortOn keeps the first occurence
+                  Nothing
+                  BSL.empty
+      BSL.writeFile outFp $ ZipArchive.fromArchive merged
+    mergeManifests dar1 dar2 = do
+        manifest1 <- either fail pure $ readDalfManifest dar1
+        manifest2 <- either fail pure $ readDalfManifest dar2
+        let mergedDalfs = BSC.intercalate ", " $ map BSUTF8.fromString $ nubSort $ dalfPaths manifest1 ++ dalfPaths manifest2
+        attrs1 <- either fail pure $ readManifest dar1
+        attrs1 <- pure $ map (\(k, v) -> if k == "Dalfs" then (k, mergedDalfs) else (k, v)) attrs1
+        pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
+            map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
+
+execDocTest :: Options -> [FilePath] -> Command
+execDocTest opts files =
+  Command DocTest Nothing effect
+  where
+    effect = do
+      let files' = map toNormalizedFilePath' files
+      logger <- getLogger opts "doctest"
+      -- We don’t add a logger here since we will otherwise emit logging messages twice.
+      importPaths <-
+          withDamlIdeState opts { optScenarioService = EnableScenarioService False }
+              logger (const $ pure ()) $ \ideState -> runActionSync ideState $ do
+          pmS <- catMaybes <$> uses GetParsedModule files'
+          -- This is horrible but we do not have a way to change the import paths in a running
+          -- IdeState at the moment.
+          pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
+      opts <- pure opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
+      withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
+          docTest ideState files'
+
+--------------------------------------------------------------------------------
+-- main
+--------------------------------------------------------------------------------
+
+options :: Int -> Parser Command
+options numProcessors =
+    subparser
+      (  cmdIde numProcessors
+      <> cmdLicense
+      -- cmdPackage can go away once we kill the old assistant.
+      <> cmdPackage numProcessors
+      <> cmdBuild numProcessors
+      <> cmdTest numProcessors
+      <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc Nothing $ Damldoc.exec cli)
+      <> cmdVisual
+      <> cmdVisualWeb
+      <> cmdInspectDar
+      <> cmdValidateDar
+      <> cmdDocTest numProcessors
+      <> cmdLint numProcessors
+      <> cmdRepl numProcessors
+      )
+    <|> subparser
+      (internal -- internal commands
+        <> cmdInspect
+        <> cmdVisual
+        <> cmdVisualWeb
+        <> cmdMergeDars
+        <> cmdInit numProcessors
+        <> cmdCompile numProcessors
+        <> cmdClean
+      )
+
+parserInfo :: Int -> ParserInfo Command
+parserInfo numProcessors =
+  info (helper <*> options numProcessors)
+    (  fullDesc
+    <> progDesc "Invoke the DAML compiler. Use -h for help."
+    <> headerDoc (Just $ PP.vcat
+        [ "damlc - Compiler and IDE backend for the Digital Asset Modelling Language"
+        , buildInfo
+        ])
+    )
+
+cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
+cliArgsFromDamlYaml mbProjectOpts = do
+    -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
+    -- and this is simple enough so we inline it here.
+    mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
+    let mbProjectPath = projectRoot =<< mbProjectOpts
+    let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
+    handle (\(_ :: ConfigError) -> return []) $ do
+        project <- readProjectConfig projectPath
+        case queryProjectConfigRequired ["build-options"] project of
+            Left _ -> pure []
+            Right xs -> pure xs
+
+main :: IO ()
+main = do
+    -- We need this to ensure that logs are flushed on SIGTERM.
+    installSignalHandlers
+    numProcessors <- getNumProcessors
+    let parse = ParseArgs.lax (parserInfo numProcessors)
+    cliArgs <- getArgs
+    let (_, tempParseResult) = parse cliArgs
+    -- Note: need to parse given args first to decide whether we need to add
+    -- args from daml.yaml.
+    Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
+    damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
+    let args = if cmd `elem` [Build, Compile, Ide, Test, DamlDoc]
+               then cliArgs ++ damlYamlArgs
+               else cliArgs
+        (errMsgs, parseResult) = parse args
+    Command _ _ io <- handleParseResult parseResult
+    forM_ errMsgs $ \msg -> do
+        hPutStrLn stderr msg
+    withProgName "damlc" io
+
+withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
+withProjectRoot' ProjectOpts{..} act =
+    withProjectRoot projectRoot projectCheck (const act)

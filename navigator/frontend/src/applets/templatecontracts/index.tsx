@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import {
@@ -105,7 +105,8 @@ class Component extends React.Component<Props, {}> {
 
   render() {
     const { data } = this.props;
-    const columns = data && data.node && data.node.__typename === 'Template' ?
+    const columns =
+      data && data.node && data.node.__typename === 'Template' && data.node.parameterDef.dataType.type === 'record' ?
       makeColumns(data.node.parameterDef.dataType) : [];
     return (
       <ContractTable

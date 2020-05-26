@@ -1,0 +1,267 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+load(
+    "//bazel_tools/client_server:client_server_test.bzl",
+    "client_server_test",
+)
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("@build_environment//:configuration.bzl", "sdk_version")
+
+genrule(
+    name = "script-test",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//daml-script/daml:daml-script.dar",
+            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+        ],
+    outs = ["script-test.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "test-lib",
+    srcs = glob(
+        ["src/**/*.scala"],
+        exclude = ["src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala"],
+    ),
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_binary(
+    name = "test_client_single_participant",
+    main_class = "com.daml.lf.engine.script.test.SingleParticipant",
+    deps = [
+        ":test-lib",
+        "//libs-scala/auth-utils",
+    ],
+)
+
+da_scala_binary(
+    name = "test_client_multi_participant",
+    main_class = "com.daml.lf.engine.script.test.MultiParticipant",
+    deps = [":test-lib"],
+)
+
+da_scala_test_suite(
+    name = "test_json",
+    srcs = [
+        "src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala",
+    ],
+    data = [":script-test.dar"],
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        ":test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/http-json",
+        "//ledger-service/jwt",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/auth-utils",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+client_server_test(
+    name = "test_static_time",
+    client = ":test_client_single_participant",
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--static-time",
+        "--port=0",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_wallclock_time",
+    client = ":test_client_single_participant",
+    client_args = ["-w"],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--wall-clock-time",
+        "--port=0",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+AUTH_TOKEN = "I_CAN_HAZ_AUTH"
+
+# This is a genrule so we can replace it by something nicer that actually generates the token
+# from some readable input so we can change it more easily.
+# For now, this corresponds to a token that has admin set to false
+# and actAs to Alice, Bob
+genrule(
+    name = "test-auth-token",
+    outs = ["test-auth-token.jwt"],
+    cmd = """
+      cat <<EOF > $(location test-auth-token.jwt)
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsiYWRtaW4iOmZhbHNlLCJhY3RBcyI6WyJBbGljZSIsIkJvYiJdfX0.UYogXMZvmhzzjmsmKayaDsI2hGKh1T2Sz5l9h4tdgGM
+EOF
+    """,
+)
+
+client_server_test(
+    name = "test_wallclock_time_authenticated",
+    client = ":test_client_single_participant",
+    client_args = [
+        "-w",
+        "--access-token-file",
+    ],
+    client_files = [
+        "$(rootpath :test-auth-token.jwt)",
+        "$(rootpath :script-test.dar)",
+    ],
+    data = [
+        ":script-test.dar",
+        ":test-auth-token.jwt",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--wall-clock-time",
+        "--port=0",
+        "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_wallclock_time_tls",
+    client = ":test_client_single_participant",
+    client_args = [
+        "-w",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+    ],
+    client_files = [
+        "$(rootpath :script-test.dar)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//ledger/test-common/test-certificates:ca.crt",
+        "//ledger/test-common/test-certificates:server.crt",
+        "//ledger/test-common/test-certificates:server.pem",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--wall-clock-time",
+        "--port=0",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
+        "--client-auth=none",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_multiparticipant",
+    client = ":test_client_multi_participant",
+    client_args = [
+        "-w",
+        "--target-port=6865",
+        "--extra-participant-port=6866",
+    ],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner_args = [
+        "6865",
+        "6866",
+    ],
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--participant participant-id=daml_on_x,port=6865",
+        "--participant participant-id=daml_on_x2,port=6866",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+    tags = ["exclusive"],
+)
+
+sh_test(
+    name = "test_daml_script_test_runner",
+    srcs = [":daml-script-test-runner.sh"],
+    args = [
+        "$(rootpath //daml-script/runner:test-runner)",
+        "$(rootpath :script-test.dar)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_GREP)",
+        "$(POSIX_SORT)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//daml-script/runner:test-runner",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

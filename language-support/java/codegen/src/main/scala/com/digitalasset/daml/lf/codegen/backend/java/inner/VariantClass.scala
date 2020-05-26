@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.digitalasset.daml.lf.codegen.TypeWithContext
-import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.codegen.TypeWithContext
+import com.daml.lf.codegen.backend.java.JavaEscaper
+import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.iface._
 import InterfaceType.Normal
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -31,7 +31,7 @@ private[inner] object VariantClass extends StrictLogging {
       val variantType = TypeSpec
         .classBuilder(variantClassName)
         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-        .addTypeVariables(typeVariableNames(typeArguments).asJava)
+        .addTypeVariables(typeArguments.map(TypeVariableName.get).asJava)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
         .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName, subPackage))
@@ -47,7 +47,10 @@ private[inner] object VariantClass extends StrictLogging {
     }
 
   private def isRecord(interfaceType: InterfaceType): Boolean =
-    interfaceType.`type`.dataType.fold(_ => true, _ => false)
+    interfaceType.`type`.dataType match {
+      case _: Record[_] => true
+      case _: Variant[_] | _: Enum => false
+    }
 
   /**
     * A record is a variant record if and only if
@@ -174,11 +177,11 @@ private[inner] object VariantClass extends StrictLogging {
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
-    for (info @ FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
+    for (FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
         variant.fields,
         packagePrefixes)) {
       damlType match {
-        case t @ TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
+        case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
           // Variant records will be dealt with in a subsequent phase
           variantRecords.add(damlName)
         case _ =>
@@ -218,16 +221,6 @@ private[inner] object VariantClass extends StrictLogging {
       }
     }
     innerClasses.toList
-  }
-
-  private def typeVariableNames(typeArguments: IndexedSeq[String]) =
-    typeArguments.map(TypeVariableName.get)
-
-  private def typeName(rawType: ClassName, typeArgs: IndexedSeq[String]) = {
-    val tArgs = typeVariableNames(typeArgs)
-    if (tArgs.nonEmpty)
-      ParameterizedTypeName.get(rawType, tArgs: _*)
-    else rawType
   }
 
 }

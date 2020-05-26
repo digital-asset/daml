@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store
+package com.daml.navigator.store
 
 import java.time.Instant
 
-import com.digitalasset.navigator.model._
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.time.TimeProviderWithType
+import com.daml.navigator.model._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.time.TimeProviderWithType
 
 trait ActorStatus
 
@@ -25,28 +25,28 @@ case object ActorUnresponsive extends ActorStatus
 
 object Store {
 
-  /** Reinitialize the platform connection and reset all local state [[Unit]] */
+  /** Reinitialize the platform connection and reset all local state `Unit` */
   case object ResetConnection
 
   /** Request to subscribe a party to the store (without response to sender). */
   case class Subscribe(party: PartyState)
 
-  /** Request to create a contract instance for a template and respond with a [[scala.util.Try[CommandId]*]]. */
+  /** Request to create a contract instance for a template and respond with a `scala.util.Try[CommandId]`. */
   case class CreateContract(party: PartyState, templateId: TemplateStringId, argument: ApiRecord)
 
-  /** Request to exercise a choice on a contract and respond with a [[scala.util.Try[CommandId]*]]. */
+  /** Request to exercise a choice on a contract and respond with a `scala.util.Try[CommandId]`. */
   case class ExerciseChoice(
       party: PartyState,
       contractId: ApiTypes.ContractId,
       choiceId: ApiTypes.Choice,
       argument: ApiValue)
 
-  /** Request to respond with a [[scala.util.Try[TimeProviderWithType]*]] with the current store time. */
+  /** Request to respond with a `scala.util.Try[TimeProviderWithType]` with the current store time. */
   case object ReportCurrentTime
 
   /**
     * Request to advance time to the specified instant and respond with updated store time as a
-    * [[scala.util.Try[TimeProviderWithType]*]].
+    * `scala.util.Try[TimeProviderWithType]`.
     */
   case class AdvanceTime(to: Instant)
 

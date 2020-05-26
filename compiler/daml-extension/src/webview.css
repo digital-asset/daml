@@ -1,0 +1,43 @@
+/* Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.  */
+/* SPDX-License-Identifier: Apache-2.0  */
+
+table, th, td {
+  border: 1px solid;
+  border-collapse: collapse;
+}
+th, td {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+body.hide_archived .archived {
+  display: none;
+}
+body.hide_table .table {
+  display: none;
+}
+body.hide_transaction .transaction {
+  display: none;
+}
+body.hide_note .note {
+  display: none;
+}
+tr.archived td {
+  text-decoration: line-through;
+}
+td.disclosure {
+  max-width: 1em;
+  text-align: center;
+}
+tr.archived td.disclosure {
+  text-decoration: none;
+}
+th {
+  vertical-align: bottom;
+}
+div.observer {
+  max-width: 1em;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+

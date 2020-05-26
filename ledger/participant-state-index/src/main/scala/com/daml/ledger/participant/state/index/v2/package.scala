@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index
@@ -7,9 +7,9 @@ import java.time.{Duration, Instant}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.ledger.api.domain._
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value
+import com.daml.ledger.api.domain._
 
 package object v2 {
 
@@ -18,38 +18,16 @@ package object v2 {
     final case class Create(
         transactionId: TransactionId,
         eventId: EventId,
-        contractId: Value.AbsoluteContractId,
+        contractId: Value.ContractId,
         templateId: Ref.Identifier,
-        argument: Value.VersionedValue[Value.AbsoluteContractId],
+        argument: Value.VersionedValue[Value.ContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
+        contractKey: Option[Value.VersionedValue[Value.ContractId]],
+        signatories: Set[Ref.Party],
+        observers: Set[Ref.Party],
+        agreementText: String
     )
-  }
-
-  sealed trait CompletionEvent extends Product with Serializable {
-    def offset: LedgerOffset.Absolute
-    def recordTime: Instant
-  }
-
-  object CompletionEvent {
-
-    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Instant)
-        extends CompletionEvent
-
-    final case class CommandAccepted(
-        offset: LedgerOffset.Absolute,
-        recordTime: Instant,
-        commandId: CommandId,
-        transactionId: TransactionId)
-        extends CompletionEvent
-
-    final case class CommandRejected(
-        offset: LedgerOffset.Absolute,
-        recordTime: Instant,
-        commandId: CommandId,
-        reason: RejectionReason)
-        extends CompletionEvent
-
   }
 
   final case class ActiveContractSetSnapshot(
@@ -110,5 +88,30 @@ package object v2 {
       recordTime: Instant,
       workflowId: WorkflowId)
 
-  final case class LedgerConfiguration(minTTL: Duration, maxTTL: Duration)
+  final case class LedgerConfiguration(maxDeduplicationTime: Duration)
+
+  /** Meta-data of a DAML-LF package
+    *
+    * @param size              : The size of the archive payload, in bytes.
+    *
+    * @param knownSince        : Indicates since when the package is known to
+    *   the backing participant.
+    *
+    * @param sourceDescription : Optional description provided by the backing
+    *   participant describing where it got the package from.
+    *
+    */
+  final case class PackageDetails(
+      size: Long,
+      knownSince: Instant,
+      sourceDescription: Option[String])
+
+  sealed abstract class CommandDeduplicationResult extends Product with Serializable
+
+  /** This is the first time the command was submitted. */
+  case object CommandDeduplicationNew extends CommandDeduplicationResult
+
+  /** This command was submitted before. */
+  final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
+      extends CommandDeduplicationResult
 }

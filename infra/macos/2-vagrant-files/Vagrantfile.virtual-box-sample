@@ -1,0 +1,16 @@
+token = ENV["VSTS_TOKEN"] || "unset"
+name = ENV["GUEST_NAME"] || "unset"
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "macinbox"
+  config.vm.boot_timeout = 900 # 15 minutes
+  config.vm.provider "virtualbox" do |vbox|
+    vbox.gui = false
+    vbox.memory = 32700 # Bug in VirtualBox 6.1.4
+    vbox.cpus = 5 # POssible bug causing slow performance and networking in Guest
+  end
+  config.vm.provision "shell" do |script|
+    script.path = "init.sh"
+    script.args = [token, name]
+  end
+end

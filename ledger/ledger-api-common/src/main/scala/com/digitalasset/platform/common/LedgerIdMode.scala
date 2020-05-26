@@ -1,21 +1,38 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.common
+package com.daml.platform.common
 
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.LedgerId
 
-sealed abstract class LedgerIdMode extends Product with Serializable
+sealed abstract class LedgerIdMode extends Product with Serializable {
+  def or(other: => LedgerId): LedgerId
+}
 
 object LedgerIdMode {
 
-  /**
-    * Ledger ID is provided by the test fixture and the Ledger API endpoint behind it is expected to use it.
-    */
-  final case class Static(ledgerId: LedgerId) extends LedgerIdMode
+  def static(ledgerId: String): LedgerIdMode =
+    Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))
+
+  def dynamic: LedgerIdMode =
+    Dynamic
 
   /**
-    * Ledger ID is selected by the Ledger API endpoint behind the fixture. E.g. it can be random in case of Sandbox, or pre-existing in case of remote Ledger API servers.
+    * The ledger ID is provided by the user or test fixture,
+    * and the Ledger API endpoint behind it is expected to use it.
     */
-  final case class Dynamic() extends LedgerIdMode
+  final case class Static(ledgerId: LedgerId) extends LedgerIdMode {
+    override def or(other: => LedgerId): LedgerId = ledgerId
+  }
+
+  /**
+    * The ledger ID is selected by the ledger.
+    * Typically, it will be random if the ledger and the participant are unified, or pre-existing
+    * if the ledger is separate. With this option, Sandbox will generate a new ledger ID on first
+    * run.
+    */
+  case object Dynamic extends LedgerIdMode {
+    override def or(other: => LedgerId): LedgerId = other
+  }
 }

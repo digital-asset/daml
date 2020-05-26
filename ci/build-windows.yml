@@ -1,6 +1,11 @@
-steps:
-  - checkout: self
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 
+parameters:
+  release_tag: ''
+  is_release: ''
+
+steps:
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
@@ -13,13 +18,8 @@ steps:
 
   - powershell: '.\build.ps1'
     displayName: 'Build'
-
-  - task: PublishBuildArtifacts@1
-    condition: succeededOrFailed()
-    displayName: 'Publish the bazel execution logs'
-    inputs:
-      pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'Execution logs'
+    env:
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()
@@ -30,30 +30,39 @@ steps:
 
   - bash: |
       set -euo pipefail
-      echo "Simulating release step..."
-      echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
-      echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
-    name: release
-
-  - bash: |
-      set -euo pipefail
-      ARTIFACT=daml-sdk-$(release_tag)-windows.tar.gz
-      cp bazel-genfiles/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$ARTIFACT
-      echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
-      WINDOWS_INSTALLER=daml-sdk-$(release_tag)-windows-unsigned.exe
-      cp bazel-genfiles/release/windows-installer/daml-sdk-installer.exe "$(Build.StagingDirectory)/$WINDOWS_INSTALLER"
-      echo "##vso[task.setvariable variable=artifact-unsigned-windows-installer;isOutput=true]$WINDOWS_INSTALLER"
+      INSTALLER=daml-sdk-${{parameters.release_tag}}-windows.exe
+      mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$(Build.StagingDirectory)/$INSTALLER"
+      chmod +wx "$(Build.StagingDirectory)/$INSTALLER"
+      cleanup () {
+          rm -f signing_key.pfx
+      }
+      trap cleanup EXIT
+      echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
+      MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
+      rm signing_key.pfx
+      trap - EXIT
+      echo "##vso[task.setvariable variable=installer;isOutput=true]$INSTALLER"
+      TARBALL=daml-sdk-${{parameters.release_tag}}-windows.tar.gz
+      cp bazel-bin/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$TARBALL
+      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
     name: publish
-    condition: eq(variables['release.has_released'], 'true')
-
+    env:
+      SIGNING_KEY: $(microsoft-code-signing)
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
-    condition: eq(variables['release.has_released'], 'true')
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
-      artifactName: $(publish.artifact)
-
+      targetPath: $(Build.StagingDirectory)/$(publish.installer)
+      artifactName: $(publish.installer)
   - task: PublishPipelineArtifact@0
-    condition: eq(variables['release.has_released'], 'true')
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.artifact-unsigned-windows-installer)
-      artifactName: $(publish.artifact-unsigned-windows-installer)
+      targetPath: $(Build.StagingDirectory)/$(publish.tarball)
+      artifactName: $(publish.tarball)

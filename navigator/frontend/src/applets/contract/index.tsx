@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Dispatch } from '@da/ui-core';
@@ -156,6 +156,9 @@ const query = gql`
           id
         }
         agreementText
+        signatories
+        observers
+        key
         template {
           id topLevelDecl
           choices { name parameter }

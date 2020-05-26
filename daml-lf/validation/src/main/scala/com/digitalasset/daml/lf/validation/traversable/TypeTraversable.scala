@@ -1,21 +1,23 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 package traversable
 
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.language.Ast._
+import com.daml.lf.validation.Util._
 
 private[validation] object TypeTraversable {
   that =>
 
   private def toType(tyCon: TypeConApp): Type =
-    ((TTyCon(tyCon.tycon): Type) /: tyCon.args.iterator)(TApp)
+    (tyCon.args.iterator foldLeft (TTyCon(tyCon.tycon): Type))(TApp)
 
   private[validation] def foreach[U](typ: Type, f: Type => U): Unit =
     typ match {
-      case TVar(_) | TTyCon(_) | TBuiltin(_) =>
+      case TSynApp(_, args) =>
+        args.iterator.foreach(f)
+      case TVar(_) | TTyCon(_) | TBuiltin(_) | TNat(_) =>
       case TApp(tyfun, arg) =>
         f(tyfun)
         f(arg)
@@ -23,14 +25,12 @@ private[validation] object TypeTraversable {
       case TForall(binder @ _, body) =>
         f(body)
         ()
-      case TTuple(fields) =>
+      case TStruct(fields) =>
         fields.values.foreach(f)
     }
 
   private[validation] def foreach[U](expr0: Expr, f: Type => U): Unit = {
     expr0 match {
-      case EContractId(_, typeConName) =>
-        f(TTyCon(typeConName))
       case ERecCon(tycon, fields @ _) =>
         f(toType(tycon))
         fields.values.foreach(foreach(_, f))
@@ -53,6 +53,16 @@ private[validation] object TypeTraversable {
       case ELet(binding, body) =>
         foreach(binding, f)
         foreach(body, f)
+      case EEnumCon(tyConName, _) =>
+        f(TTyCon(tyConName))
+      case EToAny(typ, expr) =>
+        f(typ)
+        foreach(expr, f)
+      case EFromAny(typ, expr) =>
+        f(typ)
+        foreach(expr, f)
+      case ETypeRep(tyCon) =>
+        f(tyCon)
       case ENil(typ) =>
         f(typ)
       case ECons(typ, front, tail) =>
@@ -68,8 +78,10 @@ private[validation] object TypeTraversable {
         foreach(u, f)
       case EScenario(s) =>
         foreach(s, f)
-      case otherwise =>
-        ExprTraversable.foreach(otherwise, foreach(_, f))
+      case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
+          ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) |
+          ETyAbs(_, _) =>
+        ExprTraversable.foreach(expr0, foreach(_, f))
     }
     ()
   }
@@ -96,8 +108,8 @@ private[validation] object TypeTraversable {
       case UpdateEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)
-      case otherwise =>
-        ExprTraversable.foreach(otherwise, foreach(_, f))
+      case UpdateGetTime | UpdateFetchByKey(_) | UpdateLookupByKey(_) =>
+        ExprTraversable.foreach(update, foreach(_, f))
     }
 
   private[validation] def foreach[U](binding: Binding, f: Type => U): Unit =
@@ -128,17 +140,21 @@ private[validation] object TypeTraversable {
       case ScenarioEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)
-      case otherwise @ _ =>
-        ExprTraversable.foreach(otherwise, foreach(_, f))
+      case ScenarioGetTime | ScenarioPass(_) | ScenarioGetParty(_) =>
+        ExprTraversable.foreach(scenario, foreach(_, f))
     }
 
   private[validation] def foreach[U](defn: Definition, f: Type => U): Unit =
     defn match {
+      case DTypeSyn(params @ _, typ) =>
+        f(typ)
+        ()
       case DDataType(serializable @ _, params @ _, DataRecord(fields, template)) =>
         fields.values.foreach(f)
         template.foreach(foreach(_, f))
       case DDataType(serializable @ _, params @ _, DataVariant(variants)) =>
         variants.values.foreach(f)
+      case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
       case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
         f(typ)
         foreach(body, f)

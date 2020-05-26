@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -8,14 +8,13 @@ import java.util
 import java.util.{Collections, Optional}
 
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.testkit.services.TransactionServiceImpl
-import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.digitalasset.ledger.api.v1.value
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -143,18 +142,18 @@ object TransactionGenerator {
       (elementsSize, newHeight) <- splitSizeAndHeight(height)
       elements <- Gen.listOfN(elementsSize, valueGen(newHeight))
       (scalaElements, javaElements) = elements.unzip
-    } yield (Sum.List(value.List(scalaElements)), new data.DamlList(javaElements.asJava))
+    } yield (Sum.List(value.List(scalaElements)), data.DamlList.of(javaElements.asJava))
 
   val int64ValueGen: Gen[(Sum.Int64, data.Int64)] = Arbitrary.arbLong.arbitrary.map { int64 =>
     (Sum.Int64(int64), new data.Int64(int64))
   }
 
-  val decimalValueGen: Gen[(Sum.Decimal, data.Decimal)] = for {
+  val decimalValueGen: Gen[(Sum.Numeric, data.Numeric)] = for {
     sign <- Gen.pick(1, List("", "+", "-"))
     leading <- Gen.choose(1, 9)
     decimals <- Gen.listOfN(37, Gen.choose(0, 9))
     text = s"${sign.head}$leading${decimals.take(27).mkString}.${decimals.drop(27).mkString}"
-  } yield (Sum.Decimal(text), new data.Decimal(new java.math.BigDecimal(text)))
+  } yield (Sum.Numeric(text), new data.Numeric(new java.math.BigDecimal(text)))
 
   val textValueGen: Gen[(Sum.Text, data.Text)] = Arbitrary.arbString.arbitrary.map { text =>
     (Sum.Text(text), new data.Text(text))
@@ -184,8 +183,11 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     agreementText <- Gen.option(Gen.asciiStr)
+    contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
+    signatories <- Gen.listOf(nonEmptyId)
+    observers <- Gen.listOf(nonEmptyId)
     parties <- Gen.listOf(nonEmptyId)
   } yield
     (
@@ -194,16 +196,24 @@ object TransactionGenerator {
           eventId,
           contractId,
           Some(scalaTemplateId),
+          contractKey.map(_._1),
           Some(scalaRecord),
-          parties,
-          agreementText = agreementText)),
+          signatories ++ observers,
+          signatories,
+          observers,
+          agreementText
+        )),
       new data.CreatedEvent(
-        parties.asJava,
+        (signatories ++ observers).asJava,
         eventId,
         javaTemplateId,
         contractId,
         javaRecord,
-        agreementText.map(Optional.of[String]).getOrElse(Optional.empty()))
+        agreementText.map(Optional.of[String]).getOrElse(Optional.empty()),
+        contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2)),
+        signatories.toSet.asJava,
+        observers.toSet.asJava
+      )
     )
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {
@@ -221,7 +231,6 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
-    creatingEventId <- nonEmptyId
     choice <- nonEmptyId
     (scalaChoiceArgument, javaChoiceArgument) <- Gen.sized(valueGen)
     actingParties <- Gen.listOf(nonEmptyId)
@@ -236,13 +245,12 @@ object TransactionGenerator {
           eventId,
           contractId,
           Some(scalaTemplateId),
-          creatingEventId,
           choice,
           Some(scalaChoiceArgument),
           actingParties,
           consuming,
           witnessParties,
-          Nil, //TODO DEL-6007
+          Nil,
           Some(scalaExerciseResult)
         )),
       new data.ExercisedEvent(
@@ -250,13 +258,11 @@ object TransactionGenerator {
         eventId,
         javaTemplateId,
         contractId,
-        creatingEventId,
         choice,
         javaChoiceArgument,
         actingParties.asJava,
         consuming,
         Collections.emptyList(),
-        //TODO DEL-6007
         javaExerciseResult
       )
     )
@@ -298,8 +304,8 @@ object TransactionGenerator {
         commandId,
         workflowId,
         javaTimestamp,
-        Collections.emptyMap(), //TODO DEL-6007
-        Collections.emptyList(), //TODO DEL-6007
+        Collections.emptyMap(),
+        Collections.emptyList(),
         offset)
     )
 
@@ -313,7 +319,7 @@ object TransactionGenerator {
     (arbitraryLedgerContent, _) <- ledgerContentTreeGen
     (queriedLedgerContent, queriedTransaction) <- transactionTreeGen.suchThat(_._1.events.nonEmpty)
     ledgerContent = arbitraryLedgerContent :+ queriedLedgerContent
-    eventIds = queriedLedgerContent.events.map(TransactionServiceImpl.eventId)
+    eventIds = queriedLedgerContent.events.map(TransactionsServiceImpl.eventId)
     eventIdList <- Gen.pick(1, eventIds)
     eventId = eventIdList.head
   } yield (ledgerContent, eventId, queriedTransaction)

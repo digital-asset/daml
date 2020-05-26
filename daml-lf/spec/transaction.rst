@@ -1,10 +1,10 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF Transaction Specification
 =================================
 
-**version 7, 5 May 2019**
+**version 10, 25 March 2020**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -159,6 +159,12 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  7 |      2019-05-06 |
 +--------------------+-----------------+
+|                  8 |      2019-06-26 |
++--------------------+-----------------+
+|                  9 |      2020-01-13 |
++--------------------+-----------------+
+|                 10 |      2020-03-25 |
++--------------------+-----------------+
 
 message Transaction
 ^^^^^^^^^^^^^^^^^^^
@@ -186,6 +192,8 @@ in same list, and consumers must reject values with such unknown
 versions.
 
 ``roots`` is constrained as described under `field node_id`_.
+
+The node of the tree appears in pre-order traversal in ``nodes``
 
 message ContractInstance
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -280,6 +288,9 @@ In this version, these fields are included:
 
 ``maintainers`` must be non-empty.
 
+The key may not contain contract IDs.
+
+
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
 
@@ -317,7 +328,7 @@ Every element of ``stakeholders`` is a party identifier.
 
 A new field is included:
 
-* `message KeyWithMaintainers`_ key
+* `message KeyWithMaintainers`_ key_with_maintainers
 
 ``key`` is optional. If present:
 
@@ -408,6 +419,19 @@ Every element of ``actors`` is a party identifier.
   contract -- or in other words, they are _not_ a property of the
   contract itself.
 
+*since version 10*
+
+Version 10 adds the field:
+
+* `message KeyWithMaintainers`_ key_with_maintainers
+
+``key_with_maintainers`` is optional. It is present if and only if the
+``template_id`` field refers to a template with a DAML-LF key
+definition.  When present, the field's sub-fields ``key`` and
+``maintainers`` must conform to the key definition for the
+``template_id``.
+
+
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -449,7 +473,8 @@ definition referred to by ``template_id``.
 ``children`` is constrained as described under `field node_id`_.  Every
 node referred to as one of ``children`` is another update to the ledger
 taken as part of this transaction and as a consequence of exercising
-this choice.
+this choice. Nodes in ``children`` appear in the order they were
+created during interpretation.
 
 Every element of ``actors``, ``stakeholders``, ``signatories``, and
 ``controllers`` is a party identifier.
@@ -490,11 +515,23 @@ the ``actors`` field as the controllers.
 
 *since version 7*
 
-A new field ``result_value`` is required:
+A new field ``return_value`` is required:
 
-* `message VersionedValue`_ result_value
+* `message VersionedValue`_ return_value
 
 Containing the result of the exercised choice.
+
+*since version 8*
+
+New optional field `contract_key` is now set when the exercised
+contract has a contract key defined. The key may not contain contract IDs.
+
+*since version 9*
+
+New optional field `key_with_maintainers` is now set when the exercised
+contract has a contract key defined. The `contract_key` field is
+not used any more.
+
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

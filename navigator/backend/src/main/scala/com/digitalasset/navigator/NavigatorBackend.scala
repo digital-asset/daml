@@ -1,16 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 
-import scala.io.Source
-
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import com.daml.buildinfo.BuildInfo
 
 object NavigatorBackend extends UIBackend {
 
@@ -20,15 +19,17 @@ object NavigatorBackend extends UIBackend {
   override def applicationInfo: ApplicationInfo = ApplicationInfo(
     id = s"Navigator-${UUID.randomUUID().toString}",
     name = "Navigator",
-    version = Source.fromResource("COMPONENT-VERSION").mkString("").trim(),
-    revision = Source.fromResource(".git-revision").mkString("").trim()
+    version = BuildInfo.Version,
   )
   override def banner: Option[String] =
     Some(
-      Source
-        .fromResource("banner.txt")
-        .getLines
-        .mkString("\n") + "\nVersion " + applicationInfo.version)
+      raw"""   _  __          _           __
+        |  / |/ /__ __  __(_)__ ____ _/ /____  ____
+        | /    / _ `/ |/ / / _ `/ _ `/ __/ _ \/ __/
+        |/_/|_/\_,_/|___/_/\_, /\_,_/\__/\___/_/
+        |                 /___/
+        |Version """.stripMargin + applicationInfo.version
+    )
 
   /** Frontend config file */
   private val frontendConfigRoute: Route = {

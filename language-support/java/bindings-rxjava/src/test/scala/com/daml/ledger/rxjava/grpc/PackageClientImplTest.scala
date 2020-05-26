@@ -1,23 +1,19 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.v1.package_service._
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
+import com.daml.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 import scala.concurrent.Future
 
-class PackageClientImplTest
-    extends FlatSpec
-    with Matchers
-    with OptionValues
-    with DataLayerHelpers
-    with PackageClientImplTestHelpers {
+class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers with OptionValues {
 
   val ledgerServices = new LedgerServices("package-service-ledger")
 
@@ -61,7 +57,7 @@ class PackageClientImplTest
         .getPackage("")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      getPackage.getArchivePayload shouldBe ByteString.EMPTY.toByteArray()
+      getPackage.getArchivePayload shouldBe ByteString.EMPTY.toByteArray
       getPackage.getArchivePayload shouldBe defaultGetPackageResponse.archivePayload.toByteArray
     }
   }
@@ -88,7 +84,7 @@ class PackageClientImplTest
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture) { (client, _) =>
       val getPackageStatus = client
         .getPackageStatus("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -112,17 +108,96 @@ class PackageClientImplTest
       service.getLastGetPackageStatusRequest.value.packageId shouldBe "packageId"
     }
   }
-}
 
-trait PackageClientImplTestHelpers {
-  def listPackageResponse(pids: String*) = new ListPackagesResponse(pids)
+  behavior of "Authorization"
 
-  def listPackageResponseFuture(pids: String*) = Future.successful(listPackageResponse(pids: _*))
+  private def toAuthenticatedServer(fn: PackageClient => Any): Any =
+    ledgerServices.withPackageClient(
+      listPackageResponseFuture(),
+      defaultGetPackageResponseFuture,
+      defaultGetPackageStatusResponseFuture,
+      mockedAuthService) { (client, _) =>
+      fn(client)
+    }
 
-  val defaultGetPackageResponsePayload = ByteString.EMPTY
-  val defaultGetPackageResponse =
+  it should "deny access without token" in {
+    withClue("getPackage") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.getPackage("...").blockingGet()
+        }
+      }
+    }
+    withClue("getPackageStatus") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.getPackageStatus("...").blockingGet()
+        }
+      }
+    }
+    withClue("listPackages") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.listPackages().blockingFirst()
+        }
+      }
+    }
+  }
+
+  it should "deny access without sufficient authorization" in {
+    withClue("getPackage") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.getPackage("...", emptyToken).blockingGet()
+        }
+      }
+    }
+    withClue("getPackageStatus") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.getPackageStatus("...", emptyToken).blockingGet()
+        }
+      }
+    }
+    withClue("listPackages") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.listPackages(emptyToken).blockingFirst()
+        }
+      }
+    }
+  }
+
+  it should "allow access with sufficient authorization" in {
+    toAuthenticatedServer { client =>
+      withClue("getPackage") {
+        client.getPackage("...", publicToken).blockingGet()
+      }
+    }
+    toAuthenticatedServer { client =>
+      withClue("getPackageStatus") {
+        client.getPackageStatus("...", publicToken).blockingGet()
+      }
+    }
+    toAuthenticatedServer { client =>
+      withClue("listPackages") {
+        client.listPackages(publicToken).blockingIterable()
+      }
+    }
+  }
+
+  private def listPackageResponse(pids: String*) = new ListPackagesResponse(pids)
+
+  private def listPackageResponseFuture(pids: String*) =
+    Future.successful(listPackageResponse(pids: _*))
+
+  private val defaultGetPackageResponsePayload = ByteString.EMPTY
+  private val defaultGetPackageResponse =
     new GetPackageResponse(HashFunction.values.head, defaultGetPackageResponsePayload)
-  val defaultGetPackageResponseFuture = Future.successful(defaultGetPackageResponse)
-  val defaultGetPackageStatusResponse = new GetPackageStatusResponse(PackageStatus.values.head)
-  val defaultGetPackageStatusResponseFuture = Future.successful(defaultGetPackageStatusResponse)
+  private val defaultGetPackageResponseFuture = Future.successful(defaultGetPackageResponse)
+  private val defaultGetPackageStatusResponse = new GetPackageStatusResponse(
+    PackageStatus.values.head)
+  private val defaultGetPackageStatusResponseFuture =
+    Future.successful(defaultGetPackageStatusResponse)
+
 }

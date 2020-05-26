@@ -1,19 +1,18 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers
+package com.daml.extractor.writers
 
-import com.digitalasset.daml.lf.iface.{InterfaceType, Interface}
-import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.ledger.LedgerReader
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types._
-import com.digitalasset.extractor.logging.Logging
-import com.digitalasset.extractor.targets.PostgreSQLTarget
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.writers.postgresql._
-import com.digitalasset.extractor.writers.postgresql.DataFormatState._
-import com.digitalasset.extractor.writers.Writer._
+import com.daml.lf.iface.{Interface, InterfaceType}
+import com.daml.extractor.config.ExtractorConfig
+import com.daml.ledger.service.LedgerReader
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types._
+import com.daml.extractor.targets.PostgreSQLTarget
+import com.daml.extractor.Types._
+import com.daml.extractor.writers.postgresql._
+import com.daml.extractor.writers.postgresql.DataFormatState._
+import com.daml.extractor.writers.Writer._
 import doobie._
 import doobie.implicits._
 import doobie.free.connection
@@ -21,14 +20,15 @@ import cats.effect.{ContextShift, IO}
 import cats.implicits._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.{ExecutionContext, Future}
 import scalaz._
 import Scalaz._
-import com.digitalasset.daml.lf.iface.Record
+import com.daml.lf.iface.Record
+import com.typesafe.scalalogging.StrictLogging
 
 class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledgerId: String)
     extends Writer
-    with Logging {
+    with StrictLogging {
 
   // Uncomment this to have queries logged
   // implicit val lh = doobie.util.log.LogHandler.jdkLogHandler
@@ -60,7 +60,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
   )
 
   def init(): Future[Unit] = {
-    log.info("PostgreSQLWriter initializing...")
+    logger.info("PostgreSQLWriter initializing...")
 
     val io = for {
       _ <- StateHandler.init()
@@ -125,8 +125,8 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
         witnessedPackages = updatedWitnessedPackages
         multiTableState = newMultiTableState
 
-        log.trace(s"Multi-table state: ${multiTableState}")
-        log.trace(s"Witnessed packages: ${witnessedPackages}")
+        logger.trace(s"Multi-table state: ${multiTableState}")
+        logger.trace(s"Witnessed packages: ${witnessedPackages}")
       }
       .unsafeToFuture()
   }
@@ -165,8 +165,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
   }
 
   def handleTransaction(transaction: TransactionTree): Future[RefreshPackages \/ Unit] = {
-    log.trace(s"Handling transaction:")
-    log.trace(com.digitalasset.extractor.pformat(transaction))
+    logger.trace(s"Handling transaction: ${com.daml.extractor.pformat(transaction)}")
 
     val insertIO = insertTransaction(transaction).update.run.void
 
@@ -175,13 +174,11 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
     }(scala.collection.breakOut)
 
     val exercisedEvents: List[ExercisedEvent] = transaction.events.values.collect {
-      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _, _) => e
+      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _) => e
     }(scala.collection.breakOut)
 
-    log.trace(s"Create events:")
-    createdEvents.foreach(e => log.trace(com.digitalasset.extractor.pformat(e)))
-    log.trace(s"Exercise events:")
-    exercisedEvents.foreach(e => log.trace(com.digitalasset.extractor.pformat(e)))
+    logger.trace(s"Create events: ${com.daml.extractor.pformat(createdEvents)}")
+    logger.trace(s"Exercise events: ${com.daml.extractor.pformat(exercisedEvents)}")
 
     (for {
       archiveIOsMulti <- if (useMultiTableFormat)

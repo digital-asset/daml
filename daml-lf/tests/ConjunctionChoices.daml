@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The `demo` scenario below demonstrates
@@ -13,7 +13,7 @@
 --
 -- There's a blog post about this example as well:
 -- https://digitalasset.atlassian.net/wiki/spaces/DEL/blog/2018/06/14/595427344/Introducing+Conjunction+Choices
-daml 1.2
+
 module ConjunctionChoices where
 
 template PaintHouse

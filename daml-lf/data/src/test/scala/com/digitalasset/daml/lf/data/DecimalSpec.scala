@@ -1,12 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
 class DecimalSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+
+  private def d(s: String) = BigDecimal(s).setScale(Decimal.scale).bigDecimal
 
   "Decimal.fromString" should {
 
@@ -29,7 +31,7 @@ class DecimalSpec extends WordSpec with Matchers with TableDrivenPropertyChecks 
       forEvery(signs) { sign =>
         forEvery(testCases) { testCase =>
           val decimal = sign + testCase
-          Decimal.fromString(decimal) shouldBe Right(BigDecimal(decimal))
+          Decimal.fromString(decimal) shouldBe Right(d(decimal))
         }
       }
     }
@@ -129,7 +131,7 @@ class DecimalSpec extends WordSpec with Matchers with TableDrivenPropertyChecks 
       )
 
       forEvery(negativeTestCases)(testCase =>
-        Decimal.fromString(testCase) shouldBe Right(BigDecimal(testCase)))
+        Decimal.fromString(testCase) shouldBe Right(d(testCase)))
 
       forEvery(positiveTestCases)(testCase => Decimal.fromString(testCase) shouldBe 'left)
     }

@@ -1,19 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
-import com.digitalasset.daml.lf.types.Ledger._
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
+import com.daml.lf.types.Ledger._
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 
@@ -80,7 +75,8 @@ object Blinding {
     */
   def checkAuthorizationAndBlind(
       tx: Transaction.Transaction,
-      initialAuthorizers: Set[Party]): Either[AuthorizationError, BlindingInfo] =
+      initialAuthorizers: Set[Party],
+  ): Either[AuthorizationError, BlindingInfo] =
     maybeAuthorizeAndBlind(tx, Authorize(initialAuthorizers))
 
   /**
@@ -116,7 +112,7 @@ object Blinding {
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
     // aren't the resulting transaction will not be well formed.
-    val filteredNodes = tx.nodes.filterKeys(partyDivulgences.contains)
+    val filteredNodes = tx.nodes.filter { case (k, _) => partyDivulgences.contains(k) }
 
     @tailrec
     def go(filteredRoots: BackStack[Nid], remainingRoots: FrontStack[Nid]): ImmArray[Nid] = {
@@ -127,7 +123,8 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case _: NodeFetch[Cid] | _: NodeCreate[Cid, Val] | _: NodeLookupByKey[Cid, Val] =>
+              case _: NodeFetch[Cid, Val] | _: NodeCreate[Cid, Val] |
+                  _: NodeLookupByKey[Cid, Val] =>
                 go(filteredRoots, remainingRoots)
               case ne: NodeExercises[Nid, Cid, Val] =>
                 go(filteredRoots, ne.children ++: remainingRoots)
@@ -138,8 +135,7 @@ object Blinding {
 
     GenTransaction(
       roots = go(BackStack.empty, FrontStack(tx.roots)),
-      nodes = filteredNodes,
-      usedPackages = tx.usedPackages
+      nodes = filteredNodes
     )
   }
 }

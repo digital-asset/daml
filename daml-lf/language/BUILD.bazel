@@ -1,0 +1,32 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "language",
+    srcs = glob(["src/main/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:daml-lf-language:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "language-test",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":language",
+        "//daml-lf/data",
+    ],
+)

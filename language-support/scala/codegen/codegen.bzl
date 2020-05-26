@@ -1,9 +1,10 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def _dar_to_scala_impl(ctx):
-    codegen_out_dir = ctx.outputs.codegen_out
+    codegen_out_dir = ctx.actions.declare_directory(ctx.label.name + "_codegen_out")
     srcjar_out_file = ctx.outputs.srcjar_out
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
 
     # Call Scala codegen
     gen_args = ctx.actions.args()
@@ -18,7 +19,6 @@ def _dar_to_scala_impl(ctx):
         arguments = [gen_args],
         progress_message = "scala codegen files: %s" % ctx.attr.name,
         executable = ctx.executable._codegen,
-        use_default_shell_env = True,
     )
 
     # Create zipper_args file
@@ -27,12 +27,14 @@ def _dar_to_scala_impl(ctx):
         mnemonic = "CreateZipperArgsFile",
         outputs = [zipper_args_file],
         inputs = [codegen_out_dir],
-        command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+        command = "{find} -L {src_path} -type f | {sed} -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | {sort} > {args_file}".format(
+            find = posix.commands["find"],
+            sed = posix.commands["sed"],
+            sort = posix.commands["sort"],
             src_path = codegen_out_dir.path,
             args_file = zipper_args_file.path,
         ),
         progress_message = "zipper_args_file: %s" % zipper_args_file.path,
-        use_default_shell_env = True,
     )
 
     # Call zipper to create srcjar
@@ -63,7 +65,7 @@ dar_to_scala = rule(
         ),
         "package_prefix": attr.string(
             mandatory = True,
-            doc = "Package name e.g. 'com.digitalasset.mypackage'.",
+            doc = "Package name e.g. 'com.daml.mypackage'.",
         ),
         "verbosity": attr.int(
             default = 2,
@@ -82,8 +84,8 @@ dar_to_scala = rule(
         ),
     },
     outputs = {
-        "codegen_out": "%{name}-src",
-        "srcjar_out": "%{srcjar_out}",  # I want it to be explicit, other rules will depend on it
+        "srcjar_out": "%{srcjar_out}",
     },
     output_to_genfiles = True,
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )

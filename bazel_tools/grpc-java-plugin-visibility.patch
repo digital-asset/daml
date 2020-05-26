@@ -1,0 +1,16 @@
+grpc-java now only exposes the protoc plugin indirectly through a toolchain.
+However, the current implementation of //bazel_tools.proto.bzl proto_gen
+assumes direct access to the protoc plugin label.
+https://github.com/grpc/grpc-java/commit/745aa0a2f570d74e7d7fe0c72334c24e21b8ab17
+diff --git a/compiler/BUILD.bazel b/compiler/BUILD.bazel
+index ef940741d..e50ecb66c 100644
+--- a/compiler/BUILD.bazel
++++ b/compiler/BUILD.bazel
+@@ -10,6 +10,7 @@ cc_binary(
+     deps = [
+         "@com_google_protobuf//:protoc_lib",
+     ],
++    visibility = ["//visibility:public"],
+ )
+ 
+ java_library(

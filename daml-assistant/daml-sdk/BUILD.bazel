@@ -1,0 +1,47 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "sdk-lib",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:org_tpolecat_doobie_postgres_2_12",
+        "@maven//:org_xerial_sqlite_jdbc",
+    ],
+    deps = [
+        "//daml-script/runner:script-runner-lib",
+        "//extractor",
+        "//language-support/codegen-main:codegen-main-lib",
+        "//ledger-service/http-json",
+        "//ledger/sandbox",
+        "//navigator/backend:navigator-library",
+        "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+    ],
+)
+
+da_scala_binary(
+    name = "sdk",
+    main_class = "com.daml.sdk.SdkMain",
+    tags = ["maven_coordinates=com.daml:sdk:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sdk-lib",
+        "//navigator/backend:backend-resources",
+        "//navigator/backend:frontend-resources",
+    ],
+)

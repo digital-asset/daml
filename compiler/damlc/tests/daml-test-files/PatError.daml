@@ -1,0 +1,15 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+-- Make sure the error message is useful when the interpreter is face with
+-- an incomplete pattern match.
+-- @ERROR range=14:0-14:4; Non-exhaustive patterns in case
+
+module PatError where
+
+f x = case x of
+  2 -> pure ()
+
+main = scenario do
+  f 1

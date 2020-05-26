@@ -1,89 +1,102 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
+        "async",
         "base",
         "bytestring",
         "containers",
+        "exceptions",
+        "extra",
+        "mtl",
+        "grpc-haskell",
         "proto3-suite",
+        "retry",
+        "sorted-list",
         "text",
         "time",
+        "transformers",
+        "unliftio",
+        "utf8-string",
         "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//daml-lf/archive:daml_lf_haskell_proto",
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
-        "//nix/third-party/gRPC-haskell:grpc-haskell",
     ],
 )
 
 daml_compile(
-    name = "Nim",
-    srcs = glob(["examples/nim-console/daml/*.daml"]),
-    main_src = "examples/nim-console/daml/Nim.daml",
-)
-
-da_haskell_binary(
-    name = "nim",
-    srcs = glob(["examples/nim-console/src/*.hs"]),
-    compiler_flags = [],
-    hazel_deps = [
-        "ansi-terminal",
-        "base",
-        "containers",
-        "extra",
-        "haskeline",
-        "random",
-        "text",
-        "time",
-        "transformers",
-        "uuid",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//language-support/hs/bindings:hs-ledger",
-    ],
+    name = "for-tests",
+    srcs = glob(["test/daml/for-tests/*.daml"]),
 )
 
 daml_compile(
-    name = "quickstart",
-    srcs = glob(["test/daml/quickstart/*.daml"]),
-    main_src = "test/daml/quickstart/Main.daml",
+    name = "for-upload",
+    srcs = ["test/daml/for-upload/ExtraModule.daml"],
 )
 
 da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
-        ":quickstart.dar",
+        ":for-tests.dar",
+        ":for-upload.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    hazel_deps = [
+    # The tests are flaky probably due to issues in gRPC-haskell.
+    flaky = True,
+    hackage_deps = [
+        "aeson",
         "async",
         "base",
+        "bytestring",
+        "containers",
+        "filepath",
         "directory",
         "extra",
+        "jwt",
         "process",
         "random",
+        "retry",
+        "safe",
         "tasty",
         "tasty-hunit",
         "text",
         "time",
+        "utf8-string",
         "uuid",
+        "vector",
+        "zip-archive",
     ],
     main_function = "DA.Ledger.Tests.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
         "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/hs/bindings:test",
+        "//language-support/hs/bindings/examples/chat",
+        "//language-support/hs/bindings/examples/nim",
     ],
 )

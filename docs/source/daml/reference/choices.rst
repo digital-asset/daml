@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: choices
@@ -72,10 +72,57 @@ Controllers
 
   The conjunction of **all** the parties are required to authorize when this choice is exercised.
 
-.. _daml-ref-anytime:
+.. _daml-ref-consumability:
+
+Contract consumption
+====================
+
+If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body and both the controllers and all contract stakeholders see all consequences of the action.
+
+Preconsuming choices
+********************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start choice-first preconsuming snippet
+   :end-before: -- end choice-first preconsuming snippet
+   :caption: Option 1 for specifying choices: choice name first
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start controller-first preconsuming snippet
+   :end-before: -- end controller-first preconsuming snippet
+   :caption: Option 2 for specifying choices: controller first
+
+- ``preconsuming`` keyword. Optional.
+- Makes a choice pre-consuming: the contract is archived before the body of the exercise is executed.
+- The archival behavior is analogous to the *consuming* default behavior.
+- Unlike what happens the in *consuming* behavior, though, only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
+- Can be thought as a non-consuming choice that implicitly archives the contract before anything else happens
+
+Postconsuming choices
+*********************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start choice-first postconsuming snippet
+   :end-before: -- end choice-first postconsuming snippet
+   :caption: Option 1 for specifying choices: choice name first
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start controller-first postconsuming snippet
+   :end-before: -- end controller-first postconsuming snippet
+   :caption: Option 2 for specifying choices: controller first
+
+- ``postconsuming`` keyword. Optional.
+- Makes a choice post-consuming: the contract is archived after the body of the exercise is executed.
+- The contract can still be used in the body of the exercise.
+- Only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
+- Can be thought as a non-consuming choice that implicitly archives the contract after the choice has been exercised
 
 Non-consuming choices
-=====================
+*********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
@@ -91,9 +138,8 @@ Non-consuming choices
 
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
-
-  By default, choices are *consuming*: when a choice on a contract is exercised, that contract instance is *archived*. Archived means that it's permanently marked as being inactive, and no more choices can be exercised on it, though it still exists on the ledger.
-- This is useful in the many situations when you want to be able to exercise a choice more than once.
+- Only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
+- Useful in the many situations when you want to be able to exercise a choice more than once.
 
 .. _daml-ref-return-type:
 

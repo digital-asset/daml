@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
@@ -9,11 +9,13 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.lf.data.InsertOrdMap
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.{Primitive => P}
 import org.scalacheck.Shrink
 import org.scalacheck.Shrink.{shrinkContainer, shrinkContainer2, shrinkFractional, shrinkIntegral}
-import scalaz.Plus
+import scalaz.{OneAnd, Plus}
 
 import scala.math.Numeric.LongIsIntegral
 
@@ -42,6 +44,15 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] = cases
+
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    Shrink { a: A =>
+      if (index(a) == 0) Stream.empty else Stream(cases.head._2)
+    }
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
       select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
@@ -80,7 +91,7 @@ object ShrinkEncoding extends ShrinkEncoding {
   class primitiveImpl extends ValuePrimitiveEncoding[Out] {
     override val valueInt64: Out[P.Int64] = shrinkIntegral
 
-    override val valueDecimal: Out[P.Decimal] = shrinkFractional
+    override val valueNumeric: Out[P.Numeric] = shrinkFractional
 
     override val valueParty: Out[P.Party] = P.Party.subst(myShrinkString)
 
@@ -155,8 +166,11 @@ object ShrinkEncoding extends ShrinkEncoding {
 
     def entry[A: Out]: Out[(String, A)] = implicitly[Out[(String, A)]]
 
-    override implicit def valueMap[A: Out]: Out[P.Map[A]] =
-      shrinkContainer2[Map, String, A]
+    override implicit def valueTextMap[A: Out]: Out[P.TextMap[A]] =
+      shrinkContainer2[Lambda[(uk, v) => P.TextMap[v]], String, A]
+
+    override implicit def valueGenMap[K: Shrink, V: Shrink]: Shrink[P.GenMap[K, V]] =
+      shrinkContainer2[InsertOrdMap, K, V]
 
   }
 

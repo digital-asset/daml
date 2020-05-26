@@ -1,10 +1,10 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module Data.Conduit.Tar.Extra
     ( module Data.Conduit.Tar
     , restoreFile
+    , dropDirectory1
     ) where
 
 import Conduit

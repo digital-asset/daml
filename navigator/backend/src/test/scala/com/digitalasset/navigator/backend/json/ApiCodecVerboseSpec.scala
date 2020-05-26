@@ -1,21 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.json
+package com.daml.navigator.json
 
-import com.digitalasset.navigator.model
+import com.daml.navigator.model
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.{Success, Try}
 
 class ApiCodecVerboseSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+  import com.daml.navigator.{DamlConstants => C}
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
       value: model.ApiValue,
       typ: model.DamlLfType): Try[model.ApiValue] = {
-    import com.digitalasset.navigator.json.ApiCodecVerbose.JsonImplicits._
+    import com.daml.navigator.json.ApiCodecVerbose.JsonImplicits._
     import spray.json._
 
     for {
@@ -67,8 +67,13 @@ class ApiCodecVerboseSpec extends WordSpec with Matchers {
       "work for Tree" in {
         serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
       }
-      "work for Map" in {
-        serializeAndParse(C.simpleMapV, C.simpleMapT(C.simpleTextT)) shouldBe Success(C.simpleMapV)
+      "work for TextMap" in {
+        serializeAndParse(C.simpleTextMapV, C.simpleTextMapT(C.simpleTextT)) shouldBe Success(
+          C.simpleTextMapV)
+      }
+      "work for GenMap" in {
+        serializeAndParse(C.complexGenMapV, C.complexGenMapT(C.treeNodeTC, C.simpleInt64T)) shouldBe Success(
+          C.complexGenMapV)
       }
     }
   }

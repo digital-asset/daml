@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-daml:
@@ -10,8 +10,9 @@ As described in preceeding sections, both the integrity and privacy notions depe
 a contract model, and such a model must specify:
 
 #. a set of allowed actions on the contracts, and
-#. the signatories, observers, and an optional agreement text associated with each
-   contract.
+#. the signatories, observers, and
+#. an optional agreement text associated with each contract, and
+#. the optional key associated with each contract and its maintainers.
 
 The sets of allowed actions can in general be infinite. For instance,
 the actions in the IOU contract model considered earlier can be instantiated for an
@@ -30,14 +31,12 @@ Intuitively, the allowed actions are:
    DAML choices on that template, with given
    choice arguments, such that:
 
-   |
-
    #. The actors match the controllers of the choice.
       That is, the DAML controllers define the :ref:`required authorizers <da-ledgers-required-authorizers>` of the choice.
    #. The exercise kind matches.
    #. All assertions in the update block hold for the given choice arguments.
-   #. Create, exercise and fetch statements in the DAML update block are represented
-      as create and exercise actions in the consequences of the exercise
+   #. Create, exercise, fetch and key statements in the DAML update block are represented
+      as create, exercise and fetch actions and key assertions in the consequences of the exercise
       action.
 
 #. **Fetch** actions on a contract instance corresponding to
@@ -45,7 +44,12 @@ Intuitively, the allowed actions are:
    The actors must be a non-empty subset of the contract stakeholders.
    The actors are determined dynamically as follows: if the fetch appears in an update block of a choice
    `ch` on a contract `c1`, and the fetched contract ID resolves to a contract `c2`, then the actors are defined as the
-   intersection of (1) the signatories of `c1` union the controllers of `ch` with (2) the signatories of `c2`.
+   intersection of (1) the signatories of `c1` union the controllers of `ch` with (2) the stakeholders of `c2`.
+
+   A :ref:`fetchbykey` statement also produces a **Fetch** action with the actors determined in the same way.
+   A :ref:`lookupbykey` statement that finds a contract also translates into a **Fetch** action, but all maintainers of the key are the actors.
+
+#. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
 An instance of a DAML template, that is, a **DAML contract** or **contract instance**,
 is a triple of:

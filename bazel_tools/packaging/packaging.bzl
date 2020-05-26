@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 """Packaging of Linux, macOS and Windows binaries into tarballs"""
@@ -15,9 +15,8 @@ def _package_app_impl(ctx):
     tools = [ctx.executable.tar, ctx.executable.gzip] if is_windows else [ctx.executable.patchelf, ctx.executable.tar, ctx.executable.gzip]
     ctx.actions.run_shell(
         outputs = [ctx.outputs.out],
-        inputs =
-            [ctx.executable.package_app] + tools +
-            inputs.to_list(),
+        tools = [ctx.executable.package_app] + tools,
+        inputs = inputs.to_list(),
         arguments = [args],
         progress_message = "Packaging " + ctx.attr.name,
         command = """

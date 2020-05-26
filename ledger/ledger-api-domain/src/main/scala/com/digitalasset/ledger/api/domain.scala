@@ -1,23 +1,28 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api
+package com.daml.ledger.api
 
 import java.time.Instant
 
 import brave.propagation.TraceContext
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
 
 import scala.collection.{breakOut, immutable}
 
 object domain {
 
-  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
+  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
+    def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
+      filtersByParty.get(party).fold(false)(_.apply(template))
+  }
 
   object TransactionFilter {
 
@@ -27,7 +32,7 @@ object domain {
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Ref.Identifier): Boolean =
+    def apply(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 
@@ -74,9 +79,12 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: ValueRecord[AbsoluteContractId],
+        createArguments: Lf.ValueRecord[ContractId],
         witnessParties: immutable.Set[Ref.Party],
-        agreementText: String)
+        signatories: immutable.Set[Ref.Party],
+        observers: immutable.Set[Ref.Party],
+        agreementText: String,
+        contractKey: Option[Value])
         extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
@@ -93,7 +101,6 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        contractCreatingEventId: EventId,
         choice: Ref.ChoiceName,
         choiceArgument: Value,
         actingParties: immutable.Set[Ref.Party],
@@ -142,33 +149,65 @@ object domain {
       traceContext: Option[TraceContext])
       extends TransactionBase
 
-  type Value = Lf[Lf.AbsoluteContractId]
-
-  final case class CommandStatus(
-      code: Int,
-      message: String
-  )
-
-  object CommandStatus {
-    val OK = CommandStatus(0, "")
+  sealed trait CompletionEvent extends Product with Serializable {
+    def offset: LedgerOffset.Absolute
+    def recordTime: Instant
   }
 
-  sealed abstract class CommandCompletion extends Product with Serializable
+  object CompletionEvent {
 
-  object CommandCompletion {
+    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Instant)
+        extends CompletionEvent
 
-    final case class Success(commandId: CommandId) extends CommandCompletion
+    final case class CommandAccepted(
+        offset: LedgerOffset.Absolute,
+        recordTime: Instant,
+        commandId: CommandId,
+        transactionId: TransactionId)
+        extends CompletionEvent
 
-    final case class Checkpoint(recordTime: Instant) extends CommandCompletion
-
-    final case class Failure(commandId: CommandId, commandStatus: CommandStatus)
-        extends CommandCompletion {
-      require(
-        commandStatus.code != 0,
-        s"Attempted to create Failure for command $commandId with '0' (success) internal status. Message: ${commandStatus.message}.")
-    }
-
+    final case class CommandRejected(
+        offset: LedgerOffset.Absolute,
+        recordTime: Instant,
+        commandId: CommandId,
+        reason: RejectionReason)
+        extends CompletionEvent
   }
+
+  sealed trait RejectionReason {
+    val description: String
+  }
+
+  object RejectionReason {
+
+    /** The transaction relied on contracts being active that were no longer
+      * active at the point where it was sequenced.
+      */
+    final case class Inconsistent(description: String) extends RejectionReason
+
+    /** The Participant node did not have sufficient resource quota with the
+      * to submit the transaction.
+      */
+    final case class OutOfQuota(description: String) extends RejectionReason
+
+    /** The transaction submission was disputed.
+      *
+      * This means that the underlying ledger and its validation logic
+      * considered the transaction potentially invalid. This can be due to a bug
+      * in the submission or validiation logic, or due to malicious behaviour.
+      */
+    final case class Disputed(description: String) extends RejectionReason
+
+    final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
+
+    final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
+
+    /** The ledger time of the submission violated some constraint on the ledger time.
+      */
+    final case class InvalidLedgerTime(description: String) extends RejectionReason
+  }
+
+  type Value = Lf[Lf.ContractId]
 
   final case class RecordField(label: Option[Label], value: Value)
 
@@ -194,7 +233,7 @@ object domain {
 
   sealed trait TransactionIdTag
 
-  type TransactionId = Ref.TransactionIdString @@ TransactionIdTag
+  type TransactionId = Ref.LedgerString @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
 
   sealed trait ContractIdTag
@@ -206,11 +245,17 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
+  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 
   type LedgerId = String @@ LedgerIdTag
   val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
+
+  sealed trait ParticipantIdTag
+
+  type ParticipantId = Ref.ParticipantId @@ ParticipantIdTag
+  val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
 
   sealed trait ApplicationIdTag
 
@@ -225,8 +270,65 @@ object domain {
       applicationId: ApplicationId,
       commandId: CommandId,
       submitter: Ref.Party,
-      ledgerEffectiveTime: Instant,
-      maximumRecordTime: Instant,
+      submittedAt: Instant,
+      deduplicateUntil: Instant,
       commands: LfCommands)
+
+  /**
+    * @param party The stable unique identifier of a DAML party.
+    * @param displayName Human readable name associated with the party. Might not be unique.
+    * @param isLocal True if party is hosted by the backing participant.
+    */
+  case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
+
+  sealed abstract class PartyEntry() extends Product with Serializable
+
+  object PartyEntry {
+    final case class AllocationAccepted(
+        submissionId: Option[String],
+        participantId: ParticipantId,
+        partyDetails: PartyDetails
+    ) extends PartyEntry
+
+    final case class AllocationRejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        reason: String
+    ) extends PartyEntry
+  }
+
+  /** Configuration entry describes a change to the current configuration. */
+  sealed abstract class ConfigurationEntry extends Product with Serializable
+  object ConfigurationEntry {
+
+    final case class Accepted(
+        submissionId: String,
+        participantId: ParticipantId,
+        configuration: Configuration,
+    ) extends ConfigurationEntry
+
+    final case class Rejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        rejectionReason: String,
+        proposedConfiguration: Configuration
+    ) extends ConfigurationEntry
+  }
+
+  sealed abstract class PackageEntry() extends Product with Serializable
+
+  object PackageEntry {
+
+    final case class PackageUploadAccepted(
+        submissionId: String,
+        recordTime: Instant
+    ) extends PackageEntry
+
+    final case class PackageUploadRejected(
+        submissionId: String,
+        recordTime: Instant,
+        reason: String
+    ) extends PackageEntry
+  }
 
 }

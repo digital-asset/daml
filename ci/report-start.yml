@@ -1,0 +1,11 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+  - bash: |
+      set -euo pipefail
+      echo "##vso[task.setvariable variable=time;isOutput=true]$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
+      echo "##vso[task.setvariable variable=machine;isOutput=true]$(Agent.MachineName)"
+    condition: always()
+    name: start
+

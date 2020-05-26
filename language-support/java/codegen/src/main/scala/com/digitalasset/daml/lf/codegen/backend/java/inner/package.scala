@@ -1,15 +1,16 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java
+package com.daml.lf.codegen.backend.java
 
 import java.util
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.{DamlList, DamlMap, DamlOptional}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.iface._
+import com.daml.ledger.javaapi.data.codegen.ContractId
+import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlOptional, DamlTextMap}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 
 import scala.collection.JavaConverters._
@@ -51,7 +52,7 @@ package object inner {
           typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[java.lang.Long])
-      case TypePrim(PrimTypeDecimal, _) => ClassName.get(classOf[java.math.BigDecimal])
+      case TypeNumeric(_) => ClassName.get(classOf[java.math.BigDecimal])
       case TypePrim(PrimTypeText, _) => ClassName.get(classOf[java.lang.String])
       case TypePrim(PrimTypeDate, _) => ClassName.get(classOf[java.time.LocalDate])
       case TypePrim(PrimTypeTimestamp, _) => ClassName.get(classOf[java.time.Instant])
@@ -59,7 +60,9 @@ package object inner {
       case TypePrim(PrimTypeContractId, ImmArraySeq(templateType)) =>
         toJavaTypeName(templateType, packagePrefixes) match {
           case templateClass: ClassName => templateClass.nestedClass("ContractId")
-          case _ => sys.error("should not happen")
+          case typeVariableName: TypeVariableName =>
+            ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
+          case unexpected => sys.error(s"Unexpected type [$unexpected] for DAML type [$damlType]")
         }
       case TypePrim(PrimTypeList, typeParameters) =>
         ParameterizedTypeName
@@ -71,12 +74,17 @@ package object inner {
           .get(
             ClassName.get(classOf[java.util.Optional[_]]),
             typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
-      case TypePrim(PrimTypeMap, typeParameters) =>
+      case TypePrim(PrimTypeTextMap, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Map[String, _]]),
             ClassName.get(classOf[java.lang.String]) +:
               typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+      case TypePrim(PrimTypeGenMap, typeParameters) =>
+        ParameterizedTypeName
+          .get(
+            ClassName.get(classOf[java.util.Map[_, _]]),
+            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
       case TypeVar(name) => TypeVariableName.get(JavaEscaper.escapeString(name))
     }
@@ -85,7 +93,7 @@ package object inner {
     damlType match {
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[javaapi.data.Bool])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[javaapi.data.Int64])
-      case TypePrim(PrimTypeDecimal, _) => ClassName.get(classOf[javaapi.data.Decimal])
+      case TypeNumeric(_) => ClassName.get(classOf[javaapi.data.Numeric])
       case TypePrim(PrimTypeText, _) => ClassName.get(classOf[javaapi.data.Text])
       case TypePrim(PrimTypeDate, _) => ClassName.get(classOf[javaapi.data.Date])
       case TypePrim(PrimTypeTimestamp, _) => ClassName.get(classOf[javaapi.data.Timestamp])
@@ -96,10 +104,12 @@ package object inner {
         ClassName.get(classOf[DamlList])
       case TypePrim(PrimTypeOptional, _) =>
         ClassName.get(classOf[DamlOptional])
-      case TypePrim(PrimTypeMap, _) =>
-        ClassName.get(classOf[DamlMap])
-      case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
-
+      case TypePrim(PrimTypeTextMap, _) =>
+        ClassName.get(classOf[DamlTextMap])
+      case TypePrim(PrimTypeGenMap, _) =>
+        ClassName.get(classOf[DamlGenMap])
+      case TypePrim(PrimTypeUnit, _) =>
+        ClassName.get(classOf[javaapi.data.Unit])
       case TypeCon(_, _) | TypeVar(_) =>
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
@@ -107,7 +117,7 @@ package object inner {
   def fullyQualifiedName(
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String]): String = {
-    val Identifier(packageId, QualifiedName(module, name)) = identifier
+    val Identifier(_, QualifiedName(module, name)) = identifier
 
     // consider all but the last name segment to be part of the java package name
     val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)
@@ -123,30 +133,42 @@ package object inner {
       .mkString(".")
   }
 
-  def findTypeParamsInFields(fields: Fields) = {
-    // We traverse the types of the fields with `findActualTypeParams`
-    // to find all unbound type parameters. At the end we need to make sure
-    // that we that we have a unique set of parameters without duplicates.
-    // This can happen if there are two fields of type `a`, but we only need to carry
-    // this particular type parameter forward once, hence the call to `distinct`.
-    fields.map(_.damlType).flatMap(findTypeParams).distinct
+  def distinctTypeVars(
+      fields: Fields,
+      typeVars: IndexedSeq[String]): IndexedSeq[IndexedSeq[String]] = {
+    val escapedNestedTypeVars = escapedNestedTypeVarNames(fields)
+    if (escapedNestedTypeVars.sorted == typeVars.sorted) Vector(typeVars)
+    else Vector(escapedNestedTypeVars, typeVars)
   }
 
-  def findTypeParams(tpe: Type): Vector[String] = {
-    def go(tpe: Type, typeParams: List[String]): List[String] = {
+  def distinctTypeVars(tpe: Type, typeVars: IndexedSeq[String]): IndexedSeq[IndexedSeq[String]] = {
+    val escapedNestedTypeVars = escapedNestedTypeVarNames(tpe)
+    if (escapedNestedTypeVars.sorted == typeVars.sorted) Vector(typeVars)
+    else Vector(escapedNestedTypeVars, typeVars)
+  }
+
+  // Ensures that different sets of nested unbound type variables
+  // do not repeat with the call to `distinct` at the end
+  def escapedNestedTypeVarNames(fields: Fields): IndexedSeq[String] =
+    fields
+      .map(_.damlType)
+      .flatMap(escapedNestedTypeVarNames)
+      .distinct
+
+  // We traverse nested unbound type parameters. At the end we need to make sure
+  // that we that we have a unique set of parameters without duplicates.
+  // This can happen if there are two fields of type `a`, but we only need to carry
+  // this particular type parameter forward once, hence the usage of a set.
+  def escapedNestedTypeVarNames(tpe: Type): IndexedSeq[String] = {
+    def go(typeParams: Set[String], tpe: Type): Set[String] = {
       tpe match {
-        case TypeVar(x) => JavaEscaper.escapeString(x) :: typeParams
-        case TypePrim(_, args) =>
-          args.foldLeft(typeParams) {
-            case (params, argType) => go(argType, params)
-          }
-        case TypeCon(_, args) =>
-          args.foldLeft(typeParams) {
-            case (params, argType) => go(argType, params)
-          }
+        case TypeVar(x) => typeParams + JavaEscaper.escapeString(x)
+        case TypePrim(_, args) => args.foldLeft(typeParams)(go)
+        case TypeCon(_, args) => args.foldLeft(typeParams)(go)
+        case TypeNumeric(_) => Set.empty
       }
     }
-    go(tpe, Nil).toVector.reverse
+    go(Set.empty, tpe).toVector
   }
 
   implicit class TypeNameExtensions(name: TypeName) {
@@ -172,6 +194,14 @@ package object inner {
     def parameterized(typeParams: IndexedSeq[String]): TypeName = {
       if (typeParams.isEmpty) name
       else ParameterizedTypeName.get(name, typeParams.map(TypeVariableName.get): _*)
+    }
+
+    def asWildcardType(typeParams: IndexedSeq[String]): TypeName = {
+      if (typeParams.isEmpty) name
+      else
+        ParameterizedTypeName.get(
+          name,
+          typeParams.map(_ => WildcardTypeName.subtypeOf(classOf[Object])): _*)
     }
   }
 

@@ -1,44 +1,33 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Ref}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data.{FrontStack, FrontStackCons}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
 trait PrivateLedgerData {
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit
-  def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]]
-  def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId
+  def get(id: ContractId): Option[ContractInst[VersionedValue[ContractId]]]
   def transactionCounter: Int
   def clear(): Unit
 }
 
 private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
-  private val pcs
-    : ConcurrentHashMap[AbsoluteContractId, ContractInst[Tx.Value[AbsoluteContractId]]] =
+  private val pcs: ConcurrentHashMap[ContractId, ContractInst[Tx.Value[ContractId]]] =
     new ConcurrentHashMap()
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
-    updateWithAbsoluteContractId(tx.mapContractId(toAbsoluteContractId(txCounter.get)))
+    updateWithContractId(tx)
 
-  def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId =
-    cid match {
-      case r: RelativeContractId =>
-        // It is safe to concatenate numbers and "-" to form a valid ContractId
-        AbsoluteContractId(Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}"))
-      case a: AbsoluteContractId => a
-    }
-
-  def updateWithAbsoluteContractId(
-      tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =
+  def updateWithContractId(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
     this.synchronized {
       // traverse in topo order and add / remove
       @tailrec
@@ -47,12 +36,12 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
           node match {
-            case nc: NodeCreate.WithTxValue[AbsoluteContractId] =>
+            case nc: NodeCreate.WithTxValue[ContractId] =>
               pcs.put(nc.coid, nc.coinst)
               go(nodeIds)
-            case ne: NodeExercises.WithTxValue[Tx.NodeId, AbsoluteContractId] =>
+            case ne: NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
               go(ne.children ++: nodeIds)
-            case _: NodeLookupByKey[_, _] | _: NodeFetch[_] =>
+            case _: NodeLookupByKey[_, _] | _: NodeFetch[_, _] =>
               go(nodeIds)
           }
       }
@@ -61,7 +50,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
       ()
     }
 
-  def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]] =
+  def get(id: ContractId): Option[ContractInst[VersionedValue[ContractId]]] =
     this.synchronized {
       Option(pcs.get(id))
     }

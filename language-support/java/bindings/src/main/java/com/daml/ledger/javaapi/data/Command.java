@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.CommandsOuterClass;
+import com.daml.ledger.api.v1.CommandsOuterClass;
 
 import java.util.Optional;
 
@@ -19,6 +19,8 @@ public abstract class Command {
                 return ExerciseCommand.fromProto(command.getExercise());
             case CREATEANDEXERCISE:
                 return CreateAndExerciseCommand.fromProto(command.getCreateAndExercise());
+            case EXERCISEBYKEY:
+                return ExerciseByKeyCommand.fromProto(command.getExerciseByKey());
             case COMMAND_NOT_SET:
             default:
                 throw new ProtoCommandUnknown(command);
@@ -33,6 +35,8 @@ public abstract class Command {
             builder.setExercise(((ExerciseCommand) this).toProto());
         } else if (this instanceof CreateAndExerciseCommand) {
             builder.setCreateAndExercise(((CreateAndExerciseCommand) this).toProto());
+        } else if (this instanceof ExerciseByKeyCommand) {
+            builder.setExerciseByKey(((ExerciseByKeyCommand) this).toProto());
         } else {
             throw new CommandUnknown(this);
         }

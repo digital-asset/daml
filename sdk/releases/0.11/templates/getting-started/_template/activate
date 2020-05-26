@@ -1,4 +1,0 @@
-#!/usr/bin/env sh
-# Empty activation script for getting-started template.
-# Here because of a bug in earlier version of the SDK Assistant, which
-# did not clean up _template if activate did not exist.

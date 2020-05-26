@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "secret_resource" "vsts-token" {}
@@ -69,9 +69,14 @@ SHUTDOWN_AGENT
     access_config {}
   }
 
+  service_account {
+    email  = "log-writer@da-dev-gcp-daml-language.iam.gserviceaccount.com"
+    scopes = ["cloud-platform"]
+  }
+
   scheduling {
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
-    preemptible         = true
+    preemptible         = false
   }
 }

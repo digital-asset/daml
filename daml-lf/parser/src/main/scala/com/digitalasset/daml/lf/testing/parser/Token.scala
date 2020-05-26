@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data
+import com.daml.lf.data
 
 private[parser] sealed trait Token extends Product with Serializable
 
@@ -51,12 +51,15 @@ private[parser] object Token {
   case object `lookup_by_key` extends Token
   case object `by` extends Token
   case object `to` extends Token
+  case object `to_any` extends Token
+  case object `from_any` extends Token
+  case object `type_rep` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token
   final case class Timestamp(value: data.Time.Timestamp) extends Token
   final case class Date(value: data.Time.Date) extends Token
-  final case class Decimal(value: data.Decimal) extends Token
+  final case class Numeric(value: data.Numeric) extends Token
   final case class Number(value: Long) extends Token
   final case class SimpleString(s: String) extends Token
   final case class Text(s: String) extends Token

@@ -23,32 +23,14 @@ let
       ghcWithPackages = selectFrom: withPackages (selectFrom self);
   });
 
-  ghc863Binary = pkgs.callPackage ./overrides/ghc-8.6.3-binary.nix {
-   gcc-clang-wrapper = "${toString pkgs.path}/pkgs/development/compilers/ghc/gcc-clang-wrapper.sh";
-  };
-  ghc863BinaryPackages = pkgs.callPackage "${toString pkgs.path}/pkgs/development/haskell-modules" {
-    haskellLib = pkgs.haskell.lib;
-    buildHaskellPackages = ghc863BinaryPackages;
-    ghc = ghc863Binary;
-    compilerConfig = pkgs.callPackage "${toString pkgs.path}/pkgs/development/haskell-modules/configuration-ghc-8.6.x.nix" { haskellLib = pkgs.haskell.lib; };
-    packageSetConfig = self: super: {
-      mkDerivation = drv: super.mkDerivation (drv // {
-        doCheck = false;
-        doHaddock = false;
-        enableExecutableProfiling = false;
-        enableLibraryProfiling = false;
-        enableSharedExecutables = false;
-        enableSharedLibraries = false;
-      });
-    };
-  };
-
   ghc = pkgs.callPackage ./overrides/ghc-8.6.5.nix rec {
-    bootPkgs = ghc863BinaryPackages;
+    bootPkgs = pkgs.haskell.packages.ghc865Binary;
     inherit (pkgs.python3Packages) sphinx;
     inherit (pkgs) buildLlvmPackages;
     enableIntegerSimple = true;
+    enableShared = false;
     enableRelocatedStaticLibs = true;
+    libffi = null;
   };
 
   packages = pkgs.callPackage "${toString pkgs.path}/pkgs/development/haskell-modules" {

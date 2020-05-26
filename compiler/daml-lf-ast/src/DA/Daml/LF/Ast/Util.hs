@@ -1,23 +1,27 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
+import Control.Monad
 import Data.Maybe
 import qualified Data.Text as T
 import           Control.Lens
 import           Control.Lens.Ast
 import           Data.Functor.Foldable
 import qualified Data.Graph as G
-import           Data.List.Extra (nubSort)
+import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
+import Module (UnitId, unitIdString, stringToUnitId)
+import System.FilePath
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Version
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -29,7 +33,7 @@ chcArgType :: TemplateChoice -> Type
 chcArgType = snd . chcArgBinder
 
 topoSortPackage :: Package -> Either [ModuleName] Package
-topoSortPackage (Package version mods) = do
+topoSortPackage pkg@Package{packageModules = mods} = do
   let isLocal (pkgRef, modName) = case pkgRef of
         PRSelf -> Just modName
         PRImport{} -> Nothing
@@ -41,7 +45,8 @@ topoSortPackage (Package version mods) = do
         -- NOTE(MH): A module referencing itself is not really a cycle.
         G.CyclicSCC [mod0] -> Right mod0
         G.CyclicSCC modCycle -> Left (map moduleName modCycle)
-  Package version . NM.fromList <$> traverse isAcyclic sccs
+  mods <- traverse isAcyclic sccs
+  pure pkg { packageModules = NM.fromList mods }
 
 data Arg
   = TmArg Expr
@@ -104,26 +109,21 @@ mkEmptyText = EBuiltin (BEText "")
 mkIf :: Expr -> Expr -> Expr -> Expr
 mkIf cond0 then0 else0 =
   ECase cond0
-  [ CaseAlternative (CPEnumCon ECTrue ) then0
-  , CaseAlternative (CPEnumCon ECFalse) else0
+  [ CaseAlternative (CPBool True ) then0
+  , CaseAlternative (CPBool False) else0
   ]
 
-mkBoolEC :: Bool -> EnumCon
-mkBoolEC = \case
-  False -> ECFalse
-  True  -> ECTrue
-
 mkBool :: Bool -> Expr
-mkBool = EBuiltin . BEEnumCon . mkBoolEC
+mkBool = EBuiltin . BEBool
 
 pattern EUnit :: Expr
-pattern EUnit = EBuiltin (BEEnumCon ECUnit)
+pattern EUnit = EBuiltin BEUnit
 
 pattern ETrue :: Expr
-pattern ETrue = EBuiltin (BEEnumCon ECTrue)
+pattern ETrue = EBuiltin (BEBool True)
 
 pattern EFalse :: Expr
-pattern EFalse = EBuiltin (BEEnumCon ECFalse)
+pattern EFalse = EBuiltin (BEBool False)
 
 mkNot :: Expr -> Expr
 mkNot arg = mkIf arg (mkBool False) (mkBool True)
@@ -140,15 +140,17 @@ mkAnds [x] = x
 mkAnds (x:xs) = mkAnd x $ mkAnds xs
 
 
-alpha, beta :: TypeVarName
+alpha, beta, gamma :: TypeVarName
 -- NOTE(MH): We want to avoid shadowing variables in the environment. That's
 -- what the weird names are for.
 alpha = TypeVarName "::alpha::"
 beta  = TypeVarName "::beta::"
+gamma = TypeVarName "::gamma::"
 
-tAlpha, tBeta :: Type
+tAlpha, tBeta, tGamma :: Type
 tAlpha = TVar alpha
 tBeta  = TVar beta
+tGamma = TVar gamma
 
 
 infixr 1 :->
@@ -157,27 +159,35 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow :: Type
-pattern TUnit       = TBuiltin (BTEnum ETUnit)
-pattern TBool       = TBuiltin (BTEnum ETBool)
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep :: Type
+pattern TUnit       = TBuiltin BTUnit
+pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
-pattern TDecimal    = TBuiltin BTDecimal
+pattern TDecimal    = TBuiltin BTDecimal -- legacy decimal (LF version <= 1.6)
+pattern TNumeric10  = TNumeric TNat10 -- new decimal
+pattern TNat10      = TNat TypeLevelNat10
 pattern TText       = TBuiltin BTText
 pattern TTimestamp  = TBuiltin BTTimestamp
 pattern TParty      = TBuiltin BTParty
 pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
+pattern TAny        = TBuiltin BTAny
+pattern TTypeRep    = TBuiltin BTTypeRep
 
-pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId :: Type -> Type
+pattern TList, TOptional, TTextMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
 pattern TOptional typ = TApp (TBuiltin BTOptional) typ
-pattern TMap typ = TApp (TBuiltin BTMap) typ
+pattern TTextMap typ = TApp (TBuiltin BTTextMap) typ
 pattern TUpdate typ = TApp (TBuiltin BTUpdate) typ
 pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
+pattern TNumeric n = TApp (TBuiltin BTNumeric) n
 
-pattern TMapEntry :: Type -> Type
-pattern TMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]
+pattern TGenMap :: Type -> Type -> Type
+pattern TGenMap t1 t2 = TApp (TApp (TBuiltin BTGenMap) t1) t2
+
+pattern TTextMapEntry :: Type -> Type
+pattern TTextMapEntry a = TStruct [(FieldName "key", TText), (FieldName "value", a)]
 
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
 pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))
@@ -195,13 +205,18 @@ _TOptional = prism' TOptional $ \case
   _ -> Nothing
 
 _TUpdate :: Prism' Type Type
-_TUpdate = prism' TList $ \case
+_TUpdate = prism' TUpdate $ \case
   TUpdate typ -> Just typ
   _ -> Nothing
 
 _TScenario :: Prism' Type Type
-_TScenario = prism' TList $ \case
+_TScenario = prism' TScenario $ \case
   TScenario typ -> Just typ
+  _ -> Nothing
+
+_TNumeric :: Prism' Type Type
+_TNumeric = prism' TNumeric $ \case
+  TNumeric n -> Just n
   _ -> Nothing
 
 _TConApp :: Prism' Type (Qualified TypeConName, [Type])
@@ -216,7 +231,7 @@ _TApps :: Iso' Type (Type, [Type])
 _TApps = leftSpine _TApp
 
 mkTForalls :: [(TypeVarName, Kind)] -> Type -> Type
-mkTForalls = curry (review _TForalls)
+mkTForalls binders ty = foldr TForall ty binders
 
 mkTFuns :: [Type] -> Type -> Type
 mkTFuns ts t = foldr (:->) t ts
@@ -231,22 +246,24 @@ typeConAppToType (TypeConApp tcon targs) = TConApp tcon targs
 -- Compatibility type and functions
 
 data Definition
-  = DDataType DefDataType
+  = DTypeSyn DefTypeSyn
+  | DDataType DefDataType
   | DValue DefValue
   | DTemplate Template
 
 moduleFromDefinitions :: ModuleName -> Maybe FilePath -> FeatureFlags -> [Definition] -> Module
-moduleFromDefinitions name path flags defs =
-  let (dats, vals, tpls) = partitionDefinitions defs
-  in  Module name path flags (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls)
+moduleFromDefinitions name path flags defs = do
+  let (syns, dats, vals, tpls) = partitionDefinitions defs
+  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls)
 
-partitionDefinitions :: [Definition] -> ([DefDataType], [DefValue], [Template])
-partitionDefinitions = foldr f ([], [], [])
+partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template])
+partitionDefinitions = foldr f ([], [], [], [])
   where
     f = \case
-      DDataType d -> over _1 (d:)
-      DValue v    -> over _2 (v:)
-      DTemplate t -> over _3 (t:)
+      DTypeSyn s  -> over _1 (s:)
+      DDataType d -> over _2 (d:)
+      DValue v    -> over _3 (v:)
+      DTemplate t -> over _4 (t:)
 
 -- | This is the analogue of GHC’s moduleNameString for the LF
 -- `ModuleName` type.
@@ -261,3 +278,44 @@ removeLocations :: Expr -> Expr
 removeLocations = cata $ \case
     ELocationF _loc e -> e
     b -> embed b
+
+getPackageMetadata :: Version -> PackageName -> Maybe PackageVersion -> Maybe PackageMetadata
+getPackageMetadata lfVer pkgName mbPkgVersion = do
+    guard (lfVer `supports` featurePackageMetadata)
+    Just (PackageMetadata pkgName (fromMaybe (PackageVersion "0.0.0") mbPkgVersion))
+
+-- | Given the name of a DALF and the decoded package return package metadata.
+--
+-- For newer DAML-LF versions this is taken directly from the
+-- package metadata in DAML-LF. For older versions, we instead infer
+-- metadata from the filename.
+packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, Maybe PackageVersion)
+packageMetadataFromFile file pkg pkgId
+    | Just (PackageMetadata name version) <- packageMetadata pkg =
+          -- GHC insists on daml-prim not having a version so we filter it out.
+          (name, version <$ guard (name /= PackageName "daml-prim"))
+    | otherwise = splitUnitId (unitIdFromFile file pkgId)
+
+-- Get the name of a file and an expeted package id of the package, get the unit id
+-- by stripping away the package name at the end.
+-- E.g., if 'package-name-123abc' is given and the known package id is
+-- '123abc', then 'package-name' is returned as unit id.
+unitIdFromFile :: FilePath -> PackageId -> UnitId
+unitIdFromFile file (PackageId pkgId) =
+    (stringToUnitId . fromMaybe name . stripPkgId name . T.unpack) pkgId
+    where name = takeBaseName file
+
+-- Strip the package id from the end of a dalf file name
+-- TODO (drsk) This needs to become a hard error
+stripPkgId :: String -> String -> Maybe String
+stripPkgId baseName expectedPkgId = do
+    (unitId, pkgId) <- stripInfixEnd "-" baseName
+    guard $ pkgId == expectedPkgId
+    pure unitId
+
+-- | Take a string of the form "daml-stdlib-0.13.43" and split it into ("daml-stdlib", Just "0.13.43")
+splitUnitId :: UnitId -> (PackageName, Maybe PackageVersion)
+splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), Nothing) $ do
+    (name, ver) <- stripInfixEnd "-" unitId
+    guard $ all (`elem` '.' : ['0' .. '9']) ver
+    pure (PackageName (T.pack name), Just (PackageVersion (T.pack ver)))

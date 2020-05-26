@@ -1,5 +1,6 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
+package com.daml.protoc.plugins.akka
 
 import com.google.protobuf.Descriptors._
 import com.google.protobuf.ExtensionRegistry

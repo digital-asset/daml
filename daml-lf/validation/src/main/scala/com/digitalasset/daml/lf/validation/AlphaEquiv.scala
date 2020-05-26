@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.language.Ast._
+import com.daml.lf.validation.Util._
 
 private[validation] object AlphaEquiv {
 
@@ -19,6 +19,7 @@ private[validation] object AlphaEquiv {
     def alphaEquiv(t1: Type, t2: Type): Boolean = (t1, t2) match {
       case (TVar(x1), TVar(x2)) =>
         binderDepthLhs.get(x1).toLeft(t1) == binderDepthRhs.get(x2).toLeft(t2)
+      case (TNat(n1), TNat(n2)) => n1 == n2
       case (TTyCon(c1), TTyCon(c2)) => c1 == c2
       case (TApp(f1, a1), TApp(f2, a2)) => alphaEquiv(f1, f2) && alphaEquiv(a1, a2)
       case (TBuiltin(b1), TBuiltin(b2)) => b1 == b2
@@ -29,7 +30,7 @@ private[validation] object AlphaEquiv {
             binderDepthLhs + (varName1 -> currentDepth),
             binderDepthRhs + (varName2 -> currentDepth)
           ).alphaEquiv(b1, b2)
-      case (TTuple(fs1), TTuple(fs2)) =>
+      case (TStruct(fs1), TStruct(fs2)) =>
         (fs1.keys sameElements fs1.keys) &&
           (fs1.values zip fs2.values).forall((alphaEquiv _).tupled)
       case _ => false

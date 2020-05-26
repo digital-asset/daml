@@ -1,8 +1,9 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
+load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_windows")
+# load ("@npm_bazel_typescript//:index.bzl", "ts_library")
 
 filegroup(
     name = "src",
@@ -40,7 +41,7 @@ filegroup(
 # a custom node.js binary that has access to all plugins loaded by webpack at runtime.
 nodejs_binary(
     name = "webpack",
-    entry_point = "webpack/bin/webpack.js",
+    entry_point = "@navigator_frontend_deps//:node_modules/webpack/bin/webpack.js",
     node_modules = "@navigator_frontend_deps//:node_modules",
     # The webpack build step requires almost all of the node_modules dependencies
     # data = [
@@ -48,8 +49,21 @@ nodejs_binary(
     # ],
 )
 
+# TODO (drsk) We should switch the frontend rule to use the bazel typescript rules instead of
+# webpack. Something like the following:
+# ts_library(
+# name = "frontend",
+# tsconfig = ":tsconfig.json",
+# srcs = glob(["**/*.ts"]),
+# data = [":package.json", ":tslint.json"],
+# node_modules = "@navigator_frontend_deps//:node_modules",
+# visibility = [
+# "//navigator:__subpackages__",
+# ],
+# )
+
 # Builds the frontend single page application and bundles all output files
-# (HTML + JavaScript + CSS + images) in a .tgz or .jar archive.
+#  (HTML + JavaScript + CSS + images) in a .tgz or .jar archive.
 genrule(
     name = "frontend",
     srcs = [
@@ -70,8 +84,6 @@ genrule(
     # Working directories
     export IN="$$(pwd)/$(@D)/in"
     export OUT="$$(pwd)/$(@D)/out"
-    export WP_IN={WP_IN}
-    export WP_OUT={WP_OUT}
     rm -rf $$IN $$OUT
     mkdir "$$IN" "$$OUT"
 
@@ -92,31 +104,34 @@ genrule(
     # Run webpack.
     # To debug, add the following options:
     # -d --progress --display-error-details --verbose
+    WP_IN={WP_IN}
+    WP_OUT={WP_OUT}
     $(execpath :webpack) \
       --config="$$IN/webpack.config.js" \
       --env.prod \
       --env.paths_case_check="{PATHS_CASE_CHECK}" \
-      --env.bazel_in_dir="$$WP_IN" \
-      --env.bazel_out_dir="$$WP_OUT/frontend"
+      --env.bazel_in_dir="{WP_IN_ESCAPED}" \
+      --env.bazel_out_dir="{WP_OUT_ESCAPED}"
 
     # Package result (.TGZ)
-    # To debug, change 'czf' to 'czfv'.
+    # To debug, change 'c' to 'cv'.
     echo "Packaging result from $$OUT to $(@D)/frontend.tgz"
-    tar czf "$(@D)/frontend.tgz" -C $$OUT .
+    tar c -C $$OUT . \
+        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        | gzip -n > "$(@D)/frontend.tgz"
 
     # Package result (.JAR)
     echo "Packaging result from $$OUT to $(@D)/frontend.jar"
-    $(location @bazel_tools//tools/jdk:jar) c0Mf "$(@D)/frontend.jar" -C $$OUT .
+    $(JAVABASE)/bin/jar c0Mf "$(@D)/frontend.jar" -C $$OUT .
     """.format(
         PATHS_CASE_CHECK = "false" if is_windows else "true",
         WP_IN = "$$(cygpath -w $$IN)" if is_windows else "$$IN",
-        WP_OUT = "$$(cygpath -w $$OUT)" if is_windows else "$$OUT",
+        WP_IN_ESCAPED = "'$$WP_IN'" if is_windows else "$$WP_IN",
+        WP_OUT = "$$(cygpath -w $$OUT/frontend)" if is_windows else "$$OUT/frontend",
+        WP_OUT_ESCAPED = "'$$WP_OUT'" if is_windows else "$$WP_OUT",
     ),
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = [
-        ":webpack",
-        "@bazel_tools//tools/jdk:jar",
-    ],
+    tools = [":webpack"],
     visibility = [
         "//navigator:__subpackages__",
     ],

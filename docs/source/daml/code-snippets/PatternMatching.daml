@@ -1,8 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The PatternMatching example.
-daml 1.2
+
 module PatternMatching where
 
 optionalIntegerToText (x : Optional Int) : Text =
@@ -23,4 +23,4 @@ tmp =
   in case l of
     [] -> "List is empty"
     _ :: [] -> "List has one element"
-    _ :: _ :: [] -> "List has at least two elements"
+    _ :: _ :: _ -> "List has at least two elements"

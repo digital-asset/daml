@@ -6,7 +6,7 @@
             <level>trace</level>
         </filter>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{5}@[%-4.30thread]) - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{5}@[%-4.30thread] - %msg%n</pattern>
         </encoder>
     </appender>
 

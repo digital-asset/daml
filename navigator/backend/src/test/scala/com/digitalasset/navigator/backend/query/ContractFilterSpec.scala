@@ -1,14 +1,16 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.navigator.graphql.GraphQLSchema
-import com.digitalasset.navigator.model.{Contract, Template}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.lf.value.Value.{ValueText, ValueInt64}
+import com.daml.navigator.graphql.GraphQLSchema
+import com.daml.navigator.model.{Contract, Template}
+import com.daml.ledger.api.refinements.ApiTypes
 import org.scalatest.{FlatSpec, Matchers}
-import com.digitalasset.navigator.model._
+import com.daml.navigator.DamlConstants.singletonRecord
+import com.daml.navigator.model._
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
@@ -42,29 +44,61 @@ class ContractFilterSpec extends FlatSpec with Matchers {
           .assertFromString("int") -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
       )))
 
+  val damlLfIdKey = DamlLfIdentifier(
+    DamlLfRef.PackageId.assertFromString("hash"),
+    DamlLfQualifiedName(
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("K1")))
+
+  val damlLfRecordKey = DamlLfDefDataType(
+    DamlLfImmArraySeq(),
+    DamlLfRecord(
+      DamlLfImmArraySeq(
+        DamlLfRef.Name
+          .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
+      )))
+
+  val damlLfKeyType =
+    DamlLfTypeCon(DamlLfTypeConName(damlLfIdKey), DamlLfImmArraySeq.empty[DamlLfType])
+
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
-    damlLfId1 -> damlLfRecord1
+    damlLfId1 -> damlLfRecord1,
+    damlLfIdKey -> damlLfRecordKey
   )
 
-  val template1 = Template(damlLfId0, List.empty)
-  val template2 = Template(damlLfId1, List.empty)
+  val template1 = Template(damlLfId0, List.empty, None)
+  val template2 = Template(damlLfId1, List.empty, Some(damlLfKeyType))
+
+  val alice = ApiTypes.Party("Alice")
+  val bob = ApiTypes.Party("Bob")
+  val charlie = ApiTypes.Party("Charlie")
 
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ValueText("bar")),
+    None,
+    List(alice),
+    List(bob, charlie),
     None)
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(12)))),
-    Some(""))
+    singletonRecord("int", ValueInt64(12)),
+    Some(""),
+    List(alice),
+    List(bob, charlie),
+    Some(singletonRecord("foo", ValueText("bar")))
+  )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
-    Some("agreement"))
+    singletonRecord("foo", ValueText("bar")),
+    Some("agreement"),
+    List(alice),
+    List(bob, charlie),
+    None)
 
   val templates = List(template1, template2)
   val contracts = List(contract1, contract2, contract3)
@@ -99,12 +133,22 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   testAnd(List("template.parameter.int" -> "int64"), List(contract2))
   testAnd(List("template.topLevelDecl" -> template1.topLevelDecl), List(contract1, contract3))
   testAnd(List("argument.foo" -> "bar", "argument.int" -> "1"), Nil)
+  testAnd(List("key.foo" -> "nope"), Nil)
+  testAnd(List("key.foo" -> "bar"), List(contract2))
 
   testOr(List("argument.foo" -> "bar", "argument.int" -> "1"), contracts)
 
   testAnd(List("agreementText" -> ""), List(contract2, contract3))
   testAnd(List("agreementText" -> "gree"), List(contract3))
   testAnd(List("agreementText" -> "not-matching"), List())
+
+  testAnd(List("signatories" -> "Alice"), List(contract1, contract2, contract3))
+  testAnd(List("signatories" -> "Bob"), List())
+
+  testAnd(List("observers" -> "Alice"), List())
+  testAnd(List("observers" -> "Bob"), List(contract1, contract2, contract3))
+
+  testOr(List("agreementText" -> "gree", "observers" -> "Alice"), List(contract3))
 
   val contractSearchFilterCriterion =
     new GraphQLSchema(Set()).contractSearchToFilter(template1.topLevelDecl)

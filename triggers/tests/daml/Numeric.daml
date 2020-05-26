@@ -1,0 +1,27 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Numeric where
+
+import Daml.Trigger.LowLevel
+
+test : Trigger Bool
+test = Trigger
+  { initialState = \party _ _ -> (False, [Commands (CommandId "mycreate1") [createCmd (T party 1.06)]])
+  , update = \_time msg s -> case (s, msg) of
+      (False, MTransaction (Transaction _ _ [CreatedEvent (fromCreated @T -> Some (_, _, t))])) ->
+      -- This verifies that t.v has the proper scale as otherwise the interpreter will
+      -- throw an assertion error
+        (True, [Commands (CommandId "mycreate2") [createCmd (t { v = t.v + 1.0 })]])
+      _ -> (s, [])
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+template T
+  with
+    p : Party
+    v : Numeric 11
+  where
+    signatory p

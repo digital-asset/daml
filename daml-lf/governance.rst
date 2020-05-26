@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF Governance process
@@ -31,7 +31,7 @@ Overview
   transactions building on top of values.
 
 * Specification documents are provided for DAML-LF values, DAML-LF
-  transactions, and for the DAML-LF language.  
+  transactions, and for the DAML-LF language.
 
 * Every merged change to DAML-LF values, transactions, or language
   *must* come with changes to the appropriate specification
@@ -41,16 +41,17 @@ Overview
 
 * Every change to DAML-LF values or transactions *must* be checked for
   governance rules conformance and approved by Stephen Compall, or by
-  Francesco Mazzoli if Stephen is on vacation.  Every change to the
-  DAML-LF language *must* be checked for governance rules conformance
-  and approved by Francesco Mazzoli, or by Rémy Haemmerle if Francesco
-  is on vacation.
+  Gerolf Seitz if Stephen is on vacation.  Every change to the DAML-LF
+  language *must* be checked for governance rules conformance and
+  approved by Rémy Haemmerle and Martin Huschenbett (with Gerolf Seitz
+  as Rémy's vacation backup, and Francisco Mota as Martin's vacation
+  backup).
 
   These checks are for governance and versioning only; the substance of
   DAML-LF language changes should be made in consultation with the DAML
-  Language team, in particular Martin Huschenbett.  Proposed changes can
-  be filed as tickets under Milestone "DAML-LF Spec & Validation",
-  labels "component/daml-lf" and "discussion".
+  Language team.  Proposed changes can be filed as tickets under
+  Milestone "DAML-LF Spec & Validation", labels "component/daml-lf" and
+  "discussion".
 
 * Every ledger implementation must declare what DAML-LF value,
   transaction, and language versions it supports. This information will

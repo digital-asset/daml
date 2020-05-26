@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { AdvanceTime, Button, Dispatch, NavBar, ThunkAction } from '@da/ui-core';
@@ -8,7 +8,7 @@ import * as React from 'react';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
 import * as App from '../applets/app';
-import logoUrl = require('../images/mark.png');
+import logoUrl = require('../images/logo-large.png');
 import { about } from '../routes';
 import { Icon } from './Icon';
 import Link from './Link';

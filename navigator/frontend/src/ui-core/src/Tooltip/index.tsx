@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // The CSS style (but not the code) of the tooltip is based on the
@@ -205,7 +205,7 @@ export default class Tooltip extends React.Component<Props, {}> {
   render() {
     const {
       children,
-      ...otherProps,
+      ...otherProps
     } = this.props;
 
     return (

@@ -1,28 +1,46 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
+    "da_scala_test",
 )
 
 da_scala_library(
     name = "participant-state",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
+    exports = [
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+    ],
     runtime_deps = [],
     deps = [
-        "//3rdparty/jvm/com/google/guava",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
-        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "participant-state-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    resources = glob(["src/test/resources/*"]),
+    deps = [
+        ":participant-state",
+        "//daml-lf/transaction",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

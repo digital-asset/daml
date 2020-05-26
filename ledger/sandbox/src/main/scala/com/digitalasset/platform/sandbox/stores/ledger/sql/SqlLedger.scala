@@ -1,278 +1,220 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.sql
+package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
+import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
-import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
-import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
-import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.LedgerIdGenerator
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
-  AlwaysReset,
-  ContinueIfExists
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  Contract,
-  LedgerDao,
-  PersistenceEntry,
-  PostgresLedgerDao
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
-import org.slf4j.LoggerFactory
+import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import com.daml.api.util.TimeProvider
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.TransactionCommitter
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.LedgerIdGenerator
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.{BaseLedger, FlywayMigrations}
+import com.daml.resources.ProgramResource.StartupException
+import com.daml.resources.ResourceOwner
 
-import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
-
-import scalaz.syntax.tag._
-
-sealed abstract class SqlStartMode extends Product with Serializable
-
-object SqlStartMode {
-
-  /** Will continue using an initialised ledger, otherwise initialize a new one */
-  final case object ContinueIfExists extends SqlStartMode
-
-  /** Will always reset and initialize the ledger, even if it has data.  */
-  final case object AlwaysReset extends SqlStartMode
-
-}
 
 object SqlLedger {
 
-  val noOfShortLivedConnections = 16
-  val noOfStreamingConnections = 2
+  private type PersistentQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
-  //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(
+  def owner(
+      serverRole: ServerRole,
+      // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerIdMode,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
+      acs: InMemoryActiveLedgerState,
+      packages: InMemoryPackageStore,
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[Ledger] = {
-    implicit val ec: ExecutionContext = DEC
-
-    val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-    val ledgerDao = LedgerDao.metered(
-      PostgresLedgerDao(
-        dbDispatcher,
-        ContractSerializer,
-        TransactionSerializer,
-        ValueSerializer,
-        KeyHasher))
-
-    val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
-
-    sqlLedgerFactory.createSqlLedger(
-      ledgerId,
-      timeProvider,
-      startMode,
-      acs,
-      initialLedgerEntries,
-      queueDepth)
-  }
+      transactionCommitter: TransactionCommitter,
+      startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
+      eventsPageSize: Int,
+      metrics: Metrics,
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
+    for {
+      _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
+      ledgerDao <- JdbcLedgerDao.validatingWriteOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
+      ledger <- ResourceOwner.forFutureCloseable(
+        () =>
+          new SqlLedgerFactory(ledgerDao).createSqlLedger(
+            ledgerId,
+            participantId,
+            timeProvider,
+            startMode,
+            acs,
+            packages,
+            initialLedgerEntries,
+            queueDepth,
+            transactionCommitter,
+        ))
+    } yield ledger
 }
 
-private class SqlLedger(
-    val ledgerId: LedgerId,
-    headAtInitialization: Long,
+private final class SqlLedger(
+    ledgerId: LedgerId,
+    participantId: ParticipantId,
+    headAtInitialization: Offset,
+    configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
-    queueDepth: Int)(implicit mat: Materializer)
-    extends Ledger {
+    packages: InMemoryPackageStore,
+    queueDepth: Int,
+    transactionCommitter: TransactionCommitter,
+)(implicit mat: Materializer, logCtx: LoggingContext)
+    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
+    with Ledger {
 
   import SqlLedger._
 
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  private val dispatcher = Dispatcher[Long, LedgerEntry](
-    RangeSource(ledgerDao.getLedgerEntries(_, _)),
-    0l,
-    headAtInitialization
-  )
-
-  @volatile
-  private var headRef: Long = headAtInitialization
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
-  private val (checkpointQueue, persistenceQueue): (
-      SourceQueueWithComplete[Long => PersistenceEntry],
-      SourceQueueWithComplete[Long => PersistenceEntry]) = createQueues()
+  private val persistenceQueue: PersistentQueue = createQueue()
 
-  private def createQueues(): (
-      SourceQueueWithComplete[Long => PersistenceEntry],
-      SourceQueueWithComplete[Long => PersistenceEntry]) = {
+  watchForFailures(persistenceQueue, "persistence")
 
-    val checkpointQueue = Source.queue[Long => PersistenceEntry](1, OverflowStrategy.dropHead)
-    val persistenceQueue =
-      Source.queue[Long => PersistenceEntry](queueDepth, OverflowStrategy.dropNew)
+  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String): Unit =
+    queue
+      .watchCompletion()
+      .failed
+      .foreach { throwable =>
+        logger.error(s"$name queue has been closed with a failure!", throwable)
+      }(DEC)
 
+  private def createQueue(): PersistentQueue = {
     implicit val ec: ExecutionContext = DEC
 
-    val mergedSources = Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue) {
-      case (q1Mat, q2Mat) =>
-        q1Mat -> q2Mat
-    } { implicit b => (s1, s2) =>
-      import akka.stream.scaladsl.GraphDSL.Implicits._
-      val merge = b.add(MergePreferred[Long => PersistenceEntry](1))
+    val persistenceQueue =
+      Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
 
-      s1 ~> merge.preferred
-      s2 ~> merge.in(0)
-
-      SourceShape(merge.out)
-    })
-
-    // We process the requests in batches when under pressure (see semantics of `batch`). Note
+    // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
-    mergedSources
-      .batch(noOfShortLivedConnections * 2L, e => Queue(e))((batch, e) => batch :+ e)
+    persistenceQueue
+      .batch(1, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
-        val startOffset = headRef // we can only do this because there is no parallelism here!
+        val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
+        // we can only do this because there is no parallelism here!
         //shooting the SQL queries in parallel
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
-            case (ledgerEntryGen, i) =>
-              val offset = startOffset + i
-              ledgerDao
-                .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
-                .map(_ => ())(DEC)
+            case (persist, i) =>
+              val offset = startOffset + i + 1
+              persist(SandboxOffset.toOffset(offset))
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
-            headRef = startOffset + queue.length //updating the headRef
-            dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
-          }(DEC)
+            dispatcher.signalNewHead(SandboxOffset.toOffset(startOffset + queue.length)) //signalling downstream subscriptions
+          }
       }
-      .toMat(Sink.ignore)(
-        Keep.left[
-          (
-              SourceQueueWithComplete[Long => PersistenceEntry],
-              SourceQueueWithComplete[Long => PersistenceEntry]),
-          Future[Done]])
+      .toMat(Sink.ignore)(Keep.left[PersistentQueue, Future[Done]])
       .run()
   }
 
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
+
   override def close(): Unit = {
+    super.close()
     persistenceQueue.complete()
-    ledgerDao.close()
   }
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
-    dispatcher.startingAt(offset.getOrElse(0))
+  // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
+  // changed entry. Transactions written around the same time as a configuration change entry might not use the correct
+  // time model.
+  private[this] val currentConfiguration =
+    new AtomicReference[Option[Configuration]](configAtInitialization)
+
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(
+      ledgerTime: Instant,
+      recordTime: Instant): Either[RejectionReason, Unit] = {
+    currentConfiguration
+      .get()
+      .fold[Either[RejectionReason, Unit]](
+        Left(
+          RejectionReason.InvalidLedgerTime(
+            "No ledger configuration available, cannot validate ledger time"))
+      )(
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReason.InvalidLedgerTime)
+      )
   }
 
-  override def ledgerEnd: Long = headRef
-
-  override def snapshot(): Future[LedgerSnapshot] =
-    //TODO (robert): SQL DAO does not know about ActiveContract, this method does a (trivial) mapping from DAO Contract to Ledger ActiveContract. Intended? The DAO layer was introduced its own Contract abstraction so it can also reason read archived ones if it's needed. In hindsight, this might be necessary at all  so we could probably collapse the two
-    ledgerDao.getActiveContractSnapshot
-      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(DEC)
-
-  override def lookupContract(
-      contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
-    ledgerDao
-      .lookupActiveContract(contractId)
-      .map(_.map(c => c.toActiveContract))(DEC)
-
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
-    ledgerDao.lookupKey(key)
-
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    checkpointQueue
-      .offer(_ => PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time)))
-      .map(_ => ())(DEC) //this never pushes back, see createQueues above!
-
-  override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
+  override def publishTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction,
+  ): Future[SubmissionResult] =
     enqueue { offset =>
-      val transactionId = Ref.LedgerString.fromLong(offset)
-      val toAbsCoid: ContractId => AbsoluteContractId =
-        SandboxEventIdFormatter.makeAbsCoid(transactionId)
+      val transactionId = offset.toApiString
 
-      val mappedTx = tx.transaction
-        .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-        .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
-
-      val mappedDisclosure = tx.blindingInfo.explicitDisclosure
-        .map {
-          case (nodeId, parties) =>
-            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
-        }
-
-      val mappedLocalImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure.map {
-        case (k, v) => SandboxEventIdFormatter.fromTransactionId(transactionId, k) -> v
-      }
-
+      val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
-      if (recordTime.isAfter(tx.maximumRecordTime)) {
-        // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
-        // than the time window between LET and MRT allows for.
-        // See https://github.com/digital-asset/daml/issues/987
-        PersistenceEntry.Rejection(
-          LedgerEntry.Rejection(
-            recordTime,
-            tx.commandId,
-            tx.applicationId,
-            tx.submitter,
-            RejectionReason.TimedOut(
-              s"RecordTime $recordTime is after MaximumRecordTime ${tx.maximumRecordTime}")
+
+      checkTimeModel(ledgerTime, recordTime)
+        .fold(
+          reason =>
+            ledgerDao.storeRejection(
+              Some(submitterInfo),
+              recordTime,
+              offset,
+              reason,
+          ),
+          _ =>
+            ledgerDao.storeTransaction(
+              Some(submitterInfo),
+              transactionMeta.workflowId,
+              transactionId,
+              recordTime,
+              transactionMeta.ledgerEffectiveTime.toInstant,
+              offset,
+              transactionCommitter.commitTransaction(transactionId, transaction),
+              Nil,
           )
         )
-      } else {
-        PersistenceEntry.Transaction(
-          LedgerEntry.Transaction(
-            tx.commandId,
-            transactionId,
-            tx.applicationId,
-            tx.submitter,
-            tx.workflowId,
-            tx.ledgerEffectiveTime,
-            recordTime,
-            mappedTx,
-            mappedDisclosure
-          ),
-          mappedLocalImplicitDisclosure,
-          tx.blindingInfo.globalImplicitDisclosure
-        )
-      }
+        .transform(
+          _.map(_ => ()).recover {
+            case NonFatal(t) =>
+              logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
+          }
+        )(DEC)
+
     }
 
-  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] = {
+  private def enqueue(persist: Offset => Future[Unit]): Future[SubmissionResult] =
     persistenceQueue
-      .offer(f)
+      .offer(persist)
       .transform {
         case Success(Enqueued) =>
           Success(SubmissionResult.Acknowledged)
@@ -283,22 +225,113 @@ private class SqlLedger(
         case Success(QueueOfferResult.Failure(e)) => Failure(e)
         case Failure(f) => Failure(f)
       }(DEC)
+
+  override def publishPartyAllocation(
+      submissionId: SubmissionId,
+      party: Party,
+      displayName: Option[String]): Future[SubmissionResult] = {
+    enqueue { offset =>
+      ledgerDao
+        .storePartyEntry(
+          offset,
+          PartyLedgerEntry.AllocationAccepted(
+            Some(submissionId),
+            participantId,
+            timeProvider.getCurrentTime,
+            PartyDetails(party, displayName, isLocal = true))
+        )
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist party $party with offset: ${offset.toApiString}", t)
+            ()
+        }(DEC)
+    }
   }
 
-  override def lookupTransaction(
-      transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    ledgerDao
-      .lookupLedgerEntry(transactionId.toLong)
-      .map(_.collect[(Long, LedgerEntry.Transaction)] {
-        case t: LedgerEntry.Transaction =>
-          (transactionId.toLong, t) // the transaction is also the offset
-      })(DEC)
+  override def uploadPackages(
+      submissionId: SubmissionId,
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[SubmissionResult] = {
+    val packages = payload.map(archive =>
+      (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
+    enqueue { offset =>
+      ledgerDao
+        .storePackageEntry(
+          offset,
+          packages,
+          Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
+        )
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist packages with offset: ${offset.toApiString}", t)
+            ()
+        }(DEC)
+    }
+  }
 
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] =
+    enqueue { offset =>
+      val recordTime = timeProvider.getCurrentTime
+      val mrt = maxRecordTime.toInstant
+
+      val storeF =
+        if (recordTime.isAfter(mrt)) {
+          ledgerDao
+            .storeConfigurationEntry(
+              offset,
+              recordTime,
+              submissionId,
+              participantId,
+              config,
+              Some(s"Configuration change timed out: $mrt > $recordTime"),
+            )
+        } else {
+          // NOTE(JM): If the generation in the new configuration is invalid
+          // we persist a rejection. This is done inside storeConfigurationEntry
+          // as we need to check against the current configuration within the same
+          // database transaction.
+          // NOTE(RA): Since the new configuration can be rejected inside storeConfigurationEntry,
+          // we look up the current configuration again to see if it was stored successfully.
+          implicit val ec: ExecutionContext = DEC
+          for {
+            response <- ledgerDao
+              .storeConfigurationEntry(
+                offset,
+                recordTime,
+                submissionId,
+                participantId,
+                config,
+                None
+              )
+            newConfig <- ledgerDao.lookupLedgerConfiguration()
+          } yield {
+            currentConfiguration.set(newConfig.map(_._2))
+            response
+          }
+        }
+
+      storeF
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist configuration with offset: $offset", t)
+            ()
+        }(DEC)
+    }
 }
 
-private class SqlLedgerFactory(ledgerDao: LedgerDao) {
+private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: LoggingContext) {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   /** *
     * Creates a DB backed Ledger implementation.
@@ -306,6 +339,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     * @param initialLedgerId a random ledger id is generated if none given, if set it's used to initialize the ledger.
     *                        In case the ledger had already been initialized, the given ledger id must not be set or must
     *                        be equal to the one in the database.
+    * @param participantId   the participant identifier
     * @param timeProvider    to get the current time when sequencing transactions
     * @param startMode       whether we should start with a clean state or continue where we left off
     * @param initialLedgerEntries The initial ledger entries -- usually provided by the scenario runner. Will only be
@@ -315,112 +349,179 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
-      initialLedgerId: Option[LedgerId],
+      initialLedgerId: LedgerIdMode,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
-      acs: ActiveContractsInMemory,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
-      queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = DEC
+      acs: InMemoryActiveLedgerState,
+      packages: InMemoryPackageStore,
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      queueDepth: Int,
+      transactionCommitter: TransactionCommitter,
+  )(implicit mat: Materializer): Future[SqlLedger] = {
+    implicit val ec: ExecutionContext = DEC
 
     def init(): Future[LedgerId] = startMode match {
-      case AlwaysReset =>
+      case SqlStartMode.AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId, acs, initialLedgerEntries)
+          ledgerId <- initialize(
+            initialLedgerId,
+            participantId,
+            timeProvider,
+            acs,
+            packages,
+            initialLedgerEntries,
+          )
         } yield ledgerId
-      case ContinueIfExists => initialize(initialLedgerId, acs, initialLedgerEntries)
+      case SqlStartMode.ContinueIfExists =>
+        initialize(
+          initialLedgerId,
+          participantId,
+          timeProvider,
+          acs,
+          packages,
+          initialLedgerEntries,
+        )
     }
 
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, queueDepth)
+      ledgerConfig <- ledgerDao.lookupLedgerConfiguration()
+    } yield
+      new SqlLedger(
+        ledgerId,
+        participantId,
+        ledgerEnd,
+        ledgerConfig.map(_._2),
+        ledgerDao,
+        timeProvider,
+        packages,
+        queueDepth,
+        transactionCommitter,
+      )
   }
 
   private def reset(): Future[Unit] =
     ledgerDao.reset()
 
   private def initialize(
-      initialLedgerId: Option[LedgerId],
-      acs: ActiveContractsInMemory,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
+      initialLedgerId: LedgerIdMode,
+      participantId: ParticipantId,
+      timeProvider: TimeProvider,
+      acs: InMemoryActiveLedgerState,
+      packages: InMemoryPackageStore,
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+  ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
-    // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
+    // headRef. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
 
-    initialLedgerId match {
-      case Some(initialId) =>
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
-              if (initialLedgerEntries.nonEmpty) {
-                logger.warn(
-                  s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
-              }
-              ledgerFound(foundLedgerId)
-            case Some(foundLedgerId) =>
-              val errorMsg =
-                s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
-              logger.error(errorMsg)
-              sys.error(errorMsg)
-            case None =>
-              if (initialLedgerEntries.nonEmpty) {
-                logger.info(
-                  s"Initializing ledger with ${initialLedgerEntries.length} ledger entries")
-              }
+    implicit val ec: ExecutionContext = DEC
+    for {
+      currentLedgerId <- ledgerDao.lookupLedgerId()
+      initializationRequired = currentLedgerId.isEmpty
+      ledgerId <- (currentLedgerId, initialLedgerId) match {
+        case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) if foundLedgerId == initialId =>
+          ledgerFound(foundLedgerId, initialLedgerEntries, packages)
 
-              val contracts = acs.contracts
-                .map(f => Contract.fromActiveContract(f._1, f._2))
-                .toList
+        case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) =>
+          Future.failed(
+            new LedgerIdMismatchException(foundLedgerId, initialId) with StartupException)
 
-              val initialLedgerEnd = 0L
-              val entriesWithOffset = initialLedgerEntries.foldLeft(
-                (initialLedgerEnd, immutable.Seq.empty[(Long, LedgerEntry)]))((acc, le) => {
-                val offset = acc._1
-                val seq = acc._2
-                (offset + le.increment, seq :+ offset -> le.entry)
-              })
+        case (Some(foundLedgerId), LedgerIdMode.Dynamic) =>
+          ledgerFound(foundLedgerId, initialLedgerEntries, packages)
 
-              @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-              implicit val ec = DEC
-              for {
-                _ <- doInit(initialId)
-                _ <- ledgerDao.storeInitialState(
-                  contracts,
-                  entriesWithOffset._2,
-                  entriesWithOffset._1)
-              } yield { initialId }
+        case (None, LedgerIdMode.Static(initialId)) =>
+          Future.successful(initialId)
 
-          }(DEC)
-
-      case None =>
-        logger.info("No ledger id given. Looking for existing ledger in database.")
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(foundLedgerId) => ledgerFound(foundLedgerId)
-            case None =>
-              val randomLedgerId = LedgerIdGenerator.generateRandomId()
-              doInit(randomLedgerId).map(_ => randomLedgerId)(DEC)
-          }(DEC)
-    }
+        case (None, LedgerIdMode.Dynamic) =>
+          val randomLedgerId = LedgerIdGenerator.generateRandomId()
+          Future.successful(randomLedgerId)
+      }
+      _ <- if (initializationRequired) {
+        logger.info(s"Initializing ledger with ID: $ledgerId")
+        for {
+          _ <- ledgerDao.initializeLedger(ledgerId)
+          _ <- initializeLedgerEntries(
+            initialLedgerEntries,
+            timeProvider,
+            packages,
+            acs,
+            participantId)
+        } yield ()
+      } else {
+        Future.unit
+      }
+    } yield ledgerId
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
+  private def ledgerFound(
+      foundLedgerId: LedgerId,
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      packages: InMemoryPackageStore,
+  ): Future[LedgerId] = {
+    logger.info(s"Found existing ledger with ID: $foundLedgerId")
+    if (initialLedgerEntries.nonEmpty) {
+      logger.warn(
+        s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")
+    }
+    if (packages.listLfPackagesSync().nonEmpty) {
+      logger.warn(
+        s"Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used.")
+    }
     Future.successful(foundLedgerId)
   }
 
-  private def doInit(ledgerId: LedgerId): Future[Unit] = {
-    logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
-    ledgerDao.initializeLedger(ledgerId, 0)
+  private def initializeLedgerEntries(
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      timeProvider: TimeProvider,
+      packages: InMemoryPackageStore,
+      acs: InMemoryActiveLedgerState,
+      participantId: ParticipantId,
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+    if (initialLedgerEntries.nonEmpty) {
+      logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
+    }
+
+    val (ledgerEnd, ledgerEntries) =
+      initialLedgerEntries.foldLeft((1L, Vector.empty[(Offset, LedgerEntry)])) {
+        case ((offset, entries), entryOrBump) =>
+          entryOrBump match {
+            case LedgerEntryOrBump.Entry(entry) =>
+              (offset + 1, entries :+ SandboxOffset.toOffset(offset + 1) -> entry)
+            case LedgerEntryOrBump.Bump(increment) =>
+              (offset + increment, entries)
+          }
+      }
+
+    for {
+      _ <- copyPackages(packages, timeProvider.getCurrentTime, SandboxOffset.toOffset(ledgerEnd))
+      _ <- ledgerDao.storeInitialState(ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
+    } yield ()
   }
 
-}
+  private def copyPackages(
+      store: InMemoryPackageStore,
+      knownSince: Instant,
+      newLedgerEnd: Offset): Future[Unit] = {
 
-private object SqlLedgerFactory {
-  def apply(ledgerDao: LedgerDao): SqlLedgerFactory = new SqlLedgerFactory(ledgerDao)
+    val packageDetails = store.listLfPackagesSync()
+    if (packageDetails.nonEmpty) {
+      logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
+      val packages = packageDetails.toList.map(pkg => {
+        val archive =
+          store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
+        archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
+      })
+
+      ledgerDao
+        .storePackageEntry(newLedgerEnd, packages, None)
+        .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
+    } else {
+      Future.successful(())
+    }
+  }
+
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,19 +12,19 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         # Plugins have to be specified as JARs.
-        "//external:jar/org/spire_math/kind_projector_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
     ],
+    scalacopts = ["-Xsource:2.13"],
     visibility = [
         "//visibility:public",
     ],
     exports = [],
     runtime_deps = [],
     deps = [
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-client",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )
 
@@ -45,7 +45,7 @@ da_scala_library(
     srcs = testing_utils,
     plugins = [
         # Plugins have to be specified as JARs.
-        "//external:jar/org/spire_math/kind_projector_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
     ],
     visibility = [
         "//visibility:public",
@@ -54,11 +54,11 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         ":codegen-testing",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-client",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -75,11 +75,11 @@ da_scala_test_suite(
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",
-        "//3rdparty/jvm/com/chuusai:shapeless",
-        "//3rdparty/jvm/org/apache/commons:commons_text",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//language-support/scala/bindings",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:org_apache_commons_commons_text",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

@@ -1,3 +1,6 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 pull_request_rules:
   - name: "strict rebase"
     conditions:
@@ -6,7 +9,7 @@ pull_request_rules:
         # CLA check must pass:
       - "status-success=license/cla"
       # Special label to request automerge:
-      - "label=automerge"
+      - "label=automerge-after-rebase"
       # Note that this only matches people with write / admin access to the repo,
       # see <https://doc.mergify.io/conditions.html#attribute-list>
       - "#approved-reviews-by>=1"
@@ -25,7 +28,7 @@ pull_request_rules:
         # CLA check must pass:
       - "status-success=license/cla"
       # Special label to request automerge:
-      - "label=automerge-dangerous-but-faster"
+      - "label=automerge"
       # Note that this only matches people with write / admin access to the repo,
       # see <https://doc.mergify.io/conditions.html#attribute-list>
       - "#approved-reviews-by>=1"
@@ -35,3 +38,4 @@ pull_request_rules:
         method: squash
       # Takes no options, see <https://doc.mergify.io/examples.html#deleting-merged-branch>
       delete_head_branch: {}
+

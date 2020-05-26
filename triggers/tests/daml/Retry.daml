@@ -1,0 +1,51 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Retry where
+
+import DA.Next.Map (Map)
+
+import Daml.Trigger
+
+retryTrigger : Trigger Int
+retryTrigger = Trigger
+  { initialize = \_acs -> 3
+  , updateState = \_acs msg allowedFail -> case msg of
+      MCompletion c
+        | Failed {} <- c.status -> allowedFail - 1
+      _ -> allowedFail
+  , rule = retryRule
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+-- We first create a T template, then we try to exercise C 3 times until allowedRetries is 0
+-- finally we create Done
+retryRule : Party -> ACS -> Time -> Map CommandId [Command] -> Int -> TriggerA ()
+retryRule party acs time commandsInFlight allowedRetries
+  | [] <- getContracts @T acs = do
+    dedupCreate T { p = party }
+  | ((cid, _) :: _) <- getContracts @T acs
+  , allowedRetries > 0 = do
+    dedupExercise cid C
+  | allowedRetries == 0
+  , [] <- getContracts @Done acs = do
+    dedupCreate Done { p = party }
+  | otherwise = pure ()
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    choice C : ()
+      controller p
+      do assert False
+         pure ()
+
+template Done
+  with
+    p : Party
+  where
+   signatory p

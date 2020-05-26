@@ -1,74 +1,39 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.daml.platform.sandbox.services
 
-import java.io.File
-
-import akka.stream.Materializer
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
-  GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
-}
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
+import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
+import com.daml.ports.Port
+import com.daml.resources.ResourceOwner
 import io.grpc.Channel
 import org.scalatest.Suite
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.util.Try
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
-import com.digitalasset.ledger.api.domain.LedgerId
-
-trait SandboxFixture extends SuiteResource[Channel] {
+trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxServer, Channel)] {
   self: Suite =>
 
-  protected def darFile = new File("ledger/sandbox/Test.dar")
+  protected def server: SandboxServer = suiteResource.value._1
 
-  protected def channel: Channel = suiteResource.value
+  override protected def serverPort: Port = server.port
 
-  protected def ledgerIdOnServer: String =
-    LedgerIdentityServiceGrpc
-      .blockingStub(channel)
-      .getLedgerIdentity(GetLedgerIdentityRequest())
-      .ledgerId
+  override protected def channel: Channel = suiteResource.value._2
 
-  protected def getTimeProviderForClient(
-      implicit mat: Materializer,
-      esf: ExecutionSequencerFactory): TimeProvider = {
-    Try(TimeServiceGrpc.stub(channel))
-      .map(StaticTime.updatedVia(_, ledgerIdOnServer)(mat, esf))
-      .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
+  override protected lazy val suiteResource: Resource[(SandboxServer, Channel)] = {
+    implicit val ec: ExecutionContext = system.dispatcher
+    new OwnedResource[(SandboxServer, Channel)](
+      for {
+        jdbcUrl <- database
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
+            Some(info.jdbcUrl)))
+        server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+        channel <- GrpcClientResource.owner(server.port)
+      } yield (server, channel),
+      acquisitionTimeout = 1.minute,
+      releaseTimeout = 1.minute,
+    )
   }
-
-  protected def config: SandboxConfig =
-    SandboxConfig.default
-      .copy(
-        port = 0, //dynamic port allocation
-        damlPackageContainer = DamlPackageContainer(files = packageFiles),
-        timeProviderType = TimeProviderType.Static,
-        timeModel = TimeModel.reasonableDefault,
-        scenario = scenario,
-        ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server"))
-      )
-
-  protected def packageFiles: List[File] = List(darFile)
-
-  protected def scenario: Option[String] = None
-
-  protected def ledgerId: String = ledgerIdOnServer
-
-  private lazy val sandboxResource = new SandboxServerResource(config)
-
-  protected override lazy val suiteResource: Resource[Channel] = sandboxResource
-
-  def getSandboxPort: Int = sandboxResource.getPort
-
 }

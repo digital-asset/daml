@@ -1,0 +1,91 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "generate-stable-package",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "optparse-applicative",
+        "text",
+    ],
+    main_function = "GenerateStablePackage.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-lf-conversion",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+genrule(
+    name = "gen-stable-packages",
+    srcs = [],
+    outs = [
+        "daml-prim/GHC-Types.dalf",
+        "daml-prim/GHC-Prim.dalf",
+        "daml-prim/GHC-Tuple.dalf",
+        "daml-prim/DA-Internal-Erased.dalf",
+        "daml-prim/DA-Internal-PromotedText.dalf",
+        "daml-prim/DA-Types.dalf",
+        "daml-stdlib/DA-Internal-Template.dalf",
+        "daml-stdlib/DA-Internal-Any.dalf",
+        "daml-stdlib/DA-Time-Types.dalf",
+        "daml-stdlib/DA-NonEmpty-Types.dalf",
+        "daml-stdlib/DA-Date-Types.dalf",
+        "daml-stdlib/DA-Semigroup-Types.dalf",
+        "daml-stdlib/DA-Monoid-Types.dalf",
+        "daml-stdlib/DA-Logic-Types.dalf",
+        "daml-stdlib/DA-Validation-Types.dalf",
+        "daml-stdlib/DA-Internal-Down.dalf",
+    ],
+    cmd = """
+      $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
+      $(location :generate-stable-package) --module GHC.Prim -o $(location daml-prim/GHC-Prim.dalf)
+      $(location :generate-stable-package) --module GHC.Tuple -o $(location daml-prim/GHC-Tuple.dalf)
+      $(location :generate-stable-package) --module DA.Internal.Erased -o $(location daml-prim/DA-Internal-Erased.dalf)
+      $(location :generate-stable-package) --module DA.Internal.PromotedText -o $(location daml-prim/DA-Internal-PromotedText.dalf)
+      $(location :generate-stable-package) --module DA.Types -o $(location daml-prim/DA-Types.dalf)
+      $(location :generate-stable-package) --module DA.Time.Types -o $(location daml-stdlib/DA-Time-Types.dalf)
+      $(location :generate-stable-package) --module DA.NonEmpty.Types -o $(location daml-stdlib/DA-NonEmpty-Types.dalf)
+      $(location :generate-stable-package) --module DA.Date.Types -o $(location daml-stdlib/DA-Date-Types.dalf)
+      $(location :generate-stable-package) --module DA.Semigroup.Types -o $(location daml-stdlib/DA-Semigroup-Types.dalf)
+      $(location :generate-stable-package) --module DA.Monoid.Types -o $(location daml-stdlib/DA-Monoid-Types.dalf)
+      $(location :generate-stable-package) --module DA.Logic.Types -o $(location daml-stdlib/DA-Logic-Types.dalf)
+      $(location :generate-stable-package) --module DA.Validation.Types -o $(location daml-stdlib/DA-Validation-Types.dalf)
+      $(location :generate-stable-package) --module DA.Internal.Down -o $(location daml-stdlib/DA-Internal-Down.dalf)
+      # These types are not serializable but they leak into typeclass methods so they need to be stable.
+      $(location :generate-stable-package) --module DA.Internal.Any -o $(location daml-stdlib/DA-Internal-Any.dalf)
+      $(location :generate-stable-package) --module DA.Internal.Template -o $(location daml-stdlib/DA-Internal-Template.dalf)
+    """,
+    tools = [":generate-stable-package"],
+    visibility = ["//visibility:public"],
+)
+
+# If you change this you also need to update generateStablePackages in Development.IDE.Core.Rules.Daml
+filegroup(
+    name = "stable-packages",
+    srcs = [
+        "daml-prim/DA-Internal-Erased.dalf",
+        "daml-prim/DA-Internal-PromotedText.dalf",
+        "daml-prim/DA-Types.dalf",
+        "daml-prim/GHC-Prim.dalf",
+        "daml-prim/GHC-Tuple.dalf",
+        "daml-prim/GHC-Types.dalf",
+        "daml-stdlib/DA-Date-Types.dalf",
+        "daml-stdlib/DA-Internal-Any.dalf",
+        "daml-stdlib/DA-Internal-Down.dalf",
+        "daml-stdlib/DA-Internal-Template.dalf",
+        "daml-stdlib/DA-Logic-Types.dalf",
+        "daml-stdlib/DA-Monoid-Types.dalf",
+        "daml-stdlib/DA-NonEmpty-Types.dalf",
+        "daml-stdlib/DA-Semigroup-Types.dalf",
+        "daml-stdlib/DA-Time-Types.dalf",
+        "daml-stdlib/DA-Validation-Types.dalf",
+    ],
+    visibility = ["//visibility:public"],
+)

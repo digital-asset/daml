@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -11,22 +11,12 @@ module DA.Daml.LF.Ast.Recursive(
     UpdateF(..),
     ScenarioF(..),
     BindingF(..),
-    TypeF(..),
     retrieveByKeyFKey
     ) where
 
 import Data.Functor.Foldable
 
 import DA.Daml.LF.Ast.Base
-
-data TypeF typ
-  = TVarF      !TypeVarName
-  | TConF      !(Qualified TypeConName)
-  | TAppF      !typ !typ
-  | TBuiltinF  !BuiltinType
-  | TForallF   !(TypeVarName, Kind) !typ
-  | TTupleF    ![(FieldName, typ)]
-  deriving (Foldable, Functor, Traversable)
 
 data ExprF expr
   = EVarF        !ExprVarName
@@ -36,9 +26,10 @@ data ExprF expr
   | ERecProjF    !TypeConApp !FieldName !expr
   | ERecUpdF     !TypeConApp !FieldName !expr !expr
   | EVariantConF !TypeConApp !VariantConName !expr
-  | ETupleConF   ![(FieldName, expr)]
-  | ETupleProjF  !FieldName !expr
-  | ETupleUpdF   !FieldName !expr !expr
+  | EEnumConF    !(Qualified TypeConName) !VariantConName
+  | EStructConF  ![(FieldName, expr)]
+  | EStructProjF !FieldName !expr
+  | EStructUpdF  !FieldName !expr !expr
   | ETmAppF      !expr !expr
   | ETyAppF      !expr !Type
   | ETmLamF      !(ExprVarName, Type) !expr
@@ -52,6 +43,9 @@ data ExprF expr
   | ELocationF   !SourceLoc !expr
   | ENoneF       !Type
   | ESomeF       !Type !expr
+  | EToAnyF !Type !expr
+  | EFromAnyF !Type !expr
+  | ETypeRepF !Type
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -85,26 +79,6 @@ data ScenarioF expr
   | SGetPartyF   !expr
   | SEmbedExprF  !Type !expr
   deriving (Foldable, Functor, Traversable)
-
-type instance Base Type = TypeF
-
-instance Recursive Type where
-  project = \case
-    TVar a -> TVarF a
-    TCon a -> TConF a
-    TApp a b -> TAppF a b
-    TBuiltin a -> TBuiltinF a
-    TForall a b -> TForallF a b
-    TTuple a -> TTupleF a
-
-instance Corecursive Type where
-  embed = \case
-    TVarF a -> TVar a
-    TConF a -> TCon a
-    TAppF a b -> TApp a b
-    TBuiltinF a -> TBuiltin a
-    TForallF a b -> TForall a b
-    TTupleF a -> TTuple a
 
 type instance Base Expr = ExprF
 
@@ -184,9 +158,10 @@ instance Recursive Expr where
     ERecProj    a b c -> ERecProjF      a b c
     ERecUpd   a b c d -> ERecUpdF     a b c d
     EVariantCon a b c -> EVariantConF   a b c
-    ETupleCon   a     -> ETupleConF     a
-    ETupleProj  a b   -> ETupleProjF    a b
-    ETupleUpd   a b c -> ETupleUpdF     a b c
+    EEnumCon    a b   -> EEnumConF      a b
+    EStructCon  a     -> EStructConF    a
+    EStructProj a b   -> EStructProjF   a b
+    EStructUpd  a b c -> EStructUpdF    a b c
     ETmApp      a b   -> ETmAppF        a b
     ETyApp      a b   -> ETyAppF        a b
     ETmLam      a b   -> ETmLamF        a b
@@ -200,6 +175,9 @@ instance Recursive Expr where
     ELocation   a b   -> ELocationF     a b
     ENone       a     -> ENoneF         a
     ESome       a b   -> ESomeF         a b
+    EToAny a b  -> EToAnyF a b
+    EFromAny a b -> EFromAnyF a b
+    ETypeRep a -> ETypeRepF a
 
 instance Corecursive Expr where
   embed = \case
@@ -210,9 +188,10 @@ instance Corecursive Expr where
     ERecProjF    a b c -> ERecProj      a b c
     ERecUpdF   a b c d -> ERecUpd     a b c d
     EVariantConF a b c -> EVariantCon   a b c
-    ETupleConF   a     -> ETupleCon     a
-    ETupleProjF  a b   -> ETupleProj    a b
-    ETupleUpdF   a b c -> ETupleUpd     a b c
+    EEnumConF    a b   -> EEnumCon      a b
+    EStructConF  a     -> EStructCon    a
+    EStructProjF a b   -> EStructProj   a b
+    EStructUpdF  a b c -> EStructUpd    a b c
     ETmAppF      a b   -> ETmApp        a b
     ETyAppF      a b   -> ETyApp        a b
     ETmLamF      a b   -> ETmLam        a b
@@ -226,3 +205,6 @@ instance Corecursive Expr where
     ELocationF   a b   -> ELocation a b
     ENoneF       a     -> ENone a
     ESomeF       a b   -> ESome a b
+    EToAnyF a b  -> EToAny a b
+    EFromAnyF a b -> EFromAny a b
+    ETypeRepF a -> ETypeRep a

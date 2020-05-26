@@ -1,26 +1,26 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.testkit.services._
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamResponse
 }
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
 }
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
-import com.digitalasset.ledger.api.v1.package_service.{
+import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
+import com.daml.ledger.api.v1.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
   ListPackagesResponse
 }
-import com.digitalasset.ledger.api.v1.testing.time_service.GetTimeResponse
+import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import io.reactivex.Observable
@@ -30,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 case class LedgerServicesImpls(
     ledgerIdentityServiceImpl: LedgerIdentityServiceImpl,
     activeContractsServiceImpl: ActiveContractsServiceImpl,
-    transactionServiceImpl: TransactionServiceImpl,
+    transactionServiceImpl: TransactionsServiceImpl,
     commandSubmissionServiceImpl: CommandSubmissionServiceImpl,
     commandCompletionServiceImpl: CommandCompletionServiceImpl,
     commandServiceImpl: CommandServiceImpl,
@@ -43,7 +43,7 @@ object LedgerServicesImpls {
   def createWithRef(
       ledgerId: String,
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
-      transactions: Observable[TransactionServiceImpl.LedgerItem],
+      transactions: Observable[TransactionsServiceImpl.LedgerItem],
       commandSubmissionResponse: Future[Empty],
       completions: List[CompletionStreamResponse],
       completionsEnd: CompletionEndResponse,
@@ -55,30 +55,34 @@ object LedgerServicesImpls {
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
-      getPackageStatusResponse: Future[GetPackageStatusResponse])(
+      getPackageStatusResponse: Future[GetPackageStatusResponse],
+      authorizer: Authorizer)(
       implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
-    val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId)(ec)
+    val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
     val (acsServiceDef, acsService) =
-      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse)(ec)
+      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse, authorizer)(ec)
     val (tsServiceDef, tsService) =
-      TransactionServiceImpl.createWithRef(transactions)(ec)
+      TransactionsServiceImpl.createWithRef(transactions, authorizer)(ec)
     val (csServiceDef, csService) =
-      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse)(ec)
+      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse, authorizer)(ec)
     val (ccServiceDef, ccService) =
-      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd)(ec)
+      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd, authorizer)(ec)
     val (cServiceDef, cService) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
-      submitAndWaitForTransactionTreeResponse)(ec)
+      submitAndWaitForTransactionTreeResponse,
+      authorizer)(ec)
     val (lcServiceDef, lcService) =
-      LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
-    val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)
+      LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses, authorizer)(ec)
+    val (timeServiceDef, timeService) =
+      TimeServiceImpl.createWithRef(getTimeResponses, authorizer)(ec)
     val (packageServiceDef, packageService) =
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
-        getPackageStatusResponse)(ec)
+        getPackageStatusResponse,
+        authorizer)(ec)
 
     val services = Seq(
       iServiceDef,

@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.json
+package com.daml.extractor.json
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.value.{Value => V}
 
 import org.scalatest.{Matchers, WordSpec}
 import io.circe.parser.parse
@@ -30,8 +30,8 @@ class JsonConvertersSpec extends WordSpec with Matchers {
       Right(sampleRecord.asJson) shouldBe parse("""{"foo": "bar", "baz": 1253049}""")
     }
 
-    "encode to list of pairs if some label absent" in {
-      Right(oneMissingLabel.asJson) shouldBe parse("""[[null, "bar"], ["baz", 1253049]]""")
+    "encode to list of values if some label absent" in {
+      Right(oneMissingLabel.asJson) shouldBe parse("""["bar", 1253049]""")
     }
   }
 }

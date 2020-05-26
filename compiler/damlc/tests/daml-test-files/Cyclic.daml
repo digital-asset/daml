@@ -1,0 +1,8 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=8:7-8:13; Cyclic module dependency between Cyclic
+
+module Cyclic where
+
+import Cyclic

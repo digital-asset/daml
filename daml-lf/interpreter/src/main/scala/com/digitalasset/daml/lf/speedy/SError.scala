@@ -1,14 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.types.Ledger
+import com.daml.lf.value.Value.ContractId
 
 object SError {
 
@@ -32,7 +32,9 @@ object SError {
   sealed trait SErrorDamlException extends SError
 
   /** Arithmetic error such as division by zero */
-  final case class DamlEArithmeticError(message: String) extends SErrorDamlException
+  final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
+    override def toString: String = message
+  }
 
   /** User initiated error, via e.g. 'abort' or 'assert' */
   final case class DamlEUserError(message: String) extends SErrorDamlException
@@ -45,36 +47,36 @@ object SError {
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Transaction.Value[ContractId])
-      extends SErrorDamlException
+      arg: Transaction.Value[ContractId],
+  ) extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
     * been consumed. */
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
-      consumedBy: Transaction.NodeId)
-      extends SErrorDamlException
+      consumedBy: Transaction.NodeId,
+  ) extends SErrorDamlException
 
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
-      reason: String
+      reason: String,
   ) extends SErrorDamlException
 
   /** Errors from scenario interpretation. */
   sealed trait SErrorScenario extends SError
 
   final case class ScenarioErrorContractNotEffective(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
-      effectiveAt: Time.Timestamp)
-      extends SErrorScenario
+      effectiveAt: Time.Timestamp,
+  ) extends SErrorScenario
 
   final case class ScenarioErrorContractNotActive(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
-      consumedBy: Ledger.ScenarioNodeId)
-      extends SErrorScenario
+      consumedBy: Ledger.ScenarioNodeId,
+  ) extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --
     * see <https://github.com/digital-asset/daml/issues/1005>.
@@ -82,17 +84,17 @@ object SError {
   final case class DamlEWronglyTypedContract(
       coid: ContractId,
       expected: TypeConName,
-      actual: TypeConName)
-      extends SErrorDamlException
+      actual: TypeConName,
+  ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
       committer: Party,
-      observers: Set[Party])
-      extends SErrorScenario
+      observers: Set[Party],
+  ) extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
   final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
@@ -102,5 +104,4 @@ object SError {
 
   /** Invalid party name supplied to 'getParty'. */
   final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario
-
 }

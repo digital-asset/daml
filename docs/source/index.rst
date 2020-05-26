@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML SDK documentation
@@ -18,8 +18,9 @@ DAML SDK documentation
    :caption: Getting started
 
    Installing the SDK <getting-started/installation>
-   getting-started/introduction
-   getting-started/quickstart
+   Building Your App <getting-started/index>
+   getting-started/testing
+   Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 .. toctree::
    :titlesonly:
@@ -27,11 +28,13 @@ DAML SDK documentation
    :hidden:
    :caption: Writing DAML
 
+   daml/intro/0_Intro.rst
    daml/reference/index
+   daml/stdlib/index
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
-   daml/good-daml
+   /daml/patterns
 
 .. toctree::
    :titlesonly:
@@ -39,13 +42,24 @@ DAML SDK documentation
    :hidden:
    :caption: Building applications
 
-   app-dev/index
-   app-dev/bindings-java/index
-   app-dev/bindings-scala/index
-   app-dev/bindings-js
-   app-dev/grpc/index
    app-dev/app-arch
-   
+   app-dev/bindings-ts/index
+   json-api/index
+   DAML Script <daml-script/index>
+   upgrade/index
+   app-dev/authentication
+   app-dev/ledger-api
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Deploying to DAML ledgers
+
+   deploy/index
+   deploy/generic_ledger
+   deploy/ledger-topologies
+
 .. toctree::
    :titlesonly:
    :maxdepth: 2
@@ -55,6 +69,7 @@ DAML SDK documentation
    tools/assistant
    tools/sandbox
    tools/navigator/index
+   tools/codegen
 
 .. toctree::
    :titlesonly:
@@ -62,7 +77,9 @@ DAML SDK documentation
    :hidden:
    :caption: Background concepts
 
+   concepts/glossary
    concepts/ledger-model/index
+   concepts/identity-and-package-management
 
 .. toctree::
    :titlesonly:
@@ -76,10 +93,14 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Experimental features
+   :caption: Early Access Features
 
-   experimental/warning
+   tools/navigator/console
+   tools/extractor
    daml-integration-kit/index
+   triggers/index
+   daml-repl/index
+   tools/visual
 
 .. toctree::
    :titlesonly:

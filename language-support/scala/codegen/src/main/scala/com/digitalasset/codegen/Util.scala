@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
-import com.digitalasset.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
-import com.digitalasset.daml.lf.iface.{Type => IType, _}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
+import com.daml.lf.iface.{Type => IType, _}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
 
@@ -135,8 +135,8 @@ object Util {
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
   final case class WriteParams[+TmplI](
-      supportedTemplateIds: Map[Ref.Identifier, TmplI],
-      recordsAndVariants: Iterable[lf.ScopedDataType.FWT])
+      templateIds: Map[Ref.Identifier, TmplI],
+      definitions: List[lf.ScopedDataType.FWT])
 
   val reservedNames: Set[String] =
     Set("id", "template", "namedArguments", "archive")

@@ -1,14 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 package encoding
 
 import scala.language.higherKinds
-
 import scalaz.{OneAnd, Plus}
 import scalaz.syntax.foldable1._
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.v1.{value => rpcvalue}
 
 /** A backend for accumulating well-typed information about DAML-LF ADTs
   * (records, variants, and templates) into encodings of those ADTs.
@@ -50,6 +49,14 @@ trait LfTypeEncoding {
 
   /** Pull a single field into the language of field lists. */
   def fields[A](fi: Field[A]): RecordFields[A]
+
+  /** Convenient wrapper for `enum` and iterated `VariantCase.plus`. */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def enumAll[A](
+      enumId: rpcvalue.Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A]
 
   /** "Finalize" a variant set. */
   def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A]
@@ -122,6 +129,13 @@ object LfTypeEncoding {
 
     override def fields[A](fi: Field[A]): RecordFields[A] =
       (fst.fields(fi._1), snd.fields(fi._2))
+
+    override def enumAll[A](
+        enumId: rpcvalue.Identifier,
+        index: A => Int,
+        cases: OneAnd[Vector, (String, A)],
+    ): Out[A] =
+      (fst.enumAll(enumId, index, cases), snd.enumAll(enumId, index, cases))
 
     override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       (fst.variant(variantId, cases._1), snd.variant(variantId, cases._2))

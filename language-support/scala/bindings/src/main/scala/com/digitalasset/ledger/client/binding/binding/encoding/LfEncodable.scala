@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
@@ -22,8 +22,8 @@ object LfEncodable extends ValuePrimitiveEncoding[LfEncodable] {
     override def encoding(lte: LfTypeEncoding): lte.Out[P.Int64] = lte.primitive.valueInt64
   }
 
-  override implicit val valueDecimal: LfEncodable[P.Decimal] = new LfEncodable[P.Decimal] {
-    override def encoding(lte: LfTypeEncoding): lte.Out[P.Decimal] = lte.primitive.valueDecimal
+  override implicit val valueNumeric: LfEncodable[P.Numeric] = new LfEncodable[P.Numeric] {
+    override def encoding(lte: LfTypeEncoding): lte.Out[P.Numeric] = lte.primitive.valueNumeric
   }
 
   override implicit val valueParty: LfEncodable[P.Party] = new LfEncodable[P.Party] {
@@ -68,10 +68,16 @@ object LfEncodable extends ValuePrimitiveEncoding[LfEncodable] {
         lte.primitive.valueOptional(LfEncodable.encoding[A](lte))
     }
 
-  override implicit def valueMap[A: LfEncodable]: LfEncodable[P.Map[A]] =
-    new LfEncodable[P.Map[A]] {
-      override def encoding(lte: LfTypeEncoding): lte.Out[P.Map[A]] =
-        lte.primitive.valueMap(LfEncodable.encoding[A](lte))
+  override implicit def valueTextMap[A: LfEncodable]: LfEncodable[P.TextMap[A]] =
+    new LfEncodable[P.TextMap[A]] {
+      override def encoding(lte: LfTypeEncoding): lte.Out[P.TextMap[A]] =
+        lte.primitive.valueTextMap(LfEncodable.encoding[A](lte))
+    }
+
+  override implicit def valueGenMap[K: LfEncodable, V: LfEncodable]: LfEncodable[P.GenMap[K, V]] =
+    new LfEncodable[P.GenMap[K, V]] {
+      override def encoding(lte: LfTypeEncoding): lte.Out[P.GenMap[K, V]] =
+        lte.primitive.valueGenMap(LfEncodable.encoding[K](lte), LfEncodable.encoding[V](lte))
     }
 
   trait ViaFields[T] {

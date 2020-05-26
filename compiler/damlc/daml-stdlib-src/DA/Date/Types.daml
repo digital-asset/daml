@@ -1,0 +1,32 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | MOVE DA.Date
+module DA.Date.Types
+  ( DayOfWeek(..)
+  , Month(..)
+  ) where
+
+data DayOfWeek
+    = Monday
+    | Tuesday
+    | Wednesday
+    | Thursday
+    | Friday
+    | Saturday
+    | Sunday
+
+-- | The `Month` type represents a month in the Gregorian calendar.
+data Month
+    = Jan
+    | Feb
+    | Mar
+    | Apr
+    | May
+    | Jun
+    | Jul
+    | Aug
+    | Sep
+    | Oct
+    | Nov
+    | Dec

@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.data.{Time => LfTime}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.extractor.json.JsonConverters._
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.ledger.types._
+import com.daml.lf.data.{Time => LfTime}
+import com.daml.lf.value.{Value => V}
+import com.daml.extractor.json.JsonConverters._
+import com.daml.extractor.Types._
+import com.daml.extractor.ledger.types._
 import doobie._
 import doobie.implicits._
 import java.time.{Instant, LocalDate}
@@ -123,7 +123,6 @@ object Queries {
           ,contract_id TEXT NOT NULL
           ,package_id TEXT NOT NULL
           ,template TEXT NOT NULL
-          ,contract_creating_event_id TEXT NOT NULL
           ,choice TEXT NOT NULL
           ,choice_argument JSONB NOT NULL
           ,acting_parties JSONB NOT NULL
@@ -143,7 +142,6 @@ object Queries {
           ${event.contractId},
           ${event.templateId.packageId},
           ${event.templateId.name},
-          ${event.contractCreatingEventId},
           ${event.choice},
           ${toJsonString(event.choiceArgument)}::jsonb,
           ${toJsonString(event.actingParties)}::jsonb,
@@ -169,12 +167,12 @@ object Queries {
         ,package_id TEXT NOT NULL
         ,template TEXT NOT NULL
         ,create_arguments JSONB NOT NULL
-        ,witness_parties JSONB NOT NULL
+        ,stakeholders JSONB NOT NULL
         )
     """
 
     def setContractArchived(
-        eventId: String,
+        contractId: String,
         transactionId: String,
         archivedByEventId: String): Fragment =
       sql"""
@@ -182,7 +180,7 @@ object Queries {
         SET
           archived_by_transaction_id = ${transactionId},
           archived_by_event_id = ${archivedByEventId}
-        WHERE event_id = ${eventId}
+        WHERE contract_id = ${contractId}
       """
 
     def insertContract(event: CreatedEvent, transactionId: String, isRoot: Boolean): Fragment =
@@ -198,7 +196,7 @@ object Queries {
           ${event.templateId.packageId},
           ${event.templateId.name},
           ${toJsonString(event.createArguments)}::jsonb,
-          ${toJsonString(event.witnessParties)}::jsonb
+          ${toJsonString(event.stakeholders)}::jsonb
         )
       """
   }
@@ -217,7 +215,7 @@ object Queries {
               ,_transaction_id TEXT NOT NULL
               ,_archived_by_transaction_id TEXT DEFAULT NULL
               ,_is_root_event BOOLEAN NOT NULL
-              ,_witness_parties JSONB NOT NULL
+              ,_stakeholders JSONB NOT NULL
               ${columnDefs}
             )
         """
@@ -227,13 +225,13 @@ object Queries {
 
     def setContractArchived(
         table: String,
-        eventId: String,
+        contractId: String,
         transactionId: String,
         archivedByEventId: String
     ): Fragment =
       Fragment.const(s"UPDATE ${table} SET ") ++
         fr"_archived_by_transaction_id = ${transactionId}, " ++
-        fr"_archived_by_event_id = ${archivedByEventId} WHERE _event_id = ${eventId}"
+        fr"_archived_by_event_id = ${archivedByEventId} WHERE _contract_id = ${contractId}"
 
     def insertContract(
         table: String,
@@ -248,7 +246,7 @@ object Queries {
         Fragment("?", transactionId), // _transaction_id
         Fragment.const("DEFAULT"), // _archived_by_transaction_id
         Fragment.const(if (isRoot) "TRUE" else "FALSE"), // _is_root_event
-        Fragment("?::jsonb", toJsonString(event.witnessParties)) // _witness_parties
+        Fragment("?::jsonb", toJsonString(event.stakeholders)) // _stakeholders
       )
 
       val contractArgColumns = event.createArguments.fields.map {
@@ -279,41 +277,37 @@ object Queries {
         case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ V.ValueRecord(_, _) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(r)
-          )
+          Fragment("?::jsonb", toJsonString(r))
         case v @ V.ValueVariant(_, _, _) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(v)
-          )
+          Fragment("?::jsonb", toJsonString(v))
+        case V.ValueEnum(_, constructor) =>
+          Fragment("?", constructor: String)
         case o @ V.ValueOptional(_) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(o)
-          )
+          Fragment("?::jsonb", toJsonString(o))
         case V.ValueContractId(value) => Fragment("?", value)
         case l @ V.ValueList(_) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(l)
-          )
-        case V.ValueInt64(value) => Fragment("?", value)
-        case V.ValueDecimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
-        case V.ValueText(value) => Fragment("?", value)
-        case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
-        case V.ValueParty(value) => Fragment("?", value: String)
-        case V.ValueUnit => Fragment.const("FALSE")
-        case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
-        case V.ValueMap(m) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(m)
-          )
-        case tuple @ V.ValueTuple(_) =>
+          Fragment("?::jsonb", toJsonString(l))
+        case V.ValueInt64(value) =>
+          Fragment("?", value)
+        case V.ValueNumeric(value) =>
+          Fragment(s"?::numeric(38,${value.scale})", value: BigDecimal)
+        case V.ValueText(value) =>
+          Fragment("?", value)
+        case ts @ V.ValueTimestamp(_) =>
+          Fragment("?", ts)
+        case V.ValueParty(value) =>
+          Fragment("?", value: String)
+        case V.ValueUnit =>
+          Fragment.const("FALSE")
+        case V.ValueDate(LfTime.Date(days)) =>
+          Fragment("?", LocalDate.ofEpochDay(days.toLong))
+        case V.ValueTextMap(value) =>
+          Fragment("?::jsonb", toJsonString(value))
+        case V.ValueGenMap(entries) =>
+          Fragment("?::jsonb", toJsonString(entries))
+        case struct @ V.ValueStruct(_) =>
           throw new IllegalArgumentException(
-            s"tuple should not be present in contract, as raw tuples are not serializable: $tuple")
+            s"struct should not be present in contract, as raw structs are not serializable: $struct")
       }
     }
   }

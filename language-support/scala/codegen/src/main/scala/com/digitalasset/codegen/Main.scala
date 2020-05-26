@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
 import java.io.File
 import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
-import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.conf.Conf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Cord
@@ -18,25 +18,31 @@ object Main extends StrictLogging {
 
   private val codegenId = "Scala Codegen"
 
+  @deprecated("Use codegen font-end: com.daml.codegen.CodegenMain.main", "0.13.23")
   def main(args: Array[String]): Unit =
     Conf.parse(args) match {
-      case Some(Conf(darMap, outputDir, decoderPkgAndClass, verbosity)) =>
-        setGlobalLogLevel(verbosity)
-        logUnsupportedEventDecoderOverride(decoderPkgAndClass)
-        val (dars, packageName) = darsAndOnePackageName(darMap)
-        CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel)
+      case Some(conf) =>
+        generateCode(conf)
       case None =>
         throw new IllegalArgumentException(
           s"Invalid ${codegenId: String} command line arguments: ${args.mkString(" "): String}")
     }
 
+  def generateCode(conf: Conf): Unit = conf match {
+    case Conf(darMap, outputDir, decoderPkgAndClass, verbosity, roots) =>
+      setGlobalLogLevel(verbosity)
+      logUnsupportedEventDecoderOverride(decoderPkgAndClass)
+      val (dars, packageName) = darsAndOnePackageName(darMap)
+      CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel, roots)
+  }
+
   private def setGlobalLogLevel(verbosity: Level): Unit = {
     LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) match {
       case a: ch.qos.logback.classic.Logger =>
         a.setLevel(verbosity)
-        logger.info(s"${codegenId: String} verbosity: $verbosity")
+        logger.info(s"${codegenId: String} verbosity: ${verbosity.toString}")
       case _ =>
-        logger.warn(s"${codegenId: String} cannot set requested verbosity: $verbosity")
+        logger.warn(s"${codegenId: String} cannot set requested verbosity: ${verbosity.toString}")
     }
   }
 

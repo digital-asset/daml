@@ -1,8 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
-module Tests.Wolpertinger where
+
+module Wolpertinger where
 
 import DA.Date
 import DA.Time
@@ -13,6 +13,8 @@ data Color = Grey
                 with r: Int; g: Int; b: Int
            | Custom Text
            deriving (Eq, Show, Ord)
+
+data WolpertingerKey = WolpertingerKey with owner: Party; age: Decimal
 
 template Wolpertinger
     with
@@ -27,6 +29,9 @@ template Wolpertinger
         colors: [Color]
     where
         signatory owner
+
+        key WolpertingerKey owner age : WolpertingerKey
+        maintainer key.owner
 
         agreement name <> " has " <> show wings <> " wings and is " <> show age <> " years old."
 

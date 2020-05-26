@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -24,10 +24,8 @@ module DA.Daml.LF.TypeChecker.Env(
 
 import           Control.Lens hiding (Context)
 import           Control.Monad.Error.Class (MonadError (..))
-import           Control.Monad.Extra
 import           Control.Monad.Reader
 import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HMS
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.TypeChecker.Error
@@ -76,22 +74,9 @@ emptyGamma :: World -> Version -> Gamma
 emptyGamma = Gamma ContextNone mempty mempty
 
 -- | Run a computation in the current environment extended by a new type
--- variable. Fails if the type variable would shadow some existing type
--- variable.
+-- variable/kind binding. Does not fail on shadowing.
 introTypeVar :: MonadGamma m => TypeVarName -> Kind -> m a -> m a
-introTypeVar v k act = do
-  whenM (views tvars (HMS.member v)) $ throwWithContext (EShadowingTypeVar v)
-  local (tvars . at v ?~ k) act
-
--- -- | Introduce a fresh type variable to the environment. Uses the given name as
--- -- starting point for searching a fresh name. The fresh name finally found will
--- -- then be put in the enviroment and passed to the continuation.
--- introFreshTypeVar :: MonadGamma m => TypeVarName -> (TypeVarName -> m a) -> m a
--- introFreshTypeVar v act = do
---   let vs = v : map (\n -> fmap (<> T.pack (show n)) v) [1::Int ..]
---   -- NOTE(MH): This 'findM' cannot fail since @tvars@ is finite.
---   v' <- fromJust <$> findM (\v' -> not <$> view (tvars . contains v')) vs
---   introTypeVar v' (act v')
+introTypeVar v k = local (tvars . at v ?~ k)
 
 -- | Run a computation in the current enviroment extended by a new term
 -- variable/type binding. Does not fail on shadowing.

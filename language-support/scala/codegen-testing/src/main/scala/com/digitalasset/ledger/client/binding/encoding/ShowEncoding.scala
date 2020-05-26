@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
+package com.daml.ledger.client.binding.encoding
 
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.client.binding.{Primitive => P}
 import scalaz.Cord.stringToCord
 import scalaz.Scalaz._
 import scalaz.Show.{show, showFromToString}
@@ -25,39 +25,45 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Show[A]
 
-  override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = {
-    val P.LegacyIdentifier(_, recName) = recordId
+  private def name(id: Identifier) =
+    s"${id.moduleName}.${id.entityName}"
+
+  override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] =
     show { a: A =>
-      Cord(recName, "(", fi.show(a), ")")
+      Cord(name(recordId), "(", fi.show(a), ")")
     }
-  }
 
   override def emptyRecord[A](recordId: Identifier, element: () => A): Out[A] = {
-    val P.LegacyIdentifier(_, recName) = recordId
-    val shown = Cord(recName, "()")
+    val shown = Cord(name(recordId), "()")
     show { _: A =>
       shown
     }
   }
 
-  override def field[A](fieldName: String, o: Out[A]): Field[A] = show { a: A =>
-    Cord(fieldName, " = ", o.show(a))
-  }
+  override def field[A](fieldName: String, o: Out[A]): Field[A] =
+    show { a: A =>
+      Cord(fieldName, " = ", o.show(a))
+    }
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    show { a: A =>
+      cases.index(index(a)).fold(Cord.empty)(_._1)
+    }
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A] = new Show[A] {
-
-    override def show(a: A): Cord = {
-      select.lift(a).map(b => o.show(b)) match {
-        case Some(b) => Cord(caseName, "(", b, ")")
-        case None => Cord.empty
-      }
+      select: A PartialFunction B): VariantCases[A] =
+    show { a: A =>
+      select.lift(a).fold(Cord.empty)(b => Cord(caseName, "(", o.show(b), ")"))
     }
-  }
 
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
@@ -92,7 +98,7 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueInt64: Show[P.Int64] = longInstance
 
-    override def valueDecimal: Show[P.Decimal] = bigDecimalInstance
+    override def valueNumeric: Show[P.Numeric] = bigDecimalInstance
 
     override def valueParty: Show[P.Party] =
       P.Party.subst(show(p => Cord("P@", ShowUnicodeEscapedString.show(p))))
@@ -114,7 +120,10 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
-    override def valueMap[A: Show]: Show[P.Map[A]] = mapShow
+    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = P.TextMap.leibniz[A].subst(mapShow)
+
+    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = P.GenMap.insertMapShow
+
   }
 
   object Implicits {

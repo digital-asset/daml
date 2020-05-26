@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def mangle(name):
@@ -24,15 +24,13 @@ def dar_to_java(**kwargs):
         outs = [mangle(src_jar)],
         cmd = """
             $(execpath //language-support/java/codegen:codegen) -o {gen_out} -d com.daml.ledger.javaapi.TestDecoder {gen_in}
-            $(execpath @local_jdk//:bin/jar) -cf $@ -C {gen_out} .
+            $(JAVABASE)/bin/jar -cf $@ -C {gen_out} .
         """.format(
             gen_in = "$(location %s)=%s" % (dar, package_prefix),
             gen_out = src_out,
         ),
-        tools = [
-            "//language-support/java/codegen:codegen",
-            "@local_jdk//:bin/jar",
-        ],
+        toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+        tools = ["//language-support/java/codegen:codegen"],
     )
 
     native.java_library(

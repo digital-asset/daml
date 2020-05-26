@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # NOTE(JM): Temporary backport of pkg.bzl from latest Bazel.
@@ -36,7 +36,7 @@ def _remap(remap_paths, path):
     return path
 
 def _quote(filename, protect = "="):
-    """Quote the filename, by escaping = by \= and \ by \\"""
+    """Quote the filename, by escaping = by \= and \ by \\ """
     return filename.replace("\\", "\\\\").replace(protect, "\\" + protect)
 
 def _pkg_tar_impl(ctx):
@@ -121,7 +121,6 @@ def _pkg_tar_impl(ctx):
         arguments = ["--flagfile", arg_file.path],
         outputs = [ctx.outputs.out],
         mnemonic = "PackageTar",
-        use_default_shell_env = True,
     )
 
 def _pkg_deb_impl(ctx):
@@ -262,3 +261,12 @@ def pkg_tar(**kwargs):
                       "Consider renaming it in your BUILD file.")
                 kwargs["srcs"] = kwargs.pop("files")
     _real_pkg_tar(**kwargs)
+
+def pkg_empty_zip(name, out):
+    native.genrule(
+        name = name,
+        srcs = [],
+        outs = [out],
+        # minimal empty zip file in Base64 encoding
+        cmd = "echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > $@",
+    )

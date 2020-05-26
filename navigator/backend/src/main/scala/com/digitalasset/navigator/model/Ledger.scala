@@ -1,17 +1,17 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.data.DatabaseActions
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.data.DatabaseActions
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case class Ledger(
+    private val forParty: ApiTypes.Party,
     private val lastTransaction: Option[Transaction],
     private val useDatabase: Boolean,
     private val transactionById: Map[ApiTypes.TransactionId, Transaction] = Map.empty,
@@ -110,7 +110,14 @@ case class Ledger(
     event match {
       case event: ContractCreated =>
         packageRegistry.template(event.templateId).fold(this) { template =>
-          val contract = Contract(event.contractId, template, event.argument, event.agreementText)
+          val contract = Contract(
+            event.contractId,
+            template,
+            event.argument,
+            event.agreementText,
+            event.signatories,
+            event.observers,
+            event.key)
           withContractCreatedInEvent(contract, event)
         }
 
@@ -119,18 +126,24 @@ case class Ledger(
     }
 
   private def withContractCreatedInEvent(contract: Contract, event: ContractCreated): Ledger = {
+    val isStakeHolder = contract.signatories.contains(forParty) || contract.observers.contains(
+      forParty)
     if (useDatabase) {
-      db.insertContract(contract)
+      if (isStakeHolder) db.insertContract(contract)
       db.insertEvent(event)
       this
     } else {
-      copy(
-        contractById = contractById + (contract.id -> contract),
-        activeContractById = activeContractById + (contract.id -> contract),
-        contractsByTemplateId = contractsByTemplateIdWith(contract),
-        createEventByContractId = createEventByContractId + (contract.id -> event),
-        eventById = eventById + (event.id -> event)
-      )
+      val contractUpdated =
+        if (isStakeHolder)
+          copy(
+            contractById = contractById + (contract.id -> contract),
+            activeContractById = activeContractById + (contract.id -> contract),
+            contractsByTemplateId = contractsByTemplateIdWith(contract),
+            createEventByContractId = createEventByContractId + (contract.id -> event),
+          )
+        else
+          this
+      contractUpdated.copy(eventById = eventById + (event.id -> event))
     }
   }
 
@@ -162,14 +175,6 @@ case class Ledger(
         eventById = eventById + (event.id -> event)
       )
     }
-  }
-
-  private def contractsByTemplateIdWithout(contractId: ApiTypes.ContractId) = {
-    val entryWithoutContract = for {
-      contract <- contractById.get(contractId)
-      templateContracts <- contractsByTemplateId.get(contract.template.id)
-    } yield contract.template.id -> (templateContracts - contract)
-    contractsByTemplateId ++ entryWithoutContract.toMap
   }
 
   def allContractsCount: Int = {

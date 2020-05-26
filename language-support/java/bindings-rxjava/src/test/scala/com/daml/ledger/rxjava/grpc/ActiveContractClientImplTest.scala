@@ -1,10 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
+import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import io.reactivex.Observable
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
@@ -15,6 +16,7 @@ import scala.concurrent.ExecutionContext
 class ActiveContractClientImplTest
     extends FlatSpec
     with Matchers
+    with AuthMatchers
     with OptionValues
     with DataLayerHelpers {
 
@@ -83,5 +85,27 @@ class ActiveContractClientImplTest
     }
   }
 
-  // TODO add 1.4 test backpressure
+  "ActiveContractClientImpl.getActiveContracts" should "fail with insufficient authorization" in {
+    ledgerServices.withACSClient(Observable.empty(), mockedAuthService) { (acsClient, _) =>
+      expectUnauthenticated {
+        acsClient
+          .getActiveContracts(filterFor(someParty), false, emptyToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingIterable()
+          .asScala
+          .size
+      }
+    }
+  }
+
+  "ActiveContractClientImpl.getActiveContracts" should "succeed with sufficient authorization" in {
+    ledgerServices.withACSClient(Observable.empty(), mockedAuthService) { (acsClient, _) =>
+      acsClient
+        .getActiveContracts(filterFor(someParty), false, somePartyReadToken)
+        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+        .blockingIterable()
+        .asScala
+        .size shouldEqual 0
+    }
+  }
 }

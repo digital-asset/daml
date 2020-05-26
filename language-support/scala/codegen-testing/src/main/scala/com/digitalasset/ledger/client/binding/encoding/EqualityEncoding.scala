@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.client.binding.encoding.EncodingUtil.normalize
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import scalaz.Plus
+package com.daml.ledger.client.binding.encoding
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.client.binding.encoding.EncodingUtil.normalize
+import com.daml.ledger.client.binding.{Primitive => P}
+import scalaz.{OneAnd, Plus}
 
 abstract class EqualityEncoding extends LfTypeEncoding {
   import EqualityEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
@@ -27,6 +27,12 @@ abstract class EqualityEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = o
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] = index(_) == index(_)
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
@@ -68,7 +74,7 @@ object EqualityEncoding extends EqualityEncoding {
   class primitiveImpl extends ValuePrimitiveEncoding[Fn] {
     override def valueInt64: Fn[P.Int64] = (a1, a2) => a1 == a2
 
-    override def valueDecimal: Fn[P.Decimal] = (a1, a2) => a1 == a2
+    override def valueNumeric: Fn[P.Numeric] = (a1, a2) => a1 == a2
 
     override def valueParty: Fn[P.Party] = (a1, a2) => a1 == a2
 
@@ -97,9 +103,14 @@ object EqualityEncoding extends EqualityEncoding {
       case _ => false
     }
 
-    override implicit def valueMap[A: Fn]: Fn[P.Map[A]] = (a1, a2) => {
+    override implicit def valueTextMap[A: Fn]: Fn[P.TextMap[A]] = { (a1, a2) =>
       val ev = implicitly[Fn[A]]
       a1.keys == a2.keys && a1.keys.forall(k => ev(a1(k), a2(k)))
+    }
+
+    override implicit def valueGenMap[K: Fn, V: Fn]: Fn[P.GenMap[K, V]] = { (a1, a2) =>
+      val evV = implicitly[Fn[V]]
+      a1.keys == a2.keys && a1.keys.forall(k => evV(a1(k), a2(k)))
     }
 
   }

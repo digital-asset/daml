@@ -1,7 +1,10 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
+# See https://github.com/lukesampson/scoop/issues/3859
+Set-Strictmode -Off
 .\dev-env\windows\bin\dadew.ps1 install
+Set-StrictMode -Version latest
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
@@ -10,6 +13,22 @@ if (!(Test-Path .\.bazelrc.local)) {
 }
 
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
+
+# If a previous build was forcefully terminated, then stack's lock file might
+# not have been cleaned up properly leading to errors of the form
+#
+#   user error (hTryLock: lock already exists: C:\Users\VssAdministrator\AppData\Roaming\stack\pantry\hackage\hackage-security-lock)
+#
+# The package cache might be corrupted and just removing the lock might lead to
+# errors as below, so we just nuke the entire stack cache.
+#
+#   Failed populating package index cache
+#   IncompletePayload 56726464 844
+#
+if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
+    Write-Output ">> Nuking stack directory"
+    Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
+}
 
 function bazel() {
     Write-Output ">> bazel $args"
@@ -30,60 +49,12 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
-# FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
-    //release:sdk-release-tarball `
-    //release/windows-installer:windows-installer `
-    //:git-revision `
-    @com_github_grpc_grpc//:grpc `
-    @haskell_c2hs//... `
-    //3rdparty/... `
-    //nix/third-party/gRPC-haskell:grpc-haskell `
-    //daml-assistant:daml `
-    //daml-foundations/... `
-    //compiler/... `
-    //daml-lf/... `
-    //extractor/... `
-    //language-support/java/testkit:testkit `
-    //language-support/java/bindings/... `
-    //language-support/java/bindings-rxjava/... `
-    //ledger/... `
-    //ledger-api/... `
-    //navigator/backend/... `
-    //navigator/frontend/... `
-    //scala-protoc-plugins/...
+# Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
+# It isn’t clear where exactly those errors are coming from.
+bazel fetch @nodejs_dev_env//...
+
+bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown
 
-bazel run `
-    //daml-foundations/daml-tools/da-hs-damlc-app `-`- `-h
-
-bazel shutdown
-
-bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `
-    //daml-lf/... `
-    //language-support/java/bindings/... `
-    //language-support/java/bindings-rxjava/... `
-    //ledger/ledger-api-client/... `
-    //ledger/ledger-api-common/... `
-    //ledger-api/... `
-    //navigator/backend/... `
-    //daml-assistant/integration-tests/... `
-    //daml-foundations/daml-ghc:daml-ghc-deterministic `
-    //daml-foundations/daml-ghc:compile-subdir `
-    //daml-foundations/daml-ghc:bond-trading-memory `
-    //daml-foundations/daml-ghc:compile-empty `
-    //daml-foundations/daml-ghc:daml-ghc-deterministic `
-    //daml-foundations/daml-ghc:examples-memory `
-    //daml-foundations/daml-ghc:module-tree-memory `
-    //daml-foundations/daml-tools/da-hs-daml-cli `
-    //daml-foundations/daml-tools/da-hs-damlc-app/...
-    # Disabled since there seems to be an issue with starting up the scenario service.
-    # See https://github.com/digital-asset/daml/issues/1354
-    # //daml-foundations/daml-ghc:daml-ghc-shake-test-ci
-    #
-    # Disabled due to scenario service issue mentioned above and
-    # encoding issues for daml-foundations/daml-ghc/tests/Unicode.daml
-    # See: https://github.com/digital-asset/daml/issues/1421
-    # //daml-foundations/daml-ghc:daml-ghc-test-all
-    # //daml-foundations/daml-ghc:daml-ghc-test-dev
+bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //...

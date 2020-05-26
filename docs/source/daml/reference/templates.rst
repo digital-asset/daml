@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: templates
@@ -38,6 +38,20 @@ Template parameters
 - For all parties involved in the contract (whether they're a ``signatory``, ``observer``, or ``controller``) you must pass them in as parameters to the contract, whether individually or as a list (``[Party]``).
 
 .. Template has an *associated* data type with the same name?
+
+.. _daml-ref-template-let:
+
+Template-local Definitions
+**************************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start template let snippet
+   :end-before: -- end template let snippet
+
+- ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
+- Template parameters as well as ``this`` are in scope, but ``self`` is not.
+- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block. 
 
 .. _daml-ref-signatories:
 
@@ -138,5 +152,5 @@ Contract keys and maintainers
 - This feature lets you specify a "key" that you can use to uniquely identify an instance of this contract template.
 - If you specify a ``key``, you must also specify a ``maintainer``. This is a ``Party`` that will ensure the uniqueness of all the keys it is aware of.
 
-  Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory or observer of the contract instance.
+  Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory.
 - For a full explanation, see :doc:`/daml/reference/contract-keys`.

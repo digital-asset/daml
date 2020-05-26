@@ -1,0 +1,59 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module PendingSet where
+
+import DA.Foldable (mapA_)
+import DA.Next.Map (Map)
+import Daml.Trigger
+
+template Foo
+  with
+    p : Party
+  where
+    signatory p
+
+template Boo
+  with
+    p : Party
+  where
+    signatory p
+    controller p can
+      nonconsuming ArchiveFoo: ()
+        with
+          fooCids : [ContractId Foo]
+        do mapA_ archive fooCids
+           assert (length fooCids == 2)
+           create Done with p
+           pure ()
+
+template Done
+  with
+    p : Party
+  where
+    signatory p
+
+booTrigger : Trigger ()
+booTrigger = Trigger with
+  initialize = \acs -> ()
+  updateState = \acs _ s -> s
+  rule = booRule
+  registeredTemplates = AllInDar
+  heartbeat = None
+
+booRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
+booRule party acs _time _commandsInFlight _userState = do
+  let foos : [(ContractId Foo, Foo)] = getContracts @Foo acs
+  let boos : [(ContractId Boo, Boo)] = getContracts @Boo acs
+  case (boos, foos) of
+    ([], []) -> do
+      -- initialization so we don’t have to create contracts from Scala
+      _ <- emitCommands [createCmd (Foo party), createCmd (Foo party), createCmd (Boo party)] []
+      pure ()
+    (boo :: _, _ :: _) -> do
+      let cids = map fst foos
+      _ <- emitCommands [exerciseCmd (fst boo) ArchiveFoo with fooCids = cids] (map toAnyContractId cids)
+      pure ()
+    _ -> pure ()
+

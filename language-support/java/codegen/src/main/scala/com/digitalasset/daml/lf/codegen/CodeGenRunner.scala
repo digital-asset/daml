@@ -1,23 +1,22 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen
+package com.daml.lf.codegen
 
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
-import java.util.zip.ZipFile
 
-import com.digitalasset.daml.lf.DarManifestReader
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.codegen.backend.Backend
-import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
-import com.digitalasset.daml.lf.codegen.conf.Conf
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.reader.{InterfaceReader}
-import com.digitalasset.daml.lf.iface.{Type => _, _}
-import com.digitalasset.daml_lf.DamlLf
+import com.daml.lf.archive.DarManifestReader
+import com.daml.lf.archive.DarReader
+import com.daml.lf.codegen.backend.Backend
+import com.daml.lf.codegen.backend.java.JavaBackend
+import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.lf.iface.{Type => _, _}
+import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -25,7 +24,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
-private[codegen] object CodeGenRunner extends StrictLogging {
+object CodeGenRunner extends StrictLogging {
 
   def run(conf: Conf): Unit = {
 
@@ -34,7 +33,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
     LoggerFactory
-      .getLogger("com.digitalasset.daml.lf.codegen.backend.java.inner")
+      .getLogger("com.daml.lf.codegen.backend.java.inner")
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
 
@@ -69,10 +68,15 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       conf: Conf): (Seq[Interface], Map[PackageId, String]) = {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap {
       case (path, pkgPrefix) =>
+        val file = path.toFile
         // Explicitly calling `get` to bubble up any exception when reading the dar
-        val dar = ArchiveReader.readArchive(new ZipFile(path.toFile)).get
+        val dar = ArchiveReader.readArchiveFromFile(file).get
         dar.all.map { archive =>
-          val (_, interface) = InterfaceReader.readInterface(archive)
+          val (errors, interface) = InterfaceReader.readInterface(archive)
+          if (!errors.equals(Errors.zeroErrors)) {
+            throw new RuntimeException(
+              InterfaceReader.InterfaceReaderError.treeReport(errors).toString)
+          }
           logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")
           (interface, interface.packageId -> pkgPrefix)
         }
@@ -171,6 +175,6 @@ private[codegen] object CodeGenRunner extends StrictLogging {
   object ArchiveReader
       extends DarReader[DamlLf.Archive](
         DarManifestReader.dalfNames,
-        is => Try(DamlLf.Archive.parseFrom(is))
+        { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
       )
 }

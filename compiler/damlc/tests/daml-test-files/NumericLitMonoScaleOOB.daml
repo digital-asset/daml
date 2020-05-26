@@ -1,0 +1,16 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Ensure numeric literal cannot be out of bounds thanks to
+-- `NumericScale` constraint.
+--
+-- @SINCE-LF 1.7
+-- @ERROR range=16:11-16:18; No instance for (NumericScale 38)
+
+
+
+module NumericLitMonoScaleOOB where
+
+-- Scale out of bounds for numeric literal.
+scaleOOB : Numeric 38
+scaleOOB = 0.00001

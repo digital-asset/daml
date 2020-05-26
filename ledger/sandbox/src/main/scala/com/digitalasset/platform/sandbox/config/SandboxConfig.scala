@@ -1,75 +1,88 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.config
+package com.daml.platform.sandbox.config
 
 import java.io.File
+import java.nio.file.Path
+import java.time.Duration
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
-
-import scala.concurrent.duration._
-
-final case class TlsServerConfiguration(
-    enabled: Boolean,
-    keyCertChainFile: File,
-    keyFile: File,
-    trustCertCollectionFile: File)
+import ch.qos.logback.classic.Level
+import com.daml.caching
+import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 
 /**
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
     address: Option[String],
-    port: Int,
-    damlPackageContainer: DamlPackageContainer,
-    timeProviderType: TimeProviderType,
-    timeModel: TimeModel,
-    commandConfig: CommandConfiguration, //TODO: this should go to the file config
+    port: Port,
+    portFile: Option[Path],
+    damlPackages: List[File],
+    timeProviderType: Option[TimeProviderType],
+    commandConfig: CommandConfiguration,
+    ledgerConfig: LedgerConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
+    implicitPartyAllocation: Boolean,
     ledgerIdMode: LedgerIdMode,
+    maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
-    eagerPackageLoading: Boolean
+    eagerPackageLoading: Boolean,
+    logLevel: Option[Level],
+    authService: Option[AuthService],
+    seeding: Option[Seeding],
+    metricsReporter: Option[MetricsReporter],
+    metricsReportingInterval: Duration,
+    eventsPageSize: Int,
+    lfValueTranslationCacheConfiguration: caching.Configuration,
 )
 
-final case class CommandConfiguration(
-    inputBufferSize: Int,
-    maxParallelSubmissions: Int,
-    maxCommandsInFlight: Int,
-    limitMaxCommandsInFlight: Boolean,
-    historySize: Int,
-    retentionPeriod: FiniteDuration,
-    commandTtl: FiniteDuration)
-
 object SandboxConfig {
+  val DefaultPort: Port = Port(6865)
 
-  val DefaultPort = 6865
+  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  def default: SandboxConfig =
+  val DefaultEventsPageSize: Int = 1000
+
+  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+
+  val DefaultLfValueTranslationCacheConfiguration = caching.Configuration.none
+
+  lazy val nextDefault: SandboxConfig =
     SandboxConfig(
-      None,
-      DefaultPort,
-      DamlPackageContainer(Nil),
-      TimeProviderType.Static,
-      TimeModel.reasonableDefault,
-      defaultCommandConfig,
+      address = None,
+      port = DefaultPort,
+      portFile = None,
+      damlPackages = Nil,
+      timeProviderType = None,
+      commandConfig = CommandConfiguration.default,
+      ledgerConfig = LedgerConfiguration.defaultLocalLedger,
       tlsConfig = None,
       scenario = None,
-      ledgerIdMode = LedgerIdMode.Dynamic(),
+      implicitPartyAllocation = true,
+      ledgerIdMode = LedgerIdMode.Dynamic,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
-      eagerPackageLoading = false
+      eagerPackageLoading = false,
+      logLevel = None, // the default is in logback.xml
+      authService = None,
+      seeding = Some(Seeding.Strong),
+      metricsReporter = None,
+      metricsReportingInterval = Duration.ofSeconds(10),
+      eventsPageSize = DefaultEventsPageSize,
+      lfValueTranslationCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
     )
 
-  lazy val defaultCommandConfig =
-    CommandConfiguration(
-      inputBufferSize = 512,
-      maxParallelSubmissions = 128,
-      maxCommandsInFlight = 256,
-      limitMaxCommandsInFlight = true,
-      historySize = 5000,
-      retentionPeriod = 24.hours,
-      commandTtl = 20.seconds
+  lazy val default: SandboxConfig =
+    nextDefault.copy(
+      seeding = None,
+      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
 }

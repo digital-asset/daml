@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
-import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.navigator.{model => Model}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.data.{Ref => DamlLfRef}
 
 /** Manages a set of known DAML-LF packages. */
 case class PackageRegistry(
@@ -21,7 +21,8 @@ case class PackageRegistry(
       t: DamlLfIface.DefTemplate[DamlLfIface.Type]
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
-    t.choices.toList.map(c => choice(c._1, c._2))
+    t.choices.toList.map(c => choice(c._1, c._2)),
+    t.key
   )
 
   private[this] def choice(
@@ -34,9 +35,9 @@ case class PackageRegistry(
   )
 
   def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
-    val newPackages: Map[DamlLfRef.PackageId, DamlLfPackage] = interfaces
+    val newPackages = interfaces
       .filterNot(p => packages.contains(p.packageId))
-      .map(p => {
+      .map { p =>
         val typeDefs = p.typeDecls.collect {
           case (qname, DamlLfIface.reader.InterfaceType.Normal(t)) =>
             DamlLfIdentifier(p.packageId, qname) -> t
@@ -48,16 +49,13 @@ case class PackageRegistry(
             DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, r, t)
         }
         p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
-      })
-      .toMap
+      }
 
     val newTemplates = newPackages
-      .map(_._2.templates)
-      .reduce(_ ++ _)
+      .flatMap(_._2.templates)
 
     val newTypeDefs = newPackages
-      .map(_._2.typeDefs)
-      .reduce(_ ++ _)
+      .flatMap(_._2.typeDefs)
 
     copy(
       packages = packages ++ newPackages,
@@ -126,11 +124,11 @@ case class PackageRegistry(
         instantiatesRemaining: Int
     ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
       typ match {
-        case t @ DamlLfTypeVar(_) => deps
-        case t @ DamlLfTypePrim(_, vars) =>
+        case DamlLfTypeVar(_) | DamlLfTypeNumeric(_) => deps
+        case DamlLfTypePrim(_, vars) =>
           vars.foldLeft(deps)((r, v) => foldType(v, r, instantiatesRemaining))
-        case t @ DamlLfTypeCon(name, vars) =>
-          deps.get(t.name.identifier) match {
+        case DamlLfTypeCon(name, vars) =>
+          deps.get(name.identifier) match {
             // Dependency already added
             case Some(_) => deps
             // New dependency
@@ -158,6 +156,8 @@ case class PackageRegistry(
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))
         case DamlLfVariant(fields) =>
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))
+        case DamlLfEnum(_) =>
+          deps
       }
     }
 

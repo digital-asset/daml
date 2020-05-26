@@ -106,212 +106,76 @@ Transitive dependencies are introduced implicitly as dependencies of direct
 dependencies. It is preferable to only have to define direct dependencies and
 let a dependency resolver determine all transitive dependencies.
 
-The tool [`bazel-deps`][bazel-deps] can read a list of direct Java and Scala
-JAR dependencies and then use [Coursier][coursier] to perform dependency
-resolution and generate the whole transitive closure of dependencies. The
-`dev-env` provides a modified version of `bazel-deps` that supports Artifactory
-authentication as required at Digital Asset.
+The [`rules_jvm_external`][rules_jvm_external] rules set can read a list of
+direct JAR dependencies and then use [Coursier][coursier] to perform dependency
+resolution and generate the whole transitive closure of dependencies.
 
-Please do not execute `bazel-deps` directly. Instead, use the
-`update-bazel-deps` tool provided in the dev-env. Make sure to check-in the
-resulting files into revision control.  
-
-Direct dependencies are manually defined in the file `dependencies.yaml` at the
-repository root. The generated Bazel definitions are written to the `3rdparty`
-directory in the repository root. The file `3rdparty/workspace.bzl` lists the
-individual JAR dependencies and the directory tree under `3rdparty/jvm` defines
-Bazel targets for them. Only Bazel targets for direct dependencies are publicly
-visible. The Bazel targets include `exports` attributes to capture indirect
-dependencies.
-
-The file `3rdparty/workspace.bzl` defines Bazel macros that must be called in
+Direct dependencies are manually defined in the file `bazel-java-deps.bzl` at
+the repository root. This file also defines Bazel macros that must be called in
 the `WORKSPACE` file in order to import the external JAR dependencies.
 
 ```
-load("//3rdparty:workspace.bzl", "maven_servers", "maven_dependencies")
-maven_servers()
-maven_dependencies()
+load("//:bazel-java-deps.bzl", "install_java_deps")
+install_java_deps()
+load("@maven//:defs.bzl", "pinned_maven_install")
+pinned_maven_install()
 ```
 
-First, we call `maven_servers` which will define the list of repositories from
-which to fetch JARs. These are listed in the definition of `list_servers` in
-`3rdparty/workspace.bzl`. For example:
+The macro `install_java_deps` defines the direct dependencies and the tools to
+load and update pinned versions. The macro `pinned_maven_install` loads the
+pinned artifacts into Bazel. Within `bazel-java-deps.bzl` we call
+`maven_install` where we define all direct Maven dependencies.
 
 ```
-{"name": "central", "url": "https://digitalasset.jfrog.io/digitalasset/libs-release"},
+maven_install(
+    artifacts = [
+        "com.google.guava:guava:24.0-jre",
+        "org.scalaz:scalaz-core_2.12:7.2.24",
+        ...
+    ],
+    ...
+)
 ```
 
-The name of each server must match the id of the corresponding entry in the
-Maven `settings.xml` file for authentication to work. Second, we call
-`maven_dependencies` which defines the individual JAR dependencies using the
-Bazel builtin `maven_jar` rule.
+Dependencies are defined using their Maven coordinates. Note that Scala
+packages have the Scala version appended to their artifact id.
 
-The file `dependencies.yaml` consists of three sections `options`,
-`dependencies`, `replacements`. Their structure is as follows:
+In some cases we need to override the automatic dependency resolution performed
+by Coursier. E.g. the `org.lang-scala:*` packages need to exactly match the
+version of the Scala compiler registered with `rules_scala`. To that end we use
+the `override_targets` attribute:
 
-- `options`:
-    This section configures the dependency resolution process and the generated
-    Bazel definitions.
+```
+override_targets = {
+    "org.scala-lang:scala-compiler": "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler",
+    ...
+}
+```
 
-    - `buildHeader`:
-        A list of lines of Bazel code to insert at the top of each generated
-        `BUILD` file underneath `3rdparty/jvm`.
+This maps Maven artifacts to Bazel targets which should be used instead.
 
-    - `languages`:
-        A list of languages used. Currently supports `java` and `scala`.
-        The `scala` entry can specify the language version e.g. as
-        `"scala:2.12.6"`.
+Finally, `pinned_maven_install` generates Bazel targets for the imported JARs.
+The naming scheme is as follows `@maven//:group_id_artifact_id`, where all
+symbols are replaced by `_` characters. E.g. the artifact
+`org.scalaz:scalaz-core_2.12:7.2.24` is available as
+`@maven//:org_scalaz_scalaz_core_2_12`.
 
-    - `resolverType`:
-        A string specifying the resolver, either `coursier` or `aether`.
-        Only `coursier` supports authentication at the time of writing.
+Adding, changing, or removing a Maven dependency requires two steps: First, you
+need to modify the `artifacts` attribute to `maven_install`, second, you need
+to execute `bazel run @unpinned_maven//:pin` to update `maven_install.json`.
+You should also run `@unpinned_maven//:pin` if you change other attributes to
+`maven_install`.
 
-    - `resolvers`:
-        A list of repositories to query for dependency resolution.
-        Each entry has the following fields.
+Refer to the [`rules_jvm_external` documentation][rules_jvm_external] for
+further information.
 
-        - `id`:
-            A string that must match the corresponding entry in Maven's
-            `settings.xml`.
-
-        - `url`:
-            A string describing the repository URL.
-
-        - `credentials`:
-            An optional string describing the environment variable prefix
-            under which the authentication credentials for this repository
-            are defined. Given a value of `PREF` credentials will be looked
-            up in `PREF_USER` and `PREF_PASSWORD`.
-
-            Use `DA_JFROG` for a repository under
-            `https://digitalasset.jfrog.io/digitalasset`. The `bazel-deps`
-            wrapper in the dev-env will provide Artifactory credentials in
-            the corresponding environment variables.
-
-- `dependencies`:
-    This section configures the direct JAR dependencies.
-    Entries take the following shape:
-
-    ```
-    <group id>:
-      <artifact id>:
-        lang: <language>
-        version: <version>
-    ```
-
-    For example:
-
-    ```
-    com.typesafe.scala-logging:
-      scala-logging:
-        lang: scala
-        version: "3.5.0"
-    ```
-
-    A group can hold multiple artifacts.
-
-    In case of Scala dependencies, this will perform the corresponding name
-    mangling to include the Scala version into the Maven coordinate. If you
-    wish to avoid this you can use the language value `scala/unmangled`. For
-    example:
-
-    ```
-    org.mongodb:
-      casbah-commons_2.12.0-RC1:
-        lang: scala/unmangled
-        version: "3.1.1"
-    ```
-
-    Maven coordinates map to Bazel targets in the following form:
-
-    ```
-    //3rdparty/jvm/<group path>:<artifact name>
-    ```
-
-    Where `<group path>` is `<group id>` with `.` replaced by `/` and special
-    characters (like `-`) replaced by `_`, and `<artifact name>` is
-    `<artifact id>` with special characters (like `-` or `.`) replaced by `_`.
-
-    For example
-
-    ```
-    com.typesafe.scala-logging:scala-logging
-    -> //3rdparty/jvm/com/typesafe/scala_logging:scala_logging
-
-    org.mongodb:casbah-commons_2.12.0-RC1
-    -> //3rdparty/jvm/org/mongodb:casbah_commons_2_12_0_RC1
-    ```
-
-    The above Bazel targets are wrappers that capture indirect dependencies and
-    should be used for regular library dependencies.
-
-    The naked JAR targets are available under labels of the following form:
-
-    ```
-    //external:jar/<group path>/<artifact name>
-    ```
-
-    These are used in cases were individual JAR files need to be provided. For
-    example for Scala compiler plugins.
-
-- `replacements`:
-    This section allows to override regular dependency resolution for certain
-    Maven artifacts and instead point to specific Bazel targets.
-    Entries take the following shape:
-
-    ```
-    <group id>:
-      <artifact id>:
-        lang: <language>
-        target: <Bazel target>
-    ```
-
-    For example:
-
-    ```
-    org.scala-lang:
-      scala-compiler:
-        lang: scala/unmangled
-        target: "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler"
-    ```
-    
-    The standard use-case are the Scala core libraries (`scala-compiler`,
-    `scala-library`, `scala-reflect`) which have to match the compiler
-    toolchain. Another use-case are Maven packages that `bazel-deps` does not
-    support, e.g. POM packages. Examples of both can be found in
-    `dependencies.yaml`. Custom replacement targets are defined in
-    `replacements/BUILD.bazel`.
-
-For a more detailed explanation of the `dependencies.yaml` file format please
-refer to the [project README][bazel-deps-readme].
-
-The Bazel code that `bazel-deps` generates uses Bazel's builtin [`maven_jar`
-workspace rule][maven_jar]. It supports specifying JAR and source SHA1 hashes
-to ensure reproducibility. By default `bazel-deps` will populate the
-attributes. The builtin `maven_jar` rule also supports specifying the Maven
-server that provides the artifact. `bazel-deps` will specify the corresponding
-`resolvers` entry in `dependencies.yaml` under which it found the artifact.
-The `server` attribute must match the `id` in the Maven `settings.xml` for
-authentication to work. A corresponding `maven_server` rule must have been
-defined before.
-
-`bazel-deps` generates calls to Bazel's builtin [`maven_server` workspace
-rule][maven_server] for every resolver specified in the `dependencies.yaml`
-file. By default authentication credentials will be looked up in Maven's
-configuration file `~/.m2/settings.xml`. This default can be overriden by
-setting the `settings_file` attribute. This is used on Jenkins CI to inject
-Artifactory credentials.
-
-[bazel-deps]: https://github.com/johnynek/bazel-deps
+[rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#rules_jvm_external
 [coursier]: https://github.com/coursier/coursier
-[bazel-deps-readme]: https://github.com/johnynek/bazel-deps#dependencies
-[maven_jar]: https://docs.bazel.build/versions/master/be/workspace.html#maven_jar
-[maven_server]: https://docs.bazel.build/versions/master/be/workspace.html#maven_server
 
 #### Conflicting Dependencies
 
 Following the goal of HEAD based development all projects should strive to
-share common dependencies in one place, such as `dependencies.yaml` for JAR
+share common dependencies in one place, such as `bazel-java-deps.bzl` for JAR
 dependencies. If different projects have conflicting dependencies, then these
 conflicts should be fixed so that both projects can share the same common
 dependencies.
@@ -321,10 +185,10 @@ used for build or development. These may have conflicting dependencies with the
 projects in this repository and changing their code to rectify these conflicts
 may be out of scope or infeasible.
 
-In such a case a separate dedicated `dependencies.yaml` file and `3rdparty`
-directory tree can be created. See `bazel_tools/scalafmt/dependencies.yaml` for
-an example. Make sure to adjust `dev-env/bin/update-bazel-deps` accordingly,
-execute it to perform dependency resolution, and check-in the resoluting files.
+In such cases multiple calls to `maven_install` are supported, see the
+[`rules_jvm_external` documentation][rules_jvm_external_multi].
+
+[rules_jvm_external_multi]: https://github.com/bazelbuild/rules_jvm_external#multiple-maven_installjson-files
 
 ## Building a Project with Bazel
 
@@ -353,12 +217,12 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── SomeSpec.scala
     │                   ⋮
     ├── module2
@@ -404,13 +268,13 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── BUILD.bazel
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── BUILD.bazel
     │                   ├── SomeSpec.scala
     │                   ⋮
@@ -443,12 +307,12 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── SomeSpec.scala
     │                   ⋮
     └── module2
@@ -634,17 +498,6 @@ Scala source file, and bundle them in one target. This rule takes the same
 attributes as `da_scala_library` with the exception of
 `unused_dependency_checker_mode` which will always be disabled.
 
-If a Scala library defines macros then you must use the
-`da_scala_macro_library` rule instead of the above. Otherwise, you will encounter 
-compiler errors of the following form (formatted for readability):
-
-```
-error: macro annotation could not be expanded (the most common reason
-for that is that you need to enable the macro paradise plugin; another
-possibility is that you try to use macro annotation in the same
-compilation run that defines it)
-```
-
 #### Tests
 
 Scala tests can be defined using the `da_scala_test` rule. It will generate an
@@ -683,12 +536,21 @@ da_scala_test_suite(
     # Expected runtime and resource requirements.
     size = "small",
     ...
+
+    # You can adjust the heap size as follows:
+    initial_heap_size = "512m",
+    max_heap_size = "2g",
 )
 ```
 
 The `size` attribute is used to determine the default timeout and resource
 requirements. Refer to the [official documentation][bazel_test_size] for
 details about test size and other common test attributes.
+
+A couple of arguments have been added:
+
+  * `initial_heap_size` is translated to `-Xms`, and defaults to `512m`, and
+  * `max_heap_size` is translated to `-Xmx`, and defaults to `2g`.
 
 #### Executables
 
@@ -717,6 +579,10 @@ da_scala_binary(
     # A list of files that should be present in the runtime path at runtime.
     data = [ ... ],
     ...
+
+    # You can adjust the heap size as follows:
+    initial_heap_size = "512m",
+    max_heap_size = "2g",
 )
 ```
 
@@ -755,7 +621,7 @@ activated on all Scala targets by default. It is configured in the [Scala rule
 wrappers][wartremover_config] used in the daml repository.
 
 [wartremover_plugin]: https://github.com/wartremover/wartremover
-[wartremover_config]: https://github.com/DACH-NY/da/blob/f0fe4b65e6cfca4e354d0f6138d04c98107d771c/bazel_tools/scala.bzl#L56
+[wartremover_config]: https://github.com/digital-asset/daml/blob/ea02814b343e4754c70a8718cb14657d6c51915f/bazel_tools/scala.bzl#L71
 
 ### Command-Line Tools
 
@@ -781,7 +647,7 @@ a set of custom Bazel rules defined in [`rules_daml`][rules_daml]. Refer to the
 [user guide][bazel_user_guide] or the [API docs][bazel-api-documentation] for
 details.
 
-[rules_daml]: https://github.com/DACH-NY/da/tree/f0fe4b65e6cfca4e354d0f6138d04c98107d771c/rules_daml
+[rules_daml]: https://github.com/digital-asset/daml/tree/ea02814b343e4754c70a8718cb14657d6c51915f/rules_daml
 
 ## Java Runtime and Toolchain
 

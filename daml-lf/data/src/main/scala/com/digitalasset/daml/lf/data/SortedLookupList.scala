@@ -1,16 +1,19 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import scalaz.Equal
+import ScalazEqual.{equalBy, orderBy}
+
+import scala.language.higherKinds
+import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
-import scalaz.syntax.equal._
+import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
 
-/** We use this container to pass around DAML-LF maps as flat lists in various parts of the codebase. */
+/** We use this container to pass around DAML-LF text maps as flat lists in various parts of the codebase. */
 // Note that keys are ordered using Utf8 ordering
 final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
 
@@ -22,7 +25,11 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
   def values: ImmArray[X] = entries.map(_._2)
 
+  def iterator: Iterator[(String, X)] = entries.iterator
+
   def toHashMap: HashMap[String, X] = HashMap(entries.toSeq: _*)
+
+  def foreach(f: ((String, X)) => Unit): Unit = entries.foreach(f)
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[SortedLookupList[_]]
 
@@ -39,7 +46,7 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
     s"SortedLookupList(${entries.map { case (k, v) => k -> v }.toSeq.mkString(",")})"
 }
 
-object SortedLookupList {
+object SortedLookupList extends SortedLookupListInstances {
 
   def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     entries.toSeq
@@ -66,9 +73,19 @@ object SortedLookupList {
 
   def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)
 
-  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
-    ScalazEqual.withNatural(Equal[X].equalIsNatural) { (self, other) =>
-      self.toImmArray === other.toImmArray
+  implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
+    orderBy(_.toImmArray, true)
+
+  implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
+    new Traverse[SortedLookupList] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: SortedLookupList[A])(
+          f: A => G[B]): G[SortedLookupList[B]] =
+        fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 
+}
+
+sealed abstract class SortedLookupListInstances {
+  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
+    equalBy(_.toImmArray, true)
 }

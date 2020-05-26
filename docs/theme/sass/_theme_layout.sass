@@ -1556,9 +1556,7 @@ body
   -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
   box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
 
-+media($desktop-wide)
-  html, p
-    font-size: 18px
++media($desktop)
 
   .topbar
     .version
@@ -1582,6 +1580,12 @@ body
       .h6-section
         max-width: 745px
         margin-top: 35px
+
++media($desktop-wide)
+  html, p
+    font-size: 18px
+
+  .wy-nav-content
 
     max-width: initial
     padding-right: 400px
@@ -2216,7 +2220,7 @@ body
           text-transform: uppercase
           border-bottom: 1px solid #dddddd
           color: #3A478F
-          padding: 22px 23px 22px 0
+          padding: 22px 23px 22px 23px
           background-color: #ffffff
 
           &:first-child
@@ -2225,7 +2229,7 @@ body
       tr
         td
           border: none
-          padding: 27px 23px 27px 0
+          padding: 27px 23px 27px 23px
           color: #3A478F
           white-space: normal
           vertical-align: top

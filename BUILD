@@ -1,14 +1,16 @@
 package(default_visibility = ["//:__subpackages__"])
 
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:defs.bzl",
     "haskell_toolchain",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
+    "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
 
 exports_files([".hlint.yaml"])
 
@@ -40,14 +42,21 @@ config_setting(
     ],
 )
 
+config_setting(
+    name = "profiling_build",
+    values = {
+        "compilation_mode": "dbg",
+    },
+)
+
 load(
-    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
+    "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
 
 c2hs_toolchain(
     name = "c2hs-toolchain",
-    c2hs = "@haskell_c2hs//:bin",
+    c2hs = "@c2hs//:c2hs",
 )
 
 filegroup(
@@ -62,6 +71,13 @@ config_setting(
     },
 )
 
+config_setting(
+    name = "hie_bios_ghci",
+    define_values = {
+        "hie_bios_ghci": "True",
+    },
+)
+
 #
 # Metadata
 #
@@ -70,58 +86,72 @@ config_setting(
 exports_files([
     "NOTICES",
     "LICENSE",
-    "VERSION",
     "CHANGELOG",
     "tsconfig.json",
 ])
 
-# FIXME(#448): We're currently assigning version (100+x).y.z to all components
-# in SDK version x.y.z. As long as x < 10, 10x.y.z == (100+x).y.z.  Since we'll
-# stop splitting the SDK into individual components _very_ soon, this rule
-# will not survive until x >= 10.
 genrule(
-    name = "component-version",
-    srcs = ["VERSION"],
-    outs = ["COMPONENT-VERSION"],
-    cmd = """
-        echo -n 10 > $@
-        cat $(location VERSION) >> $@
-    """,
+    name = "mvn_version_file",
+    outs = ["MVN_VERSION"],
+    cmd = "echo -n {mvn} > $@".format(mvn = mvn_version),
 )
 
 genrule(
     name = "sdk-version-hs",
-    srcs = [
-        "VERSION",
-        ":component-version",
-    ],
+    srcs = [],
     outs = ["SdkVersion.hs"],
     cmd = """
-        SDK_VERSION=$$(cat $(location VERSION))
-        COMPONENT_VERSION=$$(cat $(location :component-version))
         cat > $@ <<EOF
 module SdkVersion where
-sdkVersion, componentVersion :: String
-sdkVersion = "$$SDK_VERSION"
-componentVersion = "$$COMPONENT_VERSION"
+
+import Module (stringToUnitId, UnitId)
+import qualified Data.List.Split as Split
+import qualified Data.List.Extra as List.Extra
+
+sdkVersion :: String
+sdkVersion = "{sdk}"
+
+mvnVersion :: String
+mvnVersion = "{mvn}"
+
+damlStdlib :: UnitId
+damlStdlib = stringToUnitId ("daml-stdlib-" ++ "{ghc}")
+
+-- | Turns a SemVer string into one suitable for ghc-pkg
+--
+-- The DAML SDK uses semantic versioning, while internally we need a version
+-- string that ghc-pkg can understand. We do that by removing the '-snapshot'
+-- qualifier when present.
+--
+-- Expected version strings:
+-- 0.13.51 -> release, no change
+-- 0.13.51-snapshot.20200212.3024.04e6fa2c -> snapshot release, change to
+--                                         0.13.51.20200212.3024 internally
+-- This logic must stay in sync with bazel_tools/build_environment.bzl.
+toGhcPkgVersion :: String -> String
+toGhcPkgVersion rawVersion =
+    case Split.splitOn "-snapshot" rawVersion of
+      [v] -> v
+      [v, pr] -> v ++ List.Extra.dropEnd 9 pr
+      _ -> rawVersion
 EOF
-    """,
+    """.format(
+        ghc = ghc_version,
+        mvn = mvn_version,
+        sdk = sdk_version,
+    ),
 )
 
 da_haskell_library(
     name = "sdk-version-hs-lib",
     srcs = [":sdk-version-hs"],
-    hazel_deps = ["base"],
+    hackage_deps = [
+        "base",
+        "extra",
+        "ghc-lib-parser",
+        "split",
+    ],
     visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "git-revision",
-    outs = [".git-revision"],
-    cmd = """
-        grep '^STABLE_GIT_REVISION ' bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@
-    """,
-    stamp = True,
 )
 
 #
@@ -130,17 +160,27 @@ genrule(
 
 alias(
     name = "damlc",
-    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app",
+    actual = "//compiler/damlc:damlc",
 )
 
 alias(
     name = "damlc@ghci",
-    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app@ghci",
+    actual = "//compiler/damlc:damlc@ghci",
 )
 
 alias(
     name = "damlc-dist",
-    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
+    actual = "//compiler/damlc:damlc-dist",
+)
+
+alias(
+    name = "daml2js",
+    actual = "//language-support/ts/codegen:daml2js",
+)
+
+alias(
+    name = "daml2js@ghci",
+    actual = "//language-support/ts/codegen:daml2js@ghci",
 )
 
 alias(
@@ -151,6 +191,16 @@ alias(
 alias(
     name = "bindings-java",
     actual = "//language-support/java/bindings:bindings-java",
+)
+
+alias(
+    name = "yarn",
+    actual = "@nodejs//:yarn",
+)
+
+alias(
+    name = "java",
+    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
 )
 
 exports_files([
@@ -164,9 +214,7 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier_excluded_patterns = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "./3rdparty/jvm/*",
-    "./3rdparty/workspace.bzl",
-    "./hazel/packages.bzl",
+    "**/node_modules/*",
 ]
 
 # Run this to check if BUILD files are well-formatted.
@@ -182,4 +230,33 @@ buildifier(
     exclude_patterns = buildifier_excluded_patterns,
     mode = "fix",
     verbose = True,
+)
+
+# Default target for da-ghci, da-ghcid.
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc",
+        "//compiler/daml-lf-ast:tests",
+        "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/damlc/stable-packages:generate-stable-package",
+        "//compiler/damlc/tests:daml-doctest",
+        "//compiler/damlc/tests:damlc-test",
+        "//compiler/damlc/tests:generate-simple-dalf",
+        "//compiler/damlc/tests:incremental",
+        "//compiler/damlc/tests:integration-dev",
+        "//compiler/damlc/tests:packaging",
+        "//daml-assistant:daml",
+        "//daml-assistant:test",
+        "//daml-assistant/daml-helper",
+        "//daml-assistant/daml-helper:test-deployment",
+        "//daml-assistant/daml-helper:test-tls",
+        "//daml-assistant/integration-tests",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/hs/bindings:test",
+        "//language-support/ts/codegen:daml2js",
+    ],
 )

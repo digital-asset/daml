@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # package-app <binary> <output file> <resources...>
@@ -116,17 +116,22 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   cp $SRC $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
   function copy_deps() {
-    local from=$1
-    local needed="$(/usr/bin/otool -L "$from" | sed -n -e '1d' -e 's/^\s*\([^ ]*\).*$/\1/p')"
-    loader_path="$ORIGIN"
-    local rpaths="$(/usr/bin/otool -l $from | sed -n '/cmd LC_RPATH/{n;n;p;}' | sed -n -e 's/^.*path \([^ ]*\).*$/\1/p' | sed -e "s|@loader_path|$loader_path|")"
+    local from_original=$(readlink -f $1)
+    local from_copied=$2
+    local needed="$(/usr/bin/otool -L "$from_copied" | sed -n -e '1d' -e 's/^\s*\([^ ]*\).*$/\1/p')"
+    # Note that it is crucial that we resolve loader_path relative to from_original instead of from_copied
+    loader_path="$(dirname $from_original)"
+    local rpaths="$(/usr/bin/otool -l $from_original | sed -n '/cmd LC_RPATH/{n;n;p;}' | sed -n -e 's/^ *path \([^ ]*\).*$/\1/p' | sed -e "s|@loader_path|$loader_path|")"
     for lib in $needed; do
       local libName="$(basename $lib)"
       if [[ "$libName" == "libSystem.B.dylib" ]]; then
-          /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from"
+          /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from_copied"
+      elif [ -e "/usr/lib/system/$libName" ]; then
+          /usr/bin/install_name_tool -change "$lib" "/usr/lib/system/$libName" "$from_copied"
       elif [[ "$lib" == @rpath/* ]]; then
           libName="${lib#@rpath/}"
-          local to="$WORKDIR/$NAME/lib/$libName"
+          /usr/bin/install_name_tool -change "$lib" "@rpath/$(basename $libName)" "$from_copied"
+          local to="$WORKDIR/$NAME/lib/$(basename $libName)"
           if [[ ! -f "$to" ]]; then
               libOK=0
               for rpath in $rpaths; do
@@ -135,18 +140,18 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
                       cp "$rpath/$libName" "$to"
                       chmod 0755 "$to"
                       /usr/bin/install_name_tool -add_rpath "@loader_path/lib" "$to"
-                      copy_deps "$to"
+                      copy_deps "$rpath/$libName" "$to"
                       break
                   fi
               done
               if [[ $libOK -ne 1 ]]; then
-                  echo "ERROR: Dynamic library $lib for $from not found from RPATH!"
+                  echo "ERROR: Dynamic library $lib for $from_original not found from RPATH!"
                   echo "RPATH=$rpaths"
                   return 1
               fi
           fi
       else
-        /usr/bin/install_name_tool -change "$lib" "@rpath/$libName" "$from"
+        /usr/bin/install_name_tool -change "$lib" "@rpath/$libName" "$from_copied"
 
         local to="$WORKDIR/$NAME/lib/$libName"
         if [ ! -f "$to" ]; then
@@ -155,7 +160,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
           /usr/bin/install_name_tool -add_rpath "@loader_path/lib" "$to"
 
           # Traverse the library as well to find the closure
-          copy_deps "$to"
+          copy_deps "$lib" "$to"
         fi
       fi
     done
@@ -164,9 +169,10 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   /usr/bin/install_name_tool -add_rpath "@loader_path/lib" $WORKDIR/$NAME/$NAME
 
   # Copy all dynamic library dependencies referred to from our binary
-  copy_deps $WORKDIR/$NAME/$NAME
+  copy_deps $SRC $WORKDIR/$NAME/$NAME
 else
     cp "$SRC" "$WORKDIR/$NAME/$NAME"
 fi
-cd $WORKDIR && tar czf $OUT $NAME
-
+cd $WORKDIR && tar c $NAME \
+    --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+    | gzip -n > $OUT

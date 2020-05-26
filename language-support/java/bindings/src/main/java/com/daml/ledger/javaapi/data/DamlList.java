@@ -1,53 +1,64 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class DamlList extends Value {
 
-    private final List<Value> values;
+    private List<Value> values;
+
+    private DamlList(){ }
 
     /**
-     * The list that is passed to this constructor must not be changed
-     * once passed.
+     * The list that is passed to this constructor must not be change once passed.
      */
+    static @NonNull DamlList fromPrivateList(@NonNull List<@NonNull Value> values){
+        DamlList damlList = new DamlList();
+        damlList.values =  Collections.unmodifiableList(values);
+        return damlList;
+    }
+
+    private static DamlList EMPTY = fromPrivateList(Collections.EMPTY_LIST);
+
+    public static DamlList of(@NonNull List<@NonNull Value> values){
+        return fromPrivateList(new ArrayList<>(values));
+    }
+
+    @SafeVarargs
+    public static DamlList of(@NonNull Value...values){
+        return fromPrivateList(Arrays.asList(values));
+    }
+
+    @Deprecated // use DamlList:of
     public DamlList(@NonNull List<@NonNull Value> values) {
         this.values = values;
     }
 
+    @Deprecated // use DamlMap:of
     @SafeVarargs
     public DamlList(@NonNull Value...values) {
         this(Arrays.asList(values));
     }
 
+    @Deprecated // use DamlMap::stream or DamlMap::toListf
     public @NonNull List<@NonNull Value> getValues() {
-        return values;
+        return toList(Function.identity());
     }
 
-    @Override
-    public ValueOuterClass.Value toProto() {
-        ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
-        for (Value value : this.values) {
-            builder.addElements(value.toProto());
-        }
-        return ValueOuterClass.Value.newBuilder().setList(builder.build()).build();
+    public @NonNull Stream<Value> stream(){
+        return values.stream();
     }
 
-    public static DamlList fromProto(ValueOuterClass.List list) {
-        ArrayList<Value> values = new ArrayList<>(list.getElementsCount());
-        for (ValueOuterClass.Value value : list.getElementsList()) {
-            values.add(Value.fromProto(value));
-        }
-        return new DamlList(values);
+    public @NonNull <T> List<T> toList(Function<Value, T> valueMapper) {
+        return stream().map(valueMapper).collect(Collectors.toList());
     }
 
     @Override
@@ -60,7 +71,6 @@ public final class DamlList extends Value {
 
     @Override
     public int hashCode() {
-
         return Objects.hash(values);
     }
 
@@ -70,11 +80,18 @@ public final class DamlList extends Value {
                 "values=" + values +
                 '}';
     }
-}
 
-class ElementOfWrongTypeFound extends RuntimeException {
-
-    public ElementOfWrongTypeFound(ValueOuterClass.List list, ValueOuterClass.Value v, ValueOuterClass.Value.SumCase found, ValueOuterClass.Value.SumCase expected) {
-        super(String.format("Expecting list of types %s but found a value of type %s (value: %s, list: %s)", expected, found, v, list));
+    @Override
+    public ValueOuterClass.Value toProto() {
+        ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
+        for (Value value : this.values) {
+            builder.addElements(value.toProto());
+        }
+        return ValueOuterClass.Value.newBuilder().setList(builder.build()).build();
     }
+
+    public static @NonNull DamlList fromProto(ValueOuterClass.List list) {
+        return list.getElementsList().stream().collect(DamlCollectors.toDamlList(Value::fromProto));
+    }
+
 }

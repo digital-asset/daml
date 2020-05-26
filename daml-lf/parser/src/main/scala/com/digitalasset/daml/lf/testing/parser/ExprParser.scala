@@ -1,17 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
-import com.digitalasset.daml.lf.testing.parser.TypeParser._
+import com.daml.lf.data.Ref.Name
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
 @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
-private[parser] object ExprParser {
+private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
+
+  import ExprParser._
+
+  private[parser] val typeParser: TypeParser[P] = new TypeParser(parserParameters)
+  import typeParser._
 
   lazy val expr0: Parser[Expr] =
     literal ^^ EPrimLit |
@@ -21,14 +25,16 @@ private[parser] object ExprParser {
       eRecCon |
       eRecProj |
       eRecUpd |
-      eVariantCon |
-      eTupleCon |
-      eTupleUpd |
-      eTupleProj |
+      eVariantOrEnumCon |
+      eStructCon |
+      eStructUpd |
+      eStructProj |
       eAbs |
       eTyAbs |
       eLet |
-      contractId |
+      eToAny |
+      eFromAny |
+      eToTextTypeConName |
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
       (id ^? builtinFunctions) ^^ EBuiltin |
@@ -38,9 +44,11 @@ private[parser] object ExprParser {
       id ^^ EVar |
       `(` ~> expr <~ `)`
 
+  lazy val exprs: Parser[List[Expr]] = rep(expr0)
+
   private lazy val literal: Parsers.Parser[PrimLit] =
     acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
-      acceptMatch("Decimal", { case Decimal(d) => PLDecimal(d) }) |
+      acceptMatch("Numeric", { case Numeric(d) => PLNumeric(d) }) |
       acceptMatch("Text", { case Text(s) => PLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => PLDate(l) }) |
@@ -54,15 +62,6 @@ private[parser] object ExprParser {
       Id("False") ^^^ PCFalse |
       `(` ~ `)` ^^^ PCUnit
 
-  private lazy val contractId =
-    accept("ContractId", { case ContractId(cid) => cid }) ~ (`@` ~> fullIdentifier) ^^ {
-      case cid ~ t => EContractId(Ref.ContractIdString.assertFromString(cid), t)
-    }
-
-  private sealed trait EAppAgr extends Product with Serializable
-  private final case class EAppExprArg(e: Expr) extends EAppAgr
-  private final case class EAppTypArg(e: Type) extends EAppAgr
-
   private lazy val eAppAgr: Parser[EAppAgr] =
     argTyp ^^ EAppTypArg |
       expr0 ^^ EAppExprArg
@@ -70,7 +69,7 @@ private[parser] object ExprParser {
   lazy val expr: Parser[Expr] = {
     expr0 ~ rep(eAppAgr) ^^ {
       case e0 ~ args =>
-        (e0 /: args) {
+        (args foldLeft e0) {
           case (acc, EAppExprArg(e)) => EApp(acc, e)
           case (acc, EAppTypArg(t)) => ETyApp(acc, t)
         }
@@ -123,23 +122,27 @@ private[parser] object ExprParser {
         ERecUpd(tConApp, fName, record, fValue)
     }
 
-  private lazy val eVariantCon: Parser[Expr] =
-    fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~! expr0 ^^ {
-      case tName ~ vName ~ argsTyp ~ arg =>
+  private lazy val eVariantOrEnumCon: Parser[Expr] =
+    fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~ opt(expr0) ^^ {
+      case tName ~ vName ~ argsTyp ~ Some(arg) =>
         EVariantCon(TypeConApp(tName, ImmArray(argsTyp)), vName, arg)
+      case _ ~ _ ~ argsTyp ~ None if argsTyp.nonEmpty =>
+        throw new java.lang.Error("enum type do not take type parameters")
+      case tName ~ vName ~ _ ~ None =>
+        EEnumCon(tName, vName)
     }
 
-  private lazy val eTupleCon: Parser[Expr] =
-    `<` ~> fieldInits <~ `>` ^^ ETupleCon
+  private lazy val eStructCon: Parser[Expr] =
+    `<` ~> fieldInits <~ `>` ^^ EStructCon
 
-  private lazy val eTupleProj: Parser[Expr] =
+  private lazy val eStructProj: Parser[Expr] =
     (`(` ~> expr <~ `)` ~ `.`) ~! id ^^ {
-      case tuple ~ fName => ETupleProj(fName, tuple)
+      case struct ~ fName => EStructProj(fName, struct)
     }
 
-  private lazy val eTupleUpd: Parser[Expr] =
+  private lazy val eStructUpd: Parser[Expr] =
     `<` ~> expr ~ (`with` ~>! fieldInit) <~ `>` ^^ {
-      case tuple ~ ((fName, value)) => ETupleUpd(fName, tuple, value)
+      case struct ~ ((fName, value)) => EStructUpd(fName, struct, value)
     }
 
   private[parser] lazy val varBinder: Parser[(Name, Type)] =
@@ -147,12 +150,12 @@ private[parser] object ExprParser {
 
   private lazy val eAbs: Parser[Expr] =
     `\\` ~>! rep1(varBinder) ~ (`->` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(EAbs(_, _, None))
+      case binders ~ body => (binders foldRight body)(EAbs(_, _, None))
     }
 
   private lazy val eTyAbs: Parser[Expr] =
     `/\\` ~>! rep1(typeBinder) ~ (`.` ~> expr) ^^ {
-      case binders ~ body => (binders :\ body)(ETyAbs)
+      case binders ~ body => (binders foldRight body)(ETyAbs)
     }
 
   private lazy val bindings: Parser[ImmArray[Binding]] =
@@ -168,15 +171,30 @@ private[parser] object ExprParser {
       case b ~ body => ELet(b, body)
     }
 
+  private lazy val eToAny: Parser[Expr] =
+    `to_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EToAny(ty, e)
+    }
+
+  private lazy val eFromAny: Parser[Expr] =
+    `from_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EFromAny(ty, e)
+    }
+
+  private lazy val eToTextTypeConName: Parser[Expr] =
+    `type_rep` ~>! argTyp ^^ ETypeRep
+
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
       `nil` ^^^ CPNil |
       `cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) } |
       `none` ^^^ CPNone |
       `some` ~>! id ^^ CPSome |
-      (fullIdentifier <~ `:`) ~ id ~ id ^^ {
-        case tyCon ~ vName ~ x =>
+      (fullIdentifier <~ `:`) ~ id ~ opt(id) ^^ {
+        case tyCon ~ vName ~ Some(x) =>
           CPVariant(tyCon, vName, x)
+        case tyCon ~ vName ~ None =>
+          CPEnum(tyCon, vName)
       } |
       Token.`_` ^^^ CPDefault
 
@@ -192,75 +210,69 @@ private[parser] object ExprParser {
 
   private val builtinFunctions = Map(
     "TRACE" -> BTrace,
-    "ADD_DECIMAL" -> BAddDecimal,
-    "SUB_DECIMAL" -> BSubDecimal,
-    "MUL_DECIMAL" -> BMulDecimal,
-    "DIV_DECIMAL" -> BDivDecimal,
-    "ROUND_DECIMAL" -> BRoundDecimal,
+    "ADD_NUMERIC" -> BAddNumeric,
+    "SUB_NUMERIC" -> BSubNumeric,
+    "MUL_NUMERIC" -> BMulNumeric,
+    "DIV_NUMERIC" -> BDivNumeric,
+    "ROUND_NUMERIC" -> BRoundNumeric,
+    "CAST_NUMERIC" -> BCastNumeric,
+    "SHIFT_NUMERIC" -> BShiftNumeric,
     "ADD_INT64" -> BAddInt64,
     "SUB_INT64" -> BSubInt64,
     "MUL_INT64" -> BMulInt64,
     "DIV_INT64" -> BDivInt64,
     "MOD_INT64" -> BModInt64,
     "EXP_INT64" -> BExpInt64,
-    "INT64_TO_DECIMAL" -> BInt64ToDecimal,
-    "DECIMAL_TO_INT64" -> BDecimalToInt64,
+    "INT64_TO_NUMERIC" -> BInt64ToNumeric,
+    "NUMERIC_TO_INT64" -> BNumericToInt64,
     "DATE_TO_UNIX_DAYS" -> BDateToUnixDays,
     "UNIX_DAYS_TO_DATE" -> BUnixDaysToDate,
     "TIMESTAMP_TO_UNIX_MICROSECONDS" -> BTimestampToUnixMicroseconds,
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
-    "MAP_EMPTY" -> BMapEmpty,
-    "MAP_INSERT" -> BMapInsert,
-    "MAP_LOOKUP" -> BMapLookup,
-    "MAP_DELETE" -> BMapDelete,
-    "MAP_TO_LIST" -> BMapToList,
-    "MAP_SIZE" -> BMapSize,
+    "TEXTMAP_EMPTY" -> BTextMapEmpty,
+    "TEXTMAP_INSERT" -> BTextMapInsert,
+    "TEXTMAP_LOOKUP" -> BTextMapLookup,
+    "TEXTMAP_DELETE" -> BTextMapDelete,
+    "TEXTMAP_TO_LIST" -> BTextMapToList,
+    "TEXTMAP_SIZE" -> BTextMapSize,
+    "GENMAP_EMPTY" -> BGenMapEmpty,
+    "GENMAP_INSERT" -> BGenMapInsert,
+    "GENMAP_LOOKUP" -> BGenMapLookup,
+    "GENMAP_DELETE" -> BGenMapDelete,
+    "GENMAP_KEYS" -> BGenMapKeys,
+    "GENMAP_VALUES" -> BGenMapValues,
+    "GENMAP_SIZE" -> BGenMapSize,
     "EXPLODE_TEXT" -> BExplodeText,
     "IMPLODE_TEXT" -> BImplodeText,
     "APPEND_TEXT" -> BAppendText,
     "SHA256_TEXT" -> BSHA256Text,
     "TO_TEXT_INT64" -> BToTextInt64,
-    "TO_TEXT_DECIMAL" -> BToTextDecimal,
+    "TO_TEXT_NUMERIC" -> BToTextNumeric,
     "TO_TEXT_TEXT" -> BToTextText,
     "TO_TEXT_TIMESTAMP" -> BToTextTimestamp,
     "TO_TEXT_PARTY" -> BToTextParty,
     "TO_TEXT_DATE" -> BToTextDate,
     "TO_QUOTED_TEXT_PARTY" -> BToQuotedTextParty,
+    "TEXT_FROM_CODE_POINTS" -> BToTextCodePoints,
     "FROM_TEXT_PARTY" -> BFromTextParty,
     "FROM_TEXT_INT64" -> BFromTextInt64,
-    "FROM_TEXT_DECIMAL" -> BFromTextDecimal,
+    "FROM_TEXT_NUMERIC" -> BFromTextNumeric,
+    "TEXT_TO_CODE_POINTS" -> BFromTextCodePoints,
     "ERROR" -> BError,
-    "LESS_INT64" -> BLessInt64,
-    "LESS_DECIMAL" -> BLessDecimal,
-    "LESS_TEXT" -> BLessText,
-    "LESS_TIMESTAMP" -> BLessTimestamp,
-    "LESS_DATE" -> BLessDate,
-    "LESS_EQ_INT64" -> BLessEqInt64,
-    "LESS_EQ_DECIMAL" -> BLessEqDecimal,
-    "LESS_EQ_TEXT" -> BLessEqText,
-    "LESS_EQ_TIMESTAMP" -> BLessEqTimestamp,
-    "LESS_EQ_DATE" -> BLessEqDate,
-    "GREATER_INT64" -> BGreaterInt64,
-    "GREATER_DECIMAL" -> BGreaterDecimal,
-    "GREATER_TEXT" -> BGreaterText,
-    "GREATER_TIMESTAMP" -> BGreaterTimestamp,
-    "GREATER_DATE" -> BGreaterDate,
-    "GREATER_EQ_INT64" -> BGreaterEqInt64,
-    "GREATER_EQ_DECIMAL" -> BGreaterEqDecimal,
-    "GREATER_EQ_TEXT" -> BGreaterEqText,
-    "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
-    "GREATER_EQ_DATE" -> BGreaterEqDate,
-    "EQUAL_INT64" -> BEqualInt64,
-    "EQUAL_DECIMAL" -> BEqualDecimal,
-    "EQUAL_TEXT" -> BEqualText,
-    "EQUAL_TIMESTAMP" -> BEqualTimestamp,
-    "EQUAL_DATE" -> BEqualDate,
-    "EQUAL_PARTY" -> BEqualParty,
-    "EQUAL_BOOL" -> BEqualBool,
+    "LESS_NUMERIC" -> BLessNumeric,
+    "LESS_EQ_NUMERIC" -> BLessEqNumeric,
+    "GREATER_NUMERIC" -> BGreaterNumeric,
+    "GREATER_EQ_NUMERIC" -> BGreaterEqNumeric,
+    "EQUAL_NUMERIC" -> BEqualNumeric,
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
+    "EQUAL" -> BEqual,
+    "LESS" -> BLess,
+    "LESS_EQ" -> BLessEq,
+    "GREATER" -> BGreater,
+    "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 
@@ -371,5 +383,13 @@ private[parser] object ExprParser {
       updateLookupByKey |
       updateGetTime |
       updateEmbedExpr
+
+}
+
+object ExprParser {
+
+  private sealed trait EAppAgr extends Product with Serializable
+  private final case class EAppExprArg(e: Expr) extends EAppAgr
+  private final case class EAppTypArg(e: Type) extends EAppAgr
 
 }

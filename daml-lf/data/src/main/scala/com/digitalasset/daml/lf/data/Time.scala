@@ -1,12 +1,16 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
-import java.time.{Instant, LocalDate, ZoneId}
+import java.time.{Duration, Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
+
+import scalaz.std.anyVal._
+import scalaz.syntax.order._
+import scalaz.{Order, Ordering}
 
 import scala.util.Try
 
@@ -24,9 +28,6 @@ object Time {
   object Date {
 
     type T = Date
-
-    private def apply(days: Int): Date =
-      new Date(days)
 
     private val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_DATE.withZone(ZoneId.of("Z"))
@@ -63,10 +64,18 @@ object Time {
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): T =
-      assert(fromString(s))
+      assertRight(fromString(s))
 
     def assertFromDaysSinceEpoch(days: Int): Date =
-      assert(fromDaysSinceEpoch(days))
+      assertRight(fromDaysSinceEpoch(days))
+
+    implicit val `Time.Date Order`: Order[Date] = new Order[Date] {
+      override def equalIsNatural = true
+
+      override def equal(x: Date, y: Date): Boolean = x == y
+
+      override def order(x: Date, y: Date): Ordering = x.days ?|? y.days
+    }
 
   }
 
@@ -85,6 +94,13 @@ object Time {
     }
 
     @throws[IllegalArgumentException]
+    def add(duration: Duration): Timestamp = {
+      val secondsInMicros = TimeUnit.SECONDS.toMicros(duration.getSeconds)
+      val nanosecondsInMicros = TimeUnit.NANOSECONDS.toMicros(duration.getNano.toLong)
+      addMicros(secondsInMicros + nanosecondsInMicros)
+    }
+
+    @throws[IllegalArgumentException]
     def addMicros(x: Long): Timestamp =
       Timestamp.assertFromLong(micros + x)
   }
@@ -92,9 +108,6 @@ object Time {
   object Timestamp {
 
     type T = Timestamp
-
-    private def apply(micros: Long): Timestamp =
-      new Timestamp(micros)
 
     private val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("Z"))
@@ -125,7 +138,7 @@ object Time {
 
     @throws[IllegalArgumentException]
     def assertFromLong(micros: Long): Timestamp =
-      assert(fromLong(micros))
+      assertRight(fromLong(micros))
 
     def fromString(str: String): Either[String, Timestamp] =
       Try(assertMicrosFromString(str)).toEither.left
@@ -134,7 +147,7 @@ object Time {
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): T =
-      assert(fromString(s))
+      assertRight(fromString(s))
 
     def fromInstant(i: Instant): Either[String, Timestamp] =
       Try(assertMicrosFromInstant(i)).toEither.left
@@ -144,6 +157,13 @@ object Time {
     def assertFromInstant(i: Instant): Timestamp =
       assertFromLong(assertMicrosFromInstant(i))
 
+    implicit val `Time.Timestamp Order`: Order[Timestamp] = new Order[Timestamp] {
+      override def equalIsNatural = true
+
+      override def equal(x: Timestamp, y: Timestamp): Boolean = x == y
+
+      override def order(x: Timestamp, y: Timestamp): Ordering = x.micros ?|? y.micros
+    }
   }
 
 }

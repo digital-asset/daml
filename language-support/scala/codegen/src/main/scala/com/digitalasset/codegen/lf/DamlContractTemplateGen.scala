@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
 import java.io.File
 
-import com.digitalasset.codegen.Util
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.daml.codegen.Util
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
 
 import scala.reflect.runtime.universe._
@@ -28,14 +28,15 @@ object DamlContractTemplateGen {
       util: LFUtil,
       templateId: Identifier,
       templateInterface: DefTemplateWithRecord.FWT,
-      companionMembers: Iterable[Tree]): (File, Iterable[Tree]) = {
+      companionMembers: Iterable[Tree]
+  ): (File, Set[Tree], Iterable[Tree]) = {
 
     val templateName = util.mkDamlScalaName(Util.Template, templateId)
     val contractName = util.mkDamlScalaName(Util.Contract, templateId)
     val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
     val syntaxIdType = TypeName(" ExOn")
 
-    logger.debug(s"generate templateDecl: $templateName, $templateInterface")
+    logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
 
     val templateChoiceMethods = templateInterface.template.choices.flatMap {
       case (id, interface) =>
@@ -85,7 +86,7 @@ object DamlContractTemplateGen {
       q"protected[this] override def templateCompanion(implicit ` d`: _root_.scala.Predef.DummyImplicit) = ${TermName(templateName.name)}"
     )
 
-    DamlRecordOrVariantTypeGen.generate(
+    DamlDataTypeGen.generate(
       util,
       ScopedDataType(templateId, ImmArraySeq.empty, templateInterface.`type`),
       isTemplate = true,

@@ -1,37 +1,46 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
+import org.slf4j.LoggerFactory
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration._
 
 trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
   self: Suite =>
-  protected def actorSystemName = this.getClass.getSimpleName
+  private val logger = LoggerFactory.getLogger(getClass)
 
-  private val executorContext = ExecutionContext.fromExecutorService(
-    Executors.newSingleThreadExecutor(
-      new ThreadFactoryBuilder()
-        .setDaemon(true)
-        .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
-        .setUncaughtExceptionHandler((thread, _) =>
-          println(s"got an uncaught exception on thread: ${thread.getName}"))
-        .build()))
+  protected def actorSystemName: String = this.getClass.getSimpleName
 
-  protected implicit val system: ActorSystem =
-    ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
+  private implicit lazy val executionContext: ExecutionContext =
+    ExecutionContext.fromExecutorService(
+      Executors.newSingleThreadExecutor(
+        new ThreadFactoryBuilder()
+          .setDaemon(true)
+          .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
+          .setUncaughtExceptionHandler((thread, _) =>
+            logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
+          .build()))
 
-  protected implicit val materializer: ActorMaterializer = ActorMaterializer()
+  protected implicit lazy val system: ActorSystem =
+    ActorSystem(actorSystemName, defaultExecutionContext = Some(executionContext))
+
+  protected implicit lazy val materializer: Materializer = Materializer(system)
+
+  protected implicit lazy val executionSequencerFactory: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool(poolName = actorSystemName, actorCount = 1)
 
   override protected def afterAll(): Unit = {
+    executionSequencerFactory.close()
     materializer.shutdown()
     Await.result(system.terminate(), 30.seconds)
     super.afterAll()

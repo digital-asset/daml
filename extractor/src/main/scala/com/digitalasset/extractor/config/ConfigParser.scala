@@ -1,20 +1,18 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
-import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.extractor.targets._
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.extractor.targets._
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import CustomScoptReaders._
-
+import com.daml.ports.Port
 import scalaz.OneAnd
 
-import scala.util.Try
 import scopt.OptionParser
 
 object ConfigParser {
@@ -39,13 +37,14 @@ object ConfigParser {
       postgresMultiTableMergeIdentical: Boolean = false,
       postgresStripPrefix: Option[String] = None,
       ledgerHost: String = "127.0.0.1",
-      ledgerPort: Int = 6865,
+      ledgerPort: Port = Port(6865),
+      ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiBytes
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
+      templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
       to: Option[String] = None,
-      tlsPem: Option[String] = None,
-      tlsCrt: Option[String] = None,
-      tlsCaCrt: Option[String] = None
+      tlsConfiguration: TlsConfiguration = TlsConfiguration(false, None, None, None),
+      accessTokenFile: Option[Path] = None,
   )
 
   private val configParser: OptionParser[CliParams] =
@@ -168,15 +167,29 @@ object ConfigParser {
 
       opt[Int]('p', "ledger-port")
         .optional()
-        .action((x, c) => c.copy(ledgerPort = x))
+        .action((x, c) => c.copy(ledgerPort = Port(x)))
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
+
+      opt[Int]("ledger-api-inbound-message-size-max").optional
+        .validate(x => Either.cond(x > 0, (), "Message size must be positive"))
+        .action((x, c) => c.copy(ledgerInboundMessageSizeMax = x))
+        .valueName("<bytes>")
+        .text("Maximum message size from the ledger API. Default is 52428800 (50MiB).")
 
       opt[ExtractorConfig.Parties]("party")
         .required()
         .action((x, c) => c.copy(party = x))
         .text("The party or parties whose contract data should be extracted.\n" +
           s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar")
+
+      opt[Seq[TemplateConfig]]('t', "templates")
+        .optional()
+        .validate(x =>
+          validateUniqueElements(x, s"The list of templates must contain unique elements"))
+        .action((x, c) => c.copy(templateConfigs = x.toSet))
+        .valueName("<module1>:<entity1>,<module2>:<entity2>...")
+        .text("The list of templates to subscribe for. Optional, defaults to all ledger templates.")
 
       opt[String]("from")
         .action((x, c) => c.copy(from = Some(x)))
@@ -203,30 +216,16 @@ object ConfigParser {
 
       note("\nTLS configuration:")
 
-      opt[String]("pem")
-        .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(validatePath(_, "The file specified via --pem does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsPem = Some(path))
-        }
-      opt[String]("crt")
-        .optional()
+      TlsConfigurationCli.parse(this, colSpacer)((f, c) =>
+        c copy (tlsConfiguration = f(c.tlsConfiguration)))
+
+      note("\nAuthentication:")
+
+      opt[String]("access-token-file")
         .text(
-          s"TLS: The crt file to be used as the cert chain.\n${colSpacer}" +
-            s"Required if any other TLS parameters are set."
-        )
-        .validate(validatePath(_, "The file specified via --crt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCrt = Some(path))
-        }
-      opt[String]("cacrt")
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+        .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
-        .validate(validatePath(_, "The file specified via --cacrt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCaCrt = Some(path))
-        }
 
       checkConfig { c =>
         if (c.postgresMultiTableUseSchemes && !List("multi-table", "combined").contains(
@@ -272,20 +271,18 @@ object ConfigParser {
         case x => SnapshotEndSetting.Until(x)
       }
 
-      val tlsConfig = TlsConfiguration(
-        enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined,
-        cliParams.tlsPem.map(new File(_)),
-        cliParams.tlsCrt.map(new File(_)),
-        cliParams.tlsCaCrt.map(new File(_))
-      )
+      val tlsConfig = cliParams.tlsConfiguration
 
       val config = ExtractorConfig(
         cliParams.ledgerHost,
-        cliParams.ledgerPort,
+        ledgerPort = cliParams.ledgerPort,
+        ledgerInboundMessageSizeMax = cliParams.ledgerInboundMessageSizeMax,
         from,
         to,
         cliParams.party,
-        tlsConfig
+        cliParams.templateConfigs,
+        tlsConfig,
+        cliParams.accessTokenFile
       )
 
       val target = cliParams.target match {
@@ -310,8 +307,6 @@ object ConfigParser {
   def showUsage(): Unit =
     configParser.showUsage()
 
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (valid) Right(()) else Left(message)
-  }
+  private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
+    Either.cond(x.size == x.toSet.size, (), message)
 }

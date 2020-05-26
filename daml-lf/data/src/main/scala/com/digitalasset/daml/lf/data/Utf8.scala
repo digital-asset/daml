@@ -1,16 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf
+package data
 
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
+import com.google.common.io.BaseEncoding
+import com.google.protobuf.ByteString
+import scalaz.Order
+
 import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 
 // The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
-// This module provide UTF8 emulation functions.
+// This module provides UTF8 emulation functions.
 object Utf8 {
 
   // The DAML-LF strings are supposed to be UTF-8.
@@ -20,24 +25,22 @@ object Utf8 {
     val len = s.length
     val arr = ImmArray.newBuilder[String]
     var i = 0
-    var j = 0
     while (i < len) {
       // if s(i) is a high surrogate the current codepoint uses 2 chars
       val next = if (s(i).isHighSurrogate) i + 2 else i + 1
       arr += s.substring(i, next)
-      j += 1
       i = next
     }
     arr.result()
   }
 
-  def getBytes(s: String): Array[Byte] =
-    s.getBytes(StandardCharsets.UTF_8)
+  def getBytes(s: String): Bytes =
+    Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
   def sha256(s: String): String = {
     val digest = MessageDigest.getInstance("SHA-256")
-    val array = digest.digest(getBytes(s))
-    array.map("%02x" format _).mkString
+    digest.update(getBytes(s).toByteBuffer)
+    BaseEncoding.base16().lowerCase().encode(digest.digest())
   }
 
   def implode(ts: ImmArray[String]): String =
@@ -60,6 +63,34 @@ object Utf8 {
       } else xs.length - ys.length
 
     lp(0)
+  }
+
+  object ImplicitOrder {
+    implicit val `String Utf8 Order`: Order[String] = scalaz.Order fromScalaOrdering Ordering
+  }
+
+  def unpack(s: String): ImmArray[Long] =
+    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).toIterable)
+
+  @throws[IllegalArgumentException]
+  def pack(codePoints: ImmArray[Long]): String = {
+    val builder = new StringBuilder()
+    for (cp <- codePoints) {
+      if (Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
+        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE) {
+        // cp is a legal code point from the Basic Multilingual Plan,
+        // then it needs only one UTF16 Char to be encoded.
+        builder += cp.toChar
+      } else if (Character.MAX_VALUE < cp && cp <= Character.MAX_CODE_POINT) {
+        // cp is from one of the Supplementary Plans,
+        // then it needs 2 UTF16 Char to be encoded.
+        builder += Character.highSurrogate(cp.toInt)
+        builder += Character.lowSurrogate(cp.toInt)
+      } else {
+        throw new IllegalArgumentException(s"invalid code point 0x${cp.toHexString}.")
+      }
+    }
+    builder.result()
   }
 
 }

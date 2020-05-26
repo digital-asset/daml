@@ -1,10 +1,10 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF Value Specification
 ===========================
 
-**version 4, 2 April 2019**
+**version 5, 29 May 2019**
 
 The DAML-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -157,6 +157,8 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  4 |      2019-03-27 |
 +--------------------+-----------------+
+|                  5 |      2019-05-29 |
++--------------------+-----------------+
 
 message VersionedValue
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -201,7 +203,7 @@ As of version 1, may be any one of these:
 * ``string`` `field contract_id`_
 * `message List`_ list
 * ``sint64`` int64
-* ``string`` `field decimal`_
+* ``string`` `field numeric`_
 * ``string`` text
 * ``sfixed64`` `field timestamp`_
 * ``string`` `field party`_
@@ -234,6 +236,26 @@ As of version 4, may be any one of the above, or this:
 
 * `message Map`_ map
 
+*since version 5*
+
+As of version 5, may be any one of the above, or this:
+
+* `message Enum`_ enum
+
+*since version 6*
+
+As of version 6, may be any one of the above *except for* `field
+decimal`_, which is no longer allowed.  Instead, the value may be
+this:
+
+* `message Numeric`_ numeric
+
+*since version 7*
+
+As of version 7, may be any one of the above, or this:
+
+* `message GenMap`_ gen_map
+
 
 field contract_id
 ~~~~~~~~~~~~~~~~~
@@ -242,28 +264,54 @@ field contract_id
 
 Its text must be a valid contract ID.
 
-field decimal
+field numeric
 ~~~~~~~~~~~~~
 
 *since version 1*
 
-Expresses a number in [–(10³⁸–1)÷10¹⁰, (10³⁸–1)÷10¹⁰] with at most 10
-digits of decimal precision.  In other words, in base-10, a number with
-28 digits before the decimal point and up to 10 after the decimal point.
-A leading sign, + or -, may be optionally included.  In regular
-expression terms::
+Expresses a number in [–(10³⁸–1)÷10¹⁰, (10³⁸–1)÷10¹⁰] with a precision
+38 and a scale 10 digits.  In other words, in base-10, a number with
+28 digits before the decimal point and up to 10 after the decimal
+point.  A leading sign, `+` or `-`, may be optionally included.  In
+regular expression terms::
 
   [+-]?[0-9]{1,28}(\.[0-9]{1,10})?
 
 Any value that does not conform, either by being outside the range or
-having too many decimal digits or for any other reason, must be rejected
-as an invalid message; consumers must not round, overflow, or otherwise
-try to compensate for "bad" input when reading decimal fields.  As such,
-value producers should take care to properly format these decimals.
+having too many decimal digits or for any other reason, must be
+rejected as an invalid message; consumers must not round, overflow, or
+otherwise try to compensate for "bad" input when reading decimal
+fields.  As such, value producers should take care to properly format
+these decimals.
 
 It may seem strange that the value specification uses ``string`` here
 rather than a protobuf-supported numeric type; however, none of
 protobuf's numeric types have the proper precision for this field.
+
+Note the field was named `decimal` in SDK 0.13.26 or earlier.
+
+*since version 6*
+
+Expresses a signed number that can be represented in base-10 without
+loss of precision with at most 38 digits and with a scale between 0
+and 37 (bounds inclusive). In other words, in base-10, a number with
+at most 38 digits from which at most 37 appears on the right hand side
+of the decimal point.  A leading `-` sign may be optionally included
+to indicate negative number. In regular expression terms::
+
+  -?([1-9][0-9]*|0)\.[0-9]*
+
+with the additional constraint that the string must contain at most 38
+digits.
+
+Any value that does not conform, either by being outside the range or
+having too many decimal digits or for any other reason, must be
+rejected as an invalid message; consumers must not round, overflow, or
+otherwise try to compensate for "bad" input when reading decimal
+fields.  As such, value producers should take care to properly format
+these decimals.
+
+
 
 field timestamp
 ~~~~~~~~~~~~~~~
@@ -522,12 +570,58 @@ message Map
 
 *since version 4*
 
-A homogeneous map of values.
+A homogeneous map where keys are strings.
 
-In this version, these fields are include:
+In this version, these fields are included:
 
 * repeated `message Map.Entry`_ entries
 
 The ``value`` field of every member of ``entries`` must conform to the
 same type. Furthermore,the ``key`` fields of the entries must be distinct.
 Entries may occur in arbitrary order.
+
+message Enum
+^^^^^^^^^^^^
+
+*since version 5*
+
+An Enum value, a specialized form of variant without argument.
+
+In this version, these fields are included:
+
+* `message Identifier`_ enum_id
+* ``string`` value
+
+Only ``value`` is required, and it is required to be one of the values
+of the enum type to which this ``message Enum`` conforms.
+
+
+message GenMap.Entry
+^^^^^^^^^^^^^^^^^
+
+*since version 7*
+
+A map entry (key-value pair) used to build `message GenMap`_.
+
+As of version 7, these fields are included:
+
+* `message Value`_  key
+
+* `message Value`_ value
+
+Both ``key`` and ``value`` are required.
+
+message GenMap
+^^^^^^^^^^^
+
+*since version 7*
+
+A map where keys and values are homogeneous.
+
+In this version, these fields are included:
+
+* repeated `message GenMap.Entry`_ entries
+
+The ``keys`` and the ``value`` fields of every member of ``entries`` must
+conform to the same types. Entries occur in insertion order. If two ore more
+entries have the same keys, the last one override the former entries.

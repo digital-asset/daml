@@ -1,0 +1,39 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/trace_context.proto";
+
+
+option java_outer_classname = "LedgerIdentityServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to verify that the server they are communicating with exposes the ledger they wish to operate on.
+// Note that every ledger has a unique ID.
+service LedgerIdentityService {
+
+  // Clients may call this RPC to return the identifier of the ledger they are connected to.
+  rpc GetLedgerIdentity (GetLedgerIdentityRequest) returns (GetLedgerIdentityResponse);
+
+}
+
+message GetLedgerIdentityRequest {
+
+  // Server side tracing will be registered as a child of the submitted context.
+  // This field is a future extension point and is currently not supported.
+  // Optional
+  TraceContext trace_context = 1000;
+}
+
+message GetLedgerIdentityResponse {
+
+  // The ID of the ledger exposed by the server.
+  // Requests submitted with the wrong ledger ID will result in ``NOT_FOUND`` gRPC errors.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string ledger_id = 1;
+}

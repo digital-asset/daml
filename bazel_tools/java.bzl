@@ -1,9 +1,10 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 
 _java_home_runtime_build_template = """
 java_runtime(
@@ -86,6 +87,18 @@ def da_java_binary(name, **kwargs):
         visibility = ["//visibility:public"],
     )
 
+    # Create empty javadoc JAR for uploading deploy jars to Maven Central
+    pkg_empty_zip(
+        name = name + "_javadoc",
+        out = name + "_javadoc.jar",
+    )
+
+    # Create empty src JAR for uploading deploy jars to Maven Central
+    pkg_empty_zip(
+        name = name + "_src",
+        out = name + "_src.jar",
+    )
+
 def da_java_proto_library(name, **kwargs):
     _wrap_rule(native.java_proto_library, name, **kwargs)
     pom_file(
@@ -93,3 +106,12 @@ def da_java_proto_library(name, **kwargs):
         target = ":" + name,
         visibility = ["//visibility:public"],
     )
+
+    # Create empty javadoc JAR for uploading proto jars to Maven Central
+    pkg_empty_zip(
+        name = name + "_javadoc",
+        out = name + "_javadoc.jar",
+    )
+
+    # we don't need to create an empty zip for sources, because java_proto_library
+    # creates a sources jar as a side effect automatically

@@ -1,10 +1,10 @@
 [![DAML logo](daml-logo.png)](https://www.daml.com)
 
-[![Download](https://api.bintray.com/packages/digitalassetsdk/DigitalAssetSDK/sdk/images/download.svg)](https://docs.daml.com/getting-started/installation.html)
+[![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
 
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the DAML repository!
@@ -17,10 +17,10 @@ This repository hosts all code for the [DAML smart contract language and SDK](ht
 To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
 Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
-If you have questions about how to use DAML or how to build DAML-based solutions, please ask
-them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
+If you have questions about how to use DAML or how to build DAML-based solutions, please ask them 
+on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## Contribuing to DAML
+## Contributing to DAML
 
 We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test DAML:
@@ -49,8 +49,6 @@ file, with an option to add more in a `.envrc.private` file.
 
 #### Windows
 
-Note that the Windows build is not yet fully functional and is not supported.
-
 On Windows you need to enable long file paths by running the following command in an admin powershell:
 
 ```
@@ -73,15 +71,17 @@ We have a single script to build most targets and run the tests. On Linux and Ma
 
 To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
+On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error. 
+
 ### 4. Installing a local copy
 
-On Linux and Mac run `da-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any DAML project to 0.0.0 and it will use the locally installed one.
+On Linux and Mac run `daml-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any DAML project to 0.0.0 and it will use the locally installed one.
 
 On Windows:
 
 ```
 bazel build //release:sdk-release-tarball
-tar -vxf .\bazel-genfiles\release\sdk-release-tarball.tar.gz
+tar -vxf .\bazel-bin\release\sdk-release-tarball.tar.gz
 cd sdk-*
 daml\daml.exe install . --activate
 ```
@@ -111,3 +111,10 @@ from the `.bazelrc` file.
 If you work with multiple copies of this repository, you can point all of them to the same disk cache
 by overwriting these configs in either a `.bazelrc.local` file in each copy, or a `~/.bazelrc` file
 in your home directory.
+
+
+### Haskell profiling builds
+
+To build Haskell executables with profiling enabled, pass `-c dbg` to
+Bazel, e.g. `bazel build -c dbg damlc`. If you want to build the whole
+SDK with profiling enabled use `daml-sdk-head --profiling`.

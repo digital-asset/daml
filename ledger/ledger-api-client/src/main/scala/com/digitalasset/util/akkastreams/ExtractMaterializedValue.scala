@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.util.akkastreams
+package com.daml.util.akkastreams
 
 import akka.stream.scaladsl.Flow
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
@@ -61,10 +61,10 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
         new OutHandler {
           override def onPull(): Unit = pull(inlet)
 
-          override def onDownstreamFinish(): Unit = {
+          override def onDownstreamFinish(cause: Throwable): Unit = {
             promise.tryFailure(
               new RuntimeException("Downstream completed before matching element arrived."))
-            super.onDownstreamFinish()
+            super.onDownstreamFinish(cause)
           }
         }
       )

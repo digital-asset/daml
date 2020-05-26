@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import java.util.Optional
 
@@ -25,19 +25,48 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
     fromIdAndRecord.returnType shouldEqual className
   }
 
-  it should "generate a method taking exactly a template identifier and a record" in {
-    val parameters = fromIdAndRecord.parameters.asScala.map(p => p.name -> p.`type`)
-    parameters should contain only ("contractId" -> string, "record$" -> record, "agreementText" -> optionalString)
+  it should "generate a method taking the expected parameters (with contract key)" in {
+    val parameters = fromIdAndRecord.parameters.asScala.map(p => p.name -> p.`type`).toList
+    parameters should contain theSameElementsInOrderAs Seq(
+      "contractId" -> string,
+      "record$" -> record,
+      "agreementText" -> optionalString,
+      "key" -> optionalContractKey,
+      "signatories" -> setOfStrings,
+      "observers" -> setOfStrings
+    )
+  }
+
+  it should "generate a method taking the expected parameters (without contract key)" in {
+    val parameters =
+      fromIdAndRecordWithoutKey.parameters.asScala.map(p => p.name -> p.`type`).toList
+    parameters should contain theSameElementsInOrderAs Seq(
+      "contractId" -> string,
+      "record$" -> record,
+      "agreementText" -> optionalString,
+      "signatories" -> setOfStrings,
+      "observers" -> setOfStrings)
   }
 
   private[this] val className = ClassName.bestGuess("Test")
   private[this] val templateClassName = ClassName.bestGuess("Template")
   private[this] val idClassName = ClassName.bestGuess("Id")
+  private[this] val ckClassName = ClassName.bestGuess("Ck")
   private[this] val fromIdAndRecord =
-    TemplateClass.generateFromIdAndRecord(className, templateClassName, idClassName)
+    TemplateClass.generateFromIdAndRecord(
+      className,
+      templateClassName,
+      idClassName,
+      Some(ckClassName))
+  private[this] val fromIdAndRecordWithoutKey =
+    TemplateClass.generateFromIdAndRecord(className, templateClassName, idClassName, None)
   private[this] val string = TypeName.get(classOf[String])
   private[this] val record = TypeName.get(classOf[javaapi.data.Record])
   private[this] val optionalString =
     ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
+  private[this] val optionalContractKey =
+    ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), ckClassName)
+  private[this] val setOfStrings =
+    ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
 
 }

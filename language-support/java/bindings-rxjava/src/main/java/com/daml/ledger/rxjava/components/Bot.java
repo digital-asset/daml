@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components;
@@ -13,6 +13,7 @@ import com.daml.ledger.rxjava.components.helpers.Pair;
 import com.daml.ledger.rxjava.util.FlowableLogger;
 import com.google.rpc.Code;
 import io.reactivex.*;
+import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.ReplaySubject;
 import io.reactivex.subjects.Subject;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -55,11 +56,36 @@ public class Bot {
      *                  and save space.
      * @param <R> The type of the result of transform.
      */
+
     public static <R> void wire(String applicationId,
                                 LedgerClient ledgerClient,
                                 TransactionFilter transactionFilter,
                                 Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
                                 Function<CreatedContract, R> transform) {
+        wire(applicationId, ledgerClient, transactionFilter, bot, transform, Schedulers.io());
+    }
+
+    /**
+     * Wires the Bot logic to an existing {@link LedgerClient} instance.
+     *
+     * @param applicationId The application identifier that will be sent to the Ledger
+     * @param ledgerClient The {@link LedgerClient} instance which will be wired to the
+     *                     bot.
+     * @param transactionFilter A server-side filter of incoming transactions
+     * @param bot The business logic of the bot.
+     * @param transform A function from the arguments of a Contract on the Ledger to
+     *                  a more refined type R. This can be used by the developer to, for
+     *                  instance, discard the fields of a Contract that are not needed
+     *                  and save space.
+     * @param scheduler The scheduler used to run the flows
+     * @param <R> The type of the result of transform.
+     */
+    public static <R> void wire(String applicationId,
+                                LedgerClient ledgerClient,
+                                TransactionFilter transactionFilter,
+                                Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
+                                Function<CreatedContract, R> transform,
+                                Scheduler scheduler) {
 
         logger.info("Bot wiring started for parties {}", transactionFilter.getParties());
 
@@ -67,7 +93,7 @@ public class Bot {
         // ACS is disabled until the Ledger supports verbose = true for it
 //        Flowable<GetActiveContractsResponse> acs = FlowableLogger.log(ledgerClient.getActiveContractSetClient().getActiveContracts(transactionFilter, true), "acs");
         Flowable<GetActiveContractsResponse> acs = Flowable.empty();
-        Single<Pair<LedgerViewFlowable.LedgerView<R>, LedgerOffset>> acsLedgerViewSingle = LedgerViewFlowable.ledgerViewAndOffsetFromACS(acs, transform);
+        Single<Pair<LedgerViewFlowable.LedgerView<R>, LedgerOffset>> acsLedgerViewSingle = LedgerViewFlowable.ledgerViewAndOffsetFromACS(acs, transform).observeOn(scheduler);
 
         Single<Pair<LedgerViewFlowable.LedgerView<R>, LedgerOffset>> ledgerViewAndOffsetSingle = acsLedgerViewSingle.flatMap(
                 acsLedgerViewAndOffset -> {
@@ -89,14 +115,17 @@ public class Bot {
             LedgerViewFlowable.@NonNull LedgerView<R> initialLedgerView = ledgerViewAndOffset.getFirst();
             @NonNull LedgerOffset ledgerOffset = ledgerViewAndOffset.getSecond();
             logger.debug("LedgerView accumulated from acs and transactions completed. Offset: {} LedgerView: {}", ledgerOffset, initialLedgerView);
-            Flowable<Transaction> transactions = FlowableLogger.log(transactionsClient.getTransactions(ledgerOffset, transactionFilter, true), "transactions");
-            Flowable<LedgerViewFlowable.CompletionFailure> completionFailures = FlowableLogger.log(failuresCommandIds(transactionFilter.getParties(), ledgerClient.getCommandCompletionClient().completionStream(applicationId, LedgerOffset.LedgerEnd.getInstance(), transactionFilter.getParties())), "completionFailures");
+            Flowable<Transaction> transactions = FlowableLogger.log(transactionsClient.getTransactions(ledgerOffset, transactionFilter, true), "transactions").observeOn(scheduler);
+            Flowable<LedgerViewFlowable.CompletionFailure> completionFailures = FlowableLogger.log(failuresCommandIds(transactionFilter.getParties(), ledgerClient.getCommandCompletionClient().completionStream(applicationId, LedgerOffset.LedgerEnd.getInstance(), transactionFilter.getParties())), "completionFailures")
+                    .observeOn(scheduler);
 
             Subject<LedgerViewFlowable.SubmissionFailure> submissionFailuresSubject = ReplaySubject.create();
             Subject<CommandsAndPendingSet> commandsAndPendingSetSubject = ReplaySubject.create();
 
-            Flowable<LedgerViewFlowable.SubmissionFailure> submissionFailures = FlowableLogger.log(submissionFailuresSubject.toFlowable(BackpressureStrategy.BUFFER), "submissionsFailures");
-            Flowable<CommandsAndPendingSet> commandsAndPendingsSet = FlowableLogger.log(commandsAndPendingSetSubject.toFlowable(BackpressureStrategy.BUFFER), "commandsAndPendingSet");
+            Flowable<LedgerViewFlowable.SubmissionFailure> submissionFailures = FlowableLogger.log(submissionFailuresSubject.toFlowable(BackpressureStrategy.BUFFER), "submissionsFailures")
+                    .observeOn(scheduler);
+            Flowable<CommandsAndPendingSet> commandsAndPendingsSet = FlowableLogger.log(commandsAndPendingSetSubject.toFlowable(BackpressureStrategy.BUFFER), "commandsAndPendingSet")
+                    .observeOn(scheduler);
 
             Flowable<LedgerViewFlowable.LedgerView<R>> ledgerViews = LedgerViewFlowable.<R>of(
                     initialLedgerView,
@@ -130,7 +159,7 @@ public class Bot {
             logger.info("Bot wiring complete for parties {}", transactionFilter.getParties());
         });
         // Since we have removed the blockingGet call, we now need to make sure that the flow is actually triggered
-        mainFlow.toFlowable().publish().connect();
+        mainFlow.toFlowable().observeOn(scheduler).publish().connect();
     }
 
     /**
@@ -175,10 +204,10 @@ public class Bot {
         return cs -> {
             logger.debug("Submitting: {}", cs);
             return FlowableLogger.log(commandSubmissionClient.submit(cs.getWorkflowId(), cs.getApplicationId(),
-                    cs.getCommandId(), cs.getParty(), cs.getLedgerEffectiveTime(), cs.getMaximumRecordTime(),
-                    cs.getCommands())
+                    cs.getCommandId(), cs.getParty(), cs.getMinLedgerTimeAbsolute(), cs.getMinLedgerTimeRelative(),
+                    cs.getDeduplicationTime(), cs.getCommands())
                     .flatMapMaybe(s -> Maybe.<LedgerViewFlowable.SubmissionFailure> empty())
-                    .doOnError(t -> logger.info("Error submitting commands {} for party {}: {}", cs.getCommandId(), cs.getParty(), t.getMessage()))
+                    .doOnError(t -> logger.error("Error submitting commands {} for party {}: {}", cs.getCommandId(), cs.getParty(), t.getMessage()))
                     .onErrorReturn(t -> new LedgerViewFlowable.SubmissionFailure(cs.getCommandId(), t))
                     , "commandSubmissions");
         };

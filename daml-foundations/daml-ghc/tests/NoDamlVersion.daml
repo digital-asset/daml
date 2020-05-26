@@ -1,5 +1,0 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
--- @ ERROR Missing daml version
-module DamlVersion where

@@ -1,19 +1,19 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.retrying
+package com.daml.ledger.client.binding.retrying
 
 import java.time.temporal.TemporalAmount
 
 import akka.NotUsed
 import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Partition}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.refinements.ApiTypes.Party
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.client.services.commands.CommandClient
-import com.digitalasset.util.Ctx
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.client.services.commands.CommandClient
+import com.daml.util.Ctx
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import scalaz.syntax.tag._
@@ -72,12 +72,12 @@ object CommandRetryFlow {
                 } else if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
                   RetryLogger.logStopRetrying(request, status, nrOfRetries, firstSubmissionTime)
                   PROPAGATE_PORT
-                } else if (NON_RETRYABLE_ERROR_CODES.contains(status.code)) {
-                  RetryLogger.logFatal(request, status, nrOfRetries)
-                  PROPAGATE_PORT
-                } else {
+                } else if (RETRYABLE_ERROR_CODES.contains(status.code)) {
                   RetryLogger.logNonFatal(request, status, nrOfRetries)
                   RETRY_PORT
+                } else {
+                  RetryLogger.logFatal(request, status, nrOfRetries)
+                  PROPAGATE_PORT
                 }
               case Ctx(_, Completion(commandId, _, _, _)) =>
                 statusNotFoundError(commandId)
@@ -97,7 +97,8 @@ object CommandRetryFlow {
         FlowShape(merge.in(PROPAGATE_PORT), retryDecider.out(PROPAGATE_PORT))
       })
 
-  private val NON_RETRYABLE_ERROR_CODES = Set(Code.INVALID_ARGUMENT_VALUE)
+  private[retrying] val RETRYABLE_ERROR_CODES =
+    Set(Code.RESOURCE_EXHAUSTED_VALUE, Code.UNAVAILABLE_VALUE)
 
   private def statusNotFoundError(commandId: String): Int =
     throw new RuntimeException(s"Status for command $commandId is missing.")

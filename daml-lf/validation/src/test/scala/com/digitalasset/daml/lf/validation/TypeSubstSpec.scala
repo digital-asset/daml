@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.validation.SpecUtil._
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -14,7 +14,7 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
   "A TypeSubst" should {
     "should be idempotent on terms that do not contain variable from its domain." in {
 
-      val subst = TypeSubst(n"alpha" -> t"gamma")
+      val subst = Map(n"alpha" -> t"gamma")
 
       val testCases = Table(
         "type",
@@ -29,14 +29,14 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { typ: Type =>
-        subst(typ) shouldBe typ
+        TypeSubst.substitute(subst, typ) shouldBe typ
       }
     }
 
     "should substitutes variables from its domain in terms without quantifiers." in {
 
-      val subst1 = TypeSubst(n"alpha" -> t"gamma")
-      val subst2 = TypeSubst(n"alpha" -> t"gamma2")
+      val subst1 = Map(n"alpha" -> t"gamma")
+      val subst2 = Map(n"alpha" -> t"gamma2")
 
       val testCases = Table(
         "input type" ->
@@ -62,19 +62,26 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       forEvery(testCases) { (input: Type, expectedOutput: Type) =>
-        subst1.apply(input: Type) should ===(expectedOutput)
-        subst2.apply(input: Type) should !==(expectedOutput)
+        TypeSubst.substitute(subst1, input: Type) shouldEqual expectedOutput
+        TypeSubst.substitute(subst2, input: Type) should !==(expectedOutput)
       }
     }
 
     "should handle properly binders" in {
 
-      val subst = TypeSubst(n"alpha" -> t"beta1")
+      val subst = Map(n"alpha" -> t"beta1")
 
-      subst(t"forall beta1. alpha (beta1 gamma)") should ===(t"forall beta2. beta1 (beta2 gamma)")
+      TypeSubst.substitute(subst, t"forall beta1. alpha (beta1 gamma)") shouldEqual
+        t"forall beta2. beta1 (beta2 gamma)"
 
-      subst(t"forall beta1. forall beta2. alpha (beta1 beta2)") should ===(
-        t"forall gamma. forall beta2. beta1 (gamma beta2)")
+      TypeSubst.substitute(subst, t"forall beta1. forall beta2. alpha (beta1 beta2)") shouldEqual
+        t"forall gamma. forall beta2. beta1 (gamma beta2)"
+
+      val subst0 = Map(n"beta2" -> t"beta1")
+      val subst1 = Map(n"beta1" -> t"beta2")
+      val input = t"forall beta1. forall beta2. alpha (beta1 beta2)"
+      TypeSubst.substitute(subst1, TypeSubst.substitute(subst0, input)) shouldEqual input
+
     }
   }
 }

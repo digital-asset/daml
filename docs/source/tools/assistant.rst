@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Assistant (``daml``)
@@ -7,6 +7,7 @@ DAML Assistant (``daml``)
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
 
 - Create new DAML projects: ``daml new <path to create project in>``
+- Create a new project based on `create-daml-app <https://github.com/digital-asset/create-daml-app>`_: ``daml create-daml-app <path to create project in>``
 - Initialize a DAML project: ``daml init``
 - Compile a DAML project: ``daml build``
 
@@ -17,19 +18,19 @@ DAML Assistant (``daml``)
 - Launch the tools in the SDK:
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
-  - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator </tools/navigator/index>` together: ``daml start``
+  - Launch :doc:`Sandbox </tools/sandbox>`, :doc:`Navigator </tools/navigator/index>` and the :doc:`/json-api/index`: ``daml start``
+    You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
+    To specify additional options for sandbox/navigator/the HTTP JSON API you can use
+    ``--sandbox-option=opt``, ``--navigator-option=opt`` and ``--json-api-option=opt``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
+  - Launch the :doc:`/json-api/index`: ``daml json-api``
+  - Run :doc:`DAML codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
 
    Note that you need to update your `project config file <#configuration-files>` to use the new version.
-
-Moving to the ``daml`` assistant
-********************************
-
-To move your projects to use ``daml``, and see the difference between ``da`` commands and ``daml`` commands, read the :doc:`/support/new-assistant`.
 
 Full help for commands
 **********************
@@ -74,7 +75,7 @@ The project config file ``daml.yaml`` must be in the root of your DAML project d
 
 The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
 
-``daml init`` creates a ``daml.yaml`` in an existing folder, so ``daml`` knows it's a project folder. It incorporates info from ``da.yaml`` in the generated ``daml.yaml``, if ``da.yaml`` is available (see :doc:`/support/new-assistant`).
+``daml init`` creates a ``daml.yaml`` in an existing folder, so ``daml`` knows it's a project folder.
 
 ``daml new`` creates a skeleton application in a new project folder, which includes a config file. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
 
@@ -82,7 +83,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
 
     sdk-version: __VERSION__
     name: __PROJECT_NAME__
-    source: daml/Main.daml
+    source: daml
     scenario: Main:setup
     parties:
       - Alice
@@ -93,6 +94,12 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     dependencies:
       - daml-prim
       - daml-stdlib
+    scenario-service:
+      grpc-max-message-size: 134217728
+      grpc-timeout: 60
+      jvm-options: []
+    build-options: ["--ghc-option", "-Werror",
+                    "--ghc-option", "-v"]
 
 
 Here is what each field means:
@@ -100,16 +107,40 @@ Here is what each field means:
 - ``sdk-version``: the SDK version that this project uses.
 
    The assistant automatically downloads and installs this version if needed (see the ``auto-install`` setting in the global config). We recommend keeping this up to date with the latest stable release of the SDK.
+   It is possible to override the version without modifying the ``daml.yaml`` file by setting the ``DAML_SDK_VERSION`` environment variable. This is mainly useful when you are working with an
+   external project that you want to build with a specific version.
 
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
-- ``source``: the location of your main DAML source code file, relative to the project root.
+- ``source``: the root folder of your DAML source code files relative to the project root.
 - ``scenario``: the name of the scenario to run when using ``daml start``.
+- ``init-script``: the name of the DAML script to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
   If this field is not specified all modules in the project are exposed.
 - ``dependencies``: the dependencies of this project.
+- ``scenario-service``: settings for the scenario service
+
+  - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.
+    If unspecified this defaults to 128MB (134217728 bytes). Unless you get
+    errors, there should be no reason to modify this.
+  - ``grpc-timeout``: This option controls the timeout used for communicating
+    with the scenario service. If unspecified this defaults to 60s. Unless you get
+    errors, there should be no reason to modify this.
+  - ``jvm-options``: A list of options passed to the JVM when starting the scenario
+    service. This can be used to limit maximum heap size via the ``-Xmx`` flag.
+
+- ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
+- ``sandbox-options``: a list of options that will be passed to Sandbox in ``daml start``.
+- ``navigator-options``: a list of options that will be passed to Navigator in ``daml start``.
+- ``json-api-options``: a list of options that will be passed to the HTTP JSON API in ``daml start``.
+- ``script-options``: a list of options that will be passed to the DAML script
+  runner when running the ``init-script`` as part of ``daml start``.
+- ``start-navigator``: Controls whether navigator is started as part
+  of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
+  say ``daml start --start-navigator=true``, the CLI argument takes precedence over
+  the value in ``daml.yaml``.
 
 ..  TODO (@robin-da) document the dependency syntax
 
@@ -133,7 +164,7 @@ You can control the build by changing your project's ``daml.yaml``:
 ``source``
   The path to the source code.
 
-The generated ``.dar`` file is created in ``dist/${name}.dar`` by default. To override the default location, pass the ``-o`` argument to ``daml build``::
+The generated ``.dar`` file is created in ``.daml/dist/${name}.dar`` by default. To override the default location, pass the ``-o`` argument to ``daml build``::
 
   daml build -o path/to/darfile.dar
 
@@ -142,23 +173,44 @@ The generated ``.dar`` file is created in ``dist/${name}.dar`` by default. To ov
 Managing SDK releases
 *********************
 
-In general the ``daml`` assistant will install versions and guide you when you need to update SDK versions or project settings. If you disable ``auto-install`` and ``update-check`` in the global config file, you will have to manage SDK releases manually.
+You can manage SDK releases manually by using ``daml install``.
 
-To download and install the latest stable SDK release and update the assistant, run::
+To download and install the latest stable SDK release::
 
-  daml install latest --activate
+  daml install latest
 
-Remove the ``--activate`` flag if you only want to install the latest release without updating the ``daml`` assistant in the process. If it is already installed, you can force reinstallation by passing the ``--force`` flag. See ``daml install --help`` for a full list of options.
+To download and install the latest snapshot release::
+
+  daml install latest --snapshots=yes
+
+Please note that snapshot releases are not intended for production usage.
 
 To install the SDK release specified in the project config, run::
 
   daml install project
 
-To install a specific SDK version, for example version ``0.12.17``, run::
+To install a specific SDK version, for example version ``0.13.55``, run::
 
-  daml install 0.12.17
+  daml install 0.13.55
 
 Rarely, you might need to install an SDK release from a downloaded SDK release tarball. **This is an advanced feature**: you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone else's. To do this, run::
 
   daml install path-to-tarball.tar.gz
 
+By default, ``daml install`` will update the assistant if the version being installed is newer. You can force the assistant to be updated with ``--install-assistant=yes`` and prevent the assistant from being updated with ``--install-assistant=no``.
+
+See ``daml install --help`` for a full list of options.
+
+Terminal Command Completion
+***************************
+
+The ``daml`` assistant comes with support for ``bash`` and ``zsh`` completions. These will be installed automatically on Linux and Mac when you install or upgrade the DAML assistant.
+
+If you use the ``bash`` shell, and your ``bash`` supports completions, you can use the TAB key to complete many ``daml`` commands, such as ``daml install`` and ``daml version``.
+
+For ``Zsh`` you first need to add ``~/.daml/zsh`` to your ``$fpath``,
+e.g., by adding the following to the beginning of your ``~/.zshrc``
+before you call ``compinit``: ``fpath=(~/.daml/zsh $fpath)``
+
+You can override whether bash completions are installed for ``daml`` by
+passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml install``.

@@ -1,16 +1,24 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
 )
-
-dependencies = [
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger-api/testing-utils",
-]
+load(
+    "//language-support/scala/codegen:codegen.bzl",
+    "dar_to_scala",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_dev_version",
+    "lf_latest_version",
+    "lf_stable_version",
+)
 
 da_scala_library(
     name = "test-common",
@@ -18,5 +26,117 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = dependencies,
+    deps = [
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_context",
+    ],
+)
+
+daml_compile(
+    name = "SemanticTests",
+    srcs = ["src/main/daml/SemanticTests.daml"],
+    target = lf_stable_version,
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "SemanticTests.scala-codegen",
+    srcs = [
+        ":SemanticTests.dar",
+    ],
+    package_prefix = "com.daml.ledger.test",
+    srcjar_out = "SemanticTests.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "SemanticTests.scala",
+    srcs = [":SemanticTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
+daml_compile(
+    name = "PerformanceTests",
+    srcs = [
+        "src/main/daml/performance/PingPong.daml",
+    ],
+    target = lf_stable_version,
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "PerformanceTests.scala-codegen",
+    srcs = [
+        ":PerformanceTests.dar",
+    ],
+    package_prefix = "com.daml.ledger.test.performance",
+    srcjar_out = "PerformanceTests.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "PerformanceTests.scala",
+    srcs = [":PerformanceTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
+lf_test_versions = [
+    (lf_stable_version, "stable"),
+    (lf_latest_version, "latest"),
+    (lf_dev_version, "dev"),
+]
+
+[
+    [
+        daml_compile(
+            name = "Test-%s" % target_name,
+            srcs = [
+                "src/main/daml/Iou.daml",
+                "src/main/daml/IouTrade.daml",
+                "src/main/daml/Test.daml",
+            ],
+            target = target,
+            visibility = ["//visibility:public"],
+        ),
+        dar_to_scala(
+            name = "Test-%s.scala-codegen" % target_name,
+            srcs = [":Test-%s.dar" % target_name],
+            package_prefix = "com.daml.ledger.test_%s" % target_name,
+            srcjar_out = "Test-%s.scala.srcjar" % target_name,
+            verbosity = 2,
+            visibility = ["//visibility:public"],
+        ),
+        da_scala_library(
+            name = "Test-%s.scala" % target_name,
+            srcs = [":Test-%s.scala-codegen" % target_name],
+            visibility = ["//visibility:public"],
+            deps = [
+                "//language-support/scala/bindings",
+            ],
+        ),
+    ]
+    for (target, target_name) in lf_test_versions
+]
+
+filegroup(
+    name = "dar-files",
+    srcs = [
+        ":PerformanceTests.dar",
+        ":SemanticTests.dar",
+        ":Test-dev.dar",
+        ":Test-stable.dar",
+    ],
+    visibility = ["//visibility:public"],
 )

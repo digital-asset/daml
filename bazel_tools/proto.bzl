@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:pkg.bzl", "pkg_tar")
@@ -36,8 +36,8 @@ def get_plugin_runfiles(tool, plugin_runfiles):
     return files
 
 def _proto_gen_impl(ctx):
-    src_descs = [src.proto.direct_descriptor_set for src in ctx.attr.srcs]
-    dep_descs = [dep.proto.direct_descriptor_set for dep in ctx.attr.deps]
+    src_descs = [src[ProtoInfo].direct_descriptor_set for src in ctx.attr.srcs]
+    dep_descs = [dep[ProtoInfo].direct_descriptor_set for dep in ctx.attr.deps]
     descriptors = src_descs + dep_descs
 
     sources_out = ctx.actions.declare_directory(ctx.attr.name + "-sources")
@@ -63,8 +63,8 @@ def _proto_gen_impl(ctx):
     inputs = []
 
     for src in ctx.attr.srcs:
-        src_root = src.proto.proto_source_root
-        for direct_source in src.proto.direct_sources:
+        src_root = src[ProtoInfo].proto_source_root
+        for direct_source in src[ProtoInfo].direct_sources:
             path = ""
 
             # in some cases the paths of src_root and direct_source are only partially
@@ -83,13 +83,13 @@ def _proto_gen_impl(ctx):
 
     args += inputs
 
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ctx.actions.run_shell(
         mnemonic = "ProtoGen",
         outputs = [sources_out],
         inputs = descriptors + [ctx.executable.protoc] + plugin_runfiles,
-        command = "mkdir -p " + sources_out.path + " && " + ctx.executable.protoc.path + " " + " ".join(args),
+        command = posix.commands["mkdir"] + " -p " + sources_out.path + " && " + ctx.executable.protoc.path + " " + " ".join(args),
         tools = plugins,
-        use_default_shell_env = True,
     )
 
     # since we only have the output directory of the protoc compilation,
@@ -99,12 +99,14 @@ def _proto_gen_impl(ctx):
         mnemonic = "CreateZipperArgsFile",
         outputs = [zipper_args_file],
         inputs = [sources_out],
-        command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+        command = "{find} -L {src_path} -type f | {sed} -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | {sort} > {args_file}".format(
+            find = posix.commands["find"],
+            sed = posix.commands["sed"],
+            sort = posix.commands["sort"],
             src_path = sources_out.path,
             args_file = zipper_args_file.path,
         ),
         progress_message = "zipper_args_file %s" % zipper_args_file.path,
-        use_default_shell_env = True,
     )
 
     # Call zipper to create srcjar
@@ -152,6 +154,7 @@ proto_gen = rule(
         "out": "%{name}.srcjar",
     },
     output_to_genfiles = True,
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
 def _is_windows(ctx):

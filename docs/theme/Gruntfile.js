@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 module.exports = function(grunt) {
@@ -138,8 +138,7 @@ module.exports = function(grunt) {
       dist: {
         options: {
           position: 'top',
-          banner: '/* <%= pkg.name %> version <%= pkg.version %> | MIT license */\n' +
-                  '/* Built <%= grunt.template.today("yyyymmdd HH:mm") %> */',
+          banner: '/* <%= pkg.name %> version <%= pkg.version %> | MIT license */\n',
           linebreak: true
         },
         files: {

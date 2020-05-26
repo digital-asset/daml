@@ -1,12 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.util
+package com.daml.navigator.util
 
 import java.lang.Math.floor
 
 import akka.actor.Scheduler
 import akka.pattern.after
+import com.daml.grpc.GrpcException
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._
@@ -42,6 +43,11 @@ object RetryHelper extends LazyLogging {
     * Always retries if exception is `NonFatal`.
     */
   val always: RetryStrategy = {
+    case NonFatal(_) => true
+  }
+
+  val failFastOnPermissionDenied: RetryStrategy = {
+    case GrpcException.PERMISSION_DENIED() => false
     case NonFatal(_) => true
   }
 

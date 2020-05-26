@@ -1,17 +1,17 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Navigator
 #########
 
-The Navigator is a front-end that you can use to connect to any Digital Asset ledger and inspect and modify the ledger. You can use it during DAML development to explore the flow and implications of the DAML models.
+The Navigator is a front-end that you can use to connect to any DAML Ledger and inspect and modify the ledger. You can use it during DAML development to explore the flow and implications of the DAML models.
 
 The first sections of this guide cover use of the Navigator with the DAML SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
 
 Navigator functionality
 ***********************
 
-Connect Navigator to any Digital Asset ledger and use it to:
+Connect Navigator to any DAML Ledger and use it to:
 
 - View templates
 - View active and archived contracts
@@ -233,7 +233,7 @@ You will see the loading and confirmation indicators, as pictured above in Creat
 Advancing time
 ==============
 
-It is possible to advance time against the DAML Sandbox. (This is not true of the Digital Asset ledger.) This advance-time functionality can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
+It is possible to advance time against the DAML Sandbox. (This is not true of all DAML Ledgers.) This advance-time functionality can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
 
 To advance time:
 
@@ -245,6 +245,23 @@ To advance time:
 
 .. image:: images/advance-time.png
   :width: 25%
+  :align: center
+
+.. _navigator-authentication:
+
+Authenticating Navigator
+************************
+
+If you are running Navigator against a Ledger API server that requires authentication, you must provide the access token when you start the Navigator server.
+
+The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
+
+Once you have retrieved your access token, you can provide it to Navigator by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+
+If the access token cannot be retrieved, is missing or wrong, you'll be unable to move past the Navigator's frontend login screen and see the following:
+
+.. image:: images/access-denied.png
+  :width: 50%
   :align: center
 
 .. _navigator-manual-advanced-usage:
@@ -361,7 +378,6 @@ form::
   users {
       <USERNAME> {
           party = <PARTYNAME>
-          password = <PASSWORD>
       }
       ..
   }
@@ -375,15 +391,11 @@ respective parties is sufficient to configure the Navigator. Example::
       OPERATOR { party = "OPERATOR" }
   }
 
-.. note::
-  The password is used only if you activate the ``--require-password``
-  flag. This feature is only intended for demonstration purposes and may be removed in the future.
-
-Using Navigator with the Digital Asset ledger
-=============================================
+Using Navigator with a DAML Ledger
+==================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
-To run Navigator against a secured Digital Asset Ledger,
+To run Navigator against a secured DAML Ledger,
 configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 Details of these parameters are explained in the command line help::
 

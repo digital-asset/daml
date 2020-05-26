@@ -1,60 +1,64 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store.platform
+package com.daml.navigator.store.platform
 
-import java.time.{Duration, Instant}
 import java.net.URLEncoder
+import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.pattern.ask
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
-import akka.stream.ActorMaterializer
+import akka.pattern.ask
+import akka.stream.Materializer
 import akka.util.Timeout
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.navigator.util.RetryHelper
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time._
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.lf.data.Ref
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.{ApiTypes, IdGenerator}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.navigator.ApplicationInfo
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.navigator.ApplicationInfo
+import com.daml.navigator.model._
+import com.daml.navigator.store.Store._
+import com.daml.navigator.time._
+import com.daml.navigator.util.RetryHelper
+import io.grpc.Channel
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
-import io.grpc.{ManagedChannel, Status}
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
 
-import scala.util.{Failure, Random, Success, Try}
 import scala.concurrent.Future
 import scala.concurrent.duration._
-
-import scalaz.syntax.tag._
+import scala.util.{Failure, Random, Success, Try}
 
 object PlatformStore {
   def props(
       platformHost: String,
       platformPort: Int,
       tlsConfig: Option[TlsConfiguration],
+      accessToken: Option[String],
       timeProviderType: TimeProviderType,
-      applicationInfo: ApplicationInfo
+      applicationInfo: ApplicationInfo,
+      ledgerMaxInbound: Int
   ): Props =
     Props(
       classOf[PlatformStore],
       platformHost,
       platformPort,
       tlsConfig,
+      accessToken,
       timeProviderType,
-      applicationInfo)
+      applicationInfo,
+      ledgerMaxInbound)
 
   type PlatformTime = Instant
 
@@ -80,8 +84,10 @@ class PlatformStore(
     platformHost: String,
     platformPort: Int,
     tlsConfig: Option[TlsConfiguration],
+    token: Option[String],
     timeProviderType: TimeProviderType,
-    applicationInfo: ApplicationInfo
+    applicationInfo: ApplicationInfo,
+    ledgerMaxInbound: Int
 ) extends Actor
     with ActorLogging
     with Stash {
@@ -93,7 +99,7 @@ class PlatformStore(
 
   implicit val s: Scheduler = system.scheduler
   import scala.concurrent.ExecutionContext.Implicits.global
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
@@ -249,7 +255,9 @@ class PlatformStore(
     "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party.name), "UTF-8")
 
   private def startPartyActor(ledgerClient: LedgerClient, party: PartyState): ActorRef = {
-    context.actorOf(PlatformSubscriber.props(ledgerClient, party, applicationId), childName(party))
+    context.actorOf(
+      PlatformSubscriber.props(ledgerClient, party, applicationId, token),
+      childName(party))
   }
 
   private def sslContext: Option[SslContext] =
@@ -277,14 +285,15 @@ class PlatformStore(
       CommandClientConfiguration(
         maxCommandsInFlight,
         maxParallelSubmissions,
-        overrideTtl = false,
         Duration.ofSeconds(30)),
-      sslContext
+      sslContext,
+      token
     )
 
-    val result = RetryHelper.retry(retryMaxAttempts, retryDelay)(RetryHelper.always)(
-      tryConnect(configuration)
-    )
+    val result =
+      RetryHelper.retry(retryMaxAttempts, retryDelay)(RetryHelper.failFastOnPermissionDenied)(
+        tryConnect(configuration)
+      )
 
     result onComplete {
       case Failure(error) =>
@@ -302,49 +311,37 @@ class PlatformStore(
 
   private def tryConnect(configuration: LedgerClientConfiguration): Future[ConnectionResult] = {
 
-    val builder = NettyChannelBuilder
-      .forAddress(platformHost, platformPort)
-      .maxInboundMessageSize(50 * 1024 * 1024)
-    configuration.sslContext match {
-      case None => {
-        log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
-        builder.usePlaintext()
-      }
-      case Some(ssl) => {
-        log.info("Connecting to {}:{}, using TLS", platformHost, platformPort)
-        builder.useTransportSecurity().sslContext(ssl)
-      }
+    if (configuration.sslContext.isDefined) {
+      log.info("Connecting to {}:{}, using TLS", platformHost, platformPort)
+    } else {
+      log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
     }
 
-    val channel = builder.build()
-
-    sys.addShutdownHook({ channel.shutdownNow(); () })
-
     for {
-      ledgerClient <- LedgerClient.forChannel(configuration, channel)
-      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap)
+      ledgerClient <- LedgerClient.fromBuilder(
+        NettyChannelBuilder
+          .forAddress(platformHost, platformPort)
+          .maxInboundMessageSize(ledgerMaxInbound),
+        configuration)
+      staticTime <- getStaticTime(ledgerClient.channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
   }
 
-  private def getStaticTime(
-      channel: ManagedChannel,
-      ledgerId: String): Future[Option[StaticTime]] = {
+  private def getStaticTime(channel: Channel, ledgerId: String): Future[Option[StaticTime]] = {
     // Note: StaticTime is a TimeProvider that is automatically updated by push events from the ledger.
     Future
       .fromTry(Try(TimeServiceGrpc.stub(channel)))
-      .flatMap(tp => StaticTime.updatedVia(tp, ledgerId))
+      .flatMap(tp => StaticTime.updatedVia(tp, ledgerId, token))
       .map(staticTime => {
         log.info(s"Time service is available, platform time is ${staticTime.getCurrentTime}")
         Some(staticTime)
       })
       .recover({
         // If the time service is not implemented, then the ledger uses UTC time.
-        case e: io.grpc.StatusRuntimeException
-            if e.getStatus.getCode == Status.Code.UNIMPLEMENTED => {
+        case GrpcException.UNIMPLEMENTED() =>
           log.info("Time service is not implemented")
           None
-        }
       })
   }
 

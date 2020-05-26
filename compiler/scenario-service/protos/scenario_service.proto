@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "com.digitalasset.daml.lf.scenario.api.v1";
+option java_package = "com.daml.lf.scenario.api.v1";
 option java_outer_classname = "ScenarioServiceProto";
 
 package scenarioservice;
@@ -79,7 +79,7 @@ message UpdateContextRequest {
   message UpdateModules {
     // Modules to load in to the context.
     // Existing modules with the same name are replaced.
-    repeated Module load_modules = 2;
+    repeated ScenarioModule load_modules = 2;
 
     // Modules to remove.
     repeated string unload_modules = 3;
@@ -98,7 +98,7 @@ message UpdateContextRequest {
   int64 context_id = 1;
   UpdateModules update_modules = 2;
   UpdatePackages update_packages = 3;
-  bool lightValidation = 4; // if true runs only a subset of the validations
+  bool noValidation = 4; // if true, does not run the package validations
 }
 
 message UpdateContextResponse {
@@ -140,13 +140,7 @@ message Location {
   int32 start_col = 4;
   int32 end_line = 5;
   int32 end_col = 6;
-}
-
-message CallStackEntry {
-  Identifier defn = 1;
-  Location location = 2; // optional
-  string binder = 3;
-  Value arg = 4;
+  string definition = 7;
 }
 
 // Reference to a contract instance.
@@ -191,8 +185,9 @@ message ScenarioError {
   // Location of the commit/mustFail if applicable.
   Location commit_loc = 5;
 
-  // Last seen location, if any.
-  Location last_loc = 6;
+  // Stack trace of the locations seen during the execution.
+  // The last seen location comes last.
+  repeated Location stack_trace = 6;
 
   // The current partial transaction if any.
   PartialTransaction partial_transaction = 7;
@@ -230,7 +225,6 @@ message ScenarioError {
     CommitError scenario_commit_error = 19;
     Empty scenario_mustfail_succeeded = 20;
     string scenario_invalid_party_name = 21;
-
   }
 }
 
@@ -267,6 +261,11 @@ message Variant {
   Value value = 3;
 }
 
+message Enum {
+  Identifier enum_id = 1;
+  string constructor = 2;
+}
+
 message List {
   repeated Value elements = 1;
 }
@@ -298,6 +297,8 @@ message Value {
     int32 date = 13;
     Optional optional = 15;
     Map map = 16;
+    Enum enum = 17;
+    GenMap gen_map = 18;
 
     // An unserializable value, e.g. closure. Contains a description of the value.
     string unserializable = 14;
@@ -317,14 +318,21 @@ message Map {
     repeated Entry entries = 1;
 }
 
+message GenMap{
+  message Entry {
+    Value key = 1;
+    Value value = 2;
+  }
+
+  repeated Entry entries = 1;
+}
+
 // Modules that can be loaded. The actual message types are not
 // used here as LF modules can have deep nesting depth and it is
 // not easy to change the recursion depth limit in gRPC.
-message Module {
-  oneof module {
-    bytes daml_lf_1 = 2;
-    bytes daml_lf_dev = 3;
-  }
+message ScenarioModule {
+  // each LF v1 module is wrapped in a proto package
+  bytes daml_lf_1 = 2;
 
   // for daml_lf_dev the minor version is ignored by the scenario service.
   string minor = 1;

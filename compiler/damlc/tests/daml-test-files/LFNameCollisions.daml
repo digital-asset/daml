@@ -1,0 +1,30 @@
+
+module LFNameCollisions where
+
+import DA.Record
+
+import Prelude hiding (submit, submitMustFail)
+
+-- This test checks that we only convert submit and submitMustFail
+-- to the corresponding LF primitives if they are coming from the
+-- right module.
+
+submit : a -> Int -> Int -> a
+submit x _ _ = x
+
+submitMustFail : a -> Int -> Int -> a
+submitMustFail x _ _ = x
+
+data Phantom (a : Symbol) (b : Symbol) = Phantom {}
+
+unpackPair : forall a b c d. Phantom a b -> (c,d) -> (c,d)
+unpackPair _ c = c
+
+a : ()
+a = submit () 0 0
+
+b : ()
+b = submitMustFail () 0 0
+
+c : (Int, Int)
+c = unpackPair @"abc" @"def" Phantom (42, 42)

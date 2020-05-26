@@ -1,0 +1,242 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module ScriptTest where
+
+import DA.Action
+import DA.Assert
+import DA.Foldable hiding (length)
+import DA.Time
+import Daml.Script
+
+template T
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1, p2
+
+template TProposal
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice Accept : (ContractId T, Int)
+      controller p2
+      do cid <- create T { p1, p2 }
+         pure (cid, 42)
+
+template C
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+
+    choice ShouldFail : ()
+      controller p
+      do assert False
+
+    choice GetCValue : Int
+      controller p
+      do pure v
+
+template NumericTpl
+  with
+    p : Party
+    v : Numeric 11
+  where
+    signatory p
+
+    nonconsuming choice GetV : Numeric 11
+      controller p
+      do pure v
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+    nonconsuming choice GetCid : ContractId WithKey
+      controller p
+      do pure self
+
+test0 : Script (Party, Party, [T], [TProposal], [C])
+test0 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  (cId1, cId2) <- submit alice $ do
+    cid1 <- createCmd (TProposal alice bob)
+    cid2 <- createCmd (TProposal alice bob)
+    pure (cid1, cid2)
+  r <- submit bob $ do
+    ~(_, r) <- exerciseCmd cId1 Accept
+    exerciseCmd cId2 Accept
+    pure r
+  _ <- submit alice $ createCmd (C alice r)
+  ts <- query @T alice
+  tProposals <- query @TProposal alice
+  cs <- query @C alice
+  pure (alice, bob, map snd ts, map snd tProposals, map snd cs)
+
+test1 : Script (Numeric 11)
+test1 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (NumericTpl alice 1.06)
+  ts <- query @NumericTpl alice
+  let v = case ts of
+        [(_cid, NumericTpl _ v)] -> v
+        _ -> error $ "Expected exactly one NumericTpl but got " <> show ts
+  v' <- submit alice $ exerciseCmd cid GetV
+  pure (v + v')
+
+test2 : C -> Script Int
+test2 (C _ i) = pure i
+
+test3 : Script ()
+test3 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  submitMustFail alice $ exerciseCmd cid ShouldFail
+  pure ()
+
+test4 : Script (ContractId C, ContractId C)
+test4 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  [(cid', _)] <- query @C alice
+  pure (cid, cid')
+
+testKey : Script (ContractId WithKey, ContractId WithKey)
+testKey = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (WithKey alice)
+  cid' <- submit alice $ exerciseByKeyCmd @WithKey alice GetCid
+  pure (cid, cid')
+
+testCreateAndExercise : Script Int
+testCreateAndExercise = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 41)
+  -- We send a couple of commands to make sure that we properly handle the fact that
+  -- we get two event results from a CreateAndExercise
+  (_, r, _) <- submit alice $
+    (,,)
+      <$> createCmd (C alice 42)
+      <*> createAndExerciseCmd (C alice 42) GetCValue
+      <*> exerciseCmd cid GetCValue
+  pure r
+
+-- Used in daml test-script test-case.
+failingTest : Script ()
+failingTest = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  submit alice $ exerciseCmd cid ShouldFail
+  pure ()
+
+-- | This used to produce a stackoverflow
+testStack : Script ()
+testStack = do
+  p <- allocateParty "p"
+  results <- submit p $ replicateA 1000 (createCmd (C p 42))
+  assert (length results == 1000)
+
+time : Script (Time, Time)
+time = do
+  t1 <- getTime
+  t2 <- getTime
+  assert (t1 <= t2)
+  pure (t1, t2)
+
+sleepTest : Script (Time, Time, Time)
+sleepTest = do
+  t1 <- getTime
+  sleep (seconds 1)
+  t2 <- getTime
+  sleep (seconds 2)
+  t3 <- getTime
+  pure (t1, t2, t3)
+
+partyIdHintTest : Script (Party, Party)
+partyIdHintTest = do
+  carol <- allocatePartyWithHint "carol" (PartyIdHint "carol")
+  dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
+  pure (carol, dan)
+
+auth : (Party, Party) -> Script ()
+auth (alice, bob) = do
+  proposal <- submit alice $ createCmd (TProposal alice bob)
+  _ <- submit bob $ exerciseCmd proposal Accept
+  pure ()
+
+traceOrder : Script ()
+traceOrder = do
+  let y: Script () = abort "foobar"
+  forA_ [0,1] $ \i -> do
+    debug "abc"
+    x <- getTime
+    debug "def"
+
+jsonBasic : Party -> Script Int
+jsonBasic p = do
+  cid <- submit p $ createCmd (TProposal p p)
+  (cid, r) <- submit p $ exerciseCmd cid Accept
+  results <- query @T p
+  results === [(cid, T p p)]
+  pure r
+
+jsonCreateAndExercise : Party -> Script Int
+jsonCreateAndExercise p =
+  fmap snd $ submit p $ createAndExerciseCmd (TProposal p p) Accept
+
+jsonExerciseByKey : Party -> Script (ContractId WithKey, ContractId WithKey)
+jsonExerciseByKey p = do
+  cid1 <- submit p $ createCmd (WithKey p)
+  cid2 <- submit p $ exerciseByKeyCmd @WithKey p GetCid
+  pure (cid1, cid2)
+
+jsonCreate : Party -> Script (ContractId TProposal)
+jsonCreate p = submit p $ createCmd (TProposal p p)
+
+jsonQuery : Party -> Script [(ContractId TProposal, TProposal)]
+jsonQuery p = query @TProposal p
+
+jsonFailingCreateAndExercise : Party -> Script ()
+jsonFailingCreateAndExercise p = submit p $ createAndExerciseCmd (C p 0) ShouldFail
+
+jsonExpectedFailureCreateAndExercise : Party -> Script ()
+jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd (C p 0) ShouldFail
+
+jsonAllocateParty : Text -> Script Party
+jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
+
+-- maxInboundMessageSize
+
+template MessageSize
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice CreateN : ()
+      with
+        n : Int
+      controller p
+      do
+        res <- forA [1..n] (\_ -> do
+              create this
+          )
+        return()
+
+testMaxInboundMessageSize : Script () = do
+  p <- allocateParty "p"
+  b <- submit p do createCmd (MessageSize p)
+  submit p do exerciseCmd b CreateN with n = 50000
+  return ()

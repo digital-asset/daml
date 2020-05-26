@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,19 +12,23 @@ da_scala_library(
     name = "interface",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-interface:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-interface:__VERSION__"],
     visibility = [
+        "//daml-assistant/daml-sdk:__subpackages__",
         "//daml-lf:__subpackages__",
+        "//daml-script:__subpackages__",
         "//extractor:__subpackages__",
         "//language-support:__subpackages__",
+        "//ledger-service:__subpackages__",
         "//navigator:__subpackages__",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/language",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -35,14 +39,8 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":interface",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
         "//daml-lf/parser",
     ],
 )

@@ -1,3 +1,6 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # stylish-haskell configuration file
 # ==================================
 
@@ -169,3 +172,4 @@ newline: native
 # language_extensions:
   # - TemplateHaskell
   # - QuasiQuotes
+

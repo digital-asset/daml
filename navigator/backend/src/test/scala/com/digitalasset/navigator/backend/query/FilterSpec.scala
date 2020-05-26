@@ -1,21 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
 import java.time.Instant
 
-import com.digitalasset.navigator.dotnot.PropertyCursor
-import com.digitalasset.navigator.model._
+import com.daml.navigator.dotnot.PropertyCursor
+import com.daml.navigator.model._
 import org.scalatest.{FlatSpec, Matchers}
-import com.digitalasset.navigator.query.filter._
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.navigator.query.filter._
+import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.std.function._
 import scalaz.syntax.arrow._
 import scalaz.syntax.tag._
 
 class FilterSpec extends FlatSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+  import com.daml.navigator.{DamlConstants => C}
 
   val choices = List(
     Choice(
@@ -24,12 +24,13 @@ class FilterSpec extends FlatSpec with Matchers {
       C.simpleUnitT,
       false)
   )
-  val template = Template(C.complexRecordId, choices)
+  val template = Template(C.complexRecordId, choices, None)
   val contractId = ApiTypes.ContractId("ContractIou")
   val commandId = ApiTypes.CommandId("Cmd")
   val workflowId = ApiTypes.WorkflowId("Workflow")
 
-  val contract = Contract(contractId, template, C.complexRecordV, Some(""))
+  val contract =
+    Contract(contractId, template, C.complexRecordV, Some(""), List.empty, List.empty, None)
   val command =
     CreateCommand(commandId, 1, workflowId, Instant.EPOCH, template.id, C.complexRecordV)
 

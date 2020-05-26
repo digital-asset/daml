@@ -1,23 +1,27 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import encoding.ExerciseOn
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
+import com.daml.lf.data.InsertOrdMap
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
+import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
-import scala.collection.{immutable => imm}
 import scala.language.higherKinds
+import scala.collection.{mutable, immutable => imm}
+import scala.collection.generic.CanBuildFrom
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
-import com.github.ghik.silencer.silent
 
-sealed abstract class Primitive {
+import scalaz.Leibniz.===
+
+sealed abstract class Primitive extends PrimitiveInstances {
   type Int64 = Long
-  type Decimal = BigDecimal
+  type Numeric = BigDecimal
   type Party = ApiTypes.Party
   val Party: ApiTypes.Party.type = ApiTypes.Party
   type Text = String
@@ -48,8 +52,16 @@ sealed abstract class Primitive {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type Map[+A] = imm.Map[String, A]
-  val Map: imm.Map.type = imm.Map
+  type TextMap[+V] <: imm.Map[String, V] with imm.MapLike[String, V, TextMap[V]]
+  val TextMap: TextMapApi
+
+  @deprecated("Use TextMap", since = "0.13.40")
+  type Map[+V] = TextMap[V]
+  @deprecated("Use TextMap", since = "0.13.40")
+  val Map: TextMap.type
+
+  type GenMap[K, +V] = InsertOrdMap[K, V]
+  val GenMap: InsertOrdMap.type = InsertOrdMap
 
   type ChoiceId = ApiTypes.Choice
   val ChoiceId: ApiTypes.Choice.type = ApiTypes.Choice
@@ -60,6 +72,18 @@ sealed abstract class Primitive {
   type TemplateId[+Tpl] <: ApiTypes.TemplateId
   val TemplateId: TemplateIdApi
   type Update[+A] <: DomainCommand
+
+  sealed abstract class TextMapApi {
+    type Coll = TextMap[_]
+    def empty[V]: TextMap[V]
+    def apply[V](elems: (String, V)*): TextMap[V]
+    def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
+    implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
+    final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V].subst[Id](map)
+    def subst[F[_[_]]](fa: F[imm.Map[String, ?]]): F[TextMap]
+    final def leibniz[V]: imm.Map[String, V] === TextMap[V] =
+      subst[Lambda[g[_] => imm.Map[String, V] === g[V]]](scalaz.Leibniz.refl)
+  }
 
   sealed abstract class DateApi {
     val MIN: Date
@@ -101,25 +125,9 @@ sealed abstract class Primitive {
 
     private[binding] def substEx[F[_]](fa: F[rpcvalue.Identifier]): F[TemplateId[_]]
 
-    // @deprecated("Use 3-argument version instead", since = "15.0.0")
-    def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String)]
-
-    // def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)]
-  }
-
-  private[digitalasset] object LegacyIdentifier {
-    // suppress deprecation warnings because we _need_ to use the deprecated .name here -- the entire
-    // point of this method is to process it.
-    @silent
-    def unapply(t: rpcvalue.Identifier): Some[(String, String)] =
-      // TODO SC DEL-6727 use this instead with daml-lf value interface
-      // rpcvalue.Identifier unapply t.unwrap
-      t match {
-        case rpcvalue.Identifier(packageId, "", moduleName, entityName) =>
-          Some((packageId, s"$moduleName.$entityName"))
-        case rpcvalue.Identifier(packageId, entityName, _, _) =>
-          Some((packageId, entityName))
-      }
+    /** Package ID, module name, and entity name.
+      */
+    def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)]
   }
 
   private[binding] def substContractId[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]]
@@ -146,8 +154,20 @@ private[client] object OnlyPrimitive extends Primitive {
   type TemplateId[+Tpl] = ApiTypes.TemplateId
   type Update[+A] = DomainCommand
 
+  type TextMap[+V] = imm.Map[String, V]
+
+  object TextMap extends TextMapApi {
+    override def empty[V]: TextMap[V] = imm.Map.empty
+    override def apply[V](elems: (String, V)*): TextMap[V] = imm.Map(elems: _*)
+    override def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]] = imm.Map.newBuilder
+    override def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]] = imm.Map.canBuildFrom
+    override def subst[F[_[_]]](fa: F[TextMap]): F[TextMap] = fa
+  }
+
+  override val Map = TextMap
+
   object Date extends DateApi {
-    import com.digitalasset.api.util.TimestampConversion
+    import com.daml.api.util.TimestampConversion
     private val UTC = TimeZone.getTimeZone("UTC")
     override val MIN = LocalDateTime.ofInstant(TimestampConversion.MIN, UTC.toZoneId).toLocalDate
     override val MAX = LocalDateTime.ofInstant(TimestampConversion.MAX, UTC.toZoneId).toLocalDate
@@ -162,7 +182,7 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   object Timestamp extends TimeApi {
-    import com.digitalasset.api.util.TimestampConversion
+    import com.daml.api.util.TimestampConversion
     override val MIN = TimestampConversion.MIN
     override val MAX = TimestampConversion.MAX
 
@@ -180,21 +200,19 @@ private[client] object OnlyPrimitive extends Primitive {
     override def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String): TemplateId[Tpl] =
+        entityName: String
+    ): TemplateId[Tpl] =
       ApiTypes.TemplateId(
-        rpcvalue.Identifier(
-          packageId = packageId,
-          name = s"$moduleName.$entityName",
-          moduleName = moduleName,
-          entityName = entityName))
+        rpcvalue
+          .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName))
 
     private[binding] override def substEx[F[_]](fa: F[rpcvalue.Identifier]) =
       ApiTypes.TemplateId subst fa
 
-    override def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String)] =
-      // TODO SC DEL-6727 use this instead with daml-lf value interface
-      // rpcvalue.Identifier unapply t.unwrap
-      LegacyIdentifier unapply t.unwrap
+    override def unapply[Tpl](t: TemplateId[Tpl]): Some[(String, String, String)] = {
+      val rpcvalue.Identifier(packageId, moduleName, entityName) = t.unwrap
+      Some((packageId, moduleName, entityName))
+    }
   }
 
   object ContractId extends ContractIdApi {
@@ -252,4 +270,18 @@ private[client] object OnlyPrimitive extends Primitive {
     rpcvalue.Record(recordId = Some(recordId), args.map {
       case (k, v) => rpcvalue.RecordField(k, Some(v))
     })
+}
+
+sealed abstract class PrimitiveInstances
+
+// do not import this._, use -Xsource:2.13 scalac option instead
+object PrimitiveInstances {
+  import language.implicitConversions
+  import Primitive.TextMap
+
+  implicit def textMapCanBuildFrom[V]: CanBuildFrom[TextMap.Coll, (String, V), TextMap[V]] =
+    TextMap.canBuildFrom
+
+  /** Applied in contexts that ''expect'' a `TextMap`, iff -Xsource:2.13. */
+  implicit def textMapFromMap[V](m: imm.Map[String, V]): TextMap[V] = TextMap fromMap m
 }

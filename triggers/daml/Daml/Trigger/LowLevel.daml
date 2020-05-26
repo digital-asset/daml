@@ -1,0 +1,241 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Trigger.LowLevel
+  ( Message(..)
+  , Completion(..)
+  , CompletionStatus(..)
+  , Transaction(..)
+  , AnyContractId
+  , toAnyContractId
+  , fromAnyContractId
+  , TransactionId(..)
+  , EventId(..)
+  , CommandId(..)
+  , Event(..)
+  , Created(..)
+  , fromCreated
+  , Archived(..)
+  , fromArchived
+  , Trigger(..)
+  , ActiveContracts(..)
+  , Commands(..)
+  , Command(..)
+  , createCmd
+  , exerciseCmd
+  , exerciseByKeyCmd
+  , createAndExerciseCmd
+  , fromCreate
+  , fromExercise
+  , fromExerciseByKey
+  , fromCreateAndExercise
+  , RegisteredTemplates(..)
+  , registeredTemplate
+  , RelTime(..)
+  ) where
+
+import DA.Next.Map (MapKey(..))
+import DA.Time (RelTime(..))
+
+-- | This type represents the contract id of an unknown template.
+-- You can use `fromAnyContractId` to check which template it corresponds to.
+data AnyContractId = AnyContractId
+  { templateId : TemplateTypeRep
+  , contractId : ContractId ()
+  } deriving Eq
+
+-- We can’t derive the Show instance since TemplateTypeRep does not have a Show instance
+-- but it is useful for debugging so we add one that omits the type.
+instance Show AnyContractId where
+  showsPrec d (AnyContractId _ cid) = showParen (d > app_prec) $
+    showString "AnyContractId " . showsPrec (app_prec +1) cid
+    where app_prec = 10
+
+
+-- | Wrap a `ContractId t` in `AnyContractId`.
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
+toAnyContractId cid = AnyContractId
+  { templateId = templateTypeRep @t
+  , contractId = coerceContractId cid
+  }
+
+-- | Check if a `AnyContractId` corresponds to the given template or return
+-- `None` otherwise.
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId cid
+  | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
+  | otherwise = None
+
+newtype TransactionId = TransactionId Text
+  deriving (Show, Eq)
+
+newtype EventId = EventId Text
+  deriving (Show, Eq)
+
+newtype CommandId = CommandId Text
+  deriving (Show, Eq, MapKey)
+
+data Transaction = Transaction
+ { transactionId : TransactionId
+ , commandId : Optional CommandId
+ , events : [Event]
+ }
+
+-- | An event in a transaction.
+-- This definition should be kept consistent with the object `EventVariant` defined in
+-- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
+data Event
+  = CreatedEvent Created
+  | ArchivedEvent Archived
+
+-- | The data in a `Created` event.
+data Created = Created
+  { eventId : EventId
+  , contractId : AnyContractId
+  , argument : AnyTemplate
+  }
+
+-- | Check if a `Created` event corresponds to the given template.
+fromCreated : Template t => Created -> Optional (EventId, ContractId t, t)
+fromCreated Created {eventId, contractId, argument}
+  | Some contractId' <- fromAnyContractId contractId
+  , Some argument' <- fromAnyTemplate argument
+  = Some (eventId, contractId', argument')
+  | otherwise
+  = None
+
+-- | The data in an `Archived` event.
+data Archived = Archived
+  { eventId : EventId
+  , contractId : AnyContractId
+  } deriving (Show, Eq)
+
+-- | Check if an `Archived` event corresponds to the given template.
+fromArchived : Template t => Archived -> Optional (EventId, ContractId t)
+fromArchived Archived {eventId, contractId}
+  | Some contractId' <- fromAnyContractId contractId
+  = Some (eventId, contractId')
+  | otherwise
+  = None
+
+-- | Either a transaction or a completion.
+-- This definition should be kept consistent with the object `MessageVariant` defined in
+-- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
+data Message
+  = MTransaction Transaction
+  | MCompletion Completion
+  | MHeartbeat
+
+-- | A completion message.
+-- Note that you will only get completions for commands emitted from the trigger.
+-- Contrary to the ledger API completion stream, this also includes
+-- synchronous failures.
+
+data Completion = Completion
+  { commandId : CommandId
+  , status : CompletionStatus
+  } deriving Show
+
+
+-- This definition should be kept consistent with the object `CompletionStatusVariant` defined in
+-- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
+data CompletionStatus
+  = Failed { status : Int, message : Text }
+  | Succeeded { transactionId : TransactionId }
+  deriving Show
+
+data ActiveContracts = ActiveContracts { activeContracts : [Created] }
+
+-- | Trigger is (approximately) a left-fold over `Message` with
+-- an accumulator of type `s`.
+data Trigger s = Trigger
+  { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
+  , update : Time -> Message -> s -> (s, [Commands])
+  , registeredTemplates : RegisteredTemplates
+  , heartbeat : Optional RelTime
+  }
+
+-- | A template that the trigger will receive events for.
+newtype RegisteredTemplate = RegisteredTemplate TemplateTypeRep
+
+-- This controls which templates the trigger will receive events for.
+-- `AllInDar` is a safe default but for performance reasons you might
+-- want to limit it to limit the templates that the trigger will receive
+-- events for.
+data RegisteredTemplates
+  = AllInDar -- ^ Listen to events for all templates in the given DAR.
+  | RegisteredTemplates [RegisteredTemplate]
+
+registeredTemplate : forall t. Template t => RegisteredTemplate
+registeredTemplate = RegisteredTemplate (templateTypeRep @t)
+
+-- | A ledger API command. To construct a command use `createCmd` and `exerciseCmd`.
+data Command
+  = CreateCommand
+      { templateArg : AnyTemplate
+      }
+  | ExerciseCommand
+      { contractId : AnyContractId
+      , choiceArg : AnyChoice
+      }
+  | CreateAndExerciseCommand
+    { templateArg : AnyTemplate
+    , choiceArg : AnyChoice
+    }
+  | ExerciseByKeyCommand
+      { tplTypeRep : TemplateTypeRep
+      , contractKey : AnyContractKey
+      , choiceArg : AnyChoice
+      }
+
+-- | Create a contract of the given template.
+createCmd : Template t => t -> Command
+createCmd templateArg =
+  CreateCommand (toAnyTemplate templateArg)
+
+-- | Exercise the given choice.
+exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Command
+exerciseCmd contractId choiceArg =
+  ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
+
+-- | Create a contract of the given template and immediately exercise
+-- the given choice on it.
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r) => t -> c -> Command
+createAndExerciseCmd templateArg choiceArg =
+  CreateAndExerciseCommand (toAnyTemplate templateArg) (toAnyChoice @t choiceArg)
+
+exerciseByKeyCmd : forall t c r k. (Choice t c r, TemplateKey t k) => k -> c -> Command
+exerciseByKeyCmd contractKey choiceArg =
+  ExerciseByKeyCommand (templateTypeRep @t) (toAnyContractKey @t contractKey) (toAnyChoice @t choiceArg)
+
+-- | Check if the command corresponds to a create command
+-- for the given template.
+fromCreate : Template t => Command -> Optional t
+fromCreate (CreateCommand t) = fromAnyTemplate t
+fromCreate _ = None
+
+-- | Check if the command corresponds to a create and exercise command
+-- for the given template.
+fromCreateAndExercise : forall t c r. (Template t, Choice t c r) => Command -> Optional (t, c)
+fromCreateAndExercise (CreateAndExerciseCommand t c) = (,) <$> fromAnyTemplate t <*> fromAnyChoice @t c
+fromCreateAndExercise _ = None
+
+-- | Check if the command corresponds to an exercise command
+-- for the given template.
+fromExercise : forall t c r. Choice t c r => Command -> Optional (ContractId t, c)
+fromExercise (ExerciseCommand cid c) = (,) <$> fromAnyContractId cid <*> fromAnyChoice @t c
+fromExercise _ = None
+
+-- | Check if the command corresponds to an exercise by key command
+-- for the given template.
+fromExerciseByKey : forall t c r k. (Choice t c r, TemplateKey t k) => Command -> Optional (k, c)
+fromExerciseByKey (ExerciseByKeyCommand tyRep k c)
+  | tyRep == templateTypeRep @t = (,) <$> fromAnyContractKey @t k <*> fromAnyChoice @t c
+fromExerciseByKey _ = None
+
+-- | A set of commands that are submitted as a single transaction.
+data Commands = Commands
+  { commandId : CommandId
+  , commands : [Command]
+  }

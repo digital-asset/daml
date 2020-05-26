@@ -1,66 +1,80 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
-import java.io._
-import java.util.zip.ZipFile
+package com.daml.lf
+package archive
 
-import com.digitalasset.daml.lf.archive.{DarReader, LanguageMajorVersion, Reader}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
-import com.digitalasset.daml_lf.DamlLf
+import java.io._
+import java.util.zip.ZipInputStream
+
+import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.daml_lf_dev.DamlLf
 
 import scala.util.{Failure, Success, Try}
+
+import com.daml.lf.data.TryOps.Bracket.bracket
 
 /**
   * Can parse DARs and DALFs.
   * See factories:
-  *   [[com.digitalasset.daml.lf.UniversalArchiveReader]];
-  *   [[com.digitalasset.daml.lf.UniversalArchiveReaderWithVersion]]
+  * [[com.daml.lf.archive.UniversalArchiveReader]];
+  * [[com.daml.lf.archive.UniversalArchiveReaderWithVersion]]
   *
   * @param parseDar  function to parse a DAR file.
   * @param parseDalf function to parse a DALF input stream.
   * @tparam A type of the result, see factories for more details.
   */
 class UniversalArchiveReader[A](
-    parseDar: ZipFile => Try[Dar[A]],
+    parseDar: (String, ZipInputStream) => Try[Dar[A]],
     parseDalf: InputStream => Try[A]) {
+
   import SupportedFileType._
 
-  def readFile(file: File): Try[Dar[A]] = supportedFileType(file).flatMap {
-    case DarFile =>
-      bracket(zipFile(file))(close).flatMap(parseDar)
-    case DalfFile =>
-      bracket(inputStream(file))(close).flatMap(parseDalf).map(Dar(_, List.empty))
-  }
+  /** Reads a DAR from a File. */
+  def readFile(file: File): Try[Dar[A]] =
+    supportedFileType(file).flatMap {
+      case DarFile => readDarStream(file.getName, new ZipInputStream(new FileInputStream(file)))
+      case DalfFile => readDalfStream(new FileInputStream(file))
+    }
 
-  private def zipFile(f: File): Try[ZipFile] =
-    Try(new ZipFile(f))
+  /** Reads a DAR from an InputStream. This method takes care of closing the stream! */
+  def readDarStream(fileName: String, dar: ZipInputStream): Try[Dar[A]] =
+    bracket(Try(dar))(dar => Try(dar.close())).flatMap(parseDar(fileName, _))
 
-  private def inputStream(f: File): Try[InputStream] =
-    Try(new BufferedInputStream(new FileInputStream(f)))
+  /** Reads a DALF from an InputStream. This method takes care of closing the stream! */
+  def readDalfStream(dalf: InputStream): Try[Dar[A]] =
+    bracket(Try(dalf))(dalf => Try(dalf.close())).flatMap(parseDalf).map(Dar(_, List.empty))
 
-  private def close(f: Closeable): Try[Unit] = Try(f.close())
 }
 
 /**
-  * Factory for [[com.digitalasset.daml.lf.UniversalArchiveReader]] class.
+  * Factory for [[com.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReader {
-  def apply(): UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
-    new UniversalArchiveReader(parseDar(parseDalf), parseDalf)
+  def apply(entrySizeThreshold: Int = DarReader.EntrySizeThreshold)
+    : UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
+    new UniversalArchiveReader(parseDar(entrySizeThreshold, parseDalf), parseDalf)
+
+  def apply[A](
+      entrySizeThreshold: Int,
+      parseDalf: InputStream => Try[A]): UniversalArchiveReader[A] =
+    new UniversalArchiveReader[A](parseDar(entrySizeThreshold, parseDalf), parseDalf)
 
   def apply[A](parseDalf: InputStream => Try[A]): UniversalArchiveReader[A] =
-    new UniversalArchiveReader[A](parseDar(parseDalf), parseDalf)
+    new UniversalArchiveReader[A](parseDar(DarReader.EntrySizeThreshold, parseDalf), parseDalf)
 
   private def parseDalf(is: InputStream) = Try(Reader.decodeArchiveFromInputStream(is))
 
-  private def parseDar[A](parseDalf: InputStream => Try[A]): ZipFile => Try[Dar[A]] =
-    DarReader(parseDalf).readArchive
+  private def parseDar[A](
+      entrySizeThreshold: Int,
+      parseDalf: InputStream => Try[A],
+  ): (String, ZipInputStream) => Try[Dar[A]] =
+    DarReader { case (_, is) => parseDalf(is) }.readArchive(_, _, entrySizeThreshold)
 }
 
 /**
-  * Factory for [[com.digitalasset.daml.lf.UniversalArchiveReader]] class.
+  * Factory for [[com.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReaderWithVersion {
   def apply()
@@ -70,7 +84,7 @@ object UniversalArchiveReaderWithVersion {
   private def parseDalf(is: InputStream) = Try(Reader.readArchiveAndVersion(is))
 }
 
-private[lf] object SupportedFileType {
+object SupportedFileType {
   def supportedFileType(f: File): Try[SupportedFileType] =
     if (DarFile.matchesFileExtension(f)) Success(DarFile)
     else if (DalfFile.matchesFileExtension(f)) Success(DalfFile)

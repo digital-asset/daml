@@ -1,55 +1,52 @@
 # Pinned version of nixpkgs that we use for our development and deployment.
 
-{ system ? builtins.currentSystem }:
+{ system ? builtins.currentSystem, ... }:
 
 let
   # See ./nixpkgs/README.md for upgrade instructions.
-  src = import ./nixpkgs/nixos-19.03;
+  src = import ./nixpkgs;
 
   # package overrides
   overrides = _: pkgs: rec {
-    # We can't use pkgs.bazel here, as it is somewhat outdated. It features
-    # version 0.10.1, while rules_haskell (for example) requires bazel >= 0.14.
-    bazel = pkgs.callPackage ./overrides/bazel {
-      inherit (pkgs.darwin) cctools;
-      inherit (pkgs.darwin.apple_sdk.frameworks) CoreFoundation CoreServices Foundation;
-      buildJdk = pkgs.jdk8;
-      buildJdkName = "jdk8";
-      runJdk = pkgs.jdk8;
-      # Create a C binary
-      # Required by Bazel.
-      # Added to nixpkgs in 88fe22d0d7d6626b7735a4a4e606215b951ad267
-      writeCBin = name: code:
-      pkgs.runCommandCC name
-      {
-        inherit name code;
-        executable = true;
-        passAsFile = ["code"];
-          # Pointless to do this on a remote machine.
-          preferLocalBuild = true;
-          allowSubstitutes = false;
-        }
-        ''
-          n=$out/bin/$name
-          mkdir -p "$(dirname "$n")"
-          mv "$codePath" code.c
-          $CC -x c code.c -o "$n"
-        '';
+    grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
+      version = "1.23.1";
+      src = pkgs.fetchFromGitHub {
+        owner = "grpc";
+        repo = "grpc";
+        rev = "v1.23.1";
+        sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
+        fetchSubmodules = true;
       };
-      ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
-        installPhase = ''
-          mkdir -p $out
-          PREFIX=$out make install
-          wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql}/bin:$out/bin
-        '';
-      });
-      haskellPackages = pkgs.haskellPackages.override {
-        overrides = self: super: {
-          hlint = super.callPackage ./overrides/hlint-2.1.15.nix {};
-          haskell-src-exts = super.callPackage ./overrides/haskell-src-exts-1.21.0.nix {};
-          haskell-src-meta = super.callPackage ./overrides/haskell-src-meta-0.8.2.nix {};
-        };
-      };
+      # Upstream nixpkgs applies patches that are incompatbile with our version
+      # of grpc. So, we disable them.
+      patches = [
+        # Fix glibc version conflict.
+        ./grpc-Fix-gettid-naming-conflict.patch
+        ./grpc-Rename-gettid-functions.patch
+      ];
+    });
+    ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
+      installPhase = ''
+        mkdir -p $out
+        PREFIX=$out make install
+        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
+      '';
+    });
+    bazel = pkgs.bazel.overrideAttrs(oldAttrs: {
+      patches = oldAttrs.patches ++ [
+        # Note (MK)
+        # This patch enables caching of tests marked as `exclusive`. It got apparently
+        # rolled back because it caused problems internally at Google but it’s unclear
+        # what is actually failing and it seems to work fine for us.
+        # See https://github.com/bazelbuild/bazel/pull/8983/files#diff-107db037d4a55f2421fed9ed5c6cc31b
+        # for the only change that actually affects the code in this patch. The rest is tests
+        # and/or documentation.
+        (pkgs.fetchurl {
+          url = "https://patch-diff.githubusercontent.com/raw/bazelbuild/bazel/pull/8983.patch";
+          sha256 = "1j25bycn9q7536ab3ln6yi6zpzv2b25fwdyxbgnalkpl2dz9idb7";
+        })
+      ];
+    });
   };
 
   nixpkgs = import src {

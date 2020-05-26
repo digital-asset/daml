@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,15 +11,18 @@ load(
 da_scala_library(
     name = "data",
     srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-data:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-data:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -30,8 +33,9 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":data",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//daml-lf/data-scalacheck",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

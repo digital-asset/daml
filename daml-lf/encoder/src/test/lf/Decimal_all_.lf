@@ -1,0 +1,32 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module DecimalMod {
+
+  record @serializable Box = { x: Numeric 10, party: Party  } ;
+
+  template (this : Box) =  {
+    precondition True,
+    signatories (PartyMod:one (DecimalMod:Box {party} this)),
+    observers (Nil @Party),
+    agreement "Agreement for DecimalMod:Box",
+    choices {
+    }
+  };
+
+  val build0: DecimalMod:Box = DecimalMod:Box {
+    x  = 0.0000000000 ,
+    party = 'Alice'
+  };
+
+  val buildMax: DecimalMod:Box = DecimalMod:Box {
+    x = 9999999999999999999999999999.9999999999 ,
+    party = 'Alice'
+  };
+
+  val buildMin: DecimalMod:Box = DecimalMod:Box {
+    x = -9999999999999999999999999999.9999999999 ,
+    party = 'Alice'
+  };
+
+}

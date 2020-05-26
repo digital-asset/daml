@@ -1,28 +1,20 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.util
+package com.daml.codegen.util
+
 import java.io.File
-import java.net.ServerSocket
 
+import com.daml.bazeltools.BazelRunfiles._
 import scalaz.{@@, Tag}
-
-import scala.util.Try
 
 object TestUtil {
   sealed trait TestContextTag
   type TestContext = String @@ TestContextTag
-  val TestContext = Tag.of[TestContextTag]
-
-  def findOpenPort(): Try[Int] = Try {
-    val socket = new ServerSocket(0)
-    val result = socket.getLocalPort
-    socket.close()
-    result
-  }
+  val TestContext: Tag.TagOf[TestContextTag] = Tag.of[TestContextTag]
 
   def requiredResource(path: String): File = {
-    val f = new File(path).getAbsoluteFile
+    val f = new File(rlocation(path)).getAbsoluteFile
     require(f.exists, s"File does not exist: $f")
     f
   }

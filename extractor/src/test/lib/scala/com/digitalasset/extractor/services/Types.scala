@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.services
+package com.daml.extractor.services
 
 import cats.data.NonEmptyList
 import cats.implicits._
@@ -28,7 +28,7 @@ trait Types {
       package_id: String,
       template: String,
       create_arguments: Json,
-      witness_parties: Json
+      stakeholders: Json
   )
 
   case class TransactionResult(
@@ -47,7 +47,6 @@ trait Types {
       contract_id: String,
       package_id: String,
       template: String,
-      contract_creating_event_id: String,
       choice: String,
       choice_argument: Json,
       acting_parties: Json,

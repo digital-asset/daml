@@ -1,25 +1,25 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
 import java.net.SocketAddress
 import java.util.concurrent.TimeUnit
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import io.grpc.BindableService
 
 class AkkaStreamGrpcServerResource(
-    constructServices: ActorMaterializer => Iterable[BindableService],
-    actorMaterializerResource: Resource[ActorMaterializer],
+    constructServices: Materializer => Iterable[BindableService],
+    actorMaterializerResource: Resource[Materializer],
     address: Option[SocketAddress])
-    extends DerivedResource[ActorMaterializer, ServerWithChannelProvider](actorMaterializerResource) {
+    extends DerivedResource[Materializer, ServerWithChannelProvider](actorMaterializerResource) {
 
   @volatile private var runningServices: Iterable[BindableService] = Nil
 
   def getRunningServices: Iterable[BindableService] = runningServices
 
-  override protected def construct(source: ActorMaterializer): ServerWithChannelProvider = {
+  override protected def construct(source: Materializer): ServerWithChannelProvider = {
 
     runningServices = constructServices(actorMaterializerResource.value)
     ServerWithChannelProvider.fromServices(runningServices, address, "server")
@@ -44,7 +44,7 @@ class AkkaStreamGrpcServerResource(
 
 object AkkaStreamGrpcServerResource {
   def apply(
-      constructServices: ActorMaterializer => Iterable[BindableService],
+      constructServices: Materializer => Iterable[BindableService],
       actorSystemName: String = "",
       address: Option[SocketAddress]) =
     new AkkaStreamGrpcServerResource(

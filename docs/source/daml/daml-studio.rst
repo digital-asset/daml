@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Studio
@@ -50,7 +50,7 @@ To learn more about DAML, see :doc:`reference/index`.
 Supported features
 ******************
 
-Visual Studio Code provides many helpful features for editing DAML files and Digital Asset recommends reviewing
+Visual Studio Code provides many helpful features for editing DAML files and we recommend reviewing
 `Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
 The DAML Studio extension for Visual Studio Code provides the following DAML-specific features:
 
@@ -328,4 +328,49 @@ to exercise the contract the following error would occur:
 
 To fix this issue the party 'Bob' should be made a controlling party in one of the choices.
 
+.. _daml-studio-packages:
 
+Working with multiple packages
+******************************
+
+Often a DAML project consists of multiple packages, e.g., one
+containing your templates and one containing a DAML trigger so that
+you can keep the templates stable while modifying the trigger.  It is
+possible to work on multiple packages in a single session of DAML
+studio but you have to keep some things in mind. You can see the
+directory structure of a simple multi-package project consisting of
+two packages ``pkga`` and ``pkgb`` below:
+
+.. code-block:: none
+
+    .
+    ├── daml.yaml
+    ├── pkga
+    │   ├── daml
+    │   │   └── A.daml
+    │   └── daml.yaml
+    └── pkgb
+        ├── daml
+        │   └── B.daml
+        └── daml.yaml
+
+``pkga`` and ``pkgb`` are regular DAML projects with a ``daml.yaml``
+and a DAML module. In addition to the ``daml.yaml`` files for the
+respective packages, you also need to add a ``daml.yaml`` to the root
+of your project. This file only needs to specify the SDK
+version. Replace ``X.Y.Z`` by the SDK version you specified in the
+``daml.yaml`` files of the individual packages. Note that this feature
+is only available in SDK version ``0.13.52`` and newer.
+
+.. code-block:: yaml
+
+    sdk-version: X.Y.Z
+
+You can then open DAML Studio once in the root of your project and
+work on files in both packages. Note that if ``pkgb`` refers to
+``pkga.dar`` in its ``dependencies`` field, changes will not be picked
+up automatically. This is always the case even if you open DAML Studio
+in ``pkgb``. However, for multi-package projects there is an
+additional caveat: You have to both rebuild ``pkga.dar`` using ``daml
+build`` and then build ``pkgb`` using ``daml build`` before restarting
+DAML Studio.

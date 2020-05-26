@@ -1,21 +1,20 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
-import com.digitalasset.daml.lf.iface.Record
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types._
-import com.digitalasset.extractor.logging.Logging
-import com.digitalasset.extractor.Types.{DataIntegrityError, FullyAppliedType}
-import com.digitalasset.extractor.Types.FullyAppliedType._
-import com.digitalasset.extractor.Types.FullyAppliedType.ops._
-import com.digitalasset.extractor.writers.postgresql.DataFormat.TemplateInfo
-import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
-
+import com.daml.lf.data.Numeric.maxPrecision
+import com.daml.lf.iface
+import com.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.iface.Record
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types._
+import com.daml.extractor.Types.{DataIntegrityError, FullyAppliedType}
+import com.daml.extractor.Types.FullyAppliedType._
+import com.daml.extractor.Types.FullyAppliedType.ops._
+import com.daml.extractor.writers.postgresql.DataFormat.TemplateInfo
+import com.daml.extractor.writers.postgresql.DataFormatState.MultiTableState
+import com.daml.extractor.writers.Writer.RefreshPackages
 import cats.implicits._
 import doobie.implicits._
 import doobie.free.connection
@@ -29,8 +28,8 @@ class MultiTableDataFormat(
     /*splat: Int, */ schemaPerPackage: Boolean,
     mergeIdentical: Boolean,
     stripPrefix: Option[String]
-) extends DataFormat[MultiTableState]
-    with Logging {
+) extends DataFormat[MultiTableState] {
+
   import Queries._
   import Queries.MultiTable._
 
@@ -87,9 +86,9 @@ class MultiTableDataFormat(
       schemaOrErr.fold(
         e => (state, connection.raiseError[Unit](DataIntegrityError(e))), { schemaOpt =>
           val schema = schemaOpt.getOrElse(singleSchemaName)
-          val tableNames = TableName(s"${schema}.${tableName}", tableName)
+          val tableNames = TableName(s"$schema.$tableName", tableName)
 
-          val io = createIOForTable(tableNames.withSchema, params, id)
+          val io = createIOForTable(tableNames.withSchema, params, id, packageStore)
           val updatedState = state.copy(
             templateToTable = state.templateToTable + (id -> tableNames)
           )
@@ -178,7 +177,7 @@ class MultiTableDataFormat(
         if (event.consuming)
           setContractArchived(
             table.withSchema,
-            event.contractCreatingEventId,
+            event.contractId,
             transaction.transactionId,
             event.eventId).update.run.void
         else
@@ -216,7 +215,8 @@ class MultiTableDataFormat(
   private def createIOForTable(
       tableName: String,
       params: iface.Record.FWT,
-      templateId: Identifier
+      templateId: Identifier,
+      packageStore: PackageStore
   ): ConnectionIO[Unit] = {
     val drop = dropTableIfExists(tableName).update.run
 
@@ -228,7 +228,7 @@ class MultiTableDataFormat(
           uName :: acc
       }
       .reverse
-      .zip(mapColumnTypes(params))
+      .zip(mapColumnTypes(params, packageStore))
 
     val create = createContractTable(tableName, columnsWithTypes).update.run
     val setComment = setTableComment(
@@ -244,30 +244,31 @@ class MultiTableDataFormat(
   }
 
   private def mapSQLType(iType: FullyAppliedType): String = iType match {
+    case TypeNumeric(scale) => s"NUMERIC($maxPrecision, $scale)"
     case TypePrim(typ, _) =>
       typ match {
         case iface.PrimTypeParty => "TEXT"
         case iface.PrimTypeList => "JSONB"
         case iface.PrimTypeContractId => "TEXT"
         case iface.PrimTypeTimestamp => "TIMESTAMP"
-        case iface.PrimTypeDecimal => "NUMERIC(38, 10)"
         case iface.PrimTypeBool => "BOOLEAN"
         case iface.PrimTypeUnit => "SMALLINT"
         case iface.PrimTypeInt64 => "BIGINT"
         case iface.PrimTypeText => "TEXT"
         case iface.PrimTypeDate => "DATE"
         case iface.PrimTypeOptional => "JSONB"
-        case iface.PrimTypeMap => "JSONB"
+        case iface.PrimTypeTextMap => "JSONB"
+        case iface.PrimTypeGenMap => "JSONB"
       }
-    case TypeCon(_, _) => "JSONB"
+    case TypeCon(_, _, true) => "TEXT"
+    case TypeCon(_, _, _) => "JSONB"
   }
 
-  private def mapColumnTypes(params: iface.Record.FWT): List[String] = {
-    params.fields.toList.map(_._2.fat).map {
+  private def mapColumnTypes(params: iface.Record.FWT, packageStore: PackageStore): List[String] =
+    params.fields.toList.map(_._2.fat(packageStore)).map {
       case TypePrim(iface.PrimTypeOptional, typeArg :: _) => mapSQLType(typeArg) + " NULL"
       case other => mapSQLType(other) + " NOT NULL"
     }
-  }
 
   private def uniqueName(takenNames: Set[String], baseName: String): String = {
     @tailrec

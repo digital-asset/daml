@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,50 +8,47 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//bazel_tools:java.bzl", "da_java_library")
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_stable_version",
+)
 
 da_java_library(
     name = "bindings-rxjava",
     srcs = glob(["src/main/java/**/*.java"]),
     tags = [
         "javadoc_root_packages=com.daml.ledger.rxjava",
-        "maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__",
+        "maven_coordinates=com.daml:bindings-rxjava:__VERSION__",
     ],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/io/grpc:grpc_core",
-        "//3rdparty/jvm/io/grpc:grpc_netty",
-        "//3rdparty/jvm/io/grpc:grpc_protobuf",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/io/netty:netty_handler",
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//3rdparty/jvm/org/checkerframework:checker",
-        "//3rdparty/jvm/org/pcollections",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//language-support/java/bindings:bindings-java",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-auth-client",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_checkerframework_checker",
+        "@maven//:org_pcollections_pcollections",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
-
-testDependencies = [
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    ":bindings-rxjava",
-    "//3rdparty/jvm/org/slf4j:slf4j_api",
-    "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    "//language-support/java/testkit:testkit",
-    "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-    "//3rdparty/jvm/org/scalacheck:scalacheck",
-    "//3rdparty/jvm/org/reactivestreams:reactive_streams",
-    "//3rdparty/jvm/org/pcollections:pcollections",
-    "//3rdparty/jvm/org/scalactic:scalactic",
-    "//language-support/java/bindings:bindings-java",
-]
 
 da_scala_library(
     name = "bindings-java-tests-lib",
@@ -62,7 +59,25 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
-    deps = testDependencies,
+    deps = [
+        ":bindings-rxjava",
+        "//daml-lf/data",
+        "//language-support/java/bindings:bindings-java",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//libs-scala/grpc-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 da_scala_test_suite(
@@ -71,9 +86,44 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    data = [
+        ":bindings-integration-tests-model-latest.dar",
+    ],
+    resources = [
+        ":src/test/resources/logback-test.xml",
+    ],
     deps = [
+        ":bindings-integration-tests-model-latest.jar",
         ":bindings-java-tests-lib",
-    ] + testDependencies,
+        ":bindings-rxjava",
+        "//language-support/java/bindings:bindings-java",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//libs-scala/grpc-utils",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_pcollections_pcollections",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+daml_compile(
+    name = "bindings-integration-tests-model-latest",
+    srcs = ["src/main/daml/TemplateUtils.daml"],
+    target = lf_stable_version,
+)
+
+dar_to_java(
+    name = "bindings-integration-tests-model-latest",
+    src = ":bindings-integration-tests-model-latest.dar",
 )
 
 filegroup(

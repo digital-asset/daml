@@ -1,6 +1,0 @@
--- @ERROR collision between record Collision:RECORD and record Collision:Record
-daml 1.2
-module Collision where
-
-data Record = Record {}
-data RECORD = RECORD {}

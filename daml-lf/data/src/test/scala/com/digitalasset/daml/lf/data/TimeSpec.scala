@@ -1,14 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
-import java.time.{Instant, LocalDate}
+import java.time.{Duration, Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.daml.lf.data.Time._
+import com.daml.lf.data.Time._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
@@ -84,6 +84,24 @@ class TimeSpec extends FreeSpec with Matchers with TableDrivenPropertyChecks {
       Timestamp.fromString(Instant.parse(max).plusMillis(1).toString) shouldBe 'left
       Timestamp.fromString(min) shouldBe 'right
       Timestamp.fromString(Instant.parse(min).plusMillis(-1).toString) shouldBe 'left
+    }
+
+    "add increments the timestamp" in {
+      val timestamp = Timestamp.assertFromString("2019-04-04T08:33:38.123456Z")
+      val incrementedTimestamp = timestamp.add(Duration.ofNanos(1234567000))
+      incrementedTimestamp.toString shouldBe "2019-04-04T08:33:39.358023Z"
+    }
+
+    "add increments the timestamp even when the duration can't be turned into nanoseconds" in {
+      val timestamp = Timestamp.Epoch
+      val incrementedTimestamp = timestamp.add(Duration.ofNanos(Long.MaxValue).plusNanos(1))
+      incrementedTimestamp.toString shouldBe "2262-04-11T23:47:16.854775Z"
+    }
+
+    "addMicros increments the timestamp" in {
+      val timestamp = Timestamp.assertFromString("2019-04-04T08:33:38.123456Z")
+      val incrementedTimestamp = timestamp.addMicros(1234567)
+      incrementedTimestamp.toString shouldBe "2019-04-04T08:33:39.358023Z"
     }
 
     "addMicros throws an error if it overflows" in {

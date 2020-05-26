@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import scala.language.higherKinds
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
-import com.digitalasset.ledger.api.v1.{event => rpcevent, value => rpcvalue}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
+import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
 
@@ -44,7 +44,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
 
   def toNamedArguments(associatedType: T): rpcvalue.Record
 
-  override protected lazy val ` recordOrVariantId` = TemplateId.unwrap(id)
+  override protected lazy val ` dataTypeId` = TemplateId.unwrap(id)
 
   def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T]
 
@@ -81,7 +81,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
     Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =
-    Primitive.arguments(` recordOrVariantId`, elems)
+    Primitive.arguments(` dataTypeId`, elems)
 }
 
 object TemplateCompanion {
@@ -93,6 +93,6 @@ object TemplateCompanion {
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def fieldEncoding(lte: LfTypeEncoding): view[lte.Field] = RecordView.Empty
     override def encoding(lte: LfTypeEncoding)(view: view[lte.Field]): lte.Out[T] =
-      lte.emptyRecord(` recordOrVariantId`, () => onlyInstance)
+      lte.emptyRecord(` dataTypeId`, () => onlyInstance)
   }
 }

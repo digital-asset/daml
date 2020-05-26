@@ -1,0 +1,30 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Time where
+
+import Daml.Trigger.LowLevel
+
+test : Trigger (Bool, [Time])
+test = Trigger
+  { initialState = \party _ _ ->
+      ((False, []), [Commands (CommandId "a") [createCmd (T party)]])
+  , update = \time msg (done, ts) ->
+  case msg of
+    MTransaction (Transaction _ _ events) ->
+      let cmds = case (done, events) of
+            (False, [CreatedEvent (fromCreated @T -> Some (_, _, t))]) -> [Commands (CommandId "b") [createCmd t]]
+            _ -> []
+          newState = (True, time :: ts)
+      in (newState, cmds)
+    _ -> ((done, ts), [])
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+template T
+  with
+    p : Party
+  where
+    signatory p

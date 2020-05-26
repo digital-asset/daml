@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -13,11 +13,11 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class DispatcherImpl[Index: Ordering, T](
-    subsource: SubSource[Index, T],
+final class DispatcherImpl[Index: Ordering](
+    name: String,
     zeroIndex: Index,
     headAtInitialization: Index)
-    extends Dispatcher[Index, T] {
+    extends Dispatcher[Index] {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -75,31 +75,49 @@ final class DispatcherImpl[Index: Ordering, T](
       case Running(prev, disp) =>
         if (Ordering[Index].gt(head, prev)) disp.signal()
       case c: Closed =>
-        logger.debug("Failed to update Dispatcher HEAD: instance already closed.")
+        logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
-  override def startingAt(start: Index, requestedEnd: Option[Index]): Source[(Index, T), NotUsed] =
-    requestedEnd.fold(startingAt(start))(
-      end =>
-        if (Ordering[Index].gt(start, end))
-          Source.failed(new IllegalArgumentException(
-            s"Invalid index section: start '$start' is after end '$end'"))
-        else startingAt(start).takeWhile(_._1 != end, inclusive = true))
-
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
-  override def startingAt(start: Index): Source[(Index, T), NotUsed] =
-    if (indexIsBeforeZero(start))
+  override def startingAt[T](
+      startExclusive: Index,
+      subsource: SubSource[Index, T],
+      endInclusive: Option[Index] = None): Source[(Index, T), NotUsed] =
+    if (indexIsBeforeZero(startExclusive))
       Source.failed(
         new IllegalArgumentException(
-          s"Invalid start index: '$start' before zero index '$zeroIndex'"))
-    else
-      state.get.getSignalDispatcher.fold(Source.failed[(Index, T)](closedError))(
+          s"$name: Invalid start index: '$startExclusive' before zero index '$zeroIndex'"))
+    else if (endInclusive.exists(Ordering[Index].gt(startExclusive, _)))
+      Source.failed(
+        new IllegalArgumentException(
+          s"$name: Invalid index section: start '$startExclusive' is after end '$endInclusive'"))
+    else {
+      val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
-          .map(_ => getHead())
-          .statefulMapConcat(() => new ContinuousRangeEmitter(start))
-          .flatMapConcat {
-            case (previousHead, head) => subsource(previousHead, head)
-          })
+        // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
+          .map(_ => getHead()))
+
+      val withOptionalEnd =
+        endInclusive.fold(subscription)(
+          maxLedgerEnd =>
+            // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
+            // we can complete the stream from the upstream direction and are not dependent on doing the filtering
+            // on actual ledger entries (which might not even exist, e.g. due to duplicate submissions or
+            // the ledger end having moved after a package upload or party allocation)
+            subscription
+            // accept ledger end signals until the signal exceeds the requested max ledger end.
+            // the last offset that we should emit here is maxLedgerEnd-1, but we cannot do this
+            // because here we only know that the Index type is order-able.
+              .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true)
+              .map(Ordering[Index].min(_, maxLedgerEnd))
+        )
+
+      withOptionalEnd
+        .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
+        .flatMapConcat {
+          case (previousHead, head) => subsource(previousHead, head)
+        }
+    }
 
   private class ContinuousRangeEmitter(private var max: Index) // var doesn't need to be synchronized, it is accessed in a GraphStage.
       extends (Index => immutable.Iterable[(Index, Index)]) {
@@ -131,6 +149,6 @@ final class DispatcherImpl[Index: Ordering, T](
     }
 
   private def closedError: IllegalStateException =
-    new IllegalStateException("Dispatcher is closed")
+    new IllegalStateException(s"$name: Dispatcher is closed")
 
 }

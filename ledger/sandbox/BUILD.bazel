@@ -1,61 +1,83 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load(
-    "//bazel_tools:scala.bzl",
-    "da_scala_binary",
-    "da_scala_library",
-    "da_scala_test_suite",
-)
-load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_darwin")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
 
-compileDependencies = [
-    # this has to come first other as somehow a different instance of grpc-core.jar
-    "//3rdparty/jvm/io/grpc:grpc_services",
+compile_deps = [
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/engine",
+    "//daml-lf/interpreter",
+    "//daml-lf/language",
     "//daml-lf/scenario-interpreter",
     "//daml-lf/transaction",
-    "//daml-lf/engine",
-    "//daml-lf/data",
-    "//daml-lf/lfpackage",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/archive:daml_lf_archive_scala",
-    "//daml-lf/interpreter",
-    "//daml-lf/transaction/src/main/protobuf:value_java_proto",
-    "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger/ledger-api-akka",
-    "//ledger/ledger-api-scala-logging",
+    "//daml-lf/transaction:transaction_java_proto",
+    "//daml-lf/transaction:value_java_proto",
     "//language-support/scala/bindings",
-    "//ledger/ledger-api-domain:ledger-api-domain",
-    "//ledger/ledger-api-common:ledger-api-common",
-    "//ledger/ledger-api-client:ledger-api-client",
-    "//ledger/backend-api",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-service/jwt",
+    "//ledger/caching",
+    "//ledger/ledger-api-akka",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-client",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-health",
+    "//ledger/ledger-on-sql",
+    "//ledger/metrics",
     "//ledger/participant-state",
-    "//ledger/participant-state-index:participant-state-index-v2",
-    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
-    "//3rdparty/jvm/org/slf4j:slf4j_api",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
-    "//3rdparty/jvm/io/netty:netty_codec_http2",
-    "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    "//3rdparty/jvm/io/netty:netty_handler",
-    "//3rdparty/jvm/com/github/scopt:scopt",
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//3rdparty/jvm/com/google/guava:guava",
-    "//3rdparty/jvm/org/postgresql:postgresql",
-    "//3rdparty/jvm/com/zaxxer:HikariCP",
-    "//3rdparty/jvm/org/flywaydb:flyway_core",
-    "//3rdparty/jvm/com/typesafe/play:anorm",
-    "//3rdparty/jvm/com/typesafe/play:anorm_akka",
-    "//3rdparty/jvm/io/dropwizard/metrics:metrics_core",
-    "//3rdparty/jvm/io/dropwizard/metrics:metrics_jmx",
+    "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
+    "//ledger/participant-state/kvutils",
+    "//libs-scala/build-info",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/direct-execution-context",
+    "//libs-scala/ports",
+    "//libs-scala/resources",
+    "//libs-scala/resources-akka",
+    "//libs-scala/timer-utils",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_auth0_java_jwt",
+    "@maven//:com_github_scopt_scopt_2_12",
+    "@maven//:com_google_guava_guava",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_config",
+    "@maven//:com_typesafe_play_anorm_2_12",
+    "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
+    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+    "@maven//:com_zaxxer_HikariCP",
+    "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_dropwizard_metrics_metrics_graphite",
+    "@maven//:io_dropwizard_metrics_metrics_jmx",
+    "@maven//:io_grpc_grpc_netty",
+    "@maven//:io_grpc_grpc_services",
+    "@maven//:io_netty_netty_common",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:io_netty_netty_transport",
+    "@maven//:net_logstash_logback_logstash_logback_encoder",
+    "@maven//:org_flywaydb_flyway_core",
+    "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+runtime_deps = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_h2database_h2",
+    "@maven//:org_postgresql_postgresql",
+    "@maven//:org_xerial_sqlite_jdbc",
 ]
 
 da_scala_library(
@@ -67,23 +89,36 @@ da_scala_library(
             # Do not include logback.xml into the library: let the user
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:COMPONENT-VERSION",
-        ],
-    tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
+        ),
+    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
-    runtime_deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/ch/qos/logback:logback_core",
+    runtime_deps = runtime_deps,
+    deps = compile_deps,
+)
+
+da_scala_library(
+    name = "ledger-api-server",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ),
+    tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
+    visibility = [
+        "//visibility:public",
     ],
-    deps = compileDependencies,
+    runtime_deps = runtime_deps,
+    deps = compile_deps,
 )
 
 da_scala_binary(
     name = "sandbox-binary",
-    main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -91,75 +126,397 @@ da_scala_binary(
     ],
 )
 
+da_scala_binary(
+    name = "sandbox-next-binary",
+    main_class = "com.daml.platform.sandboxnext.Main",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox",
+    ],
+)
+
+da_scala_binary(
+    name = "sandbox-ephemeral-postgresql",
+    main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox",
+        ":sandbox-scala-tests-lib",
+    ],
+)
+
+da_scala_binary(
+    name = "sandbox-next-ephemeral-postgresql",
+    main_class = "com.daml.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox",
+        ":sandbox-scala-tests-lib",
+    ],
+)
+
 genrule(
     name = "sandbox-tarball",
     srcs = [
         ":sandbox-binary_deploy.jar",
-        "//:component-version",
     ],
     outs = ["sandbox-tarball.tar.gz"],
     cmd = """
-        VERSION=$$(cat $(location //:component-version))
         mkdir -p sandbox-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-$$VERSION.jar
+        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
-        tar zcf $$out sandbox
-    """,
+        tar c sandbox \
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+          | gzip -n > $$out
+    """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
 
-# The sole purpose of this rule is to get the sandbox.jar with version 0.0.0.
-genrule(
-    name = "sandbox-head-tarball",
-    srcs = [":sandbox-binary_deploy.jar"],
-    outs = ["sandbox-head-tarball.tar.gz"],
-    cmd = """
-        mkdir -p sandbox-head-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-head-tarball/sandbox/sandbox-0.0.0.jar
-        out=$$(realpath $@)
-        cd sandbox-head-tarball
-        tar zcf $$out sandbox
-    """,
+container_image(
+    name = "sandbox-image-base",
+    base = "@openjdk_base//image",
+    cmd = None,
+    directory = "/usr/bin",
+    files = [
+        "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",
+    ],
+) if not is_windows else None
+
+java_image(
+    name = "sandbox-image",
+    base = ":sandbox-image-base",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":sandbox"],
+) if not is_windows else None
+
+java_image(
+    name = "sandbox-next-image",
+    base = ":sandbox-image-base",
+    main_class = "com.daml.platform.sandboxnext.Main",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":sandbox"],
+) if not is_windows else None
+
+alias(
+    name = "Test-1.5.dar",
+    actual = ":historical-dars/Test-1.5.dar",
     visibility = ["//visibility:public"],
 )
-
-daml_compile(
-    name = "Test",
-    main_src = "src/test/resources/damls/Test.daml",
-    target = "1.dev",
-    visibility = ["//visibility:public"],
-)
-
-#TODO: generate dynamic BuildInfo.scala
-
-testDependencies = [
-    ":sandbox",
-    "//ledger/test-common:test-common",
-    "//ledger-api/testing-utils",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/org/scalacheck:scalacheck",
-    "//3rdparty/jvm/org/awaitility:awaitility",
-    "//3rdparty/jvm/commons_io:commons_io",
-] + compileDependencies
 
 da_scala_library(
     name = "sandbox-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     visibility = ["//visibility:public"],
-    deps = testDependencies,
+    runtime_deps = [
+        "@maven//:com_h2database_h2",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        ":sandbox",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-auth-client",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/test-common",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_play_anorm_2_12",
+        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+test_deps = [
+    ":sandbox",
+    ":sandbox-scala-tests-lib",
+    "//bazel_tools/runfiles:scala_runfiles",
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/interpreter",
+    "//daml-lf/language",
+    "//daml-lf/transaction",
+    "//language-support/scala/bindings",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/sample-service",
+    "//ledger-api/testing-utils",
+    "//ledger/caching",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-client",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
+    "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-health",
+    "//ledger/metrics",
+    "//ledger/participant-state",
+    "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
+    "//ledger/test-common",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/direct-execution-context",
+    "//libs-scala/grpc-utils",
+    "//libs-scala/ports",
+    "//libs-scala/postgresql-testing",
+    "//libs-scala/resources",
+    "//libs-scala/timer-utils",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+    "@maven//:com_typesafe_akka_akka_testkit_2_12",
+    "@maven//:com_typesafe_config",
+    "@maven//:commons_io_commons_io",
+    "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_grpc_grpc_netty",
+    "@maven//:io_grpc_grpc_services",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:org_awaitility_awaitility",
+    "@maven//:org_flywaydb_flyway_core",
+    "@maven//:org_mockito_mockito_core",
+    "@maven//:org_mockito_mockito_scala_2_12",
+    "@maven//:org_reactivestreams_reactive_streams",
+    "@maven//:org_scalacheck_scalacheck_2_12",
+    "@maven//:org_scalactic_scalactic_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+da_scala_test_suite(
+    name = "sandbox-tests",
+    srcs = glob(
+        ["src/test/suite/**/*.scala"],
+        exclude = ["src/test/suite/**/ResetService*IT.scala"],
+    ),
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    deps = test_deps,
 )
 
 da_scala_test_suite(
-    name = "sandbox-scala-tests",
+    name = "sandbox-resetservice-tests",
     srcs = glob(
-        ["src/test/suite/**/*.scala"],
+        ["src/test/suite/**/ResetService*IT.scala"],
     ),
     data = [
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common/test-certificates",
     ],
+    flaky = True,
     resources = glob(["src/test/resources/**/*"]),
-    deps = [
-        ":sandbox-scala-tests-lib",
-    ] + testDependencies,
+    deps = test_deps,
 )
+
+SERVERS = {
+    "memory": {
+        "binary": ":sandbox-binary",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+    "h2database": {
+        "binary": ":sandbox-binary",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+            # "db_close_delay=-1" is needed so that the in-memory database is not closed
+            # (and therefore lost) after the flyway migration
+            "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
+        ],
+    },
+    "postgresql": {
+        "binary": ":sandbox-ephemeral-postgresql",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+}
+
+server_conformance_test(
+    name = "conformance-test-static-time",
+    server_args = [
+        "--static-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-wall-clock",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-config-management",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--include=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-command-deduplication",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--include=CommandDeduplicationIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-contract-id-seeding",
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+NEXT_SERVERS = {
+    "memory": {
+        "binary": ":sandbox-next-binary",
+        "server_args": [
+            "--contract-id-seeding=testing-weak",
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+    "postgresql": {
+        "binary": ":sandbox-next-ephemeral-postgresql",
+        "server_args": [
+            "--contract-id-seeding=testing-weak",
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+}
+
+server_conformance_test(
+    name = "next-conformance-test-static-time",
+    server_args = [
+        "--static-time",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--all-tests",
+        "--exclude=ClosedWorldIT",
+        "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-wall-clock-time",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--all-tests",
+        "--exclude=ClosedWorldIT",
+        "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-config-management",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--include=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-closed-world",
+    server_args = [
+        "--wall-clock-time",
+        "--implicit-party-allocation=false",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ClosedWorldIT",
+    ],
+)
+
+exports_files(["src/main/resources/logback.xml"])

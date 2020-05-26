@@ -1,17 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 
 import java.{util => j}
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 import scala.collection.generic.CanBuildFrom
 import scala.collection.TraversableLike
 
 // Types to be used internally
 package object iface {
+
+  @deprecated("Use TextMap", since = "0.13.38")
+  val PrimTypeMap = PrimTypeTextMap
+
   type FieldWithType = (Ref.Name, Type)
 
   private[iface] def lfprintln(

@@ -1,0 +1,35 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Account where
+
+data AccountStatus = Enabled Time | Disabled Time
+  deriving (Eq, Show)
+
+template Account with
+    owner : Party
+    number : Text
+    status : AccountStatus
+  where
+    signatory owner
+
+    key (owner, number) : (Party, Text)
+    maintainer key._1
+
+data Foo = Bar Int | Baz BazRecord | Qux
+    deriving (Eq, Show)
+
+data BazRecord = BazRecord { baz : Text }
+    deriving (Eq, Show)
+
+template KeyedByVariantAndRecord with
+    name: Text
+    party: Party
+    age: Int
+    fooVariant: Foo
+    bazRecord: BazRecord
+  where
+    signatory party
+    key (party, fooVariant, bazRecord): (Party, Foo, BazRecord)
+    maintainer key._1

@@ -1,14 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc;
 
 import com.daml.ledger.rxjava.TimeClient;
-import com.daml.ledger.rxjava.grpc.helpers.TimestampComparator;
+import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;
-import com.digitalasset.ledger.api.v1.testing.TimeServiceGrpc;
-import com.digitalasset.ledger.api.v1.testing.TimeServiceOuterClass;
+import com.daml.grpc.adapter.ExecutionSequencerFactory;
+import com.daml.ledger.api.v1.testing.TimeServiceGrpc;
+import com.daml.ledger.api.v1.testing.TimeServiceOuterClass;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
 import io.grpc.Channel;
@@ -16,6 +16,7 @@ import io.reactivex.Flowable;
 import io.reactivex.Single;
 
 import java.time.Instant;
+import java.util.Optional;
 
 public final class TimeClientImpl implements TimeClient {
 
@@ -24,15 +25,14 @@ public final class TimeClientImpl implements TimeClient {
     private final TimeServiceGrpc.TimeServiceStub serviceStub;
     private final ExecutionSequencerFactory sequencerFactory;
 
-    public TimeClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory) {
+    public TimeClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
         this.sequencerFactory = sequencerFactory;
-        this.serviceFutureStub = TimeServiceGrpc.newFutureStub(channel);
-        this.serviceStub = TimeServiceGrpc.newStub(channel);
+        this.serviceFutureStub = StubHelper.authenticating(TimeServiceGrpc.newFutureStub(channel), accessToken);
+        this.serviceStub = StubHelper.authenticating(TimeServiceGrpc.newStub(channel), accessToken);
     }
 
-    @Override
-    public Single<Empty> setTime(Instant currentTime, Instant newTime) {
+    private Single<Empty> setTime(Instant currentTime, Instant newTime, Optional<String> accessToken) {
         if (currentTime.compareTo(newTime) >= 0) {
             throw new SetTimeException(currentTime, newTime);
         }
@@ -40,17 +40,36 @@ public final class TimeClientImpl implements TimeClient {
                 .setLedgerId(this.ledgerId)
                 .setCurrentTime(Timestamp.newBuilder().setSeconds(currentTime.getEpochSecond()).setNanos(currentTime.getNano()).build())
                 .setNewTime(Timestamp.newBuilder().setSeconds(newTime.getEpochSecond()).setNanos(newTime.getNano())).build();
-        return Single.fromFuture(this.serviceFutureStub.setTime(request));
+        return Single.fromFuture(StubHelper.authenticating(this.serviceFutureStub, accessToken).setTime(request));
     }
 
     @Override
-    public Flowable<Instant> getTime() {
+    public Single<Empty> setTime(Instant currentTime, Instant newTime) {
+        return setTime(currentTime, newTime, Optional.empty());
+    }
+
+    @Override
+    public Single<Empty> setTime(Instant currentTime, Instant newTime, String accessToken) {
+        return setTime(currentTime, newTime, Optional.of(accessToken));
+    }
+
+    private Flowable<Instant> getTime(Optional<String> accessToken) {
         TimeServiceOuterClass.GetTimeRequest request = TimeServiceOuterClass.GetTimeRequest.newBuilder()
                 .setLedgerId(this.ledgerId)
                 .build();
         return ClientPublisherFlowable
-                .create(request, this.serviceStub::getTime, sequencerFactory)
+                .create(request, StubHelper.authenticating(this.serviceStub, accessToken)::getTime, sequencerFactory)
                 .map(r -> Instant.ofEpochSecond(r.getCurrentTime().getSeconds(), r.getCurrentTime().getNanos()));
+    }
+
+    @Override
+    public Flowable<Instant> getTime() {
+        return getTime(Optional.empty());
+    }
+
+    @Override
+    public Flowable<Instant> getTime(String accessToken) {
+        return getTime(Optional.of(accessToken));
     }
 
     private class SetTimeException extends RuntimeException {

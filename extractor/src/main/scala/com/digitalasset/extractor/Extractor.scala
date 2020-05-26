@@ -1,41 +1,56 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import akka.actor.ActorSystem
-import akka.stream.{KillSwitches, ActorMaterializer}
 import akka.stream.scaladsl.{RestartSource, Sink}
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.Main.log
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.ledger.LedgerReader
-import com.digitalasset.extractor.ledger.types.TransactionTree
-import com.digitalasset.extractor.ledger.types.TransactionTree._
-import com.digitalasset.extractor.targets.Target
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, AkkaExecutionSequencerPool}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.{TransactionFilter, Filters}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration._
-
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import scala.collection.breakOut
-import scala.concurrent.duration._
-import scala.concurrent.Future
-import scala.util.control.NonFatal
-import scalaz._
-import Scalaz._
-
+import akka.stream.{KillSwitches, Materializer}
+import com.daml.auth.TokenHolder
+import com.daml.extractor.Types._
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.helpers.FutureUtil.toFuture
+import com.daml.extractor.helpers.{TemplateIds, TransactionTreeTrimmer}
+import com.daml.extractor.ledger.types.TransactionTree
+import com.daml.extractor.ledger.types.TransactionTree._
+import com.daml.extractor.writers.Writer
+import com.daml.extractor.writers.Writer.RefreshPackages
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.{v1 => api}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration._
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.service.LedgerReader
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.timer.RetryStrategy
+import com.typesafe.scalalogging.StrictLogging
+import io.grpc.netty.NettyChannelBuilder
+import scalaz.\/
+import scalaz.std.list._
+import scalaz.std.scalaFuture._
+import scalaz.std.string._
+import scalaz.syntax.apply._
+import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
 
-class Extractor[T <: Target](config: ExtractorConfig, target: T) {
+import scala.collection.breakOut
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.util.control.NonFatal
+
+class Extractor[T](config: ExtractorConfig, target: T)(
+    writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
+    extends StrictLogging {
+
+  private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+  private val parties: Set[String] = config.parties.toSet.map[String, Set[String]](identity)
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
@@ -52,17 +67,17 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     val result = for {
       client <- createClient
 
-      writer = Writer(config, target, client.ledgerId.unwrap)
+      writer = writerSupplier(config, target, client.ledgerId.unwrap)
 
-      _ = log.info(s"Connected to ledger ${client.ledgerId}\n\n")
+      _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 
-      endResponse <- client.transactionClient.getLedgerEnd
+      endResponse <- client.transactionClient.getLedgerEnd(tokenHolder.flatMap(_.token))
 
       endOffset = endResponse.offset.getOrElse(
         throw new RuntimeException("Failed to get ledger end: response did not contain an offset.")
       )
 
-      _ = log.trace(s"Ledger end: ${endResponse}")
+      _ = logger.trace(s"Ledger end: ${endResponse}")
 
       _ = startOffSet = config.from.value
 
@@ -72,9 +87,14 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
       _ = lastOffset.foreach(l => startOffSet = LedgerOffset.Value.Absolute(l))
 
-      _ = log.trace("Handling packages...")
+      _ = logger.trace("Handling packages...")
 
-      _ <- fetchPackages(client, writer)
+      packageStore <- fetchPackages(client, writer)
+      allTemplateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
+      _ = logger.info(s"All available template ids: ${allTemplateIds}")
+
+      requestedTemplateIds <- Future.successful(
+        TemplateIds.intersection(allTemplateIds, config.templateConfigs))
 
       streamUntil: Option[LedgerOffset] = config.to match {
         case SnapshotEndSetting.Head => Some(endOffset)
@@ -83,19 +103,19 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           Some(LedgerOffset(LedgerOffset.Value.Absolute(offset)))
       }
 
-      _ = log.info("Handling transactions...")
+      _ = logger.info("Handling transactions...")
 
-      _ <- streamTransactions(client, writer, streamUntil)
+      _ <- streamTransactions(client, writer, streamUntil, requestedTemplateIds)
 
-      _ = log.info("Done...")
+      _ = logger.info("Done...")
     } yield ()
 
     result flatMap { _ =>
-      log.info("Success: extraction finished, exiting...")
+      logger.info("Success: extraction finished, exiting...")
       shutdown()
     } recoverWith {
       case NonFatal(fail) =>
-        log.error(s"FAILURE:\n$fail.\nExiting...")
+        logger.error(s"FAILURE:\n$fail.\nExiting...")
         shutdown *> Future.failed(fail)
     }
   }
@@ -104,44 +124,72 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     system.terminate().map(_ => killSwitch.shutdown())
   }
 
-  private def fetchPackages(client: LedgerClient, writer: Writer): Future[Unit] = {
+  private def keepRetryingOnPermissionDenied[A](f: () => Future[A]): Future[A] =
+    RetryStrategy.constant(waitTime = 1.second) {
+      case GrpcException.PERMISSION_DENIED() => true
+    } { (attempt, wait) =>
+      logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")
+      tokenHolder.foreach(_.refresh())
+      f()
+    }
+
+  private def doFetchPackages(
+      packageClient: PackageClient): Future[LedgerReader.Error \/ Option[PackageStore]] =
+    keepRetryingOnPermissionDenied { () =>
+      LedgerReader.loadPackageStoreUpdates(packageClient, tokenHolder.flatMap(_.token))(Set.empty)
+    }
+
+  private def fetchPackages(client: LedgerClient, writer: Writer): Future[PackageStore] = {
     for {
-      packageStore <- LedgerReader.createPackageStore(client)
-      _ <- writer.handlePackages(packageStore.valueOr(error => throw new RuntimeException(error)))
-    } yield ()
+      packageStoreE <- doFetchPackages(client.packageClient)
+        .map(_.map(_.getOrElse(Map.empty))): Future[LedgerReader.Error \/ PackageStore]
+      packageStore <- toFuture(packageStoreE): Future[PackageStore]
+      _ <- writer.handlePackages(packageStore)
+    } yield packageStore
   }
 
-  private def selectTransactions: TransactionFilter = {
+  private def selectTransactions(parties: ExtractorConfig.Parties): TransactionFilter = {
+    // Template filtration is not supported on GetTransactionTrees RPC
+    // we will have to filter out templates on the client-side.
     val templateSelection = Filters.defaultInstance
-    TransactionFilter(config.parties.toList.map(_ -> templateSelection)(breakOut))
+    TransactionFilter(parties.toList.map(_ -> templateSelection)(breakOut))
   }
 
   private def streamTransactions(
       client: LedgerClient,
       writer: Writer,
-      streamUntil: Option[LedgerOffset]
+      streamUntil: Option[LedgerOffset],
+      requestedTemplateIds: Set[api.value.Identifier]
   ): Future[Unit] = {
+    logger.info(s"Requested template IDs: ${requestedTemplateIds}")
+
+    val transactionFilter = selectTransactions(config.parties)
+    logger.info(s"Setting transaction filter: ${transactionFilter}")
+
+    val trim: api.transaction.TransactionTree => api.transaction.TransactionTree =
+      TransactionTreeTrimmer.trim(parties, requestedTemplateIds)
+
     RestartSource
       .onFailuresWithBackoff(
         minBackoff = 3.seconds,
         maxBackoff = 30.seconds,
         randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
       ) { () =>
-        log.info(s"Starting streaming transactions from ${startOffSet}...")
+        tokenHolder.foreach(_.refresh())
+        logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
-            selectTransactions,
-            verbose = true
+            transactionFilter,
+            verbose = true,
+            tokenHolder.flatMap(_.token)
           )
           .via(killSwitch.flow)
-          .map(
-            _.convert.fold(
-              e => throw DataIntegrityError(e),
-              identity
-            )
-          )
+          .map(trim)
+          .collect {
+            case t if nonEmpty(t) => convertTransactionTree(t)
+          }
           .mapAsync(parallelism = 1) { t =>
             writer
               .handleTransaction(t)
@@ -158,6 +206,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       .void
   }
 
+  private def nonEmpty(t: api.transaction.TransactionTree): Boolean = t.eventsById.nonEmpty
+
+  private def convertTransactionTree(t: api.transaction.TransactionTree): TransactionTree =
+    t.convert.fold(e => throw DataIntegrityError(e), identity)
+
   /**
     * We encountered a transaction that reference a previously not witnessed type.
     * This is normal. Try re-fetch the packages first without reporting any errors.
@@ -169,7 +222,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
   )(
       c: RefreshPackages
   ): Future[Unit] = {
-    log.info(
+    logger.info(
       s"Encountered a previously unwitnessed type: ${c.missing}." +
         s" Refreshing packages..."
     )
@@ -196,35 +249,18 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     Future.successful(())
   }
 
-  private def createClient: Future[LedgerClient] = {
-    val builder: NettyChannelBuilder = NettyChannelBuilder
-      .forAddress(config.ledgerHost, config.ledgerPort)
-      .maxInboundMessageSize(50 * 1024 * 1024) // 50 MiBytes
-
-    config.tlsConfig.client
-      .fold {
-        log.debug(
-          "Connecting to {}:{}, using a plaintext connection",
-          config.ledgerHost,
-          config.ledgerPort)
-        builder.usePlaintext()
-      } { sslContext =>
-        log.debug("Connecting to {}:{}, using TLS", config.ledgerHost, config.ledgerPort)
-        builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
-      }
-
-    val channel = builder.build()
-
-    sys.addShutdownHook { channel.shutdownNow(); () }
-
-    LedgerClient.forChannel(
+  private def createClient: Future[LedgerClient] =
+    LedgerClient.fromBuilder(
+      NettyChannelBuilder
+        .forAddress(config.ledgerHost, config.ledgerPort.value)
+        .maxInboundMessageSize(config.ledgerInboundMessageSizeMax),
       LedgerClientConfiguration(
         config.appId,
         LedgerIdRequirement(ledgerId = "", enabled = false),
-        CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
-        sslContext = config.tlsConfig.client
-      ),
-      channel
+        CommandClientConfiguration(1, 1, java.time.Duration.ofSeconds(20L)),
+        sslContext = config.tlsConfig.client,
+        tokenHolder.flatMap(_.token)
+      )
     )
-  }
+
 }

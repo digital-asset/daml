@@ -1,0 +1,106 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Trigger.Internal
+  ( ACS (..)
+  , TriggerA (..)
+  , addCommands
+  , insertTpl
+  , deleteTpl
+  , lookupTpl
+  , applyEvent
+  , applyTransaction
+  , runRule
+  , runTriggerA
+  , TriggerAState (..)
+  , TriggerState (..)
+  ) where
+
+import DA.Action.State
+import DA.Next.Map (Map)
+import qualified DA.Next.Map as Map
+
+import Daml.Trigger.LowLevel hiding (Trigger)
+
+-- public API
+
+-- | Active contract set, you can use `getContracts` to access the templates of
+-- a given type.
+
+-- This will change to a Map once we have proper maps in DAML-LF
+data ACS = ACS
+  { activeContracts : [(AnyContractId, AnyTemplate)]
+  , pendingContracts : Map CommandId [AnyContractId]
+  }
+
+-- | TriggerA is the type used in the `rule` of a DAML trigger.
+-- Its main feature is that you can call `emitCommands` to
+-- send commands to the ledger.
+newtype TriggerA a = TriggerA (State TriggerAState a)
+  deriving (Functor, Applicative, Action)
+
+-- Internal API
+
+addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
+addCommands m (Commands cid cmds) = Map.insert cid cmds m
+
+insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
+insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
+
+deleteTpl : AnyContractId -> ACS -> ACS
+deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
+
+lookupTpl : Template a => AnyContractId -> ACS -> Optional a
+lookupTpl cid acs = do
+  (_, tpl) <- find ((cid ==) . fst) $ acs.activeContracts
+  fromAnyTemplate tpl
+
+applyEvent : Event -> ACS -> ACS
+applyEvent ev acs = case ev of
+  CreatedEvent (Created _ cid tpl) -> insertTpl cid tpl acs
+  ArchivedEvent (Archived _ cid) -> deleteTpl cid acs
+
+applyTransaction : Transaction -> ACS -> ACS
+applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
+
+runRule
+  : (Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ())
+  -> Time
+  -> TriggerState s
+  -> (TriggerState s, [Commands])
+runRule rule time state =
+  let (_, aState) =
+        runTriggerA
+          (rule state.party state.acs time state.commandsInFlight state.userState)
+          (TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId)
+      commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
+      acs = state.acs { pendingContracts = aState.pendingContracts }
+  in (state { nextCommandId = aState.nextCommandId, commandsInFlight, acs }, aState.emittedCommands)
+
+runTriggerA : TriggerA a -> TriggerAState -> (a, TriggerAState)
+runTriggerA (TriggerA f) s =
+  let (a, s') = runState f s
+  in (a, s' { emittedCommands = reverse s'.emittedCommands })
+
+data TriggerAState = TriggerAState
+  { commandsInFlight : Map CommandId [Command]
+  -- This is not modified during a run (new commands end up in emittedCommands)
+  -- but for simplicity we keep it in TriggerAState instead of layering a
+  -- Reader on top of it.
+  -- This will be used for dedupCreateCmd/dedupExerciseCmd helpers.
+  , emittedCommands : [Commands]
+  -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
+  , pendingContracts : Map CommandId [AnyContractId]
+  -- ^ Map from command ids to the contract ids marked pending by that command.
+  , nextCommandId : Int
+  -- ^ Command id used for the next submit
+  }
+
+data TriggerState s = TriggerState
+  { acs : ACS
+  , party : Party
+  , userState : s
+  , commandsInFlight : Map CommandId [Command]
+  , nextCommandId : Int
+  }

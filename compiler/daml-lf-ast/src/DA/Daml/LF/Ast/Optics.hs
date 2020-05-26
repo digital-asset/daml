@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -6,14 +6,18 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.Ast.Optics(
+    ModuleRef,
     moduleModuleRef,
+    typeModuleRef,
     unlocate,
     moduleExpr,
     dataConsType,
     _PRSelfModule,
     exprPartyLiteral,
     exprValueRef,
-    templateExpr
+    packageRefs,
+    templateExpr,
+    builtinType
     ) where
 
 import Control.Lens
@@ -23,7 +27,9 @@ import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Version (Version)
 
 -- | WARNING: The result is not a proper prism.
 -- The intended use case is something along the lines of
@@ -76,8 +82,8 @@ templateKeyExpr f (TemplateKey typ body maintainers) = TemplateKey
   <*> f maintainers
 
 moduleExpr :: Traversal' Module Expr
-moduleExpr f (Module name path flags dataTypes values templates) =
-  Module name path flags dataTypes
+moduleExpr f (Module name path flags synonyms dataTypes values templates) =
+  Module name path flags synonyms dataTypes
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
 
@@ -85,12 +91,28 @@ dataConsType :: Traversal' DataCons Type
 dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
+  DataEnum cs -> pure $ DataEnum cs
+
+builtinType :: Traversal' Type BuiltinType
+builtinType f =
+    \case
+        TVar n -> pure $ TVar n
+        TCon tyCon -> pure $ TCon tyCon
+        TSynApp syn args -> TSynApp syn <$> traverse (builtinType f) args
+        TApp s t -> TApp <$> builtinType f s <*> builtinType f t
+        TBuiltin x -> TBuiltin <$> f x
+        TForall b body -> TForall b <$> builtinType f body
+        TStruct fs -> TStruct <$> (traverse . _2) (builtinType f) fs
+        TNat n -> pure $ TNat n
 
 type ModuleRef = (PackageRef, ModuleName)
 
 -- | Traverse all the module references contained in 'Qualified's in a 'Package'.
 moduleModuleRef :: Traversal' Module ModuleRef
 moduleModuleRef = monoTraverse
+
+typeModuleRef :: Traversal' Type ModuleRef
+typeModuleRef = monoTraverse
 
 instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
@@ -101,19 +123,33 @@ instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef FieldName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ModuleName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef TypeSynName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef Version where monoTraverse _ = pure
+instance MonoTraversable ModuleRef PackageName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef PackageVersion where monoTraverse _ = pure
 
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure
 
 -- NOTE(MH): Builtins are not supposed to contain references to other modules.
 instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
-instance MonoTraversable ModuleRef EnumCon where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
+
+-- NOTE(SC): SourceLoc *does* have a ModuleRef in it; however, its main use is
+-- to collect all ModuleRefs in a module or package in order to figure out its
+-- dependencies. Inlining can cause location information to reference the
+-- original source file although there's not a proper dependency; in other
+-- words, with a visible SourceLoc ModuleRef, the dep graph would be somewhere
+-- between the actual dep graph and its transitive closure. See
+-- https://github.com/digital-asset/daml/pull/2327#discussion_r308445649 for
+-- discussion
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
+
+instance MonoTraversable ModuleRef TypeLevelNat where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
 instance MonoTraversable ModuleRef Type
@@ -129,6 +165,7 @@ instance MonoTraversable ModuleRef Expr
 instance MonoTraversable ModuleRef IsSerializable
 instance MonoTraversable ModuleRef DataCons
 instance MonoTraversable ModuleRef DefDataType
+instance MonoTraversable ModuleRef DefTypeSyn
 
 instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest
@@ -143,6 +180,8 @@ instance MonoTraversable ModuleRef Template
 
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
+instance MonoTraversable ModuleRef PackageMetadata
+instance MonoTraversable ModuleRef Package
 
 exprPartyLiteral
   :: forall f. Applicative f
@@ -164,3 +203,6 @@ exprValueRef f = cata go
     go = \case
       EValF val -> EVal <$> f val
       e -> embed <$> sequenceA e
+
+packageRefs :: MonoTraversable ModuleRef a => Traversal' a PackageRef
+packageRefs = monoTraverse @ModuleRef . _1

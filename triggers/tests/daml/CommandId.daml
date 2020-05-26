@@ -1,0 +1,27 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module CommandId where
+
+import Daml.Trigger.LowLevel
+
+test : Trigger [Text]
+test = Trigger
+  { initialState = \party _ _ ->
+      ([], [Commands (CommandId "mycreateid") [createCmd (T party)]])
+  , update = \_time msg s -> case (s, msg) of
+      (cmdIds, MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))])) ->
+        (cmdId :: cmdIds, [Commands (CommandId "myexerciseid") [exerciseCmd cid Archive]])
+      (cmdIds, MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)])) ->
+        (cmdId :: cmdIds, [])
+      _ -> (s, [])
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+template T
+  with
+    p : Party
+  where
+    signatory p

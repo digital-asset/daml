@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.testing
+package com.daml.ledger.client.testing
 
 import java.util
 import java.util.concurrent.{Executors, ScheduledExecutorService}
@@ -9,9 +9,9 @@ import java.util.concurrent.{Executors, ScheduledExecutorService}
 import akka.NotUsed
 import akka.actor.{ActorSystem, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.Materializer
 import akka.util.ByteString
-import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -35,19 +35,11 @@ trait AkkaTest extends BeforeAndAfterAll with LazyLogging { self: Suite =>
   protected implicit val scheduler: Scheduler = system.scheduler
   protected implicit val schedulerService: ScheduledExecutorService =
     Executors.newSingleThreadScheduledExecutor()
-  protected implicit val materializer: ActorMaterializer = ActorMaterializer(
-    ActorMaterializerSettings(system).withSupervisionStrategy(decider(system)))
+  protected implicit val materializer: Materializer = Materializer(system)
   protected implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
   protected val timeout: FiniteDuration = 2.minutes
   protected val shortTimeout: FiniteDuration = 5.seconds
-
-  private def decider(system: ActorSystem): Supervision.Decider = {
-    case NonFatal(e) =>
-      system.log
-        .error(e, "Unexpected Exception during akka stream processing, stopping the stream")
-      Supervision.Stop
-  }
 
   protected def await[T](fun: => Future[T]): T = Await.result(fun, timeout)
 

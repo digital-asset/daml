@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import archive.LanguageVersion
+import com.daml.lf.language._
 import value.ValueVersions
 
 import scala.language.higherKinds
@@ -12,11 +12,12 @@ import scalaz.{ICons, INil, NonEmptyList}
 import scalaz.std.list._
 import scalaz.syntax.foldable._
 import org.scalacheck.Gen
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
+import scalaz.\&/.That
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
+class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
   import VersionTimeline._
   import VersionTimelineSpec._
 
@@ -36,30 +37,37 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
     val languageMajorSeries =
       Table(
         "major version",
-        archive.LanguageMajorVersion.All: _*
+        LanguageMajorVersion.All: _*,
       )
 
     "match each language major series in order" in forEvery(languageMajorSeries) { major =>
-      inAscendingOrder foldMap {
+      val minorInAscendingOrder = inAscendingOrder foldMap {
         foldRelease(_)(constNil, constNil, {
           case LanguageVersion(`major`, minor) => List(minor)
           case _ => Nil
         })
-      } shouldBe major.acceptedVersions
+      }
+
+      unique(minorInAscendingOrder) shouldBe major.acceptedVersions
     }
 
     "be inlined with LanguageVersion.ordering" in {
-
-      import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
       import VersionTimeline.Implicits._
 
       val versions = Table(
         "language version",
-        LVM.All.flatMap(major => major.acceptedVersions.map(LV(major, _))): _*
+        LanguageMajorVersion.All.flatMap(major =>
+          major.acceptedVersions.map(LanguageVersion(major, _))): _*,
       )
 
       forEvery(versions)(v1 =>
-        forEvery(versions)(v2 => LV.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
+        forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
+    }
+
+    "end with a dev version" in {
+      inside(inAscendingOrder.last) {
+        case That(LanguageVersion(_, LanguageMinorVersion.Dev)) =>
+      }
     }
 
   }
@@ -96,7 +104,8 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
     "given many versions" should {
       "give back one less-or-equal to some arg" in forAll(
         genLatestInput,
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         val result = latestWhenAllPresent(sv, svs: _*)
@@ -113,12 +122,14 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
 
       "produce the first argument at minimum" in forAll(
         genLatestInput,
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         import scalaz.Ordering._, Implicits._
         compareReleaseTime(sv, latestWhenAllPresent(sv, svs: _*)) should (be(Some(LT)) or be(
-          Some(EQ)))
+          Some(EQ),
+        ))
       }
     }
 
@@ -126,23 +137,27 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
       "be distributive" in forAll(
         genLatestInput,
         Gen.listOf(genSpecifiedVersion),
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs1, svs2) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs1, svs2) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         latestWhenAllPresent(latestWhenAllPresent(sv, svs1: _*), svs2: _*) shouldBe latestWhenAllPresent(
           sv,
-          svs1 ++ svs2: _*)
+          svs1 ++ svs2: _*,
+        )
       }
 
       "be symmetric" in forAll(
         genLatestInput,
         Gen.listOf(genSpecifiedVersion),
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs1, svs2) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs1, svs2) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         latestWhenAllPresent(latestWhenAllPresent(sv, svs1: _*), svs2: _*) shouldBe latestWhenAllPresent(
           latestWhenAllPresent(sv, svs2: _*),
-          svs1: _*)
+          svs1: _*,
+        )
       }
     }
   }
@@ -192,4 +207,11 @@ object VersionTimelineSpec {
 
   private val genSpecifiedVersion: Gen[SpecifiedVersion] =
     oneOf(varieties map { case vt: Variety[a] => vt.gen map vt.sv.inject })
+
+  // remove duplicate in an ordered list
+  private def unique[X](l: List[X]) =
+    l match {
+      case Nil => Nil
+      case h :: t => h :: ((l zip t) filterNot { case (x, y) => x == y } map (_._2))
+    }
 }

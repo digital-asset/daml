@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: data types
@@ -29,9 +29,13 @@ Table of built-in primitive types
      - ``1``,  ``1000000``, ``1_000_000``
      - ``Int`` values are signed 64-bit integers which represent numbers between ``-9,223,372,036,854,775,808`` and ``9,223,372,036,854,775,807`` inclusive. Arithmetic operations raise an error on overflows and division by ``0``. To make long numbers more readable you can optionally add underscores.
    * - ``Decimal``
-     - fixed point decimals
+     - short for ``Numeric 10``
      - ``1.0``
-     - ``Decimal`` values are rational numbers with precision 38 and scale 10: numbers of the form ``x / 10^10`` where x is an integer with ``|x| < 10^38``.
+     - ``Decimal`` values are rational numbers with precision 38 and scale 10.
+   * - ``Numeric n``
+     - fixed point decimal numbers
+     - ``1.0``
+     - `Numeric n` values are rational numbers with up to ``38`` digits. The scale parameter ``n`` controls the number of digits after the decimal point, so for example, ``Numeric 10`` values have 10 decimal places, and ``Numeric 20`` values have 20 decimal places. The value of ``n`` must be between ``0`` and ``37`` inclusive.
    * - ``Text``
      - strings
      - ``"hello"``
@@ -51,7 +55,7 @@ Table of built-in primitive types
    * - ``Time``
      - models absolute time (UTC)
      - ``time (date 2007 Apr 5) 14 30 05``
-     - ``Time`` values have microsecond precision. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``). 
+     - ``Time`` values have microsecond precision. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``).
    * - ``RelTime``
      - models differences between time values
      - ``seconds 1``, ``seconds (-2)``
@@ -268,10 +272,12 @@ Sum types
 
 Sum types capture the notion of being of one kind or another.
 
-An example is the built-in data type ``Bool``. This is defined by ``data Bool = True | False``, where ``True`` and ``False`` are data constructors with zero arguments . This means that a ``Bool`` value is either ``True`` or ``False`` and cannot be instantiated with any other value.
+An example is the built-in data type ``Bool``. This is defined by ``data Bool = True | False deriving (Eq,Show)``, where ``True`` and ``False`` are data constructors with zero arguments . This means that a ``Bool`` value is either ``True`` or ``False`` and cannot be instantiated with any other value.
 
-A very useful sum type is ``data Optional a = None | Some a``. It is part of
-the :doc:`DAML standard library </daml/reference/base>`.
+Please note that all types which you intend to use as template or choice arguments need to derive at least from `(Eq, Show)`.
+
+A very useful sum type is ``data Optional a = None | Some a deriving (Eq,Show)``. It is part of
+the :doc:`DAML standard library </daml/stdlib/index>`.
 
 ``Optional`` captures the concept of a box, which can be empty or contain a value of type ``a``.
 

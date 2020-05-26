@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
@@ -11,7 +11,7 @@ def _fat_cc_library_impl(ctx):
     # For now we assume that we have static PIC libs for all libs.
     # It should be possible to extend this but we do not have a need
     # for it so far and it would complicate things.
-    for lib in cc_info.linking_context.libraries_to_link:
+    for lib in cc_info.linking_context.libraries_to_link.to_list():
         static_lib = None
         if lib.pic_static_library:
             static_lib = lib.pic_static_library
@@ -28,16 +28,12 @@ def _fat_cc_library_impl(ctx):
     static_lib = ctx.outputs.static_library
 
     toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-    feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)
+    feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain = toolchain)
 
-    compiler = None
-    if is_darwin:
-        # toolchain.compiler_executable() fails on MacOS, see https://github.com/bazelbuild/bazel/issues/7105
-        compiler = ctx.executable._cc_compiler
-    elif is_windows:
-        compiler = toolchain.compiler_executable() + ".exe"
+    if is_windows:
+        compiler = toolchain.compiler + ".exe"
     else:
-        compiler = toolchain.compiler_executable()
+        compiler = toolchain.compiler
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
         outputs = [dyn_lib],
@@ -49,6 +45,7 @@ def _fat_cc_library_impl(ctx):
             ctx.attr.no_whole_archive_flag +
             # Some libs seems to depend on libstdc++ implicitely
             ["-lstdc++"] +
+            (["-framework", "CoreFoundation"] if is_darwin else []) +
             # On Windows some libs seems to depend on Windows sockets
             (["-lws2_32"] if is_windows else []),
         inputs = static_libs,
@@ -64,7 +61,7 @@ def _fat_cc_library_impl(ctx):
     mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
     ctx.actions.write(mri_script, mri_script_content)
 
-    ar = toolchain.ar_executable()
+    ar = toolchain.ar_executable
 
     if ar.find("libtool") >= 0:
         # We are on MacOS where ar_executable is actually libtool, see
@@ -101,13 +98,7 @@ def _fat_cc_library_impl(ctx):
         linking_context = new_linking_context,
         compilation_context = cc_info.compilation_context,
     )
-    return struct(
-        # cc is a legacy provider so it needs to be handled differently.
-        # Hopefully, rules_haskell will stop depending onit at somepoint and
-        # we can stop providing both cc and CcInfo.
-        cc = input_lib.cc,
-        providers = [new_cc_info],
-    )
+    return [new_cc_info]
 
 # Shared libraries built with Bazel do not declare their dependencies on other libraries properly.
 # Instead that dependency is tracked in Bazel internally. This breaks the GHCi linker if
@@ -122,14 +113,6 @@ fat_cc_library = rule(
         "_cc_toolchain": attr.label(
             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
         ),
-        "_cc_compiler": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "host",
-            default =
-                # bin/cc is gcc on Darwin which fails to find libc++
-                Label("@nixpkgs_cc_toolchain//:bin/clang") if is_darwin else None,
-        ),
         "whole_archive_flag": attr.string_list(
             # ld on MacOS doesn’t understand --whole-archive
             default = ["-Wl,-all_load"] if is_darwin else ["-Wl,--whole-archive"],
@@ -138,6 +121,7 @@ fat_cc_library = rule(
             default = [] if is_darwin else ["-Wl,--no-whole-archive"],
         ),
     }),
+    fragments = ["cpp"],
     outputs = {
         "dynamic_library": "lib%{name}.dll" if is_windows else "lib%{name}.so",
         "static_library": "lib%{name}.a",

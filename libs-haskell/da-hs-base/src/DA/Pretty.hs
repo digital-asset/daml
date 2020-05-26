@@ -1,8 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | This library provides the basis for all our pretty-printing. It extends
 -- "Text.PrettyPrint.Annotated.Extended" from 'da-base' with support for
@@ -22,6 +21,7 @@ module DA.Pretty
   , fcommasep
 
   , Pretty(..)
+  , PrettyLevel(..)
   , prettyNormal
   , pretty
 
@@ -67,7 +67,25 @@ import           System.Console.ANSI
                  , setSGRCode
                  )
 
-import Data.Text.Prettyprint.Doc.Syntax (SyntaxClass(..))
+
+-- | Classes of syntax elements, which are used for highlighting.
+data SyntaxClass
+    = -- ^ Annotation to use as a no-op for highlighting.
+      OperatorSC
+    | KeywordSC
+    | PredicateSC
+    | ConstructorSC
+    | TypeSC
+    | ErrorSC
+    | WarningSC
+    | InfoSC
+    | HintSC
+    | LinkSC T.Text T.Text
+    -- ^ @LinkSC url title@: Create a link to the 'url'
+    | IdSC T.Text
+    -- ^ @IdSC id@: Identifier for the node. For linking into.
+    | OnClickSC T.Text
+    deriving (Eq, Ord, Show)
 
 
 ------------------------------------------------------------------------------

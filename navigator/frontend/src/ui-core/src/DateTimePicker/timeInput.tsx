@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // This DateTimePicker code is based on the input-moment library.
@@ -94,7 +94,7 @@ export default class TimeInput extends React.Component<Props, State> {
   }
 
   setSelection() {
-    if (!this.input) {
+    if (!this.input || this.input.selectionStart === null) {
       return;
     }
     const i = this.input.value.indexOf(':');

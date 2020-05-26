@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -35,15 +35,14 @@ fi
 REPL=$(rlocation "$TEST_WORKSPACE/$1")
 DAMLC=$(rlocation "$TEST_WORKSPACE/$2")
 TESTMAIN=$(rlocation "$TEST_WORKSPACE/$3")
+DIFF="$4"
 TESTDIR="$(dirname $TESTMAIN)"
 TESTDAR="$TESTDIR/Main.dar"
 
-TARGET="1.3"
-
 REGEX_HIDE_HASHES="s,@[a-z0-9]{8},@XXXXXXXX,g"
 
-$DAMLC package --debug --target $TARGET $TESTMAIN 'main' -o $TESTDAR
+$DAMLC package --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
-diff --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger
+$DIFF -u --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger

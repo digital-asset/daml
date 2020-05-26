@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 data "google_project" "current" {
@@ -28,7 +28,7 @@ resource "google_storage_bucket" "default" {
   # Use a normal region since the storage_class is regional
   location = "${var.region}"
 
-  # cleanup the cache after 60 days
+  # cleanup the cache after ${var.cache_retention_days} days
   lifecycle_rule {
     action {
       type = "Delete"
@@ -40,6 +40,9 @@ resource "google_storage_bucket" "default" {
   }
 
   website {
+    # This doesn't exist, but the property has to have a value, otherwise GCP
+    # sets a default one and Terraform never thinks the config applies cleanly.
+    # I miss AWS.
     main_page_suffix = "index.html"
   }
 
@@ -50,12 +53,4 @@ resource "google_storage_bucket_acl" "default" {
   bucket      = "${google_storage_bucket.default.name}"
   default_acl = "publicread"
   role_entity = ["${local.default_role_entities}"]
-}
-
-resource "google_storage_bucket_object" "default" {
-  name         = "index.html"
-  bucket       = "${google_storage_bucket.default.name}"
-  content      = "${file("${path.module}/files/index.html")}"
-  content_type = "text/html"
-  depends_on   = ["google_storage_bucket_acl.default"]
 }

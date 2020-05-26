@@ -1,0 +1,19 @@
+diff --git a/src/General/Template.hs b/src/General/Template.hs
+index 5c1ec774..61701037 100755
+--- a/src/General/Template.hs
++++ b/src/General/Template.hs
+@@ -34,10 +34,10 @@ import Language.Haskell.TH.Syntax ( runIO )
+ 
+ libraries :: [(String, IO LBS.ByteString)]
+ libraries =
+-    [("jquery.js",            FILE(JQuery.file))
+-    ,("jquery.dgtable.js",    FILE(DGTable.file))
+-    ,("jquery.flot.js",       FILE(Flot.file Flot.Flot))
+-    ,("jquery.flot.stack.js", FILE(Flot.file Flot.FlotStack))
++    [("jquery.js",            pure $ LBS.fromStrict JQuery.fileContent)
++    ,("jquery.dgtable.js",    pure $ LBS.fromStrict DGTable.fileContent)
++    ,("jquery.flot.js",       pure $ LBS.fromStrict Flot.flotFileContent)
++    ,("jquery.flot.stack.js", pure $ LBS.fromStrict Flot.flotStackFileContent)
+     ]
+ 
+ 

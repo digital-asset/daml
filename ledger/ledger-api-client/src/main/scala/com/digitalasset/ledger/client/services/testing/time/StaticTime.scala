@@ -1,24 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.testing.time
+package com.daml.ledger.client.services.testing.time
 
-import akka.stream.UniqueKillSwitch
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.ledger.api.v1.testing.time_service.SetTimeRequest
 import java.time.Instant
-
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink}
-import akka.stream.{ClosedShape, KillSwitches, Materializer}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion._
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.v1.testing.time_service.GetTimeRequest
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink}
+import akka.stream.{ClosedShape, KillSwitches, Materializer, UniqueKillSwitch}
+import com.daml.api.util.{TimeProvider, TimestampConversion}
+import com.daml.api.util.TimestampConversion._
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.{TimeService, TimeServiceStub}
+import com.daml.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -56,7 +53,7 @@ object StaticTime {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def updatedVia(timeService: TimeService, ledgerId: String)(
+  def updatedVia(timeService: TimeServiceStub, ledgerId: String, token: Option[String] = None)(
       implicit m: Materializer,
       esf: ExecutionSequencerFactory): Future[StaticTime] = {
     val clockRef = new AtomicReference[Instant](Instant.EPOCH)
@@ -75,7 +72,9 @@ object StaticTime {
           import GraphDSL.Implicits._
           val instantSource = b.add(
             ClientAdapter
-              .serverStreaming(GetTimeRequest(ledgerId), timeService.getTime)
+              .serverStreaming(
+                GetTimeRequest(ledgerId),
+                LedgerClient.stub(timeService, token).getTime)
               .map(r => toInstant(r.getCurrentTime)))
 
           val updateClock = b.add(Flow[Instant].map { i =>

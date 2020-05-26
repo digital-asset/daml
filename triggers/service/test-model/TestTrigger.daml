@@ -1,0 +1,41 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module TestTrigger where
+
+import DA.Action
+import DA.Foldable
+import DA.Next.Map (Map)
+import Daml.Trigger
+
+template A
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+
+template B
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+
+trigger : Trigger ()
+trigger = Trigger with
+  initialize = \_ -> ()
+  updateState = \_ _ _ -> ()
+  rule = triggerRule
+  registeredTemplates = AllInDar
+  heartbeat = None
+
+triggerRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
+triggerRule p acs _ _ _ = do
+  let as = filter (\(_, a) -> a.p == p) (getContracts @A acs)
+  let bs = map (\(_, B x y) -> (x,y)) $ filter (\(_, b) -> b.p == p) (getContracts @B acs)
+  forA_ as $ \(aCid, A x y) ->
+    when ((x,y) `notElem`  bs) $
+    void $ emitCommands [createCmd (B x y)] [toAnyContractId aCid]
+  pure ()

@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Extractor
@@ -23,6 +23,7 @@ Using the Extractor, you can:
 
 Setting up
 **********
+
 Prerequisites:
 
 - A PostgreSQL database that is reachable from the machine the Extractor runs on. Use PostgreSQL version 9.4 or later to have JSONB type support that is used in the Extractor.
@@ -95,13 +96,26 @@ This example connects to a database on host ``192.168.1.12``, listening on port 
 
   $ daml extractor postgres --connecturl jdbc:postgresql://192.168.1.12:5432/daml_export --user daml_exporter --password ExamplePassword --party [party]
 
+Authenticating Extractor
+************************
+
+If you are running Extractor against a Ledger API server that requires authentication, you must provide the access token when you start it.
+
+The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
+
+Once you have retrieved your access token, you can provide it to Extractor by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+
+Both in the case in which the token cannot be read from the provided path or if the Ledger API reports an authentication error (for example due to token expiration), Extractor will keep trying to read and use it and report the error via logging. This retry mechanism allows expired token to be overwritten with valid ones and keep Extractor going from where it left off.
+
 Full list of options
 ********************
 
-To see the full list of options, run the ``--help`` command, which gives the following output::
+To see the full list of options, run the ``--help`` command, which gives the following output:
+
+.. code-block:: none
 
   Usage: extractor [prettyprint|postgresql] [options]
- 
+
   Command: prettyprint [options]
   Pretty print contract template and transaction data to stdout.
     --width <value>          How wide to allow a pretty-printed value to become before wrapping.
@@ -109,18 +123,23 @@ To see the full list of options, run the ``--help`` command, which gives the fol
     --height <value>         How tall to allow each pretty-printed output to become before
                              it is truncated with a `...`.
                              Optional, default is 1000.
-   
+
   Command: postgresql [options]
   Extract data into a PostgreSQL database.
     --connecturl <value>     Connection url for the `org.postgresql.Driver` driver. For examples,
                              visit https://jdbc.postgresql.org/documentation/80/connect.html
     --user <value>           The database user on whose behalf the connection is being made.
     --password <value>       The user's password. Optional.
-   
+
   Common options:
     -h, --ledger-host <h>    The address of the Ledger host. Default is 127.0.0.1
     -p, --ledger-port <p>    The port of the Ledger host. Default is 6865.
-    --party <value>          The party whose contract data should be extracted.
+    --ledger-api-inbound-message-size-max <bytes>
+                             Maximum message size from the ledger API. Default is 52428800 (50MiB).
+    --party <value>          The party or parties whose contract data should be extracted.
+                           Specify multiple parties separated by a comma, e.g. Foo,Bar
+    -t, --templates <module1>:<entity1>,<module2>:<entity2>...
+                             The list of templates to subscribe for. Optional, defaults to all ledger templates.
     --from <value>           The transaction offset (exclusive) for the snapshot start position.
                              Must not be greater than the current latest transaction offset.
                              Optional, defaults to the beginning of the ledger.
@@ -131,12 +150,16 @@ To see the full list of options, run the ``--help`` command, which gives the fol
                              Must not be greater than the current latest offset.
                              Optional, defaults to “follow”.
     --help                   Prints this usage text.
-   
+
   TLS configuration:
     --pem <value>            TLS: The pem file to be used as the private key.
     --crt <value>            TLS: The crt file to be used as the cert chain.
                              Required if any other TLS parameters are set.
     --cacrt <value>          TLS: The crt file to be used as the the trusted root CA.
+
+  Authentication:
+    --access-token-file <value>
+                             provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
 
 Some options are tied to a specific subcommand, like ``--connecturl`` only makes sense for the ``postgresql``, while others are general, like ``--party``.
 
@@ -170,7 +193,7 @@ Transactions are stored in the ``transaction table`` in the ``public`` schema, w
 
 - **transaction_id**: The transaction ID, as appears on the ledger. This is the primary key of the table.
 - **transaction_id**, **effective_at, workflow_id, ledger_offset**: These columns are the properties of the transaction on the ledger. For more information, see the `specification <../../app-dev/grpc/proto-docs.html#transactiontree>`__.
-- **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of the DAML Ledger, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
+- **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of DAML Ledgers, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
 - **extracted_at**: The ``extracted_at`` field means the date the transaction row and its events were inserted into the database. When extracting historical data, this field will point to a possibly much later time than ``effective_at``.
 
 Contracts
@@ -414,7 +437,7 @@ Can’t connect to the Ledger Node
   
 If the Extractor can’t connect to the Ledger node on startup, you’ll see a message like this in the logs, and the Extractor will terminate::
 
-  16:47:51.208 ERROR c.d.e.Main$@[kka.actor.default-dispatcher-7] - FAILURE:
+  16:47:51.208 ERROR c.d.e.Main$@[akka.actor.default-dispatcher-7] - FAILURE:
   io.grpc.StatusRuntimeException: UNAVAILABLE: io exception.
   Exiting...
 

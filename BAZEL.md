@@ -47,26 +47,38 @@ provide a brief overview which may serve as a refresher.
 
 [bazel_core_concepts]: https://docs.bazel.build/versions/master/build-ref.html
 
-In short, the `da` repository is a Bazel *workspace*. It contains a `WORKSPACE`
+In short, the `daml` repository is a Bazel *workspace*. It contains a `WORKSPACE`
 file, which defines external dependencies. The workspace contains several
 *packages*. A package is a directory that contains a `BUILD.bazel` or `BUILD`
 file. Each package holds multiple *targets*. Targets are either *files* under
 the package directory or *rules* defined in the `BUILD.bazel` file. You can
 address a target by a *label* of the form `//path/to/package:target`. For
-example, `//ledger-client/ods:ods`. Here `ods` is a target in the package
-`ledger-client/ods`. It is defined in the file `ledger-client/ods/BUILD.bazel`
+example, `//ledger/sandbox:sandbox`. Here `sandbox` is a target in the package
+`ledger/sandbox`. It is defined in the file `ledger/sandbox/BUILD.bazel`
 using `da_scala_library` as shown below.
 
 ```
 da_scala_library(
-  name = 'ods',
-  deps = [
-    '//3rdparty/jvm/ch/qos/logback:logback_classic',
-    '//ledger-client/nanobot-framework',
-    ...
-  ],
-  srcs = glob(['src/main/**/*.scala']),
-  ...
+    name = "sandbox",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ) + [
+            "//:MVN_VERSION",
+        ],
+    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+    ],
+    deps = compileDependencies,
 )
 ```
 
@@ -167,7 +179,7 @@ does not have a project view file yet, then you can generate one using the
 `bazel-project-view` tool in dev-env as follows:
 
 ```
-bazel-project-view -o ledger-client/ods/.bazelproject ledger-client/ods
+bazel-project-view -o ledger/sandbox/.bazelproject ledger/sandbox
 ```
 
 Choose the "Import Project View File" option and select the project view file
@@ -221,12 +233,12 @@ After these modifications the project view file might look like this:
 
 ```
 directories:
-  ledger-client/ods
-  ledger-client/ledger-client-binding
+  ledger/sandbox
+  ...
 
 targets:
-  //ledger-client/ods:ods
-  //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala
+  //ledger/sandbox:sandbox
+  ...
 
 additional_languages:
   scala
@@ -332,7 +344,7 @@ detailed information.
 - Build an individual target
 
     ```
-    bazel build //ledger-client/ods:ods
+    bazel build //ledger/sandbox:sandbox
     ```
 
 ### Running Tests
@@ -346,45 +358,58 @@ detailed information.
 - Execute a test suite
 
     ```
-    bazel test //ledger-client/ods:tests
+    bazel test //ledger/sandbox:sandbox-scala-tests
     ```
 
 - Show test output
 
     ```
-    bazel test //ledger-client/ods:tests --test_output=streamed
+    bazel test //ledger/sandbox:sandbox-scala-tests --test_output=streamed
     ```
 
 - Do not cache test results
 
     ```
-    bazel test //ledger-client/ods:tests --nocache_test_results
+    bazel test //ledger/sandbox:sandbox-scala-tests --nocache_test_results
     ```
 
-- Execute an individual test case in a Scala test-suite
+- Execute a specific Scala test-suite class
 
     ```
-    bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala
+    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala
+    ```
+
+- Execute a test with a specific name
+
+    ```
+    bazel test \
+    //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+      --test_arg=-t \
+      --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
     ```
 
 - Pass an argument to a test case in a Scala test-suite
 
     ```
-    bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala --test_arg=-z --test_arg="should return true"
+    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+      --test_arg=-z \
+      --test_arg="should return true"
     ```
+
+    More broadly, for Scala tests you can pass through any of the args outlined in http://www.scalatest.org/user_guide/using_the_runner, separating into two instances of the --test-arg parameter as shown in the two examples above.
 
 ### Running Executables
 
 - Run an executable target
 
     ```
-    bazel run //rules_daml:sandbox-exec
+    bazel run //ledger/sandbox:sandbox-binary
     ```
 
 - Pass arguments to an executable target
 
     ```
-    bazel run //rules_daml:sandbox-exec -- --help
+    bazel run //ledger/sandbox:sandbox-binary -- --help
     ```
 
 ### Querying Targets
@@ -399,43 +424,43 @@ expressions can be combined using set operations like `intersect` or `union`.
 - List all targets underneath a directory
 
     ```
-    bazel query //ledger-client/...
+    bazel query //ledger/...
     ```
 
 - List all library targets underneath a directory
 
     ```
-    bazel query 'kind("library rule", //ledger-client/...)'
+    bazel query 'kind("library rule", //ledger/...)'
     ```
 
 - List all Scala library targets underneath a directory
 
     ```
-    bazel query 'kind("scala.*library rule", //ledger-client/...)'
+    bazel query 'kind("scala.*library rule", //ledger/...)'
     ```
 
 - List all test-suites underneath a directory
 
     ```
-    bazel query 'kind("test_suite", //ledger-client/...)'
+    bazel query 'kind("test_suite", //ledger/...)'
     ```
 
 - List all test-cases underneath a directory
 
     ```
-    bazel query 'tests(//ledger-client/...)'
+    bazel query 'tests(//ledger/...)'
     ```
 
 - List all Java test-cases underneath a directory
 
     ```
-    bazel query 'kind("java", tests(//ledger-client/...))'
+    bazel query 'kind("java", tests(//ledger/...))'
     ```
 
 - List all Scala library dependencies of a target
 
     ```
-    bazel query 'kind("scala.*library rule", deps(//ledger-client/ods:ods))'
+    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox:sandbox))'
     ```
 
 - Find available 3rd party dependencies
@@ -452,7 +477,7 @@ query includes. These can then be rendered using Graphviz.
 - Graph all Scala library dependencies of a target
 
     ```
-    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger-client/ods:ods))' --output graph > graph.in
+    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox:sandbox))' --output graph > graph.in
     dot -Tpng < graph.in > graph.png
     ```
 
@@ -491,7 +516,7 @@ it will watch these files for changes and rerun the command on file change. For
 example:
 
 ```
-ibazel test //ledger-client/ods:tests
+ibazel test //ledger/sandbox:sandbox-scala-tests
 ```
 
 Note, that this interacts well with Bazel's test result caching (which is
@@ -527,7 +552,7 @@ for building test-suites. The `da_*` rules are DA specific overrides
 of the upstream `rules_haskell` rules. Their API docs can be found in
 `//bazel_tools/haskell.bzl`, or by executing the `bazel-api-docs` tool
 from `dev-env`. They mostly behave like the upstream rules, just
-adding some defaults, and adding a `hazel_deps` attribute (more on
+adding some defaults, and adding a `hackage_deps` attribute (more on
 this below) for convenience.
 
 ### Library : `da_haskell_library`
@@ -538,7 +563,7 @@ One specific library in the `daml-foundations` stack is
 da_haskell_library(
     name = "daml-ghc-compiler",
     srcs = glob([
-        "src/DA/Daml/GHC/Compiler/**/*.hs",
+        "src/**/*.hs",
     ]),
     src_strip_prefix = "src",
     deps = [
@@ -546,7 +571,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         ...
     ],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         ...
@@ -557,11 +582,11 @@ da_haskell_library(
 To build this single target from the root of the DAML repository, the
 command would be:
 ```
-bazel build //daml-foundations/daml-ghc:daml-ghc-compiler
+bazel build //compiler/damlc/daml-compiler
 ```
 since the `BUILD.bazel` that defines the target is in the
-`daml-foundations/daml-ghc` sub-folder of the root of the DA
-repository and the target `name` is `daml-ghc`.
+`compiler/damlc` sub-folder of the root of the DA
+repository and the target `name` is `damlc`.
 
 Let's break this definition down:
 - `name`:
@@ -573,7 +598,7 @@ Let's break this definition down:
 - `deps`:
     A list of in-house Haskell or C library dependencies to be linked
     into the target;
-- `hazel_deps`:
+- `hackage_deps`:
     A list of external Haskell (Hackage) libraries to be linked into
     the target;
 - `visibility`:
@@ -602,7 +627,7 @@ for
 `//nix/third-party/proto3-suite:proto3-suite` defined in the file
 `nix/third-party/proto3-suite/BUILD.bazel`.
 
-The `hazel_deps` argument details those Haskell packages (from
+The `hackage_deps` argument details those Haskell packages (from
 Hackage) that the `daml-ghc-compiler` target depends upon. In this case
 that is `base`, `bytestring` and some other packages not
 shown. Finally, `visibility` is set to public so no errors will result
@@ -622,9 +647,9 @@ da_haskell_binary (
   srcs = glob (["src/DA/Cli/**/*.hs", "src/DA/Test/**/*.hs"])
   src_strip_prefix = "DA",
   main_function = "DA.Cli.GHC.Run.main",
-  hazel_deps = [ "base", "time", ...],
+  hackage_deps = [ "base", "time", ...],
   data = [
-    "//daml-foundations/daml-ghc/package-database:package-db"
+    "//compiler/damlc/pkg-db"
     , ...
   ],
   deps = [
@@ -688,47 +713,8 @@ More comprehensive documentation on the `bazel` command can be found
 If your work goes beyond simply adding targets to existing
 `BUILD.bazel` files and involves things like defining toolchains and
 external dependencies, then [this
-document](https://github.com/DACH-NY/da/blob/master/BAZEL-haskell.md)
+document](https://github.com/digital-asset/daml/blob/master/BAZEL-haskell.md)
 is for you!
-
-## Documentation packages in Bazel
-
-'daml-foundations' documentation resides in the DA git repository in
-sub-directories of the path `//daml-foundations/daml-tools/docs`. Each
-sub-directory there is a documentation "package". A documentation
-package contains a `BUILD.bazel` file.
-
-The rule for producing a documentation package under Bazel is
-`da_doc_package` and it is brought into the scope of a `BUILD.bazel`
-file with the following directive.
-```
-load ("//bazel_tools:docs.bzl", "da_doc_package")
-```
-
-### Synopsis
-
-`da_doc_package (name, prepare, extra_sources)`
-
-Build a documentation package.
-
-Attributes:
-  - `name`
-    Required. A unique name for the package.
-  - `prepare`
-    Optional. If provided then it is interpreted as a bash script to be
-    executed on the documentation sources before the bundle generation
-    step (see below for what that means).
-  - `extra_sources`
-    Optional. Default value is the empty list.
-
-The output of `da_doc_package` with name `"foo"` is a bundle
-`sources.tar.gzip` in the path
-`//bazel-genfiles/daml-foundations/daml-tools/docs/foo`. The bundle for `"foo"` would be produced with the command:
-```
-bazel build //daml-foundations/daml-tools/docs/foo:foo
-```
-The contents of the bundle will be copies of files under the directory
-`//daml-foundations/daml-tools/doc/foo/sources`.
 
 ## Scala in Bazel
 
@@ -821,12 +807,6 @@ da_scala_library(
 )
 ```
 
-### Scala Macro Libraries
-
-If a Scala library defines macros that should be used by other Scala targets
-later on, then it has to be defined using `da_scala_macro_library`. Macros may
-not be defined and used within the same target.
-
 ### Scala Executables
 
 Scala executables are defined using `da_scala_binary`. It takes most of the
@@ -840,7 +820,7 @@ are:
 - `data`:
     Files that are needed at runtime. In order to access such files at runtime
     you should use the utility library in
-    `com.digitalasset.testing.BuildSystemSupport`.
+    `com.daml.testing.BuildSystemSupport`.
 
 ### Scala Test Cases
 
@@ -893,13 +873,13 @@ daml(
   # The directory prefix under which to create the DAR tree.
   target_dir = "target/scala-2.12/resource_managed/it/dars",
   # The group ID.
-  group = "com.digitalasset.sample",
+  group = "com.daml.sample",
   # The artifact ID.
   artifact = "test-all",
   # The package version.
   version = "0.1",
   # The package name.
-  package = "com.digitalasset.sample",
+  package = "com.daml.sample",
 )
 ```
 
@@ -963,21 +943,15 @@ dependencies are introduced implicitly through direct dependencies, most
 commonly on another dependency's `exports` attribute.
 
 All direct Scala and Java dependencies are listed explicitly in the file
-`dependencies.yaml`. Each dependency is defined through its Maven group id,
-artifact id, version, and language. The external tool `bazel-deps` takes this
-file as an input and uses Coursier to perform transitive dependency resolution.
+`bazel-java-deps.bzl`. Each dependency is defined by its Maven coordinates. The
+`maven_install` repository rule calls Coursier to perform transitive dependency
+resolution and import the required artifacts into the Bazel build.
 
-After resolution all direct and transitive dependencies are pinned in the file
-`3rdparty/workspace.bzl` with their version and hash. Additionally, Bazel
-targets are defined for these dependencies and their transitive dependencies
-under the `3rdparty` subtree. For example, the package
-`org.scalaz.scalaz-scalacheck-binding` is available as
-`//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding`, which also includes
-`//3rdparty/jvm/org/scalaz:scalaz_core` (among others) as transitive
-dependencies.
+The resolved versions are pinned in the file `maven_install.json`. Execute
+`bazel run @unpinned_maven//:pin` when you wish to update or add a new
+dependency. See [`rules_jvm_external`][rules_jvm_external] for details.
 
-In order to update or add external Java or Scala dependencies follow the
-instructions at the top of the file `dependencies.yaml`.
+[rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 ## Typescript in Bazel
 
@@ -986,7 +960,7 @@ typescript projects. It works in conjunction with rules_nodejs to provide access
 npm packages.
 
 Please refer to the documentation in the above url for usage.
-For an example, please see `daml-foundations/daml-tools/daml-extension/BUILD.bazel`.
+For an example, please see `compiler/daml-extension/BUILD.bazel`.
 
 ## Protocol buffers in Bazel
 
@@ -1017,3 +991,22 @@ Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc
     rm -r .bazel-cache    # clean the local cache
 
 This will also mean that changes made locally will need to be rebuilt, but it's likely that this will still result in a net positive gain on your build time.
+
+If you are still rebuilding after this, you probably also have a
+poisoned Nix cache. To clear that run through the following steps:
+
+    bazel clean --expunge # clean the build cache
+    rm -r .bazel-cache    # clean the local cache
+    rm dev-env/var/gc-roots/* # Remove dev-env GC roots
+    rm result* # Remove GC roots you might have from previous nix-build invocations.
+    nix-store --gc --print-roots # View all garbage collection roots
+    # Verify that there is nothing from our repo or some Bazel cache.
+    # If you are not sure ask in #team-daml
+    nix-store --gc # Run garbage collection
+    nix-build nix -A tools -A cached --no-out-link # Build the nix derivations (they should be fetched from the cache)
+    bazel build //... # You should now see things being fetched from the cache
+
+### Working in environments with low or intermittent connectivity
+
+Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
+

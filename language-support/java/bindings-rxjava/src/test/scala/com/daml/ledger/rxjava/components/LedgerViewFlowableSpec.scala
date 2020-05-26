@@ -1,12 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import com.daml.ledger.javaapi.data.{Identifier, LedgerOffset, WorkflowEvent}
+import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import io.reactivex.Flowable
 import org.scalatest.{FlatSpec, Matchers}
 

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2020 The DAML Authors. All rights reserved.
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+
+<included>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{5} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- Disable noisy DB logging at the start of sandbox -->
+    <logger name="com.digitalasset.platform.store.FlywayMigrations" level="WARN" />
+    <logger name="org.flywaydb" level="ERROR" />
+    <logger name="com.zaxxer.hikari" level="ERROR" />
+    <logger name="com.digitalasset.platform" level="WARN" />
+
+    <!-- raising the command tracker logging level -->
+    <logger name="com.digitalasset.platform.apiserver.services.tracking.TrackerMap" level="WARN" />
+
+    <logger name="io.netty" level="WARN" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <logger name="io.grpc.netty" level="WARN" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+</included>

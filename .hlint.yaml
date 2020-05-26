@@ -1,3 +1,6 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # HLint configuration file
 # https://github.com/ndmitchell/hlint
 ##########################
@@ -37,6 +40,10 @@
 - warn: {lhs: nubBy, rhs: Data.List.Extra.nubOrdBy}
 - warn: {lhs: Data.List.Extra.nubOn, rhs: Data.List.Extra.nubOrdOn}
 
+# Promote whenJust
+- warn: {lhs: maybe (return ()) f x, rhs: Control.Monad.Extra.whenJust x f}
+- warn: {lhs: maybe (pure ()) f x, rhs: Control.Monad.Extra.whenJust x f}
+
 # DA specific hints
 - warn: {lhs: Data.Text.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}
 - warn: {lhs: Data.Text.Extended.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}
@@ -46,6 +53,10 @@
 - warn: {lhs: Data.Text.Lazy.readFile, rhs: Data.Text.Extended.readFileUtf8}
 - warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
 - warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
+- warn: {lhs: toNormalizedFilePath, rhs: toNormalizedFilePath'}
+
+# Hints that do not always make sense
+- ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}
 
 # Specify additional command line arguments
 #
@@ -66,6 +77,7 @@
   - {name: GeneralizedNewtypeDeriving, within: []}
   - {name: LambdaCase, within: []}
   - {name: NamedFieldPuns, within: []}
+  - {name: OverloadedStrings, within: []}
   - {name: PackageImports, within: []}
   - {name: RecordWildCards, within: []}
   - {name: ScopedTypeVariables, within: []}
@@ -75,34 +87,41 @@
   - {name: ViewPatterns, within: []}
 
   # Shady extensions
+  - {name: ImplicitParams, within: []}
   - name: CPP
     within:
+    - Development.IDE.Core.FileStore
+    - DA.Cli.Damlc
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
-    - DAML.Assistant.Install.Path
-    - Development.IDE.Functions.Compile
-    - Development.IDE.UtilGHC
-    - Development.IDE.Compat
-  - {name: ImplicitParams, within: []}
+    - DA.Daml.Assistant.Install.Path
+    - DA.Daml.Doc.Tests
+    - DA.Signals
+    - Development.IDE.Core.Compile
+    - Development.IDE.GHC.Compat
+    - Development.IDE.GHC.Util
+    - Development.IDE.Import.FindImports
+    - Development.IDE.Spans.Calculate
 
 - flags:
   - default: false
   - {name: [-Wno-missing-signatures, -Wno-orphans, -Wno-overlapping-patterns, -Wno-incomplete-patterns, -Wno-missing-fields, -Wno-unused-matches]}
-  - {name: -Wno-deprecations, within: DA.Service.Daml.LanguageServer.Hover}
-
+  - {name: [-Wno-dodgy-imports], within: Main}
 # - modules:
 #   - {name: [Data.Set, Data.HashSet], as: Set} # if you import Data.Set qualified, it must be as 'Set'
 #   - {name: Control.Arrow, within: []} # Certain modules are banned entirely
 #
-# - functions:
-#   - {name: unsafePerformIO, within: []} # unsafePerformIO can only appear in no modules
-
+- functions:
+  - {name: unsafePerformIO, within: [DA.Daml.LFConversion.UtilGHC]}
+  - {name: unsafeInterleaveIO, within: []}
+  - {name: unsafeDupablePerformIO, within: []}
+  - {name: setCurrentDirectory, within: [DA.Daml.Assistant.Tests, Main]}
+  - {name: unsafeCoerce, within: []}
 
 # Add custom hints for this project
 #
 # Will suggest replacing "wibbleMany [myvar]" with "wibbleOne myvar"
 # - error: {lhs: "wibbleMany [x]", rhs: wibbleOne x}
-
 
 # Turn on hints that are off by default
 #
@@ -115,11 +134,10 @@
 # Generalise map to fmap, ++ to <>
 # - group: {name: generalise, enabled: true}
 
-
 # Ignore some builtin hints
 # - ignore: {name: Use let}
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
 
-
 # Define some custom infix operators
 # - fixity: infixr 3 ~^#^~
+

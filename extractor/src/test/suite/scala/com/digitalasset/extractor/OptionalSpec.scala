@@ -1,18 +1,17 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-
-import org.scalatest._
-import io.circe.parser._
 import java.io.File
 
-import scalaz._
-import Scalaz._
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
+import io.circe.parser._
+import org.scalatest._
+import scalaz.Scalaz._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class OptionalSpec
@@ -25,7 +24,7 @@ class OptionalSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/PrimitiveTypes.dar")
+  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
 
   override def scenario: Option[String] = Some("PrimitiveTypes:optionals")
 
@@ -42,40 +41,24 @@ class OptionalSpec
       """
         {
           "reference" : "Nones",
-          "optional" : {
-            "None" : {}
-          },
-          "deep_optional" : {
-            "None" : {}
-          },
+          "optional" : null,
+          "deep_optional" : null,
           "party" : "Bob"
         }
       """,
       """
         {
           "reference" : "Somes",
-          "optional" : {
-            "Some" : "foo"
-          },
-          "deep_optional" : {
-            "Some" : {
-              "Some" : "foo"
-            }
-          },
+          "optional" : "foo",
+          "deep_optional" : ["foo"],
           "party" : "Bob"
         }
       """,
       """
         {
           "reference" : "Some None",
-          "optional" : {
-            "Some" : "foo"
-          },
-          "deep_optional" : {
-            "Some" : {
-              "None" : {}
-            }
-          },
+          "optional" : "foo",
+          "deep_optional" : [],
           "party" : "Bob"
         }
       """

@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
 import sangria.marshalling._
 import spray.json._
@@ -11,7 +11,7 @@ import scala.util.Try
 /**
   * Custom marshallers and unmarshallers for dealing with raw JSON values.
   *
-  * The declared implicit objects replace the ones you would usually import from [[sangria.marshalling.sprayJson]].
+  * The declared implicit objects replace the ones you would usually import from `sangria.marshalling.sprayJson`.
   * In fact they are largely identical to those except for the additional support for non-scalar JSON values.
   *
   * The entire object is only relevant as long as we use raw JSON values in the model.

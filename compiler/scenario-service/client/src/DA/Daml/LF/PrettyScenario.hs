@@ -1,7 +1,6 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
@@ -10,15 +9,16 @@ module DA.Daml.LF.PrettyScenario
   , prettyBriefScenarioError
   , renderScenarioResult
   , lookupDefLocation
+  , scenarioNotInFileNote
+  , fileWScenarioNoLongerCompilesNote
   , ModuleRef
   ) where
 
-import           Control.Lens               (preview, review)
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
-import           DA.Daml.LF.Decimal  (stringToDecimal)
 import qualified DA.Daml.LF.Ast             as LF
+import DA.Daml.LF.Mangling
 import Control.Applicative
 import Text.Read hiding (parens)
 import           DA.Pretty as Pretty
@@ -46,6 +46,23 @@ data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))
 
 type ModuleRef = LF.Qualified ()
+
+unmangleQualifiedName :: T.Text -> (LF.ModuleName, T.Text)
+unmangleQualifiedName t = case T.splitOn ":" t of
+    [modName, defName] -> (unmangleModuleName modName, unmangle defName)
+    _ -> error "Bad definition"
+
+unmangleModuleName :: T.Text -> LF.ModuleName
+unmangleModuleName t = LF.ModuleName (map unmangle $ T.splitOn "." t)
+
+unmangle :: T.Text -> T.Text
+unmangle s = case unmangleIdentifier s of
+    Left err -> error err
+    Right (UnmangledIdentifier s) -> s
+
+{-# COMPLETE UnmangledQualifiedName #-}
+pattern UnmangledQualifiedName :: LF.ModuleName -> T.Text -> TL.Text
+pattern UnmangledQualifiedName mod def <- (unmangleQualifiedName . TL.toStrict -> (mod, def))
 
 runM :: V.Vector Node -> LF.World -> M (Doc SyntaxClass) -> Doc SyntaxClass
 runM nodes world =
@@ -83,16 +100,6 @@ lookupModule world mbPkgId modName = do
          LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
-
-lookupModuleFromQualifiedName ::
-     LF.World -> Maybe PackageIdentifier -> T.Text
-  -> Maybe (LF.ModuleName, T.Text, LF.Module)
-lookupModuleFromQualifiedName world mbPkgId qualName = do
-  let (modName, defName) = case T.splitOn ":" qualName of
-        [modNm, defNm] -> (LF.ModuleName (T.splitOn "." modNm), defNm)
-        _ -> error "Bad definition"
-  modu <- lookupModule world mbPkgId modName
-  return (modName, defName, modu)
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
@@ -150,6 +157,8 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
         vcat
           (map (prettyTraceMessage world)
                (V.toList scenarioErrorTraceLog))
+  let ppStackTraceEntry loc =
+         "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
     [ Just $ error_ (text "Scenario execution" <->
@@ -159,10 +168,9 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
          <-> prettyMayLocation world scenarioErrorCommitLoc <> char ':'))
       $$ nest 2 ppError
 
-    , if isNothing scenarioErrorLastLoc
+    , if V.null scenarioErrorStackTrace
       then Nothing
-      else Just $ label_ "Last source location:"
-                $ prettyMayLocation world scenarioErrorLastLoc
+      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (reverse $ V.toList scenarioErrorStackTrace)
 
     , Just $ "Ledger time:" <-> prettyTimestamp scenarioErrorLedgerTime
 
@@ -260,130 +268,96 @@ prettyScenarioErrorError (Just err) =  do
                 scenarioError_ContractNotVisibleContractRef
         , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractNotVisibleCommitter
         , label_ "Disclosed to:"
-            $ fcommasep
-            $ mapV prettyParty scenarioError_ContractNotVisibleObservers
+            $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
+
+partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
+partyDifference with without =
+  fcommasep $ map prettyParty $ S.toList $
+  S.fromList (V.toList with) `S.difference`
+  S.fromList (V.toList without)
+
+prettyParties :: V.Vector Party -> Doc SyntaxClass
+prettyParties = fcommasep . mapV prettyParty
 
 prettyFailedAuthorization :: LF.World -> FailedAuthorization -> Doc SyntaxClass
 prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
   hcat
     [ prettyMay "<missing node id>" prettyNodeIdLink mbNodeId
     , text ": "
-    , case mbFa of
+    , vcat $ case mbFa of
         Just (FailedAuthorizationSumCreateMissingAuthorization
           (FailedAuthorization_CreateMissingAuthorization templateId mbLoc authParties reqParties)) ->
-          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty reqParties)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> reqParties `partyDifference` authParties
+              ]
 
         Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
           (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
-          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to that some parties are maintainers but not signatories: "
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty maintainers)
-               `S.difference`
-               S.fromList (mapV partyParty signatories)
-             )
-            )
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to that some parties are maintainers but not signatories: "
+                <-> maintainers `partyDifference` signatories
+              ]
 
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
-          "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed since none of the stakeholders"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ mapV partyParty stakeholders
-            ))
-          $$
-            ("is in the authorizing set"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ mapV partyParty authParties
-            ))
+              [ "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed since none of the stakeholders"
+                <-> prettyParties stakeholders
+              , "is in the authorizing set"
+                <-> prettyParties authParties
+              ]
 
         Just (FailedAuthorizationSumExerciseMissingAuthorization
           (FailedAuthorization_ExerciseMissingAuthorization templateId choiceId mbLoc authParties reqParties)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty reqParties)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> reqParties `partyDifference` authParties
+              ]
 
         Just (FailedAuthorizationSumActorMismatch
           (FailedAuthorization_ActorMismatch templateId choiceId mbLoc ctrls givenActors)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to authorization error:"
-            $$ "the choice's controlling parties"
-            <-> brackets (fcommasep (mapV prettyParty ctrls))
-            $$ "is not a subset of the authorizing parties"
-            <-> brackets (fcommasep (mapV prettyParty givenActors))
-            )
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to authorization error:"
+              , "the choice's controlling parties"
+                <-> brackets (prettyParties ctrls)
+              , "is not a subset of the authorizing parties"
+                <-> brackets (prettyParties givenActors)
+              ]
 
         Just (FailedAuthorizationSumNoControllers
           (FailedAuthorization_NoControllers templateId choiceId mbLoc)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$ "failed due missing controllers"
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due missing controllers"
+              ]
 
         Just (FailedAuthorizationSumNoSignatories
           (FailedAuthorization_NoSignatories templateId mbLoc)) ->
-          "create of"
-          <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$ "failed due missing signatories"
+              [ "create of"
+                <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due missing signatories"
+              ]
 
         Just (FailedAuthorizationSumLookupByKeyMissingAuthorization
           (FailedAuthorization_LookupByKeyMissingAuthorization templateId mbLoc authParties maintainers)) ->
-         "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-         <-> "at" <-> prettyMayLocation world mbLoc
-         $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty maintainers)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> maintainers `partyDifference` authParties
+              ]
 
-
-        Nothing ->
-          text "<missing failed_authorization>"
+        Nothing -> [text "<missing failed_authorization>"]
     ]
 
 
@@ -452,13 +426,15 @@ prettyCommit txid mbLoc Transaction{..} = do
      $$ children
 
 prettyMayLocation :: LF.World -> Maybe Location -> Doc SyntaxClass
-prettyMayLocation _ Nothing = text "unknown source"
-prettyMayLocation world (Just (Location mbPkgId modName sline scol eline _ecol)) =
+prettyMayLocation world = maybe (text "unknown source") (prettyLocation world)
+
+prettyLocation :: LF.World -> Location -> Doc SyntaxClass
+prettyLocation world (Location mbPkgId (unmangleModuleName . TL.toStrict -> modName) sline scol eline _ecol _definition) =
       maybe id (\path -> linkSC (url path) title)
-        (lookupModule world mbPkgId (LF.ModuleName (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
+        (lookupModule world mbPkgId modName >>= LF.moduleSource)
     $ text title
   where
-    modName' = TL.toStrict modName
+    modName' = LF.moduleNameString modName
     encodeURI = Network.URI.Encode.encodeText
     title = modName' <> lineNum
     url fp = "command:daml.revealLocation?"
@@ -473,7 +449,7 @@ prettyMayLocation world (Just (Location mbPkgId modName sline scol eline _ecol))
 
 prettyTxId :: Int32 -> Doc SyntaxClass
 prettyTxId txid =
-  linkToIdSC ("n" <> TE.show txid) $ char '#' <> string (show txid)
+  linkToIdSC ("n" <> TE.show txid) $ string (show txid)
 
 linkToIdSC :: T.Text -> Doc SyntaxClass -> Doc SyntaxClass
 linkToIdSC targetId =
@@ -487,15 +463,15 @@ prettyNodeId :: NodeId -> Doc SyntaxClass
 prettyNodeId (NodeId nodeId) =
     idSC ("n" <> TL.toStrict nodeId)
   $ annotateSC ConstructorSC
-  $ char '#' <> text (TL.toStrict nodeId)
+  $ text (TL.toStrict nodeId)
 
 prettyNodeIdLink :: NodeId -> Doc SyntaxClass
 prettyNodeIdLink (NodeId nodeId) =
-  linkToIdSC ("n" <> TL.toStrict nodeId) $ char '#' <> text (TL.toStrict nodeId)
+  linkToIdSC ("n" <> TL.toStrict nodeId) $ text (TL.toStrict nodeId)
 
 prettyContractId :: TL.Text -> Doc SyntaxClass
 prettyContractId coid =
-  linkToIdSC ("n" <> TL.toStrict coid) $ char '#' <> ltext coid
+  linkToIdSC ("n" <> TL.toStrict coid) $ ltext coid
 
 linkSC :: T.Text -> T.Text -> Doc SyntaxClass -> Doc SyntaxClass
 linkSC url title = annotateSC (LinkSC url title)
@@ -682,14 +658,13 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumVariant (Variant mbVariantId ctor mbValue) ->
         prettyMay "" (\v -> prettyDefName world v <> ":") mbVariantId <> ltext ctor
     <-> prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue
+  ValueSumEnum (Enum mbEnumId constructor) ->
+        prettyMay "" (\x -> prettyDefName world x <> ":") mbEnumId <> ltext constructor
   ValueSumList (List elems) ->
     brackets (fcommasep (mapV (prettyValue' True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid
   ValueSumInt64 i -> string (show i)
-  ValueSumDecimal ds ->
-    case preview stringToDecimal (TL.unpack ds) of
-      Nothing -> ltext ds
-      Just d  -> string $ review stringToDecimal d
+  ValueSumDecimal ds -> ltext ds
   ValueSumText t -> char '"' <> ltext t <> char '"'
   ValueSumTimestamp ts -> prettyTimestamp ts
   ValueSumParty p -> char '\'' <> ltext p <> char '\''
@@ -700,6 +675,7 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumOptional (Optional Nothing) -> text "none"
   ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' True precHighest world v
   ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry prec world) entries))
+  ValueSumGenMap (GenMap entries) -> "GenMap" <> brackets (fcommasep (mapV (prettyGenMapEntry prec world) entries))
   ValueSumUnserializable what -> ltext what
   where
     prettyField (Field label mbValue) =
@@ -707,6 +683,11 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
         (prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue)
     precWith = 1
     precHighest = 9
+
+prettyGenMapEntry :: Int -> LF.World -> GenMap_Entry -> Doc SyntaxClass
+prettyGenMapEntry prec world (GenMap_Entry keyM valueM) =
+    prettyMay "<missing key>" (prettyValue' True prec world) keyM <> "->" <>
+    prettyMay "<missing value>" (prettyValue' True prec world) valueM
 
 prettyEntry :: Int -> LF.World ->  Map_Entry -> Doc SyntaxClass
 prettyEntry prec world (Map_Entry key (Just value)) =
@@ -730,15 +711,15 @@ prettyPackageIdentifier (PackageIdentifier psum) = case psum of
   (Just (PackageIdentifierSumPackageId pid)) -> char '@' <> ltext pid
 
 prettyDefName :: LF.World -> Identifier -> Doc SyntaxClass
-prettyDefName world (Identifier mbPkgId (TL.toStrict -> qualName))
-  | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName))
+  | Just mod0 <- lookupModule world mbPkgId modName
   , Just fp <- LF.moduleSource mod0
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- lookupDefLocation mod0 defName =
       linkSC (revealLocationUri fp sline eline) name ppName
   | otherwise =
       ppName
   where
-    name = qualName
+    name = LF.moduleNameString modName <> ":" <> defName
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
 
@@ -746,8 +727,8 @@ prettyChoiceId
   :: LF.World -> Maybe Identifier -> TL.Text
   -> Doc SyntaxClass
 prettyChoiceId _ Nothing choiceId = ltext choiceId
-prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
-  | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+prettyChoiceId world (Just (Identifier mbPkgId (UnmangledQualifiedName modName defName))) (TL.toStrict -> choiceId)
+  | Just mod0 <- lookupModule world mbPkgId modName
   , Just fp <- LF.moduleSource mod0
   , Just tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
   , Just chc <- NM.lookup (LF.ChoiceName choiceId) (LF.tplChoices tpl)
@@ -825,43 +806,15 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-templateConName :: Identifier -> LF.Qualified LF.TypeConName
-templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pkgRef  mdN tpl
-  where (mdN, tpl) = case T.splitOn ":" qualName of
-          [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
-          _ -> error "malformed identifier"
-        pkgRef = case mbPkgId of
-                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
-                  Just (PackageIdentifier (Just (PackageIdentifierSumSelf _))) -> LF.PRSelf
-                  Just (PackageIdentifier Nothing) -> error "unidentified package reference"
-                  Nothing -> error "unidentified package reference"
-
-labledField :: T.Text -> T.Text -> T.Text
-labledField fname "" = fname
-labledField fname label = fname <> "." <> label
-
-typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
-typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
-typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
-
-typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
-typeConFields qName world = case LF.lookupDataType qName world of
-  Right dataType -> case LF.dataCons dataType of
-    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
-    LF.DataVariant _ -> [""]
-  Left _ -> error "malformed template constructor"
-
-renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html
-renderHeader world identifier parties = H.tr $ mconcat
+renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
+renderRow world parties NodeInfo{..} =
+    let (ths, tds) = renderValue world [] niValue
+        header = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , foldMap (H.th . H.text) (typeConFields (templateConName identifier) world)
+            , ths
             ]
-
-renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
-renderRow world parties NodeInfo{..} =
-    let (_, tds) = renderValue world [] niValue
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -870,15 +823,16 @@ renderRow world parties NodeInfo{..} =
             , H.td (H.text active)
             , tds
             ]
-    in row
+    in (header, row)
 
+-- TODO(MH): The header should be rendered from the type rather than from the
+-- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let rows = map (renderRow world parties) tRows
-    let header = renderHeader world tTemplateId parties
-    H.table $ header <> mconcat rows
+    let (headers, rows) = unzip $ map (renderRow world parties) tRows
+    H.table $ head headers <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 
@@ -898,13 +852,16 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
-            H.style $ H.text stylesheet
-            H.script $ H.text javascript
+            H.script "" H.! A.src "$webviewSrc"
+            H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = renderTableView world res
         let transView = renderTransactionView world res
+        let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
         case tableView of
-            Nothing -> H.body transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction" $ do
+            Nothing -> H.body H.! A.class_ "hide_note" $ do
+                noteView
+                transView
+            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note" $ do
                 H.div $ do
                     H.button H.! A.onclick "toggle_view();" $ do
                         H.span H.! A.class_ "table" $ H.text "Show transaction view"
@@ -913,55 +870,17 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                     H.span H.! A.class_ "table" $ do
                         H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
                         H.label H.! A.for "show_archived" $ "Show archived"
+                noteView
                 tbl
                 transView
 
-javascript :: T.Text
-javascript = T.unlines
-  [ "function show_archived_changed() {"
-  , "  document.body.classList.toggle('hide_archived', !document.getElementById('show_archived').checked);"
-  , "}"
-  , "function toggle_view() {"
-  , "  document.body.classList.toggle('hide_transaction');"
-  , "  document.body.classList.toggle('hide_table');"
-  , "}"
-  ]
+scenarioNotInFileNote :: T.Text -> T.Text
+scenarioNotInFileNote file = htmlNote $ T.pack $
+    "This scenario no longer exists in the source file: " ++ T.unpack file
 
-stylesheet :: T.Text
-stylesheet = T.unlines
-  [ "table, th, td {"
-  , "  border: 1px solid;"
-  , "  border-collapse: collapse;"
-  , "}"
-  , "th, td {"
-  , "  padding-left: 2px;"
-  , "  padding-right: 2px;"
-  , "}"
-  , "body.hide_archived .archived {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_table .table {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_transaction .transaction {"
-  , "  display: none;"
-  , "}"
-  , "tr.archived td {"
-  , "  text-decoration: line-through;"
-  , "}"
-  , "td.disclosure {"
-  , "  max-width: 1em;"
-  , "  text-align: center;"
-  , "}"
-  , "tr.archived td.disclosure {"
-  , "  text-decoration: none;"
-  , "}"
-  , "th {"
-  , "  vertical-align: bottom;"
-  , "}"
-  , "div.observer {"
-  , "  max-width: 1em;"
-  , "  writing-mode: vertical-rl;"
-  , "  transform: rotate(180deg);"
-  , "}"
-  ]
+fileWScenarioNoLongerCompilesNote :: T.Text -> T.Text
+fileWScenarioNoLongerCompilesNote file = htmlNote $ T.pack $
+    "The source file containing this scenario no longer compiles: " ++ T.unpack file
+
+htmlNote :: T.Text -> T.Text
+htmlNote t = TL.toStrict $ Blaze.renderHtml $ H.docTypeHtml $ H.span H.! A.class_ "da-hl-warning" $ H.toHtml t

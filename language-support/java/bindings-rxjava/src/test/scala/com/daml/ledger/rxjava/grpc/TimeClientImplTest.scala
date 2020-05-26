@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -6,13 +6,18 @@ package com.daml.ledger.rxjava.grpc
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.daml.ledger.testkit.services.TimeServiceImpl
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers._
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 import scala.concurrent.ExecutionContext
 
-class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with DataLayerHelpers {
+final class TimeClientImplTest
+    extends FlatSpec
+    with Matchers
+    with AuthMatchers
+    with OptionValues
+    with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices("time-service-ledger")
   implicit val ec: ExecutionContext = ledgerServices.executionContext
@@ -20,8 +25,8 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
   behavior of "[9.1] TimeClientImpl.setTime"
 
   it should "send requests with the correct ledger ID, current time and new time" in {
-    val (timeService, timeServiceImpl) = TimeServiceImpl.createWithRef()
-    ledgerServices.withTimeClient(timeService) { timeClient =>
+    val (timeService, timeServiceImpl) = TimeServiceImpl.createWithRef(Seq.empty, authorizer)
+    ledgerServices.withTimeClient(Seq(timeService)) { timeClient =>
       val currentLedgerTimeSeconds = 1l
       val currentLedgerTimeNanos = 2l
       val currentTime = Instant.ofEpochSecond(currentLedgerTimeSeconds, currentLedgerTimeNanos)
@@ -45,7 +50,8 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
 
   it should "return the responses received" in {
     val getTimeResponse = genGetTimeResponse
-    ledgerServices.withTimeClient(TimeServiceImpl(getTimeResponse)) { timeClient =>
+    ledgerServices.withTimeClient(
+      Seq(TimeServiceImpl.createWithRef(Seq(getTimeResponse), authorizer)._1)) { timeClient =>
       val response = timeClient.getTime
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
@@ -58,8 +64,8 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
 
   it should "send requests with the correct ledger ID" in {
     val getTimeResponse = genGetTimeResponse // we use the first element to block on the first element
-    val (service, impl) = TimeServiceImpl.createWithRef(getTimeResponse)
-    ledgerServices.withTimeClient(service) { timeClient =>
+    val (service, impl) = TimeServiceImpl.createWithRef(Seq(getTimeResponse), authorizer)
+    ledgerServices.withTimeClient(Seq(service)) { timeClient =>
       val _ = timeClient
         .getTime()
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -71,14 +77,73 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
   behavior of "[9.4] TimeClientImpl.setTime"
 
   it should "return an error without sending a request when the time to set if bigger than the current time" in {
-    ledgerServices.withTimeClient(TimeServiceImpl()) { timeClient =>
-      val currentTime = Instant.ofEpochSecond(1l, 2l)
-      intercept[RuntimeException](
-        timeClient
-          .setTime(currentTime, currentTime)
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingGet()
-      )
+    ledgerServices.withTimeClient(Seq(TimeServiceImpl.createWithRef(Seq.empty, authorizer)._1)) {
+      timeClient =>
+        val currentTime = Instant.ofEpochSecond(1l, 2l)
+        intercept[RuntimeException](
+          timeClient
+            .setTime(currentTime, currentTime)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingGet()
+        )
     }
   }
+
+  behavior of "Authorization"
+
+  def toAuthenticatedServer(fn: TimeClient => Any): Any =
+    ledgerServices.withTimeClient(
+      Seq(TimeServiceImpl.createWithRef(Seq(genGetTimeResponse), authorizer)._1),
+      mockedAuthService)(fn)
+
+  it should "deny access without a token" in {
+    withClue("getTime") {
+      expectUnauthenticated {
+        toAuthenticatedServer {
+          _.getTime().blockingFirst()
+        }
+      }
+    }
+    withClue("setTime") {
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          val t = Instant.now()
+          client.setTime(t, t.plusSeconds(1)).blockingGet()
+        }
+      }
+    }
+  }
+
+  it should "deny access with insufficient authorization" in {
+    withClue("getTime") {
+      expectUnauthenticated {
+        toAuthenticatedServer {
+          _.getTime(emptyToken).blockingFirst()
+        }
+      }
+    }
+    withClue("setTime") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          val t = Instant.now()
+          client.setTime(t, t.plusSeconds(1), somePartyReadWriteToken).blockingGet()
+        }
+      }
+    }
+  }
+
+  it should "allow calls with sufficient authorization" in {
+    toAuthenticatedServer {
+      withClue("getTime") {
+        _.getTime(publicToken).blockingFirst()
+      }
+    }
+    toAuthenticatedServer { client =>
+      withClue("setTime") {
+        val t = Instant.now()
+        client.setTime(t, t.plusSeconds(1), adminToken).blockingGet()
+      }
+    }
+  }
+
 }

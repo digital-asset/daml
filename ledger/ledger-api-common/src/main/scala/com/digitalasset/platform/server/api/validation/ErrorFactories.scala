@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.validation
+package com.daml.platform.server.api.validation
 
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.server.api.ApiException
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.platform.server.api.ApiException
 import io.grpc.{Status, StatusRuntimeException}
 
 import scalaz.syntax.tag._
@@ -32,7 +32,22 @@ trait ErrorFactories {
     grpcError(Status.INTERNAL.withDescription(description))
 
   def aborted(description: String): StatusRuntimeException =
-    grpcError(Status.INTERNAL.withDescription(description))
+    grpcError(Status.ABORTED.withDescription(description))
+
+  def unimplemented(description: String): StatusRuntimeException =
+    grpcError(Status.UNIMPLEMENTED.withDescription(description))
+
+  def permissionDenied(): StatusRuntimeException =
+    grpcError(Status.PERMISSION_DENIED)
+
+  def unauthenticated(): StatusRuntimeException =
+    grpcError(Status.UNAUTHENTICATED)
+
+  def missingLedgerConfig(): StatusRuntimeException =
+    grpcError(Status.UNAVAILABLE.withDescription("The ledger configuration is not available."))
+
+  def resourceExhausted(description: String): StatusRuntimeException =
+    grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))
 
   def grpcError(status: Status) = new ApiException(status)
 

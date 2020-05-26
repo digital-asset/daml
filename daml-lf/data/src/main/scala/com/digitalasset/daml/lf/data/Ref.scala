@@ -1,14 +1,56 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
-
-import scalaz.Equal
+package com.daml.lf
+package data
 
 object Ref {
 
+  val IdString: IdString = new IdStringImpl
+
+  type Name = IdString.Name
+  val Name: IdString.Name.type = IdString.Name
+
+  /* Encoding of byte array */
+  type HexString = IdString.HexString
+  val HexString: IdString.HexString.type = IdString.HexString
+
+  type PackageName = IdString.PackageName
+  val PackageName: IdString.PackageName.type = IdString.PackageName
+
+  type PackageVersion = IdString.PackageVersion
+  val PackageVersion: IdString.PackageVersion.type = IdString.PackageVersion
+
+  /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
+      underscore. We use them to represent [Party] literals. In this way, we avoid
+      empty identifiers, escaping problems, and other similar pitfalls.
+    */
+  type Party = IdString.Party
+  val Party: IdString.Party.type = IdString.Party
+
+  /** Reference to a package via a package identifier. The identifier is the ascii7
+    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
+  type PackageId = IdString.PackageId
+  val PackageId: IdString.PackageId.type = IdString.PackageId
+
+  /** Identifiers for a contractIds */
+  type ContractIdString = IdString.ContractIdString
+  val ContractIdString: IdString.ContractIdString.type = IdString.ContractIdString
+
+  type LedgerString = IdString.LedgerString
+  val LedgerString: IdString.LedgerString.type = IdString.LedgerString
+
+  type ParticipantId = IdString.ParticipantId
+  val ParticipantId: IdString.ParticipantId.type = IdString.ParticipantId
+
   /* Location annotation */
-  case class Location(packageId: PackageId, module: ModuleName, start: (Int, Int), end: (Int, Int))
+  case class Location(
+      packageId: PackageId,
+      module: ModuleName,
+      definition: String,
+      start: (Int, Int),
+      end: (Int, Int),
+  )
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`
@@ -29,16 +71,15 @@ object Ref {
     segments.result()
   }
 
-  // We are very restrictive with regards to identifiers, taking inspiration
-  // from the lexical structure of Java:
-  // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
-  //
-  // In a language like C# you'll need to use some other unicode char for `$`.
-  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""")
-  type Name = Name.T
-  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
+  private def splitInTwo(s: String, splitCh: Char): Option[(String, String)] = {
+    val splitIndex = s.indexOf(splitCh.toInt)
+    if (splitIndex < 0) None
+    else Some((s.substring(0, splitIndex), s.substring(splitIndex + 1)))
+  }
 
-  final class DottedName private (val segments: ImmArray[Name]) extends Equals {
+  final class DottedName private (val segments: ImmArray[Name])
+      extends Equals
+      with Ordered[DottedName] {
     def dottedName: String = segments.toSeq.mkString(".")
 
     override def equals(obj: Any): Boolean =
@@ -52,11 +93,17 @@ object Ref {
     def canEqual(that: Any): Boolean = that.isInstanceOf[DottedName]
 
     override def toString: String = dottedName
+
+    override def compare(that: DottedName): Int = {
+      import scala.math.Ordering.Implicits._
+      import Name.ordering
+
+      implicitly[Ordering[Seq[Name]]].compare(segments.toSeq, that.segments.toSeq)
+    }
+
   }
 
   object DottedName {
-    type T = DottedName
-
     def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
@@ -64,8 +111,8 @@ object Ref {
         fromSegments(split(s, '.').toSeq)
 
     @throws[IllegalArgumentException]
-    final def assertFromString(s: String): T =
-      assert(fromString(s))
+    final def assertFromString(s: String): DottedName =
+      assertRight(fromString(s))
 
     def fromSegments(strings: Iterable[String]): Either[String, DottedName] = {
       val init: Either[String, BackStack[Name]] = Right(BackStack.empty)
@@ -82,14 +129,14 @@ object Ref {
 
     @throws[IllegalArgumentException]
     def assertFromSegments(s: Iterable[String]): DottedName =
-      assert(fromSegments(s))
+      assertRight(fromSegments(s))
 
     def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
       Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
 
     @throws[IllegalArgumentException]
     def assertFromNames(names: ImmArray[Name]): DottedName =
-      assert(fromNames(names))
+      assertRight(fromNames(names))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply
       * to the lexical specification embodied by `fromStrings`.
@@ -99,13 +146,11 @@ object Ref {
     }
   }
 
-  case class QualifiedName private (module: ModuleName, name: DottedName) {
+  final case class QualifiedName private (module: ModuleName, name: DottedName) {
     override def toString: String = module.toString + ":" + name.toString
     def qualifiedName: String = toString
   }
   object QualifiedName {
-    type T = QualifiedName
-
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
       if (segments.length != 2)
@@ -119,32 +164,38 @@ object Ref {
     }
 
     @throws[IllegalArgumentException]
-    final def assertFromString(s: String): T =
-      assert(fromString(s))
+    def assertFromString(s: String): QualifiedName =
+      assertRight(fromString(s))
   }
 
   /* A fully-qualified identifier pointing to a definition in the
    * specified package. */
-  case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
+  final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName) {
+    override def toString: String = packageId.toString + ":" + qualifiedName.toString
+  }
+  object Identifier {
+    def fromString(s: String): Either[String, Identifier] = {
+      splitInTwo(s, ':').fold[Either[String, Identifier]](
+        Left(s"Separator ':' between package identifier and qualified name not found in $s")) {
+        case (packageIdString, qualifiedNameString) =>
+          for {
+            packageId <- PackageId.fromString(packageIdString)
+            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
+          } yield Identifier(packageId, qualifiedName)
+      }
+    }
+
+    @throws[IllegalArgumentException]
+    def assertFromString(s: String): Identifier =
+      assertRight(fromString(s))
+  }
 
   /* Choice name in a template. */
-  val ChoiceName: Name.type = Name
-  type ChoiceName = ChoiceName.T
+  type ChoiceName = Name
+  val ChoiceName = Name
 
   type ModuleName = DottedName
   val ModuleName = DottedName
-
-  /** Party are non empty US-ASCII strings built with letters, digits, space, minus and,
-      underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
-      empty identifiers, escaping problems, and other similar pitfalls.
-    */
-  val Party = ConcatenableMatchingStringModule("-_ ".contains(_))
-  type Party = Party.T
-
-  /** Reference to a package via a package identifier. The identifier is the ascii7
-    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
-  val PackageId = ConcatenableMatchingStringModule("-_ ".contains(_))
-  type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
   type ValueRef = Identifier
@@ -158,21 +209,8 @@ object Ref {
   type TypeConName = Identifier
   val TypeConName = Identifier
 
-  /**
-    * Used to reference to leger objects like contractIds, ledgerIds,
-    * transactionId, ... We use the same type for those ids, because we
-    * construct some by concatenating the others.
-    */
-  // We allow space because the navigator's applicationId used it.
-  val LedgerString = ConcatenableMatchingStringModule("._:-# ".contains(_), 255)
-  type LedgerString = LedgerString.T
-
-  /** Identifier for a contractId */
-  val ContractIdString: LedgerString.type = LedgerString
-  type ContractIdString = ContractIdString.T
-
-  /** Identifiers for transactions. */
-  val TransactionIdString: LedgerString.type = LedgerString
-  type TransactionIdString = TransactionIdString.T
+  /** Reference to a type synonym. */
+  type TypeSynName = Identifier
+  val TypeSynName = Identifier
 
 }

@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 package binding
 package encoding
 
@@ -11,7 +11,7 @@ import scala.collection.immutable.Map
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import scalaz.{~>, Apply}
+import scalaz.{Apply, OneAnd, ~>}
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.std.vector._
@@ -21,7 +21,7 @@ import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.api.v1.{value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import binding.{Primitive => P}
 
@@ -81,7 +81,7 @@ object LfTypeEncodingSpec {
     final case class TLeft[A, B](body: A) extends TrialVariant[A, B]
     final case class TRight[A, B](one: B, two: B) extends TrialVariant[A, B]
 
-    override protected val ` recordOrVariantId` = rpcvalue.Identifier("hello", "TrialVariant")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "Trial", "Variant")
 
     implicit def `TrialVariant arb`[A: Arbitrary, B: Arbitrary]: Arbitrary[TrialVariant[A, B]] =
       Arbitrary(
@@ -144,15 +144,12 @@ object LfTypeEncodingSpec {
               case TRight(one, two) => (one, two)
             }
           lte.variantAll(
-            ` recordOrVariantId`,
+            ` dataTypeId`,
             lte
               .variantCase[A, TrialVariant[A, B]]("TLeft", LfEncodable.encoding[A](lte))(TLeft(_)) {
                 case TLeft(body) => body
               },
-            lte.variantRecordCase[TRight[A, B], TrialVariant[A, B]](
-              "TRight",
-              ` recordOrVariantId`,
-              tright) {
+            lte.variantRecordCase[TRight[A, B], TrialVariant[A, B]]("TRight", ` dataTypeId`, tright) {
               case rec @ TRight(_, _) => rec
             }
           )
@@ -163,7 +160,7 @@ object LfTypeEncodingSpec {
   final case class TrialSubRec[A](num: P.Int64, a: A) extends ValueRef
 
   object TrialSubRec extends ValueRefCompanion {
-    override protected val ` recordOrVariantId` = rpcvalue.Identifier("hello", "TrialSubRec")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "Trial", "SubRec")
 
     implicit def `TrialSubRec arb`[A: Arbitrary]: Arbitrary[TrialSubRec[A]] =
       Arbitrary(arbitrary[(P.Int64, A)] map (TrialSubRec[A] _).tupled)
@@ -200,11 +197,9 @@ object LfTypeEncodingSpec {
           import lte.{RecordFields, field, fields}
           val num = field("num", LfEncodable.encoding[P.Int64](lte))
           val a = field("a", LfEncodable.encoding[A](lte))
-          lte.record(
-            ` recordOrVariantId`,
-            RecordFields.xmapN(fields(num), fields(a))(TrialSubRec(_, _)) {
-              case TrialSubRec(num, a) => (num, a)
-            })
+          lte.record(` dataTypeId`, RecordFields.xmapN(fields(num), fields(a))(TrialSubRec(_, _)) {
+            case TrialSubRec(num, a) => (num, a)
+          })
         }
       }
   }
@@ -212,7 +207,7 @@ object LfTypeEncodingSpec {
   final case class TrialEmptyRec() extends ValueRef
 
   object TrialEmptyRec extends ValueRefCompanion {
-    override protected val ` recordOrVariantId` = rpcvalue.Identifier("hello", "TrialSubRec")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "Trial", "SubRec")
 
     implicit val `TrialEmptyRec arb`: Arbitrary[TrialEmptyRec] =
       Arbitrary(Gen const TrialEmptyRec())
@@ -227,7 +222,7 @@ object LfTypeEncodingSpec {
     implicit val `TrialEmptyRec LfEncodable`: LfEncodable[TrialEmptyRec] =
       new LfEncodable[TrialEmptyRec] {
         override def encoding(lte: LfTypeEncoding): lte.Out[TrialEmptyRec] =
-          lte.emptyRecord(` recordOrVariantId`, () => TrialEmptyRec())
+          lte.emptyRecord(` dataTypeId`, () => TrialEmptyRec())
       }
   }
 
@@ -339,7 +334,7 @@ object LfTypeEncodingSpec {
       // (i.e. associatively)
       val out: lte.Out[CallablePayout] =
         lte.record(
-          ` recordOrVariantId`,
+          ` dataTypeId`,
           RecordFields.xmapN(
             fields(view.receiver),
             fields(view.subr),
@@ -404,6 +399,24 @@ object LfTypeEncodingSpec {
         case all => (None, all)
       })
     }
+
+    override def enumAll[A](
+        enumId: rpcvalue.Identifier,
+        index: A => Int,
+        cases: OneAnd[Vector, (String, A)],
+    ): Out[A] =
+      new Value.InternalImpl[A] {
+        private val readerMap =
+          cases.toVector.toMap
+
+        override def read(av: VSum): Option[A] =
+          av.enum.flatMap(e => readerMap.get(e.constructor))
+
+        private val writerArray =
+          cases.toVector.map(x => VSum.Enum(rpcvalue.Enum(Some(enumId), x._1)))
+
+        override def write(a: A): VSum = writerArray(index(a))
+      }
 
     def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       new Value.InternalImpl[A] {

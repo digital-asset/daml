@@ -1,13 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
 import java.io.File
 
-import com.digitalasset.codegen.Util
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
+import com.daml.codegen.Util
+import com.daml.lf.data.Ref._
 
 import scala.reflect.runtime.universe._
 
@@ -19,12 +18,12 @@ import scala.reflect.runtime.universe._
   *  inner classes in the generated contract template cases.  An in
   *
   *  A decoder for ArchivedEvent`s is not require since these don't contain any information
-  *  besides the absolute contract ID of the archived contract.
+  *  besides the contract ID of the archived contract.
   */
 object EventDecoderGen {
   import LFUtil._
 
-  def generate(util: LFUtil, supportedTemplateIds: Set[Identifier]): (File, Iterable[Tree]) = {
+  def generate(util: LFUtil, templateIds: Set[Identifier]): (File, Iterable[Tree]) = {
 
     val imports: Seq[Tree] = Seq(
       LFUtil.domainApiImport
@@ -33,13 +32,6 @@ object EventDecoderGen {
     def contractDamlName(alias: QualifiedName) = util.mkDamlScalaName(Util.Contract, alias)
     def contractName(alias: Identifier): RefTree = contractDamlName(alias.qualifiedName).toRefTree
 
-    val (supportedTemplates, unsupportedTemplates) =
-      util.iface.typeDecls
-        .collect {
-          case (qualName, InterfaceType.Template(_, _)) => qualName
-        }
-        .partition(supportedTemplateIds)
-
     // the ledger api still uses names with only dots in them, while QualifiedName.toString
     // separates the module and the name in the module with colon.
     def legacyDottedName(identifier: Identifier) = {
@@ -47,19 +39,13 @@ object EventDecoderGen {
       s"${module.dottedName: String}.${name.dottedName: String}@${packageId: String}"
     }
 
-    val rawUnsupportedTemplates = unsupportedTemplates.map {
-      case tIdent @ Identifier(packageId, qualName) =>
-        q"(${qualName.qualifiedName}, ($packageId, ${legacyDottedName(tIdent)}))"
-    }
-
     val decoder: Tree =
       q"""
         package ${Util.packageNameToRefTree(util.packageName)} {
 
           object EventDecoder extends $domainApiAlias.EventDecoderApi(
-            rawUnsupportedTemplates = $stdMapCompanion(..$rawUnsupportedTemplates),
             templateTypes = $stdSeqCompanion[$domainApiAlias.TemplateCompanion[_]](
-                ..${supportedTemplates map contractName})
+                ..${templateIds map contractName})
           )
         }
        """

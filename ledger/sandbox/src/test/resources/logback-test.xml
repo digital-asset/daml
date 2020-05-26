@@ -17,6 +17,14 @@
         <appender-ref ref="FILE"/>
     </appender>
 
+    <appender name="MEM" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.indexer.RecoveringIndexerSpec</test>
+    </appender>
+
+    <logger name="com.daml.platform.indexer.RecoveringIndexer" level="INFO">
+        <appender-ref ref="MEM" />
+    </logger>
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="ASYNC"/>

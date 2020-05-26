@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 da_haskell_library(
     name = "daml-lf-proto",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",
@@ -14,17 +14,20 @@ da_haskell_library(
         "either",
         "lens",
         "memory",
+        "mtl",
         "proto3-suite",
         "scientific",
         "template-haskell",
         "text",
+        "transformers",
+        "unordered-containers",
         "vector",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )

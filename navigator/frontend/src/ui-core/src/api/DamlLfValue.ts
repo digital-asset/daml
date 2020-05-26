@@ -1,9 +1,9 @@
-// Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 // All rights reserved.
 
 import * as Moment from 'moment';
-import { NonExhaustiveMatch } from '../util'
-import { DamlLfDataType, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant } from './DamlLfType';
+import {NonExhaustiveMatch} from '../util'
+import {DamlLfEnum, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
 
 // --------------------------------------------------------------------------------------------------------------------
 // Type definitions
@@ -16,7 +16,7 @@ export interface DamlLfRecordField {
 
 export type DamlLfValueText       = { type: 'text', value: string }
 export type DamlLfValueInt64      = { type: 'int64', value: string }
-export type DamlLfValueDecimal    = { type: 'decimal', value: string }
+export type DamlLfValueNumeric    = { type: 'numeric', value: string }
 export type DamlLfValueBool       = { type: 'bool', value: boolean }
 export type DamlLfValueContractId = { type: 'contractid', value: string }
 export type DamlLfValueTimestamp  = { type: 'timestamp', value: string }
@@ -27,14 +27,18 @@ export type DamlLfValueOptional   = { type: 'optional', value: DamlLfValue | nul
 export type DamlLfValueList       = { type: 'list', value: DamlLfValue[] }
 export type DamlLfValueRecord     = { type: 'record', id: DamlLfIdentifier, fields: DamlLfRecordField[] }
 export type DamlLfValueVariant    = { type: 'variant', id: DamlLfIdentifier, constructor: string, value: DamlLfValue }
+export type DamlLfValueEnum       = { type: 'enum', id: DamlLfIdentifier, constructor: string }
 export type DamlLfValueUndefined  = { type: 'undefined' }
-export type DamlLfValueMap        = { type: 'map', value: DamlLfValueMapEntry[] }
-export type DamlLfValueMapEntry   = { key: string, value: DamlLfValue }
+export type DamlLfValueTextMap    = { type: 'textmap', value: DamlLfValueTextMapEntry[] }
+export type DamlLfValueTextMapEntry   = { key: string, value: DamlLfValue }
+export type DamlLfValueGenMap     = { type: 'genmap', value: DamlLfValueGenMapEntry[] }
+export type DamlLfValueGenMapEntry = { key: DamlLfValue, value: DamlLfValue }
+
 
 export type DamlLfValue
   = DamlLfValueText
   | DamlLfValueInt64
-  | DamlLfValueDecimal
+  | DamlLfValueNumeric
   | DamlLfValueBool
   | DamlLfValueContractId
   | DamlLfValueTimestamp
@@ -43,9 +47,11 @@ export type DamlLfValue
   | DamlLfValueUnit
   | DamlLfValueOptional
   | DamlLfValueList
-  | DamlLfValueMap
+  | DamlLfValueTextMap
+  | DamlLfValueGenMap
   | DamlLfValueRecord
   | DamlLfValueVariant
+  | DamlLfValueEnum
   | DamlLfValueUndefined
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -57,7 +63,7 @@ const valueUnit: DamlLfValueUnit = { type: 'unit' };
 
 export function text(value: string): DamlLfValueText { return { type: 'text', value }}
 export function int64(value: string): DamlLfValueInt64 { return { type: 'int64', value }}
-export function decimal(value: string): DamlLfValueDecimal { return { type: 'decimal', value }}
+export function numeric(value: string): DamlLfValueNumeric { return { type: 'numeric', value }}
 export function bool(value: boolean): DamlLfValueBool { return { type: 'bool', value }}
 export function contractid(value: string): DamlLfValueContractId { return { type: 'contractid', value }}
 export function timestamp(value: string): DamlLfValueTimestamp { return { type: 'timestamp', value }}
@@ -66,13 +72,18 @@ export function party(value: string): DamlLfValueParty { return { type: 'party'
 export function unit(): DamlLfValueUnit { return valueUnit }
 export function optional(value: DamlLfValue | null): DamlLfValueOptional { return { type: 'optional', value }}
 export function list(value: DamlLfValue[]): DamlLfValueList { return { type: 'list', value }}
-export function map(value: DamlLfValueMapEntry[]): DamlLfValueMap { return { type: 'map', value }}
-export function mapEntry(key: string, value: DamlLfValue): DamlLfValueMapEntry { return { key, value } }
+export function textmap(value: DamlLfValueTextMapEntry[]): DamlLfValueTextMap { return { type: 'textmap', value }}
+export function textMapEntry(key: string, value: DamlLfValue): DamlLfValueTextMapEntry { return { key, value } }
+export function genmap(value: DamlLfValueGenMapEntry[]): DamlLfValueGenMap { return { type: 'genmap', value }}
+export function genMapEntry(key: DamlLfValue, value: DamlLfValue): DamlLfValueGenMapEntry { return { key, value } }
 export function record(id: DamlLfIdentifier, fields: DamlLfRecordField[]): DamlLfValueRecord {
   return { type: 'record', id, fields }
 }
 export function variant(id: DamlLfIdentifier, constructor: string, value: DamlLfValue): DamlLfValueVariant {
   return { type: 'variant', id, constructor, value }
+}
+export function enumCon(id: DamlLfIdentifier, constructor: string): DamlLfValueEnum {
+  return { type: 'enum', id, constructor }
 }
 export function undef(): DamlLfValueUndefined { return valueUndef }
 
@@ -89,7 +100,7 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
       return isLast ? value.value : notFound;
     case 'int64':
       return isLast ? value.value : notFound;
-    case 'decimal':
+    case 'numeric':
       return isLast ? value.value : notFound;
     case 'bool':
       return isLast ? value.value : notFound;
@@ -117,7 +128,7 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
       if (isLast) {
         return value;
       } else {
-        const listIndex = parseInt(path[index])
+        const listIndex = parseInt(path[index]);
         if (isNaN(listIndex)) {
           return notFound;
         } else if (listIndex < 0 || listIndex >= value.value.length) {
@@ -141,7 +152,13 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
       } else {
         return notFound;
       }
-    case 'map':
+    case 'enum':
+      if (isLast){
+        return value;
+      } else {
+        return notFound;
+      }
+    case 'textmap':
       if (isLast) {
         return value;
       } else {
@@ -154,6 +171,29 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
             return notFound;
           } else {
             return evalPath(fList[0].value, path, index + 1)
+          }
+        }
+      }
+    case 'genmap':
+      if (isLast) {
+        return value
+      } else if (index === path.length - 2) {
+        return notFound
+      } else {
+        const listIndex = parseInt(path[index]);
+        if (isNaN(listIndex)) {
+          return notFound;
+        } else if (listIndex < 0 || listIndex >= value.value.length) {
+          return notFound;
+        } else {
+          const entry = value.value[listIndex];
+          switch (path[index + 1]) {
+            case 'key' :
+              return evalPath(entry.key, path, index + 2);
+            case 'value' :
+              return evalPath(entry.value, path, index + 2);
+            default:
+              return notFound;
           }
         }
       }
@@ -171,11 +211,11 @@ export function initialValue(type: DamlLfType): DamlLfValue {
   switch (type.type) {
     case 'typevar': return undef();
     case 'typecon': return undef();
+    case 'numeric':     return undef();
     case 'primitive': switch (type.name) {
       case 'text':        return undef();
       case 'int64':       return undef();
-      case 'decimal':     return undef();
-      case 'bool':        return undef();
+      case 'bool':        return bool(false);
       case 'contractid':  return undef();
       case 'timestamp':   return undef();
       case 'date':        return undef();
@@ -183,7 +223,8 @@ export function initialValue(type: DamlLfType): DamlLfValue {
       case 'unit':        return unit();
       case 'optional':    return optional(null);
       case 'list':        return list([]);
-      case 'map':         return map([]);
+      case 'textmap':         return textmap([]);
+      case 'genmap':      return genmap([]);
       default: throw new NonExhaustiveMatch(type.name);
     }
     default: throw new NonExhaustiveMatch(type);
@@ -197,7 +238,7 @@ export function toJSON(value: DamlLfValue): JSON {
   switch (value.type) {
     case 'text':        return value.value;
     case 'int64':       return value.value;
-    case 'decimal':     return value.value;
+    case 'numeric':     return value.value;
     case 'bool':        return value.value;
     case 'contractid':  return value.value;
     case 'timestamp':   return value.value;
@@ -212,26 +253,25 @@ export function toJSON(value: DamlLfValue): JSON {
       return r;
     case 'variant':
       return {[value.constructor]: toJSON(value.value)};
-    case 'map':
+    case 'enum' :
+      return value.constructor;
+    case 'textmap':
       return value.value.map((e) => ({key: e.key, value: toJSON(e.value)}));
+    case 'genmap':
+      return value.value.map((e) => ({key: toJSON(e.key), value: toJSON(e.value)}));
     case 'undefined': return '???';
     default: throw new NonExhaustiveMatch(value);
   }
 }
 
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfRecord): DamlLfValueRecord;
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfVariant): DamlLfValueVariant;
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfDataType):
-  DamlLfValueRecord | DamlLfValueVariant;
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfDataType):
-  DamlLfValueRecord | DamlLfValueVariant {
-  switch (dataType.type) {
-    case 'record': return record(id,
-      dataType.fields.map((f) => ({label: f.name, value: initialValue(f.value)})));
-    case 'variant': return variant(id,
-      dataType.fields[0].name, initialValue(dataType.fields[0].value));
-    default: throw new NonExhaustiveMatch(dataType);
-  }
+export function initialRecordValue(id: DamlLfIdentifier, dataType: DamlLfRecord): DamlLfValueRecord {
+  return record(id, dataType.fields.map((f) => ({label: f.name, value: initialValue(f.value)})));
+}
+export function initialVariantValue(id: DamlLfIdentifier, dataType: DamlLfVariant): DamlLfValueVariant {
+  return variant(id, dataType.fields[0].name, initialValue(dataType.fields[0].value));
+}
+export function initialEnumValue(id: DamlLfIdentifier, dataType: DamlLfEnum): DamlLfValueEnum {
+  return enumCon(id, dataType.constructors[0]);
 }
 
 const momentDateFormat = 'YYYY-MM-DD';

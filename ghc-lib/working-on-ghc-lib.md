@@ -1,6 +1,6 @@
 # Working on `ghc-lib`
 
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by DAML and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
@@ -50,9 +50,48 @@ git submodule update --init --recursive
 stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
-The compiler is built to `_build/stage1/bin/ghc`.
+Note that the `git checkout` step will put you in detached HEAD state - that's expected. The compiler is built to `_build/stage1/bin/ghc`.
 
-Note that the `git checkout` step will put you in detached HEAD state - that's expected.
+The equivalent commands to build the `8.8.1` compatible branch are:
+```
+git clone https://gitlab.haskell.org/ghc/ghc.git
+cd ghc
+git fetch --tags
+git checkout ghc-8.8.1-rc1
+git remote add upstream git@github.com:digital-asset/ghc.git
+git fetch upstream
+git merge --no-edit upstream/da-master-8.8.1
+git submodule update --init --recursive
+stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
+hadrian/build.stack.sh --configure --flavour=quickest -j
+```
+
+## Iterating on Template Desugaring
+
+Modifying GHC, building `ghc-lib` and then building `damlc` is quite time
+intensive and makes mistakes very costly. Therefore it is usually preferable to
+first take a look at the new output from template desugaring before building `ghc-lib`.
+The fastest option for that is to build GHC with
+
+```
+./hadrian/build.sh -j --flavour=quickest --freeze1
+```
+
+You can then run GHC on a DAML file as follows
+
+```
+./_build/stage1/bin/ghc  ~/tmp/Test.hs -ddump-parsed
+```
+
+Note that the file should end with `.hs`, otherwise GHC will think that it is an additional input
+for the linking phase and your DAML file should start with:
+
+```
+{-# LANGUAGE DamlSyntax #-}
+```
+
+You will get compile errors after the parse tree has been emitted since the standard library is missing
+but if you just want to see the output from template desugaring, this is sufficient.
 
 ## How to build `ghc-lib` from the DA GHC fork
 (You don't need to follow the previous step in order to do this.)
@@ -77,6 +116,26 @@ stack exec -- ghc-lib-gen ghc --ghc-lib-parser
 ```
 Note that the `git checkout` step will put you in detached HEAD state - that's expected.
 
+The equivalent 8.8.1 commands are:
+```
+mkdir -p ~/tmp && cd ~/tmp
+git clone git@github.com:digital-asset/ghc-lib.git
+cd ghc-lib
+git checkout ghc-8.8.1-rc1
+git clone https://gitlab.haskell.org/ghc/ghc.git
+cd ghc
+git fetch --tags
+git checkout ghc-8.8.1-rc1
+git remote add upstream git@github.com:digital-asset/ghc.git
+git fetch upstream
+git merge --no-edit upstream/da-master-8.8.1 upstream/da-unit-ids-8.8.1
+git submodule update --init --recursive
+cd ..
+stack setup > /dev/null 2>&1
+stack build --no-terminal --interleaved-output
+stack exec -- ghc-lib-gen ghc --ghc-lib-parser
+```
+
 2. Edit `~/tmp/ghc-lib/ghc/ghc-lib-parser.cabal` to (a) change the version number (we use a datestamp, e.g. `0.20190219`) and (b) add clause `extra-libraries:ffi` to the `library` stanza. Then run:
 ```bash
 cat << EOF >> stack.yaml
@@ -88,6 +147,7 @@ This creates `~tmp/ghc-lib/ghc-lib-parser-xxx.tar.gz` where `xxx` is the version
 
 3. Generate `ghc-lib.cabal` by running:
 ```bash
+git checkout stack.yaml
 (cd ghc && git clean -xf && git checkout .)
 stack exec -- ghc-lib-gen ghc --ghc-lib
 ```
@@ -132,7 +192,7 @@ Update the lines for `ghc-lib-parser` and `ghc-lib` with the new `url`s, `stripP
 ```
 3. Check that the DAML tests pass:
 ```bash
-bazel run //daml-foundations/daml-ghc:daml-ghc-test -- --pattern=
+bazel run //compiler/damlc:daml-ghc-test -- --pattern=
 ```
 If they pass, you can move on to [deploying](#how-to-deploy-ghc-lib).
 
@@ -172,13 +232,9 @@ git checkout -b update-ghc-lib
 ```
 4. If you didn't do this before, make sure the DAML tests pass by running:
 ```bash
-bazel run //daml-foundations/daml-ghc:daml-ghc-test -- --pattern=
+bazel run //compiler/damlc:daml-ghc-test -- --pattern=
 ```
 5. When the tests pass, push your branch to origin and raise a PR.
-
-## `ghc-lib` in CI
-
-At this time we have a pipeline in Jenkins [here](https://ci2.da-int.net/job/daml/job/ghc-lib/). It is run on a cron and can be run on demand.
 
 ## How to rebase `ghc-lib` on upstream master
 

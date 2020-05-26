@@ -1,24 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console.commands
+package com.daml.navigator.console.commands
 
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time.TimeProviderType
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.console._
+import com.daml.navigator.store.Store._
+import com.daml.navigator.time.TimeProviderType
 import akka.pattern.ask
 import akka.util.Timeout
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.util.Try
 
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case object Info extends SimpleCommand {
   def name: String = "info"
 
@@ -115,24 +112,7 @@ case object Info extends SimpleCommand {
     } yield (state, getBanner(state) + "\n" + Pretty.yaml(prettyInfo(info, state)))
   }
 
-  private def tlsInfo(info: Option[TlsConfiguration]): String = {
-    info
-      .map(c =>
-        if (c.enabled) {
-          val crt = c.keyCertChainFile.map(_ => "CRT")
-          val pem = c.keyFile.map(_ => "PEM")
-          val cacrt = c.trustCertCollectionFile.map(_ => "CACRT")
-          val options = List(crt, pem, cacrt).flatten
-          s"Enabled, using ${options.mkString(", ")}."
-        } else "Disabled.")
-      .getOrElse("Not set.")
-  }
-
   def getBanner(state: State): String = {
-    val banner = Source
-      .fromResource("banner.txt")
-      .getLines
-      .toList
-    banner.mkString("\n") + s"\nVersion ${state.applicationInfo.version} commit ${state.applicationInfo.revision}"
+    s"Navigator version: ${state.applicationInfo.version}"
   }
 }

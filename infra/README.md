@@ -26,3 +26,13 @@ To avoid holding the secret key into the store, creating the key has to be
 done through the UI.
 
 This can be done here: https://console.cloud.google.com/iam-admin/serviceaccounts/details/104272946446260011088?project=da-dev-gcp-daml-language
+
+## Setting up credentials
+
+In order to interact with these Terraform files, you will need security to give
+you access to the relevant GCP project (`da-dev-gcp-daml-language`), and login
+via `gcloud` by running:
+
+```bash
+gcloud auth application-default login --account your.name@gcloud-domain.com
+```

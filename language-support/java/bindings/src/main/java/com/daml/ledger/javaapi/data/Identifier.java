@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
@@ -41,8 +41,6 @@ public final class Identifier {
     public static Identifier fromProto(ValueOuterClass.Identifier identifier) {
         if (!identifier.getModuleName().isEmpty() && !identifier.getEntityName().isEmpty()) {
             return new Identifier(identifier.getPackageId(), identifier.getModuleName(), identifier.getEntityName());
-        } else if (!identifier.getName().isEmpty()) {
-            return new Identifier(identifier.getPackageId(), identifier.getName());
         } else {
             throw new IllegalArgumentException(String.format("Invalid identifier [%s]: both module_name and entity_name must be set.", identifier));
         }

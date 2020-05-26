@@ -1,10 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
-import com.digitalasset.navigator.dotnot._
-import com.digitalasset.navigator.model._
+import com.daml.navigator.dotnot._
+import com.daml.navigator.model._
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.json.ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -68,6 +70,9 @@ object project {
                 fields
                   .find(f => f._1 == nextCursor.current)
                   .toRight(UnknownProperty("variant", nextCursor, value))
+              case DamlLfEnum(_) =>
+                // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+                throw new NotImplementedError("Enum types not supported")
             }
           } yield {
             (nextField._2, nextCursor)
@@ -79,7 +84,7 @@ object project {
 
         case DamlLfTypeVar(name) => Right(StringValue(name))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(StringValue("bool"))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) => Right(StringValue("decimal"))
+        case DamlLfTypeNumeric(_) => Right(StringValue("decimal"))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) => Right(StringValue("int64"))
         case DamlLfTypePrim(DamlLfPrimType.Date, _) => Right(StringValue("date"))
         case DamlLfTypePrim(DamlLfPrimType.Text, _) => Right(StringValue("text"))
@@ -89,38 +94,50 @@ object project {
         case DamlLfTypePrim(DamlLfPrimType.List, _) => Right(StringValue("list"))
         case DamlLfTypePrim(DamlLfPrimType.ContractId, _) => Right(StringValue("contractid"))
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) => Right(StringValue("optional"))
-        case DamlLfTypePrim(DamlLfPrimType.Map, _) => Right(StringValue("map"))
+        case DamlLfTypePrim(DamlLfPrimType.TextMap, _) => Right(StringValue("textmap"))
+        case DamlLfTypePrim(DamlLfPrimType.GenMap, _) => Right(StringValue("genmap"))
       }
 
     loop(rootParam, cursor.prev.get, ps)
   }
 
-  def checkArgument(
+  def checkOptionalValue(
+      rootArgument: Option[ApiValue],
+      cursor: PropertyCursor,
+      expectedValue: String,
+      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] =
+    rootArgument.fold[Either[DotNotFailure, ProjectValue]](Right(StringValue("")))(
+      checkValue(_, cursor, expectedValue, ps))
+
+  def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
       expectedValue: String,
       ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] = {
-    def listIndex(cursor: PropertyCursor): Either[DotNotFailure, Int] = {
-      try {
-        Right(cursor.current.toInt)
-      } catch {
-        case e: Exception => Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
-      }
-    }
 
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
-        case ApiRecord(_, fields) =>
+        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
+        case V.ValueNumeric(value) if cursor.isLast => Right(StringValue(value.toUnscaledString))
+        case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
+        case V.ValueUnit if cursor.isLast => Right(StringValue(""))
+        case t: V.ValueTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
+        case t: V.ValueDate if cursor.isLast => Right(StringValue(t.toIso8601))
+        case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
             case Some(nextCursor) =>
-              fields.find(f => f.label == nextCursor.current) match {
-                case Some(nextField) => loop(nextField.value, nextCursor)
+              val current: String = nextCursor.current
+              fields.toSeq.collectFirst { case (Some(`current`), value) => value } match {
+                case Some(nextField) => loop(nextField, nextCursor)
                 case None => Left(UnknownProperty("record", nextCursor, expectedValue))
               }
           }
-        case ApiVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, value) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("variant", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -131,24 +148,16 @@ object project {
                 case _ => Left(UnknownProperty("variant", nextCursor, expectedValue))
               }
           }
-        case ApiList(elements) =>
+        case V.ValueEnum(_, constructor) =>
           cursor.next match {
-            case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
+            case None => Left(MustNotBeLastPart("enum", cursor, expectedValue))
             case Some(nextCursor) =>
-              Try(nextCursor.current.toInt) match {
-                case Success(index) => loop(elements(index), nextCursor)
-                case Failure(e) =>
-                  Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
+              nextCursor.current match {
+                case "__constructor" => Right(StringValue(constructor))
+                case _ => Left(UnknownProperty("enum", nextCursor, expectedValue))
               }
           }
-        case ApiContractId(value) if cursor.isLast => Right(StringValue(value))
-        case ApiInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case ApiDecimal(value) if cursor.isLast => Right(StringValue(value))
-        case ApiText(value) if cursor.isLast => Right(StringValue(value))
-        case ApiParty(value) if cursor.isLast => Right(StringValue(value))
-        case ApiBool(value) if cursor.isLast => Right(BooleanValue(value))
-        case ApiUnit() if cursor.isLast => Right(StringValue(""))
-        case ApiOptional(optValue) =>
+        case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(StringValue("None"))
             case (None, Some(_)) => Right(StringValue("Some"))
@@ -158,8 +167,47 @@ object project {
             case (Some(nextCursor), _) =>
               Left(UnknownProperty("optional", nextCursor, expectedValue))
           }
-        case t: ApiTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
-        case t: ApiDate if cursor.isLast => Right(StringValue(t.toIso8601))
+        case V.ValueList(elements) =>
+          cursor.next match {
+            case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
+            case Some(nextCursor) =>
+              Try(nextCursor.current.toInt) match {
+                case Success(index) => loop(elements.slowApply(index), nextCursor)
+                case Failure(_) =>
+                  Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
+              }
+          }
+        case V.ValueTextMap(textMap) =>
+          cursor.next match {
+            case None => Left(MustNotBeLastPart("textmap", cursor, expectedValue))
+            case Some(nextCursor) =>
+              textMap.toImmArray.toSeq.collectFirst {
+                case (k, v) if k == nextCursor.current => v
+              } match {
+                case Some(v) => loop(v, nextCursor)
+                case None =>
+                  Left(UnknownProperty(nextCursor.current, nextCursor, expectedValue))
+              }
+          }
+        case V.ValueGenMap(entries) =>
+          cursor.next match {
+            case None =>
+              Left(MustNotBeLastPart("genmap", cursor, expectedValue))
+            case Some(nextCursor) =>
+              Try(nextCursor.current.toInt) match {
+                case Success(index) =>
+                  nextCursor.next match {
+                    case Some(nextNextCursor) if nextNextCursor.current == "key" =>
+                      loop(entries(index)._1, nextNextCursor)
+                    case Some(nextNextCursor) if nextNextCursor.current == "value" =>
+                      loop(entries(index)._2, nextNextCursor)
+                    case None =>
+                      Left(UnknownProperty(nextCursor.current, nextCursor, expectedValue))
+                  }
+                case Failure(_) =>
+                  Left(TypeCoercionFailure("GenMap index", "int", cursor, cursor.current))
+              }
+          }
       }
     loop(rootArgument, cursor.prev.get)
   }
@@ -173,7 +221,10 @@ object project {
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentProject =
-    opaque[ApiRecord, ProjectValue, DamlLfTypeLookup]("argument")(checkArgument)
+    opaque[ApiValue, ProjectValue, DamlLfTypeLookup]("argument")(checkValue)
+
+  lazy val keyProject =
+    opaque[Option[ApiValue], ProjectValue, DamlLfTypeLookup]("key")(checkOptionalValue)
 
   lazy val templateProject =
     root[Template, ProjectValue, DamlLfTypeLookup]("template")
@@ -190,6 +241,17 @@ object project {
       .perform[String]((contract, _) => StringValue(contract.id.unwrap))
       .onBranch("template", _.template, templateProject)
       .onBranch("argument", _.argument, argumentProject)
+      .onBranch("key", _.key, keyProject)
+      .onLeaf("agreementText")
+      .onAnyValue
+      .perform[String]((contract, _) => StringValue(contract.agreementText.getOrElse("")))
+      .onLeaf("signatories")
+      .onAnyValue
+      .perform[String]((contract, _) => StringValue(contract.signatories.mkString))
+      .onLeaf("observers")
+      .onAnyValue
+      .perform[String]((contract, _) => StringValue(contract.observers.mkString))
+      .onTree
 
   lazy val choicesProject =
     root[Seq[Choice], ProjectValue, DamlLfTypeLookup]("choices")

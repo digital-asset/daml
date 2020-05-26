@@ -1,0 +1,61 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+run = scenario do
+  payer <- getParty "AlicesBank"
+  owner <- getParty "Alice"
+  divulgee <- getParty "Bob"
+  iouCid <-
+    submit payer do create Iou with
+                         owner = owner
+                         payer = payer
+                         amount = Amount {value = 1.0; currency = "USD"}
+  divulgeeCid <-
+    submit divulgee do create DivulgeIouByExercise with
+                         payer = payer
+                         divulgee = divulgee
+  submit payer do exercise divulgeeCid Divulge with ref = iouCid
+
+data Amount = Amount {value: Decimal; currency: Text} deriving (Eq, Show)
+
+amountAsText (amount : Amount) : Text = show amount.value <> amount.currency 
+
+template GetCash
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer, owner
+   agreement
+     show payer <> " pays " <> amountAsText amount <>" to " <> show owner
+
+template Iou
+
+ with
+   payer: Party
+   owner: Party
+   amount: Amount
+ where
+   signatory payer
+   controller owner can
+     Call: ContractId GetCash
+       do create GetCash with payer; owner; amount
+     Transfer: ContractId Iou with newOwner: Party
+       do create Iou with payer; owner = newOwner; amount
+
+template DivulgeIouByExercise
+ with
+   payer: Party
+   divulgee: Party
+ where
+   signatory divulgee
+   controller payer can
+     nonconsuming Divulge: ()
+       with ref : ContractId Iou
+       do
+         iou <- fetch ref
+         pure ()

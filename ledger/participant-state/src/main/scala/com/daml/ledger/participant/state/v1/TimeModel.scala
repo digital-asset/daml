@@ -1,47 +1,63 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import java.time.{Duration, Instant}
+import scala.util.Try
 
-trait TimeModel {
+/**
+  * The ledger time model and associated validations. Some values are given by constructor args; others are derived.
+  * @param avgTransactionLatency The expected average latency of a transaction, i.e., the average time
+  *                              from submitting the transaction to a [[WriteService]] and the transaction
+  *                              being assigned a record time.
+  * @param minSkew               The minimimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
+  * @param maxSkew               The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
+  *
+  * @throws IllegalArgumentException if the parameters aren't valid
+  */
+case class TimeModel private (
+    avgTransactionLatency: Duration,
+    minSkew: Duration,
+    maxSkew: Duration,
+) {
 
-  def minTransactionLatency: Duration
-
-  def futureAcceptanceWindow: Duration
-
-  def maxClockSkew: Duration
-
-  def minTtl: Duration
-
-  def maxTtl: Duration
+  /**
+    * Verifies whether the given ledger time and record time are valid under the ledger time model.
+    * In particular, checks the skew condition: rt_TX - s_min <= lt_TX <= rt_TX + s_max.
+    */
+  def checkTime(
+      ledgerTime: Instant,
+      recordTime: Instant
+  ): Either[String, Unit] = {
+    val lowerBound = recordTime.minus(minSkew)
+    val upperBound = recordTime.plus(maxSkew)
+    if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
+      Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
+    else
+      Right(())
+  }
 
 }
 
-trait TimeModelChecker {
+object TimeModel {
 
   /**
-    * Validates that the given ledger effective time is within an acceptable time window of the current system time.
-    *
-    * @param currentTime              the current time
-    * @param givenLedgerEffectiveTime The ledger effective time to validate.
-    * @param givenMaximumRecordTime   The maximum record time to validate.
-    * @return true if successful
+    * A default TimeModel that's reasonable for a test or sandbox ledger application.
+    * Serious applications (viz. ledger) should probably specify their own TimeModel.
     */
-  def checkLet(
-      currentTime: Instant,
-      givenLedgerEffectiveTime: Instant,
-      givenMaximumRecordTime: Instant): Boolean
+  val reasonableDefault: TimeModel =
+    TimeModel(
+      avgTransactionLatency = Duration.ofSeconds(0L),
+      minSkew = Duration.ofSeconds(30L),
+      maxSkew = Duration.ofSeconds(30L),
+    ).get
 
-  /**
-    * Validates that the ttl of the given times is within bounds.
-    * The ttl of a command is defined as the duration between
-    * the ledger effective time and maximum record time.
-    *
-    * @param givenLedgerEffectiveTime The given ledger effective time.
-    * @param givenMaximumRecordTime   The given maximum record time.
-    * @return true if successful
-    */
-  def checkTtl(givenLedgerEffectiveTime: Instant, givenMaximumRecordTime: Instant): Boolean
+  def apply(avgTransactionLatency: Duration, minSkew: Duration, maxSkew: Duration): Try[TimeModel] =
+    Try {
+      require(!avgTransactionLatency.isNegative, "Negative average transaction latency")
+      require(!minSkew.isNegative, "Negative min skew")
+      require(!maxSkew.isNegative, "Negative max skew")
+      new TimeModel(avgTransactionLatency, minSkew, maxSkew)
+    }
 }

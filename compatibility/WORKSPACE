@@ -1,0 +1,263 @@
+workspace(name = "compatibility")
+
+# We import the main workspace for nix stuff and some shared Bazel rules.
+# This is mainly so we don’t have to symlink a bunch of files.
+# Note that you should never depend on targets from @daml.
+local_repository(
+    name = "daml",
+    path = "..",
+)
+
+load("@daml//bazel_tools:os_info.bzl", "os_info")
+
+os_info(name = "os_info")
+
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows", "os_name")
+load("@daml//bazel_tools:build_environment.bzl", "build_environment")
+
+build_environment(name = "build_environment")
+
+load("//:deps.bzl", "daml_deps")
+
+daml_deps()
+
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+
+rules_haskell_dependencies()
+
+load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
+
+dadew(name = "dadew")
+
+load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
+
+dadew_sh_posix_configure() if is_windows else None
+
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
+load(
+    "@rules_haskell//haskell:nixpkgs.bzl",
+    "haskell_register_ghc_nixpkgs",
+)
+load(
+    "@rules_haskell//haskell:ghc_bindist.bzl",
+    "haskell_register_ghc_bindists",
+)
+load(
+    "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
+    "nixpkgs_cc_configure_hermetic",
+    "nixpkgs_local_repository",
+    "nixpkgs_package",
+    "nixpkgs_python_configure",
+)
+load("//:versions.bzl", "sdk_versions", "version_sha256s")
+
+common_nix_file_deps = [
+    "@daml//nix:bazel.nix",
+    "@daml//nix:nixpkgs.nix",
+    "@daml//nix:nixpkgs/default.nix",
+    "@daml//nix:nixpkgs/default.src.json",
+]
+
+nix_ghc_deps = common_nix_file_deps + [
+    "@daml//nix:ghc.nix",
+    "@daml//nix:with-packages-wrapper.nix",
+    "@daml//nix:overrides/ghc-8.6.5.nix",
+    "@daml//nix:overrides/ghc-8.6.3-binary.nix",
+]
+
+dev_env_nix_repos = {
+    "nixpkgs": "@nixpkgs",
+}
+
+nixpkgs_local_repository(
+    name = "nixpkgs",
+    nix_file = "@daml//nix:nixpkgs.nix",
+    nix_file_deps = [
+        "@daml//nix:nixpkgs/default.nix",
+        "@daml//nix:nixpkgs/default.src.json",
+    ],
+)
+
+nixpkgs_cc_configure_hermetic(
+    # We override the Bazel's autodetect toolchain to avoid accidentaly
+    # dependencies on the inhermetic autodetected builtin include paths or
+    # builds failing due to Bazel not finding `cc` in `$PATH` or `$CC`.
+    name = "local_config_cc",
+    nix_file = "@daml//nix:bazel-cc-toolchain.nix",
+    nix_file_deps = common_nix_file_deps + [
+        "@daml//nix:tools/bazel-cc-toolchain/default.nix",
+    ],
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
+
+nixpkgs_package(
+    name = "glibc_locales",
+    attribute_path = "glibcLocales",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "locale-archive",
+    srcs = ["lib/locale/locale-archive"],
+)
+""",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if is_linux else None
+
+haskell_register_ghc_bindists(
+    compiler_flags = [],
+    version = "8.6.5",
+) if is_windows else None
+
+haskell_register_ghc_nixpkgs(
+    attribute_path = "ghcStatic",
+    build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
+    is_static = True,
+    locale_archive = "@glibc_locales//:locale-archive",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = nix_ghc_deps,
+    repositories = dev_env_nix_repos,
+    version = "8.6.5",
+)
+
+nixpkgs_python_configure(repository = "@nixpkgs")
+
+nixpkgs_package(
+    name = "postgresql_nix",
+    attribute_path = "postgresql_9_6",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+)
+""",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "openssl_nix",
+    attribute_path = "openssl",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "openssl_dev_env",
+    nix_include = ["bin/openssl"],
+    nix_label = "@openssl_nix",
+    nix_paths = ["bin/openssl"],
+    tools = ["openssl"],
+    win_include = [
+        "usr/bin",
+        "usr/ssl",
+    ],
+    win_paths = ["usr/bin/openssl.exe"],
+    win_tool = "msys2",
+)
+
+nixpkgs_package(
+    name = "hlint_nix",
+    attribute_path = "hlint",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = nix_ghc_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "node_nix",
+    attribute_path = "nodejsNested",
+    build_file_content = 'exports_files(glob(["node_nix/**"]))',
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "nodejs_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
+    nix_label = "@node_nix",
+    nix_paths = [],
+    prefix = "nodejs_dev_env",
+    tools = [],
+    win_include = [
+        ".",
+    ],
+    win_paths = [],
+    win_tool = "nodejs-10.16.3",
+)
+
+node_repositories(
+    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
+    yarn_version = "1.22.4",
+)
+
+nixpkgs_package(
+    name = "patch_nix",
+    attribute_path = "gnupatch",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "patch_dev_env",
+    nix_include = ["bin/patch"],
+    nix_label = "@patch_nix",
+    nix_paths = ["bin/patch"],
+    tools = ["patch"],
+    win_include = ["usr/bin/patch.exe"],
+    win_paths = ["usr/bin/patch.exe"],
+    win_tool = "msys2",
+)
+
+load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
+
+daml_haskell_deps()
+
+load("//bazel_tools:daml_sdk.bzl", "daml_sdk", "daml_sdk_head")
+
+local_repository(
+    name = "head_sdk",
+    path = "head_sdk",
+)
+
+daml_sdk_head(
+    create_daml_app_patch = "@head_sdk//:messaging.patch",
+    daml_ledger_tarball = "@head_sdk//:daml-ledger-0.0.0.tgz",
+    daml_react_tarball = "@head_sdk//:daml-react-0.0.0.tgz",
+    daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
+    ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_deploy.jar",
+    os_name = os_name,
+    sdk_tarball = "@head_sdk//:sdk-release-tarball.tar.gz",
+)
+
+[
+    daml_sdk(
+        # See the explanation in UpdateVersions.hs
+        create_daml_app_patch = None if version_sha256s.get(ver).get("create_daml_app_patch") else "@daml-sdk-1.1.0-snapshot.20200422.3991.0.6391ee9f//:create_daml_app.patch",
+        create_daml_app_patch_sha256 = version_sha256s.get(ver).get("create_daml_app_patch"),
+        daml_ledger_sha256 = version_sha256s.get(ver).get("daml_ledger"),
+        daml_react_sha256 = version_sha256s.get(ver).get("daml_react"),
+        daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),
+        os_name = os_name,
+        sdk_sha256 = version_sha256s.get(ver),
+        test_tool_sha256 = version_sha256s.get(ver).get("test_tool"),
+        version = ver,
+    )
+    for ver in sdk_versions
+    if ver != "0.0.0"
+]

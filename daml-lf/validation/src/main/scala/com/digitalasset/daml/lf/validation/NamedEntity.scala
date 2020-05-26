@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, Name}
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.validation.Util._
+import com.daml.lf.data.Ref.{DottedName, ModuleName, Name}
+import com.daml.lf.language.Ast
+import com.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {
   def modName: ModuleName
@@ -77,6 +77,22 @@ object NamedEntity {
     def pretty: String = s"variant $modName:$name"
   }
 
+  final case class NEnumDef(
+      module: NModDef,
+      name: DottedName,
+      dfn: Ast.DDataType,
+  ) extends NamedEntity {
+
+    def modName: ModuleName = module.name
+
+    val fullyResolvedName: DottedName =
+      module.fullyResolvedName ++ name.toUpperCase
+
+    override def toString: String = s"NEnumDef($modName:$name)"
+
+    def pretty: String = s"enum $modName:$name"
+  }
+
   final case class NVarCon(
       dfn: NVarDef,
       name: Name,
@@ -109,6 +125,23 @@ object NamedEntity {
     override def toString: String = s"NField($modName:${dfn.name}:$name)"
 
     def pretty: String = s"record field $modName:${dfn.name}:$name"
+  }
+
+  final case class NEnumCon(
+      dfn: NEnumDef,
+      name: Name,
+  ) extends NamedEntity {
+
+    def module: NModDef = dfn.module
+
+    def modName: ModuleName = module.name
+
+    val fullyResolvedName: DottedName =
+      dfn.fullyResolvedName + Name.assertFromString(name.toUpperCase)
+
+    override def toString: String = s"NVarCon($modName:${dfn.name}:$name)"
+
+    def pretty: String = s"variant constructor $modName:${dfn.name}:$name"
   }
 
 }

@@ -1,31 +1,26 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.Ast.{DDataType, DValue, Definition}
-import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
-import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.daml.lf.{CompiledPackages, crypto}
+import com.daml.lf.data._
+import com.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.{ScenarioRunner, Speedy}
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.types.Ledger.ScenarioTransactionId
+import com.daml.lf.types.{Ledger => L}
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.store.entries.LedgerEntry
 import org.slf4j.LoggerFactory
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
-import com.digitalasset.ledger.backend.api.v1.NodeId
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
-
-import scala.collection.breakOut
-import scala.collection.mutable.ArrayBuffer
-import scalaz.syntax.std.map._
 
 import scala.annotation.tailrec
+import scala.collection.breakOut
+import scala.collection.mutable.ArrayBuffer
 
 object ScenarioLoader {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -41,7 +36,12 @@ object ScenarioLoader {
     * otherwise we'll get duplicates. See
     * <https://github.com/digital-asset/daml/issues/1079>.
     */
-  case class LedgerEntryWithLedgerEndIncrement(entry: LedgerEntry, increment: Long)
+  sealed abstract class LedgerEntryOrBump extends Serializable with Product
+
+  object LedgerEntryOrBump {
+    final case class Entry(ledgerEntry: LedgerEntry) extends LedgerEntryOrBump
+    final case class Bump(bump: Int) extends LedgerEntryOrBump
+  }
 
   /**
     * @param packages All the packages where we're going to look for the scenario definition.
@@ -54,80 +54,103 @@ object ScenarioLoader {
     *                 matching scenarios.
     */
   def fromScenario(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String)
-    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
-    val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
+      scenario: String,
+      submissionSeed: crypto.Hash,
+  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
+    val (scenarioLedger, scenarioRef) =
+      buildScenarioLedger(packages, compiledPackages, scenario, submissionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
       new ArrayBuffer[(ScenarioTransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
-    type Acc = (ActiveContractsInMemory, Time.Timestamp, Option[ScenarioTransactionId])
+    type Acc = (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioTransactionId])
     val (acs, time, txId) =
       scenarioLedger.scenarioSteps.iterator
-        .foldLeft[Acc]((ActiveContractsInMemory.empty, Time.Timestamp.Epoch, None)) {
+        .foldLeft[Acc]((InMemoryActiveLedgerState.empty, Time.Timestamp.Epoch, None)) {
           case ((acs, time, mbOldTxId), (stepId @ _, step)) =>
             executeScenarioStep(ledgerEntries, scenarioRef, acs, time, mbOldTxId, stepId, step)
         }
     // now decorate the entries with what the next increment is
     @tailrec
     def decorateWithIncrement(
-        processed: BackStack[LedgerEntryWithLedgerEndIncrement],
-        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)])
-      : ImmArray[LedgerEntryWithLedgerEndIncrement] =
+        processed: BackStack[LedgerEntryOrBump],
+        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)]): ImmArray[LedgerEntryOrBump] = {
+
+      def bumps(entryTxId: ScenarioTransactionId, nextTxId: ScenarioTransactionId) =
+        if ((nextTxId.index - entryTxId.index) == 1)
+          ImmArray.empty
+        else
+          ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
+
       toProcess match {
         case ImmArray() => processed.toImmArray
+        // we have to bump the offsets when the first one is not zero (passTimes),
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _))
+            if (processed.isEmpty && entryTxId.index > 0) =>
+          val newProcessed = (processed :++ ImmArray(
+            LedgerEntryOrBump.Bump(entryTxId.index),
+            LedgerEntryOrBump.Entry(entry))) :++ bumps(entryTxId, nextTxId)
+
+          decorateWithIncrement(newProcessed, entries)
         // the last one just bumps by 1 -- it does not matter as long as it's
         // positive
         case ImmArrayCons((_, entry), ImmArray()) =>
-          (processed :+ LedgerEntryWithLedgerEndIncrement(entry, 1)).toImmArray
+          (processed :+ LedgerEntryOrBump.Entry(entry)).toImmArray
+
         case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
-          decorateWithIncrement(
-            processed :+ LedgerEntryWithLedgerEndIncrement(
-              entry,
-              (nextTxId.index - entryTxId.index).toLong),
-            entries)
+          val newProcessed = processed :+ LedgerEntryOrBump.Entry(entry) :++ bumps(
+            entryTxId,
+            nextTxId)
+
+          decorateWithIncrement(newProcessed, entries)
       }
+    }
     (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
   }
 
   private def buildScenarioLedger(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String): (L.Ledger, Ref.DefinitionRef) = {
+      scenario: String,
+      submissionSeed: crypto.Hash,
+  ): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(Ref.DefinitionRef, Definition)] =
-      getCandidateScenarios(packages, scenarioQualName)
+    val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages)
+    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages, submissionSeed)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
   }
 
   private def getScenarioLedger(
       scenarioRef: Ref.DefinitionRef,
-      speedyMachine: Speedy.Machine): L.Ledger = {
-    ScenarioRunner(speedyMachine).run match {
+      speedyMachine: Speedy.Machine,
+  ): L.Ledger =
+    ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
-      case Right((_, _, l)) => l
+      case Right((_, _, l, _)) => l
     }
-  }
 
   private def getSpeedyMachine(
       scenarioExpr: Ast.Expr,
-      compiledPackages: CompiledPackages): Speedy.Machine = {
-    Speedy.Machine.newBuilder(compiledPackages) match {
+      compiledPackages: CompiledPackages,
+      submissionSeed: crypto.Hash,
+  ): Speedy.Machine =
+    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), submissionSeed) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
       case Right(build) => build(scenarioExpr)
     }
-  }
 
   private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
     scenarioDef match {
       case DValue(_, _, body, _) => body
+      case _: DTypeSyn =>
+        throw new RuntimeException(
+          s"Requested scenario $scenarioRef is a type synonym, not a definition")
       case _: DDataType =>
         throw new RuntimeException(
           s"Requested scenario $scenarioRef is a data type, not a definition")
@@ -135,14 +158,14 @@ object ScenarioLoader {
   }
 
   private def identifyScenario(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       scenario: String,
       candidateScenarios: List[(Ref.DefinitionRef, Definition)])
     : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
-          s"Couldn't find scenario $scenario in packages ${packages.packages.keys.toList}")
+          s"Couldn't find scenario $scenario in packages ${packages.listLfPackagesSync().keys.toList}")
       case candidate :: Nil => candidate
       case candidates =>
         throw new RuntimeException(
@@ -151,55 +174,49 @@ object ScenarioLoader {
   }
 
   private def getCandidateScenarios(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       scenarioQualName: Ref.QualifiedName
-  ): List[(Ref.Identifier, Definition)] = {
-    packages.packages.flatMap {
-      case (packageId, pkg) =>
-        pkg.lookupIdentifier(scenarioQualName) match {
-          case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
-          case Left(_) => List()
-        }
-    }(breakOut)
+  ): List[(Ref.Identifier, Ast.Definition)] = {
+    packages
+      .listLfPackagesSync()
+      .flatMap {
+        case (packageId, _) =>
+          val pkg = packages
+            .getLfPackageSync(packageId)
+            .getOrElse(sys.error(s"Listed package $packageId not found"))
+          pkg.lookupIdentifier(scenarioQualName) match {
+            case Right(x) =>
+              List((Ref.Identifier(packageId, scenarioQualName) -> x))
+            case Left(_) => List()
+          }
+      }(breakOut)
   }
 
   private def getScenarioQualifiedName(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       scenario: String
   ): Ref.QualifiedName = {
     Ref.QualifiedName.fromString(scenario) match {
-      case Left(err) =>
-        logger.warn(
-          "Dot-separated scenario specification is deprecated. Names are Module.Name:Inner.Name, with a colon between module name and the name of the definition. Falling back to deprecated name resolution.")
-        packages.packages.iterator
-          .map {
-            case (_, pkg) => DeprecatedIdentifier.lookup(pkg, scenario)
-          }
-          .collectFirst {
-            case Right(qualifiedName) => qualifiedName
-          }
-          .getOrElse {
-            throw new RuntimeException(
-              s"Cannot find scenario $scenario in packages ${packages.packages.keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
-          }
+      case Left(_) =>
+        throw new RuntimeException(
+          s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}.")
       case Right(x) => x
     }
   }
 
-  private val transactionIdPrefix =
-    Ref.TransactionIdString.assertFromString(s"scenario-transaction-")
+  private val transactionIdPrefix = Ref.LedgerString.assertFromString(s"scenario-transaction-")
   private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
   private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
 
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioTransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveLedgerState,
       time: Time.Timestamp,
       mbOldTxId: Option[ScenarioTransactionId],
       stepId: Int,
       step: L.ScenarioStep
-  ): (ActiveContractsInMemory, Time.Timestamp, Option[ScenarioTransactionId]) = {
+  ): (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioTransactionId]) = {
     step match {
       case L.Commit(txId: ScenarioTransactionId, richTransaction: L.RichTransaction, _) =>
         mbOldTxId match {
@@ -211,66 +228,50 @@ object ScenarioLoader {
             }
         }
 
-        val transactionId = Ref.LedgerString.concat(transactionIdPrefix, txId.id)
+        val transactionId = txId.id
         val workflowId =
-          Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        // note that it's important that we keep the event ids in line with the contract ids, since
-        // the sandbox code assumes that in TransactionConversion.
-        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
-        val tx = txNoHash.mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
-        import richTransaction.{explicitDisclosure, implicitDisclosure}
+          Some(Ref.LedgerString.assertConcat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
+        val tx = GenTransaction(richTransaction.nodes, richTransaction.roots)
+        val mappedExplicitDisclosure = richTransaction.explicitDisclosure
+        val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure
+        val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
-        val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          absCidWithHash(AbsoluteContractId(nid))
-        }
-        acs.addTransaction[L.ScenarioNodeId](
+        acs.addTransaction(
           time.toInstant,
           transactionId,
           workflowId,
+          Some(richTransaction.committer),
           tx,
-          explicitDisclosure,
-          implicitDisclosure,
-          globalizedImplicitDisclosure) match {
+          mappedExplicitDisclosure,
+          mappedGlobalImplicitDisclosure,
+          List.empty
+        ) match {
           case Right(newAcs) =>
-            val recordTx = tx.mapNodeId(nodeIdWithHash)
-            val recordDisclosure = explicitDisclosure.map {
-              case (nid, parties) => (nodeIdWithHash(nid), parties)
-            }
-
             ledger +=
               (
                 (
                   txId,
-                  Transaction(
+                  LedgerEntry.Transaction(
+                    Some(transactionId),
                     transactionId,
-                    transactionId,
-                    scenarioLoader,
-                    richTransaction.committer,
+                    Some(scenarioLoader),
+                    Some(richTransaction.committer),
                     workflowId,
                     time.toInstant,
                     time.toInstant,
-                    recordTx,
-                    recordDisclosure
+                    tx,
+                    mappedExplicitDisclosure
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>
             throw new RuntimeException(s"Error when augmenting acs at step $stepId: $err")
         }
       case _: L.AssertMustFail =>
-        throw new RuntimeException(
-          s"Scenario $scenarioRef contains a must fail -- you cannot use it to initialize the sandbox.")
+        (acs, time, mbOldTxId)
       case L.PassTime(dtMicros) =>
         (acs, time.addMicros(dtMicros), mbOldTxId)
     }
   }
-
-  private val `#` = Ref.ContractIdString.assertFromString("#")
-  // currently the scenario interpreter produces the contract ids with no hash prefix,
-  // but the sandbox does. add them here too for consistency
-  private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
-    AbsoluteContractId(Ref.ContractIdString.concat(`#`, a.coid))
-
-  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.ContractIdString.concat(`#`, nid)
 
 }

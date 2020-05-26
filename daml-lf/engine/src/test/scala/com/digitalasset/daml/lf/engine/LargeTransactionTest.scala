@@ -1,22 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf
+package engine
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value
-import Value._
-import com.digitalasset.daml.lf.UniversalArchiveReader
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
-import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{Node => N, Transaction => Tx}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value._
+import com.daml.lf.command._
 import org.scalameter
 import org.scalameter.Quantity
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -26,7 +25,13 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
-  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+  private def hash(s: String, i: Int) =
+    crypto.Hash.hashPrivateKey(s + ":" + i.toString)
+
+  private val participant = Ref.ParticipantId.assertFromString("participant")
+
+  private def loadPackage(
+      resource: String): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
     val packages =
       UniversalArchiveReader().readFile(new File(rlocation(resource))).get
     val packagesMap = Map(packages.all.map {
@@ -80,14 +85,24 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       txSize: Int): Quantity[Double] = {
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, txSize)
-    val createCmdTx: Transaction = submitCommand(pcs, engine)(createCmd, "create RangeOfInts")
-    val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(x, _, _, _, _, _) => pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
+    val createCmdTx: Transaction =
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = createCmd,
+        cmdReference = "create RangeOfInts",
+        seed = hash("testLargeTransactionOneContract:create", txSize))
+    val contractId = firstRootNode(createCmdTx) match {
+      case N.NodeCreate(coid, _, _, _, _, _) => coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
-      submitCommand(pcs, engine)(exerciseCmd, "exercise RangeOfInts.ToListContainer"))
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = exerciseCmd,
+        cmdReference = "exercise RangeOfInts.ToListContainer",
+        seed = hash("testLargeTransactionOneContract:exercise", txSize),
+      ))
 
     assertOneContractWithManyInts(exerciseCmdTx, List.range(0L, txSize.toLong))
     quanity
@@ -97,14 +112,24 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       num: Int): Quantity[Double] = {
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, num)
-    val createCmdTx: Transaction = submitCommand(pcs, engine)(createCmd, "create RangeOfInts")
-    val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(x, _, _, _, _, _) => pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
+    val createCmdTx: Transaction =
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = createCmd,
+        cmdReference = "create RangeOfInts",
+        seed = hash("testLargeTransactionManySmallContracts:create", num))
+    val contractId = firstRootNode(createCmdTx) match {
+      case N.NodeCreate(coid, _, _, _, _, _) => coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
-      submitCommand(pcs, engine)(exerciseCmd, "exercise RangeOfInts.ToListContainer"))
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = exerciseCmd,
+        cmdReference = "exercise RangeOfInts.ToListContainer",
+        seed = hash("testLargeTransactionManySmallContracts:exercise", num)
+      ))
 
     assertManyContractsOneIntPerContract(exerciseCmdTx, num)
     quanity
@@ -114,14 +139,23 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       size: Int): Quantity[Double] = {
     val listUtilTemplateId = Identifier(largeTx._1, qn("LargeTransaction:ListUtil"))
     val createCmd = listUtilCreateCmd(listUtilTemplateId)
-    val createCmdTx: Transaction = submitCommand(pcs, engine)(createCmd, "create ListUtil")
-    val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(x, _, _, _, _, _) => pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
+    val createCmdTx: Transaction =
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = createCmd,
+        cmdReference = "create ListUtil",
+        seed = hash("testLargeChoiceArgument:create", size))
+    val contractId = firstRootNode(createCmdTx) match {
+      case N.NodeCreate(coid, _, _, _, _, _) => coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
     val (exerciseCmdTx, quantity) = measureWithResult(
-      submitCommand(pcs, engine)(exerciseCmd, "exercise ListUtil.Size"))
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = exerciseCmd,
+        cmdReference = "exercise ListUtil.Size",
+        seed = hash("testLargeTransactionManySmallContracts:exercise", size)))
 
     assertSizeExerciseTransaction(exerciseCmdTx, size.toLong)
     quantity
@@ -161,16 +195,23 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
   }
 
   private def submitCommand(pcs: PrivateLedgerData, engine: Engine)(
+      submitter: Party,
       cmd: Command,
-      cmdReference: String): Tx.Transaction = {
+      cmdReference: String,
+      seed: crypto.Hash
+  ): Tx.Transaction = {
     engine
-      .submit(Commands(ImmArray(cmd), Time.Timestamp.now(), cmdReference))
+      .submit(
+        Commands(submitter, ImmArray(cmd), Time.Timestamp.now(), cmdReference),
+        participant,
+        seed,
+      )
       .consume(pcs.get, lookupPackage, { _ =>
         sys.error("TODO keys for LargeTransactionTest")
       }) match {
       case Left(err) =>
         fail(s"Unexpected error: $err")
-      case Right(tx) =>
+      case Right((tx, _)) =>
         pcs.update(tx)
         tx
     }
@@ -187,57 +228,39 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       (Some[Name]("step"), ValueInt64(step.toLong)),
       (Some[Name]("size"), ValueInt64(number.toLong))
     )
-    val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
-    CreateCommand(templateId, argument)
+    CreateCommand(templateId, ValueRecord(Some(templateId), fields))
   }
 
   private def toListContainerExerciseCmd(
       templateId: Identifier,
-      contractId: AbsoluteContractId): ExerciseCommand = {
+      contractId: ContractId
+  ): ExerciseCommand = {
     val choice = "ToListContainer"
-    val emptyArgs = ValueRecord(None, ImmArray(Seq()))
-    ExerciseCommand(
-      templateId,
-      contractId.coid,
-      choice,
-      party,
-      assertAsVersionedValue(emptyArgs)
-    )
+    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
   private def toListOfIntContainers(
       templateId: Identifier,
-      contractId: AbsoluteContractId): ExerciseCommand = {
+      contractId: ContractId
+  ): ExerciseCommand = {
     val choice = "ToListOfIntContainers"
-    val emptyArgs = ValueRecord(None, ImmArray(Seq()))
-    ExerciseCommand(
-      templateId,
-      contractId.coid,
-      choice,
-      party,
-      assertAsVersionedValue(emptyArgs)
-    )
+    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
   private def listUtilCreateCmd(templateId: Identifier): CreateCommand = {
     val fields = ImmArray((Some[Name]("party"), ValueParty(party)))
-    val argument = assertAsVersionedValue(ValueRecord(Some(templateId), fields))
-    CreateCommand(templateId, argument)
+    CreateCommand(templateId, ValueRecord(Some(templateId), fields))
   }
 
-  private def sizeExerciseCmd(templateId: Identifier, contractId: AbsoluteContractId)(
+  private def sizeExerciseCmd(templateId: Identifier, contractId: ContractId)(
       size: Int): ExerciseCommand = {
     val choice = "Size"
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
-    ExerciseCommand(
-      templateId,
-      contractId.coid,
-      choice,
-      party,
-      assertAsVersionedValue(choiceArgs)
-    )
+    ExerciseCommand(templateId, contractId, choice, choiceArgs)
   }
 
   private def assertSizeExerciseTransaction(

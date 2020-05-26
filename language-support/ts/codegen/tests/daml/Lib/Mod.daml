@@ -1,0 +1,17 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Lib.Mod where
+
+data Field = Field {
+  something: Text
+} deriving (Eq, Show)
+
+data Imported = Imported {
+  field: Field
+} deriving (Eq, Show)
+
+template NonTopLevel with
+    party: Party
+  where
+    signatory party

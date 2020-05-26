@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
+import com.daml.lf.language.Ast._
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value._
 import scalaz.Monad
 
 import scala.annotation.tailrec
@@ -41,9 +41,9 @@ sealed trait Result[+A] extends Product with Serializable {
 
   // quick and dirty way to consume a Result
   def consume(
-      pcs: AbsoluteContractId => Option[ContractInst[VersionedValue[AbsoluteContractId]]],
+      pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
-      keys: GlobalKey => Option[AbsoluteContractId]): Either[Error, A] = {
+      keys: GlobalKey => Option[ContractId]): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
       res match {
@@ -58,6 +58,9 @@ sealed trait Result[+A] extends Product with Serializable {
 }
 
 final case class ResultDone[A](result: A) extends Result[A]
+object ResultDone {
+  val Unit: ResultDone[Unit] = new ResultDone(())
+}
 final case class ResultError(err: Error) extends Result[Nothing]
 
 /**
@@ -69,8 +72,8 @@ final case class ResultError(err: Error) extends Result[Nothing]
   * </ul>
   */
 final case class ResultNeedContract[A](
-    acoid: AbsoluteContractId,
-    resume: Option[ContractInst[VersionedValue[AbsoluteContractId]]] => Result[A])
+    acoid: ContractId,
+    resume: Option[ContractInst[VersionedValue[ContractId]]] => Result[A])
     extends Result[A]
 
 /**
@@ -84,7 +87,7 @@ final case class ResultNeedContract[A](
 final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Package] => Result[A])
     extends Result[A]
 
-final case class ResultNeedKey[A](key: GlobalKey, resume: Option[AbsoluteContractId] => Result[A])
+final case class ResultNeedKey[A](key: GlobalKey, resume: Option[ContractId] => Result[A])
     extends Result[A]
 
 object Result {
@@ -96,22 +99,23 @@ object Result {
     })
 
   def needPackage[A](
-      compiledPackages: ConcurrentCompiledPackages,
+      compiledPackages: MutableCompiledPackages,
       packageId: PackageId,
       resume: Package => Result[A]): Result[A] =
     compiledPackages.getPackage(packageId) match {
       case Some(pkg) => resume(pkg)
       case None =>
-        ResultNeedPackage(packageId, {
-          case None => ResultError(Error(s"Couldn't find package $packageId"))
-          case Some(pkg) =>
-            compiledPackages.addPackage(packageId, pkg)
-            resume(pkg)
-        })
+        ResultNeedPackage(
+          packageId, {
+            case None => ResultError(Error(s"Couldn't find package $packageId"))
+            case Some(pkg) =>
+              compiledPackages.addPackage(packageId, pkg).flatMap(_ => resume(pkg))
+          }
+        )
     }
 
   def needDefinition[A](
-      packagesCache: ConcurrentCompiledPackages,
+      packagesCache: MutableCompiledPackages,
       identifier: Identifier,
       resume: Definition => Result[A]): Result[A] =
     needPackage(
@@ -123,7 +127,7 @@ object Result {
     )
 
   def needDataType[A](
-      packagesCache: ConcurrentCompiledPackages,
+      packagesCache: MutableCompiledPackages,
       identifier: Identifier,
       resume: DDataType => Result[A]): Result[A] =
     needPackage(
@@ -135,7 +139,7 @@ object Result {
     )
 
   def needTemplate[A](
-      packagesCache: ConcurrentCompiledPackages,
+      packagesCache: MutableCompiledPackages,
       identifier: Identifier,
       resume: Template => Result[A]): Result[A] =
     needPackage(
@@ -147,8 +151,8 @@ object Result {
     )
 
   def needContract[A](
-      acoid: AbsoluteContractId,
-      resume: ContractInst[VersionedValue[AbsoluteContractId]] => Result[A]) =
+      acoid: ContractId,
+      resume: ContractInst[VersionedValue[ContractId]] => Result[A]) =
     ResultNeedContract(acoid, {
       case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
       case Some(contract) => resume(contract)
@@ -203,9 +207,10 @@ object Result {
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =
-    if (assertion) {
-      ResultDone(())
-    } else ResultError(err)
+    if (assertion)
+      ResultDone.Unit
+    else
+      ResultError(err)
 
   implicit val resultInstance: Monad[Result] = new Monad[Result] {
     override def point[A](a: => A): Result[A] = ResultDone(a)

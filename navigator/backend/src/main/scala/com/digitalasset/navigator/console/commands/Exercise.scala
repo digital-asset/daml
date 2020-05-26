@@ -1,28 +1,25 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console.commands
+package com.daml.navigator.console.commands
 
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.json.ApiCodecCompressed
-import com.digitalasset.navigator.model
-import com.digitalasset.navigator.store.Store.ExerciseChoice
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.console._
+import com.daml.lf.value.Value.ValueUnit
+import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.navigator.model
+import com.daml.navigator.store.Store.ExerciseChoice
 import akka.pattern.ask
 import akka.util.Timeout
-import com.digitalasset.navigator.model.{ApiUnit, ApiValue}
+import com.daml.navigator.model.ApiValue
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Product",
-    "org.wartremover.warts.Option2Iterable",
-    "org.wartremover.warts.Serializable"))
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 case object Exercise extends SimpleCommand {
   def name: String = "exercise"
 
@@ -68,7 +65,7 @@ case object Exercise extends SimpleCommand {
         .find(c => ApiTypes.Choice.unwrap(c.name) == choice) ~> s"Unknown choice $choice"
       apiValue <- Try(
         // Use unit value if no argument is given
-        damlA.fold[ApiValue](ApiUnit())(
+        damlA.fold[ApiValue](ValueUnit)(
           arg =>
             ApiCodecCompressed.stringToApiType(
               arg.mkString(" "),

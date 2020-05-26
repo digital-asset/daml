@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -21,6 +21,6 @@ rm -rf $BUILD_DIR
 mkdir $BUILD_DIR
 
 bazel build //docs:docs
-tar -zxf ../../bazel-genfiles/docs/html.tar.gz -C $BUILD_DIR
+tar -zxf ../../bazel-bin/docs/html.tar.gz -C $BUILD_DIR
 cd $BUILD_DIR/html
 python -m http.server 8000

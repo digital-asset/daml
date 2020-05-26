@@ -28,7 +28,7 @@ Configurable table views
 Configurable table views are a rapid prototyping feature,
 where developers can write a script that returns a list of custom table views for a given user.
 
-## Architecture
+## Architecture
 
 - The [configsource](./src/applets/configsource) applet is responsible for loading the config file.
   - The config file source is loaded from the backend

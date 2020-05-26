@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
@@ -6,34 +6,19 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 da_scala_library(
     name = "rs-grpc-akka",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:rs-grpc-akka:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:rs-grpc-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//ledger-api/rs-grpc-bridge",
+        "//libs-scala/direct-execution-context",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
     ],
 )
-
-testDependencies = [
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    "//3rdparty/jvm/io/grpc:grpc_stub",
-    ":rs-grpc-akka",
-    "//ledger-api/testing-utils:testing-utils",
-    "//ledger-api/sample-service:sample-service",
-    "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
-    "//ledger-api/rs-grpc-bridge:rs-grpc-bridge-test",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/ch/qos/logback:logback_classic",
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-    "//3rdparty/jvm/org/awaitility:awaitility",
-    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",
-]
 
 da_scala_library(
     name = "rs-grpc-akka-tests-lib",
@@ -44,7 +29,31 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
-    deps = testDependencies,
+    visibility = [
+        "//:__subpackages__",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:io_grpc_grpc_netty",
+    ],
+    deps = [
+        ":rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge-test-lib",
+        "//ledger-api/sample-service",
+        "//ledger-api/testing-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_awaitility_awaitility",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
 )
 
 da_scala_test_suite(
@@ -55,23 +64,41 @@ da_scala_test_suite(
     ]),
     deps = [
         ":rs-grpc-akka-tests-lib",
-    ] + testDependencies,
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
+        "//ledger-api/testing-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
 )
 
 da_scala_binary(
     name = "rs-grpc-akka-perf",
     srcs = glob(["src/perf/**/*.scala"]),
-    main_class = "com.digitalasset.grpc.adapter.ServerStreamingBenchmark",
+    main_class = "com.daml.grpc.adapter.ServerStreamingBenchmark",
     deps = [
         ":rs-grpc-akka",
         ":rs-grpc-akka-tests-lib",
-        "//3rdparty/jvm/com/storm_enroute:scalameter",
-        "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/io/grpc:grpc_core",
         "//ledger-api/perf-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_storm_enroute_scalameter_2_12",
+        "@maven//:com_storm_enroute_scalameter_core_2_12",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )

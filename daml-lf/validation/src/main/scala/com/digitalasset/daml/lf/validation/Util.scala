@@ -1,26 +1,26 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref
 
 private[validation] object Util {
 
   implicit final class TupleImmArrayOps[A, B](val array: ImmArray[(A, B)]) extends AnyVal {
     def unzip: (ImmArray[A], ImmArray[B]) = {
       val (a1, a2) = array.toSeq.unzip
-      (ImmArray(a1), ImmArray(a2))
+      (a1.toImmArray, a2.toImmArray)
     }
 
     def keys: Iterator[A] = array.iterator.map(_._1)
 
     def values: Iterator[B] = array.iterator.map(_._2)
 
-    def mapValues[C](f: B => C): ImmArray[(A, C)] = array.map { case (k, v) => k -> f(v) }
+    def transform[C](f: (A, B) => C): ImmArray[(A, C)] = array.map { case (k, v) => k -> f(k, v) }
 
-    def toMap: Map[A, B] = array.iterator.toMap
+    def toMap: Map[A, B] = array.toSeq.toMap
 
     def lookup(key: A, e: => ValidationError): B = array.find(_._1 == key).fold(throw e)(_._2)
   }

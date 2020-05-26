@@ -1,13 +1,14 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model
+import com.daml.lf.value.{Value => V}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -143,6 +144,8 @@ object Pretty {
           Some(typeCon.name.identifier.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
       }
+    case model.DamlLfTypeNumeric(_) =>
+      (None, PrettyPrimitive("Decimal"))
     case typePrim: model.DamlLfTypePrim =>
       (None, damlLfPrimitive(typePrim.typ, typePrim.typArgs, typeDefs, doNotExpand))
     case typeVar: model.DamlLfTypeVar =>
@@ -164,7 +167,6 @@ object Pretty {
         PrettyField(listType._1.fold("List")(n => s"List [$n]"), listType._2)
       )
     case model.DamlLfPrimType.Bool => PrettyPrimitive("Bool")
-    case model.DamlLfPrimType.Decimal => PrettyPrimitive("Decimal")
     case model.DamlLfPrimType.Int64 => PrettyPrimitive("Int64")
     case model.DamlLfPrimType.ContractId => PrettyPrimitive("ContractId")
     case model.DamlLfPrimType.Date => PrettyPrimitive("Date")
@@ -193,6 +195,8 @@ object Pretty {
           val label = fieldType._1.fold[String](f._1)(n => s"${f._1} [$n]")
           PrettyField(label, fieldType._2)
         }))
+      case e: model.DamlLfEnum =>
+        PrettyArray(e.constructors.map(PrettyPrimitive).toList)
     }
   }
 
@@ -212,33 +216,47 @@ object Pretty {
 
   /** Creates a JSON-like object that describes an argument value */
   def argument(arg: model.ApiValue): PrettyNode = arg match {
-    case model.ApiRecord(id, fields) =>
+    case V.ValueRecord(id, fields) =>
       PrettyObject(
-        fields.map(f => PrettyField(f.label, argument(f.value)))
+        fields.iterator.zipWithIndex.map {
+          case ((flabel, fvalue), ix) =>
+            PrettyField(flabel getOrElse (ix: Int).toString, argument(fvalue))
+        }.toSeq: _*
       )
-    case model.ApiVariant(id, constructor, value) =>
+    case V.ValueVariant(id, constructor, value) =>
       PrettyObject(
         PrettyField(constructor, argument(value))
       )
-    case model.ApiList(elements) =>
+    case V.ValueEnum(id, constructor) =>
+      PrettyPrimitive(constructor)
+    case V.ValueList(elements) =>
       PrettyArray(
-        elements.map(e => argument(e))
+        elements.toImmArray.map(e => argument(e)).toSeq: _*
       )
-    case model.ApiText(value) => PrettyPrimitive(value)
-    case model.ApiInt64(value) => PrettyPrimitive(value.toString)
-    case model.ApiDecimal(value) => PrettyPrimitive(value)
-    case model.ApiBool(value) => PrettyPrimitive(value.toString)
-    case model.ApiContractId(value) => PrettyPrimitive(value.toString)
-    case model.ApiTimestamp(value) => PrettyPrimitive(value.toString)
-    case model.ApiDate(value) => PrettyPrimitive(value.toString)
-    case model.ApiParty(value) => PrettyPrimitive(value.toString)
-    case model.ApiUnit() => PrettyPrimitive("<unit>")
-    case model.ApiOptional(None) => PrettyPrimitive("<none>")
-    case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
-    case model.ApiMap(map) =>
+    case V.ValueText(value) => PrettyPrimitive(value)
+    case V.ValueInt64(value) => PrettyPrimitive(value.toString)
+    case V.ValueNumeric(value) => PrettyPrimitive(value.toUnscaledString)
+    case V.ValueBool(value) => PrettyPrimitive(value.toString)
+    case V.ValueContractId(value) => PrettyPrimitive(value.toString)
+    case V.ValueTimestamp(value) => PrettyPrimitive(value.toString)
+    case V.ValueDate(value) => PrettyPrimitive(value.toString)
+    case V.ValueParty(value) => PrettyPrimitive(value.toString)
+    case V.ValueUnit => PrettyPrimitive("<unit>")
+    case V.ValueOptional(None) => PrettyPrimitive("<none>")
+    case V.ValueOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
+    case V.ValueTextMap(map) =>
       PrettyObject(map.toImmArray.toList.map {
-        case (key, value) => PrettyField(key, argument(arg))
+        case (key, value) => PrettyField(key, argument(value))
       })
+    case V.ValueGenMap(genMap) =>
+      PrettyArray(genMap.toSeq.map {
+        case (key, value) =>
+          PrettyObject(
+            PrettyField("key", argument(key)),
+            PrettyField("value", argument(value))
+          )
+      }: _*)
+    case _: model.ApiImpossible => sys.error("impossible! structs are not serializable")
   }
 
   /** Outputs an object in YAML format */

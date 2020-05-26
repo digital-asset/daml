@@ -1,7 +1,7 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import doobie._
 import doobie.implicits._
@@ -19,7 +19,10 @@ object Queries {
             template_id TEXT NOT NULL,
             archive_transaction_id TEXT DEFAULT NULL,
             argument JSON NOT NULL,
-            agreement_text TEXT DEFAULT NULL
+            agreement_text TEXT DEFAULT NULL,
+            signatories JSON DEFAULT NULL,
+            observers JSON DEFAULT NULL,
+            contract_key JSON DEFAULT NULL
           )
       """
 
@@ -44,11 +47,14 @@ object Queries {
             subclass_type TEXT NOT NULL,
             template_id TEXT DEFAULT NULL,
             record_argument JSON DEFAULT NULL,
-            contract_create_event_id TEXT DEFAULT NULL,
             choice TEXT DEFAULT NULL,
             argument_value JSON DEFAULT NULL,
             acting_parties JSON DEFAULT NULL,
-            is_consuming INTEGER DEFAULT NULL
+            is_consuming INTEGER DEFAULT NULL,
+            agreement_text TEXT DEFAULT NULL,
+            signatories JSON DEFAULT NULL,
+            observers JSON DEFAULT NULL,
+            contract_key JSON DEFAULT NULL
           )
       """
 
@@ -121,10 +127,10 @@ object Queries {
       INSERT INTO 
         event 
         (id, transaction_id, workflow_id, parent_id, contract_id, witness_parties, subclass_type, 
-        template_id, record_argument, contract_create_event_id, choice, argument_value, acting_parties, is_consuming)
+        template_id, record_argument, choice, argument_value, acting_parties, is_consuming, agreement_text, signatories, observers, contract_key)
       VALUES 
         (${row.id}, ${row.transactionId}, ${row.workflowId}, ${row.parentId}, ${row.contractId}, ${row.witnessParties}, ${row.subclassType}, 
-        ${row.templateId}, ${row.recordArgument}, ${row.contractCreateEventId}, ${row.choice}, ${row.argumentValue}, ${row.actingParties}, ${row.isConsuming})
+        ${row.templateId}, ${row.recordArgument}, ${row.choice}, ${row.argumentValue}, ${row.actingParties}, ${row.isConsuming}, ${row.agreementText}, ${row.signatories}, ${row.observers}, ${row.key})
     """
 
   def eventById(id: String): Fragment =
@@ -221,9 +227,9 @@ object Queries {
     sql"""
       INSERT INTO 
         contract 
-        (id, template_id, archive_transaction_id, argument, agreement_text)
+        (id, template_id, archive_transaction_id, argument, agreement_text, signatories, observers, contract_key)
       VALUES
-        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText})
+        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText}, ${row.signatories}, ${row.observers}, ${row.key})
     """
 
   def archiveContract(contractId: String, archiveTransactionId: String): Fragment =

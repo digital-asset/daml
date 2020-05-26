@@ -1,21 +1,26 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.digitalasset.platform.server.api.validation.ErrorFactories.{
-  invalidArgument,
-  missingField
-}
-import com.digitalasset.platform.server.api.validation.FieldValidations.requireLedgerString
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.platform.server.api.validation.ErrorFactories.{invalidArgument, missingField}
+import com.daml.platform.server.api.validation.FieldValidations.requireLedgerString
 import io.grpc.StatusRuntimeException
 
 object LedgerOffsetValidator {
 
   private val boundary = "boundary"
+
+  def validateOptional(
+      ledgerOffset: Option[LedgerOffset],
+      fieldName: String): Either[StatusRuntimeException, Option[domain.LedgerOffset]] =
+    ledgerOffset
+      .map(validate(_, fieldName))
+      .fold[Either[StatusRuntimeException, Option[domain.LedgerOffset]]](Right(None))(
+        _.map(Some(_)))
 
   def validate(
       ledgerOffset: LedgerOffset,

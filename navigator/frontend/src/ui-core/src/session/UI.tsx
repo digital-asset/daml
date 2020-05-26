@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -12,6 +12,23 @@ import * as Session from './index';
 const SignInButton = styled(Button)`
   width: 100%;
   margin-top: 1rem;
+`;
+
+const SignInForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+`;
+
+const ErrorMessage = styled.p`
+  color: red;
+  font-weight: bold;
+`;
+
+const WarningMessage = styled.p`
+  color: yellow;
+  font-weight: bold;
 `;
 
 const Frame = styled.div`
@@ -85,15 +102,32 @@ export default class Component<A extends Action>
     let errorEl = null;
     if (failure === 'invalid-credentials') {
       errorEl = (
-        <p>Sorry, those credentials are invalid</p>
+        <ErrorMessage>
+          <div>You don't have the necessary authorization to access the ledger</div>
+          <div>Make sure to start the Navigator server with a valid access token</div>
+        </ErrorMessage>
       );
+    } else if (failure === 'not-connected') {
+      errorEl = (
+        <WarningMessage>
+          <div>Not yet connected to the ledger</div>
+          <div>Verify that the ledger is available and try again</div>
+        </WarningMessage>
+      )
+    } else if (failure === 'unknown-error') {
+      errorEl = (
+        <ErrorMessage>
+          <div>An error occured when connecting to the ledger</div>
+          <div>Refer to the Navigator server logs to know the cause</div>
+        </ErrorMessage>
+      )
     }
 
     switch (method.type) {
 
       case 'password':
         loginEl = (
-          <form>
+          <SignInForm>
             {errorEl}
             <input
               type="text"
@@ -123,22 +157,25 @@ export default class Component<A extends Action>
             >
               Sign in
             </SignInButton>
-          </form>
+          </SignInForm>
         );
         break;
 
       case 'select':
         loginEl = (
-          <select
-            disabled={isAuthenticating}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              this.signIn(e.currentTarget.value);
-            }}
-          >
-            <option value="" defaultValue="">Choose your role...</option>
-            {method.users.map((id: Session.UserId, idx: number) =>
-              (<option key={idx} value={id}>{id}</option>))}
-          </select>
+          <SignInForm>
+            <select
+              disabled={isAuthenticating}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                this.signIn(e.currentTarget.value);
+              }}
+            >
+              <option value="" defaultValue="">Choose your role...</option>
+              {method.users.map((id: Session.UserId, idx: number) =>
+                (<option key={idx} value={id}>{id}</option>))}
+            </select>
+            {errorEl}
+          </SignInForm>
         );
         break;
 

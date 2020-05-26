@@ -1,14 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.sql.DriverManager
 
 import cats.effect.{ContextShift, IO}
 import cats.implicits._
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model._
+import com.typesafe.scalalogging.LazyLogging
 import doobie._
 import doobie.implicits._
 import scalaz.syntax.tag._
@@ -20,7 +21,8 @@ import scala.util.{Failure, Success, Try}
   * This class is responsible for running the queries
   * and make the transformation between Scala and data store types
   */
-class DatabaseActions {
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+class DatabaseActions extends LazyLogging {
 
   /**
     * Uncomment the log handler to enable query logging
@@ -94,11 +96,19 @@ class DatabaseActions {
     } yield SqlQueryResult(colNames, data.map(_.map(Option(_).map(_.toString).getOrElse("null"))))
   }
 
-  def runQuery(query: String): Try[SqlQueryResult] = {
+  /** Returns the given value, logging failures */
+  private def logErrors[T](result: Try[T]): Try[T] = {
+    result.failed.foreach { t =>
+      logger.error("Error executing database action, Navigator may be in a corrupted state", t)
+    }
+    result
+  }
+
+  def runQuery(query: String): Try[SqlQueryResult] = logErrors {
     Try(Queries.query(query).execWith(exec).transact(xa).unsafeRunSync())
   }
 
-  def insertEvent(event: Event): Try[Int] = {
+  def insertEvent(event: Event): Try[Int] = logErrors {
     Try {
       Queries
         .insertEvent(EventRow.fromEvent(event))
@@ -109,7 +119,7 @@ class DatabaseActions {
     }
   }
 
-  def eventById(id: ApiTypes.EventId, types: PackageRegistry): Try[Option[Event]] = {
+  def eventById(id: ApiTypes.EventId, types: PackageRegistry): Try[Option[Event]] = logErrors {
     Try {
       Queries
         .eventById(id.unwrap)
@@ -124,23 +134,24 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def eventsByParentId(parentId: ApiTypes.EventId, types: PackageRegistry): Try[List[Event]] = {
-    Try {
-      Queries
-        .eventsByParentId(parentId.unwrap)
-        .query[EventRow]
-        .to[List]
-        .transact(xa)
-        .unsafeRunSync()
-        .map { data =>
-          data.toEvent(types)
-        }
-    }.flatMap(_.sequence)
-  }
+  def eventsByParentId(parentId: ApiTypes.EventId, types: PackageRegistry): Try[List[Event]] =
+    logErrors {
+      Try {
+        Queries
+          .eventsByParentId(parentId.unwrap)
+          .query[EventRow]
+          .to[List]
+          .transact(xa)
+          .unsafeRunSync()
+          .map { data =>
+            data.toEvent(types)
+          }
+      }.flatMap(_.sequence)
+    }
 
   def createEventByContractId(
       id: ApiTypes.ContractId,
-      types: PackageRegistry): Try[ContractCreated] = {
+      types: PackageRegistry): Try[ContractCreated] = logErrors {
     Try {
       Queries
         .eventByTypeAndContractId("ContractCreated", id.unwrap)
@@ -160,7 +171,7 @@ class DatabaseActions {
 
   def archiveEventByContractId(
       id: ApiTypes.ContractId,
-      types: PackageRegistry): Try[Option[ChoiceExercised]] = {
+      types: PackageRegistry): Try[Option[ChoiceExercised]] = logErrors {
     Try {
       Queries
         .eventByTypeAndContractId("ContractArchived", id.unwrap)
@@ -181,7 +192,7 @@ class DatabaseActions {
 
   def choiceExercisedEventByContractById(
       id: ApiTypes.ContractId,
-      types: PackageRegistry): Try[List[ChoiceExercised]] = {
+      types: PackageRegistry): Try[List[ChoiceExercised]] = logErrors {
     Try {
       Queries
         .eventByTypeAndContractId("ChoiceExercised", id.unwrap)
@@ -199,7 +210,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def insertTransaction(tx: Transaction): Try[Int] = {
+  def insertTransaction(tx: Transaction): Try[Int] = logErrors {
     Try {
       Queries
         .insertTransaction(TransactionRow.fromTransaction(tx))
@@ -212,7 +223,7 @@ class DatabaseActions {
 
   def transactionById(
       id: ApiTypes.TransactionId,
-      types: PackageRegistry): Try[Option[Transaction]] = {
+      types: PackageRegistry): Try[Option[Transaction]] = logErrors {
     Try {
       Queries
         .topLevelEventsByTransactionId(id.unwrap)
@@ -239,7 +250,7 @@ class DatabaseActions {
     }.flatten
   }
 
-  def lastTransaction(types: PackageRegistry): Try[Option[Transaction]] = {
+  def lastTransaction(types: PackageRegistry): Try[Option[Transaction]] = logErrors {
     Try {
       val txData = Queries
         .lastTransaction()
@@ -267,7 +278,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def upsertCommandStatus(commandId: ApiTypes.CommandId, cs: CommandStatus): Try[Int] = {
+  def upsertCommandStatus(commandId: ApiTypes.CommandId, cs: CommandStatus): Try[Int] = logErrors {
     Try {
       Queries
         .upsertCommandStatus(CommandStatusRow.fromCommandStatus(commandId, cs))
@@ -278,7 +289,7 @@ class DatabaseActions {
     }
   }
 
-  def updateCommandStatus(commandId: ApiTypes.CommandId, cs: CommandStatus): Try[Int] = {
+  def updateCommandStatus(commandId: ApiTypes.CommandId, cs: CommandStatus): Try[Int] = logErrors {
     Try {
       Queries
         .updateCommandStatus(CommandStatusRow.fromCommandStatus(commandId, cs))
@@ -291,7 +302,7 @@ class DatabaseActions {
 
   def commandStatusByCommandId(
       commandId: ApiTypes.CommandId,
-      types: PackageRegistry): Try[Option[CommandStatus]] = {
+      types: PackageRegistry): Try[Option[CommandStatus]] = logErrors {
     Try {
       Queries
         .commandStatusByCommandId(commandId.unwrap)
@@ -306,7 +317,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def insertCommand(cmd: Command): Try[Int] = {
+  def insertCommand(cmd: Command): Try[Int] = logErrors {
     Try {
       Queries
         .insertCommand(CommandRow.fromCommand(cmd))
@@ -317,20 +328,21 @@ class DatabaseActions {
     }
   }
 
-  def commandById(id: ApiTypes.CommandId, types: PackageRegistry): Try[Option[Command]] = {
-    Try {
-      Queries
-        .commandById(id.unwrap)
-        .query[CommandRow]
-        .to[List]
-        .transact(xa)
-        .unsafeRunSync()
-        .headOption
-        .map(_.toCommand(types))
-    }.flatMap(_.sequence)
-  }
+  def commandById(id: ApiTypes.CommandId, types: PackageRegistry): Try[Option[Command]] =
+    logErrors {
+      Try {
+        Queries
+          .commandById(id.unwrap)
+          .query[CommandRow]
+          .to[List]
+          .transact(xa)
+          .unsafeRunSync()
+          .headOption
+          .map(_.toCommand(types))
+      }.flatMap(_.sequence)
+    }
 
-  def allCommands(types: PackageRegistry): Try[List[Command]] = {
+  def allCommands(types: PackageRegistry): Try[List[Command]] = logErrors {
     Try {
       Queries
         .allCommands()
@@ -342,7 +354,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def insertContract(contract: Contract): Try[Int] = {
+  def insertContract(contract: Contract): Try[Int] = logErrors {
     Try {
       Queries
         .insertContract(ContractRow.fromContract(contract))
@@ -355,7 +367,7 @@ class DatabaseActions {
 
   def archiveContract(
       contractId: ApiTypes.ContractId,
-      archiveTransactionId: ApiTypes.TransactionId): Try[Int] = {
+      archiveTransactionId: ApiTypes.TransactionId): Try[Int] = logErrors {
     Try {
       Queries
         .archiveContract(contractId.unwrap, archiveTransactionId.unwrap)
@@ -366,7 +378,7 @@ class DatabaseActions {
     }
   }
 
-  def contractCount(): Try[Int] = {
+  def contractCount(): Try[Int] = logErrors {
     Try {
       Queries
         .contractCount()
@@ -377,7 +389,7 @@ class DatabaseActions {
     }
   }
 
-  def activeContractCount(): Try[Int] = {
+  def activeContractCount(): Try[Int] = logErrors {
     Try {
       Queries
         .activeContractCount()
@@ -388,7 +400,7 @@ class DatabaseActions {
     }
   }
 
-  def contract(id: ApiTypes.ContractId, types: PackageRegistry): Try[Option[Contract]] = {
+  def contract(id: ApiTypes.ContractId, types: PackageRegistry): Try[Option[Contract]] = logErrors {
     Try {
       Queries
         .contract(id.unwrap)
@@ -401,7 +413,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def contracts(types: PackageRegistry): Try[List[Contract]] = {
+  def contracts(types: PackageRegistry): Try[List[Contract]] = logErrors {
     Try {
       Queries.contracts
         .query[ContractRow]
@@ -412,7 +424,7 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def activeContracts(types: PackageRegistry): Try[List[Contract]] = {
+  def activeContracts(types: PackageRegistry): Try[List[Contract]] = logErrors {
     Try {
       Queries.activeContracts
         .query[ContractRow]
@@ -423,21 +435,22 @@ class DatabaseActions {
     }.flatMap(_.sequence)
   }
 
-  def contractsForTemplate(tId: DamlLfIdentifier, types: PackageRegistry): Try[List[Contract]] = {
-    Try {
-      Queries
-        .contractsForTemplate(tId.asOpaqueString)
-        .query[ContractRow]
-        .to[List]
-        .transact(xa)
-        .unsafeRunSync()
-        .map(_.toContract(types))
-    }.flatMap(_.sequence)
-  }
+  def contractsForTemplate(tId: DamlLfIdentifier, types: PackageRegistry): Try[List[Contract]] =
+    logErrors {
+      Try {
+        Queries
+          .contractsForTemplate(tId.asOpaqueString)
+          .query[ContractRow]
+          .to[List]
+          .transact(xa)
+          .unsafeRunSync()
+          .map(_.toContract(types))
+      }.flatMap(_.sequence)
+    }
 
   def activeContractsForTemplate(
       tId: DamlLfIdentifier,
-      types: PackageRegistry): Try[List[Contract]] = {
+      types: PackageRegistry): Try[List[Contract]] = logErrors {
     Try {
       Queries
         .activeContractsForTemplate(tId.asOpaqueString)

@@ -2,42 +2,23 @@
 
 ## Stackage
 
-To update the Stackage snapshot you need to clone the hazel repository into a
-separate directory:
+The daml repository uses a custom stack snapshot defined in
+`stack-snapshot.yaml`. Modify the `resolver` entry in that file to update the
+base Stackage snapshot. Update the package overrides defined in that file as
+appropriate.
 
-```
-$ git clone https://github.com/tweag/rules_haskell.git
-```
-
-Change into the hazel directory.
-
-```
-$ cd rules_haskell/hazel
-```
-
-Then execute the following command to update to the specified Stackage
-snapshot, where `$PROJECT` points to the root of this repository:
-(Requires `stack`)
-
-```
-$ Stackage.hs lts-12.4 "$PROJECT/hazel/packages.bzl"
-```
-
-On NixOS you may need to modify `Stackage.hs` to append the following flag to
-the list of `stack` intrepreter flags: `--nix-packages zlib`.
-
-This will take a while.
+A few Stackage packages require custom patches or custom build rules. These are
+defined in the `WORKSPACE` file and referenced in the `vendored_packages`
+attribute to `stack_snapshot` in the same file.
 
 
 ## Nixpkgs
 
-To update the nixpkgs revision, go to the `nix/nixpkgs` directory in
-this repository and run `nix-update-src-json ./nixos-*` to update to
-the latest release in the current NixOS channel. To upgrade to a new
-channel move `nixos-18.09` to `nixos-19.03` (adapt to the channels you
-want to move from and to), change the `branch` field in
-`default.src.json` and modify `nix/nixpkgs.nix` to point to the new
-channel.
+To update the nixpkgs revision, find a commit in nixkgs-unstable from
+https://github.com/NixOS/nixpkgs-channels/commits/nixpkgs-unstable and
+use it in the `rev` field in `nix/nixpkgs/default.src.json`.  Set the
+`sha256` to a dummy hash, e.g., 64 zeros and run `nix-build -A tools
+-A cached nix` and nix will tell you the correct hash.
 
 After upgrading the revision, the easiest solution is usually to open
 a PR and see what fails on CI (running the builds locally can take

@@ -1,8 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The Functions example.
-daml 1.2
+
 module Functions where
 
 import DA.Text
@@ -31,8 +31,8 @@ compute = scenario do
     assert (applyFilter (<) 3 2 == False)
     assert (applyFilter (/=) 3 2 == True)
 
-    assert (round 2.5 == 3)
-    assert (round 3.5 == 4)
+    assert (round (2.5 : Decimal) == 3)
+    assert (round (3.5 : Decimal) == 4)
 
     assert (explode "me" == ["m", "e"])
 

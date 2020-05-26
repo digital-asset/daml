@@ -1,0 +1,237 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script
+  ( Script
+  , submit
+  , submitMustFail
+  , query
+  , PartyIdHint (..)
+  , ParticipantName (..)
+  , allocateParty
+  , allocatePartyWithHint
+  , allocatePartyOn
+  , allocatePartyWithHintOn
+  , Commands
+  , createCmd
+  , exerciseCmd
+  , exerciseByKeyCmd
+  , createAndExerciseCmd
+  , getTime
+  , sleep
+  ) where
+
+import DA.Optional
+import DA.Time
+
+-- | A free monad
+data Free f a
+  = Pure a
+  | Free (f (Free f a))
+
+instance Functor f => Functor (Free f) where
+  fmap f (Pure a) = Pure (f a)
+  fmap f (Free x) = Free (fmap f <$> x)
+
+instance Functor f => Applicative (Free f) where
+  pure = Pure
+  Pure f <*> Pure a = Pure (f a)
+  Pure f <*> Free x = Free (fmap f <$> x)
+  Free x <*> my     = Free ((<*> my) <$> x)
+
+instance Functor f => Action (Free f) where
+  Pure a >>= f = f a
+  Free x >>= f = Free ((>>= f) <$> x)
+
+-- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
+-- forall b. Ap (f b) (Ap f (b -> a))
+data Ap f a
+  = PureA a
+  | Ap (forall r. (forall b. f b -> Ap f (b -> a) -> r) -> r)
+
+instance Functor (Ap f) where
+  fmap f (PureA x) = PureA (f x)
+  fmap f (Ap c) = Ap (\c' -> c (\a b -> c' a (fmap (f .) b)))
+
+instance Applicative (Ap f) where
+  pure = PureA
+  PureA f <*> x = fmap f x
+  Ap c <*> x = Ap (\c' -> c (\a b -> c' a (flip <$> b <*> x)))
+
+data CommandsF a
+  = Create { argC : AnyTemplate, continueC : ContractId () -> a }
+  | Exercise { tplId : TemplateTypeRep, cId : ContractId (), argE : AnyChoice, continueE : LedgerValue -> a }
+  | ExerciseByKey { tplId : TemplateTypeRep, keyE : AnyContractKey, argE : AnyChoice, continueE : LedgerValue -> a }
+  | CreateAndExercise { tplArgCE : AnyTemplate, choiceArgCE : AnyChoice, continueE : LedgerValue -> a }
+  deriving Functor
+
+-- | This is used to build up the commands send as part of `submit`.
+-- If you enable the `ApplicativeDo` extension by adding
+-- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+-- use `do`-notation but the individual commands must not depend
+-- on each other.
+newtype Commands a = Commands (Ap CommandsF a)
+  deriving (Functor, Applicative)
+
+data ScriptF a
+  = Submit (SubmitCmd a)
+  | Query (QueryACS a)
+  | AllocParty (AllocateParty a)
+  | GetTime (Time -> a)
+  | Sleep (SleepRec a)
+  deriving Functor
+
+data QueryACS a = QueryACS
+  { party : Party
+  , tplId : TemplateTypeRep
+  , continue : [(ContractId (), AnyTemplate)] -> a
+  } deriving Functor
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party.
+query : forall t. Template t => Party -> Script [(ContractId t, t)]
+query p = lift $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
+
+data AllocateParty a = AllocateParty
+  { displayName : Text
+  , idHint : Text
+  , participant : Optional Text
+  , continue : Party -> a
+  } deriving Functor
+
+data SleepRec a = SleepRec
+  { duration : RelTime
+  , continue : () -> a
+  } deriving Functor
+
+-- | A hint to the backing participant what party id to allocate.
+-- Must be a valid PartyIdString (as described in @value.proto@).
+newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
+
+newtype ParticipantName = ParticipantName { participantName : Text }
+
+-- | Allocate a party with the given display name
+-- using the party management service.
+allocateParty : Text -> Script Party
+allocateParty displayName = lift $ Free $ AllocParty $ AllocateParty
+  { displayName
+  , idHint = ""
+  , participant = None
+  , continue = pure
+  }
+
+-- | Allocate a party with the given display name and id hint
+-- using the party management service.
+allocatePartyWithHint : Text -> PartyIdHint -> Script Party
+allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty
+  { displayName
+  , idHint = idHint
+  , participant = None
+  , continue = pure
+  }
+
+-- | Allocate a party with the given display name
+-- on the specified participant using the party management service.
+allocatePartyOn : Text -> ParticipantName -> Script Party
+allocatePartyOn displayName (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty
+  { displayName
+  , idHint = ""
+  , participant = Some participant
+  , continue = pure
+  }
+
+-- | Allocate a party with the given display name and id hint
+-- on the specified participant using the party management service.
+allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
+allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty
+  { displayName
+  , idHint = idHint
+  , participant = Some participant
+  , continue = pure
+  }
+
+-- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
+instance HasTime Script where
+  getTime = lift $ Free (GetTime pure)
+
+-- | Sleep for the given duration.
+--
+-- This is primarily useful in tests
+-- where you repeatedly call `query` until a certain state is reached.
+--
+-- Note that this will sleep for the same duration in both wallcock and static time mode.
+sleep : RelTime -> Script ()
+sleep duration = lift $ Free (Sleep $ SleepRec duration pure)
+
+data SubmitFailure = SubmitFailure
+  { status : Int
+  , description : Text
+  }
+
+data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
+  deriving Functor
+
+-- | Submit the commands as a single transaction.
+
+-- This will error if the submission fails.
+
+instance HasSubmit Script Commands where
+  submit p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
+    where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
+
+  submitMustFail p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
+    where fail _ = error "Expected submit to fail but it succeeded"
+
+-- | This is the type of A DAML script. `Script` is an instance of `Action`,
+-- so you can use `do` notation.
+newtype Script a = Script { runScript : () -> (Free ScriptF (a, ())) }
+-- We use an inlined StateT () to separate evaluation of something of type Script from execution and to ensure
+-- proper sequencing of evaluation. This is mainly so that `debug` does something
+-- slightly more sensible.
+  deriving Functor
+
+instance CanAbort Script where
+  abort s = Script (\_ -> error s)
+
+instance ActionFail Script where
+  fail = abort
+
+data LedgerValue = LedgerValue {}
+
+fromLedgerValue : LedgerValue -> a
+fromLedgerValue = error "foobar"
+
+-- | Create a contract of the given template.
+createCmd : Template t => t -> Commands (ContractId t)
+createCmd arg = Commands $ Ap (\f -> f (Create (toAnyTemplate arg) identity) (pure coerceContractId))
+
+-- | Exercise a choice on the given contract.
+exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
+exerciseCmd cId arg = Commands $ Ap (\f -> f (Exercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
+
+-- | Exercise a choice on the contract with the given key.
+exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
+exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
+
+-- | Create a contract and exercise a choice on it in the same transacton.
+createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
+createAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) identity) (pure fromLedgerValue))
+
+instance Applicative Script where
+    pure a = Script $ \ s -> return (a, s)
+
+    Script mf <*> Script mx = Script $ \ s -> do
+        (f, s') <- mf s
+        (x, s'') <- mx s'
+        return (f x, s'')
+
+instance Action Script where
+    m >>= k  = Script $ \ s -> do
+        (a, s') <- runScript m s
+        runScript (k a) s'
+
+lift : Free ScriptF a -> Script a
+lift m = Script $ \s -> do
+  a <- m
+  pure (a, s)

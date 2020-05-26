@@ -1,40 +1,32 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
 )
-
-compileDependencies = [
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/data",
-    "//daml-lf/transaction",
-    "//ledger/ledger-api-domain",
-]
 
 da_scala_library(
     name = "participant-state-index",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v1/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [],
-    deps = compileDependencies + ["//ledger/participant-state"],
-)
-
-da_scala_library(
-    name = "participant-state-index-v2",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v2/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    #    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state-index:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     runtime_deps = [],
-    deps = compileDependencies + ["//3rdparty/jvm/org/scalaz:scalaz_core"],
+    deps = [
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )

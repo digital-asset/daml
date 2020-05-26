@@ -1,16 +1,15 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker
   ( Error (..)
-  , checkModule
   , checkPackage
+  , checkModule
+  , nameCheckPackage
   , errorLocation
   ) where
 
-import Data.Functor
-import           Data.Either.Combinators           (mapLeft)
-import           Data.Foldable
+import qualified Data.NameMap as NM
 
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.TypeChecker.Check      as Check
@@ -19,26 +18,41 @@ import           DA.Daml.LF.TypeChecker.Error
 import qualified DA.Daml.LF.TypeChecker.PartyLiterals as PartyLits
 import qualified DA.Daml.LF.TypeChecker.Recursion as Recursion
 import qualified DA.Daml.LF.TypeChecker.Serializability as Serializability
+import qualified DA.Daml.LF.TypeChecker.NameCollision as NameCollision
+import Development.IDE.Types.Diagnostics
 
 checkModule ::
      World
   -> Version
   -> Module
-  -> Either Error ()
+  -> [Diagnostic]
 checkModule world0 version m = do
-    runGamma (extendWorldSelf m world0) version $ do
-      Check.checkModule m
-      Recursion.checkModule m
-      Serializability.checkModule m
-      PartyLits.checkModule m
+  checkModuleInWorld (extendWorldSelf m world0) version m
 
--- | Type checks a whole DAML-LF package. Assumes the modules in the package are
--- sorted topologically, i.e., module @A@ appears before module @B@ whenever @B@
--- depends on @A@.
-checkPackage :: [(PackageId, Package)] -> Package -> Either Error ()
-checkPackage pkgDeps pkg = do
-    Package version mods <- mapLeft EImportCycle (topoSortPackage pkg)
-    let check1 world0 mod0 = do
-          checkModule world0 version mod0
-          pure (extendWorldSelf mod0 world0)
-    void (foldlM check1 (initWorld pkgDeps version) mods)
+checkPackage ::
+     World
+  -> Version
+  -> [Diagnostic]
+checkPackage world version = concatMap (checkModuleInWorld world version) modules
+    where
+      package = getWorldSelf world
+      modules = NM.toList (packageModules package)
+
+checkModuleInWorld :: World -> Version -> Module -> [Diagnostic]
+checkModuleInWorld world version m =
+    case typeCheckResult of
+        Left err -> toDiagnostic DsError err : collisionDiags
+        Right () -> collisionDiags
+  where
+    collisionDiags = NameCollision.runCheckModuleDeps world m
+    typeCheckResult = runGamma world version $ do
+        -- We must call `Recursion.checkModule` before `Check.checkModule`
+        -- or else we might loop, attempting to expand recursive type synonyms
+        Recursion.checkModule m
+        Check.checkModule m
+        Serializability.checkModule m
+        PartyLits.checkModule m
+
+-- | Check whether the whole package satisfies the name collision condition.
+nameCheckPackage :: Package -> [Diagnostic]
+nameCheckPackage = NameCollision.runCheckPackage

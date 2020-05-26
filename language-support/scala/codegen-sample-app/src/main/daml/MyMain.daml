@@ -1,11 +1,12 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
+
 module MyMain where
 
 import Prelude hiding (Date, Enum, Maybe)
-import DA.TextMap
+import qualified DA.TextMap as TM
+import DA.Map
 
 type Unit = ()
 
@@ -19,7 +20,7 @@ type MyOtherDecimal = MyDecimal
 data Option call put = Call call | Put put
   deriving (Show, Eq)
 
-data NestedList = NestedList { options: List (Option OptionPrice OptionPrice) }
+data NestedList = NestedList { options: [Option OptionPrice OptionPrice] }
   deriving (Show, Eq)
 
 type Date = Time
@@ -39,30 +40,30 @@ data Either a b = Left a | Right b
 
 type MaybeMaybe a = Maybe (Maybe a);
 
-data AllTypes = AllTypes { text: Text; value: Integer; b: Bool }
+data AllTypes = AllTypes { text: Text; value: Int; b: Bool }
   deriving (Show, Eq)
 
 data TextToText = TextToText { f: Text -> Text }
 
 data NameClashRecord = NameClashRecord {
-  productArity: Integer;
-  productArity1: Integer;
-  productArity_: Integer;
-  productArity__: Integer;
-  productArity___: Integer;
-  productIterator: Integer;
-  productPrefix: Integer;
-  getClass: Integer;
-  asInstanceOf: Integer;
-  equals: Integer;
-  hashCode: Integer;
-  isInstanceOf: Integer;
-  toString: Integer;
-  notify: Integer;
-  notifyAll: Integer;
-  notifyAll_: Integer;
-  wait: Integer;
-  wait_: Integer
+  productArity: Int;
+  productArity1: Int;
+  productArity_: Int;
+  productArity__: Int;
+  productArity___: Int;
+  productIterator: Int;
+  productPrefix: Int;
+  getClass: Int;
+  asInstanceOf: Int;
+  equals: Int;
+  hashCode: Int;
+  isInstanceOf: Int;
+  toString: Int;
+  notify: Int;
+  notifyAll: Int;
+  notifyAll_: Int;
+  wait: Int;
+  wait_: Int
 }
   deriving (Show, Eq)
 
@@ -70,27 +71,30 @@ data NameClashVariant notifyAll productArity = NotifyAll notifyAll | ProductArit
   deriving (Show, Eq)
 
 data NameClashRecordVariant =
-  NameClashRecordVariantA { wait: Integer; wait_: Integer; wait__: Integer } |
-  NameClashRecordVariantB { notifyAll: Integer; notifyAll_: Integer; notifyAll__: Integer }
+  NameClashRecordVariantA { wait: Int; wait_: Int; wait__: Int } |
+  NameClashRecordVariantB { notifyAll: Int; notifyAll_: Int; notifyAll__: Int }
   deriving (Show, Eq)
 
 data VariantWithUnusedTypeParam a b c = VariantC c | VariantB b
   deriving (Show, Eq)
 
-data MyRecord = MyRecord {a: Integer; b: Decimal; c: Party; d: Text; e: Date; f: Unit; g: Bool; h: (List Integer) }
+data MyRecord = MyRecord {a: Int; b: Decimal; c: Party; d: Text; e: Date; f: Unit; g: Bool; h: [Int] }
   deriving (Show, Eq)
 
-data MyVariant = MyVariantA | MyVariantB
+data MyVariant = MyVariantA Unit | MyVariantB Unit
   deriving (Show, Eq)
 
-data RecordWithNestedMyVariant = RecordWithNestedMyVariant {
+data MyEnum = MyEnumA | MyEnumB
+  deriving (Show, Eq)
+
+data RecordWithNestedMyVariantMyEnum = RecordWithNestedMyVariantMyEnum {
   a: MyVariant;
-  b: MyVariant
+  b: MyEnum
 }
   deriving (Show, Eq)
 
 data VariantWithRecordWithVariant =
- VariantWithRecordWithVariantA { record: RecordWithNestedMyVariant } | 
+ VariantWithRecordWithVariantA { record: RecordWithNestedMyVariantMyEnum } |
  Whatever
   deriving (Show, Eq)
 
@@ -117,11 +121,11 @@ template TemplateWithCustomTypes
   with
     owner: Party
     field1: NameClashRecord
-    field2: (NameClashVariant Integer Text)
+    field2: (NameClashVariant Int Text)
     field3: NameClashRecordVariant
   where
     signatory owner
-    
+
 
 template TemplateWithTypeAliases
   with
@@ -139,7 +143,7 @@ template PartyAgrees
     text: Text
   where
     signatory p
-    agreement "party " <> toText p
+    agreement "party " <> show p
               <> "agrees " <> text
 
 template DateAndInstantTest
@@ -149,7 +153,7 @@ template DateAndInstantTest
     t: Time
   where
     signatory p
-    agreement toText p <> " agrees " <> toText t
+    agreement show p <> " agrees " <> show t
 
 
 template PayOut
@@ -160,8 +164,8 @@ template PayOut
     signatory receiver
     signatory giver
     agreement
-      toText giver <> " must pay to "
-      <> toText receiver <> " the sum of five pounds."
+      show giver <> " must pay to "
+      <> show receiver <> " the sum of five pounds."
 
 
 template CallablePayout
@@ -250,9 +254,9 @@ template OptionCall
     signatory owner
     signatory seller
     agreement
-      toText owner <> " buys stock " <> optionPrice.symbol <> " at "
-      <> toText optionPrice.price
-      <> " making a profit of " <> toText (optionPrice.price - newPrice)
+      show owner <> " buys stock " <> optionPrice.symbol <> " at "
+      <> show optionPrice.price
+      <> " making a profit of " <> show (optionPrice.price - newPrice)
 
 
 template OptionPut
@@ -264,16 +268,16 @@ template OptionPut
   where
     signatory owner
     signatory seller
-    agreement 
-      toText owner <> " sells stock " <> optionPrice.symbol <> " at "
-      <> toText optionPrice.price
-      <> " making a profit of " <> toText (newPrice - optionPrice.price)
+    agreement
+      show owner <> " sells stock " <> optionPrice.symbol <> " at "
+      <> show optionPrice.price
+      <> " making a profit of " <> show (newPrice - optionPrice.price)
 
 
 template SimpleListExample
   with
     p: Party
-    xs: List Integer
+    xs: [Int]
   where
     signatory p
     controller p can
@@ -284,12 +288,12 @@ template SimpleListExample
 template MkListExample
   with
     p: Party
-    xs: List Integer
+    xs: [Int]
   where
     signatory p
     agreement
-      let add = \(x: Integer) (y: Integer) -> x + y
-      in "I am worth " <> toText (foldl add 0 xs)
+      let add = \(x: Int) (y: Int) -> x + y
+      in "I am worth " <> show (foldl add 0 xs)
 
 
 -- Function parameters used to be unsupported
@@ -300,7 +304,7 @@ template TemplateWithFunctionParameter
     -- f: TextToText
   where
     signatory p
-    agreement toText p <> " agrees "
+    agreement show p <> " agrees "
     -- <> f t
 
 
@@ -328,12 +332,13 @@ template TemplateWithCyclicDependencyB
     signatory party
 
 
-template TemplateWithNestedRecordsAndVariants
+template TemplateWithNestedRecordsVariantsAndEnums
   with
     party: Party
     myRecord: MyRecord
     myVariant: MyVariant
-    recordWithNestedMyVariant: RecordWithNestedMyVariant
+    myEnum: MyEnum
+    recordWithNestedMyVariantMyEnum: RecordWithNestedMyVariantMyEnum
     variantWithRecordWithVariant: VariantWithRecordWithVariant
   where signatory party
 
@@ -342,22 +347,22 @@ template TemplateWithEmptyRecords
   with
     party: Party
     emptyRecord: EmptyRecord
-    emptyRecordWithTParam: EmptyRecordWithTParam Integer
-    polyRec: (PolyRec Integer Text Date)
+    emptyRecordWithTParam: EmptyRecordWithTParam Int
+    polyRec: (PolyRec Int Text Date)
   where signatory party
 
 
 template TrialTemplate
   with
     party: Party
-    trial: (TrialVariant Integer Text Party)
+    trial: (TrialVariant Int Text Party)
   where signatory party
 
 
 template TemplateWithUnusedTypeParam
   with
     party: Party
-    x: (VariantWithUnusedTypeParam Integer Text Date)
+    x: (VariantWithUnusedTypeParam Int Text Date)
   where signatory party
 
 
@@ -451,38 +456,38 @@ template Enums
 template Twoples
   with
     party: Party
-    aPair: (Integer, Integer)
+    aPair: (Int, Int)
   where
     signatory party
 
 template Maybes
   with
     party: Party
-    intPlusOne: Optional Integer
-    intPlusTwo: Optional (Optional Integer)
-    listOfEm: List (Optional Integer)
-    optList: Optional (List Integer)
+    intPlusOne: Optional Int
+    intPlusTwo: Optional (Optional Int)
+    listOfEm: [Optional Int]
+    optList: Optional [Int]
   where
     signatory party
 
 template OptTextMapInt
    with
       party: Party
-      optMap: Optional (TextMap Int)
+      optMap: Optional (TM.TextMap Int)
     where
       signatory party
 
 template ListTextMapInt
    with
       party: Party
-      listMap: List (TextMap Int)
+      listMap: [TM.TextMap Int]
     where
       signatory party
 
 template TextMapTextMapInt
    with
       party: Party
-      mapMap: TextMap (TextMap Int)
+      mapMap: TM.TextMap (TM.TextMap Int)
     where
       signatory party
 
@@ -490,7 +495,7 @@ template TextMapTextMapInt
 template TextMapInt
    with
       party: Party
-      aMap: TextMap Int
+      aMap: TM.TextMap Int
     where
       signatory party
 
@@ -498,13 +503,46 @@ template TextMapInt
 template TextMapText
    with
       party: Party
-      aMap: TextMap Text
+      aMap: TM.TextMap Text
     where
       signatory party
 
-{- can fully test with LF 1.5 supposing that includes https://github.com/digital-asset/daml/pull/1315
+template OptMapInt
+   with
+      party: Party
+      optMap: Optional (Map Int Int)
+    where
+      signatory party
 
-data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a 
+template ListMapInt
+   with
+      party: Party
+      listMap: [Map Int Int]
+    where
+      signatory party
+
+template MapMapInt
+   with
+      party: Party
+      mapMap: Map (Map Int Int) (Map Int Int)
+    where
+      signatory party
+
+template MapInt
+   with
+      party: Party
+      aMap: Map Int Int
+    where
+      signatory party
+
+template MapText
+   with
+      party: Party
+      aMap: Map Text Text
+    where
+      signatory party
+
+data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a
   deriving (Eq, Show)
 
 template SelfContractIdReferent
@@ -513,4 +551,4 @@ template SelfContractIdReferent
        it: ContractIdNT SelfContractIdReferent
      where
        signatory party
--}
+
