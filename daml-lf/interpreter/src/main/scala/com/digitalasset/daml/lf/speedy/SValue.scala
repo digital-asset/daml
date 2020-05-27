@@ -131,20 +131,21 @@ object SValue {
     * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
     * [[AnyRef]] for the label.
     */
-  final case class PClosure(label: AnyRef, expr: SExpr, fvs: Array[SValue])
+  final case class PClosure(label: AnyRef, expr: SExpr, frame: Array[SValue])
       extends Prim
       with SomeArrayEquals {
-    override def toString: String = s"PClosure($expr, ${fvs.mkString("[", ",", "]")})"
+    override def toString: String = s"PClosure($expr, ${frame.mkString("[", ",", "]")})"
   }
 
   /** A partially applied primitive.
     * An SPAP is *never* fully applied. This is asserted on construction.
     */
-  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
-    if (args.size >= arity) {
-      throw SErrorCrash(s"SPAP: unexpected args.size >= arity")
+  final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
+    if (actuals.size >= arity) {
+      throw SErrorCrash(s"SPAP: unexpected actuals.size >= arity")
     }
-    override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
+    override def toString: String =
+      s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
