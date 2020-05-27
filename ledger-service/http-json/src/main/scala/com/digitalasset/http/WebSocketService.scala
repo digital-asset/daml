@@ -32,6 +32,7 @@ import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -103,7 +104,7 @@ object WebSocketService {
       case JsObject(fields) =>
         fields get "offset" map { offJv =>
           import JsonProtocol._
-          if (fields.size > 1)
+          if (fields.sizeIs > 1)
             -\/(InvalidUserInput("offset must be specified as a leading, separate object message"))
           else
             SprayJson

@@ -14,7 +14,6 @@ import scalaz.std.string._
 import scalaz.syntax.traverse._
 import scalaz.{EitherT, OneAnd, \/}
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 class PartiesService(
@@ -57,8 +56,9 @@ class PartiesService(
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
       apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
       apiPartyDetails <- rightT(getParties(jwt, apiPartyIds)): ET[List[api.domain.PartyDetails]]
-      domainPartyDetails = apiPartyDetails
-        .map(domain.PartyDetails.fromLedgerApi)(breakOut): Set[domain.PartyDetails]
+      domainPartyDetails = apiPartyDetails.iterator
+        .map(domain.PartyDetails.fromLedgerApi)
+        .toSet: Set[domain.PartyDetails]
     } yield (domainPartyDetails, findUnknownParties(domainPartyDetails, identifiers))
 
     et.run
@@ -68,9 +68,9 @@ class PartiesService(
       xs: List[api.domain.PartyDetails],
       requested: Set[String]
   ): Set[domain.PartyDetails] =
-    xs.collect {
+    xs.iterator.collect {
       case p if requested(p.party) => domain.PartyDetails.fromLedgerApi(p)
-    }(breakOut)
+    }.toSet
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def findUnknownParties(
