@@ -341,7 +341,7 @@ class OrderingSpec
           SList(loi.map(oi => SOptional(oi map SInt64)).to[FrontStack])
         },
       ) ++
-        comparableAbsCoidsGen.zipWithIndex.map {
+        comparableCoidsGen.zipWithIndex.map {
           case (g, ix) => (s"ContractId $ix", g map SContractId)
         }: _*
     )
