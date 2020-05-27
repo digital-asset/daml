@@ -197,7 +197,7 @@ build_docs_folder path versions current = do
             shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
         exists dir = Directory.doesDirectoryExist dir
         checksums path = do
-            let cmd = "cd " <> path <> "; sed -i ':support/release-notes.html:d' checksum; sha256sum -c checksum"
+            let cmd = "cd " <> path <> "; sed -i '/support\\/release-notes.html/d' checksum; sha256sum -c checksum"
             (code, _, _) <- shell_exit_code cmd
             case code of
                 Exit.ExitSuccess -> return True

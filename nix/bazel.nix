@@ -26,6 +26,7 @@ let shared = rec {
     postgresql_9_6
     protobuf3_8
     python3
+    toxiproxy
     zip
     ;
 

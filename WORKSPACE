@@ -124,6 +124,30 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+# Toxiproxy dependency
+nixpkgs_package(
+    name = "toxiproxy_nix",
+    attribute_path = "toxiproxy",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "toxiproxy_dev_env",
+    nix_include = ["bin/toxiproxy-cmd"],
+    nix_label = "@toxiproxy_nix",
+    nix_paths = ["bin/toxiproxy-cmd"],
+    tools = ["toxiproxy"],
+    win_include = ["toxiproxy-server-windows-amd64.exe"],
+    win_paths = ["toxiproxy-server-windows-amd64.exe"],
+    win_tool = "toxiproxy",
+)
+
 # Patchelf system dependency
 nixpkgs_package(
     name = "patchelf_nix",
@@ -550,25 +574,6 @@ nixpkgs_package(
     # confuses the JAR query in `daml-sdk-head`.
     quiet = True,
     repositories = dev_env_nix_repos,
-)
-
-# This will not be needed after merge of the PR to bazel adding proper javadoc filegroups:
-# https://github.com/bazelbuild/bazel/pull/7898
-# `@javadoc_dev_env//:javadoc` could be then replaced with `@local_jdk//:javadoc` and the below removed
-dev_env_tool(
-    name = "javadoc_dev_env",
-    nix_include = ["bin/javadoc"],
-    nix_label = "@jdk_nix",
-    nix_paths = ["bin/javadoc"],
-    tools = ["javadoc"],
-    win_include = [
-        "bin",
-        "include",
-        "jre",
-        "lib",
-    ],
-    win_paths = ["bin/javadoc.exe"],
-    win_tool = "java-openjdk-8u201",
 )
 
 # This only makes sense on Windows so we just put dummy values in the nix fields.

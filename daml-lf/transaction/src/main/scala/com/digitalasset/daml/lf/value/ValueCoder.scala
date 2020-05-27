@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.value
+package com.daml.lf
+package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -221,9 +222,10 @@ object ValueCoder {
   def encodeVersionedValue[Cid](
       encodeCid: EncodeCid[Cid],
       value: Value[Cid],
+      supportedVersions: VersionRange[ValueVersion],
   ): Either[EncodeError, proto.VersionedValue] =
     ValueVersions
-      .assignVersion(value)
+      .assignVersion(value, supportedVersions)
       .fold(
         err => Left(EncodeError(err)),
         version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
@@ -561,9 +563,9 @@ object ValueCoder {
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
-  ): Either[EncodeError, Array[Byte]] = {
-    encodeVersionedValue(encodeCid, v).map(_.toByteArray)
-  }
+      supportedVersions: VersionRange[ValueVersion] = ValueVersions.DefaultSupportedVersions,
+  ): Either[EncodeError, Array[Byte]] =
+    encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
 
   private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],

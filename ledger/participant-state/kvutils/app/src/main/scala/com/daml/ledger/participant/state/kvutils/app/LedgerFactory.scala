@@ -50,7 +50,7 @@ trait ConfigProvider[ExtraConfig] {
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
       tlsConfig = config.tlsConfig,
-      maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = config.maxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,
       portFile = participantConfig.portFile,
       seeding = config.seeding,

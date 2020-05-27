@@ -158,13 +158,13 @@ private[state] object Conversions {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }
 
-  def encodeTransaction(tx: Transaction.AbsTransaction): TransactionOuterClass.Transaction = {
+  def encodeTransaction(tx: Transaction.Transaction): TransactionOuterClass.Transaction = {
     TransactionCoder
       .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
       .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
   }
 
-  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.AbsTransaction = {
+  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.Transaction = {
     TransactionCoder
       .decodeVersionedTransaction(
         TransactionCoder.NidDecoder,
