@@ -168,7 +168,7 @@ final case class ScenarioRunner(
         throw SRunnerException(err)
 
     ledger.lookupGlobalContract(view = ParticipantView(committer), effectiveAt = effectiveAt, acoid) match {
-      case LookupOk(_, coinst) =>
+      case LookupOk(_, coinst, _) =>
         cbPresent(coinst)
 
       case LookupContractNotFound(coid) =>
@@ -208,7 +208,7 @@ final case class ScenarioRunner(
           view = ParticipantView(committer),
           effectiveAt = effectiveAt,
           acoid) match {
-          case LookupOk(_, _) =>
+          case LookupOk(_, _, stakeholders) if stakeholders(committer) =>
             cb(SKeyLookupResult.Found(acoid))
             ()
           case LookupContractNotFound(coid) =>
@@ -217,7 +217,8 @@ final case class ScenarioRunner(
             missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
           case LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-          case LookupContractNotVisible(_, _, _) =>
+          case x @ (LookupOk(_, _, _) | LookupContractNotVisible(_, _, _)) =>
+            remy.log(x)
             if (!cb(SKeyLookupResult.NotVisible))
               throw SErrorCrash(s"contract $acoid not visible, but we found its key!")
         }
