@@ -23,7 +23,6 @@ import org.scalatest.{FlatSpec, Matchers, OptionValues}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandClientImplTest
     extends FlatSpec
     with Matchers

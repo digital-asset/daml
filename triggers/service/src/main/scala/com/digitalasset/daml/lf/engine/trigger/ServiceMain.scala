@@ -213,7 +213,6 @@ object Server {
 
     // 'fileUpload' triggers this warning we don't have a fix right
     // now so we disable it.
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val route = concat(
       post {
         concat(

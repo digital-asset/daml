@@ -140,7 +140,6 @@ class SubmissionValidator[LogResult] private[validator] (
     } yield logResult
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // required to make `.view` work
   @tailrec
   private def runValidation[T](
       envelope: Bytes,

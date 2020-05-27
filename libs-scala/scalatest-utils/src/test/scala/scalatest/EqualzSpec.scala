@@ -7,7 +7,6 @@ import org.scalatest.{WordSpec, Matchers}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class EqualzSpec extends WordSpec with Matchers {
   import Equalz._
 

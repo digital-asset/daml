@@ -5,7 +5,6 @@ package com.daml.lf.codegen.backend.java
 
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class JavaEscaperSpec extends FlatSpec with Matchers {
 
   behavior of "JavaEscaper.escapeString"
