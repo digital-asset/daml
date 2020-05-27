@@ -128,7 +128,7 @@ class CollectAuthorityState {
         case SResultNeedContract(acoid, _, committers, _, callback) =>
           val effectiveAt = ledger.currentTime
           ledger.lookupGlobalContract(ParticipantView(committers.head), effectiveAt, acoid) match {
-            case LookupOk(_, result) =>
+            case LookupOk(_, result, _) =>
               cachedContract = cachedContract + (step -> result)
               callback(result)
             case x =>
