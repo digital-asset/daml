@@ -110,7 +110,6 @@ to_v s = case Split.splitOn "-" s of
 build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
 build_docs_folder path versions current = do
     restore_sha $ do
-        latest_release_notes_sha <- init <$> shell "git log -n1 --format=%H HEAD -- LATEST"
         let old = path </> "old"
         let new = path </> "new"
         shell_ $ "mkdir -p " <> new
@@ -148,7 +147,7 @@ build_docs_folder path versions current = do
                     return $ Just (gh_version, False)
                 else do
                     putStrLn "  Not found. Building..."
-                    build version new latest_release_notes_sha
+                    build version new
                     return $ Just (gh_version, True)
             else if old_version_exists
             then do
@@ -164,11 +163,11 @@ build_docs_folder path versions current = do
                     return $ Just (gh_version, False)
                 else do
                     putStrLn "  Check failed. Rebuilding..."
-                    build version new latest_release_notes_sha
+                    build version new
                     return $ Just (gh_version, True)
             else do
                 putStrLn "  Not found. Building..."
-                build version new latest_release_notes_sha
+                build version new
                 return $ Just (gh_version, True))
         putStrLn $ "Copying current (" <> current <> ") to top-level..."
         copy (new </> current </> "*") (new <> "/")
@@ -176,6 +175,15 @@ build_docs_folder path versions current = do
         let (releases, snapshots) = List.partition (not . prerelease . fst) documented_versions
         create_versions_json (map fst releases) (new </> "versions.json")
         create_versions_json (map fst snapshots) (new </> "snapshots.json")
+        -- Starting after 0.13.54, we have changed the way in which we trigger
+        -- releases. Rather than releasing the current commit by changing the
+        -- VERSION file, we now mark an existing commit as the source code for
+        -- a release by changing the LATEST file. This raises the question of
+        -- the release notes: as we tag a commit from the past, and keep the
+        -- changelog outside of the worktree (in commit messages), that means
+        -- that commit cannot contain its own release notes. We have decided to
+        -- resolve that conundrum by always including the release notes from
+        -- the most recent release in all releases.
         case filter snd documented_versions of
           ((newly_built,_):_) -> do
               putStrLn $ "Copying release notes from " <> name newly_built <> " to all other versions..."
@@ -204,7 +212,7 @@ build_docs_folder path versions current = do
                 _ -> return False
         copy from to = do
             shell_ $ "cp -r " <> from <> " " <> to
-        build version path latest_sha = do
+        build version path = do
             shell_ $ "git checkout v" <> version
             -- Maven does not accept http connections anymore; this patches the
             -- scala rules for Bazel to use https instead. This is not needed
@@ -213,24 +221,8 @@ build_docs_folder path versions current = do
             then do
                 shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
                 build_helper version path
-            else if to_v version < to_v "0.13.55"
-            then do
-                build_helper version path
-            -- Starting after 0.13.54, we have changed the way in which we
-            -- trigger releases. Rather than releasing the current commit by
-            -- changing the VERSION file, we now mark an existing commit as the
-            -- source code for a release by changing the LATEST file. This
-            -- raises the question of the release notes: as we tag a commit
-            -- from the past, and keep the changelog outside of the worktree
-            -- (in commit messages), that means that commit cannot contain its
-            -- own release notes. We have decided to resolve that conundrum by
-            -- always including the release notes from the most recent release
-            -- in all releases.
             else do
-                Control.Exception.bracket_
-                    (shell_ $ "git checkout " <> latest_sha <> " -- docs/source/support/release-notes.rst")
-                    (shell_ "git reset --hard")
-                    (build_helper version path)
+                build_helper version path
         build_helper version path = do
             robustly_download_nix_packages version
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
