@@ -26,6 +26,13 @@ package com.daml.ledger.participant.state.kvutils
   * @see [[com.daml.ledger.validator.LedgerStateAccess]]
   * @see [[com.daml.ledger.validator.SubmissionValidator]]
   * @see [[com.daml.ledger.validator.ValidatingCommitter]]
+  *
+  * For implementing a validator/committer component supporting parallel submission validation please see the below
+  * references.
+  *
+  * @see [[com.daml.ledger.validator.LedgerStateOperations]]
+  * @see [[com.daml.ledger.validator.batch.BatchedSubmissionValidator]]
+  * @see [[com.daml.ledger.validator.BatchedValidatingCommitter]]
   */
 package object api {
   type KeyValueLedger = LedgerReader with LedgerWriter
