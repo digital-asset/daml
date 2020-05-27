@@ -461,7 +461,7 @@ object ServiceMain {
   }
 
   def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, TriggerDao] = {
-    val triggerDao = TriggerDao(JdbcConfig.driver, c.url, c.user, c.password)(ec)
+    val triggerDao = TriggerDao(c)(ec)
     val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
     Try(transaction.unsafeRunSync()) match {
       case Failure(err) => Left(err.toString)
