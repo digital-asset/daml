@@ -92,6 +92,8 @@ object Speedy {
 
   /** The speedy CEK machine. */
   final case class Machine(
+      /* Value versions that the machine can output */
+      supportedValueVersions: VersionRange[value.ValueVersion],
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -518,6 +520,7 @@ object Speedy {
         globalCids: Set[V.ContractId]
     ) =
       Machine(
+        supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
         ctrl = null,
         returnValue = null,
         frame = null,
