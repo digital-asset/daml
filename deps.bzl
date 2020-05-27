@@ -160,7 +160,6 @@ def daml_deps():
             strip_prefix = "protobuf-3.11.0",
             urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
             patches = [
-                #                "@com_github_digital_asset_daml//bazel_tools:proto-zlib-url.patch",
             ],
             patch_args = ["-p1"],
         )
