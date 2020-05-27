@@ -67,23 +67,21 @@ class BatchedValidatingCommitter[LogResult](
 
 object BatchedValidatingCommitter {
   def apply[LogResult](now: () => Instant, validator: BatchedSubmissionValidator[LogResult])(
-      implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] = {
+      implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] =
     new BatchedValidatingCommitter[LogResult](
       now,
       DefaultStateKeySerializationStrategy,
       validator,
       Cache.none)
-  }
 
   def apply[LogResult](
       now: () => Instant,
       validator: BatchedSubmissionValidator[LogResult],
       stateValueCache: Cache[DamlStateKey, DamlStateValue])(
-      implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] = {
+      implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] =
     new BatchedValidatingCommitter[LogResult](
       now,
       DefaultStateKeySerializationStrategy,
       validator,
       stateValueCache)
-  }
 }
