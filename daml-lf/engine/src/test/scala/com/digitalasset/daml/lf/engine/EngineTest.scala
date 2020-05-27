@@ -63,7 +63,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: ContractInst[Tx.Value[AbsoluteContractId]] =
+  val withKeyContractInst: ContractInst[Tx.Value[ContractId]] =
     ContractInst(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       assertAsVersionedValue(
@@ -110,7 +110,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     allPackages.get(pkgId)
   }
 
-  def lookupKey(key: GlobalKey): Option[AbsoluteContractId] =
+  def lookupKey(key: GlobalKey): Option[ContractId] =
     (key.templateId, key.key) match {
       case (
           BasicTests_WithKey,
@@ -1087,8 +1087,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         ""
       )
 
-    def lookupContract(
-        id: AbsoluteContractId): Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {
+    def lookupContract(id: ContractId): Option[ContractInst[Tx.Value[ContractId]]] = {
       id match {
         case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
         case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
@@ -1112,7 +1111,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         case (actors, (_, n)) => actors union actFetchActors(n)
       }
 
-    def runExample(cid: AbsoluteContractId, exerciseActor: Party) = {
+    def runExample(cid: ContractId, exerciseActor: Party) = {
       val command = ExerciseCommand(
         fetcherTid,
         cid,
@@ -1199,8 +1198,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       ""
     )
 
-    def lookupContract(
-        id: AbsoluteContractId): Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {
+    def lookupContract(id: ContractId): Option[ContractInst[Tx.Value[ContractId]]] = {
       id match {
         case `fetchedCid` => Some(fetchedContract)
         case _ => None
@@ -1247,7 +1245,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       ""
     )
 
-    def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+    def lookupKey(key: GlobalKey): Option[ContractId] = {
       (key.templateId, key.key) match {
         case (
             BasicTests_WithKey,
@@ -1416,7 +1414,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         ""
       )
 
-      def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+      def lookupKey(key: GlobalKey): Option[ContractId] = {
         (key.templateId, key.key) match {
           case (
               BasicTests_WithKey,
@@ -1611,8 +1609,8 @@ object EngineTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
-  private def toContractId(s: String): AbsoluteContractId =
-    AbsoluteContractId.assertFromString(s)
+  private def toContractId(s: String): ContractId =
+    ContractId.assertFromString(s)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)
@@ -1638,7 +1636,7 @@ object EngineTest {
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
-      contracts: Map[AbsoluteContractId, Tx.ContractInst[AbsoluteContractId]] = Map.empty,
+      contracts: Map[ContractId, Tx.ContractInst[ContractId]] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
@@ -1646,8 +1644,8 @@ object EngineTest {
           BackStack[NodeId],
           Boolean,
           BackStack[(NodeId, crypto.Hash)],
-          Map[AbsoluteContractId, Tx.ContractInst[AbsoluteContractId]],
-          Map[GlobalKey, AbsoluteContractId],
+          Map[ContractId, Tx.ContractInst[ContractId]],
+          Map[GlobalKey, ContractId],
       )
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
@@ -1673,7 +1671,7 @@ object EngineTest {
                   (
                     _,
                     NodeExercises(
-                      targetCoid: AbsoluteContractId,
+                      targetCoid: ContractId,
                       _,
                       _,
                       _,
@@ -1687,13 +1685,12 @@ object EngineTest {
                       _,
                       _))) =>
                 (contracts - targetCoid, keys)
-              case (
-                  (contracts, keys),
-                  (_, NodeCreate(cid: AbsoluteContractId, coinst, _, _, _, key))) =>
+              case ((contracts, keys), (_, NodeCreate(cid: ContractId, coinst, _, _, _, key))) =>
                 (
                   contracts.updated(
                     cid,
-                    coinst.assertNoRelCid(cid => s"unexpected relative contract ID $cid")),
+                    coinst,
+                  ),
                   key.fold(keys)(
                     k =>
                       keys.updated(

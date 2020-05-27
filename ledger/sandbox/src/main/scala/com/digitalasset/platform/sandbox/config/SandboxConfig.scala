@@ -8,6 +8,7 @@ import java.nio.file.Path
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
+import com.daml.caching
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
@@ -40,6 +41,7 @@ final case class SandboxConfig(
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     eventsPageSize: Int,
+    lfValueTranslationCacheConfiguration: caching.Configuration,
 )
 
 object SandboxConfig {
@@ -50,6 +52,8 @@ object SandboxConfig {
   val DefaultEventsPageSize: Int = 1000
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+
+  val DefaultLfValueTranslationCacheConfiguration = caching.Configuration.none
 
   lazy val nextDefault: SandboxConfig =
     SandboxConfig(
@@ -73,6 +77,7 @@ object SandboxConfig {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       eventsPageSize = DefaultEventsPageSize,
+      lfValueTranslationCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
     )
 
   lazy val default: SandboxConfig =

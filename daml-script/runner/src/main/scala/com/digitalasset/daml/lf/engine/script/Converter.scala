@@ -24,7 +24,7 @@ import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Time
@@ -74,12 +74,6 @@ object Converter {
     Identifier(
       DA_INTERNAL_ANY_PKGID,
       QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
-
-  private def toLedgerRecord(v: SValue): Either[String, Value[AbsoluteContractId]] =
-    v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
-
-  private def toLedgerValue(v: SValue): Either[String, Value[AbsoluteContractId]] =
-    v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
 
   def toFuture[T](s: Either[String, T]): Future[T] = s match {
     case Left(err) => Future.failed(new ConverterException(err))
@@ -141,16 +135,19 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
-          templateArg <- toLedgerRecord(anyTemplate.arg)
-        } yield ScriptLedgerClient.CreateCommand(anyTemplate.ty, templateArg)
+        } yield
+          ScriptLedgerClient.CreateCommand(
+            templateId = anyTemplate.ty,
+            argument = anyTemplate.arg.toValue,
+          )
       }
       case _ => Left(s"Expected Create but got $v")
     }
 
-  def toContractId(v: SValue): Either[String, AbsoluteContractId] =
+  def toContractId(v: SValue): Either[String, ContractId] =
     v match {
-      case SContractId(cid: AbsoluteContractId) => Right(cid)
-      case _ => Left(s"Expected AbsoluteContractId but got $v")
+      case SContractId(cid: ContractId) => Right(cid)
+      case _ => Left(s"Expected ContractId but got $v")
     }
 
   def toExerciseCommand(v: SValue): Either[String, ScriptLedgerClient.Command] =
@@ -161,8 +158,13 @@ object Converter {
           tplId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-          choiceArg <- toLedgerValue(anyChoice.arg)
-        } yield ScriptLedgerClient.ExerciseCommand(tplId, cid, anyChoice.name, choiceArg)
+        } yield
+          ScriptLedgerClient.ExerciseCommand(
+            templateId = tplId,
+            contractId = cid,
+            choice = anyChoice.name,
+            argument = anyChoice.arg.toValue,
+          )
       }
       case _ => Left(s"Expected Exercise but got $v")
     }
@@ -174,10 +176,14 @@ object Converter {
         for {
           tplId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
-          keyArg <- toLedgerValue(anyKey.key)
           anyChoice <- toAnyChoice(vals.get(2))
-          choiceArg <- toLedgerValue(anyChoice.arg)
-        } yield ScriptLedgerClient.ExerciseByKeyCommand(tplId, keyArg, anyChoice.name, choiceArg)
+        } yield
+          ScriptLedgerClient.ExerciseByKeyCommand(
+            templateId = tplId,
+            key = anyKey.key.toValue,
+            choice = anyChoice.name,
+            argument = anyChoice.arg.toValue,
+          )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
@@ -187,15 +193,14 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
-          templateArg <- toLedgerRecord(anyTemplate.arg)
           anyChoice <- toAnyChoice(vals.get(1))
-          choiceArg <- toLedgerValue(anyChoice.arg)
         } yield
           ScriptLedgerClient.CreateAndExerciseCommand(
-            anyTemplate.ty,
-            templateArg,
-            anyChoice.name,
-            choiceArg)
+            templateId = anyTemplate.ty,
+            template = anyTemplate.arg.toValue,
+            choice = anyChoice.name,
+            argument = anyChoice.arg.toValue,
+          )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")
     }
@@ -209,7 +214,7 @@ object Converter {
       2,
       SEApp(
         SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
-        Array(SEVar(2), SEVar(1))),
+        Array(SELocA(0), SELocA(1))),
     )
     val machine =
       Speedy.Machine.fromSExpr(
@@ -446,7 +451,7 @@ object Converter {
         .map(s => s"Failed to convert $ty: $s")
       lfValue <- try {
         Right(
-          jsValue.convertTo[Value[AbsoluteContractId]](
+          jsValue.convertTo[Value[ContractId]](
             LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))))
       } catch {
         case e: Exception => Left(s"LF conversion failed: ${e.toString}")

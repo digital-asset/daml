@@ -326,7 +326,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
 
     "stable " in {
 
-      type Value = lf.value.Value[AbsoluteContractId]
+      type Value = lf.value.Value[ContractId]
 
       val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -404,10 +404,10 @@ class KeyHasherSpec extends WordSpec with Matchers {
       val contractIds =
         List[Value](
           ValueContractId(
-            AbsoluteContractId.assertFromString(
+            ContractId.assertFromString(
               "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5")),
           ValueContractId(
-            AbsoluteContractId.assertFromString(
+            ContractId.assertFromString(
               "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"))
         )
 
@@ -525,9 +525,9 @@ class KeyHasherSpec extends WordSpec with Matchers {
           | e3e40cc57896dcdac6731f60cb1748bd34b45ac0a6e42aa517d41dfea2ff8a88
           |ValueParty(bob)
           | 492f3783b824fb976eac36c0623337a7fd7440b95095581eb81687c71e802943
-          |ValueContractId(AbsoluteContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
+          |ValueContractId(ContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
           | a03a7ce4c418622a2187d068208c5ad32460eb62a56797975f39988e959ca377
-          |ValueContractId(AbsoluteContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
+          |ValueContractId(ContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
           | 01540890e0cd14209bcc408d019266b711ec85a16dac2e8eb3567f6e041cb86b
           |ValueOptional(None)
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119

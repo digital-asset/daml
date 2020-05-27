@@ -26,6 +26,7 @@ import scala.annotation.tailrec
   * is exposed via ':speedy' command in the REPL.
   */
 private[lf] object Compiler {
+
   case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
@@ -36,6 +37,10 @@ private[lf] object Compiler {
   sealed abstract class ProfilingMode extends Product with Serializable
   case object NoProfile extends ProfilingMode
   case object FullProfile extends ProfilingMode
+
+  sealed abstract class StackTraceMode extends Product with Serializable
+  case object NoStackTrace extends StackTraceMode
+  case object FullStackTrace extends StackTraceMode
 
   private val SEGetTime = SEBuiltin(SBGetTime)
 
@@ -61,10 +66,11 @@ private[lf] object Compiler {
     */
   def compilePackages(
       packages: Map[PackageId, Package],
+      stacktracing: StackTraceMode,
       profiling: ProfilingMode,
       validation: Boolean = true,
   ): Either[String, Map[SDefinitionRef, SExpr]] = {
-    val compiler = Compiler(packages, profiling)
+    val compiler = Compiler(packages, stacktracing, profiling)
     try {
       Right(
         packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
@@ -81,9 +87,18 @@ private[lf] object Compiler {
 
 private[lf] final case class Compiler(
     packages: PackageId PartialFunction Package,
+    stacktracing: Compiler.StackTraceMode,
     profiling: Compiler.ProfilingMode) {
 
   import Compiler._
+
+  // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
+  def maybeSELocation(loc: Location, sexp: SExpr): SExpr = {
+    stacktracing match {
+      case NoStackTrace => sexp
+      case FullStackTrace => SELocation(loc, sexp)
+    }
+  }
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -154,17 +169,17 @@ private[lf] final case class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): SExpr =
-    validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
+    validate(closureConvert(Map.empty, translateCommands(cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(expr: Expr): SExpr =
-    validate(closureConvert(Map.empty, 0, translate(expr)))
+    validate(closureConvert(Map.empty, translate(expr)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeClosureConvert(sexpr: SExpr): SExpr =
-    validate(closureConvert(Map.empty, 0, sexpr))
+    validate(closureConvert(Map.empty, sexpr))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -619,13 +634,13 @@ private[lf] final case class Compiler(
         }
 
       case ELocation(loc, EScenario(scen)) =>
-        SELocation(loc, translateScenario(scen, Some(loc)))
+        maybeSELocation(loc, translateScenario(scen, Some(loc)))
 
       case EScenario(scen) =>
         translateScenario(scen, None)
 
       case ELocation(loc, e) =>
-        SELocation(loc, translate(e))
+        maybeSELocation(loc, translate(e))
 
       case EToAny(ty, e) =>
         SEApp(SEBuiltin(SBToAny(ty)), Array(translate(e)))
@@ -845,7 +860,6 @@ private[lf] final case class Compiler(
     validate(
       closureConvert(
         Map.empty,
-        0,
         withEnv { _ =>
           env = env.incrPos // <byKey flag>
           env = env.incrPos // <actors>
@@ -968,12 +982,6 @@ private[lf] final case class Compiler(
       f(())
     }
 
-  def stripLocation(e: SExpr): SExpr =
-    e match {
-      case SELocation(_, e2) => stripLocation(e2)
-      case _ => e
-    }
-
   /** Convert abstractions in a speedy expression into
     * explicit closure creations.
     * This step computes the free variables in an abstraction
@@ -983,65 +991,74 @@ private[lf] final case class Compiler(
     * describing the free variables that need to be captured.
     *
     * For example:
-    *   SELet(...) in
-    *     SEAbs(2, SEVar(4))
+    *   SELet(..two-bindings..) in
+    *     SEAbs(2,
+    *       SEVar(4) ..             [reference to first let-bound variable]
+    *       SEVar(2))               [reference to first function-arg]
     * =>
-    *   SELet(...) in
+    *   SELet(..two-bindings..) in
     *     SEMakeClo(
-    *       Array(SEVar(2)), (capture 2nd value)
-    *       2, (still takes two arguments)
-    *       SEVar(3)) (variable now first value after args)
+    *       Array(SELocS(2)),       [capture the first let-bound variable, from the stack]
+    *       2,
+    *       SELocF(0) ..            [reference the first let-bound variable via the closure]
+    *       SELocA(0))              [reference the first function arg]
     */
-  def closureConvert(remaps: Map[Int, Int], bound: Int, expr: SExpr): SExpr = {
-    def remap(i: Int): Int =
-      remaps
-        .get(bound - i)
-        // map the absolute stack position back into a
-        // relative position
-        .map(bound - _)
-        .getOrElse(i)
+  def closureConvert(remaps: Map[Int, SELoc], expr: SExpr): SExpr = {
+    // remaps is a function which maps the relative offset from variables (SEVar) to their runtime location
+    // The Map must contain a binding for every variable referenced.
+    // The Map is consulted when translating variable references (SEVar) and free variables of an abstraction (SEAbs)
+    def remap(i: Int): SELoc = {
+      remaps.get(i) match {
+        case None => throw CompilationError(s"remap($i),remaps=$remaps")
+        case Some(loc) => loc
+      }
+    }
     expr match {
-      case SEVar(i) => SEVar(remap(i))
+      case SEVar(i) => remap(i)
       case v: SEVal => v
       case be: SEBuiltin => be
       case pl: SEValue => pl
       case f: SEBuiltinRecursiveDefinition => f
       case SELocation(loc, body) =>
-        SELocation(loc, closureConvert(remaps, bound, body))
+        SELocation(loc, closureConvert(remaps, body))
 
       case SEAbs(0, _) =>
         throw CompilationError("empty SEAbs")
 
-      case SEAbs(n, body) =>
-        val fv = freeVars(body, n).toList.sorted
-
-        // remap free variables to new indices.
-        // the index is the absolute position in stack.
-        val newRemaps = fv.zipWithIndex.map {
+      case SEAbs(arity, body) =>
+        val fvs = freeVars(body, arity).toList.sorted
+        val newRemapsF: Map[Int, SELoc] = fvs.zipWithIndex.map {
           case (orig, i) =>
-            // mapping from old position in the stack
-            // to the new position
-            (bound - orig) -> (bound - i - 1)
+            (orig + arity) -> SELocF(i)
         }.toMap
-        val newBody = closureConvert(newRemaps, bound + n, body)
-        SEMakeClo(fv.reverse.map(remap).toArray, n, newBody)
+        val newRemapsA = (1 to arity).map {
+          case i =>
+            i -> SELocA(arity - i)
+        }
+        // The keys in newRemapsF and newRemapsA are disjoint
+        val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
+        SEMakeClo(fvs.map(remap).toArray, arity, newBody)
+
+      case x: SELoc =>
+        throw CompilationError(s"closureConvert: unexpected SELoc: $x")
 
       case x: SEMakeClo =>
-        throw CompilationError(s"unexpected SEMakeClo: $x")
+        throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
 
       case SEApp(fun, args) =>
-        val newFun = closureConvert(remaps, bound, fun)
-        val newArgs = args.map(closureConvert(remaps, bound, _))
+        val newFun = closureConvert(remaps, fun)
+        val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
 
       case SECase(scrut, alts) =>
         SECase(
-          closureConvert(remaps, bound, scrut),
+          closureConvert(remaps, scrut),
           alts.map {
             case SCaseAlt(pat, body) =>
+              val n = patternNArgs(pat)
               SCaseAlt(
                 pat,
-                closureConvert(remaps, bound + patternNArgs(pat), body),
+                closureConvert(shift(remaps, n), body),
               )
           },
         )
@@ -1049,18 +1066,18 @@ private[lf] final case class Compiler(
       case SELet(bounds, body) =>
         SELet(bounds.zipWithIndex.map {
           case (b, i) =>
-            closureConvert(remaps, bound + i, b)
-        }, closureConvert(remaps, bound + bounds.length, body))
+            closureConvert(shift(remaps, i), b)
+        }, closureConvert(shift(remaps, bounds.length), body))
 
       case SECatch(body, handler, fin) =>
         SECatch(
-          closureConvert(remaps, bound, body),
-          closureConvert(remaps, bound, handler),
-          closureConvert(remaps, bound, fin),
+          closureConvert(remaps, body),
+          closureConvert(remaps, handler),
+          closureConvert(remaps, fin),
         )
 
       case SELabelClosure(label, expr) =>
-        SELabelClosure(label, closureConvert(remaps, bound, expr))
+        SELabelClosure(label, closureConvert(remaps, expr))
 
       case x: SEWronglyTypeContractId =>
         throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
@@ -1068,6 +1085,29 @@ private[lf] final case class Compiler(
       case x: SEImportValue =>
         throw CompilationError(s"unexpected SEImportValue: $x")
     }
+  }
+
+  // Modify/extend `remaps` to reflect when new values are pushed on the stack.  This
+  // happens as we traverse into SELet and SECase bodies which have bindings which at
+  // runtime will appear on the stack.
+  // We must modify `remaps` because it is keyed by indexes relative to the end of the stack.
+  // And any values in the map which are of the form SELocS must also be _shifted_
+  // because SELocS indexes are also relative to the end of the stack.
+  def shift(remaps: Map[Int, SELoc], n: Int): Map[Int, SELoc] = {
+
+    // We must update both the keys of the map (the relative-indexes from the original SEVar)
+    // And also any values in the map which are stack located (SELocS), which are also indexed relatively
+    val m1 = remaps.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }
+
+    // And create mappings for the `n` new stack items
+    val m2 = (1 to n).map(i => (i, SELocS(i)))
+
+    m1 ++ m2
+  }
+
+  def shiftLoc(loc: SELoc, n: Int): SELoc = loc match {
+    case SELocS(i) => SELocS(i + n)
+    case SELocA(_) | SELocF(_) => loc
   }
 
   /** Compute the free variables in a speedy expression.
@@ -1095,8 +1135,10 @@ private[lf] final case class Compiler(
           bound += n
           go(body)
           bound -= n
+        case x: SELoc =>
+          throw CompilationError(s"freeVars: unexpected SELoc: $x")
         case x: SEMakeClo =>
-          throw CompilationError(s"unexpected SEMakeClo: $x")
+          throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1127,8 +1169,9 @@ private[lf] final case class Compiler(
   }
 
   /** Validate variable references in a speedy expression */
-  def validate(expr: SExpr): SExpr = {
-    var bound = 0
+  // valiate that we correctly captured all free-variables, and so reference to them is
+  // via the surrounding closure, instead of just finding them higher up on the stack
+  def validate(expr0: SExpr): SExpr = {
 
     def goV(v: SValue): Unit = {
       v match {
@@ -1151,12 +1194,22 @@ private[lf] final case class Compiler(
       }
     }
 
-    def go(expr: SExpr): Unit =
-      expr match {
-        case SEVar(i) =>
-          if (i < 1 || i > bound) {
-            throw CompilationError(s"validate: SEVar: index $i out of bound $bound")
-          }
+    def goBody(maxS: Int, maxA: Int, maxF: Int): SExpr => Unit = {
+
+      def goLoc(loc: SELoc) = loc match {
+        case SELocS(i) =>
+          if (i < 1 || i > maxS)
+            throw CompilationError(s"validate: SELocS: index $i out of range ($maxS..1)")
+        case SELocA(i) =>
+          if (i < 0 || i >= maxA)
+            throw CompilationError(s"validate: SELocA: index $i out of range (0..$maxA-1)")
+        case SELocF(i) =>
+          if (i < 0 || i >= maxF)
+            throw CompilationError(s"validate: SELocF: index $i out of range (0..$maxF-1)")
+      }
+
+      def go(expr: SExpr): Unit = expr match {
+        case loc: SELoc => goLoc(loc)
         case _: SEVal => ()
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
@@ -1164,33 +1217,26 @@ private[lf] final case class Compiler(
         case SEApp(fun, args) =>
           go(fun)
           args.foreach(go)
+        case x: SEVar =>
+          throw CompilationError(s"validate: SEVar encountered: $x")
         case abs: SEAbs =>
           throw CompilationError(s"validate: SEAbs encountered: $abs")
-        case SEMakeClo(fv, n, body) =>
-          fv.foreach { i =>
-            if (i < 1 || i > bound) {
-              throw CompilationError(
-                s"validate: SEMakeClo: free variable $i is out of bounds ($bound)")
-            }
-          }
-          val oldBound = bound
-          bound = n + fv.length
-          go(body)
-          bound = oldBound
+        case SEMakeClo(fvs, n, body) =>
+          fvs.foreach(goLoc)
+          goBody(0, n, fvs.length)(body)
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>
               val n = patternNArgs(pat)
-              bound += n; go(body); bound -= n
+              goBody(maxS + n, maxA, maxF)(body)
           }
         case SELet(bounds, body) =>
-          bounds.foreach { e =>
-            go(e)
-            bound += 1
+          bounds.zipWithIndex.foreach {
+            case (rhs, i) =>
+              goBody(maxS + i, maxA, maxF)(rhs)
           }
-          go(body)
-          bound -= bounds.length
+          goBody(maxS + bounds.length, maxA, maxF)(body)
         case SECatch(body, handler, fin) =>
           go(body)
           go(handler)
@@ -1204,8 +1250,10 @@ private[lf] final case class Compiler(
         case x: SEImportValue =>
           throw CompilationError(s"unexpected SEImportValue: $x")
       }
-    go(expr)
-    expr
+      go
+    }
+    goBody(0, 0, 0)(expr0)
+    expr0
   }
 
   private def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {

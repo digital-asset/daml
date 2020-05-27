@@ -3,6 +3,7 @@
 
 package com.daml.lf.data
 
+import com.daml.scalatest.{Unnatural, WordSpecCheckLaws}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.scalacheck.ScalazProperties

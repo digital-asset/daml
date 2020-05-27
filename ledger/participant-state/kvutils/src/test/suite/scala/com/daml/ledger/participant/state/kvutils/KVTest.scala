@@ -166,7 +166,7 @@ object KVTest {
       submissionSeed: crypto.Hash,
       additionalContractDataTy: String,
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
+  ): KVTest[(Transaction.Transaction, Transaction.Metadata)] =
     for {
       s <- get[KVTestState]
       (tx, meta) = engine
@@ -194,18 +194,18 @@ object KVTest {
           }
         )
         .getOrElse(sys.error("Engine.submit fail"))
-    } yield tx.assertNoRelCid(_ => "Unexpected relative contract ids") -> meta
+    } yield tx -> meta
 
   def runSimpleCommand(
       submitter: Party,
       submissionSeed: crypto.Hash,
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
+  ): KVTest[(Transaction.Transaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,
-      transaction: (Transaction.AbsTransaction, Transaction.Metadata),
+      transaction: (Transaction.Transaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,

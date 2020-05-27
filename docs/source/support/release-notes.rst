@@ -321,8 +321,9 @@ language for their applications.
 The only non-backwards compatible change compared to previous
 versions is the removal of queries on lists and maps in the HTTP JSON
 API. There is no trivial migration for this. If you were relying on
-these capabilities please get in touch with us via community@daml.com
-or on Slack. We’d like to hear how you were making use of the feature
+these capabilities please get in touch with us via community@daml.com,
+`on our forum <https://discuss.daml.com>`_, or `on Slack <https://slack.daml.com>`_. 
+We’d like to hear how you were making use of the feature
 so that we can replace it with something better, and we will make
 some suggestions to work around the removal.
 
@@ -2527,7 +2528,7 @@ Sandbox
 
 - The active contract service correctly serves stakeholders. See `#2070
   <https://github.com/digital-asset/daml/issues/2070>`__.
-- Added the ``--maxInboundMessageSize`` CLI parameter to set the maximux size
+- Added the ``--maxInboundMessageSize`` CLI parameter to set the maximum size
   of messages received through the Ledger API. If the value is not set the
   current default is preserved (4 MB).
 - Makes package uploads idempotent and tolerate partial duplicates. See `#2130
@@ -3398,7 +3399,7 @@ SDK tools
 
 - **DAML Assistant**: We've built a new and improved version of the SDK assistant, replacing ``da`` commands with ``daml`` commands. The documentation is updated to use the new assistant in this release.
 
-  For a full guide to what's changed and how to migrate, see :doc:`/support/new-assistant`. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
+  For a full guide to what's changed and how to migrate, see `Moving to the new DAML assistant <https://docs.daml.com/1.1.1/support/new-assistant.html>`__. To read about how to use the new ``daml`` Assistant, see :doc:`/tools/assistant`.
 
 DAML
 ~~~~
@@ -3606,7 +3607,7 @@ SQL Extractor
   To try it out, download the installer from `GitHub releases <https://github.com/digital-asset/daml/releases>`__. The Windows SDK uses the new ``daml`` command-line which will soon also
   become the default on Linux and MacOS.
 
-  Documentation is still in progress, but you can see the :doc:`Migration guide </support/new-assistant>` and the `pull request for the updated documentation <https://github.com/digital-asset/daml/pull/740>`__.
+  Documentation is still in progress, but you can see `Moving to the new DAML assistant <https://docs.daml.com/1.1.1/support/new-assistant.html>`__ and the `pull request for the updated documentation <https://github.com/digital-asset/daml/pull/740>`__.
 - **DAML Standard Library**: Added ``fromListWith`` and ``merge`` to ``DA.TextMap``.
 - **DAML Standard Library**: Deprecated ``DA.Map`` and ``DA.Set``. Use the new ``DA.Next.Map`` and ``DA.Next.Set`` instead.
 - **Ledger API**: Added three new methods to the :ref:`CommandService <com.daml.ledger.api.v1.commandservice>`:
@@ -3853,8 +3854,3 @@ No user-facing changes.
 - **Ledger API**: Version 1.4.0 has full support for transaction trees.
 - **Sandbox**: Implements Ledger API version 1.4.0.
 - **Java Bindings**: Examples updated to use version 2.5.2 which implements Ledger API version 1.4.0.
-
-.. toctree::
-   :hidden:
-
-   /support/new-assistant

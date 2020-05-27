@@ -9,40 +9,45 @@ import com.daml.lf.speedy.SExpr._
 
 object Classify { // classify the machine state w.r.t what step occurs next
 
-  case class Counts(
-      var ctrlExpr: Int,
-      var ctrlValue: Int,
+  final class Counts(
+      var ctrlExpr: Int = 0,
+      var ctrlValue: Int = 0,
       // expression classification (ctrlExpr)
-      var evalue: Int,
-      var evar: Int,
-      var eapp: Int,
-      var eclose: Int,
-      var ebuiltin: Int,
-      var eval: Int,
-      var elocation: Int,
-      var elet: Int,
-      var ecase: Int,
-      var ebuiltinrecursivedefinition: Int,
-      var ecatch: Int,
-      var eimportvalue: Int,
-      var ewronglytypedcontractid: Int,
+      var evalue: Int = 0,
+      var evarS: Int = 0,
+      var evarA: Int = 0,
+      var evarF: Int = 0,
+      var eapp: Int = 0,
+      var eclose: Int = 0,
+      var ebuiltin: Int = 0,
+      var eval: Int = 0,
+      var elocation: Int = 0,
+      var elet: Int = 0,
+      var ecase: Int = 0,
+      var erecdef: Int = 0,
+      var ecatch: Int = 0,
+      var eimportvalue: Int = 0,
+      var ewrongcid: Int = 0,
       // kont classification (ctrlValue)
-      var kfinished: Int,
-      var kpop: Int,
-      var karg: Int,
-      var kfun: Int,
-      var kpushto: Int,
-      var kcacheval: Int,
-      var klocation: Int,
-      var kmatch: Int,
-      var kcatch: Int,
+      var kfinished: Int = 0,
+      var karg: Int = 0,
+      var kfun: Int = 0,
+      var kbuiltin: Int = 0,
+      var kpap: Int = 0,
+      var kpushto: Int = 0,
+      var kcacheval: Int = 0,
+      var klocation: Int = 0,
+      var kmatch: Int = 0,
+      var kcatch: Int = 0,
   ) {
     def steps = ctrlExpr + ctrlValue
     def pp: String = {
       List(
         ("CtrlExpr:", ctrlExpr),
         ("- evalue", evalue),
-        ("- evar", evar),
+        ("- evarS", evarS),
+        ("- evarA", evarA),
+        ("- evarF", evarF),
         ("- eapp", eapp),
         ("- eclose", eclose),
         ("- ebuiltin", ebuiltin),
@@ -50,14 +55,15 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- elocation", elocation),
         ("- elet", elet),
         ("- ecase", ecase),
-        ("- ebuiltinrecursivedefinition", ebuiltinrecursivedefinition),
+        ("- erecdef", erecdef),
         ("- ecatch", ecatch),
         ("- eimportvalue", eimportvalue),
         ("CtrlValue:", ctrlValue),
         ("- kfinished", kfinished),
-        ("- kpop", kpop),
         ("- karg", karg),
         ("- kfun", kfun),
+        ("- kbuiltin", kbuiltin),
+        ("- kpap", kpap),
         ("- kpushto", kpushto),
         ("- kcacheval", kcacheval),
         ("- klocation", klocation),
@@ -65,10 +71,6 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- kcatch", kcatch),
       ).map { case (tag, n) => s"$tag : $n" }.mkString("\n")
     }
-  }
-
-  def newEmptyCounts(): Counts = {
-    Counts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
   }
 
   def classifyMachine(machine: Machine, counts: Counts): Unit = {
@@ -85,39 +87,42 @@ object Classify { // classify the machine state w.r.t what step occurs next
 
   def classifyExpr(exp: SExpr, counts: Counts): Unit = {
     exp match {
-      case SEValue(_) => counts.evalue += 1
-      case SEVar(_) => counts.evar += 1
-      case SEApp(_, _) => counts.eapp += 1
-      case SEMakeClo(_, _, _) => counts.eclose += 1
-      case SEBuiltin(_) => counts.ebuiltin += 1
-      case SEVal(_) => counts.eval += 1
-      case SELocation(_, _) => counts.elocation += 1
-      case SELet(_, _) => counts.elet += 1
-      case SECase(_, _) => counts.ecase += 1
-      case SEBuiltinRecursiveDefinition(_) => counts.ebuiltinrecursivedefinition += 1
-      case SECatch(_, _, _) => counts.ecatch += 1
-      case SEAbs(_, _) => //never expect these!
-      case SELabelClosure(_, _) => ()
-      case SEImportValue(_) => counts.eimportvalue += 1
-      case SEWronglyTypeContractId(_, _, _) => counts.ewronglytypedcontractid += 1
+      case _: SEVar => //not expected at runtime
+      case _: SEAbs => //not expected at runtime
+      case _: SEValue => counts.evalue += 1
+      case _: SELocS => counts.evarS += 1
+      case _: SELocA => counts.evarA += 1
+      case _: SELocF => counts.evarF += 1
+      case _: SEApp => counts.eapp += 1
+      case _: SEMakeClo => counts.eclose += 1
+      case _: SEBuiltin => counts.ebuiltin += 1
+      case _: SEVal => counts.eval += 1
+      case _: SELocation => counts.elocation += 1
+      case _: SELet => counts.elet += 1
+      case _: SECase => counts.ecase += 1
+      case _: SEBuiltinRecursiveDefinition => counts.erecdef += 1
+      case _: SECatch => counts.ecatch += 1
+      case _: SELabelClosure => ()
+      case _: SEImportValue => counts.eimportvalue += 1
+      case _: SEWronglyTypeContractId => counts.ewrongcid += 1
     }
   }
 
   def classifyKont(kont: Kont, counts: Counts): Unit = {
     kont match {
-      case KPop(_) => counts.kpop += 1
-      case KArg(_) => counts.karg += 1
-      case KFun(_, _, _) => counts.kfun += 1
-      case KPushTo(_, _) => counts.kpushto += 1
-      case KCacheVal(_, _) => counts.kcacheval += 1
-      case KLocation(_) => counts.klocation += 1
-      case KMatch(_) => counts.kmatch += 1
-      case KCatch(_, _, _) => counts.kcatch += 1
       case KFinished => counts.kfinished += 1
-      case KLabelClosure(_) | KLeaveClosure(_) => ()
+      case _: KArg => counts.karg += 1
+      case _: KFun => counts.kfun += 1
+      case _: KBuiltin => counts.kbuiltin += 1
+      case _: KPap => counts.kpap += 1
+      case _: KPushTo => counts.kpushto += 1
+      case _: KCacheVal => counts.kcacheval += 1
+      case _: KLocation => counts.klocation += 1
+      case _: KMatch => counts.kmatch += 1
+      case _: KCatch => counts.kcatch += 1
+      case _: KLabelClosure => ()
+      case _: KLeaveClosure => ()
     }
   }
-
-  final case class ClassifyError(s: String) extends RuntimeException(s, null, false, false)
 
 }

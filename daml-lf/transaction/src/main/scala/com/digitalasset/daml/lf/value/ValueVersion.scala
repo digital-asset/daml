@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.value
+package com.daml.lf
+package value
 
 import com.daml.lf.value.Value._
-import com.daml.lf.LfVersions
 import com.daml.lf.data.{Decimal, FrontStack, FrontStackCons, ImmArray}
 import com.daml.lf.transaction.VersionTimeline
 
@@ -32,10 +32,14 @@ object ValueVersions
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   // We force output of recent version, but keep reading older version as long as
   // Sandbox is alive.
-  private[value] val minOutputVersion = ValueVersion("6")
+  val DefaultSupportedVersions = VersionRange(ValueVersion("6"), acceptedVersions.last)
 
-  def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
+  def assignVersion[Cid](
+      v0: Value[Cid],
+      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+  ): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
+    import VersionTimeline.Implicits._
 
     @tailrec
     def go(
@@ -80,25 +84,32 @@ object ValueVersions
       }
     }
 
-    go(minOutputVersion, FrontStack(v0))
+    go(supportedVersions.min, FrontStack(v0)) match {
+      case Right(inferredVersion) if supportedVersions.max precedes inferredVersion =>
+        Left(s"inferred version $inferredVersion is not supported")
+      case res =>
+        res
+    }
+
   }
 
   @throws[IllegalArgumentException]
-  def assertAssignVersion[Cid](v0: Value[Cid]): ValueVersion =
-    assignVersion(v0) match {
-      case Left(err) => throw new IllegalArgumentException(err)
-      case Right(x) => x
-    }
+  def assertAssignVersion[Cid](
+      v0: Value[Cid],
+      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+  ): ValueVersion =
+    data.assertRight(assignVersion(v0, supportedVersions))
 
   def asVersionedValue[Cid](
       value: Value[Cid],
+      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
   ): Either[String, VersionedValue[Cid]] =
-    assignVersion(value).map(version => VersionedValue(version = version, value = value))
+    assignVersion(value, supportedVersions).map(VersionedValue(_, value))
 
   @throws[IllegalArgumentException]
-  def assertAsVersionedValue[Cid](value: Value[Cid]): VersionedValue[Cid] =
-    asVersionedValue(value) match {
-      case Left(err) => throw new IllegalArgumentException(err)
-      case Right(x) => x
-    }
+  def assertAsVersionedValue[Cid](
+      value: Value[Cid],
+      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+  ): VersionedValue[Cid] =
+    data.assertRight(asVersionedValue(value, supportedVersions))
 }

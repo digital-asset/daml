@@ -25,46 +25,49 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     }
 
   def ppEnv(env: Env): String = {
-    //s"{${commas(env.asScala.map(pp))}}"
-    s"{#${env.size()}}" //show just the env size
+    s"#${env.size()}={${commas(env.asScala.map(pp))}}"
   }
 
   def ppKontStack(ks: util.ArrayList[Kont]): String = {
-    //ks.asScala.reverse.map(ppKont).mkString(" -- ")
-    s"[#${ks.size()}]" //show just the kont-stack depth
+    s"[${ppKont(ks.get(ks.size - 1))}... #${ks.size()}]" // head kont & size
   }
 
   def ppKont(k: Kont): String = k match {
-    case KPop(n) => s"KPop($n)"
-    case KArg(es) => s"KArg(${commas(es.map(pp))})"
-    case KFun(prim, extendedArgs, arity) =>
-      s"KFun(${pp(prim)}/$arity,[${commas(extendedArgs.asScala.map(pp))}])"
-    case KPushTo(_, e) => s"KPushTo(_, ${pp(e)})"
-    case KCacheVal(_, _) => "KCacheVal"
-    case KLocation(_) => "KLocation"
-    case KMatch(_) => "KMatch"
-    case KCatch(_, _, _) => "KCatch" //never seen
     case KFinished => "KFinished"
-    case KLabelClosure(_) => "KLabelClosure"
-    case KLeaveClosure(_) => "KLeaveClosure"
+    case _: KArg => "KArg"
+    case _: KFun => "KFun"
+    case _: KBuiltin => "KBuiltin"
+    case _: KPap => "KPap"
+    case _: KPushTo => "KPushTo"
+    case _: KCacheVal => "KCacheVal"
+    case _: KLocation => "KLocation"
+    case _: KMatch => "KMatch"
+    case _: KCatch => "KCatch"
+    case _: KLabelClosure => "KLabelClosure"
+    case _: KLeaveClosure => "KLeaveClosure"
   }
 
-  def ppVarRef(n: Int): String = {
-    s"#$n"
+  def pp(v: SELoc) = v match {
+    case SELocS(n) => s"S#$n"
+    case SELocA(n) => s"A#$n"
+    case SELocF(n) => s"F#$n"
+  }
+
+  def pp(x: SDefinitionRef): String = {
+    s"${x.ref.qualifiedName.name}"
   }
 
   def pp(e: SExpr): String = e match {
     case SEValue(v) => pp(v)
-    case SEVar(n) => ppVarRef(n)
-    //case SEApp(func, args) => s"@(${pp(func)},${commas(args.map(pp))})"
-    case SEApp(_, _) => s"@(...)"
-    //case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(ppVarRef))}]lam/$arity->${pp(body)}"
-    case SEMakeClo(fvs, arity, _) => s"[${commas(fvs.map(ppVarRef))}]lam/$arity->..."
-    case SEBuiltin(b) => s"${b}"
-    case SEVal(_) => "<SEVal...>"
-    case SELocation(_, _) => "<SELocation...>"
-    case SELet(_, _) => "<SELet...>"
-    case SECase(_, _) => "<SECase...>"
+    case SEVar(n) => s"D#$n" //dont expect these at runtime
+    case loc: SELoc => pp(loc)
+    case SEApp(func, args) => s"@(${pp(func)},${commas(args.map(pp))})"
+    case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(pp))}]\\$arity.${pp(body)}"
+    case SEBuiltin(b) => s"$b"
+    case SEVal(ref) => s"${pp(ref)}"
+    case SELocation(_, exp) => s"LOC(${pp(exp)})"
+    case SELet(rhss, body) => s"let (${commas(rhss.map(pp))}) in ${pp(body)}"
+    case SECase(scrut, _) => s"case ${pp(scrut)} of..."
     case SEBuiltinRecursiveDefinition(_) => "<SEBuiltinRecursiveDefinition...>"
     case SECatch(_, _, _) => "<SECatch...>" //not seen one yet
     case SEAbs(_, _) => "<SEAbs...>" // will never get these on a running machine
@@ -75,8 +78,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def pp(v: SValue): String = v match {
     case SInt64(n) => s"$n"
-    case SPAP(prim, args, arity) =>
-      s"PAP[${args.size}/$arity](${pp(prim)}(${commas(args.asScala.map(pp))})))"
+    case SBool(b) => s"$b"
+    case SPAP(_, args, arity) => s"PAP(${args.size}/$arity)"
     case SToken => "SToken"
     case SText(s) => s"'$s'"
     case SParty(_) => "<SParty>"

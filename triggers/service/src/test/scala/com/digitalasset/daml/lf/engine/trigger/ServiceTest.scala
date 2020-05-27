@@ -9,29 +9,35 @@ import com.daml.lf.language.Ast.Package
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
 import java.util.UUID
+
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
-import scala.concurrent.{Await}
+
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import scalaz.syntax.show._
 import spray.json._
-
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, InclusiveFilters}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.testing.postgresql.PostgresAroundSuite
 
-class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
+class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundSuite {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -62,6 +68,21 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
+  protected def jwt(party: String): Jwt = {
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "${testId: String}", "actAs": ["${party}"]}}"""
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
+
+  protected def headersWithAuth(party: String) = authorizationHeader(jwt(party))
+
+  protected def authorizationHeader(token: Jwt): List[Authorization] =
+    List(Authorization(OAuth2BearerToken(token.value)))
+
   def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
     : ((Uri, LedgerClient) => Future[A]) => Future[A] =
     TriggerServiceFixture
@@ -71,9 +92,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/start")),
+      headers = headersWithAuth(party),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"identifier": "$id", "party": "$party"}"""
+        s"""{"identifier": "$id"}"""
       )
     )
     Http().singleRequest(req)
@@ -83,17 +105,15 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/v1/list")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        s"""{"party": "$party"}"""
-      )
+      headers = headersWithAuth(party),
     )
     Http().singleRequest(req)
   }
 
-  def stopTrigger(uri: Uri, id: String): Future[HttpResponse] = {
+  def stopTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.DELETE,
+      headers = headersWithAuth(s"${party}"),
       uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
     )
     Http().singleRequest(req)
@@ -146,6 +166,15 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     } yield triggerIds
   }
 
+  it should "initialize database" in {
+    connectToPostgresqlServer()
+    createNewDatabase()
+    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
+    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
+    dropDatabase()
+    succeed
+  }
+
   it should "fail to start non-existent trigger" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       val expectedError = StatusCodes.UnprocessableEntity
@@ -167,15 +196,18 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       JsObject(fields) <- parseResult(resp)
       Some(JsString(mainPackageId)) = fields.get("mainPackageId")
       _ <- mainPackageId should not be empty
-
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
       triggerId <- parseTriggerId(resp)
-
-      resp <- listTriggers(uri, "Alice")
-      result <- parseTriggerIds(resp)
-      _ <- result should equal(Vector(triggerId))
-
-      resp <- stopTrigger(uri, triggerId)
+      _ <- Future {
+        eventually {
+          val r = Await.result(for {
+            resp <- listTriggers(uri, "Alice")
+            result <- parseTriggerIds(resp)
+          } yield result, Duration.Inf)
+          assert(r == Vector(triggerId))
+        }
+      }
+      resp <- stopTrigger(uri, triggerId, "Alice")
       stoppedTriggerId <- parseTriggerId(resp)
       _ <- stoppedTriggerId should equal(triggerId)
     } yield succeed
@@ -184,45 +216,77 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       for {
-        // no triggers running initially
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector())
         // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
-        resp <- listTriggers(uri, "Alice")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(aliceTrigger))
-        // start trigger for Bob
+        _ <- Future {
+          eventually {
+            val r = Await.result(for {
+              resp <- listTriggers(uri, "Alice")
+              result <- parseTriggerIds(resp)
+            } yield result, Duration.Inf)
+            assert(r == Vector(aliceTrigger))
+          }
+        }
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(bobTrigger1))
-        // start another trigger for Bob
+        _ <- Future {
+          eventually {
+            val r = Await.result(for {
+              resp <- listTriggers(uri, "Bob")
+              result <- parseTriggerIds(resp)
+            } yield result, Duration.Inf)
+            assert(r == Vector(bobTrigger1))
+          }
+        }
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
-        // stop Alice's trigger
-        resp <- stopTrigger(uri, aliceTrigger)
+        _ <- Future {
+          eventually {
+            val r = Await.result(for {
+              resp <- listTriggers(uri, "Bob")
+              result <- parseTriggerIds(resp)
+            } yield result, Duration.Inf)
+            assert(r == Vector(bobTrigger1, bobTrigger2))
+          }
+        }
+        resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
-        resp <- listTriggers(uri, "Alice")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector())
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector(bobTrigger1, bobTrigger2))
-        // stop Bob's triggers
-        resp <- stopTrigger(uri, bobTrigger1)
+        _ <- Future {
+          eventually {
+            val r = Await.result(for {
+              resp <- listTriggers(uri, "Alice")
+              result <- parseTriggerIds(resp)
+            } yield result, Duration.Inf)
+            assert(r == Vector())
+          }
+        }
+        _ <- Future {
+          eventually {
+            val r = Await.result(for {
+              resp <- listTriggers(uri, "Bob")
+              result <- parseTriggerIds(resp)
+            } yield result, Duration.Inf)
+            assert(r == Vector(bobTrigger1, bobTrigger2))
+          }
+        }
+        // Stop Bob's triggers
+        resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
-        resp <- stopTrigger(uri, bobTrigger2)
+        resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
-        resp <- listTriggers(uri, "Bob")
-        result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector())
+        _ <- Future {
+          eventually {
+            val r = Await.result(for {
+              resp <- listTriggers(uri, "Bob")
+              result <- parseTriggerIds(resp)
+            } yield result, Duration.Inf)
+            assert(r == Vector())
+          }
+        }
       } yield succeed
   }
 
@@ -261,7 +325,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
           }
         }
         // format: on
-        resp <- stopTrigger(uri, triggerId)
+        resp <- stopTrigger(uri, triggerId, "Alice")
         _ <- assert(resp.status.isSuccess)
       } yield succeed
   }

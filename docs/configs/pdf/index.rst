@@ -27,7 +27,7 @@ Writing DAML
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
-   daml/good-daml
+   /daml/patterns
 
 Building applications
 ---------------------

@@ -14,7 +14,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
@@ -64,15 +64,15 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   ): (Source[GetActiveContractsResponse, NotUsed], Offset)
 
   def lookupContract(
-      contractId: Value.AbsoluteContractId,
+      contractId: Value.ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
   def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
+  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[ContractId]]
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,

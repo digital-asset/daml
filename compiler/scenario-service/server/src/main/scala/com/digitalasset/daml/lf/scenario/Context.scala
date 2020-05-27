@@ -109,7 +109,8 @@ class Context(val contextId: Context.ContextId) {
         // if any change we recompile everything
         extPackages --= unloadPackages
         extPackages ++= newPackages
-        extDefns = assert(Compiler.compilePackages(extPackages, Compiler.NoProfile))
+        extDefns =
+          assert(Compiler.compilePackages(extPackages, Compiler.FullStackTrace, Compiler.NoProfile))
         modDefns = HashMap.empty
         modules.values
       } else {
@@ -118,7 +119,7 @@ class Context(val contextId: Context.ContextId) {
       }
 
     val pkgs = allPackages
-    val compiler = Compiler(pkgs, Compiler.NoProfile)
+    val compiler = Compiler(pkgs, Compiler.FullStackTrace, Compiler.NoProfile)
 
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
@@ -152,7 +153,8 @@ class Context(val contextId: Context.ContextId) {
       Speedy.Machine
         .build(
           sexpr = defn,
-          compiledPackages = PureCompiledPackages(allPackages, defns, Compiler.NoProfile),
+          compiledPackages =
+            PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile),
           submissionTime,
           initialSeeding,
           Set.empty,

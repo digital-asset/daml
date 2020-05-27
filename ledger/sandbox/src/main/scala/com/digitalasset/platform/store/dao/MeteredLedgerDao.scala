@@ -17,7 +17,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.dao.events.TransactionsReader
 import com.daml.platform.store.entries.{
@@ -45,14 +45,14 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics) extends L
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupInitialLedgerEnd())
 
   override def lookupActiveOrDivulgedContract(
-      contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+      contractId: Value.ContractId,
+      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty))
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId],
+      contractIds: Set[ContractId],
   ): Future[Option[Instant]] =
     Timed.future(
       metrics.daml.index.db.lookupMaximumLedgerTime,
@@ -60,9 +60,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics) extends L
 
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
-  override def lookupKey(
-      key: Node.GlobalKey,
-      forParty: Party): Future[Option[Value.AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[Value.ContractId]] =
     Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParty))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
@@ -170,8 +168,8 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       metrics.daml.index.db.storeInitialState,
       ledgerDao.storeInitialState(ledgerEntries, newLedgerEnd))
 
-  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit] =
-    ledgerDao.initializeLedger(ledgerId, ledgerEnd)
+  override def initializeLedger(ledgerId: LedgerId): Future[Unit] =
+    ledgerDao.initializeLedger(ledgerId)
 
   override def reset(): Future[Unit] =
     ledgerDao.reset()

@@ -10,9 +10,9 @@ import org.scalatest.{Matchers, WordSpec}
 
 final class TransactionConversionSpec extends WordSpec with Matchers {
 
-  private val contractId1 = Value.AbsoluteContractId.assertFromString("#contractId")
-  private val contractId2 = Value.AbsoluteContractId.assertFromString("#contractId2")
-  private def create(contractId: Value.AbsoluteContractId): Event =
+  private val contractId1 = Value.ContractId.assertFromString("#contractId")
+  private val contractId2 = Value.ContractId.assertFromString("#contractId2")
+  private def create(contractId: Value.ContractId): Event =
     Event(
       Event.Event.Created(
         CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)))

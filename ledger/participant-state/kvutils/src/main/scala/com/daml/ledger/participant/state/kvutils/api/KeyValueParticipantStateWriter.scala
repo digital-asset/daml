@@ -29,10 +29,9 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
         transactionMeta,
-        transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
+        transaction,
       )
-    val correlationId = nextSubmissionId()
-    commit(correlationId, submission)
+    commit(correlationId = submitterInfo.commandId, submission = submission)
   }
 
   override def uploadPackages(
@@ -76,8 +75,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
 
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
-
-  private def nextSubmissionId(): String = UUID.randomUUID().toString
 
   private def commit(
       correlationId: String,

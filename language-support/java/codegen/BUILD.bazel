@@ -268,6 +268,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//language-support/java/bindings:bindings-java",
+        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",

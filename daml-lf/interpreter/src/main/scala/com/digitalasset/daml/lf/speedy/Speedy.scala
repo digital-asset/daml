@@ -49,7 +49,7 @@ object Speedy {
   object Instrumentation {
     def apply(): Instrumentation = {
       Instrumentation(
-        classifyCounts = Classify.newEmptyCounts(),
+        classifyCounts = new Classify.Counts(),
         countPushesKont = 0,
         countPushesEnv = 0,
         maxDepthKont = 0,
@@ -58,8 +58,42 @@ object Speedy {
     }
   }
 
+  /*
+   Speedy uses a caller-saves strategy for managing the environment.  In a Speedy machine,
+   the environment is represented by the `frame`, `actuals`, and `env` components.
+
+   We use the terminology "frame" for the array of values which correspond to the
+   evaluated "free-vars" of a function closure.
+
+   We use the terminology "actuals" for the array of values which correspond to the
+   evaluated "args" of a function application. (The args being an array of expressions)
+
+   The environment "env" is now only used for let-bindings and pattern-matches.
+
+   Continuations are responsible for restoring their own environment. In the general case,
+   an arbitrary amount of computation may have occurred between the continuation being
+   pushed and then later entered.
+
+   When we push a continuation which requires it's environment to be preserved, we record
+   the current frame, actuals and env-stack-depth within the continuation. Then, when the
+   continuation is entered, it will call `restoreEnv`.
+
+   We do this for KArg, KMatch, KPushTo, KCatch.
+
+   We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
+   changes `frame` to point to itself, and there will be no references to existing
+   stack-variables within the body of the function. (They will have been translated to
+   free-var reference by the compiler).
+   */
+
+  type Frame = Array[SValue]
+
+  type Actuals = util.ArrayList[SValue]
+
   /** The speedy CEK machine. */
   final case class Machine(
+      /* Value versions that the machine can output */
+      supportedValueVersions: VersionRange[value.ValueVersion],
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -68,7 +102,11 @@ object Speedy {
        * been fully evaluated. If this is not null, then `ctrl` must be null.
        */
       var returnValue: SValue,
-      /* The environment: an array of values */
+      /* Frame: to access values for a closure's free-vars. */
+      var frame: Frame,
+      /* Actuals: to access values for a function application's arguments. */
+      var actuals: Actuals,
+      /* Environment: values pushed to a stack: let-bindings and pattern-matches. */
       var env: Env,
       /* Kont, or continuation specifies what should be done next
        * once the control has been evaluated.
@@ -102,7 +140,7 @@ object Speedy {
       var track: Instrumentation,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       var profile: Profile
-  ) {
+  ) extends SomeArrayEquals {
 
     /* kont manipulation... */
 
@@ -122,28 +160,43 @@ object Speedy {
 
     /* env manipulation... */
 
-    @inline def envDepth(): Int = env.size()
+    // The environment is partitioned into three locations: Stack, Args, Free
+    // The run-time location of a variable is determined (at compile time) by closureConvert
+    // And made explicit by a specifc speedy expression node: SELocS/SELocA/SELocF
+    // At runtime these different location-node execute by calling the corresponding `getEnv*` function
 
-    @inline def getEnv(i: Int): SValue = env.get(env.size - i)
+    // Variables which reside on the stack. Indexed by relative offset from the top of the stack
+    @inline def getEnvStack(i: Int): SValue = env.get(env.size - i)
+
+    // Variables which reside in the args array of the current frame. Indexed by absolute offset.
+    @inline def getEnvArg(i: Int): SValue = actuals.get(i)
+
+    // Variables which reside in the free-vars array of the current frame. Indexed by absolute offset.
+    @inline def getEnvFree(i: Int): SValue = frame(i)
 
     @inline def pushEnv(v: SValue): Unit = {
       env.add(v)
       if (enableInstrumentation) {
         track.countPushesEnv += 1
-        if (envDepth > track.maxDepthEnv) track.maxDepthEnv = envDepth
+        if (env.size > track.maxDepthEnv) track.maxDepthEnv = env.size
       }
     }
 
-    @inline def pushEnvAll(vs: Env): Unit = {
-      env.addAll(vs)
-      if (enableInstrumentation) {
-        track.countPushesEnv += vs.size()
-        if (envDepth > track.maxDepthEnv) track.maxDepthEnv = envDepth
+    @inline def restoreEnv(
+        frameToBeRestored: Frame,
+        actualsToBeRestored: Actuals,
+        envSizeToBeRestored: Int): Unit = {
+      // Restore the frame and actuals to there state when the continuation was created.
+      frame = frameToBeRestored
+      actuals = actualsToBeRestored
+      // Pop the env-stack back to the size it was when the continuation was created.
+      if (envSizeToBeRestored != env.size) {
+        val count = env.size - envSizeToBeRestored
+        if (count < 1) {
+          crash(s"restoreEnv, unexpected negative count: $count!")
+        }
+        env.subList(envSizeToBeRestored, env.size).clear
       }
-    }
-
-    @inline def popEnv(count: Int): Unit = {
-      env.subList(env.size - count, env.size).clear
     }
 
     /** Push a single location to the continuation stack for the sake of
@@ -156,7 +209,7 @@ object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
-        case Some(KArg(Array(SEValue.Token))) => {
+        case Some(KArg(Array(SEValue.Token), _, _, _)) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
           kontStack.add(last_index, KLocation(loc))
           if (enableInstrumentation) {
@@ -194,16 +247,15 @@ object Speedy {
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
-        case V.AbsoluteContractId.V1(discriminator, _)
-            if globalDiscriminators.contains(discriminator) =>
+        case V.ContractId.V1(discriminator, _) if globalDiscriminators.contains(discriminator) =>
           crash("Conflicting discriminators between a global and local contract ID.")
         case _ =>
           localContracts = localContracts.updated(coid, templateId -> SValue)
       }
 
     def addGlobalCid(cid: V.ContractId) = cid match {
-      case V.AbsoluteContractId.V1(discriminator, _) =>
-        if (localContracts.isDefinedAt(V.AbsoluteContractId.V1(discriminator)))
+      case V.ContractId.V1(discriminator, _) =>
+        if (localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
           crash("Conflicting discriminators between a global and local contract ID.")
         else
           globalDiscriminators = globalDiscriminators + discriminator
@@ -311,38 +363,6 @@ object Speedy {
                     }
                   ),
                 )
-          }
-      }
-    }
-
-    def enterFullyAppliedFunction(prim: Prim, args: util.ArrayList[SValue]): Unit = {
-      prim match {
-        case PClosure(label, expr, vars) =>
-          if (label != null) {
-            profile.addOpenEvent(label)
-            pushKont(KLeaveClosure(label))
-          }
-
-          // Pop the arguments once we're done evaluating the body.
-          pushKont(KPop(args.size + vars.size))
-
-          // Add all the variables we closed over
-          vars.foreach(pushEnv)
-
-          // Add the arguments
-          pushEnvAll(args)
-
-          // And start evaluating the body of the closure.
-          ctrl = expr
-
-        case PBuiltin(b) =>
-          try {
-            b.execute(args, this)
-          } catch {
-            // We turn arithmetic exceptions into a daml exception
-            // that can be caught.
-            case e: ArithmeticException =>
-              throw DamlEArithmeticError(e.getMessage)
           }
       }
     }
@@ -497,11 +517,14 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
-        globalCids: Set[V.AbsoluteContractId]
+        globalCids: Set[V.ContractId]
     ) =
       Machine(
+        supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
         ctrl = null,
         returnValue = null,
+        frame = null,
+        actuals = null,
         env = emptyEnv,
         kontStack = initialKontStack(),
         lastLocation = None,
@@ -514,7 +537,7 @@ object Speedy {
         dependsOnTime = false,
         localContracts = Map.empty,
         globalDiscriminators = globalCids.collect {
-          case V.AbsoluteContractId.V1(discriminator, _) => discriminator
+          case V.ContractId.V1(discriminator, _) => discriminator
         },
         steps = 0,
         track = Instrumentation(),
@@ -543,7 +566,7 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         seeds: InitialSeeding,
-        globalCids: Set[V.AbsoluteContractId],
+        globalCids: Set[V.ContractId],
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
@@ -585,12 +608,11 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         seeding: InitialSeeding,
-        globalCids: Set[V.AbsoluteContractId],
+        globalCids: Set[V.ContractId],
     ): Machine =
       initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = sexpr)
   }
 
-  //
   // Environment
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
@@ -630,41 +652,55 @@ object Speedy {
     }
   }
 
-  /** Pop 'count' arguments from the environment. */
-  final case class KPop(count: Int) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      machine.popEnv(count)
-      machine.returnValue = v
-    }
-  }
-
   /** The function has been evaluated to a value, now start evaluating the arguments. */
-  final case class KArg(newArgs: Array[SExpr]) extends Kont with SomeArrayEquals {
+  final case class KArg(newArgs: Array[SExpr], frame: Frame, actuals: Actuals, envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
       v match {
-        case SPAP(prim, args, arity) =>
-          val missing = arity - args.size
+        case SPAP(prim, actualsSoFar, arity) =>
+          val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
 
-          // Keep some space free, because both `KFun` and `KPushTo` will add to the list.
-          val extendedArgs = new util.ArrayList[SValue](args.size + newArgsLimit)
-          extendedArgs.addAll(args)
+          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
+          actuals.addAll(actualsSoFar)
 
-          // Stash away over-applied arguments, if any.
           val othersLength = newArgs.length - missing
-          if (othersLength > 0) {
-            val others = new Array[SExpr](othersLength)
-            System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.pushKont(KArg(others))
-          }
 
-          machine.pushKont(KFun(prim, extendedArgs, arity))
+          // Not enough arguments. Push a continuation to construct the PAP.
+          if (othersLength < 0) {
+            machine.pushKont(KPap(prim, actuals, arity))
+          } else {
+            // Too many arguments: Push a continuation to re-apply the over-applied args.
+            if (othersLength > 0) {
+              val others = new Array[SExpr](othersLength)
+              System.arraycopy(newArgs, missing, others, 0, othersLength)
+              machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
+            }
+            // Now the correct number of arguments is ensured. What kind of prim do we have?
+            prim match {
+              case PClosure(label, body, frame) =>
+                // Maybe push a continuation for the profiler
+                if (label != null) {
+                  machine.profile.addOpenEvent(label)
+                  machine.pushKont(KLeaveClosure(label))
+                }
+                // Push a continuation to execute the function body when the arguments have been evaluated
+                machine.pushKont(KFun(body, frame, actuals))
+
+              case PBuiltin(builtin) =>
+                // Push a continuation to execute the builtin when the arguments have been evaluated
+                machine.pushKont(KBuiltin(builtin, actuals))
+            }
+          }
 
           // Start evaluating the arguments.
           var i = 1
           while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
-            machine.pushKont(KPushTo(extendedArgs, arg))
+            machine.pushKont(
+              KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
             i = i + 1
           }
           machine.ctrl = newArgs(0)
@@ -675,24 +711,50 @@ object Speedy {
     }
   }
 
-  /** The function and the arguments have been evaluated. Construct a PAP from them.
-    * If the PAP is fully applied the machine will push the arguments to the environment
-    * and start evaluating the function body. */
-  final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
+  /** The function-closure and arguments have been evaluated. Now execute the body. */
+  final case class KFun(body: SExpr, frame: Frame, actuals: util.ArrayList[SValue])
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
-      args.add(v) // Add last argument
-      if (args.size == arity) {
-        machine.enterFullyAppliedFunction(prim, args)
-      } else {
-        // args.size < arity (we already dealt with args.size > args in Karg)
-        machine.returnValue = SPAP(prim, args, arity)
+      actuals.add(v)
+      // Set frame/actuals to allow access to the function arguments and closure free-varables.
+      machine.frame = frame
+      machine.actuals = actuals
+      // Start evaluating the body of the closure.
+      machine.ctrl = body
+    }
+  }
+
+  /** The builtin arguments have been evaluated. Now execute the builtin. */
+  final case class KBuiltin(builtin: SBuiltin, actuals: util.ArrayList[SValue]) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      actuals.add(v)
+      // A builtin has no free-vars, so we dont have to set the frame.
+      machine.actuals = actuals
+      try {
+        builtin.execute(actuals, machine)
+      } catch {
+        // We turn arithmetic exceptions into a daml exception that can be caught.
+        case e: ArithmeticException =>
+          throw DamlEArithmeticError(e.getMessage)
       }
     }
   }
 
-  /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  final case class KMatch(alts: Array[SCaseAlt]) extends Kont with SomeArrayEquals {
+  /** The function's partial-arguments have been evaluated. Construct and return the PAP */
+  final case class KPap(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
+      actuals.add(v)
+      machine.returnValue = SPAP(prim, actuals, arity)
+    }
+  }
+
+  /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
+  final case class KMatch(alts: Array[SCaseAlt], frame: Frame, actuals: Actuals, envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(v: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
       val altOpt = v match {
         case SBool(b) =>
           alts.find { alt =>
@@ -707,7 +769,6 @@ object Speedy {
           alts.find { alt =>
             alt.pattern match {
               case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-                machine.pushKont(KPop(1))
                 machine.pushEnv(arg)
                 true
               case SCPDefault => true
@@ -727,7 +788,6 @@ object Speedy {
             alt.pattern match {
               case SCPNil if lst.isEmpty => true
               case SCPCons if !lst.isEmpty =>
-                machine.pushKont(KPop(2))
                 val Some((head, tail)) = lst.pop
                 machine.pushEnv(head)
                 machine.pushEnv(SList(tail))
@@ -752,7 +812,6 @@ object Speedy {
                 mbVal match {
                   case None => false
                   case Some(x) =>
-                    machine.pushKont(KPop(1))
                     machine.pushEnv(x)
                     true
                 }
@@ -774,12 +833,20 @@ object Speedy {
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
     * This continuation is used to implement both function application and lets. In
-    * the case of function application the arguments are pushed into the 'args' array of
+    * the case of function application the arguments are pushed into the 'actuals' array of
     * the PAP that is being built, and in the case of lets the evaluated value is pushed
     * direy into the environment.
     */
-  final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
+  final case class KPushTo(
+      to: util.ArrayList[SValue],
+      next: SExpr,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
       to.add(v)
       machine.ctrl = next
     }
@@ -804,8 +871,11 @@ object Speedy {
     * If an exception is raised and 'KCatch' is found from kont-stack, then 'handler' is
     * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
     */
-  final case class KCatch(handler: SExpr, fin: SExpr, envSize: Int) extends Kont {
+  final case class KCatch(handler: SExpr, fin: SExpr, frame: Frame, actuals: Actuals, envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
       machine.ctrl = fin
     }
   }

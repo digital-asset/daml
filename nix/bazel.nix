@@ -26,6 +26,7 @@ let shared = rec {
     postgresql_9_6
     protobuf3_8
     python3
+    toxiproxy
     zip
     ;
 
@@ -115,6 +116,8 @@ let shared = rec {
       xargs
     ;
   };
+
+  z3 = pkgs.z3;
 
   bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
 };

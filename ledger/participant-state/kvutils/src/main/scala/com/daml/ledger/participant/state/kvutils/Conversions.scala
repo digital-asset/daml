@@ -14,7 +14,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.VersionTimeline.Implicits._
-import com.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.protobuf.Empty
 
@@ -32,15 +32,15 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
-  def contractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
+  def contractIdToStateKey(acoid: ContractId): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractId(acoid.coid)
       .build
 
-  def decodeContractId(coid: String): AbsoluteContractId =
-    AbsoluteContractId.assertFromString(coid)
+  def decodeContractId(coid: String): ContractId =
+    ContractId.assertFromString(coid)
 
-  def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId =
+  def stateKeyToContractId(key: DamlStateKey): ContractId =
     decodeContractId(key.getContractId)
 
   def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
@@ -158,47 +158,46 @@ private[state] object Conversions {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }
 
-  def encodeTransaction(tx: Transaction.AbsTransaction): TransactionOuterClass.Transaction = {
+  def encodeTransaction(tx: Transaction.Transaction): TransactionOuterClass.Transaction = {
     TransactionCoder
       .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
       .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
   }
 
-  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.AbsTransaction = {
+  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.Transaction = {
     TransactionCoder
       .decodeVersionedTransaction(
         TransactionCoder.NidDecoder,
-        ValueCoder.AbsCidDecoder,
+        ValueCoder.CidDecoder,
         tx
       )
       .fold(err => throw Err.DecodeError("Transaction", err.errorMessage), _.transaction)
   }
 
-  def decodeVersionedValue(
-      protoValue: ValueOuterClass.VersionedValue): VersionedValue[AbsoluteContractId] =
+  def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue[ContractId] =
     ValueCoder
-      .decodeVersionedValue(ValueCoder.AbsCidDecoder, protoValue)
+      .decodeVersionedValue(ValueCoder.CidDecoder, protoValue)
       .fold(
         err => throw Err.DecodeError("ContractInstance", err.errorMessage),
         identity
       )
 
   def decodeContractInstance(coinst: TransactionOuterClass.ContractInstance)
-    : Value.ContractInst[VersionedValue[AbsoluteContractId]] =
+    : Value.ContractInst[VersionedValue[ContractId]] =
     TransactionCoder
-      .decodeContractInstance(ValueCoder.AbsCidDecoder, coinst)
+      .decodeContractInstance(ValueCoder.CidDecoder, coinst)
       .fold(
         err => throw Err.DecodeError("ContractInstance", err.errorMessage),
         identity
       )
 
-  def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[Value.AbsoluteContractId]])
+  def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[Value.ContractId]])
     : TransactionOuterClass.ContractInstance =
     TransactionCoder
       .encodeContractInstance(ValueCoder.CidEncoder, coinst)
       .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
 
-  def forceNoContractIds(v: Value[Value.AbsoluteContractId]): Value[Nothing] =
+  def forceNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
     v.ensureNoCid.fold(
       coid => throw Err.InternalError(s"Contract identifier '$coid' encountered in contract key"),
       identity,
@@ -210,7 +209,7 @@ private[state] object Conversions {
       coidString: String,
       coidStruct: ValueOuterClass.ContractId,
   ): DamlStateKey =
-    ValueCoder.AbsCidDecoder
+    ValueCoder.CidDecoder
       .decode(
         sv = transactionVersion,
         stringForm = coidString,

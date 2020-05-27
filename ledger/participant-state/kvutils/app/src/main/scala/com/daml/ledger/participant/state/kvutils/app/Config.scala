@@ -23,8 +23,10 @@ final case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    maxInboundMessageSize: Int,
     eventsPageSize: Int,
     stateValueCache: caching.Configuration,
+    lfValueTranslationCache: caching.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -52,7 +54,7 @@ object ParticipantConfig {
 object Config {
   val DefaultPort: Port = Port(6865)
 
-  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
@@ -60,8 +62,10 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       stateValueCache = caching.Configuration.none,
+      lfValueTranslationCache = caching.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -142,6 +146,13 @@ object Config {
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
+      opt[Int]("max-inbound-message-size")
+        .optional()
+        .text(
+          s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
+        .action((maxInboundMessageSize, config) =>
+          config.copy(maxInboundMessageSize = maxInboundMessageSize))
+
       opt[Int]("events-page-size")
         .optional()
         .text(
@@ -155,6 +166,14 @@ object Config {
         .action((maximumStateValueCacheSize, config) =>
           config.copy(stateValueCache =
             config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
+
+      opt[Long]("max-lf-value-translation-cache-entries")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+        .action((maximumLfValueTranslationCacheEntries, config) =>
+          config.copy(lfValueTranslationCache = config.lfValueTranslationCache.copy(
+            maximumWeight = maximumLfValueTranslationCacheEntries)))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

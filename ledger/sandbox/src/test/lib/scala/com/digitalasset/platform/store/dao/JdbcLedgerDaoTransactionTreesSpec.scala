@@ -8,7 +8,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
@@ -56,7 +56,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (eventId, createNode: NodeCreate.WithTxValue[AbsoluteContractId]) =
+          val (eventId, createNode: NodeCreate.WithTxValue[ContractId]) =
             tx.transaction.nodes.head
           transaction.commandId shouldBe tx.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -88,7 +88,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (eventId, exerciseNode: NodeExercises.WithTxValue[EventId, AbsoluteContractId]) =
+          val (eventId, exerciseNode: NodeExercises.WithTxValue[EventId, ContractId]) =
             exercise.transaction.nodes.head
           transaction.commandId shouldBe exercise.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -122,12 +122,12 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         case Some(transaction) =>
           val (createEventId, createNode) =
             tx.transaction.nodes.collectFirst {
-              case (eventId, node: NodeCreate.WithTxValue[AbsoluteContractId]) =>
+              case (eventId, node: NodeCreate.WithTxValue[ContractId]) =>
                 eventId -> node
             }.get
           val (exerciseEventId, exerciseNode) =
             tx.transaction.nodes.collectFirst {
-              case (eventId, node: NodeExercises.WithTxValue[EventId, AbsoluteContractId]) =>
+              case (eventId, node: NodeExercises.WithTxValue[EventId, ContractId]) =>
                 eventId -> node
             }.get
 
