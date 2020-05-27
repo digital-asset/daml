@@ -139,16 +139,15 @@ object InMemoryBatchedLedgerReaderWriter {
           committer,
           metrics
         )
-      if (batchingLedgerWriterConfig.enableBatching) {
-        val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
-          BatchedSubmissionValidatorFactory.batchingLedgerWriterFrom(
-            batchingLedgerWriterConfig,
-            readerWriter)
-        }
-        Resource.successful(ledgerReaderWriterFrom(readerWriter, batchingLedgerWriter))
-      } else {
-        Resource.successful(readerWriter)
+      // We need to generate batched submissions for the validator in order to improve throughput.
+      // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
+      // in-memory committer.
+      val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
+        BatchedSubmissionValidatorFactory.batchingLedgerWriterFrom(
+          batchingLedgerWriterConfig,
+          readerWriter)
       }
+      Resource.successful(ledgerReaderWriterFrom(readerWriter, batchingLedgerWriter))
     }
   }
 
