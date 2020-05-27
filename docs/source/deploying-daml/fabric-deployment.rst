@@ -19,8 +19,7 @@ Building Our DAML App
 =====================
 
 1. Let's :code:`daml create-daml-app my-app` to create our example application in the :code:`my-app` directory.
-2. Now follow the `build instructions <https://github.com/digital-asset/daml/blob/master/templates/create-daml-app/README.md>`__ in :code:`README.md`.
-	a. Build the project up to and including the :code:`yarn build` command, then come back here
+2. Now follow the `build instructions <https://github.com/digital-asset/daml/blob/master/templates/create-daml-app/README.md>`__ in :code:`README.md`. Build the project up to and including the :code:`yarn build` command, then come back here
 
 Starting up Fabric
 ==================
@@ -28,9 +27,12 @@ Starting up Fabric
 Now that we have our DAML app built it needs a place to run, let's grab :code:`daml-on-fabric` and get it running
 
 3. Simply :code:`git clone git@github.com:digital-asset/daml-on-fabric.git` and follow the `instructions <hhttps://github.com/digital-asset/daml-on-fabric>`__ for "Running a local Hyperledger Fabric network"
-	b. Make sure for Java, Scala, and SBT that you are using the exact versions specified or otherwise you may encounter build or runtime issues. You can use sdkman.io to easily install these specific versions and manage multiple versions.
+
+	Make sure for Java, Scala, and SBT that you are using the exact versions specified or otherwise you may encounter build or runtime issues. You can use sdkman.io to easily install these specific versions and manage multiple versions.
+
 4. From the root `daml-on-fabric` directory run :code:`sbt "run --port 6865 --role provision,time,ledger" -J-DfabricConfigFile=config.json` which will let the DAML runtime start talking to our Fabric instance.
-	a. Give this process a moment to start up, it is ready once you see output like
+
+	Give this process a moment to start up, it is ready once you see output like
 
 	.. literalinclude:: sbt-example-output
 		:language: log
@@ -48,11 +50,14 @@ Setting up Our Frontend
 
 Alright our backend is all up and running. Now let's start up our UI
 
-7. Set `REACT_APP_LEDGER_ID=fabric-ledger` so our UI knows the id of the ledger to use
+7. Set :code:`REACT_APP_LEDGER_ID=fabric-ledger` so our UI knows the id of the ledger to use
 8. Start the ui by running :code:`yarn start` from the :code:`my-app/ui` directory
 9. The UI should start up a browser window by itself once ready, if it doesn’t go to `<http://localhost:3000/>`__
-	a. It may take a few moments for the website to load as yarn starts the server before the UI is built
+
+	It may take a few moments for the website to load as yarn starts the server before the UI is built
+
 10. Login as :code:`Alice`, :code:`Bob`, or :code:`Charlie` and try out :code:`create-daml-app`
-	a. Due to some initialization steps the first time you login may take a few seconds, this delay is not present on subsequent logins.
+
+	Due to some initialization steps the first time you login may take a few seconds, this delay is not present on subsequent logins.
 
 Congratulations, you’ve successfully deployed your first DAML app to a live Fabric ledger!

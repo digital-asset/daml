@@ -11,4 +11,6 @@ Guides
 ******
 
 .. toctree::
+   :titlesonly:
+
    fabric-deployment
