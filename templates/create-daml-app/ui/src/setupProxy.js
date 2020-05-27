@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const httpJsonDevUrl =
@@ -27,3 +30,4 @@ module.exports = function (app) {
     })
   );
 };
+
