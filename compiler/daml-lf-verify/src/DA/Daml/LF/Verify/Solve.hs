@@ -155,6 +155,7 @@ instance ConstrExpr Expr where
     (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "-"))) _) _) ->
       CSub (toCExp syns e1) (toCExp syns e2)
     _ -> error ("Builtin: " ++ show op)
+  toCExp syns (ETmApp (ETyApp (ETyApp (EBuiltin BECastNumeric) _) _) e) = toCExp syns e
   toCExp syns (ELocation _ e) = toCExp syns e
   toCExp _syns (EBuiltin (BEBool b)) = CBool b
   toCExp _syns (EBuiltin (BEInt64 i)) = CInt $ toInteger i
