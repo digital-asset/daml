@@ -79,7 +79,7 @@ object InMemoryBatchedLedgerReaderWriter {
     ): Resource[KeyValueLedger] = {
       val state = InMemoryState.empty
       for {
-        dispatcher <- InMemoryLedgerReader.dispatcher.acquire()
+        dispatcher <- dispatcherOwner.acquire()
         readerWriter <- new Owner(
           initialLedgerId,
           batchingLedgerWriterConfig,
