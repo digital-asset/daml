@@ -43,7 +43,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/, \/-}
 import spray.json._
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -930,7 +929,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 case \/-(response) =>
                   response.status shouldBe StatusCodes.OK
                   response.warnings shouldBe 'empty
-                  val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
+                  val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
                   actualIds shouldBe domain.Party.subst(partyIds.toSet)
                   response.result.toSet shouldBe
                     allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
@@ -967,7 +966,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 case \/-(response) =>
                   response.status shouldBe StatusCodes.OK
                   response.warnings shouldBe Some(domain.UnknownParties(List(erin)))
-                  val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
+                  val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
                   actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
                   val expected: Set[domain.PartyDetails] = allocatedParties.toSet
                     .map(domain.PartyDetails.fromLedgerApi)
