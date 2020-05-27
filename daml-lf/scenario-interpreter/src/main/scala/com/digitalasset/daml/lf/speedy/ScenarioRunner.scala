@@ -213,6 +213,7 @@ final case class ScenarioRunner(
               cb(SKeyLookupResult.Found(acoid))
             else if (!cb(SKeyLookupResult.NotVisible))
               throw SErrorCrash(s"key of contract $acoid not visible, but we found it!")
+            ()
           case LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
           case LookupContractNotEffective(_, _, _) =>
