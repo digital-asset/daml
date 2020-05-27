@@ -169,9 +169,9 @@ def get_excluded_tests(test_tool_version, sandbox_version):
     for range in exclusion_ranges:
         start = range.get("start")
         end = range.get("end")
-        if start and not versions.is_at_least(sandbox_version, start):
+        if start and not versions.is_at_least(start, sandbox_version):
             continue
-        if end and not versions.is_at_most(sandbox_version, end):
+        if end and not versions.is_at_most(end, sandbox_version):
             continue
         exclusions += range["exclusions"]
     return exclusions

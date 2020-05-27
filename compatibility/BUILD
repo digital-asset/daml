@@ -1,7 +1,6 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_skylib//lib:versions.bzl", "versions")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "sdk_platform_test")
 load(
@@ -14,6 +13,7 @@ load(
     "daml_trigger_dar",
     "daml_trigger_test",
 )
+load("//bazel_tools:versions.bzl", "versions")
 load("//sandbox-migration:util.bzl", "migration_test")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
 load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
@@ -69,9 +69,8 @@ config_setting(
     for platform_version in platform_versions
     # Test that the DAML script runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
-    # more recent. The HEAD version 0.0.0 is a special case.
-    if versions.is_at_least(sdk_version, platform_version) and sdk_version != "0.0.0" or
-       platform_version == "0.0.0"
+    # more recent.
+    if versions.is_at_least(sdk_version, platform_version)
 ]
 
 [
@@ -88,9 +87,8 @@ config_setting(
     for platform_version in platform_versions
     # Test that the DAML trigger runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
-    # more recent. The HEAD version 0.0.0 is a special case.
-    if versions.is_at_least(sdk_version, platform_version) and sdk_version != "0.0.0" or
-       platform_version == "0.0.0"
+    # more recent.
+    if versions.is_at_least(sdk_version, platform_version)
 ]
 
 test_suite(
