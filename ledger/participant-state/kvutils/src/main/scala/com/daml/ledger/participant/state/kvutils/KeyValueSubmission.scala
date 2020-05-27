@@ -32,7 +32,7 @@ class KeyValueSubmission(metrics: Metrics) {
     *
     * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
-  def transactionOutputs(tx: Transaction.AbsTransaction): List[DamlStateKey] =
+  def transactionOutputs(tx: Transaction.Transaction): List[DamlStateKey] =
     metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
       val effects = InputsAndEffects.computeEffects(tx)
       effects.createdContracts.map(_._1) ++ effects.consumedContracts
@@ -42,7 +42,7 @@ class KeyValueSubmission(metrics: Metrics) {
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
-      tx: Transaction.AbsTransaction,
+      tx: Transaction.Transaction,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
       val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)

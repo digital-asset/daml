@@ -736,7 +736,7 @@ object SBuiltin {
         case SBool(true) =>
           ()
         case SBool(false) =>
-          asVersionedValue(args.get(0).toValue) match {
+          asVersionedValue(args.get(0).toValue, machine.supportedValueVersions) match {
             case Left(err) => crash(err)
             case Right(createArg) =>
               throw DamlETemplatePreconditionViolated(
@@ -765,17 +765,15 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(5))
       val createArg = args.get(0)
-      val createArgValue = asVersionedValue(createArg.toValue) match {
-        case Left(err) => crash(err)
-        case Right(x) => x
-      }
+      val createArgValue =
+        asVersionedValue(createArg.toValue, machine.supportedValueVersions).fold(crash, identity)
       val agreement = args.get(1) match {
         case SText(t) => t
         case v => crash(s"agreement not text: $v")
       }
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
-      val key = extractOptionalKeyWithMaintainers(args.get(4))
+      val key = extractOptionalKeyWithMaintainers(args.get(4), machine.supportedValueVersions)
 
       val (coid, newPtx) = machine.ptx
         .insertCreate(
@@ -831,7 +829,7 @@ object SBuiltin {
       val obs = extractParties(args.get(5))
       val ctrls = extractParties(args.get(6))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(7), machine.supportedValueVersions)
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -846,10 +844,7 @@ object SBuiltin {
           controllers = ctrls,
           mbKey = mbKey,
           byKey = byKey,
-          chosenValue = asVersionedValue(arg) match {
-            case Left(err) => crash(err)
-            case Right(x) => x
-          },
+          chosenValue = asVersionedValue(arg, machine.supportedValueVersions).fold(crash, identity)
         )
         .fold(err => throw DamlETransactionError(err), identity)
       checkAborted(machine.ptx)
@@ -867,7 +862,7 @@ object SBuiltin {
       checkToken(args.get(0))
       val exerciseResult = args.get(1).toValue
       machine.ptx = machine.ptx
-        .endExercises(asVersionedValue(exerciseResult) match {
+        .endExercises(asVersionedValue(exerciseResult, machine.supportedValueVersions) match {
           case Left(err) => crash(err)
           case Right(x) => x
         })
@@ -939,7 +934,7 @@ object SBuiltin {
       }
       val signatories = extractParties(args.get(1))
       val observers = extractParties(args.get(2))
-      val key = extractOptionalKeyWithMaintainers(args.get(3))
+      val key = extractOptionalKeyWithMaintainers(args.get(3), machine.supportedValueVersions)
 
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context.exeContext match {
@@ -972,7 +967,8 @@ object SBuiltin {
   final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
-      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      val keyWithMaintainers =
+        extractKeyWithMaintainers(args.get(0), machine.supportedValueVersions)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1016,7 +1012,8 @@ object SBuiltin {
   final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(2))
-      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      val keyWithMaintainers =
+        extractKeyWithMaintainers(args.get(0), machine.supportedValueVersions)
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1047,7 +1044,8 @@ object SBuiltin {
   final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
-      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      val keyWithMaintainers =
+        extractKeyWithMaintainers(args.get(0), machine.supportedValueVersions)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1463,7 +1461,10 @@ object SBuiltin {
         crash(s"value not a list of parties or party: $v")
     }
 
-  private def extractKeyWithMaintainers(v: SValue): KeyWithMaintainers[Tx.Value[Nothing]] =
+  private def extractKeyWithMaintainers(
+      v: SValue,
+      supportedValueVersions: VersionRange[value.ValueVersion],
+  ): KeyWithMaintainers[Tx.Value[Nothing]] =
     v match {
       case SStruct(flds, vals)
           if flds.length == 2 && flds(0) == Ast.keyFieldName && flds(1) == Ast.maintainersFieldName =>
@@ -1475,7 +1476,7 @@ object SBuiltin {
               .ensureNoCid
               .left
               .map(coid => s"Unexpected contract id in key: $coid")
-            versionedKeyVal <- asVersionedValue(keyVal)
+            versionedKeyVal <- asVersionedValue(keyVal, supportedValueVersions)
           } yield
             KeyWithMaintainers(
               key = versionedKeyVal,
@@ -1485,9 +1486,11 @@ object SBuiltin {
     }
 
   private def extractOptionalKeyWithMaintainers(
-      optKey: SValue): Option[KeyWithMaintainers[Tx.Value[Nothing]]] =
+      optKey: SValue,
+      supportedValueVersions: VersionRange[value.ValueVersion],
+  ): Option[KeyWithMaintainers[Tx.Value[Nothing]]] =
     optKey match {
-      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(_, supportedValueVersions))
       case v => crash(s"Expected optional key with maintainers, got: $v")
     }
 
