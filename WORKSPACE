@@ -124,6 +124,18 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+# Toxiproxy dependency
+nixpkgs_package(
+    name = "toxiproxy_nix",
+    attribute_path = "toxiproxy",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
+    # confuses the JAR query in `daml-sdk-head`.
+    quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
 # Patchelf system dependency
 nixpkgs_package(
     name = "patchelf_nix",
