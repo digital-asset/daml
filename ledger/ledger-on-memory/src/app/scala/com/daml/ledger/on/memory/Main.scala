@@ -21,7 +21,6 @@ import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
@@ -85,14 +84,6 @@ object Main {
 
     override final def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
       parser
-        .opt[Int]("maxInboundMessageSize")
-        .text(
-          s"Max inbound message size in bytes. Defaults to ${ExtraConfig.defaultMaxInboundMessageSize}.")
-        .action((maxInboundMessageSize, config) => {
-          val extra = config.extra
-          config.copy(extra = extra.copy(maxInboundMessageSize = maxInboundMessageSize))
-        })
-      parser
         .opt[BatchingLedgerWriterConfig]("batching")
         .optional()
         .text(BatchingLedgerWriterConfigReader.UsageText)
@@ -106,12 +97,5 @@ object Main {
         })
       ()
     }
-
-    override def apiServerConfig(
-        participantConfig: ParticipantConfig,
-        config: Config[ExtraConfig]): ApiServerConfig =
-      super
-        .apiServerConfig(participantConfig, config)
-        .copy(maxInboundMessageSize = config.extra.maxInboundMessageSize)
   }
 }
