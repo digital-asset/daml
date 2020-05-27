@@ -24,7 +24,7 @@ class InMemoryBatchedLedgerReaderWriterIntegrationSpec(enableBatching: Boolean =
   private val batchingLedgerWriterConfig =
     BatchingLedgerWriterConfig(
       enableBatching = enableBatching,
-      maxBatchQueueSize = 1000,
+      maxBatchQueueSize = 100,
       maxBatchSizeBytes = 4 * 1024 * 1024 /* 4MB */,
       maxBatchWaitDuration = 100.millis,
       // In-memory ledger doesn't support concurrent commits.
