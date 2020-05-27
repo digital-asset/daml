@@ -460,12 +460,12 @@ object ServiceMain {
     bindingFuture.map(server => (server, system))
   }
 
-  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, TriggerDao] = {
+  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, Unit] = {
     val triggerDao = TriggerDao(c)(ec)
     val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
     Try(transaction.unsafeRunSync()) match {
       case Failure(err) => Left(err.toString)
-      case Success(()) => Right(triggerDao)
+      case Success(()) => Right(())
     }
   }
 
@@ -517,7 +517,7 @@ object ServiceMain {
               case Left(err) =>
                 system.log.error(err)
                 sys.exit(1)
-              case Right(triggerDao) =>
+              case Right(()) =>
                 system.log.info("Initialized database.")
                 sys.exit(0)
             }
