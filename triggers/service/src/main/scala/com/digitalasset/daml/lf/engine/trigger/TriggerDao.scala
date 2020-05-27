@@ -3,12 +3,9 @@
 
 package com.daml.lf.engine.trigger
 
-//import java.util.UUID
-
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
-//import com.daml.jwt.domain.Jwt
 import doobie._
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
@@ -60,11 +57,4 @@ object TriggerDao {
     (createTriggerTable.update.run
       *> createDalfTable.update.run).void
   }
-
-//  def addRunningTrigger(triggerId: UUID, partyToken: Jwt) = {
-//    val insertTrigger: Fragment = sql"""
-//        insert into running_triggers values ($triggerId, $partyToken, "pid", "mod", "name")
-//      """
-//    insertTrigger.update.run.void
-//  }
 }

@@ -67,14 +67,12 @@ final case class RunningTrigger(
 )
 
 class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConfig]) {
+
   private var triggers: Map[UUID, RunningTrigger] = Map.empty;
   private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
+
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar(_))
-
-  private val triggerDao: Option[TriggerDao] =
-    jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
-  // FIXME(RJR): Figure out what the right execution context here is
 
   private def addDar(dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
@@ -102,7 +100,6 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   private def addRunningTrigger(t: RunningTrigger): Unit = {
     triggers = triggers + (t.triggerId -> t)
     triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerId))
-//    triggerDao.foreach()
   }
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
@@ -437,8 +434,7 @@ object ServiceMain {
       maxFailureNumberOfRetries: Int,
       failureRetryTimeRange: Duration,
       dar: Option[Dar[(PackageId, Package)]],
-      jdbcConfig: Option[JdbcConfig])
-    : Future[(ServerBinding, ActorSystem[Server.Message])] = {
+      jdbcConfig: Option[JdbcConfig]): Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
       ActorSystem(
         Server(
