@@ -144,7 +144,7 @@ object Cli {
 
       opt[Int]("maxInboundMessageSize")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
-        .text(s"This flag is deprecated -- please use --max-inbound-message-size.")
+        .text("This flag is deprecated -- please use --max-inbound-message-size.")
 
       opt[String]("jdbcurl")
         .optional()
