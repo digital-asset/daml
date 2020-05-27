@@ -35,17 +35,12 @@ cat <<EOF >$$TMP_DIR/daml.yaml
 sdk-version: {sdk_version}
 name: trigger-example
 source: src
-parties:
-  - Alice
-  - Bob
 version: 0.0.1
 dependencies:
   - daml-prim
   - daml-script
   - daml-stdlib
   - daml-trigger
-sandbox-options:
-  - --wall-clock-time
 EOF
 $(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
 """.format(
