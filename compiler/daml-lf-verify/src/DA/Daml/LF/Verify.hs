@@ -36,6 +36,7 @@ main = do
       fieldTmpl = TypeConName [T.pack optFieldTmpl]
       fieldName = FieldName (T.pack optFieldName)
   result <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
+  putStrLn "\n==========\n"
   print result
 
 outputError :: Error
@@ -94,8 +95,9 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
           -- Construct the actual constraints to be solved by the SMT solver.
           debug "Start constraint solving phase"
           let cset = constructConstr env4 choiceTmpl choiceName fieldTmpl fieldName
-          debug $ renderString $ layoutCompact ("Create: " <+> pretty (_cCres cset))
-          debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset))
+          debug "\n==========\n"
+          debug $ renderString $ layoutCompact ("Create: " <+> pretty (_cCres cset) <+> "\n")
+          debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset) <+> "\n")
           -- Pass the constraints to the SMT solver.
           solveConstr solver debug cset
   where

@@ -40,6 +40,10 @@ data ConstraintExpr
   | CAdd !ConstraintExpr !ConstraintExpr
   -- | Subtraction of two expressions.
   | CSub !ConstraintExpr !ConstraintExpr
+  -- | Multiplication of two expressions.
+  | CMul !ConstraintExpr !ConstraintExpr
+  -- | Division of two expressions.
+  | CDiv !ConstraintExpr !ConstraintExpr
   -- | Equals operator.
   | CEq !ConstraintExpr !ConstraintExpr
   -- | Boolean and operator.
@@ -57,6 +61,8 @@ instance Pretty ConstraintExpr where
   pretty (CVar x) = pretty $ unExprVarName x
   pretty (CAdd e1 e2) = pretty e1 <+> " + " <+> pretty e2
   pretty (CSub e1 e2) = pretty e1 <+> " - " <+> pretty e2
+  pretty (CMul e1 e2) = pretty e1 <+> " * " <+> pretty e2
+  pretty (CDiv e1 e2) = pretty e1 <+> " / " <+> pretty e2
   pretty (CEq e1 e2) = pretty e1 <+> " == " <+> pretty e2
   pretty (CAnd e1 e2) = pretty e1 <+> " and " <+> pretty e2
   pretty (CNot e) = "not " <+> pretty e
@@ -99,6 +105,8 @@ instance ConstrExpr Expr where
     (EBuiltin BESubInt64) -> CSub (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BEAddNumeric) _) -> CAdd (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BESubNumeric) _) -> CSub (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (ETyApp (ETyApp (EBuiltin BEMulNumeric) _) _) _) -> CMul (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (ETyApp (ETyApp (EBuiltin BEDivNumeric) _) _) _) -> CDiv (toCExp syns e1) (toCExp syns e2)
     (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "+"))) _) _) ->
       CAdd (toCExp syns e1) (toCExp syns e2)
     (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "-"))) _) _) ->
@@ -128,6 +136,8 @@ gatherFreeVars (CReal _) = []
 gatherFreeVars (CVar x) = [x]
 gatherFreeVars (CAdd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CSub e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CMul e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CDiv e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CEq e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CAnd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CNot e) = gatherFreeVars e
@@ -268,6 +278,14 @@ cexp2sexp vars (CSub ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
   return $ S.sub se1 se2
+cexp2sexp vars (CMul ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.mul se1 se2
+cexp2sexp vars (CDiv ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.realDiv se1 se2
 cexp2sexp vars (CEq ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
