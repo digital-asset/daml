@@ -11,32 +11,32 @@ class EqualzSpec extends WordSpec with Matchers {
 
   "equalz" should {
     "accept left <: right" in {
-      Some(42) shouldx equalz(some(42))
-      Some(42) shouldNotx equalz(none[Int])
-      None shouldx equalz(none[Int])
+      Some(42) should equalz(some(42))
+      Some(42) shouldNot equalz(none[Int])
+      None should equalz(none[Int])
     }
 
-    "accept left >: right" in {
+    "accept left >: right, with alternative syntax" in {
       some(42) shouldx equalz(Some(42))
       none[Int] shouldNotx equalz(Some(84))
     }
 
     "reject mismatched types" in {
-      "some(42) shouldx equalz(42)" shouldNot typeCheck
-      "42 shouldx equalz(some(42))" shouldNot typeCheck
+      "some(42) should equalz(42)" shouldNot typeCheck
+      "42 should equalz(some(42))" shouldNot typeCheck
     }
 
     "disallow cheating by widening the right" in {
       42 shouldNot equal(Some(42): Any)
       42 should !==(Some(42): Any)
-      "42 shouldNotx equalz(Some(42): Any)" shouldNot typeCheck
+      "42 shouldNot equalz(Some(42): Any)" shouldNot typeCheck
     }
 
     "reject missing Equal typeclass instances" in {
-      "None shouldx equalz(None)" shouldNot typeCheck
+      "None should equalz(None)" shouldNot typeCheck
       object Blah
       Blah
-      "Blah shouldx equalz(Blah)" shouldNot typeCheck
+      "Blah should equalz(Blah)" shouldNot typeCheck
     }
   }
 }

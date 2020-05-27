@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import org.scalatest.Matchers
-import org.scalatest.matchers.{MatchResult, Matcher}
+import org.scalatest.matchers.{MatcherFactory1, MatchResult, Matcher}
 import scala.language.higherKinds
 import scalaz.Equal
 
@@ -24,12 +24,15 @@ import scalaz.Equal
   * notification from the compiler if implicit resolution failed to
   * assemble the instance you meant.  (NB: never design your own
   * typeclasses this way in Scala.)
+  *
+  * Due to scala/bug#5075, you should enable `-Ypartial-unification` and
+  * use `shouldx` instead of `should` where required.
   */
 trait Equalz extends Matchers {
-  import Equalz.{LubEqual, XMatcherFactory1}
+  import Equalz.{LubEqual, XMatcherFactory1, EqualFactory1}
 
-  final def equalz[Ex](expected: Ex): XMatcherFactory1[Ex] { type TC[A] = LubEqual[Ex, A] } =
-    new XMatcherFactory1[Ex] {
+  final def equalz[Ex](expected: Ex): EqualFactory1[Ex] =
+    new MatcherFactory1[Ex, LubEqual[Ex, ?]] with XMatcherFactory1[Ex] {
       type TC[A] = LubEqual[Ex, A]
       override def matcher[T <: Ex](implicit ev: TC[T]): Matcher[T] =
         actual =>
@@ -40,6 +43,7 @@ trait Equalz extends Matchers {
         )
     }
 
+  /** An improved design for [[MatcherFactory1]]; see [[XMatcherFactory1]]. */
   implicit final class XAnyShouldWrapper[L](private val leftHandSide: L) {
     def shouldx(mf: XMatcherFactory1[L])(implicit ev: mf.TC[L]) =
       (leftHandSide: AnyShouldWrapper[L]) should mf.matcher[L]
@@ -58,7 +62,17 @@ object Equalz extends Equalz {
     }
   }
 
-  abstract class XMatcherFactory1[-SC] {
+  type EqualFactory1[SC] = XMatcherFactory1[SC] with MatcherFactory1[SC, LubEqual[SC, ?]] {
+    type TC[A] = LubEqual[SC, A]
+  }
+
+  /** scala/bug#5075 triggers in Scala 2.12 with `should equalz` &c, where
+    * function = should.  This could also be fixed by making
+    * `MatcherFactory1` use a HK type member instead of a parameter,
+    * whereupon `should` wouldn't need the TYPECLASS1 parameter that
+    * triggers the 5075 problem, but that's a tall order.
+    */
+  trait XMatcherFactory1[-SC] {
     type TC[A]
     def matcher[T <: SC: TC]: Matcher[T]
   }
