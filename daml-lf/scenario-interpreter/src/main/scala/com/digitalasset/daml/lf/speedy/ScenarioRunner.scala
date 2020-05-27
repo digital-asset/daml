@@ -208,16 +208,18 @@ final case class ScenarioRunner(
           view = ParticipantView(committer),
           effectiveAt = effectiveAt,
           acoid) match {
-          case LookupOk(_, _, stakeholders) if stakeholders(committer) =>
-            cb(SKeyLookupResult.Found(acoid))
-            ()
+          case LookupOk(_, _, stakeholders) =>
+            if (stakeholders.contains(committer))
+              cb(SKeyLookupResult.Found(acoid))
+            else if (!cb(SKeyLookupResult.NotVisible))
+              throw SErrorCrash(s"key of contract $acoid not visible, but we found it!")
           case LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
           case LookupContractNotEffective(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
           case LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-          case LookupOk(_, _, _) | LookupContractNotVisible(_, _, _) =>
+          case LookupContractNotVisible(_, _, _) =>
             if (!cb(SKeyLookupResult.NotVisible))
               throw SErrorCrash(s"contract $acoid not visible, but we found its key!")
         }
