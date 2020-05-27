@@ -18,6 +18,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:scalatest-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
