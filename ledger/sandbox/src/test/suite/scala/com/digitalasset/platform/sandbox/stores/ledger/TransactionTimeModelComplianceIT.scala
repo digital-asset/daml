@@ -96,7 +96,7 @@ class TransactionTimeModelComplianceIT
   }
 
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
-    val dummyTransaction: Transaction.AbsTransaction =
+    val dummyTransaction: Transaction.Transaction =
       GenTransaction(HashMap.empty, ImmArray.empty)
 
     val submitterInfo = SubmitterInfo(

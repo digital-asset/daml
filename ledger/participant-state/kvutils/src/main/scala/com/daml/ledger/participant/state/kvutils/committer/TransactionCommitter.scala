@@ -20,7 +20,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
-import com.daml.lf.transaction.Transaction.AbsTransaction
+import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -600,7 +600,7 @@ private[kvutils] object TransactionCommitter {
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
     val submitter: Party = Party.assertFromString(submitterInfo.getSubmitter)
-    lazy val absoluteTransaction: AbsTransaction =
+    lazy val absoluteTransaction: Transaction =
       Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)

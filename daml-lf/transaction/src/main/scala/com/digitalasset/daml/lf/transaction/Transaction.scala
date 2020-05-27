@@ -470,10 +470,6 @@ object Transaction {
       byKeyNodes: ImmArray[Value.NodeId],
   )
 
-  type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.ContractId]
-
-  type AbsNode = GenNode.WithTxValue[NodeId, Value.ContractId]
-
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
 
