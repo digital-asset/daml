@@ -3,14 +3,11 @@
 
 package com.daml.ledger.on
 
-import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerWriter}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.resources.ResourceOwner
 
 package object memory {
   type Index = Int
-
-  type KeyValueLedger = LedgerReader with LedgerWriter
 
   private[memory] val StartIndex: Index = 0
 

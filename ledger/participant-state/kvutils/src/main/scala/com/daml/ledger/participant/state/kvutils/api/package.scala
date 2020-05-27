@@ -27,4 +27,6 @@ package com.daml.ledger.participant.state.kvutils
   * @see [[com.daml.ledger.validator.SubmissionValidator]]
   * @see [[com.daml.ledger.validator.ValidatingCommitter]]
   */
-package object api {}
+package object api {
+  type KeyValueLedger = LedgerReader with LedgerWriter
+}

@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
+  KeyValueLedger,
   KeyValueParticipantState
 }
 import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader
