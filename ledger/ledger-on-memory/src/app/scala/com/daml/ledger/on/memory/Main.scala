@@ -87,14 +87,14 @@ object Main {
         .opt[BatchingLedgerWriterConfig]("batching")
         .optional()
         .text(BatchingLedgerWriterConfigReader.UsageText)
-        .action({
+        .action {
           case (parsedBatchingConfig, config) =>
             config.copy(
               extra = config.extra.copy(
                 batchingLedgerWriterConfig = parsedBatchingConfig
               )
             )
-        })
+        }
       ()
     }
   }
