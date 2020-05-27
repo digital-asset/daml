@@ -484,7 +484,19 @@ genForBind bind body = do
                    `concatUpdateSet` _oUpdate bodyUpdOut)
              , bodyTyp
              , creFs )
-    _ -> error "Impossible: The body of a bind should be an update expression"
+    -- TODO: Temporary hack
+    expr -> do
+      let bodyUpd = UPure (TBuiltin BTUnit) expr
+      (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
+      return ( Output
+                 (_oExpr bodyUpdOut)
+                 (_oUpdate bindOut
+                   `concatUpdateSet` bindUpd
+                   `concatUpdateSet` _oUpdate bodyOut
+                   `concatUpdateSet` _oUpdate bodyUpdOut)
+             , bodyTyp
+             , creFs )
+    -- _ -> error "Impossible: The body of a bind should be an update expression"
 
 -- | Refresh and bind the fetched contract id to the given variable. Returns a
 -- substitution, mapping the old id to the refreshed one.

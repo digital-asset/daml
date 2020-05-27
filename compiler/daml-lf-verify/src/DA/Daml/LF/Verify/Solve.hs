@@ -47,6 +47,14 @@ data ConstraintExpr
   -- | Equals operator.
   | CEq !ConstraintExpr !ConstraintExpr
   -- | Boolean and operator.
+  | CGt !ConstraintExpr !ConstraintExpr
+  -- | Greater than operator.
+  | CGtE !ConstraintExpr !ConstraintExpr
+  -- | Greater than or equal operator.
+  | CLt !ConstraintExpr !ConstraintExpr
+  -- | Lesser than operator.
+  | CLtE !ConstraintExpr !ConstraintExpr
+  -- | Lesser than or equal operator.
   | CAnd !ConstraintExpr !ConstraintExpr
   -- | Boolean not operator.
   | CNot !ConstraintExpr
@@ -61,9 +69,13 @@ instance Pretty ConstraintExpr where
   pretty (CVar x) = pretty $ unExprVarName x
   pretty (CAdd e1 e2) = pretty e1 <+> " + " <+> pretty e2
   pretty (CSub e1 e2) = pretty e1 <+> " - " <+> pretty e2
-  pretty (CMul e1 e2) = pretty e1 <+> " * " <+> pretty e2
-  pretty (CDiv e1 e2) = pretty e1 <+> " / " <+> pretty e2
+  pretty (CMul e1 e2) = parens (pretty e1) <+> " * " <+> parens (pretty e2)
+  pretty (CDiv e1 e2) = parens (pretty e1) <+> " / " <+> parens (pretty e2)
   pretty (CEq e1 e2) = pretty e1 <+> " == " <+> pretty e2
+  pretty (CGt e1 e2) = pretty e1 <+> " > " <+> pretty e2
+  pretty (CGtE e1 e2) = pretty e1 <+> " >= " <+> pretty e2
+  pretty (CLt e1 e2) = pretty e1 <+> " < " <+> pretty e2
+  pretty (CLtE e1 e2) = pretty e1 <+> " <= " <+> pretty e2
   pretty (CAnd e1 e2) = pretty e1 <+> " and " <+> pretty e2
   pretty (CNot e) = "not " <+> pretty e
   pretty (CIf e1 e2 e3) = "if " <+> pretty e1 <+> " then " <+> pretty e2
@@ -103,6 +115,10 @@ instance ConstrExpr Expr where
     (EBuiltin (BEEqual _)) -> CEq (toCExp syns e1) (toCExp syns e2)
     (EBuiltin BEAddInt64) -> CAdd (toCExp syns e1) (toCExp syns e2)
     (EBuiltin BESubInt64) -> CSub (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BEGreaterNumeric) _) -> CGt (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> CGtE (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BELessNumeric) _) -> CLt (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BELessEqNumeric) _) -> CLtE (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BEAddNumeric) _) -> CAdd (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BESubNumeric) _) -> CSub (toCExp syns e1) (toCExp syns e2)
     (ETyApp (ETyApp (ETyApp (EBuiltin BEMulNumeric) _) _) _) -> CMul (toCExp syns e1) (toCExp syns e2)
@@ -139,6 +155,10 @@ gatherFreeVars (CSub e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CMul e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CDiv e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CEq e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CGt e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CGtE e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CLt e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CLtE e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CAnd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CNot e) = gatherFreeVars e
 gatherFreeVars (CIf e1 e2 e3) = gatherFreeVars e1 `union`
@@ -290,6 +310,22 @@ cexp2sexp vars (CEq ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
   return $ S.eq se1 se2
+cexp2sexp vars (CGt ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.gt se1 se2
+cexp2sexp vars (CGtE ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.geq se1 se2
+cexp2sexp vars (CLt ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.lt se1 se2
+cexp2sexp vars (CLtE ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.leq se1 se2
 cexp2sexp vars (CAnd ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
