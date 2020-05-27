@@ -3,7 +3,7 @@
 
 package com.daml.http.util
 
-import com.daml.lf.data.FlatSpecCheckLaws
+import com.daml.scalatest.FlatSpecCheckLaws
 import com.daml.http.Generators
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.prop.GeneratorDrivenPropertyChecks

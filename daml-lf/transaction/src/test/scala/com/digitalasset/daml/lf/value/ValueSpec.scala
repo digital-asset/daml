@@ -4,11 +4,12 @@
 package com.daml.lf
 package value
 
-import data.{Bytes, FrontStack, ImmArray, Ref, Unnatural}
+import data.{Bytes, FrontStack, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
 import ValueGenerators.{coidGen, idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
+import com.daml.scalatest.Unnatural
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Inside, Matchers}
