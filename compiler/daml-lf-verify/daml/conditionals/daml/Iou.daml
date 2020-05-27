@@ -54,10 +54,10 @@ template Iou with
          _ <- x
          pure ()
 
-    -- nonconsuming choice SuccG: ()
-    --   controller owner
-    --   do let _ = archive self
-    --      pure ()
+    nonconsuming choice SuccG: ()
+      controller owner
+      do let _ = archive self
+         pure ()
 
     choice FailA: ContractId Iou
       controller owner

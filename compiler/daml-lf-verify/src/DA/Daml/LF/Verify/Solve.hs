@@ -391,7 +391,9 @@ solveConstr spath debug ConstraintSet{..} = do
   sol <- S.newSolver spath ["-in"] (Just log)
   vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
   vars2 <- declareCtrs sol debug vars1 _cCtrs
-  let vars = vars1 ++ vars2
+  vars <- if null (vars1 ++ vars2)
+    then declareVars sol [ExprVarName "var"]
+    else pure (vars1 ++ vars2)
   cre <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cCres
   arc <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cArcs
   S.assert sol (S.not (cre `S.eq` arc))

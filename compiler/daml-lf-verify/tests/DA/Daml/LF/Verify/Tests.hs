@@ -90,14 +90,14 @@ conditionalTests = testGroup "Conditionals"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccF - content"
         Success result
-  -- , testCase "Success G" $ do
-  --     condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
-  --     let tmpl = TypeConName ["Iou"]
-  --         choice = ChoiceName "SuccG"
-  --         field = FieldName "content"
-  --     result <- verify condDar debug tmpl choice tmpl field
-  --     assertEqual "Verification failed for SuccG - content"
-  --       Success result
+  , testCase "Success G" $ do
+      condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "SuccG"
+          field = FieldName "content"
+      result <- verify condDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for SuccG - content"
+        Success result
   , testCase "Fail A" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
