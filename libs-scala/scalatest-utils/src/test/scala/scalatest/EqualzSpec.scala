@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+package com.daml.scalatest
+
 import org.scalatest.{WordSpec, Matchers}
 import scalaz.std.anyVal._
 import scalaz.std.option._
