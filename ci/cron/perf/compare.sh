@@ -8,9 +8,7 @@ set -euo pipefail
 BASELINE=$1
 
 measure() {
-    local treeish=$1
     local out=$(mktemp -d)/out.json
-    git checkout $treeish >&2
     bazel run daml-lf/scenario-interpreter:scenario-perf -- -rf json -rff $out >&2
     cat $out | jq '.[0].primaryMetric.score'
 }
@@ -18,10 +16,13 @@ measure() {
 main() {
   local current=$(git rev-parse HEAD)
 
-  local baseline_perf=$(measure $BASELINE)
-  local current_perf=$(measure $current)
+  git checkout $BASELINE >&2
+  git show ${current}:ci/cron/perf/CollectAuthority.scala.patch | git apply
+  local baseline_perf=$(measure)
 
+  git checkout -- daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala
   git checkout $current >&2
+  local current_perf=$(measure)
 
   local speedup=$(printf "%.2f" $(echo "$baseline_perf / $current_perf" | bc -l))
   local progress_5x=$(printf "%05.2f%%" $(echo "100 * l($speedup) / l(5)" | bc -l))
