@@ -23,10 +23,9 @@ import akka.util.{ByteString, Timeout}
 import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
   MutableCompiledPackages,
@@ -42,14 +41,12 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.Party
-
 import scalaz.syntax.traverse._
 
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import scala.sys.ShutdownHookThread
-
 import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
@@ -62,13 +59,22 @@ case class LedgerConfig(
     commandTtl: Duration,
 )
 
-class Server(dar: Option[Dar[(PackageId, Package)]]) {
-  private var triggers: Map[UUID, TriggerRunnerWithToken] = Map.empty;
+final case class RunningTrigger(
+    triggerId: UUID,
+    triggerOrigId: Identifier,
+    jwt: Jwt,
+    runner: ActorRef[TriggerRunner.Message]
+)
+
+class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConfig]) {
+  private var triggers: Map[UUID, RunningTrigger] = Map.empty;
   private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar(_))
 
-  case class TriggerRunnerWithToken(ref: ActorRef[TriggerRunner.Message], token: Jwt)
+  private val triggerDao: Option[TriggerDao] =
+    jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
+  // FIXME(RJR): Figure out what the right execution context here is
 
   private def addDar(dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
@@ -89,21 +95,19 @@ class Server(dar: Option[Dar[(PackageId, Package)]]) {
     }
   }
 
-  private def actorWithToken(uuid: UUID) = {
+  private def getRunningTrigger(uuid: UUID): RunningTrigger = {
     triggers.get(uuid).get // TODO: Improve as might throw NoSuchElementException.
   }
 
-  private def addRunningTrigger(uuid: UUID, jwt: Jwt, runner: ActorRef[TriggerRunner.Message]) = {
-    triggers = triggers + (uuid -> TriggerRunnerWithToken(runner, jwt))
-    triggersByToken = triggersByToken + (jwt -> (triggersByToken.getOrElse(jwt, Set()) + uuid))
+  private def addRunningTrigger(t: RunningTrigger): Unit = {
+    triggers = triggers + (t.triggerId -> t)
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerId))
+//    triggerDao.foreach()
   }
 
-  private def removeRunningTrigger(
-      uuid: UUID,
-      jwt: Jwt,
-      runner: ActorRef[TriggerRunner.Message]) = {
-    triggers = triggers - uuid
-    triggersByToken = triggersByToken + (jwt -> (triggersByToken.get(jwt).get - uuid))
+  private def removeRunningTrigger(t: RunningTrigger): Unit = {
+    triggers = triggers - t.triggerId
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.get(t.jwt).get - t.triggerId))
   }
 
   private def listRunningTriggers(jwt: Jwt): List[String] = {
@@ -121,26 +125,17 @@ object Server {
   private final case class StartFailed(cause: Throwable) extends Message
   private final case class Started(binding: ServerBinding) extends Message
 
-  final case class TriggerStarting(
-      triggerId: UUID,
-      jwt: Jwt,
-      runner: ActorRef[TriggerRunner.Message])
-      extends Message
-  final case class TriggerStarted(
-      triggerId: UUID,
-      jwt: Jwt,
-      runner: ActorRef[TriggerRunner.Message])
-      extends Message
+  final case class TriggerStarting(runningTrigger: RunningTrigger) extends Message
+
+  final case class TriggerStarted(runningTrigger: RunningTrigger) extends Message
+
   final case class TriggerInitializationFailure(
-      triggerId: UUID,
-      jwt: Jwt,
-      runner: ActorRef[TriggerRunner.Message],
+      runningTrigger: RunningTrigger,
       cause: String
   ) extends Message
+
   final case class TriggerRuntimeFailure(
-      triggerId: UUID,
-      jwt: Jwt,
-      runner: ActorRef[TriggerRunner.Message],
+      runningTrigger: RunningTrigger,
       cause: String
   ) extends Message
 
@@ -152,8 +147,9 @@ object Server {
       maxFailureNumberOfRetries: Int,
       failureRetryTimeRange: Duration,
       dar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: Option[JdbcConfig],
   ): Behavior[Message] = Behaviors.setup { ctx =>
-    val server = new Server(dar)
+    val server = new Server(dar, jdbcConfig)
 
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -165,7 +161,7 @@ object Server {
         ctx: ActorContext[Server.Message],
         token: (Jwt, JwtPayload),
         trigger: Trigger,
-        params: StartParams,
+        triggerOrigId: Identifier,
         ledgerConfig: LedgerConfig,
         maxInboundMessageSize: Int,
         maxFailureNumberOfRetries: Int,
@@ -174,13 +170,13 @@ object Server {
       val jwt: Jwt = token._1
       val jwtPayload: JwtPayload = token._2
       val party: Party = Party(jwtPayload.party);
-      val uuid = UUID.randomUUID
-      val ident = uuid.toString
+      val triggerId = UUID.randomUUID
       val ref = ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
             ctx.self,
-            uuid,
+            triggerId,
+            triggerOrigId,
             jwt,
             server.compiledPackages,
             trigger,
@@ -188,12 +184,13 @@ object Server {
             maxInboundMessageSize,
             maxFailureNumberOfRetries,
             failureRetryTimeRange,
-            party),
-          ident
+            party
+          ),
+          triggerId.toString
         ),
-        ident + "-monitor"
+        triggerId.toString + "-monitor"
       )
-      JsObject(("triggerId", uuid.toString.toJson))
+      JsObject(("triggerId", triggerId.toString.toJson))
     }
 
     def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): JsValue = {
@@ -201,9 +198,9 @@ object Server {
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
-      val actorWithToken = server.actorWithToken(uuid)
-      actorWithToken.ref ! TriggerRunner.Stop
-      server.removeRunningTrigger(uuid, actorWithToken.token, actorWithToken.ref)
+      val runningTrigger = server.getRunningTrigger(uuid)
+      runningTrigger.runner ! TriggerRunner.Stop
+      server.removeRunningTrigger(runningTrigger)
       JsObject(("triggerId", uuid.toString.toJson))
     }
 
@@ -242,7 +239,7 @@ object Server {
                                 ctx,
                                 token,
                                 trigger,
-                                params,
+                                params.identifier,
                                 ledgerConfig,
                                 maxInboundMessageSize,
                                 maxFailureNumberOfRetries,
@@ -352,26 +349,26 @@ object Server {
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(uuid, jwt, runner) =>
+          case TriggerStarting(runningTrigger) =>
             // Nothing to do at this time.
             Behaviors.same
-          case TriggerStarted(uuid, jwt, runner) =>
+          case TriggerStarted(runningTrigger) =>
             // The trigger has successfully started. Update the
             // running triggers tables.
-            server.addRunningTrigger(uuid, jwt, runner)
+            server.addRunningTrigger(runningTrigger)
             Behaviors.same
-          case TriggerInitializationFailure(uuid, jwt, runner, _) =>
+          case TriggerInitializationFailure(runningTrigger, cause) =>
             // The trigger has failed to start. Send the runner a stop
             // message. There's no point in it remaining alive since
             // its child actor is stopped and won't be restarted.
-            runner ! TriggerRunner.Stop
+            runningTrigger.runner ! TriggerRunner.Stop
             // No need to update the running triggers tables since
             // this trigger never made it there.
             Behaviors.same
-          case TriggerRuntimeFailure(uuid, jwt, runner, _) =>
+          case TriggerRuntimeFailure(runningTrigger, cause) =>
             // The trigger has failed. Remove it from the running
             // triggers tables.
-            server.removeRunningTrigger(uuid, jwt, runner)
+            server.removeRunningTrigger(runningTrigger)
             // Don't send any messages to the runner. Its supervision
             // strategy will automatically restart the trigger up to
             // some number of times beyond which it will remain
@@ -439,7 +436,8 @@ object ServiceMain {
       maxInboundMessageSize: Int,
       maxFailureNumberOfRetries: Int,
       failureRetryTimeRange: Duration,
-      dar: Option[Dar[(PackageId, Package)]])
+      dar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: Option[JdbcConfig])
     : Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
       ActorSystem(
@@ -450,7 +448,8 @@ object ServiceMain {
           maxInboundMessageSize,
           maxFailureNumberOfRetries,
           failureRetryTimeRange,
-          dar),
+          dar,
+          jdbcConfig),
         "TriggerService")
     // timeout chosen at random, change freely if you see issues
     implicit val timeout: Timeout = 15.seconds
@@ -500,7 +499,9 @@ object ServiceMain {
               config.maxInboundMessageSize,
               config.maxFailureNumberOfRetries,
               config.failureRetryTimeRange,
-              dar),
+              dar,
+              config.jdbcConfig
+            ),
             "TriggerService"
           )
         // Timeout chosen at random, change freely if you see issues.

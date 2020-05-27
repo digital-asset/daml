@@ -110,7 +110,8 @@ object TriggerServiceFixture {
         ServiceConfig.DefaultMaxInboundMessageSize,
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,
-        dar
+        dar,
+        None
       )
     } yield service
 
