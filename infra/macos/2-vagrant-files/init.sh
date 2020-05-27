@@ -65,7 +65,7 @@ if [ -d /usr/local/bin ]; then
     export PATH="/usr/local/bin:\$PATH"
 fi
 BASHRC
-/usr/local/bin/brew install jq netcat
+/usr/local/bin/brew install jq netcat xz
 TOOLS_INSTALL
 
 log "Done installing tools through Homebrew."
