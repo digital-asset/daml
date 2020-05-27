@@ -71,7 +71,7 @@ object AbstractHttpServiceIntegrationTestFuns {
   }
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   this: AsyncFreeSpec with Matchers with Inside with StrictLogging =>
   import AbstractHttpServiceIntegrationTestFuns._
@@ -441,7 +441,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     }
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractHttpServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers

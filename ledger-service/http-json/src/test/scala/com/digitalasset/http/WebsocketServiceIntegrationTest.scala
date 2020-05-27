@@ -26,7 +26,7 @@ import spray.json.{JsNull, JsObject, JsString, JsValue}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class WebsocketServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers

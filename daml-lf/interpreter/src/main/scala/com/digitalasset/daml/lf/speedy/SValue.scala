@@ -19,12 +19,6 @@ import scala.collection.immutable.{HashMap, TreeMap}
   * machine. In addition to the usual types present in the LF value,
   * this also contains partially applied functions (SPAP).
   */
-
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-  ),
-)
 sealed trait SValue {
 
   import SValue._

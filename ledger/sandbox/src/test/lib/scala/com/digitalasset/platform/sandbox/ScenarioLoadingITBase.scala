@@ -30,7 +30,6 @@ import scala.concurrent.Future
 
 @SuppressWarnings(
   Array(
-    "org.wartremover.warts.Any",
     "org.wartremover.warts.StringPlusAny"
   ))
 abstract class ScenarioLoadingITBase

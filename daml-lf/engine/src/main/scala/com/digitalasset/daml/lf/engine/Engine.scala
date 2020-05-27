@@ -280,7 +280,7 @@ final class Engine {
     }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
-  @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Return"))
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
