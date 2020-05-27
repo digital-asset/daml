@@ -3,6 +3,7 @@
 
 package com.daml.lf.data
 
+import com.daml.scalatest.{FlatSpecCheckLaws, Unnatural}
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._

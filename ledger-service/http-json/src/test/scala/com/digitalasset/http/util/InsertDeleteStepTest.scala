@@ -3,7 +3,7 @@
 
 package com.daml.http.util
 
-import com.daml.lf.data.FlatSpecCheckLaws
+import com.daml.scalatest.FlatSpecCheckLaws
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
