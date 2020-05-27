@@ -60,6 +60,9 @@ Components
   LF-compatible decimal handling, the `Decimal` API is a good source of
   useful functions.
 
+- `data-scalacheck` supplies Scalacheck `Arbitrary`s for the custom
+  collections provided by the `data` library.
+
 - `interpreter` is the "unified interpreter" used for both the sandbox
   and the production ledger.  It is an efficient [CEK machine][],
   interpreting the `lfpackage` terms using a (non-serializable) internal
@@ -78,9 +81,6 @@ Components
 - `repl` is the below-described REPL, manipulating an internal engine
   state and running scenarios at your command.
   
-- `scalatest-tools` includes Scalatest addons used by the test suites of
-  the various packages above.
-
 - `testing-tools` helps you run scenarios from Scalatest.
 
 [official LF specification]: spec/daml-lf-1.rst
