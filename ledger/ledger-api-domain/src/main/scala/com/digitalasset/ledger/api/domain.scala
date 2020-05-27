@@ -262,8 +262,6 @@ object domain {
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
-  sealed trait AbsoluteNodeIdTag
-
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],

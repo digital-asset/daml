@@ -452,14 +452,14 @@ case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
 
   def writeArgument(value: Model.ApiValue): Result[V1.value.Value] =
-    wrapAbsContractId(value) flatMap (vac =>
+    wrapContractId(value) flatMap (vac =>
       lfValueToApiValue(verbose = true, vac) leftMap GenericConversionError)
 
   def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] =
-    wrapAbsContractId(value) flatMap (vac =>
+    wrapContractId(value) flatMap (vac =>
       lfValueToApiRecord(verbose = true, vac) leftMap GenericConversionError)
 
-  private[this] def wrapAbsContractId(value: Model.ApiValue): Result[V[V.ContractId]] = {
+  private[this] def wrapContractId(value: Model.ApiValue): Result[V[V.ContractId]] = {
     final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
     // this is 100% cheating as Value should have Traverse instead
     try Right(value mapContractId { coid =>

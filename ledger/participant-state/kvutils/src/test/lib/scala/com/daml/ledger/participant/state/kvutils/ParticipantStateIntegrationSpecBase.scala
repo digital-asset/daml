@@ -671,7 +671,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private val IdleTimeout: FiniteDuration = 5.seconds
 
-  private val emptyTransaction: Transaction.AbsTransaction =
+  private val emptyTransaction: Transaction.Transaction =
     GenTransaction(HashMap.empty, ImmArray.empty)
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
