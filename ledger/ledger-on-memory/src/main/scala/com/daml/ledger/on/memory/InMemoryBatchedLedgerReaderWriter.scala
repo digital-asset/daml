@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, Su
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
-  BatchedSubmissionValidatorParameters,
+  BatchedSubmissionValidatorFactory,
   ConflictDetection
 }
 import com.daml.lf.data.Ref
@@ -118,11 +118,13 @@ object InMemoryBatchedLedgerReaderWriter {
           metrics,
           inStaticTimeMode = needStaticTimeModeFor(timeProvider))
       val validator = BatchedSubmissionValidator[Index](
-        BatchedSubmissionValidatorParameters.default,
+        BatchedSubmissionValidatorFactory.defaultParametersFor(
+          batchingLedgerWriterConfig.enableBatching),
         keyValueCommitting,
         new ConflictDetection(metrics),
         metrics,
-        engine)
+        engine
+      )
       val committer =
         BatchedValidatingCommitter[Index](
           () => timeProvider.getCurrentTime,
@@ -138,25 +140,12 @@ object InMemoryBatchedLedgerReaderWriter {
           metrics
         )
       if (batchingLedgerWriterConfig.enableBatching) {
-        val combinedReaderWriter = newLoggingContext { implicit logCtx =>
-          val batchingLedgerWriter = new BatchingLedgerWriter(
-            BatchingQueueFactory.batchingQueueFrom(batchingLedgerWriterConfig),
+        val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
+          BatchedSubmissionValidatorFactory.batchingLedgerWriterFrom(
+            batchingLedgerWriterConfig,
             readerWriter)
-          new LedgerReader with LedgerWriter {
-            override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
-              readerWriter.events(startExclusive)
-
-            override def ledgerId(): LedgerId = readerWriter.ledgerId
-
-            override def currentHealth(): HealthStatus = readerWriter.currentHealth()
-
-            override def participantId: ParticipantId = readerWriter.participantId
-
-            override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-              batchingLedgerWriter.commit(correlationId, envelope)
-          }
         }
-        Resource.successful(combinedReaderWriter)
+        Resource.successful(ledgerReaderWriterFrom(readerWriter, batchingLedgerWriter))
       } else {
         Resource.successful(readerWriter)
       }
@@ -165,4 +154,20 @@ object InMemoryBatchedLedgerReaderWriter {
 
   private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
     timeProvider != TimeProvider.UTC
+
+  private def ledgerReaderWriterFrom(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
+    new LedgerReader with LedgerWriter {
+      override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
+        reader.events(startExclusive)
+
+      override def ledgerId(): LedgerId = reader.ledgerId()
+
+      override def currentHealth(): HealthStatus =
+        reader.currentHealth().and(writer.currentHealth())
+
+      override def participantId: ParticipantId = writer.participantId
+
+      override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+        writer.commit(correlationId, envelope)
+    }
 }
