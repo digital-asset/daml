@@ -37,9 +37,8 @@ class CachingDamlLedgerStateReader(
   override def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]] = {
     this.synchronized { readSet ++= keys }
     val cachedValues = keys
-      .map { key =>
-        key -> cache.getIfPresent(key)
-      }
+      .view
+      .map(key => key -> cache.getIfPresent(key))
       .filter(_._2.isDefined)
       .toMap
     val keysToRead = keys.toSet -- cachedValues.keySet
