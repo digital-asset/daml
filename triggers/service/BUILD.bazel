@@ -8,7 +8,7 @@ load(
     "da_scala_test",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
     name = "trigger-service",
@@ -73,10 +73,8 @@ da_scala_binary(
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [
-        ":test-model.dar",
-        "@toxiproxy_nix//:bin/toxiproxy-cmd",
-    ],
+    data = [":test-model.dar"] + (["@toxiproxy_dev_env//:bin/toxiproxy-cmd"] if not is_windows else ["@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe"]),
+    jvm_flags = ["-Dcom.daml.toxiproxy=$(rootpath @toxiproxy_dev_env//:bin/toxiproxy-cmd)"] if not is_windows else ["-Dcom.daml.toxiproxy=$(rootpath @toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe)"],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":trigger-service",
@@ -104,7 +102,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
-) if not is_windows else None  # For now while we don't have Toxiproxy support on Windows.
+)
 
 genrule(
     name = "test-model",

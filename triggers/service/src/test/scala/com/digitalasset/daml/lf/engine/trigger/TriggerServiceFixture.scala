@@ -60,10 +60,10 @@ object TriggerServiceFixture {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
-    // Launch a toxiproxy instance . Wait on it to be ready to accept
+    // Launch a toxiproxy instance. Wait on it to be ready to accept
     // connections.
     val host = InetAddress.getLoopbackAddress()
-    val toxiProxyExe = BazelRunfiles.rlocation("external/toxiproxy_nix/bin/toxiproxy-cmd")
+    val toxiProxyExe = BazelRunfiles.rlocation(System.getProperty("com.daml.toxiproxy"))
     val toxiProxyPort = findFreePort()
     val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
