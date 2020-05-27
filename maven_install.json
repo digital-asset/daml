@@ -278,8 +278,6 @@
                 "dependencies": [
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
-                    "com.fasterxml.jackson.core:jackson-annotations:2.9.0",
-                    "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "com.fasterxml.jackson.core:jackson-annotations:2.11.0",
                     "commons-codec:commons-codec:1.14",
@@ -315,7 +313,8 @@
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.11.0",
                     "commons-io:commons-io:jar:sources:2.5",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
-                    "commons-codec:commons-codec:jar:sources:1.13"
+                    "commons-codec:commons-codec:jar:sources:1.14",
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.11.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/auth0/jwks-rsa/0.8.3/jwks-rsa-0.8.3-sources.jar",
                 "mirror_urls": [
@@ -2374,8 +2373,8 @@
                     "org.mongodb:mongodb-driver-async:3.6.4",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "com.storm-enroute:scalameter-core_2.12:0.10.1",
-                    "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.11.0",
                     "io.spray:spray-json_2.12:1.3.5",
+                    "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.11.0",
                     "org.mongodb:bson:3.6.4",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:2.11.0",
                     "com.fasterxml.jackson.core:jackson-core:2.11.0",
@@ -2394,7 +2393,6 @@
                 "coord": "com.storm-enroute:scalameter_2.12:jar:sources:0.10.1",
                 "file": "v1/https/repo1.maven.org/maven2/com/storm-enroute/scalameter_2.12/0.10.1/scalameter_2.12-0.10.1-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.9",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
                     "io.spray:spray-json_2.12:jar:sources:1.3.5",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
@@ -2407,7 +2405,6 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "io.spray:spray-json_2.12:jar:sources:1.3.3",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:jar:sources:2.11.0",
                     "com.fasterxml.jackson.core:jackson-core:jar:sources:2.11.0",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
@@ -12832,7 +12829,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -12867,8 +12863,8 @@
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "net.bytebuddy:byte-buddy:1.9.7",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "commons-codec:commons-codec:1.14",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.squareup.okio:okio:1.13.0",
@@ -12916,6 +12912,7 @@
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
+                    "commons-codec:commons-codec:jar:sources:1.14",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -13000,7 +12997,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -13035,8 +13031,8 @@
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "net.bytebuddy:byte-buddy:1.9.7",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "commons-codec:commons-codec:1.14",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.squareup.okio:okio:1.13.0",
@@ -13085,7 +13081,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -13195,7 +13190,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-chrome-driver:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-safari-driver:jar:sources:3.12.0",
@@ -13233,8 +13227,8 @@
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "net.bytebuddy:byte-buddy:1.9.7",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "commons-codec:commons-codec:1.14",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.squareup.okio:okio:1.13.0",
@@ -13283,7 +13277,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -13316,8 +13309,8 @@
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "net.bytebuddy:byte-buddy:1.9.7",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "commons-codec:commons-codec:1.14",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.squareup.okio:okio:1.13.0",
@@ -13364,10 +13357,7 @@
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
-                    "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "commons-codec:commons-codec:jar:sources:1.13"
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-remote-driver/3.12.0/selenium-remote-driver-3.12.0-sources.jar",
@@ -13401,8 +13391,8 @@
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "net.bytebuddy:byte-buddy:1.9.7",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "commons-codec:commons-codec:1.14",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.squareup.okio:okio:1.13.0",
@@ -13451,7 +13441,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -13486,8 +13475,8 @@
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "net.bytebuddy:byte-buddy:1.9.7",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "commons-codec:commons-codec:1.14",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.squareup.okio:okio:1.13.0",
@@ -13536,7 +13525,6 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "commons-codec:commons-codec:jar:sources:1.14",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
                 ],
@@ -14774,6 +14762,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 1884766061
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 2120189673
     }
 }
