@@ -217,8 +217,7 @@ final case class ScenarioRunner(
             missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
           case LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-          case x @ (LookupOk(_, _, _) | LookupContractNotVisible(_, _, _)) =>
-            remy.log(x)
+          case LookupOk(_, _, _) | LookupContractNotVisible(_, _, _) =>
             if (!cb(SKeyLookupResult.NotVisible))
               throw SErrorCrash(s"contract $acoid not visible, but we found its key!")
         }
