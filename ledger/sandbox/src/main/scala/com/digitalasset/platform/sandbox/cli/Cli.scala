@@ -137,10 +137,14 @@ object Cli {
             .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
               Some(c.copy(clientAuth = clientAuth)))))
 
-      opt[Int]("maxInboundMessageSize")
+      opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
           s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
+
+      opt[Int]("maxInboundMessageSize")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .text("This flag is deprecated -- please use --max-inbound-message-size.")
 
       opt[String]("jdbcurl")
         .optional()

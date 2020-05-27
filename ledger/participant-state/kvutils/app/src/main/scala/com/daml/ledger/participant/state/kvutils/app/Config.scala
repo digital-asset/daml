@@ -23,6 +23,7 @@ final case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    maxInboundMessageSize: Int,
     eventsPageSize: Int,
     stateValueCache: caching.Configuration,
     lfValueTranslationCache: caching.Configuration,
@@ -53,7 +54,7 @@ object ParticipantConfig {
 object Config {
   val DefaultPort: Port = Port(6865)
 
-  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
@@ -61,6 +62,7 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       stateValueCache = caching.Configuration.none,
       lfValueTranslationCache = caching.Configuration.none,
@@ -143,6 +145,13 @@ object Config {
         .unbounded()
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
+
+      opt[Int]("max-inbound-message-size")
+        .optional()
+        .text(
+          s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
+        .action((maxInboundMessageSize, config) =>
+          config.copy(maxInboundMessageSize = maxInboundMessageSize))
 
       opt[Int]("events-page-size")
         .optional()
