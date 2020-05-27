@@ -46,20 +46,35 @@ data ConstraintExpr
   | CDiv !ConstraintExpr !ConstraintExpr
   -- | Equals operator.
   | CEq !ConstraintExpr !ConstraintExpr
-  -- | Boolean and operator.
-  | CGt !ConstraintExpr !ConstraintExpr
   -- | Greater than operator.
-  | CGtE !ConstraintExpr !ConstraintExpr
+  | CGt !ConstraintExpr !ConstraintExpr
   -- | Greater than or equal operator.
+  | CGtE !ConstraintExpr !ConstraintExpr
+  -- | Less than operator.
   | CLt !ConstraintExpr !ConstraintExpr
-  -- | Lesser than operator.
+  -- | Less than or equal operator.
   | CLtE !ConstraintExpr !ConstraintExpr
-  -- | Lesser than or equal operator.
+  -- | Boolean and operator.
   | CAnd !ConstraintExpr !ConstraintExpr
   -- | Boolean not operator.
   | CNot !ConstraintExpr
   -- | If then else expression.
   | CIf !ConstraintExpr !ConstraintExpr !ConstraintExpr
+  deriving Show
+
+-- TODO: Use in ConstraintExpr
+-- | Binary operator for constraint expressions.
+data CtrOperator
+  -- | Equals operator.
+  = OpEq
+  -- | Greater than operator.
+  | OpGt
+  -- | Greater than or equal operator.
+  | OpGtE
+  -- | Less than operator.
+  | OpLt
+  -- | Less than or equal operator.
+  | OpLtE
   deriving Show
 
 instance Pretty ConstraintExpr where
@@ -81,6 +96,13 @@ instance Pretty ConstraintExpr where
   pretty (CIf e1 e2 e3) = "if " <+> pretty e1 <+> " then " <+> pretty e2
     <+> " else " <+> pretty e3
 
+instance Pretty CtrOperator where
+  pretty OpEq = "="
+  pretty OpGt = ">"
+  pretty OpGtE = ">="
+  pretty OpLt = "<"
+  pretty OpLtE = "<="
+
 -- | Add a bunch of constraint expressions.
 addMany :: [ConstraintExpr] -> ConstraintExpr
 addMany [] = CReal 0.0
@@ -100,6 +122,11 @@ instance ConstrExpr BoolExpr where
   toCExp syns (BExpr e) = toCExp syns e
   toCExp syns (BAnd b1 b2) = CAnd (toCExp syns b1) (toCExp syns b2)
   toCExp syns (BNot b) = CNot (toCExp syns b)
+  toCExp syns (BEq b1 b2) = CEq (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BGt b1 b2) = CGt (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BGtE b1 b2) = CGtE (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BLt b1 b2) = CLt (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BLtE b1 b2) = CLtE (toCExp syns b1) (toCExp syns b2)
 
 instance ConstrExpr Expr where
   toCExp syns (EVar x) = case lookup x syns of
@@ -187,7 +214,7 @@ data ConstraintSet = ConstraintSet
     -- ^ The field values of all newly created contracts.
   , _cArcs :: ![ConstraintExpr]
     -- ^ The field values of all archived contracts.
-  , _cCtrs :: ![(ConstraintExpr, ConstraintExpr)]
+  , _cCtrs :: ![ConstraintExpr]
     -- ^ Additional equality constraints.
   }
   deriving Show
@@ -271,7 +298,7 @@ constructConstr env chtem ch ftem f =
       let upds = updSetUpdates $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
           vars = concatMap skol2var (envSkols env)
           syns = constructSynonyms $ HM.elems $ envCids env
-          ctrs = map (both (toCExp syns)) $ envCtrs env
+          ctrs = map (toCExp syns) (envCtrs env)
           (cres, arcs) = foldl
             (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
             ([],[]) upds
@@ -359,30 +386,44 @@ declareCtrs :: S.Solver
   -- ^ Function for debugging printouts.
   -> [(ExprVarName,S.SExpr)]
   -- ^ The set of variable names, mapped to their corresponding SMT counterparts.
-  -> [(ConstraintExpr, ConstraintExpr)]
-  -- ^ The equality constraints to be declared.
+  -> [ConstraintExpr]
+  -- ^ The constraints to be declared.
   -> IO [(ExprVarName,S.SExpr)]
-declareCtrs sol debug cvars1 ctrs = do
-  let edges = map (\(l,r) -> (l,r,gatherFreeVars l ++ gatherFreeVars r)) ctrs
+declareCtrs sol debug cvars1 exprs = do
+  let edges = map toTuple exprs
+  -- let edges = map (\(l,r) -> (l,r,gatherFreeVars l ++ gatherFreeVars r)) ctrs
       components = conn_comp edges
       useful_nodes = map fst cvars1
       useful_components = filter
-        (\comp -> let comp_vars = concatMap (\(_,_,vars) -> vars) comp
+        (\comp -> let comp_vars = concatMap (\(_,_,_,vars) -> vars) comp
                   in not $ null $ intersect comp_vars useful_nodes)
         components
-      useful_equalities = concatMap (map (\(l,r,_) -> (l,r))) useful_components
+      useful_equalities = concatMap (map (\(o,l,r,_) -> (o,l,r))) useful_components
       required_vars =
-        nubOrd (concatMap (concatMap (\(_,_,vars) -> vars)) useful_components)
+        nubOrd (concatMap (concatMap (\(_,_,_,vars) -> vars)) useful_components)
         \\ useful_nodes
   cvars2 <- declareVars sol required_vars
   mapM_ (declare $ cvars1 ++ cvars2) useful_equalities
   return cvars2
   where
+    -- | Convert the constraint expression into a tuple of a binary operator, a
+    -- left and right expression, and the enclosed variables.
+    toTuple :: ConstraintExpr
+      -- ^ The expression to convert.
+      -> (CtrOperator, ConstraintExpr, ConstraintExpr, [ExprVarName])
+    toTuple e = case e of
+      (CEq cexpr1 cexpr2) -> (OpEq, cexpr1, cexpr2, gatherFreeVars e)
+      (CGt cexpr1 cexpr2) -> (OpGt, cexpr1, cexpr2, gatherFreeVars e)
+      (CGtE cexpr1 cexpr2) -> (OpGtE, cexpr1, cexpr2, gatherFreeVars e)
+      (CLt cexpr1 cexpr2) -> (OpLt, cexpr1, cexpr2, gatherFreeVars e)
+      (CLtE cexpr1 cexpr2) -> (OpLtE, cexpr1, cexpr2, gatherFreeVars e)
+      _ -> error ("Invalid constraint expression: " ++ show e)
+
     -- | Compute connected components of the equality constraints graph.
     -- Two edges are adjacent when at least one of their nodes shares a variable.
-    conn_comp :: [(ConstraintExpr,ConstraintExpr,[ExprVarName])]
+    conn_comp :: [(CtrOperator,ConstraintExpr,ConstraintExpr,[ExprVarName])]
       -- ^ The edges of the graph, annotated with the contained variables.
-      -> [[(ConstraintExpr,ConstraintExpr,[ExprVarName])]]
+      -> [[(CtrOperator,ConstraintExpr,ConstraintExpr,[ExprVarName])]]
     conn_comp [] = []
     conn_comp (edge:edges) = let (comp,rem) = cc_step edges edge
       in comp : conn_comp rem
@@ -390,26 +431,42 @@ declareCtrs sol debug cvars1 ctrs = do
     -- | Compute the strongly connected component containing a given edge from
     -- the graph, as well as the remaining edges which do not belong to this
     -- component.
-    cc_step :: [(ConstraintExpr,ConstraintExpr,[ExprVarName])]
+    cc_step :: [(CtrOperator,ConstraintExpr,ConstraintExpr,[ExprVarName])]
       -- ^ The edges of the graph, which do not yet belong to any component.
-      -> (ConstraintExpr,ConstraintExpr,[ExprVarName])
+      -> (CtrOperator,ConstraintExpr,ConstraintExpr,[ExprVarName])
       -- ^ The current edge for which the component is being computed.
-      -> ( [(ConstraintExpr,ConstraintExpr,[ExprVarName])]
+      -> ( [(CtrOperator,ConstraintExpr,ConstraintExpr,[ExprVarName])]
          -- ^ The computed connected component.
-         , [(ConstraintExpr,ConstraintExpr,[ExprVarName])] )
+         , [(CtrOperator,ConstraintExpr,ConstraintExpr,[ExprVarName])] )
          -- ^ The remaining edges which do not belong to the connected component.
     cc_step [] _ = ([],[])
-    cc_step edges0 (l,r,vars) =
-      let (neighbors,edges1) = partition (\(_,_,vars') -> not $ null $ intersect vars vars') edges0
+    cc_step edges0 (o,l,r,vars) =
+      let (neighbors,edges1) = partition (\(_,_,_,vars') -> not $ null $ intersect vars vars') edges0
       in foldl (\(conn,edges2) edge -> first (conn ++) $ cc_step edges2 edge)
-           ((l,r,vars):neighbors,edges1) neighbors
+           ((o,l,r,vars):neighbors,edges1) neighbors
 
-    declare :: [(ExprVarName,S.SExpr)] -> (ConstraintExpr, ConstraintExpr) -> IO ()
-    declare vars (cexp1, cexp2) = do
+    declare :: [(ExprVarName,S.SExpr)]
+      -> (CtrOperator, ConstraintExpr, ConstraintExpr)
+      -> IO ()
+    declare vars (op, cexp1, cexp2) = do
       sexp1 <- cexp2sexp vars cexp1
       sexp2 <- cexp2sexp vars cexp2
-      debug ("Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
-      S.assert sol (sexp1 `S.eq` sexp2)
+      case op of
+        OpEq -> do
+          debug ("Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
+          S.assert sol (sexp1 `S.eq` sexp2)
+        OpGt -> do
+          debug ("Assert: " ++ S.ppSExpr sexp1 (" > " ++ S.ppSExpr sexp2 ""))
+          S.assert sol (sexp1 `S.gt` sexp2)
+        OpGtE -> do
+          debug ("Assert: " ++ S.ppSExpr sexp1 (" >= " ++ S.ppSExpr sexp2 ""))
+          S.assert sol (sexp1 `S.geq` sexp2)
+        OpLt -> do
+          debug ("Assert: " ++ S.ppSExpr sexp1 (" < " ++ S.ppSExpr sexp2 ""))
+          S.assert sol (sexp1 `S.lt` sexp2)
+        OpLtE -> do
+          debug ("Assert: " ++ S.ppSExpr sexp1 (" <= " ++ S.ppSExpr sexp2 ""))
+          S.assert sol (sexp1 `S.leq` sexp2)
 
 -- | Data type denoting the outcome of the solver.
 data Result

@@ -26,7 +26,8 @@ module DA.Daml.LF.Verify.Context
   , runEnv
   , genRenamedVar
   , addUpd
-  , extVarEnv, extRecEnv, extValEnv, extChEnv, extDatsEnv, extCidEnv, extCtrRec
+  , extVarEnv, extRecEnv, extValEnv, extChEnv, extDatsEnv, extCidEnv
+  , extCtrRec, extCtr
   , extRecEnvLvl1
   , lookupVar, lookupRec, lookupVal, lookupChoice, lookupDataCon, lookupCid
   , conditionalUpdateSet
@@ -71,7 +72,29 @@ data BoolExpr
   -- ^ And operator.
   | BNot BoolExpr
   -- ^ Not operator.
+  | BEq Expr Expr
+  -- ^ Equality operator.
+  | BGt Expr Expr
+  -- ^ Greater than operator.
+  | BGtE Expr Expr
+  -- ^ Greater than or equal operator.
+  | BLt Expr Expr
+  -- ^ Less than operator.
+  | BLtE Expr Expr
+  -- ^ Less than or equal operator.
   deriving Show
+
+-- | Convert an expression constraint into boolean expressions.
+toBoolExpr :: Expr -> [BoolExpr]
+toBoolExpr (EBuiltin (BEBool True)) = []
+toBoolExpr (ETmApp (ETmApp op e1) e2) = case op of
+  (EBuiltin (BEEqual _)) -> [BEq e1 e2]
+  (ETyApp (EBuiltin BEGreaterNumeric) _) -> [BGt e1 e2]
+  (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> [BGtE e1 e2]
+  (ETyApp (EBuiltin BELessNumeric) _) -> [BLt e1 e2]
+  (ETyApp (EBuiltin BELessEqNumeric) _) -> [BLtE e1 e2]
+  _ -> trace ("Unmatched Expr to BoolExpr Operator: " ++ show op) []
+toBoolExpr exp = trace ("Unmatched Expr to BoolExpr: " ++ show exp) []
 
 -- | Data type denoting a potentially conditional value.
 data Cond a
@@ -196,10 +219,10 @@ class IsPhase (ph :: Phase) where
   envCids :: Env ph -> HM.HashMap Cid (ExprVarName, [ExprVarName])
   -- | Update the fetched cid's in the environment.
   setEnvCids :: HM.HashMap Cid (ExprVarName, [ExprVarName]) -> Env ph -> Env ph
-  -- | Get the additional equality constraints from the environment.
-  envCtrs :: Env ph -> [(Expr, Expr)]
-  -- | Update the additional equality constraints in the environment.
-  setEnvCtrs :: [(Expr, Expr)] -> Env ph -> Env ph
+  -- | Get the additional constraints from the environment.
+  envCtrs :: Env ph -> [BoolExpr]
+  -- | Update the additional constraints in the environment.
+  setEnvCtrs :: [BoolExpr] -> Env ph -> Env ph
   -- | Get the set of relevant choices from the environment.
   envChoices :: Env ph -> HM.HashMap UpdChoice (ChoiceData ph)
   -- | Update the set of relevant choices in the environment.
@@ -223,8 +246,8 @@ instance IsPhase 'ValueGathering where
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
     -- with a list of any potential old variable names.
-    ![(Expr, Expr)]
-    -- ^ Additional equality constraints.
+    ![BoolExpr]
+    -- ^ Additional constraints.
   emptyUpdateSet = UpdateSetVG [] [] []
   concatUpdateSet (UpdateSetVG upd1 cho1 val1) (UpdateSetVG upd2 cho2 val2) =
     UpdateSetVG (upd1 ++ upd2) (cho1 ++ cho2) (val1 ++ val2)
@@ -275,8 +298,8 @@ instance IsPhase 'ChoiceGathering where
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
     -- with a list of any potential old variable names.
-    ![(Expr, Expr)]
-    -- ^ Additional equality constraints.
+    ![BoolExpr]
+    -- ^ Additional constraints.
     !(HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering))
     -- ^ The set of relevant choices.
   emptyUpdateSet = UpdateSetCG [] []
@@ -323,8 +346,8 @@ instance IsPhase 'Solving where
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
     -- with a list of any potential old variable names.
-    ![(Expr, Expr)]
-    -- ^ Additional equality constraints.
+    ![BoolExpr]
+    -- ^ Additional constraints.
     !(HM.HashMap UpdChoice (ChoiceData 'Solving))
     -- ^ The set of relevant choices.
   emptyUpdateSet = UpdateSetS []
@@ -593,7 +616,17 @@ extCtrRec :: (IsPhase ph, MonadEnv m ph)
   -- ^ The fields with their values.
   -> m ()
 extCtrRec var fields = do
-  let ctrs = map (\(f, e) -> (EStructProj f (EVar var), e)) fields
+  let ctrs = map (\(f, e) -> BEq e (EStructProj f (EVar var))) fields
+  env <- getEnv
+  putEnv $ setEnvCtrs (ctrs ++ envCtrs env) env
+
+-- | Extend the environment with the given constraint.
+extCtr :: (IsPhase ph, MonadEnv m ph)
+  => Expr
+  -- ^ The constraint to add.
+  -> m ()
+extCtr exp = do
+  let ctrs = toBoolExpr exp
   env <- getEnv
   putEnv $ setEnvCtrs (ctrs ++ envCtrs env) env
 
@@ -936,6 +969,11 @@ instance SubstTm BoolExpr where
   substituteTm s (BExpr e) = BExpr (substituteTm s e)
   substituteTm s (BAnd e1 e2) = BAnd (substituteTm s e1) (substituteTm s e2)
   substituteTm s (BNot e) = BNot (substituteTm s e)
+  substituteTm s (BEq e1 e2) = BEq (substituteTm s e1) (substituteTm s e2)
+  substituteTm s (BGt e1 e2) = BGt (substituteTm s e1) (substituteTm s e2)
+  substituteTm s (BGtE e1 e2) = BGtE (substituteTm s e1) (substituteTm s e2)
+  substituteTm s (BLt e1 e2) = BLt (substituteTm s e1) (substituteTm s e2)
+  substituteTm s (BLtE e1 e2) = BLtE (substituteTm s e1) (substituteTm s e2)
 
 instance SubstTm a => SubstTm (Cond a) where
   substituteTm s (Determined x) = Determined $ substituteTm s x
