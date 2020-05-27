@@ -155,11 +155,11 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "1e622ce4b84b88b6d2cdf1db38d1a634fe2392d74f0b7b74ff98f3a51838ee53",
-            strip_prefix = "protobuf-3.8.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.8.0.zip"],
+            sha256 = "60d2012e3922e429294d3a4ac31f336016514a91e5a63fd33f35743ccfe1bd7d",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
+            strip_prefix = "protobuf-3.11.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:proto-zlib-url.patch",
             ],
             patch_args = ["-p1"],
         )
