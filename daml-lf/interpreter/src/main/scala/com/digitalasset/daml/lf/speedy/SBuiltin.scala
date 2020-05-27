@@ -968,7 +968,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
-        extractKeyWithMaintainers(machine.supportedValueVersions, args.get(0))
+        extractKeyWithMaintainers(args.get(0), machine.supportedValueVersions)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1013,7 +1013,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(2))
       val keyWithMaintainers =
-        extractKeyWithMaintainers(machine.supportedValueVersions, args.get(0))
+        extractKeyWithMaintainers(args.get(0), machine.supportedValueVersions)
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1045,7 +1045,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
-        extractKeyWithMaintainers(machine.supportedValueVersions, args.get(0))
+        extractKeyWithMaintainers(args.get(0), machine.supportedValueVersions)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1462,8 +1462,8 @@ object SBuiltin {
     }
 
   private def extractKeyWithMaintainers(
-      supportedValueVersions: VersionRange[value.ValueVersion],
       v: SValue,
+      supportedValueVersions: VersionRange[value.ValueVersion],
   ): KeyWithMaintainers[Tx.Value[Nothing]] =
     v match {
       case SStruct(flds, vals)
@@ -1490,7 +1490,7 @@ object SBuiltin {
       supportedValueVersions: VersionRange[value.ValueVersion],
   ): Option[KeyWithMaintainers[Tx.Value[Nothing]]] =
     optKey match {
-      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(supportedValueVersions, _))
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(_, supportedValueVersions))
       case v => crash(s"Expected optional key with maintainers, got: $v")
     }
 
