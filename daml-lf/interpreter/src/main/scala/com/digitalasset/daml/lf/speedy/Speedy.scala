@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.util.control.NoStackTrace
-@SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+
 object Speedy {
 
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
@@ -138,7 +138,7 @@ object Speedy {
       var track: Instrumentation,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       var profile: Profile
-  ) {
+  ) extends SomeArrayEquals {
 
     /* kont manipulation... */
 
@@ -710,7 +710,9 @@ object Speedy {
   }
 
   /** The function-closure and arguments have been evaluated. Now execute the body. */
-  final case class KFun(body: SExpr, frame: Frame, actuals: util.ArrayList[SValue]) extends Kont {
+  final case class KFun(body: SExpr, frame: Frame, actuals: util.ArrayList[SValue])
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
@@ -839,7 +841,8 @@ object Speedy {
       frame: Frame,
       actuals: Actuals,
       envSize: Int)
-      extends Kont {
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       machine.restoreEnv(frame, actuals, envSize)
       to.add(v)
@@ -867,7 +870,8 @@ object Speedy {
     * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
     */
   final case class KCatch(handler: SExpr, fin: SExpr, frame: Frame, actuals: Actuals, envSize: Int)
-      extends Kont {
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       machine.restoreEnv(frame, actuals, envSize)
       machine.ctrl = fin
