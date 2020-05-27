@@ -32,6 +32,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var kfinished: Int = 0,
       var karg: Int = 0,
       var kfun: Int = 0,
+      var kbuiltin: Int = 0,
+      var kpap: Int = 0,
       var kpushto: Int = 0,
       var kcacheval: Int = 0,
       var klocation: Int = 0,
@@ -60,6 +62,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- kfinished", kfinished),
         ("- karg", karg),
         ("- kfun", kfun),
+        ("- kbuiltin", kbuiltin),
+        ("- kpap", kpap),
         ("- kpushto", kpushto),
         ("- kcacheval", kcacheval),
         ("- klocation", klocation),
@@ -109,6 +113,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case KFinished => counts.kfinished += 1
       case _: KArg => counts.karg += 1
       case _: KFun => counts.kfun += 1
+      case _: KBuiltin => counts.kbuiltin += 1
+      case _: KPap => counts.kpap += 1
       case _: KPushTo => counts.kpushto += 1
       case _: KCacheVal => counts.kcacheval += 1
       case _: KLocation => counts.klocation += 1

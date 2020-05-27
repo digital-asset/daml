@@ -44,7 +44,7 @@ private[kvutils] object InputsAndEffects {
     * and packages.
     */
   def computeInputs(
-      tx: Transaction.AbsTransaction,
+      tx: Transaction.Transaction,
       meta: TransactionMeta,
   ): List[DamlStateKey] = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
@@ -106,7 +106,7 @@ private[kvutils] object InputsAndEffects {
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
-  def computeEffects(tx: Transaction.AbsTransaction): Effects = {
+  def computeEffects(tx: Transaction.Transaction): Effects = {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(Effects.empty) {

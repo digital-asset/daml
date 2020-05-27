@@ -111,7 +111,7 @@ object Ordering extends scala.math.Ordering[SValue] {
   private def compareText(text1: String, text2: String): Int =
     Utf8.Ordering.compare(text1, text2)
 
-  private def compareAbsCid(cid1: ContractId, cid2: ContractId): Int =
+  private def compareCid(cid1: ContractId, cid2: ContractId): Int =
     (cid1, cid2) match {
       case (ContractId.V0(s1), ContractId.V0(s2)) =>
         s1 compareTo s2
@@ -171,7 +171,7 @@ object Ordering extends scala.math.Ordering[SValue] {
           }
           case SContractId(coid1: ContractId) => {
             case SContractId(coid2: ContractId) =>
-              compareAbsCid(coid1, coid2) -> ImmArray.empty
+              compareCid(coid1, coid2) -> ImmArray.empty
           }
           case STypeRep(t1) => {
             case STypeRep(t2) =>
