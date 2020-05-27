@@ -3,6 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
+import akka.actor.typed.{ActorRef}
 import akka.actor.typed.{Behavior, PostStop}
 import akka.actor.typed.PostStop
 import akka.actor.typed.PreRestart
@@ -24,28 +25,45 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.jwt.domain.Jwt
+
+import java.util.UUID
+import java.time.Duration
 
 object TriggerRunnerImpl {
   case class Config(
+      server: ActorRef[Server.Message],
+      triggerId: UUID,
+      jwt: Jwt,
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       maxInboundMessageSize: Int,
+      maxFailureNumberOfRetries: Int,
+      failureRetryTimeRange: Duration,
       party: Party,
   )
 
   import TriggerRunner.{Message, Stop}
-  final case class Failed(error: Throwable) extends Message
-  final case class QueryACSFailed(cause: Throwable) extends Message
-  final case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
+  final private case class Failed(error: Throwable) extends Message
+  final private case class QueryACSFailed(cause: Throwable) extends Message
+  final private case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
       extends Message
+  import Server.{
+    TriggerStarting,
+    TriggerStarted,
+    TriggerInitializationFailure,
+    TriggerRuntimeFailure
+  }
 
-  def apply(config: Config)(
+  def apply(parent: ActorRef[Message], config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[Message] =
     Behaviors.setup { ctx =>
-      implicit val ec: ExecutionContext = ctx.executionContext
       val name = ctx.self.path.name
+      implicit val ec: ExecutionContext = ctx.executionContext
+      // Report to the server that this trigger is starting.
+      config.server ! TriggerStarting(config.triggerId, config.jwt, parent)
       ctx.log.info(s"Trigger ${name} is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
@@ -62,16 +80,46 @@ object TriggerRunnerImpl {
         Behaviors.receiveMessagePartial[Message] {
           case QueryACSFailed(cause) =>
             if (wasStopped) {
-              // Never mind that it failed - we were asked to stop
-              // anyway.
-              Behaviors.stopped;
+              // Report the failure to the server.
+              config.server ! TriggerInitializationFailure(
+                config.triggerId,
+                config.jwt,
+                parent,
+                cause.toString)
+              // Tell our monitor there's been a failure. The
+              // monitor's supervision strategy will respond to this
+              // by writing the exception to the log and stopping this
+              // actor.
+              throw new InitializationException("User stopped")
             } else {
-              throw new RuntimeException("ACS query failed", cause)
+              // Report the failure to the server.
+              config.server ! TriggerInitializationFailure(
+                config.triggerId,
+                config.jwt,
+                parent,
+                cause.toString)
+              // Tell our monitor there's been a failure. The
+              // monitor's supervisor strategy will respond to this by
+              // writing the exception to the log and stopping this
+              // actor.
+              throw new InitializationException("Couldn't start: " + cause.toString)
             }
           case QueriedACS(runner, acs, offset) =>
             if (wasStopped) {
-              Behaviors.stopped;
+              // Report that we won't be going on to the server.
+              config.server ! TriggerInitializationFailure(
+                config.triggerId,
+                config.jwt,
+                parent,
+                "User stopped")
+              // Tell our monitor there's been a failure. The
+              // monitor's supervisor strategy will respond to this
+              // writing the exception to the log and stopping this
+              // actor.
+              throw new InitializationException("User stopped")
             } else {
+              // The trigger is a future that we only expect to
+              // complete if something goes wrong.
               val (killSwitch, trigger) = runner.runWithACS(
                 acs,
                 offset,
@@ -83,9 +131,14 @@ object TriggerRunnerImpl {
               // is sent to a now terminated actor. We should fix this
               // somehow™.
               ctx.pipeToSelf(trigger) {
-                case Success(_) => Failed(new RuntimeException("Trigger exited unexpectedly"))
-                case Failure(cause) => Failed(cause)
+                case Success(_) =>
+                  Failed(new RuntimeException("Trigger exited unexpectedly"))
+                case Failure(cause) =>
+                  Failed(cause)
               }
+              // Report to the server that this trigger is entering
+              // the running state.
+              config.server ! TriggerStarted(config.triggerId, config.jwt, parent)
               running(killSwitch)
             }
           case Stop =>
@@ -94,24 +147,41 @@ object TriggerRunnerImpl {
             queryingACS(wasStopped = true)
         }
 
-      // Trigger loop is started, wait until we should stop.
+      // The trigger loop is running. The only thing to do now is wait
+      // to be told to stop or respond to failures.
       def running(killSwitch: KillSwitch) =
         Behaviors
           .receiveMessagePartial[Message] {
             case Stop =>
+              // Don't think about trying to send the server a message
+              // here. It won't receive it (I found out the hard way).
               Behaviors.stopped
             case Failed(cause) =>
-              // In the event 'runWithACS' completes it's because the
-              // stream is broken. Throw an exception allowing our
-              // supervisor to restart us.
+              // Report the failure to the server.
+              config.server ! TriggerRuntimeFailure(
+                config.triggerId,
+                config.jwt,
+                parent,
+                cause.toString)
+              // Tell our monitor there's been a failure. The
+              // monitor's supervisor strategy will respond to this by
+              // writing the exception to the log and attempting to
+              // restart this actor up to some number of times.
               throw new RuntimeException(cause)
           }
           .receiveSignal {
             case (_, PostStop) =>
+              // Don't think about trying to send the server a message
+              // here. It won't receive it (many Bothans died to bring
+              // us this information).
               ctx.log.info(s"Trigger ${name} is stopping")
               killSwitch.shutdown
               Behaviors.stopped
             case (_, PreRestart) =>
+              // No need to send any messages here. The server has
+              // already been informed of the earlier failure and in
+              // the process of being restarted, will be informed of
+              // the start along the way.
               ctx.log.info(s"Trigger ${name} is being restarted")
               Behaviors.same
           }
@@ -133,11 +203,13 @@ object TriggerRunnerImpl {
           config.party.unwrap)
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)
-
+      // Arrange for the completion status to be piped into a message
+      // to this actor.
       ctx.pipeToSelf(acsQuery) {
         case Success(msg) => msg
         case Failure(cause) => QueryACSFailed(cause)
       }
+
       queryingACS(wasStopped = false)
     }
 }
