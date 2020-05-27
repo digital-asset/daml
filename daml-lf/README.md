@@ -80,7 +80,7 @@ Components
 
 - `repl` is the below-described REPL, manipulating an internal engine
   state and running scenarios at your command.
-  
+
 - `testing-tools` helps you run scenarios from Scalatest.
 
 [official LF specification]: spec/daml-lf-1.rst
