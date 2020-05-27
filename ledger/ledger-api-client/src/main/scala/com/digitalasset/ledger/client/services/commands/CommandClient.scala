@@ -43,7 +43,6 @@ import scalaz.syntax.tag._
   * @param timeProviderO            If defined, it will be used to override LET and MRT values on incoming commands.
   *                                 Let will be set based on current time, and TTL will stay the same or be adjusted based on [[config]]
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
     commandCompletionService: CommandCompletionServiceStub,

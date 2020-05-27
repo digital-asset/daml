@@ -42,7 +42,6 @@ object HttpServiceTestFixture {
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def withHttpService[A](
       testName: String,
       dars: List[File],

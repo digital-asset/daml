@@ -48,7 +48,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.control.NonFatal
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class CommandClientIT
     extends AsyncWordSpec
     with TestCommands

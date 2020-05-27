@@ -13,7 +13,6 @@ import org.scalatest._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: Suite =>
 
   protected val traceIdHigh = 1L

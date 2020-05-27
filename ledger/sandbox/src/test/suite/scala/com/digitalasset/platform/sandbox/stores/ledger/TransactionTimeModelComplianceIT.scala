@@ -40,7 +40,6 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionTimeModelComplianceIT
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll

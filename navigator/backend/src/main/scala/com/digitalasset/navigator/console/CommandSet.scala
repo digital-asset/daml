@@ -13,7 +13,6 @@ final case class CommandSet(
 ) {
   val commandsByName: Map[String, Command] = commands.map(cmd => (cmd.name -> cmd)).toMap
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def usage(): String = {
     val width = 20
     val cmds = commands

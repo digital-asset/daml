@@ -44,7 +44,6 @@ sealed abstract class ConfigOption {
 final case class DefaultConfig(path: Path) extends ConfigOption
 final case class ExplicitConfig(path: Path) extends ConfigOption
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object Config {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)

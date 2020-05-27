@@ -203,7 +203,6 @@ object HttpService extends StrictLogging {
     bindingEt.run: Future[Error \/ ServerBinding]
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def refreshToken(
       holderM: Option[TokenHolder],
   )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
@@ -217,7 +216,6 @@ object HttpService extends StrictLogging {
         },
     )
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
       implicit ec: ExecutionContext,
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
@@ -225,7 +223,6 @@ object HttpService extends StrictLogging {
       .loadPackageStoreUpdates(packageClient, tokenM)(ids)
       .map(_.leftMap(e => PackageService.ServerError(e)))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def loadPackageStoreUpdates(
       packageClient: PackageClient,
       holderM: Option[TokenHolder],

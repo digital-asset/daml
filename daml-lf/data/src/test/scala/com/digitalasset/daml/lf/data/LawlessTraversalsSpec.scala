@@ -8,7 +8,6 @@ import ImmArray.ImmArraySeq
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LawlessTraversalsSpec
     extends WordSpec
     with Matchers

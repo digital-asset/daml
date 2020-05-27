@@ -170,7 +170,6 @@ object VersionTimeline {
     import scalaz.std.anyVal._
     import scalaz.std.iterable._
     // None means "after the end"
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val latestIndex: Option[Int] = OneAnd(A.inject(minimum), as)
       .maximumOf1(sv => index.get(sv).cata(\/.left, \/-(())))
       .swap

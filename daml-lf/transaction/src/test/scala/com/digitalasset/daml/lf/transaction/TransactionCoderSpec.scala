@@ -21,7 +21,6 @@ import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionCoderSpec
     extends WordSpec
     with Matchers

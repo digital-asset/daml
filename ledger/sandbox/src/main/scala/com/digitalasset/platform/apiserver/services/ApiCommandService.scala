@@ -88,7 +88,6 @@ final class ApiCommandService private (
       }.andThen(logger.logErrorsOnCall[Completion])
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def track(
       request: SubmitAndWaitRequest,
       ledgerConfig: LedgerConfiguration): Future[Completion] = {

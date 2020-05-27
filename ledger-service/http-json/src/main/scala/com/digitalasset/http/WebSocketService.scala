@@ -166,7 +166,6 @@ object WebSocketService {
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
 
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
@@ -214,7 +213,6 @@ object WebSocketService {
 
       import JsonProtocol._
 
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue) = {
         type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
         def go[Hint](alg: StreamQuery[NelCKRH[Hint, LfV]])(
@@ -229,7 +227,6 @@ object WebSocketService {
         else go(InitialEnrichedContractKeyWithStreamQuery)
       }
 
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
           a: domain.ContractKeyStreamRequest[Hint, JsValue]) =
@@ -279,7 +276,6 @@ object WebSocketService {
   private[this] object ResumingEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       val NelO = Foldable[NonEmptyList].compose[Option]
       request traverse (_.contractIdAtOffset) map NelO.toSet
     }
@@ -336,7 +332,6 @@ class WebSocketService(
         NotUsed
       }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def wsMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -475,7 +470,6 @@ class WebSocketService(
   private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =
     TextMessage(jsVal.compactPrint)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
     : Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow

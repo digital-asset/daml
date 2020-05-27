@@ -233,7 +233,6 @@ object ValuePredicateTest {
   import shapeless.{::, HNil}
 
   /** Flatten tuples and hlists in Fragment.a. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def flattenFragmentExistential(v: Any): Seq[Any] = v match {
     case (l, r) => flattenFragmentExistential(l) ++ flattenFragmentExistential(r)
     case hd :: tl => hd +: flattenFragmentExistential(tl)

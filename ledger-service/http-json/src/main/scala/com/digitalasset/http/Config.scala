@@ -68,12 +68,10 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalBooleanField(m: Map[String, String])(
       k: String): Either[String, Option[Boolean]] =
     m.get(k).traverse(v => parseBoolean(k)(v)).toEither
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverse(v => parseLong(k)(v)).toEither
 

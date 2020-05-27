@@ -82,7 +82,6 @@ final class StoreBackedCommandExecutor(
       implicit ec: ExecutionContext
   ): Future[Either[DamlLfError, A]] = {
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] =
       result match {
         case ResultDone(r) => Future.successful(Right(r))

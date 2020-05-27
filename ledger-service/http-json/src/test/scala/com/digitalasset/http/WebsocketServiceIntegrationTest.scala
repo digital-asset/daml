@@ -720,11 +720,9 @@ class WebsocketServiceIntegrationTest
 object WebsocketServiceIntegrationTest {
   import spray.json._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def dummyFlow[A](source: Source[A, NotUsed]): Flow[A, A, NotUsed] =
     Flow.fromSinkAndSource(Sink.foreach(println), source)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def foldWhile[S, A, T](zero: S)(f: (S, A) => (S \/ T)): Sink[A, Future[Option[T]]] =
     Flow[A]
       .scan(-\/(zero): S \/ T)((st, a) =>

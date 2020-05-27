@@ -25,7 +25,6 @@ class PartiesService(
 
   import PartiesService._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def allocate(
       jwt: Jwt,
       request: domain.AllocatePartyRequest
@@ -72,7 +71,6 @@ class PartiesService(
       case p if requested(p.party) => domain.PartyDetails.fromLedgerApi(p)
     }(breakOut)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
       requested: OneAnd[Set, domain.Party]
@@ -92,7 +90,6 @@ object PartiesService {
 
   private type ET[A] = EitherT[Future, Error, A]
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def toLedgerApiPartySet(
       ps: OneAnd[Set, domain.Party]
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
