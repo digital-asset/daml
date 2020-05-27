@@ -14,7 +14,6 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory
 }
-import com.daml.logging.LoggingContext.newLoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -30,25 +29,24 @@ class BatchedValidatingCommitter[LogResult](
       envelope: Bytes,
       submittingParticipantId: ParticipantId,
       ledgerStateOperations: LedgerStateOperations[LogResult]
-  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
-      val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
-      validator
-        .validateAndCommit(
-          envelope,
-          correlationId,
-          now(),
-          submittingParticipantId,
-          ledgerStateReader,
-          commitStrategy
-        )
-        .transformWith {
-          case Success(_) =>
-            Future.successful(SubmissionResult.Acknowledged)
-          case Failure(exception) =>
-            Future.successful(SubmissionResult.InternalError(exception.getLocalizedMessage))
-        }
-    }
+  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
+    val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
+    validator
+      .validateAndCommit(
+        envelope,
+        correlationId,
+        now(),
+        submittingParticipantId,
+        ledgerStateReader,
+        commitStrategy
+      )
+      .transformWith {
+        case Success(_) =>
+          Future.successful(SubmissionResult.Acknowledged)
+        case Failure(exception) =>
+          Future.successful(SubmissionResult.InternalError(exception.getLocalizedMessage))
+      }
+  }
 
   private def readerAndCommitStrategyFrom(ledgerStateOperations: LedgerStateOperations[LogResult])(
       implicit executionContext: ExecutionContext)
