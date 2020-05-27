@@ -183,17 +183,17 @@ object Speedy {
     @inline def restoreEnv(
         frameToBeRestored: Frame,
         actualsToBeRestored: Actuals,
-        envSize: Int): Unit = {
+        envSizeToBeRestored: Int): Unit = {
       // Restore the frame and actuals to there state when the continuation was created.
       frame = frameToBeRestored
       actuals = actualsToBeRestored
       // Pop the env-stack back to the size it was when the continuation was created.
-      if (envSize != env.size) {
-        val count = env.size - envSize
+      if (envSizeToBeRestored != env.size) {
+        val count = env.size - envSizeToBeRestored
         if (count < 1) {
           crash(s"restoreEnv, unexpected negative count: $count!")
         }
-        env.subList(envSize, env.size).clear
+        env.subList(envSizeToBeRestored, env.size).clear
       }
     }
 
