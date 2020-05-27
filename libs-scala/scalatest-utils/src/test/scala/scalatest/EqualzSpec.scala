@@ -12,6 +12,12 @@ class EqualzSpec extends WordSpec with Matchers {
   import Equalz._
 
   "equalz" should {
+    "accept left ~ right" in {
+      some(42) should equalz(some(42))
+      some(42) shouldNot equalz(none[Int])
+      none[Int] should equalz(none[Int])
+    }
+
     "accept left <: right" in {
       Some(42) should equalz(some(42))
       Some(42) shouldNot equalz(none[Int])
