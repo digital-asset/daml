@@ -27,7 +27,6 @@ import scalaz.std.option._
 
 import scala.util.control.NoStackTrace
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
   // Types

@@ -24,7 +24,6 @@ import scalaz.syntax.show._
 import scala.util.{Success, Try}
 import scala.util.Random.shuffle
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ApiCodecCompressedSpec
     extends WordSpec
     with Matchers

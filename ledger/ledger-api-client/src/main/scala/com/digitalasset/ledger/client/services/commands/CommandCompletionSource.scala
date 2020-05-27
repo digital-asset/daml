@@ -15,7 +15,6 @@ import io.grpc.stub.StreamObserver
 
 import scala.collection.{breakOut, immutable}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object CommandCompletionSource {
 
   def toStreamElements(

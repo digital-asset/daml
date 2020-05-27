@@ -19,7 +19,6 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with Matchers {
 
   private val dar = requiredFile(rlocation("docs/quickstart-model.dar"))

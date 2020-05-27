@@ -29,7 +29,6 @@ import scalaz.{\/, \/-}
 
 import scala.collection.breakOut
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class JsonProtocolTest
     extends FreeSpec
     with Matchers

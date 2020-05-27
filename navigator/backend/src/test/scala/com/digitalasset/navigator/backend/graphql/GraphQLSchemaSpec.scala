@@ -10,7 +10,6 @@ import sangria.schema.Schema
 
 import scala.io.Source
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class GraphQLSchemaSpec extends WordSpec with Matchers {
   "The rendered schema" should {
     "match the expected schema definition" in {
