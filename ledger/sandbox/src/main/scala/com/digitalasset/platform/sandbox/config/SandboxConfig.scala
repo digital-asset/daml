@@ -42,6 +42,7 @@ final case class SandboxConfig(
     metricsReportingInterval: Duration,
     eventsPageSize: Int,
     lfValueTranslationCacheConfiguration: caching.Configuration,
+    profileDir: Option[Path],
 )
 
 object SandboxConfig {
@@ -78,6 +79,7 @@ object SandboxConfig {
       metricsReportingInterval = Duration.ofSeconds(10),
       eventsPageSize = DefaultEventsPageSize,
       lfValueTranslationCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
+      profileDir = None,
     )
 
   lazy val default: SandboxConfig =
