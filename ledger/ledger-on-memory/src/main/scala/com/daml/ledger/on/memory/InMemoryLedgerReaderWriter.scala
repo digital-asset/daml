@@ -31,7 +31,7 @@ import com.daml.resources.{Resource, ResourceOwner}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-final class InMemoryBatchedLedgerReaderWriter(
+final class InMemoryLedgerReaderWriter(
     override val participantId: ParticipantId,
     override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
@@ -61,7 +61,7 @@ final class InMemoryBatchedLedgerReaderWriter(
   private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
 }
 
-object InMemoryBatchedLedgerReaderWriter {
+object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   final class SingleParticipantOwner(
@@ -131,7 +131,7 @@ object InMemoryBatchedLedgerReaderWriter {
           validator,
           stateValueCache)
       val readerWriter =
-        new InMemoryBatchedLedgerReaderWriter(
+        new InMemoryLedgerReaderWriter(
           participantId,
           ledgerId,
           dispatcher,

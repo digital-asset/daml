@@ -63,7 +63,7 @@ object Main {
         logCtx: LoggingContext,
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
-      new InMemoryBatchedLedgerReaderWriter.Owner(
+      new InMemoryLedgerReaderWriter.Owner(
         initialLedgerId = config.ledgerId,
         config.extra.batchingLedgerWriterConfig,
         participantId = participantConfig.participantId,
