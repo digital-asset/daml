@@ -25,6 +25,11 @@ complicating concerns, including but not limited to:
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
+We welcome feedback about the JSON API on `our issue tracker
+<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+`on our forum <https://discuss.daml.com>`_, or `on Slack
+<https://slack.daml.com>`_.
+
 .. toctree::
    :hidden:
 
@@ -1176,18 +1181,6 @@ HTTP Response with Error
 Streaming API
 *************
 
-**WARNING:** the WebSocket endpoints described below are in alpha,
-so are *subject to breaking changes*, including all
-request and response elements demonstrated below or otherwise
-implemented by the API.  We welcome feedback about the API on `our issue
-tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on our forum <https://discuss.daml.com>`_ or `on Slack <https://slack.daml.com>`_.
-
-Please keep in mind that the presence of **/v1** prefix in the the
-WebSocket URLs does not mean that the endpoint interfaces are
-stabilized.
-
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
 
@@ -1254,8 +1247,6 @@ Contracts Query Stream
 - URL: ``/v1/stream/query``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
-
-*Endpoint is in alpha as described above.*
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -1420,8 +1411,6 @@ Fetch by Key Contracts Stream
 - URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
-
-*Endpoint is in alpha as described above.*
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 
