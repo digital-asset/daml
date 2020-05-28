@@ -30,6 +30,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
+rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
 
 rules_haskell_version = "ac87721a4dbc0f7dbe731df928d322f02ed93330"
 rules_haskell_sha256 = "684f91defad36e9d6ce3ac4213864b89e8f6fe813508ae93bfe80996447a1516"
@@ -41,6 +42,8 @@ zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
 zlib_sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45"
 rules_nodejs_version = "1.6.0"
 rules_nodejs_sha256 = "f9e7b9f42ae202cc2d2ce6d698ccb49a9f7f7ea572a78fd451696d03ef2ee116"
+rules_jvm_external_version = "2.8"
+rules_jvm_external_sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -125,9 +128,9 @@ def daml_deps():
     if "rules_jvm_external" not in native.existing_rules():
         http_archive(
             name = "rules_jvm_external",
-            strip_prefix = "rules_jvm_external-2.8",
-            sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad",
-            url = "https://github.com/bazelbuild/rules_jvm_external/archive/2.8.zip",
+            strip_prefix = "rules_jvm_external-{}".format(rules_jvm_external_version),
+            sha256 = rules_jvm_external_sha256,
+            url = "https://github.com/bazelbuild/rules_jvm_external/archive/{}.zip".format(rules_jvm_external_version),
         )
 
     if "io_bazel_rules_scala" not in native.existing_rules():
@@ -136,7 +139,7 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
+            sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
                 "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",

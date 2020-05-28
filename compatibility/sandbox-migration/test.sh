@@ -15,16 +15,11 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 set -euox pipefail
 
 RUNNER="$(rlocation $TEST_WORKSPACE/sandbox-migration/sandbox-migration-runner)"
-SCRIPT_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-script.dar)"
 MODEL_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-model.dar)"
-SCRIPT_ASSISTANT="$(rlocation daml-sdk-0.0.0/daml)"
 SANDBOX_ARGS=""
 for PLATFORM in $@; do
     SANDBOX_ARGS="$SANDBOX_ARGS $(rlocation daml-sdk-$PLATFORM/daml)"
 done
 $RUNNER \
-    --script-dar $SCRIPT_DAR \
     --model-dar $MODEL_DAR \
-    --script-assistant $SCRIPT_ASSISTANT \
     $SANDBOX_ARGS
-
