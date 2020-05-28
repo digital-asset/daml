@@ -95,10 +95,6 @@ object Main extends App {
 }
 
 // The DAML-LF Read-Eval-Print-Loop
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any"
-  ))
 object Repl {
 
   private val nextSeed =

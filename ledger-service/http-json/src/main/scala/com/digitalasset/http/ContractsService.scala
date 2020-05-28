@@ -282,7 +282,6 @@ class ContractsService(
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     searchInMemory(jwt, party, Set(templateId), queryParams)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
@@ -313,7 +312,6 @@ class ContractsService(
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def apiAcToLfAc(
       ac: domain.ActiveContract[ApiValue],
   ): Error \/ domain.ActiveContract[LfValue] =
@@ -326,7 +324,6 @@ class ContractsService(
   ): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsAc(
       a: domain.ActiveContract[LfValue],
   ): Error \/ domain.ActiveContract[JsValue] =
@@ -336,7 +333,6 @@ class ContractsService(
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
       xs: OneAnd[Set, Tid]
   ): (Set[domain.TemplateId.RequiredPkg], Set[Tid]) = {

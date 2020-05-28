@@ -29,7 +29,6 @@ object DefTemplateWithRecord {
   *  utility functions we initialise a class with these values and allow all the
   *  methods to have access to them.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final case class LFUtil(
     override val packageName: String,
     override val iface: EnvironmentInterface,

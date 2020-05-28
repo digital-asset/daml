@@ -10,7 +10,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.LeakingSealed"))
+@SuppressWarnings(Array("org.wartremover.warts.LeakingSealed"))
 abstract class AkkaStreamPerformanceTest extends PerformanceTest {
 
   protected val logger: Logger = LoggerFactory.getLogger(this.getClass)

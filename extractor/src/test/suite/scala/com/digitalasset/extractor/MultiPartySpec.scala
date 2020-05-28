@@ -25,7 +25,6 @@ import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scopt.Read
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class MultiPartySpec
     extends FlatSpec
     with Suite

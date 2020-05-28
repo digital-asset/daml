@@ -16,7 +16,6 @@ import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
 import scalaz.\&/.That
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
   import VersionTimeline._
   import VersionTimelineSpec._
@@ -187,7 +186,6 @@ object VersionTimelineSpec {
 
   private final case class Variety[A](gen: Gen[A])(implicit val sv: SubVersion[A])
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val varieties = NonEmptyList[Variety[_]](
     Variety(Gen oneOf ValueVersions.acceptedVersions),
     Variety(Gen oneOf TransactionVersions.acceptedVersions),

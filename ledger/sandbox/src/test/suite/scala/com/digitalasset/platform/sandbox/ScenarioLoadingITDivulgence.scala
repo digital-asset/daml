@@ -15,11 +15,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, WordSpec}
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.StringPlusAny"
-  ))
+@SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 class ScenarioLoadingITDivulgence
     extends WordSpec
     with Matchers

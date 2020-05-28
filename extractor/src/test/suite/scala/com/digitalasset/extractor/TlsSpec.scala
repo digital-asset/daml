@@ -17,7 +17,6 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TlsSpec
     extends FlatSpec
     with Suite

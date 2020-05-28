@@ -47,7 +47,6 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def enumAll[A](
       enumId: Identifier,
       index: A => Int,

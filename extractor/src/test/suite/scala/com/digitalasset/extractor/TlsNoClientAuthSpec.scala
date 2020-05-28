@@ -18,7 +18,6 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TlsNoClientAuthSpec
     extends FlatSpec
     with Suite

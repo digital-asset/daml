@@ -11,7 +11,6 @@ import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup._
 import scalaz.{@@, Equal, Tag}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class InsertDeleteStepTest
     extends FlatSpec
     with Matchers

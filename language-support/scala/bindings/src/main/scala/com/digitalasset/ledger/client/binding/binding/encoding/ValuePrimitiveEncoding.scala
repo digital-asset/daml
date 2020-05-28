@@ -160,7 +160,6 @@ object ValuePrimitiveEncoding {
     *       isomorphism (which is a subset of HK lenses), but we don't have monocle
     *       imported locally.
     */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def xmapped[F[_], G[_]](vpe: ValuePrimitiveEncoding[F])(iso: F <~> G): ValuePrimitiveEncoding[G] =
     new Mapped[F, G] {
       override protected[this] def fgAxiom[A](fa: F[A]) = iso.to(fa)

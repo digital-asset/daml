@@ -10,7 +10,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class RecordSpec extends FlatSpec with Matchers {
 
   behavior of "Record.fromProto"

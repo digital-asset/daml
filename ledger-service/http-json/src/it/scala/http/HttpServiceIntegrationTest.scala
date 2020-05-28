@@ -15,7 +15,6 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with BeforeAndAfterAll {
 
   private val staticContent: String = "static"

@@ -34,7 +34,6 @@ final class WallClockTimeIT
     timeProviderType = Some(TimeProviderType.WallClock),
   )
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val unimplemented: PartialFunction[Any, Unit] = {
     case GrpcException.UNIMPLEMENTED() => ()
   }

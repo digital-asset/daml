@@ -15,7 +15,6 @@ import shapeless.{Coproduct => HSum}
 
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HashSpec extends WordSpec with Matchers {
 
   @com.github.ghik.silencer.silent // dead code. Well, yeah

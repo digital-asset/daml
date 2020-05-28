@@ -18,7 +18,6 @@ class DomainJsonEncoder(
 
   import com.daml.http.util.ErrorOps._
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def encodeExerciseCommand(
       cmd: domain.ExerciseCommand[lav1.value.Value, domain.ContractLocator[lav1.value.Value]])(
       implicit ev: JsonWriter[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])

@@ -19,7 +19,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class TransactionsClientImplTest
     extends FlatSpec
     with GeneratorDrivenPropertyChecks

@@ -35,7 +35,6 @@ final case class ExtractorConfig(
     accessTokenFile: Option[Path],
     appId: String = s"Extractor-${UUID.randomUUID().toString}"
 ) {
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // huh?
   def partySpec: String = parties.widen[String] intercalate ","
 }
 

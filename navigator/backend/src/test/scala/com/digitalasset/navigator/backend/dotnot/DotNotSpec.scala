@@ -5,7 +5,6 @@ package com.daml.navigator.dotnot
 
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DotNotSpec extends FlatSpec with Matchers {
 
   behavior of "DotNot"

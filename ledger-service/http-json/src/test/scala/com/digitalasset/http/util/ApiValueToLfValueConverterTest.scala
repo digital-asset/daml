@@ -41,7 +41,6 @@ class ApiValueToLfValueConverterTest
   }
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object ApiValueToLfValueConverterTest {
 
   type Cid = V.ContractId

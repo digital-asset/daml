@@ -13,7 +13,6 @@ import org.scalacheck.Shrink
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with PropertyChecks {
 
   import ValueGenerators._

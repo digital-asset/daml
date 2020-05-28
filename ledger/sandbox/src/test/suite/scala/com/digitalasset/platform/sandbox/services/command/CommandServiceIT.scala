@@ -26,7 +26,6 @@ import com.google.protobuf.duration.{Duration => ProtoDuration}
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandServiceIT
     extends AsyncWordSpec
     with Matchers

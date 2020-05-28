@@ -27,7 +27,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class JsonProtocolTest
     extends FreeSpec
     with Matchers

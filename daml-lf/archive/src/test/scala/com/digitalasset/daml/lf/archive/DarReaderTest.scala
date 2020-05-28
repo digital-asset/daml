@@ -12,7 +12,6 @@ import org.scalatest._
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DarReaderTest
     extends WordSpec
     with Matchers
