@@ -58,16 +58,16 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val events: Source[EventsTable.Entry[Event], NotUsed] =
-      PaginatingAsyncStream(startExclusive, pageSize, eventDetails) { (offset, nodeId) =>
+      PaginatingAsyncStream(startExclusive, pageSize, eventDetails) { (prevOffset, prevNodeIndex) =>
         val query =
           EventsTable
             .preparePagedGetFlatTransactions(
-              startExclusive = offset,
+              startExclusive = prevOffset,
               endInclusive = endInclusive,
               filter = filter,
               pageSize = pageSize,
-              rowOffset = 0, // not used
-              lastEvent = nodeId.map(x => (offset, x)),
+              rowOffset = 0, // TODO(Leo) remove this field when refactoring is complete
+              previousEventNodeIndex = prevNodeIndex,
             )
             .withFetchSize(Some(pageSize))
         val rawEventsFuture =
@@ -187,7 +187,7 @@ private[dao] final class TransactionsReader(
               filter = filter,
               pageSize = pageSize,
               rowOffset = offset,
-              lastEvent = None,
+              lastEventNodeIndex = None,
             )
             .withFetchSize(Some(pageSize))
         val rawEvents =

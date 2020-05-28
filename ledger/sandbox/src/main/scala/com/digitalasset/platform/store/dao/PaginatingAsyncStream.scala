@@ -46,7 +46,6 @@ object PaginatingAsyncStream {
       .flatMapConcat(Source(_))
   }
 
-  // Leo's experiment: trying to replace row offset with (event_offset, node_id)
   def apply[T](start: Offset, pageSize: Int, f: T => (Offset, Int))(
       query: (Offset, Option[Int]) => Future[Vector[T]]
   ): Source[T, NotUsed] = {
@@ -54,8 +53,8 @@ object PaginatingAsyncStream {
       .unfoldAsync(Option((start, Option.empty[Int]))) {
         case None =>
           Future.successful(None) // finished reading the whole thing
-        case Some((lastOffset, lastNodeId)) =>
-          query(lastOffset, lastNodeId).map { result =>
+        case Some((prevOffset, prevNodeIndex)) =>
+          query(prevOffset, prevNodeIndex).map { result =>
             val newState = result.lastOption.map { t =>
               val event: (Offset, Int) = f(t)
               (event._1, Some(event._2))

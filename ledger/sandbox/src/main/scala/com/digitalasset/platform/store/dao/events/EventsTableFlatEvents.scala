@@ -135,14 +135,14 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       filter: FilterRelation,
       pageSize: Int,
       rowOffset: Long,
-      lastEvent: Option[(Offset, Int)],
+      previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
     getFlatTransactionsQueries(
       (startExclusive, endInclusive),
       filter,
       pageSize,
       rowOffset,
-      lastEvent)
+      previousEventNodeIndex)
 
   private val getActiveContractsQueries =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
@@ -158,8 +158,8 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       filter: FilterRelation,
       pageSize: Int,
       rowOffset: Long,
-      lastEvent: Option[(Offset, Int)]
+      lastEventNodeIndex: Option[Int]
   ): SimpleSql[Row] =
-    getActiveContractsQueries(activeAt, filter, pageSize, rowOffset, lastEvent)
+    getActiveContractsQueries(activeAt, filter, pageSize, rowOffset, lastEventNodeIndex)
 
 }
