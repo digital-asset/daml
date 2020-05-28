@@ -127,8 +127,6 @@ object TriggerRunnerImpl {
               }
               // Report to the server that this trigger is entering
               // the running state.
-              val runningTrigger =
-                RunningTrigger(config.triggerId, config.triggerOrigId, config.jwt, parent)
               config.server ! TriggerStarted(runningTrigger)
               running(killSwitch)
             }
