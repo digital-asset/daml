@@ -180,10 +180,12 @@ client_server_build(
     server_files = [
         "//ledger/test-common:dar-files",
     ],
-) if not is_windows else None
+) if False else None
+# ) if not is_windows else None
 
 # Test for checking the integrity of the ledger dump produced above.
 integrity_test(
     name = "reference-ledger-dump-integrity-test",
     dump = ":reference-ledger-dump",
-) if not is_windows else None
+) if False else None
+# ) if not is_windows else None

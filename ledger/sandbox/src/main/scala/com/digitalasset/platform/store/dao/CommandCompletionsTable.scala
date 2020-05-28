@@ -81,6 +81,6 @@ object CommandCompletionsTable {
   def prepareDelete(pruneUpToInclusive: Offset): SimpleSql[Row] =
     SQL"""delete from participant_command_completions where
           completion_offset <= $pruneUpToInclusive and
-          completion_offset not in (select ledger_offset from ledger_entries)"""
+          completion_offset not in (select event_offset from participant_events)"""
 
 }

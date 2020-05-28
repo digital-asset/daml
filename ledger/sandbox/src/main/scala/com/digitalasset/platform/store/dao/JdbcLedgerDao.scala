@@ -891,20 +891,21 @@ private class JdbcLedgerDao(
       |-- Run the pruning filter multiple times as the foreign key constraints are not set up with cascading delete.
       |delete from participant_event_flat_transaction_witnesses
       |where event_id in (
-      |  select event_id from participant_events where
-      |    event_offset <= {prune_up_to_inclusive} and
-      |    (create_argument is null or create_consumed_at is not null));
+      |select event_id from participant_events where
+      |event_offset <= {prune_up_to_inclusive} and
+      |(create_argument is null or contract_id not in (select contract_id from participant_contracts)));
       |
-      |delete from participant_event_witnesses_complement
+      |delete from participant_event_transaction_tree_witnesses
       |where event_id in (
-      |  select event_id from participant_events where
-      |    event_offset <= {prune_up_to_inclusive} and
-      |    (create_argument is null or create_consumed_at is not null));
+      |select event_id from participant_events where
+      |event_offset <= {prune_up_to_inclusive} and
+      |(create_argument is null or contract_id not in (select contract_id from participant_contracts)));
       |
       |delete from participant_events where
-      |  event_offset <= {prune_up_to_inclusive} and
-      |  (create_argument is null or create_consumed_at is not null);
+      |event_offset <= {prune_up_to_inclusive} and
+      |(create_argument is null or contract_id not in (select contract_id from participant_contracts));
       |""".stripMargin)
+
   private def pruneParticipantEvents(pruneUpToInclusive: Offset)(
       implicit conn: Connection): Unit = {
     val _ = SQL_PRUNE_PARTICIPANT_EVENTS
