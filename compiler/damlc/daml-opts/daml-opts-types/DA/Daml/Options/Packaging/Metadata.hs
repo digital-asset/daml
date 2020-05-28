@@ -51,9 +51,10 @@ renamingToFlag unitId prefix modules =
         ModRenaming
           { modRenamingWithImplicit = False
           , modRenamings =
-            [ ( Ghc.mkModuleName (T.unpack $ LF.moduleNameString m)
-              , Ghc.mkModuleName (intercalate "." (Ghc.moduleNameString prefix : map T.unpack (LF.unModuleName m))))
+            [ ( Ghc.mkModuleName s
+              , Ghc.mkModuleName (Ghc.moduleNameString prefix ++ "." ++ s))
             | m <- modules
+            , s = T.unpack (LF.moduleNameString m)
             ]
           }
 
@@ -82,4 +83,3 @@ metadataFile projectRoot =
     fromNormalizedFilePath projectRoot </>
     projectPackageDatabase </>
     "metadata.json"
-
