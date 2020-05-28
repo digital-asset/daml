@@ -28,10 +28,7 @@ import org.scalatest.{Matchers, Suite, WordSpec}
 
 import scala.concurrent.Future
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.StringPlusAny"
-  ))
+@SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 abstract class ScenarioLoadingITBase
     extends WordSpec
     with Suite
