@@ -31,8 +31,8 @@ import java.time.Duration
 object TriggerRunnerImpl {
   case class Config(
       server: ActorRef[Server.Message],
-      triggerId: UUID,
-      triggerOrigId: Identifier,
+      triggerInstance: UUID,
+      triggerName: Identifier,
       jwt: Jwt,
       compiledPackages: CompiledPackages,
       trigger: Trigger,
@@ -63,7 +63,7 @@ object TriggerRunnerImpl {
       implicit val ec: ExecutionContext = ctx.executionContext
       // Report to the server that this trigger is starting.
       val runningTrigger =
-        RunningTrigger(config.triggerId, config.triggerOrigId, config.jwt, parent)
+        RunningTrigger(config.triggerInstance, config.triggerName, config.jwt, parent)
       config.server ! TriggerStarting(runningTrigger)
       ctx.log.info(s"Trigger ${name} is starting")
       val appId = ApplicationId(name)

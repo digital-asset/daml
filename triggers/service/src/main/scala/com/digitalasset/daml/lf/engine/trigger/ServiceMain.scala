@@ -60,8 +60,8 @@ case class LedgerConfig(
 )
 
 final case class RunningTrigger(
-    triggerId: UUID,
-    triggerOrigId: Identifier,
+    triggerInstance: UUID,
+    triggerName: Identifier,
     jwt: Jwt,
     runner: ActorRef[TriggerRunner.Message]
 )
@@ -98,13 +98,15 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   }
 
   private def addRunningTrigger(t: RunningTrigger): Unit = {
-    triggers = triggers + (t.triggerId -> t)
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerId))
+    triggers = triggers + (t.triggerInstance -> t)
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
   }
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
-    triggers = triggers - t.triggerId
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.get(t.jwt).get - t.triggerId))
+    triggers = triggers - t.triggerInstance
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken
+      .get(t.jwt)
+      .get - t.triggerInstance))
   }
 
   private def listRunningTriggers(jwt: Jwt): List[String] = {
@@ -158,7 +160,7 @@ object Server {
         ctx: ActorContext[Server.Message],
         token: (Jwt, JwtPayload),
         trigger: Trigger,
-        triggerOrigId: Identifier,
+        triggerName: Identifier,
         ledgerConfig: LedgerConfig,
         maxInboundMessageSize: Int,
         maxFailureNumberOfRetries: Int,
@@ -167,13 +169,13 @@ object Server {
       val jwt: Jwt = token._1
       val jwtPayload: JwtPayload = token._2
       val party: Party = Party(jwtPayload.party);
-      val triggerId = UUID.randomUUID
+      val triggerInstance = UUID.randomUUID
       val ref = ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
             ctx.self,
-            triggerId,
-            triggerOrigId,
+            triggerInstance,
+            triggerName,
             jwt,
             server.compiledPackages,
             trigger,
@@ -183,11 +185,11 @@ object Server {
             failureRetryTimeRange,
             party
           ),
-          triggerId.toString
+          triggerInstance.toString
         ),
-        triggerId.toString + "-monitor"
+        triggerInstance.toString + "-monitor"
       )
-      JsObject(("triggerId", triggerId.toString.toJson))
+      JsObject(("triggerId", triggerInstance.toString.toJson))
     }
 
     def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): JsValue = {
@@ -228,21 +230,22 @@ object Server {
                           complete(
                             errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
                         token =>
-                          Trigger.fromIdentifier(server.compiledPackages, params.identifier) match {
+                          Trigger
+                            .fromIdentifier(server.compiledPackages, params.triggerName) match {
                             case Left(err) =>
                               complete(errorResponse(StatusCodes.UnprocessableEntity, err))
                             case Right(trigger) => {
-                              val triggerId = startTrigger(
+                              val triggerInstance = startTrigger(
                                 ctx,
                                 token,
                                 trigger,
-                                params.identifier,
+                                params.triggerName,
                                 ledgerConfig,
                                 maxInboundMessageSize,
                                 maxFailureNumberOfRetries,
                                 failureRetryTimeRange
                               )
-                              complete(successResponse(triggerId))
+                              complete(successResponse(triggerInstance))
                             }
                         }
                       )
@@ -303,7 +306,7 @@ object Server {
                     unauthorized =>
                       complete(
                         errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                    triggerIds => complete(successResponse(triggerIds))
+                    triggerInstances => complete(successResponse(triggerInstances))
                   )
             }
           }
@@ -327,7 +330,7 @@ object Server {
                     unauthorized =>
                       complete(
                         errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                    triggerId => complete(successResponse(triggerId))
+                    triggerInstance => complete(successResponse(triggerInstance))
                   )
             }
         }
