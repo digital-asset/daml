@@ -19,7 +19,7 @@ const options: Option[] = [
 
 export default class SelectGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       value: options[0].label,
       options,
