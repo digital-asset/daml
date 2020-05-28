@@ -150,16 +150,16 @@ class Metrics(val registry: MetricRegistry) {
             registry.timer(prefix :+ "failed_to_acquire_transaction")
           val releaseTransactionLock: Timer = registry.timer(prefix :+ "release_transaction_lock")
           val validateSubmission
-            : Timer = registry.timer(prefix :+ "validate_submission") // TODO Misnomer -- same as 'fetch_inputs'.
+            : Timer = registry.timer(prefix :+ "validate_submission") // TODO(miklos-da): Misnomer -- same as 'fetch_inputs'.
           val processSubmission
-            : Timer = registry.timer(prefix :+ "process_submission") // TODO Share this? Same as 'validate'.
+            : Timer = registry.timer(prefix :+ "process_submission") // TODO(miklos-da): Share this? Same as 'validate'.
           val commitSubmission
-            : Timer = registry.timer(prefix :+ "commit_submission") // TODO Share this? Same as 'commit'.
+            : Timer = registry.timer(prefix :+ "commit_submission") // TODO(miklos-da): Share this? Same as 'commit'.
           val transformSubmission: Timer = registry.timer(prefix :+ "transform_submission")
 
           val stateValueCache = new CacheMetrics(registry, prefix :+ "state_value_cache")
 
-          // The below metrics are only generate during parallel validation.
+          // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
           val validateAndCommit: Timer = registry.timer(Prefix :+ "validate_and_commit")
 
