@@ -12,9 +12,11 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.HikariJdbcConnectionProvider._
-import com.daml.resources.ResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.timer.RetryStrategy
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
@@ -29,7 +31,26 @@ object HikariConnection {
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
   ): ResourceOwner[HikariDataSource] =
-    ResourceOwner.forCloseable(() => {
+    new Owner(
+      serverRole,
+      jdbcUrl,
+      minimumIdle,
+      maxPoolSize,
+      connectionTimeout,
+      metrics
+    )
+
+  final class Owner(
+      serverRole: ServerRole,
+      jdbcUrl: String,
+      minimumIdle: Int,
+      maxPoolSize: Int,
+      connectionTimeout: FiniteDuration,
+      metrics: Option[MetricRegistry],
+  ) extends ResourceOwner[HikariDataSource] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[HikariDataSource] = {
       val config = new HikariConfig
       config.setJdbcUrl(jdbcUrl)
       config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
@@ -43,10 +64,16 @@ object HikariConnection {
       config.setPoolName(s"$ConnectionPoolPrefix.${serverRole.threadPoolSuffix}")
       metrics.foreach(config.setMetricRegistry)
 
-      //note that Hikari uses auto-commit by default.
-      //in `runSql` below, the `.close()` will automatically trigger a commit.
-      new HikariDataSource(config)
-    })
+      // Hikari dies if a database connection could not be opened almost immediately
+      // regardless of any connection timeout settings. We retry connections so that
+      // Postgres and Sandbox can be started in any order.
+      Resource(
+        RetryStrategy.constant(attempts = 600, waitTime = 1.second) { (_, _) =>
+          Future { new HikariDataSource(config) }
+        }
+      )(conn => Future { conn.close() })
+    }
+  }
 }
 
 class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: Timer)
