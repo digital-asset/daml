@@ -41,11 +41,9 @@ object TriggerDao {
   def initialize(implicit log: LogHandler): ConnectionIO[Unit] = {
     val createTriggerTable: Fragment = sql"""
         create table running_triggers(
-          trigger_id uuid primary key,
+          trigger_instance uuid primary key,
           party_token text not null,
-          package_id text not null,
-          module_name text not null,
-          trigger_name text not null
+          full_trigger_name text not null
         )
       """
     val createDalfTable: Fragment = sql"""
@@ -56,5 +54,14 @@ object TriggerDao {
       """
     (createTriggerTable.update.run
       *> createDalfTable.update.run).void
+  }
+
+  def addRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
+    val partyToken = t.jwt.toString
+    val fullTriggerName = t.triggerName.toString
+    val insertTrigger: Fragment = Fragment.const(
+      s"insert into running_triggers values (${t.triggerInstance}, $partyToken, $fullTriggerName)"
+    )
+    insertTrigger.update.run.void
   }
 }

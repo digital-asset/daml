@@ -77,6 +77,9 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar(_))
 
+  // FIXME(RJR): Figure out execution context
+  val triggerDao: Option[TriggerDao] = jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
+
   private def addDar(dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
     darMap.foreach {
@@ -100,9 +103,19 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
     triggers.get(uuid).get // TODO: Improve as might throw NoSuchElementException.
   }
 
-  private def addRunningTrigger(t: RunningTrigger): Unit = {
-    triggers = triggers + (t.triggerInstance -> t)
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
+  private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
+    triggerDao match {
+      case None =>
+        triggers = triggers + (t.triggerInstance -> t)
+        triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
+        Right(())
+      case Some(dao) =>
+        val insert = dao.transact(TriggerDao.addRunningTrigger(t))
+        Try(insert.unsafeRunSync()) match {
+          case Failure(err) => Left(err.toString)
+          case Success(()) => Right(())
+        }
+    }
   }
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
@@ -382,8 +395,13 @@ object Server {
             // The trigger has successfully started. Update the
             // running triggers tables.
             server.logTriggerStatus(runningTrigger, "running")
-            server.addRunningTrigger(runningTrigger)
-            Behaviors.same
+            server.addRunningTrigger(runningTrigger) match {
+              case Left(err) =>
+                val msg = "Failed to add running trigger to database.\n" + err
+                ctx.self ! TriggerInitializationFailure(runningTrigger, msg)
+                Behaviors.same
+              case Right(()) => Behaviors.same
+            }
           case TriggerInitializationFailure(runningTrigger, cause) =>
             // The trigger has failed to start. Send the runner a stop
             // message. There's no point in it remaining alive since

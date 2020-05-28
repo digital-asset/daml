@@ -55,6 +55,7 @@ object TriggerServiceFixture {
       testName: String,
       dars: List[File],
       dar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: Option[JdbcConfig],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -110,7 +111,7 @@ object TriggerServiceFixture {
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,
         dar,
-        None
+        jdbcConfig
       )
     } yield service
 

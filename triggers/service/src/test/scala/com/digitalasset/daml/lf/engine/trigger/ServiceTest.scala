@@ -85,10 +85,12 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   protected def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))
 
-  def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
+  def withHttpService[A](
+      triggerDar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: Option[JdbcConfig] = None)
     : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
     TriggerServiceFixture
-      .withTriggerService[A](testId, List(darPath), triggerDar)
+      .withTriggerService[A](testId, List(darPath), triggerDar, jdbcConfig)
 
   def startTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -219,6 +221,26 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
     assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
     dropDatabase()
+    disconnectFromPostgresqlServer()
+    succeed
+  }
+
+  it should "add running trigger to database" in {
+    connectToPostgresqlServer()
+    createNewDatabase()
+    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
+    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
+    withHttpService(Some(dar), Some(testJdbcConfig)) {
+      (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+        for {
+          // Start trigger for Alice.
+          resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+          aliceTrigger <- parseTriggerId(resp)
+          _ <- assertTriggerIds(uri, "Alice", Vector(aliceTrigger))
+        } yield succeed
+    }
+    dropDatabase()
+    disconnectFromPostgresqlServer()
     succeed
   }
 
