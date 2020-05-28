@@ -11,6 +11,7 @@ import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.log
+
 import scala.concurrent.ExecutionContext
 
 object Connection {
@@ -32,10 +33,9 @@ class TriggerDao(xa: Connection.T) {
 }
 
 object TriggerDao {
-  def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(
-      implicit ec: ExecutionContext): TriggerDao = {
+  def apply(c: JdbcConfig)(implicit ec: ExecutionContext): TriggerDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
-    new TriggerDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
+    new TriggerDao(Connection.connect(JdbcConfig.driver, c.url, c.user, c.password)(cs))
   }
 
   def initialize(implicit log: LogHandler): ConnectionIO[Unit] = {

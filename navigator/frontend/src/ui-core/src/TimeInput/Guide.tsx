@@ -23,7 +23,7 @@ export interface State {
 
 export default class TimeInputGuide extends React.Component<{}, State> {
     constructor() {
-      super();
+      super({});
       this.state = {
         timeValue: DamlLfValueF.timestamp('2017-02-03T11:30:00Z'),
         timeValue2: DamlLfValueF.undef(),

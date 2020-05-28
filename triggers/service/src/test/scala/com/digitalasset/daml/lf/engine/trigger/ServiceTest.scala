@@ -96,7 +96,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       headers = headersWithAuth(party),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"identifier": "$id"}"""
+        s"""{"triggerName": "$id"}"""
       )
     )
     Http().singleRequest(req)

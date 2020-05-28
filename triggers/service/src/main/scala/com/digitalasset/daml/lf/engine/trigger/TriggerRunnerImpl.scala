@@ -3,19 +3,18 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.{ActorRef}
-import akka.actor.typed.{Behavior, PostStop}
-import akka.actor.typed.PostStop
-import akka.actor.typed.PreRestart
+import akka.actor.typed.{ActorRef, Behavior, PreRestart, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import io.grpc.netty.NettyChannelBuilder
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import com.daml.lf.CompiledPackages
-import com.daml.grpc.adapter.{ExecutionSequencerFactory}
+import com.daml.lf.data.Ref.Identifier
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -26,14 +25,14 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.daml.jwt.domain.Jwt
-
 import java.util.UUID
 import java.time.Duration
 
 object TriggerRunnerImpl {
   case class Config(
       server: ActorRef[Server.Message],
-      triggerId: UUID,
+      triggerInstance: UUID,
+      triggerName: Identifier,
       jwt: Jwt,
       compiledPackages: CompiledPackages,
       trigger: Trigger,
@@ -63,7 +62,9 @@ object TriggerRunnerImpl {
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
       // Report to the server that this trigger is starting.
-      config.server ! TriggerStarting(config.triggerId, config.jwt, parent)
+      val runningTrigger =
+        RunningTrigger(config.triggerInstance, config.triggerName, config.jwt, parent)
+      config.server ! TriggerStarting(runningTrigger)
       ctx.log.info(s"Trigger ${name} is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
@@ -81,11 +82,7 @@ object TriggerRunnerImpl {
           case QueryACSFailed(cause) =>
             if (wasStopped) {
               // Report the failure to the server.
-              config.server ! TriggerInitializationFailure(
-                config.triggerId,
-                config.jwt,
-                parent,
-                cause.toString)
+              config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
               // Tell our monitor there's been a failure. The
               // monitor's supervision strategy will respond to this
               // by writing the exception to the log and stopping this
@@ -93,11 +90,7 @@ object TriggerRunnerImpl {
               throw new InitializationException("User stopped")
             } else {
               // Report the failure to the server.
-              config.server ! TriggerInitializationFailure(
-                config.triggerId,
-                config.jwt,
-                parent,
-                cause.toString)
+              config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and stopping this
@@ -107,11 +100,7 @@ object TriggerRunnerImpl {
           case QueriedACS(runner, acs, offset) =>
             if (wasStopped) {
               // Report that we won't be going on to the server.
-              config.server ! TriggerInitializationFailure(
-                config.triggerId,
-                config.jwt,
-                parent,
-                "User stopped")
+              config.server ! TriggerInitializationFailure(runningTrigger, "User stopped")
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this
               // writing the exception to the log and stopping this
@@ -138,7 +127,7 @@ object TriggerRunnerImpl {
               }
               // Report to the server that this trigger is entering
               // the running state.
-              config.server ! TriggerStarted(config.triggerId, config.jwt, parent)
+              config.server ! TriggerStarted(runningTrigger)
               running(killSwitch)
             }
           case Stop =>
@@ -158,11 +147,7 @@ object TriggerRunnerImpl {
               Behaviors.stopped
             case Failed(cause) =>
               // Report the failure to the server.
-              config.server ! TriggerRuntimeFailure(
-                config.triggerId,
-                config.jwt,
-                parent,
-                cause.toString)
+              config.server ! TriggerRuntimeFailure(runningTrigger, cause.toString)
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to

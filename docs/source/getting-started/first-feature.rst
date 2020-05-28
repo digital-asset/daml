@@ -139,10 +139,10 @@ Again we show the entire component here; you should copy this into a new ``Messa
   :start-after: // MESSAGEEDIT_BEGIN
   :end-before: // MESSAGEEDIT_END
 
-You will first notice a ``Props`` type near the top of the file with a single ``following`` field.
+You will first notice a ``Props`` type near the top of the file with a single ``followers`` field.
 A *prop* in React is an input to a component; in this case a list of users from which to select the message receiver.
 The prop will be passed down from the ``MainView`` component, reusing the work required to query users from the ledger.
-You can see this ``following`` field bound at the start of the ``MessageEdit`` component.
+You can see this ``followers`` field bound at the start of the ``MessageEdit`` component.
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
 The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
