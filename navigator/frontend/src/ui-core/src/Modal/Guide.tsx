@@ -48,7 +48,7 @@ const modalContent = (onClose: () => void) => (
 
 export default class ModalGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       isOpen: false,
       content: modalContent(() => this.close()),
