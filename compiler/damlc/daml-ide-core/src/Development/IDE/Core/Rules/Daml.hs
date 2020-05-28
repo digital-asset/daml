@@ -539,17 +539,22 @@ damlGhcSessionRule opts@Options{..} = do
     -- (or the equivalent thereof for rules with cut off).
     defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
         let base = mkBaseUnits (optUnitId opts)
-        inferredPackages <- liftIO $ case mbProjectRoot of
-            Just projectRoot | getInferDependantPackages optInferDependantPackages ->
+        extraPkgFlags <- liftIO $ case mbProjectRoot of
+            Just projectRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
                 -- We catch doesNotExistError which could happen if the
-                -- package db has never been initialized. In that case, we simply
-                -- infer no extra packages.
-                catchJust
+                -- package db has never been initialized. In that case, we
+                -- return no extra package flags.
+                handleJust
                     (guard . isDoesNotExistError)
-                    (directDependencies <$> readMetadata projectRoot)
-                    (const $ pure [])
+                    (const $ pure []) $ do
+                    PackageDbMetadata{..} <- readMetadata projectRoot
+                    let mainPkgs = map mkPackageFlag directDependencies
+                    let renamings =
+                            map (\(unitId, (prefix, modules)) -> renamingToFlag unitId prefix modules)
+                                (Map.toList moduleRenamings)
+                    pure (mainPkgs ++ renamings)
             _ -> pure []
-        optPackageImports <- pure $ map mkPackageFlag (base ++ inferredPackages) ++ optPackageImports
+        optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
             setupDamlGHC opts
             GHC.getSession

@@ -18,7 +18,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class InMemoryBatchedLedgerReaderWriterSpec
+class InMemoryLedgerReaderWriterSpec
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with Matchers
@@ -35,7 +35,7 @@ class InMemoryBatchedLedgerReaderWriterSpec
           any[LedgerStateOperations[Index]])(any[ExecutionContext]()))
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
-      val instance = new InMemoryBatchedLedgerReaderWriter(
+      val instance = new InMemoryLedgerReaderWriter(
         Ref.ParticipantId.assertFromString("participant ID"),
         "ledger ID",
         mockDispatcher,
