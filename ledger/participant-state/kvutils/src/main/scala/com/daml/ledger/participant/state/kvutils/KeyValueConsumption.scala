@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
@@ -235,7 +236,7 @@ object KeyValueConsumption {
         optNodeSeeds = None,
         optByKeyNodes = None,
       ),
-      transaction = transaction,
+      transaction = Tx.CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = List.empty

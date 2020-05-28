@@ -13,6 +13,7 @@ import scalaz.Equal
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
+import scala.language.higherKinds
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
@@ -470,6 +471,37 @@ object Transaction {
       nodeSeeds: ImmArray[(Value.NodeId, crypto.Hash)],
       byKeyNodes: ImmArray[Value.NodeId],
   )
+
+  sealed abstract class DiscriminatedSubtype[X] {
+    type T <: X
+    def apply(x: X): T
+    def subst[F[_]](fx: F[X]): F[T]
+  }
+
+  object DiscriminatedSubtype {
+    def apply[X]: DiscriminatedSubtype[X] = new DiscriminatedSubtype[X] {
+      override type T = X
+      override def apply(x: X): T = x
+      override def subst[F[_]](fx: F[X]): F[T] = fx
+    }
+  }
+
+  val SubmittedTransaction = DiscriminatedSubtype[Transaction]
+  type SubmittedTransaction = SubmittedTransaction.T
+
+  val CommittedTransaction = DiscriminatedSubtype[Transaction]
+  type CommittedTransaction = CommittedTransaction.T
+
+  def commitTransaction(tx: SubmittedTransaction): CommittedTransaction =
+    CommittedTransaction(tx)
+
+  def commitTransaction(
+      tx: SubmittedTransaction,
+      f: crypto.Hash => Bytes,
+  ): Either[String, CommittedTransaction] =
+    tx.suffixCid(f).map(CommittedTransaction(_))
+
+  sealed trait CommandIdTag
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable

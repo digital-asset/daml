@@ -27,9 +27,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -43,14 +41,11 @@ import com.daml.platform.store.ErrorCause
 import com.daml.timer.Delayed
 import io.grpc.Status
 
-import scala.collection.breakOut
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object ApiSubmissionService {
-
-  type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
   def create(
       ledgerId: LedgerId,
@@ -91,10 +86,6 @@ object ApiSubmissionService {
         () => ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
       metrics = metrics,
     )
-
-  object RecordUpdate {
-    def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
-  }
 
   final case class Configuration(
       implicitPartyAllocation: Boolean,
@@ -204,10 +195,10 @@ final class ApiSubmissionService private (
     } yield submissionResult
 
   private def allocateMissingInformees(
-      transaction: Transaction,
+      transaction: Tx.SubmittedTransaction,
   ): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
-      val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode)(breakOut)
+      val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode).toSet
       partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
         val missingParties = parties -- partyDetails.map(_.party)
         if (missingParties.nonEmpty) {

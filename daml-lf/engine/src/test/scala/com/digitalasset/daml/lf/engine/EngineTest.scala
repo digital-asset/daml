@@ -1502,7 +1502,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "be validable in whole" in {
-      def validate(tx: Tx.Transaction, metaData: Tx.Metadata) =
+      def validate(tx: Tx.SubmittedTransaction, metaData: Tx.Metadata) =
         engine
           .validate(tx, let, participant, metaData.submissionTime, submissionSeed)
           .consume(_ => None, lookupPackage, _ => None)

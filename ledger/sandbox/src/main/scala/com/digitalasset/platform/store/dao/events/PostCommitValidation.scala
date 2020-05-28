@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.RejectionReason
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReason}
 
 /**
   * Performs post-commit validation on transactions for Sandbox Classic.
@@ -27,7 +27,7 @@ import com.daml.ledger.participant.state.v1.RejectionReason
 private[dao] sealed trait PostCommitValidation {
 
   def validate(
-      transaction: Transaction,
+      transaction: CommittedTransaction,
       transactionLedgerEffectiveTime: Instant,
       divulged: Set[ContractId],
   )(implicit connection: Connection): Option[RejectionReason]
@@ -44,7 +44,7 @@ private[dao] object PostCommitValidation {
     */
   object Skip extends PostCommitValidation {
     @inline override def validate(
-        transaction: Transaction,
+        committedTransaction: CommittedTransaction,
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[RejectionReason] =
@@ -54,7 +54,7 @@ private[dao] object PostCommitValidation {
   final class BackedBy(data: PostCommitValidationData) extends PostCommitValidation {
 
     def validate(
-        transaction: Transaction,
+        transaction: CommittedTransaction,
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[RejectionReason] = {
@@ -73,7 +73,7 @@ private[dao] object PostCommitValidation {
       * 2. refer exclusively to contracts with a ledger effective time smaller than or equal to the transaction's?
       */
     private def validateCausalMonotonicity(
-        transaction: Transaction,
+        transaction: CommittedTransaction,
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[RejectionReason] = {
@@ -106,7 +106,7 @@ private[dao] object PostCommitValidation {
         )
 
     private def collectReferredContracts(
-        transaction: Transaction,
+        transaction: CommittedTransaction,
         divulged: Set[ContractId],
     ): Set[ContractId] = {
       val (createdInTransaction, referred) =
@@ -124,7 +124,7 @@ private[dao] object PostCommitValidation {
       referred.diff(createdInTransaction)
     }
 
-    private def validateKeyUsages(transaction: Transaction)(
+    private def validateKeyUsages(transaction: CommittedTransaction)(
         implicit connection: Connection): Option[RejectionReason] =
       transaction
         .fold[Result](Right(State.empty(data))) {

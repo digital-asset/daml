@@ -7,7 +7,12 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.BatchSql
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{
+  CommittedTransaction,
+  DivulgedContract,
+  Offset,
+  SubmitterInfo
+}
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
@@ -61,7 +66,7 @@ private[dao] final class TransactionsWriter(
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
 
   private def computeDisclosureForFlatTransaction(
-      transaction: Transaction,
+      transaction: CommittedTransaction,
   ): WitnessRelation[NodeId] =
     transaction.nodes.collect {
       case (nodeId, c: Create) =>
@@ -71,14 +76,11 @@ private[dao] final class TransactionsWriter(
     }
 
   private def computeDisclosureForTransactionTree(
-      transaction: Transaction,
+      transaction: CommittedTransaction,
       blinding: BlindingInfo,
   ): WitnessRelation[NodeId] = {
     val disclosed =
-      transaction.nodes.collect {
-        case p @ (_, _: Create) => p
-        case p @ (_, _: Exercise) => p
-      }.keySet
+      transaction.nodes.iterator.collect { case (k, (_: Create | _: Exercise)) => k }.toSet
     blinding.disclosure.filter { case (nodeId, _) => disclosed(nodeId) }
   }
 
@@ -95,7 +97,7 @@ private[dao] final class TransactionsWriter(
   }
 
   private def divulgence(
-      transaction: Transaction,
+      transaction: CommittedTransaction,
       disclosure: DisclosureRelation,
       toBeInserted: Set[ContractId],
   ): WitnessRelation[ContractId] =
@@ -111,7 +113,7 @@ private[dao] final class TransactionsWriter(
       toBeInserted: Set[ContractId],
       toBeDeleted: Set[ContractId],
       transient: Set[ContractId],
-      transaction: Transaction,
+      transaction: CommittedTransaction,
       blinding: BlindingInfo,
   ): Option[BatchSql] = {
     val localDivulgence = divulgence(transaction, blinding.disclosure, toBeInserted)
@@ -132,7 +134,7 @@ private[dao] final class TransactionsWriter(
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
-      transaction: Transaction,
+      transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
   ): TransactionsWriter.PreparedInsert = {
 

@@ -27,7 +27,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
@@ -95,8 +95,8 @@ class TransactionTimeModelComplianceIT
   }
 
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
-    val dummyTransaction: Transaction.Transaction =
-      GenTransaction(HashMap.empty, ImmArray.empty)
+    val dummyTransaction =
+      Tx.SubmittedTransaction(GenTransaction(HashMap.empty[Tx.NodeId, Tx.Node], ImmArray.empty))
 
     val submitterInfo = SubmitterInfo(
       submitter = Ref.Party.assertFromString("submitter"),

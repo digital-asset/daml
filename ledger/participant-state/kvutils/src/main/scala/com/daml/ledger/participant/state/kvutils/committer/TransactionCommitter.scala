@@ -19,15 +19,13 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
-import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
 import scala.collection.JavaConverters._
-
 import TransactionCommitter._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -185,7 +183,7 @@ private[kvutils] class TransactionCommitter(
 
         engine
           .validate(
-            transactionEntry.absoluteTransaction,
+            Tx.SubmittedTransaction(transactionEntry.transaction),
             transactionEntry.ledgerEffectiveTime,
             commitContext.getParticipantId,
             transactionEntry.submissionTime,
@@ -210,7 +208,7 @@ private[kvutils] class TransactionCommitter(
     (commitContext, transactionEntry) =>
       Blinding
         .checkAuthorizationAndBlind(
-          transactionEntry.absoluteTransaction,
+          transactionEntry.transaction,
           initialAuthorizers = Set(transactionEntry.submitter),
         )
         .fold(
@@ -243,7 +241,7 @@ private[kvutils] class TransactionCommitter(
       recordTime: Timestamp,
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
-    val allUnique = transactionEntry.absoluteTransaction
+    val allUnique = transactionEntry.transaction
       .fold((true, keys)) {
         case (
             (allUnique, existingKeys),
@@ -314,7 +312,7 @@ private[kvutils] class TransactionCommitter(
           node.informeesOfNode.foldLeft(accum)(f)
       }
 
-    val allExist = foldInformeeParties(transactionEntry.absoluteTransaction, init = true) {
+    val allExist = foldInformeeParties(transactionEntry.transaction, init = true) {
       (accum, party) =>
         commitContext.get(partyStateKey(party)).fold(false)(_ => accum)
     }
@@ -336,10 +334,10 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
   ): StepResult[DamlTransactionEntrySummary] = {
-    val effects = InputsAndEffects.computeEffects(transactionEntry.absoluteTransaction)
+    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
 
     val cid2nid: Value.ContractId => Value.NodeId =
-      transactionEntry.absoluteTransaction.localContracts
+      transactionEntry.transaction.localContracts
 
     val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
 
@@ -600,8 +598,7 @@ private[kvutils] object TransactionCommitter {
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
     val submitter: Party = Party.assertFromString(submitterInfo.getSubmitter)
-    lazy val absoluteTransaction: Transaction =
-      Conversions.decodeTransaction(submission.getTransaction)
+    lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
   }
