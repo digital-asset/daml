@@ -36,6 +36,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.testing.postgresql.PostgresAroundSuite
+import eu.rekawek.toxiproxy._
 
 class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundSuite {
 
@@ -84,7 +85,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     List(Authorization(OAuth2BearerToken(token.value)))
 
   def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
-    : ((Uri, LedgerClient) => Future[A]) => Future[A] =
+    : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
     TriggerServiceFixture
       .withTriggerService[A](testId, List(darPath), triggerDar)
 
@@ -166,6 +167,18 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield triggerIds
   }
 
+  def assertTriggerIds(uri: Uri, party: String, expectedTriggerIds: Vector[String]) = {
+    Future {
+      eventually {
+        val actualTriggerIds = Await.result(for {
+          resp <- listTriggers(uri, party)
+          result <- parseTriggerIds(resp)
+        } yield result, Duration.Inf)
+        assert(actualTriggerIds == expectedTriggerIds)
+      }
+    }
+  }
+
   it should "initialize database" in {
     connectToPostgresqlServer()
     createNewDatabase()
@@ -176,7 +189,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   }
 
   it should "fail to start non-existent trigger" in withHttpService(Some(dar)) {
-    (uri: Uri, client) =>
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       val expectedError = StatusCodes.UnprocessableEntity
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", "Alice")
@@ -190,108 +203,56 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "start a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
-    for {
-      resp <- uploadDar(uri, darPath)
-      JsObject(fields) <- parseResult(resp)
-      Some(JsString(mainPackageId)) = fields.get("mainPackageId")
-      _ <- mainPackageId should not be empty
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-      triggerId <- parseTriggerId(resp)
-      _ <- Future {
-        eventually {
-          val r = Await.result(for {
-            resp <- listTriggers(uri, "Alice")
-            result <- parseTriggerIds(resp)
-          } yield result, Duration.Inf)
-          assert(r == Vector(triggerId))
-        }
-      }
-      resp <- stopTrigger(uri, triggerId, "Alice")
-      stoppedTriggerId <- parseTriggerId(resp)
-      _ <- stoppedTriggerId should equal(triggerId)
-    } yield succeed
+  it should "start a trigger after uploading it" in withHttpService(None) {
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        resp <- uploadDar(uri, darPath)
+        JsObject(fields) <- parseResult(resp)
+        Some(JsString(mainPackageId)) = fields.get("mainPackageId")
+        _ <- mainPackageId should not be empty
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        triggerId <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, "Alice", Vector(triggerId))
+        resp <- stopTrigger(uri, triggerId, "Alice")
+        stoppedTriggerId <- parseTriggerId(resp)
+        _ <- stoppedTriggerId should equal(triggerId)
+      } yield succeed
   }
 
   it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
-    (uri: Uri, client) =>
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- listTriggers(uri, "Alice")
         result <- parseTriggerIds(resp)
         _ <- result should equal(Vector())
-        // start trigger for Alice
+        // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
-        _ <- Future {
-          eventually {
-            val r = Await.result(for {
-              resp <- listTriggers(uri, "Alice")
-              result <- parseTriggerIds(resp)
-            } yield result, Duration.Inf)
-            assert(r == Vector(aliceTrigger))
-          }
-        }
+        _ <- assertTriggerIds(uri, "Alice", Vector(aliceTrigger))
+        // Start trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
-        _ <- Future {
-          eventually {
-            val r = Await.result(for {
-              resp <- listTriggers(uri, "Bob")
-              result <- parseTriggerIds(resp)
-            } yield result, Duration.Inf)
-            assert(r == Vector(bobTrigger1))
-          }
-        }
+        _ <- assertTriggerIds(uri, "Bob", Vector(bobTrigger1))
+        // Start another trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
-        _ <- Future {
-          eventually {
-            val r = Await.result(for {
-              resp <- listTriggers(uri, "Bob")
-              result <- parseTriggerIds(resp)
-            } yield result, Duration.Inf)
-            assert(r == Vector(bobTrigger1, bobTrigger2))
-          }
-        }
+        _ <- assertTriggerIds(uri, "Bob", Vector(bobTrigger1, bobTrigger2))
+        // Start Alice's trigger.
         resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
-        _ <- Future {
-          eventually {
-            val r = Await.result(for {
-              resp <- listTriggers(uri, "Alice")
-              result <- parseTriggerIds(resp)
-            } yield result, Duration.Inf)
-            assert(r == Vector())
-          }
-        }
-        _ <- Future {
-          eventually {
-            val r = Await.result(for {
-              resp <- listTriggers(uri, "Bob")
-              result <- parseTriggerIds(resp)
-            } yield result, Duration.Inf)
-            assert(r == Vector(bobTrigger1, bobTrigger2))
-          }
-        }
-        // Stop Bob's triggers
+        _ <- assertTriggerIds(uri, "Alice", Vector())
+        _ <- assertTriggerIds(uri, "Bob", Vector(bobTrigger1, bobTrigger2))
+        // Stop Bob's triggers.
         resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
-        _ <- Future {
-          eventually {
-            val r = Await.result(for {
-              resp <- listTriggers(uri, "Bob")
-              result <- parseTriggerIds(resp)
-            } yield result, Duration.Inf)
-            assert(r == Vector())
-          }
-        }
+        _ <- assertTriggerIds(uri, "Bob", Vector())
       } yield succeed
   }
 
   it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
-    (uri: Uri, client) =>
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         // Start the trigger
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")

@@ -55,7 +55,7 @@ object TriggerServiceFixture {
       testName: String,
       dars: List[File],
       dar: Option[Dar[(PackageId, Package)]],
-  )(testFn: (Uri, LedgerClient) => Future[A])(
+  )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -122,8 +122,9 @@ object TriggerServiceFixture {
     val fa: Future[A] = for {
       client <- clientF
       binding <- serviceF
+      ledgerProxy <- ledgerProxyF
       uri = Uri.from(scheme = "http", host = "localhost", port = binding._1.localAddress.getPort)
-      a <- testFn(uri, client)
+      a <- testFn(uri, client, ledgerProxy)
     } yield a
 
     fa.onComplete { _ =>
