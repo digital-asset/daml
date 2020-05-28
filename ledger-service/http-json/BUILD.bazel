@@ -109,7 +109,7 @@ da_scala_binary(
 
 daml_compile(
     name = "Account",
-    srcs = ["src/test/daml/Account.daml"],
+    srcs = ["src/it/daml/Account.daml"],
 )
 
 da_scala_test(
@@ -161,7 +161,7 @@ da_scala_test(
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    resources = glob(["src/test/resources/**/*"]),
+    resources = glob(["src/it/resources/**/*"]),
     scalacopts = hj_scalacopts,
     deps = [
         ":http-json",
