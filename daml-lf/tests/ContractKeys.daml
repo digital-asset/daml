@@ -1,0 +1,196 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ContractKeys where
+
+import DA.Optional
+
+template Keyed
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+
+    key sig : Party
+    maintainer key
+
+template Divulger
+  with
+    divulgee : Party
+    sig : Party
+  where
+    signatory divulgee
+
+    controller sig can
+      nonconsuming DivulgeKeyed
+        : Keyed
+        with
+          keyedCid : ContractId Keyed
+        do
+          fetch keyedCid
+
+template Delegation
+  with
+    sig : Party
+    delegees : [Party]
+  where
+    signatory sig
+    observer delegees
+
+    nonconsuming choice CreateKeyed
+      : ContractId Keyed
+      with
+        delegee : Party
+        obs : Party
+      controller delegee
+      do
+        create Keyed with sig; obs
+
+    nonconsuming choice ArchiveKeyed
+      : ()
+      with
+        delegee : Party
+        keyedCid : ContractId Keyed
+      controller delegee
+      do
+        archive keyedCid
+
+    nonconsuming choice LookupKeyed
+      : Optional (ContractId Keyed)
+      with
+        lookupKey : Party
+        delegee : Party
+      controller delegee
+      do
+        lookupByKey @Keyed lookupKey
+
+    nonconsuming choice FetchKeyed
+      : (ContractId Keyed, Keyed)
+      with
+        lookupKey : Party
+        delegee : Party
+      controller delegee
+      do
+        fetchByKey @Keyed lookupKey
+
+lookupTest = scenario do
+
+  -- Put four parties in the four possible relationships with a `Keyed`
+  sig <- getParty "s" -- Signatory
+  obs <- getParty "o" -- Observer
+  divulgee <- getParty "d" -- Divulgee
+  blind <- getParty "b" -- Blind
+
+  keyedCid <- submit sig do create Keyed with ..
+  divulgercid <- submit divulgee do create Divulger with ..
+  submit sig do exercise divulgercid DivulgeKeyed with ..
+
+  -- Now the signatory and observer delegate their choices
+  sigDelegationCid <- submit sig do
+    create Delegation with
+      sig
+      delegees = [obs, divulgee, blind]
+  obsDelegationCid <- submit obs do
+    create Delegation with
+      sig = obs
+      delegees = [divulgee, blind]
+
+  -- TESTING LOOKUPS AND FETCHES
+
+  -- Maintainer can fetch
+  submit sig do
+    (cid, keyed) <- fetchByKey @Keyed sig
+    assert (keyedCid == cid)
+  -- Maintainer can lookup
+  submit sig do
+    mcid <- lookupByKey @Keyed sig
+    assert (mcid == Some keyedCid)
+
+  -- Stakeholder can fetch
+  submit obs do
+    (cid, l) <- fetchByKey @Keyed sig
+    assert (keyedCid == cid)
+  -- Stakeholder can't lookup without authorization
+  submitMustFail obs do lookupByKey @Keyed sig
+  -- Stakeholder can lookup with authorization
+  submit obs do
+    mcid <- exercise sigDelegationCid LookupKeyed with
+      delegee = obs
+      lookupKey = sig
+    assert (mcid == Some keyedCid)
+
+  -- Divulgee can't fetch
+  submitMustFail divulgee do fetchByKey @Keyed sig
+  -- Divulgee can't lookup
+  submitMustFail divulgee do lookupByKey @Keyed sig
+  -- Divulgee can't lookup with stakeholder authority
+  submitMustFail divulgee do
+    exercise obsDelegationCid LookupKeyed with
+        delegee = divulgee
+        lookupKey = sig
+  -- Divulgee can't do positive lookup with maintainer authority.
+  submitMustFail divulgee do
+    exercise sigDelegationCid LookupKeyed with
+      delegee = divulgee
+      lookupKey = sig
+  -- Divulgee can't fetch with stakeholder authority
+  submitMustFail divulgee do
+    exercise obsDelegationCid FetchKeyed with
+      delegee = divulgee
+      lookupKey = sig
+
+  -- Blind party can't fetch
+  submitMustFail blind do fetchByKey @Keyed sig
+  -- Blind party can't lookup
+  submitMustFail blind do lookupByKey @Keyed sig
+  -- Blind party can't lookup with stakeholder authority
+  submitMustFail blind do
+    exercise obsDelegationCid LookupKeyed with
+      delegee = blind
+      lookupKey = sig
+  -- Blind party can't lookup with maintainer authority.
+  -- The lookup initially returns `None`, but is rejected at
+  -- validation time
+  submitMustFail blind do
+    mcid <- exercise sigDelegationCid LookupKeyed with
+      delegee = blind
+      lookupKey = sig
+    assert (isNone mcid)
+  -- Blind party can't fetch with stakeholder authority as lookup is negative
+  submitMustFail blind do
+    exercise obsDelegationCid FetchKeyed with
+      delegee = blind
+      lookupKey = sig
+  -- Blind can do a negative lookup on a truly nonexistant contract
+  submit blind do
+    mcid <- exercise obsDelegationCid LookupKeyed with
+      delegee = blind
+      lookupKey = obs
+    assert (isNone mcid)
+  -- TESTING CREATES AND ARCHIVES
+
+  -- Divulgee can archive
+  submit divulgee do
+    exercise sigDelegationCid ArchiveKeyed with
+      delegee = divulgee
+      keyedCid
+  -- Divulgee can create
+  keyedCid2 <- submit divulgee do
+    exercise sigDelegationCid CreateKeyed with
+      delegee = divulgee
+      obs
+
+  -- Stakeholder can archive
+  submit obs do
+    exercise sigDelegationCid ArchiveKeyed with
+      delegee = obs
+      keyedCid = keyedCid2
+  -- Stakeholder can create
+  keyedCid3 <- submit obs do
+    exercise sigDelegationCid CreateKeyed with
+      delegee = obs
+      obs
+
+  return ()

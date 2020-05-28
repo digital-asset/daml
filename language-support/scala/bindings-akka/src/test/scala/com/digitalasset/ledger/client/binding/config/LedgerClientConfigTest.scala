@@ -11,7 +11,6 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerClientConfigTest extends WordSpec with Matchers {
 
   "TypeSafePlatformConfig" should {

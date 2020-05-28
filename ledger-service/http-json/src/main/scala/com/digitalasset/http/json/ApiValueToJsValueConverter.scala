@@ -19,7 +19,6 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
       .map(LfValueCodec.apiValueToJsValue)
       .leftMap(x => JsonError(x.shows))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def apiRecordToJsObject(a: lav1.value.Record): JsonError \/ JsObject = {
     a.fields.toList.traverse(convertField).map(fs => JsObject(fs.toMap))
   }

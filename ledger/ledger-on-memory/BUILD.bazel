@@ -29,6 +29,7 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -90,7 +91,6 @@ da_scala_library(
         "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -119,6 +119,7 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-queue-size=500",
     ],
     test_tool_args = [
         "--verbose",
@@ -138,6 +139,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example1,port=6865",
         "--participant participant-id=example2,port=6866",
+        "--batching enable=true,max-queue-size=500",
     ],
     test_tool_args = [
         "--verbose",

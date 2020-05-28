@@ -23,11 +23,6 @@ import scala.concurrent.Future.successful
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any"
-  )
-)
 class DispatcherSpec
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll

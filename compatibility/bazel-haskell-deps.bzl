@@ -55,6 +55,7 @@ def daml_haskell_deps():
             "http-conduit",
             "jwt",
             "lens",
+            "lens-aeson",
             "memory",
             "mtl",
             "monad-loops",

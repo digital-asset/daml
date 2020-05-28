@@ -165,7 +165,7 @@ beforeAll(async () => {
 
   // Launch a single browser for all tests.
   browser = await puppeteer.launch();
-}, 40_000);
+}, 60_000);
 
 afterAll(async () => {
   if (browser) {
@@ -180,7 +180,7 @@ afterAll(async () => {
   if (sandbox) {
     await killTree(sandbox);
   }
-}, 40_000);
+}, 60_000);
 
 test("create and look up user using ledger library", async () => {
   const partyName = getParty();
@@ -194,7 +194,7 @@ test("create and look up user using ledger library", async () => {
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User.User);
   expect(users[0]).toEqual(userContract1);
-}, 40_000);
+}, 60_000);
 
 // The tests following use the headless browser to interact with the app.
 // We select the relevant DOM elements using CSS class names that we embedded
@@ -242,7 +242,7 @@ const follow = async (page: Page, userToFollow: string) => {
   // (Both the `test-...` and `loading` classes appear in `div`s surrounding
   // the `input`, due to the translation of Semantic UI's `Input` element.)
   await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
-    timeout: 40_000,
+    timeout: 60_000,
   });
 };
 
@@ -271,7 +271,7 @@ test("log in as a new user, log out and log back in", async () => {
   expect(usersFinal[0].payload.username).toEqual(partyName);
 
   await page.close();
-}, 40_000);
+}, 60_000);
 // LOGIN_TEST_END
 
 // This tests following users in a few different ways:
@@ -398,7 +398,7 @@ test("error when following self", async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-}, 40_000);
+}, 60_000);
 
 test("error when adding a user that you are already following", async () => {
   const party1 = getParty();
@@ -417,4 +417,4 @@ test("error when adding a user that you are already following", async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-}, 40_000);
+}, 60_000);

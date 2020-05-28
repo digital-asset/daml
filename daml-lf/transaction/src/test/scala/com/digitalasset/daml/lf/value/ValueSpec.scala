@@ -4,11 +4,12 @@
 package com.daml.lf
 package value
 
-import data.{Bytes, FrontStack, ImmArray, Ref, Unnatural}
+import data.{Bytes, FrontStack, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
 import ValueGenerators.{coidGen, idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
+import com.daml.scalatest.Unnatural
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Inside, Matchers}
@@ -20,7 +21,6 @@ import scalaz.scalacheck.{ScalazProperties => SzP}
 import scalaz.scalacheck.ScalaCheckBinding._
 import shapeless.syntax.singleton._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueSpec
     extends FreeSpec
     with Matchers
@@ -212,7 +212,6 @@ class ValueSpec
 
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object ValueSpec {
   private val fooSpec =
     'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil

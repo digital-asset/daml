@@ -3,7 +3,7 @@
 
 package com.daml.lf.archive
 
-import com.daml.lf.data.FlatSpecCheckLaws
+import com.daml.scalatest.FlatSpecCheckLaws
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.std.anyVal._

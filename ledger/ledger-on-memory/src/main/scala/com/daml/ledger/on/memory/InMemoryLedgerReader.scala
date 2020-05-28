@@ -6,7 +6,6 @@ package com.daml.ledger.on.memory
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter.{Index, StartIndex}
 import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
@@ -20,7 +19,6 @@ class InMemoryLedgerReader(
     state: InMemoryState,
     metrics: Metrics)
     extends LedgerReader {
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // so we can use `.view`
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(

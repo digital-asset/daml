@@ -29,7 +29,6 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CompletionServiceIT
     extends AsyncWordSpec
     with Matchers

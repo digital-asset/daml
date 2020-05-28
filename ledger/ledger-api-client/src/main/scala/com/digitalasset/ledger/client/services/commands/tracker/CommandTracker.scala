@@ -224,7 +224,6 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         ()
       }
 
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
         pendingCommands.flatMap {

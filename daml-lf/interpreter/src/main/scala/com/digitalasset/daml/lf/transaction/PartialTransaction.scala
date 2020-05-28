@@ -9,7 +9,6 @@ import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
 import com.daml.lf.value.Value
 
-import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 
 object PartialTransaction {
@@ -186,10 +185,10 @@ case class PartialTransaction(
       // roots field is not initialized when this method is executed on a failed transaction,
       // so we need to compute them.
       val rootNodes = {
-        val allChildNodeIds: Set[Value.NodeId] = nodes.values.flatMap {
+        val allChildNodeIds: Set[Value.NodeId] = nodes.values.iterator.flatMap {
           case _: Node.LeafOnlyNode[_, _] => Nil
           case ex: Node.NodeExercises[Value.NodeId, _, _] => ex.children.toSeq
-        }(breakOut)
+        }.toSet
 
         nodes.keySet diff allChildNodeIds
       }

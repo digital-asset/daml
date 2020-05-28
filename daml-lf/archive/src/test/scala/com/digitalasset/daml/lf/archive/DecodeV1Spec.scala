@@ -20,7 +20,6 @@ import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DecodeV1Spec
     extends WordSpec
     with Matchers

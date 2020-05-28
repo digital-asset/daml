@@ -37,7 +37,6 @@ import spray.json.JsValue
 import scala.annotation.tailrec
 import scala.language.higherKinds
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object domain {
 
   case class Error(id: Symbol, message: String)

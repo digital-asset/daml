@@ -91,7 +91,7 @@ initPackageConfig scriptDar testDar = do
         ]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         dir <- getCurrentDirectory
-        createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pDependencies pDataDependencies
+        createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pModulePrefixes pDependencies pDataDependencies
 
 drainHandle :: Handle -> Chan String -> IO ()
 drainHandle handle chan = forever $ do

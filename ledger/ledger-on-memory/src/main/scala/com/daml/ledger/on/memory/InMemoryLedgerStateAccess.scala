@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter.Index
 import com.daml.ledger.validator.{
   LedgerStateAccess,
   LedgerStateOperations,

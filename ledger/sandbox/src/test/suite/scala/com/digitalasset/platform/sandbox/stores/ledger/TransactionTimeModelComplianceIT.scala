@@ -40,7 +40,6 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionTimeModelComplianceIT
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
@@ -96,7 +95,7 @@ class TransactionTimeModelComplianceIT
   }
 
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
-    val dummyTransaction: Transaction.AbsTransaction =
+    val dummyTransaction: Transaction.Transaction =
       GenTransaction(HashMap.empty, ImmArray.empty)
 
     val submitterInfo = SubmitterInfo(

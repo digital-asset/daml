@@ -11,7 +11,6 @@ import com.auth0.jwt.algorithms.Algorithm
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.show._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SignatureSpec extends WordSpec with Matchers {
 
   "Jwt" when {

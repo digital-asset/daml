@@ -1,0 +1,37 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "scalatest-utils",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:scalatest-utils:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scalacopts = lf_scalacopts + ["-Ypartial-unification"],
+    deps = [
+        ":scalatest-utils",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)

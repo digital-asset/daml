@@ -15,7 +15,6 @@ import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{FutureOutcome, Matchers, fixture}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SignalDispatcherTest
     extends fixture.AsyncWordSpec
     with Matchers

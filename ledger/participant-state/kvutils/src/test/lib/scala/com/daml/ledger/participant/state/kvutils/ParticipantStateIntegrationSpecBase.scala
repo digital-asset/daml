@@ -550,8 +550,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       }
     }
 
-    "process commits serially" in participantState.use { ps =>
-      val partyCount = 100L
+    "process many party allocations" in participantState.use { ps =>
+      val partyCount = 1000L
       val partyIds = 1L to partyCount
       val partyIdDigits = partyCount.toString.length
       val partyNames =
@@ -671,7 +671,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private val IdleTimeout: FiniteDuration = 5.seconds
 
-  private val emptyTransaction: Transaction.AbsTransaction =
+  private val emptyTransaction: Transaction.Transaction =
     GenTransaction(HashMap.empty, ImmArray.empty)
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")

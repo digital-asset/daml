@@ -244,6 +244,7 @@ object Ledger {
   final case class LookupOk(
       coid: ContractId,
       coinst: ContractInst[Transaction.Value[ContractId]],
+      stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
 
@@ -339,7 +340,7 @@ object Ledger {
                   info.observingSince.keys.toSet,
                 )
               else
-                LookupOk(coid, create.coinst)
+                LookupOk(coid, create.coinst, create.stakeholders)
 
             case _: NodeExercises[_, _, _] | _: NodeFetch[_, _] | _: NodeLookupByKey[_, _] =>
               LookupContractNotFound(coid)

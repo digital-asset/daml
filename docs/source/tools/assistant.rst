@@ -119,7 +119,9 @@ Here is what each field means:
 - ``version``: the project version.
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
   If this field is not specified all modules in the project are exposed.
-- ``dependencies``: the dependencies of this project.
+- ``dependencies``: library-dependencies of this project. See :doc:`/daml/reference/packages`.
+- ``data-dependencies``: Cross-SDK dependencies of this project See :doc:`/daml/reference/packages`.
+- ``module-prefixes``: Prefixes for all modules in package See :doc:`/daml/reference/packages`.
 - ``scenario-service``: settings for the scenario service
 
   - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.

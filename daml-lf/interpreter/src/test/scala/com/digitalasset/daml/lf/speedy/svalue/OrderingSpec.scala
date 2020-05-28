@@ -17,8 +17,9 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.TypedValueGenerators.genAddend
 import com.daml.lf.value.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
-import org.scalacheck.Arbitrary
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{
+  Checkers,
   GeneratorDrivenPropertyChecks,
   TableDrivenPropertyChecks,
   TableFor1,
@@ -27,6 +28,7 @@ import org.scalatest.prop.{
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.{Order, Tag}
 import scalaz.syntax.order._
+import scalaz.scalacheck.{ScalazProperties => SzP}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -37,6 +39,7 @@ import scala.util.Random
 class OrderingSpec
     extends WordSpec
     with Matchers
+    with Checkers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
 
@@ -323,6 +326,27 @@ class OrderingSpec
     Table("any", anys: _*),
   )
 
+  private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
+    import com.daml.lf.value.TypedValueGenerators.{ValueAddend => VA}
+    implicit val ordNo
+      : Order[Nothing] = Order order [Nothing]((_: Any, _: Any) => sys.error("impossible"))
+    def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
+      (name, va.injarb[Nothing].arbitrary map sv)
+    Table(
+      ("comparable value subset", "generator"),
+      Seq(
+        r("Int64", VA.int64)(SInt64),
+        r("Text", VA.text)(SText),
+        r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
+          SList(loi.map(oi => SOptional(oi map SInt64)).to[FrontStack])
+        },
+      ) ++
+        comparableCoidsGen.zipWithIndex.map {
+          case (g, ix) => (s"ContractId $ix", g map SContractId)
+        }: _*
+    )
+  }
+
   private val lfFunction = SPAP(PBuiltin(SBuiltin.SBAddInt64), ArrayList(SInt64(1)), 2)
 
   private val funs = List(
@@ -434,6 +458,13 @@ class OrderingSpec
       }
     }
 
+    "be lawful on each subset" in forEvery(randomComparableValues) { (_, svGen) =>
+      implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
+      implicit val svalueArb: Arbitrary[SValue] = Arbitrary(svGen)
+      forEvery(Table(("law", "prop"), SzP.order.laws[SValue].properties: _*)) { (_, p) =>
+        check(p, minSuccessful(50))
+      }
+    }
   }
 
   // A problem in this test *usually* indicates changes that need to be made

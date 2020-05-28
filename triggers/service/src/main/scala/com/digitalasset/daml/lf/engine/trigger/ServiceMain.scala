@@ -62,21 +62,23 @@ case class LedgerConfig(
     commandTtl: Duration,
 )
 
-object Server {
+class Server(dar: Option[Dar[(PackageId, Package)]]) {
+  private var triggers: Map[UUID, TriggerRunnerWithToken] = Map.empty;
+  private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
+  val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+  dar.foreach(addDar(_))
 
-  sealed trait Message
-  private final case class StartFailed(cause: Throwable) extends Message
-  private final case class Started(binding: ServerBinding) extends Message
-  final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
-  final case object Stop extends Message
+  case class TriggerRunnerWithToken(ref: ActorRef[TriggerRunner.Message], token: Jwt)
 
-  private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
+  private def addDar(dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
     darMap.foreach {
       case (pkgId, pkg) =>
-        // If packages are not in topological order, we will get back ResultNeedPackage.
-        // The way the code is structured here we will still call addPackage even if we
-        // already fed the package via the callback but this is harmless and not expensive.
+        // If packages are not in topological order, we will get back
+        // ResultNeedPackage.  The way the code is structured here we
+        // will still call addPackage even if we already fed the
+        // package via the callback but this is harmless and not
+        // expensive.
         def go(r: Result[Unit]): Unit = r match {
           case ResultDone(()) => ()
           case ResultNeedPackage(pkgId, resume) =>
@@ -87,88 +89,130 @@ object Server {
     }
   }
 
-  case class TriggerRunnerWithToken(
-      ref: ActorRef[TriggerRunner.Message],
-      token: Jwt,
-  )
-
-  private var triggers: Map[UUID, TriggerRunnerWithToken] = Map.empty
-  private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty
-  private val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
-
-  private def startTrigger(
-      ctx: ActorContext[Server.Message],
-      token: (Jwt, JwtPayload),
-      trigger: Trigger,
-      params: StartParams,
-      ledgerConfig: LedgerConfig,
-      maxInboundMessageSize: Int)(
-      implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): JsValue = {
-    val jwt: Jwt = token._1
-    val jwtPayload: JwtPayload = token._2
-    val party: Party = Party(jwtPayload.party);
-    val uuid = UUID.randomUUID
-    val ident = uuid.toString
-    val ref = ctx.spawn(
-      TriggerRunner(
-        new TriggerRunner.Config(
-          compiledPackages,
-          trigger,
-          ledgerConfig,
-          maxInboundMessageSize,
-          party),
-        ident),
-      ident + "-monitor")
-    triggers = triggers + (uuid -> TriggerRunnerWithToken(ref, jwt))
-    val newTriggerSet = triggersByToken.getOrElse(jwt, Set()) + uuid
-    triggersByToken = triggersByToken + (jwt -> newTriggerSet)
-    val triggerIdResult = JsObject(("triggerId", uuid.toString.toJson))
-    triggerIdResult
+  private def actorWithToken(uuid: UUID) = {
+    triggers.get(uuid).get // TODO: Improve as might throw NoSuchElementException.
   }
 
-  private def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload))(
-      implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): JsValue = {
-    //TODO(SF, 2020-05-20): Check that the provided token
-    //is the same as the one used to start the trigger and
-    //fail with 'Unauthorized' if not.
-    val actorWithToken = triggers.get(uuid).get
-    actorWithToken.ref ! TriggerRunner.Stop
+  private def addRunningTrigger(uuid: UUID, jwt: Jwt, runner: ActorRef[TriggerRunner.Message]) = {
+    triggers = triggers + (uuid -> TriggerRunnerWithToken(runner, jwt))
+    triggersByToken = triggersByToken + (jwt -> (triggersByToken.getOrElse(jwt, Set()) + uuid))
+  }
+
+  private def removeRunningTrigger(
+      uuid: UUID,
+      jwt: Jwt,
+      runner: ActorRef[TriggerRunner.Message]) = {
     triggers = triggers - uuid
-    val token = actorWithToken.token
-    val newTriggerSet = triggersByToken.get(token).get - uuid
-    triggersByToken = triggersByToken + (token -> newTriggerSet)
-    val stoppedTriggerId = JsObject(("triggerId", uuid.toString.toJson))
-    stoppedTriggerId
+    triggersByToken = triggersByToken + (jwt -> (triggersByToken.get(jwt).get - uuid))
   }
 
-  private def listTriggers(token: (Jwt, JwtPayload))(
-      implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): JsValue = {
-    val jwt: Jwt = token._1
-    val triggerList = triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
-    JsObject(("triggerIds", triggerList.toJson))
+  private def listRunningTriggers(jwt: Jwt): List[String] = {
+    triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
   }
+}
+
+object Server {
+
+  sealed trait Message
+
+  final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
+  final case object Stop extends Message
+
+  private final case class StartFailed(cause: Throwable) extends Message
+  private final case class Started(binding: ServerBinding) extends Message
+
+  final case class TriggerStarting(
+      triggerId: UUID,
+      jwt: Jwt,
+      runner: ActorRef[TriggerRunner.Message])
+      extends Message
+  final case class TriggerStarted(
+      triggerId: UUID,
+      jwt: Jwt,
+      runner: ActorRef[TriggerRunner.Message])
+      extends Message
+  final case class TriggerInitializationFailure(
+      triggerId: UUID,
+      jwt: Jwt,
+      runner: ActorRef[TriggerRunner.Message],
+      cause: String
+  ) extends Message
+  final case class TriggerRuntimeFailure(
+      triggerId: UUID,
+      jwt: Jwt,
+      runner: ActorRef[TriggerRunner.Message],
+      cause: String
+  ) extends Message
 
   def apply(
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
       maxInboundMessageSize: Int,
+      maxFailureNumberOfRetries: Int,
+      failureRetryTimeRange: Duration,
       dar: Option[Dar[(PackageId, Package)]],
   ): Behavior[Message] = Behaviors.setup { ctx =>
+    val server = new Server(dar)
+
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
     implicit val materializer: Materializer = Materializer(untypedSystem)
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    dar.foreach(addDar(compiledPackages, _))
+    def startTrigger(
+        ctx: ActorContext[Server.Message],
+        token: (Jwt, JwtPayload),
+        trigger: Trigger,
+        params: StartParams,
+        ledgerConfig: LedgerConfig,
+        maxInboundMessageSize: Int,
+        maxFailureNumberOfRetries: Int,
+        failureRetryTimeRange: Duration,
+    ): JsValue = {
+      val jwt: Jwt = token._1
+      val jwtPayload: JwtPayload = token._2
+      val party: Party = Party(jwtPayload.party);
+      val uuid = UUID.randomUUID
+      val ident = uuid.toString
+      val ref = ctx.spawn(
+        TriggerRunner(
+          new TriggerRunner.Config(
+            ctx.self,
+            uuid,
+            jwt,
+            server.compiledPackages,
+            trigger,
+            ledgerConfig,
+            maxInboundMessageSize,
+            maxFailureNumberOfRetries,
+            failureRetryTimeRange,
+            party),
+          ident
+        ),
+        ident + "-monitor"
+      )
+      JsObject(("triggerId", uuid.toString.toJson))
+    }
+
+    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): JsValue = {
+      //TODO(SF, 2020-05-20): At least check that the provided token
+      //is the same as the one used to start the trigger and fail with
+      //'Unauthorized' if not (expect we'll be able to do better than
+      //this).
+      val actorWithToken = server.actorWithToken(uuid)
+      actorWithToken.ref ! TriggerRunner.Stop
+      server.removeRunningTrigger(uuid, actorWithToken.token, actorWithToken.ref)
+      JsObject(("triggerId", uuid.toString.toJson))
+    }
+
+    def listTriggers(token: (Jwt, JwtPayload)): JsValue = {
+      JsObject(("triggerIds", server.listRunningTriggers(token._1).toJson))
+    }
 
     // 'fileUpload' triggers this warning we don't have a fix right
     // now so we disable it.
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val route = concat(
       post {
         concat(
@@ -190,7 +234,7 @@ object Server {
                           complete(
                             errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
                         token =>
-                          Trigger.fromIdentifier(compiledPackages, params.identifier) match {
+                          Trigger.fromIdentifier(server.compiledPackages, params.identifier) match {
                             case Left(err) =>
                               complete(errorResponse(StatusCodes.UnprocessableEntity, err))
                             case Right(trigger) => {
@@ -200,7 +244,10 @@ object Server {
                                 trigger,
                                 params,
                                 ledgerConfig,
-                                maxInboundMessageSize)
+                                maxInboundMessageSize,
+                                maxFailureNumberOfRetries,
+                                failureRetryTimeRange
+                              )
                               complete(successResponse(triggerId))
                             }
                         }
@@ -226,7 +273,7 @@ object Server {
                           val dar = encodedDar.map {
                             case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
                           }
-                          addDar(compiledPackages, dar)
+                          server.addDar(dar)
                           val mainPackageId = JsObject(("mainPackageId", dar.main._1.name.toJson))
                           complete(successResponse(mainPackageId))
                         } catch {
@@ -293,27 +340,55 @@ object Server {
       },
     )
 
+    // The server binding is a future that on completion will be piped
+    // to a message to this actor.
     val serverBinding = Http().bindAndHandle(Route.handlerFlow(route), host, port)
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
       case Failure(ex) => StartFailed(ex)
     }
 
+    // The server running server.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case StartFailed(_) => Behaviors.unhandled
-          case Started(_) => Behaviors.unhandled
+          case TriggerStarting(uuid, jwt, runner) =>
+            // Nothing to do at this time.
+            Behaviors.same
+          case TriggerStarted(uuid, jwt, runner) =>
+            // The trigger has successfully started. Update the
+            // running triggers tables.
+            server.addRunningTrigger(uuid, jwt, runner)
+            Behaviors.same
+          case TriggerInitializationFailure(uuid, jwt, runner, _) =>
+            // The trigger has failed to start. Send the runner a stop
+            // message. There's no point in it remaining alive since
+            // its child actor is stopped and won't be restarted.
+            runner ! TriggerRunner.Stop
+            // No need to update the running triggers tables since
+            // this trigger never made it there.
+            Behaviors.same
+          case TriggerRuntimeFailure(uuid, jwt, runner, _) =>
+            // The trigger has failed. Remove it from the running
+            // triggers tables.
+            server.removeRunningTrigger(uuid, jwt, runner)
+            // Don't send any messages to the runner. Its supervision
+            // strategy will automatically restart the trigger up to
+            // some number of times beyond which it will remain
+            // stopped.
+            Behaviors.same
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same
+          case StartFailed(_) => Behaviors.unhandled // Will never be received in this server
+          case Started(_) => Behaviors.unhandled // Will never be received in this server
           case Stop =>
             ctx.log.info(
               "Stopping server http://{}:{}/",
               binding.localAddress.getHostString,
               binding.localAddress.getPort,
             )
-            Behaviors.stopped
+            Behaviors.stopped // Automatically stops all actors.
         }
         .receiveSignal {
           case (_, PostStop) =>
@@ -321,6 +396,7 @@ object Server {
             Behaviors.same
         }
 
+    // The server starting server.
     def starting(
         wasStopped: Boolean,
         req: Option[ActorRef[ServerBinding]]): Behaviors.Receive[Message] =
@@ -340,11 +416,14 @@ object Server {
           req.foreach(ref => ref ! binding)
           if (wasStopped) ctx.self ! Stop
           running(binding)
-        case GetServerBinding(replyTo) => starting(wasStopped, Some(replyTo))
+        case GetServerBinding(replyTo) =>
+          starting(wasStopped, Some(replyTo))
         case Stop =>
-          // we got a stop message but haven't completed starting yet,
-          // we cannot stop until starting has completed
+          // We got a stop message but haven't completed starting
+          // yet. We cannot stop until starting has completed.
           starting(wasStopped = true, req = None)
+        case _ =>
+          Behaviors.unhandled
       }
 
     starting(wasStopped = false, req = None)
@@ -358,10 +437,21 @@ object ServiceMain {
       port: Int,
       ledgerConfig: LedgerConfig,
       maxInboundMessageSize: Int,
+      maxFailureNumberOfRetries: Int,
+      failureRetryTimeRange: Duration,
       dar: Option[Dar[(PackageId, Package)]])
     : Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
-      ActorSystem(Server(host, port, ledgerConfig, maxInboundMessageSize, dar), "TriggerService")
+      ActorSystem(
+        Server(
+          host,
+          port,
+          ledgerConfig,
+          maxInboundMessageSize,
+          maxFailureNumberOfRetries,
+          failureRetryTimeRange,
+          dar),
+        "TriggerService")
     // timeout chosen at random, change freely if you see issues
     implicit val timeout: Timeout = 15.seconds
     implicit val scheduler: Scheduler = system.scheduler
@@ -403,8 +493,16 @@ object ServiceMain {
           )
         val system: ActorSystem[Server.Message] =
           ActorSystem(
-            Server("localhost", config.httpPort, ledgerConfig, config.maxInboundMessageSize, dar),
-            "TriggerService")
+            Server(
+              "localhost",
+              config.httpPort,
+              ledgerConfig,
+              config.maxInboundMessageSize,
+              config.maxFailureNumberOfRetries,
+              config.failureRetryTimeRange,
+              dar),
+            "TriggerService"
+          )
         // Timeout chosen at random, change freely if you see issues.
         implicit val timeout: Timeout = 15.seconds
         implicit val scheduler: Scheduler = system.scheduler

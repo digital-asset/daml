@@ -15,7 +15,6 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
   import defaultParserParameters.{defaultPackageId => pkgId}
