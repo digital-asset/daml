@@ -11,5 +11,7 @@ final case class ExtraConfig(
 
 object ExtraConfig {
   val default =
-    ExtraConfig(batchingLedgerWriterConfig = BatchingLedgerWriterConfig.reasonableDefault)
+    ExtraConfig(
+      batchingLedgerWriterConfig =
+        BatchingLedgerWriterConfig.reasonableDefault.copy(maxBatchConcurrentCommits = 2))
 }
