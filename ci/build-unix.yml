@@ -51,7 +51,7 @@ steps:
       --detect.excluded.detector.types=SBT \
       --detect.bazel.dependency.type=maven_install \
       --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts/ \
-      --detect.report.timeout=480
+      --detect.report.timeout=360
     displayName: 'Blackduck Scan'
 
     env:
