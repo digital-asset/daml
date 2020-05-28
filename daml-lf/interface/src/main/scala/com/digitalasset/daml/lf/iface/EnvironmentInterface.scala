@@ -7,7 +7,6 @@ package iface
 import com.daml.lf.archive.Dar
 import data.Ref.Identifier
 
-import scala.collection.breakOut
 import scala.collection.immutable.Map
 import scalaz.syntax.std.map._
 import scalaz.Semigroup
@@ -17,10 +16,10 @@ final case class EnvironmentInterface(typeDecls: Map[Identifier, InterfaceType])
 
 object EnvironmentInterface {
   def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface =
-    EnvironmentInterface((i +: o).flatMap {
+    EnvironmentInterface((i +: o).iterator.flatMap {
       case Interface(packageId, typeDecls) =>
         typeDecls mapKeys (Identifier(packageId, _))
-    }(breakOut))
+    }.toMap)
 
   def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     fromReaderInterfaces(dar.main, dar.dependencies: _*)

@@ -52,10 +52,16 @@ Components
   Both have associated Protobuf definitions, also contained in this
   package, and are used in `interpreter` and `engine` respectively.
 
+- `transaction-scalacheck` supplies Scalacheck `Gen`s for the value and
+  transaction ADTs provided by the `transaction` library.
+
 - `data` contains utility datatypes used in the engine, and functions
   designed around specified LF semantics.  For example, if you want
   LF-compatible decimal handling, the `Decimal` API is a good source of
   useful functions.
+
+- `data-scalacheck` supplies Scalacheck `Arbitrary`s for the custom
+  collections provided by the `data` library.
 
 - `interpreter` is the "unified interpreter" used for both the sandbox
   and the production ledger.  It is an efficient [CEK machine][],

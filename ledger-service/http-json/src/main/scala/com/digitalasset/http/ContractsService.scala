@@ -28,7 +28,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
@@ -250,7 +249,7 @@ class ContractsService(
     import InsertDeleteStep.appendForgettingDeletes
 
     val funPredicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean] =
-      templateIds.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate))(breakOut)
+      templateIds.iterator.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate)).toMap
 
     insertDeleteStepSource(jwt, party, templateIds.toList)
       .map { step =>
