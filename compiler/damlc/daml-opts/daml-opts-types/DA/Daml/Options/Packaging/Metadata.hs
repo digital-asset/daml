@@ -9,7 +9,6 @@ module DA.Daml.Options.Packaging.Metadata
   ) where
 
 import Data.Aeson
-import Data.List
 import DA.Daml.Package.Config ()
 import Data.Map.Strict (Map)
 import qualified Data.Text as T
@@ -54,7 +53,7 @@ renamingToFlag unitId prefix modules =
             [ ( Ghc.mkModuleName s
               , Ghc.mkModuleName (Ghc.moduleNameString prefix ++ "." ++ s))
             | m <- modules
-            , s = T.unpack (LF.moduleNameString m)
+            , let s = T.unpack (LF.moduleNameString m)
             ]
           }
 
