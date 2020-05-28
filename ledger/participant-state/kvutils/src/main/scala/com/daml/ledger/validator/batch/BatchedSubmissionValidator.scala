@@ -9,7 +9,6 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.codahale.metrics.{Counter, Histogram, Timer}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -22,7 +21,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{MetricName, Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed}
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
@@ -106,7 +105,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     committer: KeyValueCommitting,
     engine: Engine,
     conflictDetection: ConflictDetection,
-    metrics: Metrics) {
+    damlMetrics: Metrics) {
 
   import BatchedSubmissionValidator._
 
@@ -129,8 +128,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     withCorrelationIdLogged(correlationId) { implicit logCtx =>
       val recordTime = Time.Timestamp.assertFromInstant(recordTimeInstant)
       Timed.future(
-        Metrics.validateAndCommit, {
-          val result = Metrics.openEnvelope.time(() => Envelope.open(submissionEnvelope)) match {
+        metrics.validateAndCommit, {
+          val result = metrics.openEnvelope.time(() => Envelope.open(submissionEnvelope)) match {
             case Right(Envelope.SubmissionMessage(submission)) =>
               processBatch(
                 participantId,
@@ -143,8 +142,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
 
             case Right(Envelope.SubmissionBatchMessage(batch)) =>
               logger.trace(s"Validating a batch of ${batch.getSubmissionsCount} submissions")
-              Metrics.batchSizes.update(batch.getSubmissionsCount)
-              Metrics.receivedBatchSubmissionBytes.update(batch.getSerializedSize)
+              metrics.batchSizes.update(batch.getSubmissionsCount)
+              metrics.receivedBatchSubmissionBytes.update(batch.getSerializedSize)
               processBatch(
                 participantId,
                 correlationId,
@@ -193,13 +192,13 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
           case (correlationId, submissionEnvelope) =>
             // Decompress and decode the submissions in parallel.
             Timed.timedAndTrackedFuture(
-              Metrics.decode,
-              Metrics.decodeRunning,
+              metrics.decode,
+              metrics.decodeRunning,
               Future {
                 val submission = Envelope
                   .openSubmission(submissionEnvelope)
                   .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
-                Metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
+                metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
                 CorrelatedSubmission(
                   correlationId,
                   bytesToLogEntryId(submissionEnvelope),
@@ -310,8 +309,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
     withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
       Timed.timedAndTrackedFuture(
-        Metrics.fetchInputs,
-        Metrics.fetchInputsRunning,
+        metrics.fetchInputs,
+        metrics.fetchInputsRunning,
         ledgerStateReader
           .readState(inputKeys)
           .map { values =>
@@ -329,8 +328,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       implicit executionContext: ExecutionContext): Future[ValidatedSubmission] =
     withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
       Timed.timedAndTrackedFuture(
-        Metrics.validate,
-        Metrics.validateRunning,
+        metrics.validate,
+        metrics.validateRunning,
         Future {
           val logEntryAndState = committer.processSubmission(
             correlatedSubmission.logEntryId,
@@ -354,7 +353,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     val (logEntry, outputState) = logEntryAndState
     withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
       Timed.value(
-        Metrics.detectConflicts, {
+        metrics.detectConflicts, {
           conflictDetection
             .detectConflictsAndRecover(
               invalidatedKeys,
@@ -387,8 +386,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     val (logEntry, outputState) = logEntryAndState
     withSubmissionLoggingContext(correlatedSubmission) { implicit logCtx =>
       Timed.timedAndTrackedFuture(
-        Metrics.commit,
-        Metrics.commitRunning,
+        metrics.commit,
+        metrics.commitRunning,
         commitStrategy
           .commit(
             participantId,
@@ -402,41 +401,5 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     }
   }
 
-  private[batch] object Metrics {
-    private val Prefix = MetricName.DAML :+ "pkvutils" :+ "batch_validator"
-
-    val validateAndCommit: Timer =
-      metrics.registry.timer(Prefix :+ "validate_and_commit")
-
-    val openEnvelope: Timer =
-      metrics.registry.timer(Prefix :+ "open_envelope")
-
-    val batchSizes: Histogram =
-      metrics.registry.histogram(Prefix :+ "batch_sizes")
-
-    val receivedBatchSubmissionBytes: Histogram =
-      metrics.registry.histogram(Prefix :+ "received_batch_submission_bytes")
-
-    val receivedSubmissionBytes: Histogram =
-      metrics.registry.histogram(Prefix :+ "received_submission_bytes")
-
-    // Metrics for each stage. We both time and maintain a counter for each running stage.
-    // With the counter we can track how many submissions we're processing in parallel.
-    // We don't have metrics for stages 4 and 5 since they're trivial (collect and sort).
-
-    val decode: Timer = metrics.registry.timer(Prefix :+ "decode")
-    val decodeRunning: Counter = metrics.registry.counter(Prefix :+ "decode_running")
-
-    val fetchInputs: Timer = metrics.registry.timer(Prefix :+ "fetch_inputs")
-    val fetchInputsRunning: Counter = metrics.registry.counter(Prefix :+ "fetch_inputs_running")
-
-    val validate: Timer = metrics.registry.timer(Prefix :+ "validate")
-    val validateRunning: Counter = metrics.registry.counter(Prefix :+ "validate_running")
-
-    val detectConflicts: Timer =
-      metrics.registry.timer(Prefix :+ "detect_conflicts")
-
-    val commit: Timer = metrics.registry.timer(Prefix :+ "commit")
-    val commitRunning: Counter = metrics.registry.counter(Prefix :+ "commit_running")
-  }
+  private[this] val metrics = damlMetrics.daml.kvutils.submission.validator
 }
