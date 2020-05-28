@@ -43,7 +43,7 @@ newtype PackageId = PackageId{unPackageId :: T.Text}
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
+    deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Name for a type synonym. Must match the regex
 --
