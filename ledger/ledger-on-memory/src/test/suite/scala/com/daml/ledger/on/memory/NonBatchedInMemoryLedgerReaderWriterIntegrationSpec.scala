@@ -3,5 +3,5 @@
 
 package com.daml.ledger.on.memory
 
-class InMemoryNonBatchedLedgerReaderWriterIntegrationSpec
-    extends InMemoryBatchedLedgerReaderWriterIntegrationSpecBase(enableBatching = false) {}
+class NonBatchedInMemoryLedgerReaderWriterIntegrationSpec
+    extends InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching = false) {}

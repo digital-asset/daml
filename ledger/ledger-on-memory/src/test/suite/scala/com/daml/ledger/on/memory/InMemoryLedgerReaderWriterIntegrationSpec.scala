@@ -17,7 +17,7 @@ import com.daml.resources.ResourceOwner
 
 import scala.concurrent.duration._
 
-abstract class InMemoryBatchedLedgerReaderWriterIntegrationSpecBase(enableBatching: Boolean)
+abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boolean)
     extends ParticipantStateIntegrationSpecBase(
       s"In-memory ledger/participant with parallel validation ${if (enableBatching) "enabled"
       else "disabled"}") {
@@ -44,7 +44,7 @@ abstract class InMemoryBatchedLedgerReaderWriterIntegrationSpecBase(enableBatchi
       testId: String,
       metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    new InMemoryBatchedLedgerReaderWriter.SingleParticipantOwner(
+    new InMemoryLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
       batchingLedgerWriterConfig,
       participantId,
@@ -53,5 +53,5 @@ abstract class InMemoryBatchedLedgerReaderWriterIntegrationSpecBase(enableBatchi
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }
 
-class InMemoryBatchedLedgerReaderWriterIntegrationSpec
-    extends InMemoryBatchedLedgerReaderWriterIntegrationSpecBase(enableBatching = true)
+class InMemoryLedgerReaderWriterIntegrationSpec
+    extends InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching = true)
