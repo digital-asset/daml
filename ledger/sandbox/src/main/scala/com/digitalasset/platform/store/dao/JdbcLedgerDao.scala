@@ -43,7 +43,6 @@ import com.daml.platform.store.dao.events.{
   ContractsReader,
   LfValueTranslation,
   PostCommitValidation,
-  QueryNonPruned,
   TransactionsReader,
   TransactionsWriter
 }
@@ -886,39 +885,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private val SQL_PRUNE_LEDGER_ENTRIES_OLD_SCHEMA_TABLES = SQL(
-    """
-      |delete from contract_keys where contract_id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |delete from contract_key_maintainers where contract_id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |delete from contract_observers where contract_id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |delete from contract_signatories where contract_id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |delete from contract_witnesses where contract_id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |
-      |delete from contract_divulgences where contract_id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |delete from contracts where archive_offset <= {prune_up_to_inclusive};
-      |delete from contract_data where id in (select id from contracts where archive_offset <= {prune_up_to_inclusive});
-      |
-      |delete from disclosures where transaction_id in (
-      |  select transaction_id from ledger_entries where
-      |    typ = 'transaction' and
-      |    ledger_offset <= {prune_up_to_inclusive});
-      |
-      |delete from ledger_entries where
-      |  typ in ('transaction', 'rejection', 'checkpoint') and
-      |-- Note: Don't delete transactions with active contracts so the ACS has access to the effective_at value.
-      |--  This violates GDPR, but the ledger_entries table is going away at which point we will be in compliance as in
-      |--  the new schema, participant_events stores ledger-api events separately allowing granular pruning.
-      |  (typ != 'transaction' or transaction_id not in (select transaction_id from contracts)) and
-      |  ledger_offset <= {prune_up_to_inclusive};""".stripMargin)
-
-  private def pruneOldSchemaTables(pruneUpToInclusive: Offset)(implicit conn: Connection): Unit = {
-    val _ = SQL_PRUNE_LEDGER_ENTRIES_OLD_SCHEMA_TABLES
-      .on(
-        "prune_up_to_inclusive" -> pruneUpToInclusive
-      )
-      .execute()
-  }
-
   // TODO(oliver): Move this to TransactionsWriter/EventsTable* and WitnessesTable
   private val SQL_PRUNE_PARTICIPANT_EVENTS = SQL(
     """
@@ -949,8 +915,7 @@ private class JdbcLedgerDao(
   }
 
   override def pruneByOffset(pruneUpToInclusive: Offset): Future[Unit] =
-    dbDispatcher.executeSql("prune_by_offset") { implicit conn =>
-      pruneOldSchemaTables(pruneUpToInclusive)
+    dbDispatcher.executeSql(metrics.daml.index.db.pruneDbByOffset) { implicit conn =>
       pruneParticipantEvents(pruneUpToInclusive)
       CommandCompletionsTable.prepareDelete(pruneUpToInclusive).execute()
       updateMostRecentPruning(pruneUpToInclusive)

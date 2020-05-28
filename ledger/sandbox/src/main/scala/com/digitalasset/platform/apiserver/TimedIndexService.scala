@@ -189,7 +189,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       delegate.stopDeduplicatingCommand(commandId, submitter))
 
   override def pruneByOffset(offset: Offset): Future[Unit] =
-    time("prune_by_offset", delegate.pruneByOffset(offset))
+    Timed.future(metrics.daml.services.indexService.pruneByOffset, delegate.pruneByOffset(offset))
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()

@@ -342,6 +342,7 @@ class Metrics(val registry: MetricRegistry) {
         val lookupTransactionTreeById: DatabaseMetrics = createDatabaseMetrics(
           "lookup_transaction_tree_by_id")
         val getActiveContracts: DatabaseMetrics = createDatabaseMetrics("get_active_contracts")
+        val pruneDbByOffset: DatabaseMetrics = createDatabaseMetrics("prune_db_by_offset")
 
         object translation {
           val prefix: MetricName = db.prefix :+ "translation"
@@ -394,6 +395,7 @@ class Metrics(val registry: MetricRegistry) {
         val configurationEntries: Timer = registry.timer(prefix :+ "configuration_entries")
         val deduplicateCommand: Timer = registry.timer(prefix :+ "deduplicate_command")
         val stopDeduplicateCommand: Timer = registry.timer(prefix :+ "stop_deduplicating_command")
+        val pruneByOffset: Timer = registry.timer(prefix :+ "prune_by_offset")
       }
 
       object read {
