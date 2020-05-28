@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.caching.Cache
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext
@@ -30,6 +30,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
         jdbcUrl = jdbcUrl,
         eventsPageSize = 100,
         metrics = new Metrics(new MetricRegistry),
+        lfValueTranslationCache = Cache.none,
       )
 
   protected final var ledgerDao: LedgerDao = _
@@ -44,7 +45,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- daoOwner.acquire()
-        _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger"), Offset.begin))
+        _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger")))
       } yield dao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)

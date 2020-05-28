@@ -3,7 +3,7 @@
 
 package com.daml.http.util
 
-import com.daml.lf.data.FlatSpecCheckLaws
+import com.daml.scalatest.FlatSpecCheckLaws
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
@@ -11,7 +11,6 @@ import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup._
 import scalaz.{@@, Equal, Tag}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class InsertDeleteStepTest
     extends FlatSpec
     with Matchers

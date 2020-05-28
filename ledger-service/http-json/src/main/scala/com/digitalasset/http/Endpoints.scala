@@ -41,7 +41,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
     allowNonHttps: Boolean,
@@ -439,7 +438,7 @@ object Endpoints {
   private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)
@@ -447,7 +446,6 @@ object Endpoints {
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
     JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
     for {
       b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]

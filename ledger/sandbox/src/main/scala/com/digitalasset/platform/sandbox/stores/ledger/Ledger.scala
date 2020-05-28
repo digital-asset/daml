@@ -12,7 +12,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{GenTransaction, TransactionCommitter}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.EventId
 import com.daml.platform.events.EventIdFormatter
@@ -55,9 +55,9 @@ trait Ledger extends ReadOnlyLedger {
 object Ledger {
 
   type TransactionForIndex =
-    GenTransaction[EventId, AbsoluteContractId, Value.VersionedValue[AbsoluteContractId]]
+    GenTransaction[EventId, ContractId, Value.VersionedValue[ContractId]]
   type DisclosureForIndex = Map[EventId, Set[Party]]
-  type GlobalDivulgence = Relation[AbsoluteContractId, Party]
+  type GlobalDivulgence = Relation[ContractId, Party]
 
   def convertToCommittedTransaction(
       committer: TransactionCommitter,

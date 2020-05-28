@@ -32,11 +32,6 @@ DAML Assistant (``daml``)
 
    Note that you need to update your `project config file <#configuration-files>` to use the new version.
 
-Moving to the ``daml`` assistant
-********************************
-
-To move your projects to use ``daml``, and see the difference between ``da`` commands and ``daml`` commands, read the :doc:`/support/new-assistant`.
-
 Full help for commands
 **********************
 
@@ -80,7 +75,7 @@ The project config file ``daml.yaml`` must be in the root of your DAML project d
 
 The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
 
-``daml init`` creates a ``daml.yaml`` in an existing folder, so ``daml`` knows it's a project folder. It incorporates info from ``da.yaml`` in the generated ``daml.yaml``, if ``da.yaml`` is available (see :doc:`/support/new-assistant`).
+``daml init`` creates a ``daml.yaml`` in an existing folder, so ``daml`` knows it's a project folder.
 
 ``daml new`` creates a skeleton application in a new project folder, which includes a config file. For example, ``daml new my_project`` creates a new folder ``my_project`` with a project config file ``daml.yaml`` like this:
 
@@ -124,7 +119,9 @@ Here is what each field means:
 - ``version``: the project version.
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
   If this field is not specified all modules in the project are exposed.
-- ``dependencies``: the dependencies of this project.
+- ``dependencies``: library-dependencies of this project. See :doc:`/daml/reference/packages`.
+- ``data-dependencies``: Cross-SDK dependencies of this project See :doc:`/daml/reference/packages`.
+- ``module-prefixes``: Prefixes for all modules in package See :doc:`/daml/reference/packages`.
 - ``scenario-service``: settings for the scenario service
 
   - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.

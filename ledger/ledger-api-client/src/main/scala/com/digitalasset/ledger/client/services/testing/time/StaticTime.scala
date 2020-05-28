@@ -52,7 +52,6 @@ object StaticTime {
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def updatedVia(timeService: TimeServiceStub, ledgerId: String, token: Option[String] = None)(
       implicit m: Materializer,
       esf: ExecutionSequencerFactory): Future[StaticTime] = {

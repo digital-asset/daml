@@ -23,7 +23,6 @@ import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SubmitRequestValidatorTest
     extends WordSpec
     with ValidatorTestUtils
@@ -266,7 +265,7 @@ class SubmitRequestValidatorTest
         val coid = Ref.ContractIdString.assertFromString("#coid")
 
         val input = Value(Sum.ContractId(coid))
-        val expected = Lf.ValueContractId(Lf.AbsoluteContractId.V0(coid))
+        val expected = Lf.ValueContractId(Lf.ContractId.V0(coid))
 
         validateValue(input) shouldEqual Right(expected)
       }

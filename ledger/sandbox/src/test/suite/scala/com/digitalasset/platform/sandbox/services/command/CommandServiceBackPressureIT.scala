@@ -26,7 +26,6 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandServiceBackPressureIT
     extends AsyncWordSpec
     with Matchers

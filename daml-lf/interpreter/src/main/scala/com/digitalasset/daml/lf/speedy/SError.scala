@@ -8,7 +8,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.types.Ledger
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.lf.value.Value.ContractId
 
 object SError {
 
@@ -67,13 +67,13 @@ object SError {
   sealed trait SErrorScenario extends SError
 
   final case class ScenarioErrorContractNotEffective(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
       effectiveAt: Time.Timestamp,
   ) extends SErrorScenario
 
   final case class ScenarioErrorContractNotActive(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
       consumedBy: Ledger.ScenarioNodeId,
   ) extends SErrorScenario
@@ -90,7 +90,7 @@ object SError {
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
   final case class ScenarioErrorContractNotVisible(
-      coid: AbsoluteContractId,
+      coid: ContractId,
       templateId: Identifier,
       committer: Party,
       observers: Set[Party],

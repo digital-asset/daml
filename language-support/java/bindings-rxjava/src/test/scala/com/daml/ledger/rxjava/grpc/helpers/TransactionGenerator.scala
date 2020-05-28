@@ -23,7 +23,6 @@ import scala.collection.JavaConverters._
 
 @SuppressWarnings(
   Array(
-    "org.wartremover.warts.Any",
     "org.wartremover.warts.Product",
     "org.wartremover.warts.Serializable"
   ))

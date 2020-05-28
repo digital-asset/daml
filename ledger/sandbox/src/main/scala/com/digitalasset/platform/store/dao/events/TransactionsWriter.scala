@@ -53,6 +53,7 @@ private[dao] object TransactionsWriter {
 private[dao] final class TransactionsWriter(
     dbType: DbType,
     metrics: Metrics,
+    lfValueTranslation: LfValueTranslation,
 ) {
 
   private val contractsTable = ContractsTable(dbType)
@@ -193,7 +194,10 @@ private[dao] final class TransactionsWriter(
     val (serializedEventBatches, serializedContractBatches) =
       Timed.value(
         metrics.daml.index.db.storeTransactionDao.translationTimer,
-        (rawEventBatches.applySerialization(), rawContractBatches.applySerialization())
+        (
+          rawEventBatches.applySerialization(lfValueTranslation),
+          rawContractBatches.applySerialization(lfValueTranslation)
+        )
       )
 
     val eventBatches = serializedEventBatches.applyBatching()

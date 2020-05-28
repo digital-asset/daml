@@ -298,7 +298,6 @@ object SubmissionValidatorSpec {
   private def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
 
   private def someStateUpdates: Map[DamlStateKey, DamlStateValue] = {
-
     val key = DamlStateKey
       .newBuilder()
       .setContractId(1.toString)

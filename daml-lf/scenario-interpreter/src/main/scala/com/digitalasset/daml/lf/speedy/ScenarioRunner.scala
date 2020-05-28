@@ -8,7 +8,7 @@ import com.daml.lf.types.Ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.Transaction._
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.Node.GlobalKey
@@ -144,11 +144,7 @@ final case class ScenarioRunner(
         throw SRunnerException(ScenarioErrorCommitError(fas))
       case Right(result) =>
         ledger = result.newLedger
-        callback(
-          value
-            .mapContractId(coid =>
-              Ledger
-                .contractIdToAbsoluteContractId(result.transactionId, coid)))
+        callback(value)
     }
   }
 
@@ -158,10 +154,10 @@ final case class ScenarioRunner(
   }
 
   private def lookupContract(
-      acoid: AbsoluteContractId,
+      acoid: ContractId,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value[AbsoluteContractId]] => Unit) = {
+      cbPresent: ContractInst[Value[ContractId]] => Unit) = {
 
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
@@ -172,7 +168,7 @@ final case class ScenarioRunner(
         throw SRunnerException(err)
 
     ledger.lookupGlobalContract(view = ParticipantView(committer), effectiveAt = effectiveAt, acoid) match {
-      case LookupOk(_, coinst) =>
+      case LookupOk(_, coinst, _) =>
         cbPresent(coinst)
 
       case LookupContractNotFound(coid) =>
@@ -212,8 +208,11 @@ final case class ScenarioRunner(
           view = ParticipantView(committer),
           effectiveAt = effectiveAt,
           acoid) match {
-          case LookupOk(_, _) =>
-            cb(SKeyLookupResult.Found(acoid))
+          case LookupOk(_, _, stakeholders) =>
+            if (stakeholders.contains(committer))
+              cb(SKeyLookupResult.Found(acoid))
+            else if (!cb(SKeyLookupResult.NotVisible))
+              throw SErrorCrash(s"key of contract $acoid not visible, but we found it!")
             ()
           case LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))

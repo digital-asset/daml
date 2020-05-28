@@ -12,7 +12,7 @@ module Main (main) where
 -- 4. Stop sandbox.
 -- 5. In a loop over all versions:
 --    1. Start sandbox of the given version.
---    2. Run a script for querying and creating new contracts.
+--    2. Run a custom scala binary for querying and creating new contracts.
 --    3. Stop sandbox.
 -- 6. Stop postgres.
 
@@ -21,7 +21,7 @@ import Control.Monad
 import qualified Data.Aeson as A
 import Data.Foldable
 import qualified Data.Text as T
-import GHC.Generics
+import GHC.Generics (Generic)
 import Options.Applicative
 import Sandbox
     ( createSandbox
@@ -36,12 +36,10 @@ import System.FilePath
 import System.IO.Extra
 import System.Process
 import WithPostgres (withPostgres)
+import qualified Bazel.Runfiles
 
 data Options = Options
-  { scriptDar :: FilePath
-  , modelDar :: FilePath
-  , scriptAssistant :: FilePath
-  -- ^ Assistant binary used to run DAML Script
+  { modelDar :: FilePath
   , platformAssistants :: [FilePath]
   -- ^ Ordered list of assistant binaries that will be used to run sandbox.
   -- We run through migrations in the order of the list
@@ -49,16 +47,18 @@ data Options = Options
 
 optsParser :: Parser Options
 optsParser = Options
-    <$> strOption (long "script-dar")
-    <*> strOption (long "model-dar")
-    <*> strOption (long "script-assistant")
+    <$> strOption (long "model-dar")
     <*> many (strArgument mempty)
 
 main :: IO ()
 main = do
-    -- Limit sandbox and DAML Script memory.
+    -- Limit sandbox and model-step memory.
     setEnv "_JAVA_OPTIONS" "-Xms128m -Xmx1g" True
     Options{..} <- execParser (info optsParser fullDesc)
+    runfiles <- Bazel.Runfiles.create
+    let step = Bazel.Runfiles.rlocation
+            runfiles
+            ("compatibility" </> "sandbox-migration" </> "migration-step")
     withPostgres $ \jdbcUrl -> do
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
@@ -69,27 +69,30 @@ main = do
                 , "--host=localhost", "--port=" <> show p
                 ]
         hPutStrLn stderr "<-- Uploaded model DAR"
-        void $ foldlM (testVersion scriptAssistant scriptDar jdbcUrl) [] platformAssistants
+        void $ foldlM (testVersion step modelDar jdbcUrl) [] platformAssistants
 
-testVersion :: FilePath -> FilePath -> T.Text -> [Tuple2 (ContractId T) T] -> FilePath -> IO [Tuple2 (ContractId T) T]
-testVersion scriptAssistant scriptDar jdbcUrl prevTs assistant = do
+testVersion
+    :: FilePath
+    -> FilePath
+    -> T.Text
+    -> [Tuple2 (ContractId T) T]
+    -> FilePath
+    -> IO [Tuple2 (ContractId T) T]
+testVersion step modelDar jdbcUrl prevTs assistant = do
     let note = takeFileName (takeDirectory assistant)
     hPutStrLn stderr ("--> Testing " <> note)
     withSandbox assistant jdbcUrl $ \port ->
-        withTempFile $ \inputFile ->
         withTempFile $ \outputFile -> do
-        A.encodeFile inputFile (ScriptInput testProposer testAccepter note)
-        callProcess scriptAssistant
-            [ "script"
-            , "--dar"
-            , scriptDar
-            , "--ledger-host=localhost"
-            , "--ledger-port=" <> show port
-            , "--input-file", inputFile
-            , "--output-file", outputFile
-            , "--script-name=Script:run"
+        callProcess step
+            [ "--output", outputFile
+            , "--host=localhost"
+            , "--port=" <> show port
+            , "--proposer=" <> T.unpack (getParty testProposer)
+            , "--accepter=" <> T.unpack (getParty testAccepter)
+            , "--note=" <> note
+            , "--dar=" <> modelDar
             ]
-        Just Result{..} <- A.decodeFileStrict' outputFile
+        Result{..} <- either fail pure =<< A.eitherDecodeFileStrict' outputFile
         -- Test that all proposals are archived.
         unless (null oldTProposals) $
             fail ("Expected no old TProposals but got " <> show oldTProposals)
@@ -124,7 +127,7 @@ testAccepter = Party "accepter"
 newtype ContractId t = ContractId T.Text
   deriving newtype A.FromJSON
   deriving stock (Eq, Show)
-newtype Party = Party T.Text
+newtype Party = Party { getParty :: T.Text }
   deriving newtype (A.FromJSON, A.ToJSON)
   deriving stock (Eq, Show)
 
@@ -143,14 +146,6 @@ data TProposal = TProposal
   } deriving (Generic, Show)
 
 instance A.FromJSON TProposal
-
-data ScriptInput = ScriptInput
-  { _1 :: Party
-  , _2 :: Party
-  , _3 :: String
-  } deriving Generic
-
-instance A.ToJSON ScriptInput
 
 data Tuple2 a b = Tuple2
   { _1 :: a

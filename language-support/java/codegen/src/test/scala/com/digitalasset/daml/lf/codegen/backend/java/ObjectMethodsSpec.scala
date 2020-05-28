@@ -8,7 +8,6 @@ import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class ObjectMethodsSpec extends FlatSpec with Matchers {
 
   val Vector(equalsSpec, hashCodeSpec, toStringSpec) =

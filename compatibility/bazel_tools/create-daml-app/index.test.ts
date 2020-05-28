@@ -21,8 +21,9 @@ import waitOn from "wait-on";
 import Ledger from "@daml/ledger";
 import { User } from "@daml.js/create-daml-app";
 import { computeCredentials } from "./Credentials";
+import semver from "semver";
 
-const DAR_PATH = ".daml/dist/create-daml-app-0.1.0.dar";
+const DAR_PATH = process.env.DAR_PATH;
 const SANDBOX_LEDGER_ID = "create-daml-app-sandbox";
 const SANDBOX_PORT_FILE_NAME = "sandbox.port";
 const JSON_API_PORT_FILE_NAME = "json-api.port";
@@ -131,18 +132,27 @@ beforeAll(async () => {
 
   const jsonApiOptions = [
     "json-api",
-    "--allow-insecure-tokens",
     "--ledger-host=localhost",
     `--ledger-port=${sandboxPort}`,
     `--http-port=${JSON_API_PORT}`,
     `--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
-  jsonApi = spawn(process.env.DAML_JSON_API, jsonApiOptions, {
-    cwd: "..",
-    stdio: "inherit",
-    detached: detached,
-    env: { ...process.env, DAML_SDK_VERSION: process.env.JSON_API_VERSION },
-  });
+  const extraJsonApiOptions = semver.gte(
+    process.env.JSON_API_VERSION,
+    "1.1.0-snapshot.20200430.4057.0.681c862d"
+  ) || process.env.JSON_API_VERSION === "0.0.0"
+    ? ["--allow-insecure-tokens"]
+    : [];
+  jsonApi = spawn(
+    process.env.DAML_JSON_API,
+    jsonApiOptions.concat(extraJsonApiOptions),
+    {
+      cwd: "..",
+      stdio: "inherit",
+      detached: detached,
+      env: { ...process.env, DAML_SDK_VERSION: process.env.JSON_API_VERSION },
+    }
+  );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
   uiProc = spawn("yarn", ["start"], {
@@ -155,7 +165,7 @@ beforeAll(async () => {
 
   // Launch a single browser for all tests.
   browser = await puppeteer.launch();
-}, 40_000);
+}, 60_000);
 
 afterAll(async () => {
   if (browser) {
@@ -170,7 +180,7 @@ afterAll(async () => {
   if (sandbox) {
     await killTree(sandbox);
   }
-}, 40_000);
+}, 60_000);
 
 test("create and look up user using ledger library", async () => {
   const partyName = getParty();
@@ -184,7 +194,7 @@ test("create and look up user using ledger library", async () => {
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User.User);
   expect(users[0]).toEqual(userContract1);
-}, 40_000);
+}, 60_000);
 
 // The tests following use the headless browser to interact with the app.
 // We select the relevant DOM elements using CSS class names that we embedded
@@ -232,7 +242,7 @@ const follow = async (page: Page, userToFollow: string) => {
   // (Both the `test-...` and `loading` classes appear in `div`s surrounding
   // the `input`, due to the translation of Semantic UI's `Input` element.)
   await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
-    timeout: 40_000,
+    timeout: 60_000,
   });
 };
 
@@ -261,7 +271,7 @@ test("log in as a new user, log out and log back in", async () => {
   expect(usersFinal[0].payload.username).toEqual(partyName);
 
   await page.close();
-}, 40_000);
+}, 60_000);
 // LOGIN_TEST_END
 
 // This tests following users in a few different ways:
@@ -388,7 +398,7 @@ test("error when following self", async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-}, 40_000);
+}, 60_000);
 
 test("error when adding a user that you are already following", async () => {
   const party1 = getParty();
@@ -407,4 +417,4 @@ test("error when adding a user that you are already following", async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-}, 40_000);
+}, 60_000);

@@ -9,7 +9,6 @@ import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
 import com.daml.lf.value.Value
 
-import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 
 object PartialTransaction {
@@ -136,15 +135,15 @@ object PartialTransaction {
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
   *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and absolute contract ids. We must
-  *              do this because absolute contract ids can be archived as
+  *              info both about relative and contract ids. We must
+  *              do this because contract ids can be archived as
   *              part of execution, and we must record these archivals locally.
   *              Note: it is important for keys that we know to not be present
   *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for absolute contract ids that
+  *              record the "no key" information for contract ids that
   *              we archive. This is not an optimization and is required for
   *              correct semantics, since otherwise lookups for keys for
-  *              locally archived absolute contract ids will succeed wrongly.
+  *              locally archived contract ids will succeed wrongly.
   */
 case class PartialTransaction(
     submissionTime: Time.Timestamp,
@@ -186,10 +185,10 @@ case class PartialTransaction(
       // roots field is not initialized when this method is executed on a failed transaction,
       // so we need to compute them.
       val rootNodes = {
-        val allChildNodeIds: Set[Value.NodeId] = nodes.values.flatMap {
+        val allChildNodeIds: Set[Value.NodeId] = nodes.values.iterator.flatMap {
           case _: Node.LeafOnlyNode[_, _] => Nil
           case ex: Node.NodeExercises[Value.NodeId, _, _] => ex.children.toSeq
-        }(breakOut)
+        }.toSet
 
         nodes.keySet diff allChildNodeIds
       }
@@ -236,7 +235,7 @@ case class PartialTransaction(
       val nodeSeed = context.nextChildrenSeed
       val discriminator =
         crypto.Hash.deriveContractDiscriminator(nodeSeed, submissionTime, stakeholders)
-      val cid = Value.AbsoluteContractId.V1(discriminator)
+      val cid = Value.ContractId.V1(discriminator)
       val createNode = Node.NodeCreate(
         cid,
         coinst,

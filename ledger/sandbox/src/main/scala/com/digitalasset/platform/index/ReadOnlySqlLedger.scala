@@ -18,6 +18,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.ResourceOwner
@@ -34,9 +35,16 @@ object ReadOnlySqlLedger {
       ledgerId: LedgerId,
       eventsPageSize: Int,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
-      ledgerReadDao <- JdbcLedgerDao.readOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
+      ledgerReadDao <- JdbcLedgerDao.readOwner(
+        serverRole,
+        jdbcUrl,
+        eventsPageSize,
+        metrics,
+        lfValueTranslationCache,
+      )
       factory = new Factory(ledgerReadDao)
       ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger

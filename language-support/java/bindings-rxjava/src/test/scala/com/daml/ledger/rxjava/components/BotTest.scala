@@ -43,7 +43,6 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class BotTest extends FlatSpec with Matchers with Eventually {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
@@ -507,7 +506,6 @@ object BotTest {
       events.toList.asJava,
       events.toList.size.toString)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private class TestFlowable[A](name: String) extends Flowable[A] {
     private val logger = LoggerFactory.getLogger(s"${getClass.getSimpleName}($name)")
 

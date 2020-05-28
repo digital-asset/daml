@@ -8,7 +8,7 @@ package preprocessing
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.transaction.{GenTransaction, Node, Transaction}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.Value.ContractId
 
 private[preprocessing] final class TransactionPreprocessor(
     compiledPackages: MutableCompiledPackages) {
@@ -16,24 +16,6 @@ private[preprocessing] final class TransactionPreprocessor(
   import Preprocessor._
 
   val commandPreprocessor = new CommandPreprocessor(compiledPackages)
-
-  // A cast of a value to a value which uses only absolute contract IDs.
-  // In particular, the cast will succeed for all values contained in the root nodes of a Transaction produced by submit
-  @throws[PreprocessorException]
-  private def unsafeAsValueWithAbsoluteContractIds(
-      v: Value[Value.ContractId]
-  ): Value[Value.AbsoluteContractId] =
-    v.ensureNoRelCid
-      .fold(rcoid => fail(s"unexpected relative contract id $rcoid"), identity)
-
-  @throws[PreprocessorException]
-  private def unsafeAsAbsoluteContractId(coid: Value.ContractId): Value.AbsoluteContractId =
-    coid match {
-      case rcoid: Value.RelativeContractId =>
-        fail(s"not an absolute contract ID: $rcoid")
-      case acoid: Value.AbsoluteContractId =>
-        acoid
-    }
 
   @throws[PreprocessorException]
   private def unsafeAsValueWithNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
@@ -45,23 +27,23 @@ private[preprocessing] final class TransactionPreprocessor(
   // Translate a GenNode into an expression re-interpretable by the interpreter
   @throws[PreprocessorException]
   def unsafeTranslateNode[Cid <: Value.ContractId](
-      acc: (Set[Value.AbsoluteContractId], Set[Value.ContractId]),
+      acc: (Set[Value.ContractId], Set[Value.ContractId]),
       node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid]
-  ): (speedy.Command, (Set[Value.AbsoluteContractId], Set[Value.ContractId])) = {
+  ): (speedy.Command, (Set[Value.ContractId], Set[Value.ContractId])) = {
 
     val (localCids, globalCids) = acc
 
     node match {
       case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
-        val arg = unsafeAsValueWithAbsoluteContractIds(coinst.arg.value)
         coid match {
-          case acoid: AbsoluteContractId =>
+          case acoid: ContractId =>
             if (globalCids(acoid))
               fail("Conflicting discriminators between a global and local contract ID.")
           case _ =>
         }
-        val (cmd, newCids) = commandPreprocessor.unsafePreprocessCreate(identifier, arg)
+        val (cmd, newCids) =
+          commandPreprocessor.unsafePreprocessCreate(identifier, coinst.arg.value)
         val newGlobalCids = globalCids + coid
         val newLocalCids = localCids | newCids.filterNot(globalCids)
         cmd -> (newLocalCids -> newGlobalCids)
@@ -81,13 +63,11 @@ private[preprocessing] final class TransactionPreprocessor(
           exerciseResult @ _,
           key @ _) =>
         val templateId = template
-        val arg = unsafeAsValueWithAbsoluteContractIds(chosenVal.value)
         val (cmd, newCids) =
-          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, arg)
+          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, chosenVal.value)
         (cmd, (localCids | newCids.filterNot(globalCids), globalCids))
       case Node.NodeFetch(coid, templateId, _, _, _, _, _) =>
-        val acoid = unsafeAsAbsoluteContractId(coid)
-        val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, acoid)
+        val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, coid)
         (cmd, acc)
       case Node.NodeLookupByKey(templateId, _, key, _) =>
         val keyValue = unsafeAsValueWithNoContractIds(key.key.value)
@@ -99,9 +79,9 @@ private[preprocessing] final class TransactionPreprocessor(
   @throws[PreprocessorException]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
-  ): (ImmArray[speedy.Command], Set[AbsoluteContractId]) = {
+  ): (ImmArray[speedy.Command], Set[ContractId]) = {
 
-    type Acc = ((Set[Value.AbsoluteContractId], Set[Value.ContractId]), BackStack[speedy.Command])
+    type Acc = ((Set[Value.ContractId], Set[Value.ContractId]), BackStack[speedy.Command])
 
     val ((localCids, _), cmds) =
       tx.roots.foldLeft[Acc](((Set.empty, Set.empty), BackStack.empty)) {

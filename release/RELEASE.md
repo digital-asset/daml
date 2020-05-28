@@ -108,12 +108,10 @@ patches we backport to the 1.0 release branch).
 
    On macOS/Linux:
    ```
-   curl -sSL https://get.daml.com/ | sh -s $(cat LATEST | gawk '{print $2}')
+   curl -sSL https://get.daml.com/ | sh -s "$VERSION"
    ```
-
-   Note: this assumes you have the up-to-date `LATEST` file, either because
-   you just checked out master or because you're still on the release PR
-   commit.
+   where `$VERSION` is the full version tag of the new release you are making,
+   i.e. the second column of the `LATEST` file.
 
 1. Windows prerequisites for running the tests:
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)

@@ -26,7 +26,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{Node, TransactionCommitter}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger
 import com.daml.ledger.api.domain.{
@@ -243,9 +243,9 @@ class InMemoryLedger(
   }
 
   override def lookupContract(
-      contractId: AbsoluteContractId,
+      contractId: ContractId,
       forParty: Party
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Future.successful(this.synchronized {
       acs.activeContracts
         .get(contractId)
@@ -253,13 +253,12 @@ class InMemoryLedger(
         .map(_.contract)
     })
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     Future.successful(this.synchronized {
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
-  override def lookupMaximumLedgerTime(
-      contractIds: Set[AbsoluteContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(contractIds: Set[ContractId]): Future[Option[Instant]] =
     if (contractIds.isEmpty) {
       Future.failed(
         new IllegalArgumentException(

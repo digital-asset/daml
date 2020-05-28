@@ -36,6 +36,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case KFinished => "KFinished"
     case _: KArg => "KArg"
     case _: KFun => "KFun"
+    case _: KBuiltin => "KBuiltin"
+    case _: KPap => "KPap"
     case _: KPushTo => "KPushTo"
     case _: KCacheVal => "KCacheVal"
     case _: KLocation => "KLocation"

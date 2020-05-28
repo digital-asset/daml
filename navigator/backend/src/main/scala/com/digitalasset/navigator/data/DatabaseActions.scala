@@ -21,7 +21,6 @@ import scala.util.{Failure, Success, Try}
   * This class is responsible for running the queries
   * and make the transformation between Scala and data store types
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class DatabaseActions extends LazyLogging {
 
   /**

@@ -48,7 +48,6 @@ final class ActiveContractSetClient(ledgerId: LedgerId, service: ActiveContracts
     * If the stream completes before the offset can be set, the materialized future will
     * be failed with an exception.
     */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(
       filter: TransactionFilter,
       verbose: Boolean = false,

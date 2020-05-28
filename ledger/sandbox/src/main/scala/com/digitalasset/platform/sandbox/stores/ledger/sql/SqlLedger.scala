@@ -443,7 +443,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       _ <- if (initializationRequired) {
         logger.info(s"Initializing ledger with ID: $ledgerId")
         for {
-          _ <- ledgerDao.initializeLedger(ledgerId, Offset.begin)
+          _ <- ledgerDao.initializeLedger(ledgerId)
           _ <- initializeLedgerEntries(
             initialLedgerEntries,
             timeProvider,

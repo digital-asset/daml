@@ -23,7 +23,7 @@ class ApiValueToLfValueConverterTest
   import ApiValueToLfValueConverterTest._
 
   private[this] implicit val arbCid: Arbitrary[CidSrc] = Arbitrary(
-    Gen.alphaStr map (t => V.AbsoluteContractId.V0 assertFromString ('#' +: t)))
+    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t)))
 
   "apiValueToLfValue" should {
     import ApiValueToLfValueConverter.apiValueToLfValue
@@ -41,11 +41,10 @@ class ApiValueToLfValueConverterTest
   }
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object ApiValueToLfValueConverterTest {
 
-  type Cid = V.AbsoluteContractId
-  type CidSrc = V.AbsoluteContractId.V0
+  type Cid = V.ContractId
+  type CidSrc = V.ContractId.V0
 
   // Numeric are normalized when converting from api to lf,
   // them we have to relax numeric equality

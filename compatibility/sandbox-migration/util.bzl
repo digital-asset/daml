@@ -8,8 +8,8 @@ def migration_test(name, versions, **kwargs):
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = [
             "//sandbox-migration:sandbox-migration-runner",
-            "//sandbox-migration:migration-script.dar",
             "//sandbox-migration:migration-model.dar",
+            "//sandbox-migration:migration-step",
         ] + ["@daml-sdk-{}//:daml".format(ver) for ver in versions],
         args = versions,
         **kwargs

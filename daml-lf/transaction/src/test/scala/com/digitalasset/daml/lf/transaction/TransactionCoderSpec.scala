@@ -17,11 +17,9 @@ import com.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
-import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConverters._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionCoderSpec
     extends WordSpec
     with Matchers
@@ -303,7 +301,7 @@ class TransactionCoderSpec
 
     "do tx with a lot of root nodes" in {
       val node =
-        Node.NodeCreate[Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
+        Node.NodeCreate[Value.ContractId, Value.VersionedValue[Value.ContractId]](
           coid = absCid("#test-cid"),
           coinst = ContractInst(
             Identifier(
@@ -382,7 +380,7 @@ class TransactionCoderSpec
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
   ): GenTransaction[Nid, Cid, Val] =
-    t copy (nodes = t.nodes.transform((_, gn) => f(gn))(breakOut))
+    t copy (nodes = t.nodes.transform((_, gn) => f(gn)))
 
   def minimalistTx[Nid, Cid, Val](
       txvMin: TransactionVersion,
@@ -402,7 +400,7 @@ class TransactionCoderSpec
     )
   }
 
-  private def absCid(s: String): Value.AbsoluteContractId =
-    Value.AbsoluteContractId.assertFromString(s)
+  private def absCid(s: String): Value.ContractId =
+    Value.ContractId.assertFromString(s)
 
 }

@@ -110,6 +110,7 @@ da_scala_test(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",
+        "//daml-lf/transaction:value_java_proto",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",

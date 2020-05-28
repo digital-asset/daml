@@ -21,7 +21,6 @@ import scalaz.std.list._
   *  utility functions we initialise a class with these values and allow all the
   *  methods to have access to them.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class Util(val packageName: String, val outputDir: File) { self =>
 
   import Util._

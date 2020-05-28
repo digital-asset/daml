@@ -18,7 +18,6 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait AkkaClientCompatibilityCheck {
   self: WordSpec with Matchers with ScalaFutures with ResultAssertions =>
 

@@ -169,7 +169,6 @@ object Queries {
       logHandler0 = log
     ).updateMany(dbcs.map(_.mapKeyPayloadParties(_.toJson, _.toJson, _.toArray)))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def deleteContracts[F[_]: Foldable](cids: F[String])(
       implicit log: LogHandler): ConnectionIO[Int] = {
     cids.toVector match {

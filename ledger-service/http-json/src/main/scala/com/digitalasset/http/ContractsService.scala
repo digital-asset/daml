@@ -28,7 +28,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
@@ -250,7 +249,7 @@ class ContractsService(
     import InsertDeleteStep.appendForgettingDeletes
 
     val funPredicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean] =
-      templateIds.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate))(breakOut)
+      templateIds.iterator.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate)).toMap
 
     insertDeleteStepSource(jwt, party, templateIds.toList)
       .map { step =>
@@ -283,7 +282,6 @@ class ContractsService(
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     searchInMemory(jwt, party, Set(templateId), queryParams)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
@@ -314,7 +312,6 @@ class ContractsService(
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def apiAcToLfAc(
       ac: domain.ActiveContract[ApiValue],
   ): Error \/ domain.ActiveContract[LfValue] =
@@ -327,7 +324,6 @@ class ContractsService(
   ): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsAc(
       a: domain.ActiveContract[LfValue],
   ): Error \/ domain.ActiveContract[JsValue] =
@@ -337,7 +333,6 @@ class ContractsService(
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
       xs: OneAnd[Set, Tid]
   ): (Set[domain.TemplateId.RequiredPkg], Set[Tid]) = {
@@ -353,7 +348,7 @@ class ContractsService(
 object ContractsService {
   private type ApiValue = api.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
   case class Error(id: Symbol, message: String)
 

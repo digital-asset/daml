@@ -262,7 +262,7 @@ final class Engine {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-      globalCids: Set[Value.AbsoluteContractId],
+      globalCids: Set[Value.ContractId],
   ): Result[(Tx.Transaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
@@ -280,7 +280,7 @@ final class Engine {
     }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
-  @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Return"))
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp

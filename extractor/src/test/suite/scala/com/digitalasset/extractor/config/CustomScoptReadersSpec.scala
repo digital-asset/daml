@@ -9,7 +9,6 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 import scopt.Read
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CustomScoptReadersSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
   behavior of "CustomScoptReaders"
 

@@ -18,6 +18,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
 
@@ -57,6 +58,11 @@ final class Runner[T <: ReadWriteService, Extra](
           _ <- Resource.sequence(config.participants.map { participantConfig =>
             val metrics = factory.createMetrics(participantConfig, config)
             metrics.registry.registerAll(new JvmMetricSet)
+            val lfValueTranslationCache =
+              LfValueTranslation.Cache.newInstrumentedInstance(
+                configuration = config.lfValueTranslationCache,
+                metrics = metrics,
+              )
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
                 reporter =>
@@ -75,6 +81,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
                 metrics = metrics,
+                lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
@@ -88,6 +95,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
                 engine = sharedEngine,
+                lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
             } yield ()
           })

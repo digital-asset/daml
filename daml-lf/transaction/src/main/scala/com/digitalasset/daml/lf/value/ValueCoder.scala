@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.value
+package com.daml.lf
+package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -12,8 +13,6 @@ import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
 
 import scala.collection.JavaConverters._
-import scalaz.std.either._
-import scalaz.syntax.bifunctor._
 
 /**
   * Utilities to serialize and de-serialize Values
@@ -53,30 +52,21 @@ object ValueCoder {
     ): Either[EncodeError, Either[String, (proto.ContractId)]]
   }
 
+  @deprecated("use CidEndocer", since = "1.1.2")
+  val AbsCidDecoder = CidEncoder
+
   object CidEncoder extends EncodeCid[ContractId] {
     private[lf] def encode(
         sv: SpecifiedVersion,
         cid: ContractId
-    ): Either[EncodeError, Either[String, (proto.ContractId)]] =
-      if (useOldStringField(sv))
-        cid match {
-          case RelativeContractId(nid) =>
-            Right(Left("~" + nid.index.toString))
-          case acoid: AbsoluteContractId =>
-            Right(Left(acoid.coid))
-        } else
-        cid match {
-          case RelativeContractId(nid) =>
-            Right(
-              Right(
-                proto.ContractId.newBuilder
-                  .setRelative(true)
-                  .setContractId(nid.index.toString)
-                  .build))
-          case acoid: AbsoluteContractId =>
-            Right(
-              Right(proto.ContractId.newBuilder.setRelative(false).setContractId(acoid.coid).build))
-        }
+    ): Either[EncodeError, Either[String, proto.ContractId]] =
+      Right(
+        Either.cond(
+          !useOldStringField(sv),
+          proto.ContractId.newBuilder.setRelative(false).setContractId(cid.coid).build,
+          cid.coid,
+        )
+      )
   }
 
   abstract class DecodeCid[Cid] private[lf] {
@@ -99,22 +89,12 @@ object ValueCoder {
 
   val CidDecoder: DecodeCid[ContractId] = new DecodeCid[ContractId] {
 
-    private def stringToRelativeCid(s: String) =
-      scalaz.std.string
-        .parseInt(s)
-        .toEither
-        .bimap(
-          _ => //
-            DecodeError(s"""cannot parse relative contractId "$s""""),
-          idx => Some(RelativeContractId(NodeId(idx)))
-        )
-
-    private def stringToCidString(s: String): Either[DecodeError, Value.AbsoluteContractId] =
-      Value.AbsoluteContractId
+    private def stringToCidString(s: String): Either[DecodeError, Value.ContractId] =
+      Value.ContractId
         .fromString(s)
         .left
         .map(_ => //
-          DecodeError(s"""cannot parse absolute contractId "$s""""))
+          DecodeError(s"""cannot parse contractId "$s""""))
 
     override def decodeOptional(
         sv: SpecifiedVersion,
@@ -127,8 +107,6 @@ object ValueCoder {
         } else {
           if (stringForm.isEmpty)
             Right(None)
-          else if (stringForm.startsWith("~"))
-            stringToRelativeCid(stringForm.drop(1))
           else
             stringToCidString(stringForm).map(Some(_))
         }
@@ -137,28 +115,10 @@ object ValueCoder {
           Left(DecodeError(s"${sv.showsVersion} is too new to use string contract IDs"))
         else if (structForm.getContractId.isEmpty)
           Right(None)
-        else if (structForm.getRelative)
-          stringToRelativeCid(structForm.getContractId)
         else
           stringToCidString(structForm.getContractId).map(Some(_))
       }
 
-  }
-
-  val AbsCidDecoder: DecodeCid[AbsoluteContractId] = new DecodeCid[AbsoluteContractId] {
-    override def decodeOptional(
-        sv: SpecifiedVersion,
-        stringForm: String,
-        structForm: ValueOuterClass.ContractId,
-    ): Either[DecodeError, Option[AbsoluteContractId]] =
-      CidDecoder.decodeOptional(sv, stringForm, structForm).flatMap {
-        case Some(cid: AbsoluteContractId) =>
-          Right(Some(cid))
-        case Some(RelativeContractId(_)) =>
-          Left(DecodeError("Unexpected relative contractId"))
-        case None =>
-          Right(None)
-      }
   }
 
   /**
@@ -232,8 +192,7 @@ object ValueCoder {
     *
     * @param protoValue0 the value to be read
     * @param decodeCid a function to decode stringified contract ids
-    * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.daml.lf.value.Value]] and [[com.daml.lf.value.Value.ContractId]]
+    * @tparam Cid ContractId type
     * @return either error or [VersionedValue]
     */
   def decodeVersionedValue[Cid](
@@ -257,16 +216,16 @@ object ValueCoder {
     *
     * @param value value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
-    * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.daml.lf.value.Value]] and [[com.daml.lf.value.Value.ContractId]]
+    * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
   def encodeVersionedValue[Cid](
       encodeCid: EncodeCid[Cid],
       value: Value[Cid],
+      supportedVersions: VersionRange[ValueVersion],
   ): Either[EncodeError, proto.VersionedValue] =
     ValueVersions
-      .assignVersion(value)
+      .assignVersion(value, supportedVersions)
       .fold(
         err => Left(EncodeError(err)),
         version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
@@ -277,8 +236,7 @@ object ValueCoder {
     *
     * @param versionedValue value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
-    * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.daml.lf.value.Value]] and [[com.daml.lf.value.Value.ContractId]]
+    * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
   def encodeVersionedValueWithCustomVersion[Cid](
@@ -298,8 +256,7 @@ object ValueCoder {
     *
     * @param protoValue0 the value to be read
     * @param decodeCid a function to decode stringified contract ids
-    * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.daml.lf.value.Value]] and [[com.daml.lf.value.Value.ContractId]]
+    * @tparam Cid ContractId type
     * @return either error or Value
     */
   def decodeValue[Cid](
@@ -467,8 +424,7 @@ object ValueCoder {
     * @param v0 value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @param valueVersion version of value specification to encode to, or fail
-    * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.daml.lf.value.Value]] and [[com.daml.lf.value.Value.ContractId]]
+    * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
   def encodeValue[Cid](
@@ -607,9 +563,9 @@ object ValueCoder {
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
-  ): Either[EncodeError, Array[Byte]] = {
-    encodeVersionedValue(encodeCid, v).map(_.toByteArray)
-  }
+      supportedVersions: VersionRange[ValueVersion] = ValueVersions.DefaultSupportedVersions,
+  ): Either[EncodeError, Array[Byte]] =
+    encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
 
   private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],

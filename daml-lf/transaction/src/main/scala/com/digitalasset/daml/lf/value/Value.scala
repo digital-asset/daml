@@ -8,7 +8,6 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import data.ScalazEqual._
-import com.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
 import scalaz.{@@, Equal, Order, Tag}
@@ -145,7 +144,7 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
 
 }
 
-object Value extends CidContainer1WithDefaultCidResolver[Value] {
+object Value extends CidContainer1[Value] {
 
   // TODO (FM) make this tail recursive
   private[lf] override def map1[Cid, Cid2](f: Cid => Cid2): Value[Cid] => Value[Cid2] = {
@@ -223,13 +222,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     private[lf] def map1[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
       VersionedValue.map1(f)(this)
 
-    /** Increase the `version` if appropriate for `languageVersions`. */
-    def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
-      import com.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
-      copy(version =
-        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
-    }
-
     def foreach1(f: Cid => Unit) =
       VersionedValue.foreach1(f)(self)
 
@@ -246,11 +238,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
     override private[lf] def map1[A, B](f: A => B): VersionedValue[A] => VersionedValue[B] =
       x => x.copy(value = Value.map1(f)(x.value))
-
-    final implicit def cidResolverInstance[A1, A2](
-        implicit mapper1: CidMapper.RelCidResolver[A1, A2],
-    ): CidMapper.RelCidResolver[VersionedValue[A1], VersionedValue[A2]] =
-      cidMapperInstance
 
     override private[lf] def foreach1[A](f: A => Unit): VersionedValue[A] => Unit =
       x => Value.foreach1(f)(x.value)
@@ -327,7 +314,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
   }
 
-  object ContractInst extends CidContainer1WithDefaultCidResolver[ContractInst] {
+  object ContractInst extends CidContainer1[ContractInst] {
     implicit def equalInstance[Val: Equal]: Equal[ContractInst[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
@@ -344,30 +331,19 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
   type NodeIdx = Int
 
-  /** Possibly relative contract identifiers.
-    *
-    * The contract identifiers can be either absolute, referring to a
-    * specific instance in the contract store, or relative, referring
-    * to a contract created in the same transaction and hence not yet
-    * having been assigned an absolute identifier.
-    *
-    * Note that relative contract ids are useful only before commit, in
-    * the context of a transaction. After committing we should never
-    * mention them.
-    *
-    * Why put it here and not just in Transaction.scala? Because we want
-    * to be able to use AbsoluteContractId elsewhere, so that we can
-    * automatically upcast to ContractId by subtyping.
-    */
-  sealed abstract class ContractId extends Product with Serializable
+  @deprecated("Use ContractId", since = "1.1.2")
+  type AbsoluteContractId = ContractId
 
-  sealed abstract class AbsoluteContractId extends ContractId {
+  @deprecated("Use ContractId", since = "1.1.2")
+  val AbsoluteContractId: ContractId.type = ContractId
+
+  sealed abstract class ContractId extends Product with Serializable {
     def coid: String
   }
 
-  object AbsoluteContractId {
-    final case class V0(coid: Ref.ContractIdString) extends AbsoluteContractId {
-      override def toString: String = s"AbsoluteContractId($coid)"
+  object ContractId {
+    final case class V0(coid: Ref.ContractIdString) extends ContractId {
+      override def toString: String = s"ContractId($coid)"
     }
 
     object V0 {
@@ -380,11 +356,11 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     }
 
     final case class V1 private (discriminator: crypto.Hash, suffix: Bytes)
-        extends AbsoluteContractId
+        extends ContractId
         with data.NoCopy {
       lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
-      override def toString: String = s"AbsoluteContractId($coid)"
+      override def toString: String = s"ContractId($coid)"
     }
 
     object V1 {
@@ -423,25 +399,25 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       def assertFromString(s: String): V1 = assertRight(fromString(s))
 
       implicit val `V1 Order`: Order[V1] = {
-        case (AbsoluteContractId.V1(hash1, suffix1), AbsoluteContractId.V1(hash2, suffix2)) =>
+        case (ContractId.V1(hash1, suffix1), ContractId.V1(hash2, suffix2)) =>
           hash1 ?|? hash2 |+| suffix1 ?|? suffix2
       }
 
     }
 
-    def fromString(s: String): Either[String, AbsoluteContractId] =
+    def fromString(s: String): Either[String, ContractId] =
       V1.fromString(s)
         .left
         .flatMap(_ => V0.fromString(s))
         .left
         .map(_ => s"""cannot parse ContractId "$s"""")
 
-    def assertFromString(s: String): AbsoluteContractId =
+    def assertFromString(s: String): ContractId =
       assertRight(fromString(s))
 
-    implicit val `AbsCid Order`: Order[AbsoluteContractId] = new Order[AbsoluteContractId] {
+    implicit val `Cid Order`: Order[ContractId] = new Order[ContractId] {
       import scalaz.Ordering._
-      override def order(a: AbsoluteContractId, b: AbsoluteContractId) =
+      override def order(a: ContractId, b: ContractId) =
         (a, b) match {
           case (a: V0, b: V0) => a ?|? b
           case (a: V1, b: V1) => a ?|? b
@@ -449,7 +425,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
           case (_: V1, _: V0) => GT
         }
 
-      override def equal(a: AbsoluteContractId, b: AbsoluteContractId) =
+      override def equal(a: ContractId, b: ContractId) =
         (a, b).match2 {
           case a: V0 => { case b: V0 => a === b }
           case V1(discA, suffA) => {
@@ -457,21 +433,13 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
           }
         }(fallback = false)
     }
-  }
 
-  final case class RelativeContractId(txnid: NodeId) extends ContractId
-
-  object ContractId {
     implicit val equalInstance: Equal[ContractId] = Equal.equalA
 
     implicit val noCidMapper: CidMapper.NoCidChecker[ContractId, Nothing] =
       CidMapper.basicMapperInstance[ContractId, Nothing]
-    implicit val noRelCidMapper: CidMapper.NoRelCidChecker[ContractId, AbsoluteContractId] =
-      CidMapper.basicMapperInstance[ContractId, AbsoluteContractId]
-    implicit val relCidResolver: CidMapper.RelCidResolver[ContractId, AbsoluteContractId] =
-      CidMapper.basicCidResolverInstance
-    implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, AbsoluteContractId.V1] =
-      CidMapper.basicMapperInstance[ContractId, AbsoluteContractId.V1]
+    implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, ContractId.V1] =
+      CidMapper.basicMapperInstance[ContractId, ContractId.V1]
   }
 
   /** The constructor is private so that we make sure that only this object constructs

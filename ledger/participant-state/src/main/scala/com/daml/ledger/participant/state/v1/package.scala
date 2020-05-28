@@ -92,23 +92,22 @@ package object v1 {
   /** Identifiers for parties. */
   type Party = Ref.Party
 
-  /** A transaction with relative and absolute contract identifiers.
+  /** A transaction with contract IDs that may require suffixing.
     *
-    *  See [[WriteService.submitTransaction]] for details.
+    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
     */
   type SubmittedTransaction = Transaction.Transaction
 
-  /** A transaction with absolute contract identifiers only.
+  /** A transaction with globally unique contract IDs.
     *
     * Used to communicate transactions that have been accepted to the ledger.
-    * See [[WriteService.submitTransaction]] for details on relative and
-    * absolute contract identifiers.
+    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
     */
   type CommittedTransaction =
-    GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
+    GenTransaction.WithTxValue[NodeId, Value.ContractId]
 
-  /** A contract instance with absolute contract identifiers only. */
-  type AbsoluteContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
+  /** A contract instance. */
+  type ContractInst =
+    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
 
 }
