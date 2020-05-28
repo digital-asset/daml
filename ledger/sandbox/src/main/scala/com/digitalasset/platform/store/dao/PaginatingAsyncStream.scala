@@ -46,7 +46,7 @@ object PaginatingAsyncStream {
       .flatMapConcat(Source(_))
   }
 
-  def apply[T](start: Offset, pageSize: Int, f: T => (Offset, Int))(
+  def apply[T](start: Offset, f: T => (Offset, Int))(
       query: (Offset, Option[Int]) => Future[Vector[T]]
   ): Source[T, NotUsed] = {
     Source
