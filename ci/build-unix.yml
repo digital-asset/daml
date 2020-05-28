@@ -40,18 +40,18 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-      ci-build digitalasset_daml local-bh \
+      ci-build digitalasset_daml master \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.npm.include.dev.dependencies=true \
       --detect.yarn.prod.only=false \
       --detect.excluded.detector.types=NUGET \
-      --detect.tools=DETECTOR,BAZEL,SIGNATURE_SCAN,BINARY_SCAN,DOCKER \
+      --detect.tools=DETECTOR,BAZEL,DOCKER \
       --detect.bazel.target=//... \
       --detect.excluded.detector.types=MAVEN,GO_MOD \
       --detect.excluded.detector.types=SBT \
       --detect.bazel.dependency.type=maven_install \
       --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts/ \
-      --detect.report.timeout=1360
+      --detect.report.timeout=480
     displayName: 'Blackduck Scan'
 
     env:
