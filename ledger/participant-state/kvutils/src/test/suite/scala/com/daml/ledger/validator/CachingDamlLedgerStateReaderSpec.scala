@@ -3,8 +3,9 @@
 
 package com.daml.ledger.validator
 
+import com.daml.caching.{Cache, Configuration}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.github.benmanes.caffeine.cache.Caffeine
+import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
@@ -68,9 +69,7 @@ class CachingDamlLedgerStateReaderSpec
 
   private def newInstance(damlLedgerStateReader: DamlLedgerStateReader)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
-    val cache = Caffeine
-      .newBuilder()
-      .build[DamlStateKey, DamlStateValue]
+    val cache = Cache.from[DamlStateKey, DamlStateValue](Configuration(1024))
     new CachingDamlLedgerStateReader(cache, keySerializationStrategy, damlLedgerStateReader)
   }
 }

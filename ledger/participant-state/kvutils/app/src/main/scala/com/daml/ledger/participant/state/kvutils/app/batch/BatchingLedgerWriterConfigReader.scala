@@ -22,14 +22,14 @@ import scala.concurrent.duration.{Duration, MILLISECONDS}
   *    .opt[BatchingLedgerWriterConfig]("batching")
   *    .optional()
   *    .text(BatchingLedgerWriterConfigReader.UsageText)
-  *    .action({
+  *    .action {
   *           case (parsedBatchingConfig, config) =>
   *             config.copy(
   *               extra = config.extra.copy(
   *                 batchingConfig = parsedBatchingConfig
   *               )
   *             )
-  *         })
+  *         }
   * }}}
   *
   */

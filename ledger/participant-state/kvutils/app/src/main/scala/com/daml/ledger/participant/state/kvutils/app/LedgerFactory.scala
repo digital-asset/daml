@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.app
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
