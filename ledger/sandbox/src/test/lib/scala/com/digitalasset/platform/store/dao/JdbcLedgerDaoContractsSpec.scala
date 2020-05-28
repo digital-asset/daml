@@ -78,7 +78,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someContractInstance) -> Set(charlie)
         ),
-        offsetAndTx = singleExercise(divulgedContractId)
+        offsetAndTx = emptyTransaction(alice)
       )
       (_, tx) <- store(singleCreate)
       contractIds = nonTransient(tx) + divulgedContractId
@@ -97,11 +97,30 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someContractInstance) -> Set(charlie)
         ),
-        offsetAndTx = singleExercise(divulgedContractId)
+        offsetAndTx = emptyTransaction(alice)
       )
       result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
       result shouldBe None
+    }
+  }
+
+  it should "not allow the retrieval of the maximum ledger time of archived divulged contracts" in {
+    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    for {
+      // This divulges and archives a contract in the same transaction
+      (_, _) <- store(
+        divulgedContracts = Map(
+          (divulgedContractId, someContractInstance) -> Set(charlie)
+        ),
+        offsetAndTx = singleExercise(divulgedContractId)
+      )
+      failure <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
+    } yield {
+      failure shouldBe an[IllegalArgumentException]
+      failure.getMessage should startWith(
+        "One or more of the following contract identifiers has been found"
+      )
     }
   }
 
