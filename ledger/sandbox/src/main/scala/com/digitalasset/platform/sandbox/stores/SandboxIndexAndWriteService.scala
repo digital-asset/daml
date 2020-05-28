@@ -122,7 +122,7 @@ object SandboxIndexAndWriteService {
           .concat(Source.future(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
     }
     implicit val executionContext
-      : ExecutionContext = mat.executionContext // TODO: Okay to use materializer EC?
+      : ExecutionContext = mat.executionContext // Using materializer EC for now as this class will be deleted.
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {

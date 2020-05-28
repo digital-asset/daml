@@ -9,4 +9,4 @@
 ---------------------------------------------------------------------------------------------------
 
 -- Add the column for most recent pruning offset to parameters.
-ALTER TABLE parameters ADD COLUMN participant_pruned_up_to_inclusive bytea;
+ALTER TABLE parameters ADD COLUMN participant_pruned_up_to_inclusive BINARY;

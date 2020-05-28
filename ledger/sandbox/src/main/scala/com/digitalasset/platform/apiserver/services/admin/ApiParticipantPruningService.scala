@@ -76,7 +76,7 @@ final class ApiParticipantPruningService private (
             s"prune_before needs to be a hexadecimal string and not ${pruneUpToString}: ${err}"))
         .map(Offset.fromHexString)
 
-      // TODO(oliver): come up with a way to ensure that the pruning offset is not too new (as equivalent of
+      // TODO(oliverse): come up with a way to ensure that the pruning offset is not too new (as equivalent of
       //  maxPruningLimit in pruneByTime below).
     } yield pruneUpTo
 

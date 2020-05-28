@@ -13,8 +13,10 @@ trait AccessViolationMapping {
 
   final protected def mapAccessViolations(logger: ContextualizedLogger)(
       implicit logCtx: LoggingContext): PartialFunction[Throwable, Throwable] = {
-    case OutOfRangeAccessViolation(message) =>
-      logger.error(s"Out of range access violation: $message")
+    case OutOfRangeAccessViolation(pruningOffsetUpToInclusive, error) =>
+      val message =
+        s"Out of range offset access violation before or at ${pruningOffsetUpToInclusive.toHexString}: $error"
+      logger.error(message)
       ErrorFactories.participantPrunedDataAccessed(message)
   }
 

@@ -32,19 +32,21 @@ object QueryNonPruned {
 
     SQL_SELECT_MOST_RECENT_PRUNING
       .as(offset("participant_pruned_up_to_inclusive").?.single)
-      .fold(Right(result): Either[Throwable, T])(pruningOffsetUpToInclusive =>
-        Either.cond(
-          !isPruned(pruningOffsetUpToInclusive),
-          result,
-          OutOfRangeAccessViolation(
-            s"Access violation of pruned data up to ${pruningOffsetUpToInclusive.toHexString}: ${error}")
-      ))
+      .fold(Right(result): Either[Throwable, T])(
+        pruningOffsetUpToInclusive =>
+          Either.cond(
+            !isPruned(pruningOffsetUpToInclusive),
+            result,
+            OutOfRangeAccessViolation(pruningOffsetUpToInclusive, error)
+        ))
   }
 
   private val SQL_SELECT_MOST_RECENT_PRUNING = SQL(
     "select participant_pruned_up_to_inclusive from parameters"
   )
 
-  final case class OutOfRangeAccessViolation(message: String) extends Throwable
+  final case class OutOfRangeAccessViolation(pruningOffsetUpToInclusive: Offset, error: String)
+      extends RuntimeException(
+        s"Access violation of pruned data up to ${pruningOffsetUpToInclusive.toHexString}: ${error}")
 
 }

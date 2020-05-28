@@ -63,15 +63,15 @@ final class ParticipantPruning(session: LedgerSession) extends LedgerTestSuite(s
         assertGrpcError(
           dontReadPrunedTransactionTrees,
           Status.Code.OUT_OF_RANGE,
-          "Access violation of pruned data")
+          "Out of range offset access violation before or at")
         assertGrpcError(
           dontReadPrunedTransactions,
           Status.Code.OUT_OF_RANGE,
-          "Access violation of pruned data")
+          "Out of range offset access violation before or at")
         assertGrpcError(
           dontReadPrunedCompletions,
           Status.Code.OUT_OF_RANGE,
-          "Access violation of pruned data")
+          "Out of range offset access violation before or at")
       }
   }
 
