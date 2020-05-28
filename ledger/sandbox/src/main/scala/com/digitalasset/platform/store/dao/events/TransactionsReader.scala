@@ -8,6 +8,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -92,6 +93,9 @@ private[dao] final class TransactionsReader(
   private def eventDetails(a: EventsTable.Entry[Event]): (Offset, Int) =
     (a.eventOffset, a.nodeIndex)
 
+  private def treeEventDetails(a: EventsTable.Entry[TreeEvent]): (Offset, Int) =
+    (a.eventOffset, a.nodeIndex)
+
   def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
@@ -119,16 +123,16 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val events =
-      PaginatingAsyncStream(pageSize) { offset =>
+    val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
+      PaginatingAsyncStream(startExclusive, treeEventDetails) { (prevOffset, prevNodeIndex) =>
         val query =
           EventsTable
             .preparePagedGetTransactionTrees(
-              startExclusive = startExclusive,
+              startExclusive = prevOffset,
               endInclusive = endInclusive,
               requestingParties = requestingParties,
               pageSize = pageSize,
-              rowOffset = offset,
+              previousEventNodeIndex = prevNodeIndex
             )
             .withFetchSize(Some(pageSize))
         val rawEvents =
