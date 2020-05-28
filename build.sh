@@ -18,7 +18,6 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-rm -r navigator/frontend/node_modules
 bazel build //... --build_tag_filters "$tag_filter"
 
 # Set up a shared PostgreSQL instance.
