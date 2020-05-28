@@ -19,7 +19,8 @@ import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, TimeoutException}
+import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
@@ -167,15 +168,16 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield triggerIds
   }
 
-  def assertTriggerIds(uri: Uri, party: String, expectedTriggerIds: Vector[String]) = {
-    Future {
-      eventually {
-        val actualTriggerIds = Await.result(for {
-          resp <- listTriggers(uri, party)
-          result <- parseTriggerIds(resp)
-        } yield result, Duration.Inf)
-        assert(actualTriggerIds == expectedTriggerIds)
-      }
+  def assertTriggerIds(
+      uri: Uri,
+      party: String,
+      pred: (Vector[String]) => Boolean): Future[Assertion] = {
+    eventually {
+      val actualTriggerIds = Await.result(for {
+        resp <- listTriggers(uri, party)
+        result <- parseTriggerIds(resp)
+      } yield result, Duration.Inf)
+      assert(pred(actualTriggerIds))
     }
   }
 
@@ -212,7 +214,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         _ <- mainPackageId should not be empty
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", Vector(triggerId))
+        _ <- assertTriggerIds(uri, "Alice", (triggerIds => triggerIds == Vector(triggerId)))
         resp <- stopTrigger(uri, triggerId, "Alice")
         stoppedTriggerId <- parseTriggerId(resp)
         _ <- stoppedTriggerId should equal(triggerId)
@@ -228,26 +230,32 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", Vector(aliceTrigger))
+        _ <- assertTriggerIds(uri, "Alice", triggerIds => triggerIds == Vector(aliceTrigger))
         // Start trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Bob", Vector(bobTrigger1))
+        _ <- assertTriggerIds(uri, "Bob", triggerIds => triggerIds == Vector(bobTrigger1))
         // Start another trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Bob", Vector(bobTrigger1, bobTrigger2))
-        // Start Alice's trigger.
+        _ <- assertTriggerIds(
+          uri,
+          "Bob",
+          triggerIds => triggerIds == Vector(bobTrigger1, bobTrigger2))
+        // Stop Alice's trigger.
         resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, "Alice", Vector())
-        _ <- assertTriggerIds(uri, "Bob", Vector(bobTrigger1, bobTrigger2))
+        _ <- assertTriggerIds(uri, "Alice", triggerIds => triggerIds.isEmpty)
+        _ <- assertTriggerIds(
+          uri,
+          "Bob",
+          triggerIds => triggerIds == Vector(bobTrigger1, bobTrigger2))
         // Stop Bob's triggers.
         resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, "Bob", Vector())
+        _ <- assertTriggerIds(uri, "Bob", triggerIds => triggerIds.isEmpty)
       } yield succeed
   }
 
@@ -289,5 +297,38 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         resp <- stopTrigger(uri, triggerId, "Alice")
         _ <- assert(resp.status.isSuccess)
       } yield succeed
+  }
+
+  it should "fail to start a trigger if a ledger client can't be obtained" in withHttpService(
+    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    // Disable the proxy. This means that the service won't be able to
+    // get a ledger connection.
+    ledgerProxy.disable()
+    try {
+      // Request a trigger be started and setup an assertion that
+      // completes with success when the running trigger table becomes
+      // non-empty.
+      val runningTriggersNotEmpty = for {
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        aliceTrigger <- parseTriggerId(resp)
+        triggerId <- parseTriggerId(resp)
+      } yield (assertTriggerIds(uri, "Alice", triggerIds => triggerIds.nonEmpty))
+      // Wait a good while (10s) on the assertion to become true. If it
+      // does, indicate the test has failed (because, since the trigger
+      // can't be initialized for the lack of a viable ledger client
+      // connection, it should not make its way to the running triggers
+      // table).
+      Await.ready(awaitable = runningTriggersNotEmpty, atMost = 10.seconds)
+      fail("Timeout expected")
+    } catch {
+      // If the assertion times-out the test has succeeded (look to
+      // the log; you'll see messages indicating that the trigger
+      // failed to initialize and was stopped).
+      case _: TimeoutException => succeed
+    } finally {
+      // This isn't strictly neccessary here (since each test gets its
+      // own fixture) but it's jolly decent of us to do it anyway.
+      ledgerProxy.enable()
+    }
   }
 }
