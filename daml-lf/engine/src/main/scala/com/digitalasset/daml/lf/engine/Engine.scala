@@ -48,6 +48,8 @@ import com.daml.lf.value.Value
 final class Engine {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+  private[this] var profileDir: Option[String] = None
+  private[this] var profileCount: Int = 0
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -351,6 +353,13 @@ final class Engine {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
       case Right(t) =>
+        profileDir match {
+          case None => ()
+          case Some(profileDir) =>
+            profileCount += 1
+            machine.profile.name = s"Profile #${profileCount}"
+            machine.profile.writeSpeedscopeJson(s"${profileDir}/profile-${profileCount}.json")
+        }
         ResultDone(
           (
             t,
@@ -383,6 +392,11 @@ final class Engine {
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
+
+  def startProfiling(profileDir: String) = {
+    this.profileDir = Some(profileDir)
+    compiledPackages.profilingMode = speedy.Compiler.FullProfile
+  }
 }
 
 object Engine {

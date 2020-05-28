@@ -287,6 +287,11 @@ object Cli {
           )
         )
 
+      opt[String]("profile-dir")
+        .optional()
+        .action((dir, config) => config.copy(profileDir = Some(dir)))
+        .text("Enable profiling and write the profiles into the given directory.")
+
       help("help").text("Print the usage text")
 
       checkConfig(c => {
