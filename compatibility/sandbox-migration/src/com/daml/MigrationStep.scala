@@ -10,6 +10,9 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction._
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -28,6 +31,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
 }
+import com.daml.platform.server.api.validation.FieldValidations.validateIdentifier
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
 import scala.collection.JavaConverters._
@@ -53,9 +57,44 @@ case class Result(
     newTProposals: Seq[(ValueContractId[AbsoluteContractId], Value[AbsoluteContractId])],
     oldTs: Seq[(ValueContractId[AbsoluteContractId], Value[AbsoluteContractId])],
     newTs: Seq[(ValueContractId[AbsoluteContractId], Value[AbsoluteContractId])],
+    oldTransactions: Seq[TransactionResult],
+    newTransactions: Seq[TransactionResult],
 )
 
+case class TransactionResult(
+    transactionId: String,
+    events: Seq[EventResult],
+)
+
+sealed trait EventResult;
+final case class CreatedResult(
+    templateName: String,
+    contractId: String,
+    argument: Value[AbsoluteContractId])
+    extends EventResult
+final case class ArchivedResult(templateName: String, contractId: String) extends EventResult
+
 object MigrationStep {
+
+  private def toEventResult(e: Event): EventResult = {
+    e.event match {
+      case Event.Event.Created(created) =>
+        CreatedResult(
+          validateIdentifier(created.getTemplateId).right.get.qualifiedName.toString,
+          created.contractId,
+          ValueValidator.validateRecord(created.getCreateArguments).right.get
+        )
+      case Event.Event.Archived(archived) =>
+        ArchivedResult(
+          validateIdentifier(archived.getTemplateId).right.get.qualifiedName.toString,
+          archived.contractId)
+      case Event.Event.Empty => throw new RuntimeException("Invalid empty event")
+    }
+  }
+
+  private def toTransactionResult(t: Transaction): TransactionResult = {
+    TransactionResult(t.transactionId, t.events.map(toEventResult))
+  }
 
   private implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
@@ -89,6 +128,27 @@ object MigrationStep {
             ("_1", LfValueCodec.apiValueToJsValue(t._1)),
             ("_2", LfValueCodec.apiValueToJsValue(t._2))).toMap)
     }
+    implicit object EventResultFormat extends RootJsonWriter[EventResult] {
+      def write(e: EventResult) = e match {
+        case CreatedResult(tpl, cid, argument) =>
+          JsObject(
+            Seq(
+              ("type", "created".toJson),
+              ("template", tpl.toJson),
+              ("cid", cid.toJson),
+              ("argument", LfValueCodec.apiValueToJsValue(argument))).toMap)
+        case ArchivedResult(tpl, cid) =>
+          JsObject(
+            Seq(("type", "archived".toJson), ("template", tpl.toJson), ("cid", cid.toJson)).toMap)
+      }
+    }
+    implicit object TransactionResultFormat extends RootJsonWriter[TransactionResult] {
+      def write(t: TransactionResult) =
+        JsObject(
+          Seq(
+            ("transactionId", t.transactionId.toJson),
+            ("events", JsArray(t.events.map(_.toJson): _*))).toMap)
+    }
     implicit object ResultFormat extends RootJsonWriter[Result] {
       def write(r: Result): JsValue =
         JsObject(
@@ -96,7 +156,9 @@ object MigrationStep {
             ("oldTProposals", JsArray(r.oldTProposals.map(_.toJson): _*)),
             ("newTProposals", JsArray(r.newTProposals.map(_.toJson): _*)),
             ("oldTs", JsArray(r.oldTs.map(_.toJson): _*)),
-            ("newTs", JsArray(r.newTs.map(_.toJson): _*))
+            ("newTs", JsArray(r.newTs.map(_.toJson): _*)),
+            ("oldTransactions", JsArray(r.oldTransactions.map(_.toJson): _*)),
+            ("newTransactions", JsArray(r.newTransactions.map(_.toJson): _*)),
           ).toMap)
 
     }
@@ -231,6 +293,24 @@ object MigrationStep {
       ()
     }
   }
+  def getTransactions(client: LedgerClient, templates: Seq[Identifier], party: String)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[Seq[TransactionResult]] = {
+    val filter = TransactionFilter(
+      List((party, Filters(Some(InclusiveFilters(templates.map(toApiIdentifier)))))).toMap)
+    for {
+      transactions <- client.transactionClient
+        .getTransactions(
+          LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
+          Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))),
+          filter,
+          verbose = true
+        )
+        .runWith(Sink.seq)
+    } yield {
+      transactions.map(toTransactionResult)
+    }
+  }
   def main(args: Array[String]): Unit = {
     parser.parse(args, defaultConfig) match {
       case None => sys.exit(1)
@@ -253,6 +333,7 @@ object MigrationStep {
         val tId = Identifier(dar.main._1, QualifiedName.assertFromString("Model:T"))
         val f: Future[Result] = for {
           client <- LedgerClient.singleHost(config.host, config.port, clientConfig)
+          oldTransactions <- getTransactions(client, Seq(tProposalId, tId), config.proposer)
           oldProposals <- queryACS(client, config.proposer, tProposalId)
           oldAccepted <- queryACS(client, config.proposer, tId)
           proposal0 <- createProposal(
@@ -272,7 +353,15 @@ object MigrationStep {
           _ <- unilateralArchive(client, tId, config.proposer, t0)
           newProposals <- queryACS(client, config.proposer, tProposalId)
           newAccepted <- queryACS(client, config.proposer, tId)
-        } yield Result(oldProposals, newProposals, oldAccepted, newAccepted)
+          newTransactions <- getTransactions(client, Seq(tProposalId, tId), config.proposer)
+        } yield
+          Result(
+            oldProposals,
+            newProposals,
+            oldAccepted,
+            newAccepted,
+            oldTransactions,
+            newTransactions)
         f.onComplete {
           case Success(result) =>
             Files.write(config.outputFile, Seq(result.toJson.prettyPrint).asJava)
