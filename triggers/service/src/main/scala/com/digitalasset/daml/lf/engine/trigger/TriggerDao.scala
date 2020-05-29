@@ -52,8 +52,12 @@ object TriggerDao {
           package bytea not null
         )
       """
+    val createPartyIndex: Fragment = sql"""
+        create index triggers_by_party on running_triggers(party_token)
+      """
     (createTriggerTable.update.run
-      *> createDalfTable.update.run).void
+      *> createDalfTable.update.run
+      *> createPartyIndex.update.run).void
   }
 
   def addRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
