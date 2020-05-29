@@ -96,6 +96,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
             go(resume(darMap.get(pkgId)))
           case _ => throw new RuntimeException(s"Unexpected engine result $r")
         }
+
         go(compiledPackages.addPackage(pkgId, pkg))
     }
   }
@@ -121,11 +122,20 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
     triggers = triggers - t.triggerInstance
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken (t.jwt) - t.triggerInstance) )
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance))
   }
 
-  private def listRunningTriggers(jwt: Jwt): List[String] = {
-    triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
+  private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
+    triggerDao match {
+      case None =>
+        Right(triggersByToken.getOrElse(jwt, Set()).toVector)
+      case Some(dao) =>
+        val select = dao.transact(TriggerDao.getTriggersForParty(jwt))
+        Try(select.unsafeRunSync()) match {
+          case Failure(err) => Left(err.toString)
+          case Success(triggerInstances) => Right(triggerInstances)
+        }
+    }
   }
 
   private def timeStamp(): String = {
@@ -237,8 +247,12 @@ object Server {
       JsObject(("triggerId", uuid.toString.toJson))
     }
 
-    def listTriggers(token: (Jwt, JwtPayload)): JsValue = {
-      JsObject(("triggerIds", server.listRunningTriggers(token._1).toJson))
+    def listTriggers(jwt: Jwt): (StatusCode, JsObject) = {
+      server.listRunningTriggers(jwt) match {
+        case Left(err) => errorResponse(StatusCodes.InternalServerError, err.toString)
+        case Right(triggerInstances) =>
+          successResponse(JsObject(("triggerIds", triggerInstances.map(_.toString).toJson)))
+      }
     }
 
     // 'fileUpload' triggers this warning we don't have a fix right
@@ -280,7 +294,7 @@ object Server {
                                 failureRetryTimeRange
                               )
                               complete(successResponse(triggerInstance))
-                          }
+                        }
                       )
                 }
             }
@@ -325,22 +339,17 @@ object Server {
           },
           // List triggers currently running for the given party.
           path("v1" / "list") {
-            extractRequest {
-              request =>
-                TokenManagement
-                  .findJwt(request)
-                  .flatMap { jwt =>
-                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                  }
-                  .map { token =>
-                    listTriggers(token)
-                  }
-                  .fold(
-                    unauthorized =>
-                      complete(
-                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                    triggerInstances => complete(successResponse(triggerInstances))
-                  )
+            extractRequest { request =>
+              TokenManagement
+                .findJwt(request)
+                .flatMap { jwt =>
+                  TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                }
+                .fold(
+                  unauthorized =>
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                  token => complete(listTriggers(token._1))
+                )
             }
           },
           // Produce logs for the given trigger.
@@ -516,16 +525,15 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
-          darPath =>
-            val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-              DarReader().readArchiveFromFile(darPath.toFile) match {
-                case Failure(err) => sys.error(s"Failed to read archive: $err")
-                case Success(dar) => dar
-              }
-            encodedDar.map {
-              case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map { darPath =>
+          val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+            DarReader().readArchiveFromFile(darPath.toFile) match {
+              case Failure(err) => sys.error(s"Failed to read archive: $err")
+              case Success(dar) => dar
             }
+          encodedDar.map {
+            case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+          }
         }
         val ledgerConfig =
           LedgerConfig(

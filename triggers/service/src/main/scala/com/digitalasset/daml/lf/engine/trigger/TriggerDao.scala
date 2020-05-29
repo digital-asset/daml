@@ -6,12 +6,14 @@ package com.daml.lf.engine.trigger
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
+import com.daml.jwt.domain.Jwt
 import doobie._
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
+import doobie.postgres.implicits._
 import doobie.util.log
-
+import java.util.UUID
 import scala.concurrent.ExecutionContext
 
 object Connection {
@@ -67,5 +69,12 @@ object TriggerDao {
       s"insert into running_triggers values (${t.triggerInstance}, $partyToken, $fullTriggerName)"
     )
     insertTrigger.update.run.void
+  }
+
+  def getTriggersForParty(partyToken: Jwt): ConnectionIO[Vector[UUID]] = {
+    val token = Fragment.const(s"'${partyToken.toString}'")
+    val list: Fragment =
+      fr"select trigger_instance from running_triggers where party_token = " ++ token
+    list.query[UUID].to[Vector]
   }
 }
