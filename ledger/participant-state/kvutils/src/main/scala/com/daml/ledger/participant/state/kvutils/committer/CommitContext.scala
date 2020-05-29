@@ -60,10 +60,6 @@ private[kvutils] trait CommitContext {
         case None => false
       }
 
-  /** Modify existing state. Throws if state does not exist. */
-  def modify(key: DamlStateKey)(f: DamlStateValue => DamlStateValue): Unit =
-    set(key, f(get(key).getOrElse(throw Err.MissingInputState(key))))
-
   /** Clear the output state. */
   def clear(): Unit = {
     outputOrder.clear()
