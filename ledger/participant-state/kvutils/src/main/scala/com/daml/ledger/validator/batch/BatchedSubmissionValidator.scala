@@ -110,6 +110,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   import BatchedSubmissionValidator._
 
   private val logger = ContextualizedLogger.get(getClass)
+  private val metrics = damlMetrics.daml.kvutils.submission.validator
 
   /** Validate and commit a submission to the ledger.
     *
@@ -227,6 +228,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
       logEntryAndState: LogEntryAndState)
+
   private type Outputs2 = Indexed[ValidatedSubmission]
 
   // Fourth stage collects the results.
@@ -400,6 +402,4 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       )
     }
   }
-
-  private[this] val metrics = damlMetrics.daml.kvutils.submission.validator
 }
