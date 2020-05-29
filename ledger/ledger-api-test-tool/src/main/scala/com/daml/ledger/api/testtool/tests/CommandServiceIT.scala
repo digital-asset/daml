@@ -485,6 +485,27 @@ final class CommandServiceIT extends LedgerTestSuite {
     })
 
   test(
+    "CSTransactionNoEffects",
+    "A command resulting in no creates/archives works with flat transactions",
+    allocate(SingleParty))(implicit ec => {
+    case Participants(Participant(ledger, party)) =>
+      for {
+        dummy <- ledger.create(party, Dummy(party))
+        request = ledger.submitAndWaitRequest(party, dummy.exerciseDoNothing(party).command)
+        transaction <- ledger.submitAndWaitForTransaction(request)
+      } yield {
+        assert(
+          transaction.transactionId.nonEmpty,
+          "The transaction identifier was empty, but should not be.",
+        )
+        assert(
+          transaction.events.isEmpty,
+          s"The returned transaction should have 0 events, but contained ${transaction.events.size}",
+        )
+      }
+  })
+
+  test(
     "CSBadCreateAndExercise",
     "Fail create-and-exercise on bad create arguments",
     allocate(SingleParty),

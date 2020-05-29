@@ -37,6 +37,10 @@ template Dummy
           clone <- exercise self Clone
           exercise self FailingChoice
 
+    controller operator can
+      nonconsuming DoNothing : ()
+        do
+          pure ()
 
     controller operator can
       ConsumeIfTimeIsBetween : ()
