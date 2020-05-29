@@ -116,7 +116,7 @@ private class JdbcLedgerDao(
   override def lookupLedgerEnd(): Future[Offset] =
     dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd) { implicit conn =>
       SQL_SELECT_LEDGER_END
-        .as(offset("ledger_end").?.map(_.getOrElse(Offset.begin)).single)
+        .as(offset("ledger_end").?.map(_.getOrElse(Offset.beforeBegin)).single)
     }
 
   private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
