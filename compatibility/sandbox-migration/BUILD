@@ -55,6 +55,7 @@ da_scala_binary(
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
