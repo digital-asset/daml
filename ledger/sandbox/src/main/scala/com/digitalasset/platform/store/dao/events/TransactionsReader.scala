@@ -59,8 +59,11 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val events: Source[EventsTable.Entry[Event], NotUsed] =
-      PaginatingAsyncStream.streamFrom(startExclusive, eventDetails) {
-        (prevOffset, prevNodeIndex) =>
+      PaginatingAsyncStream.streamFrom(
+        (startExclusive, Option.empty[Int]),
+        nextPageEventDetails
+      ) {
+        case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
               .preparePagedGetFlatTransactions(
@@ -91,11 +94,15 @@ private[dao] final class TransactionsReader(
       }
   }
 
-  private def eventDetails(a: EventsTable.Entry[Event]): (Offset, Int) =
-    (a.eventOffset, a.nodeIndex)
+  private def nextPageEventDetails(
+      as: Vector[EventsTable.Entry[Event]]
+  ): Option[(Offset, Option[Int])] =
+    as.lastOption.map(a => (a.eventOffset, Some(a.nodeIndex)))
 
-  private def treeEventDetails(a: EventsTable.Entry[TreeEvent]): (Offset, Int) =
-    (a.eventOffset, a.nodeIndex)
+  private def nextPageTreeEventDetails(
+      as: Vector[EventsTable.Entry[TreeEvent]]
+  ): Option[(Offset, Option[Int])] =
+    as.lastOption.map(a => (a.eventOffset, Some(a.nodeIndex)))
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -125,8 +132,11 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
-      PaginatingAsyncStream.streamFrom(startExclusive, treeEventDetails) {
-        (prevOffset, prevNodeIndex) =>
+      PaginatingAsyncStream.streamFrom(
+        (startExclusive, Option.empty[Int]),
+        nextPageTreeEventDetails
+      ) {
+        case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
               .preparePagedGetTransactionTrees(
@@ -184,8 +194,11 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
     val events =
-      PaginatingAsyncStream.streamFrom(Offset.beforeBegin, eventDetails) {
-        (prevOffset, prevNodeIndex) =>
+      PaginatingAsyncStream.streamFrom(
+        (Offset.beforeBegin, Option.empty[Int]),
+        nextPageEventDetails
+      ) {
+        case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
               .preparePagedGetActiveContracts(
