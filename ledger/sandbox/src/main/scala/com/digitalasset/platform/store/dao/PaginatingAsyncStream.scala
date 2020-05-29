@@ -47,7 +47,7 @@ object PaginatingAsyncStream {
 
   /**
     * Concatenates the results of multiple asynchronous calls into
-    * a single [[Source]], passing the last seen event's ledger [[Offset]] and node index to the
+    * a single [[Source]], passing the last seen event's offset to the
     * next iteration query, so it can continue reading events from this point.
     *
     * This is to implement pagination based on generic offset.
@@ -59,12 +59,12 @@ object PaginatingAsyncStream {
     * lookup calls.
     *
     * @param startFromOffset initial offset
-    * @param nextPageOffset function that returns next page offset or [[None]] when no more pagination is required
+    * @param getOffset function that returns a position/offset from the element of type [[T]]
     * @param query a function that fetches results starting from provided offset
     * @tparam Off the type of the offset
     * @tparam T the type of the items returned in each call
     */
-  def streamFrom[Off, T](startFromOffset: Off, nextPageOffset: Vector[T] => Option[Off])(
+  def streamFrom[Off, T](startFromOffset: Off, getOffset: T => Off)(
       query: Off => Future[Vector[T]]
   ): Source[T, NotUsed] = {
     Source
@@ -73,7 +73,8 @@ object PaginatingAsyncStream {
           Future.successful(None) // finished reading the whole thing
         case Some(offset) =>
           query(offset).map { result =>
-            Some((nextPageOffset(result), result))
+            val nextPageOffset: Option[Off] = result.lastOption.map(getOffset)
+            Some((nextPageOffset, result))
           }(DirectExecutionContext) // run in the same thread as the query, avoid context switch for a cheap operation
       }
       .flatMapConcat(Source(_))
