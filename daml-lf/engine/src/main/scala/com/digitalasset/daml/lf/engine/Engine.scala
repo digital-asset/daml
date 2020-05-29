@@ -14,6 +14,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
+import java.nio.file.{Path, Paths}
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -48,6 +49,7 @@ import com.daml.lf.value.Value
 final class Engine {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+  private[this] var profileDir: Option[Path] = None
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -351,18 +353,23 @@ final class Engine {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
       case Right(t) =>
-        ResultDone(
-          (
-            t,
-            Tx.Metadata(
-              submissionSeed = None,
-              submissionTime = machine.ptx.submissionTime,
-              usedPackages = Set.empty,
-              dependsOnTime = machine.dependsOnTime,
-              nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
-              byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
-            )))
-
+        val meta = Tx.Metadata(
+          submissionSeed = None,
+          submissionTime = machine.ptx.submissionTime,
+          usedPackages = Set.empty,
+          dependsOnTime = machine.dependsOnTime,
+          nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
+          byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
+        )
+        profileDir match {
+          case None => ()
+          case Some(profileDir) =>
+            val profileName = Engine.profileName(t, meta)
+            machine.profile.name = profileName
+            val profileFile = profileDir.resolve(Paths.get(profileName))
+            machine.profile.writeSpeedscopeJson(profileFile)
+        }
+        ResultDone((t, meta))
     }
   }
 
@@ -383,6 +390,11 @@ final class Engine {
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
+
+  def startProfiling(profileDir: Path) = {
+    this.profileDir = Some(profileDir)
+    compiledPackages.profilingMode = speedy.Compiler.FullProfile
+  }
 }
 
 object Engine {
@@ -396,4 +408,22 @@ object Engine {
     InitialSeeding.TransactionSeed(
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
 
+  private def profileName(tx: Tx.Transaction, meta: Tx.Metadata): String = {
+    val hash = meta.nodeSeeds(0)._2.toHexString
+    val desc =
+      if (tx.roots.length == 1) {
+        val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
+          s"${kind}:${tmpl.qualifiedName.name}${extra.map(extra => s":${extra}").getOrElse("")}"
+        tx.nodes.get(tx.roots(0)).toList.head match {
+          case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
+          case exercise: NodeExercises[_, _, _] =>
+            makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
+          case fetch: NodeFetch[_, _] => makeDesc("fetch", fetch.templateId, None)
+          case lookup: NodeLookupByKey[_, _] => makeDesc("lookup", lookup.templateId, None)
+        }
+      } else {
+        s"compound:${tx.roots.length}"
+      }
+    s"${meta.submissionTime}-${desc}-${hash}.json"
+  }
 }
