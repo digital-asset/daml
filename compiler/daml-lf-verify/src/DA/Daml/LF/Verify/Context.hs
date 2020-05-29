@@ -430,7 +430,7 @@ data Cid
 -- | Convert an expression to a contract id, if possible.
 -- The function can optionally refresh the contract id, and returns both the
 -- converted contract id, and the substitution originating from the refresh.
-expr2cid :: MonadEnv m ph
+expr2cid :: (IsPhase ph, MonadEnv m ph)
   => Bool
   -- ^ Whether or not the refresh the contract id.
   -> Expr
@@ -441,9 +441,11 @@ expr2cid b (EVar x) = do
   return (CidVar y, subst)
 expr2cid b (ERecProj _ f (EVar x)) = do
   (y, subst) <- refresh_cid b x
+  extRecEnv y [f]
   return (CidRec y f, subst)
 expr2cid b (EStructProj f (EVar x)) = do
   (y, subst) <- refresh_cid b x
+  extRecEnv y [f]
   return (CidRec y f, subst)
 expr2cid _ _ = throwError ExpectCid
 
@@ -520,7 +522,15 @@ extRecEnv :: (IsPhase ph, MonadEnv m ph)
   -> [FieldName]
   -- ^ The fields which should be skolemised.
   -> m ()
-extRecEnv x fs = extSkolEnv (SkolRec x fs)
+extRecEnv x fs = do
+  env <- getEnv
+  let skols = envSkols env
+      -- TODO: avoid duplicates
+      curFs = [fs' | SkolRec x' fs' <- skols, x == x']
+      newFs = if null curFs
+        then fs
+        else fs ++ (head curFs)
+  extSkolEnv (SkolRec x newFs)
 
 -- | Extend the environment with a new skolem variable.
 extSkolEnv :: (IsPhase ph, MonadEnv m ph)
@@ -602,10 +612,25 @@ extCidEnv b exp var = do
         { (cur, old) <- lookupCid exp
         ; return $ cur : old }
         `catchError` (\_ -> return [])
-      (cid, subst) <- expr2cid (b && null prev) exp
+      proj_def <- check_proj_cid exp
+      (cid, subst) <- expr2cid (b && null prev && proj_def) exp
       env <- getEnv
       putEnv $ setEnvCids (HM.insert cid (var, prev) $ envCids env) env
       return subst
+  where
+    -- | Internal function to check whether the given cid has not yet been
+    -- defined in a different projection.
+    check_proj_cid :: (IsPhase ph, MonadEnv m ph)
+      => Expr
+      -- ^ The cid expression to verify.
+      -> m Bool
+    check_proj_cid (ERecProj _ _ (EVar x)) = do
+      skols <- envSkols <$> getEnv
+      return $ null [fs' | SkolRec x' fs' <- skols, x == x']
+    check_proj_cid (EStructProj _ (EVar x)) = do
+      skols <- envSkols <$> getEnv
+      return $ null [fs' | SkolRec x' fs' <- skols, x == x']
+    check_proj_cid _ = return $ True
 
 -- | Extend the environment with additional equality constraints, between a
 -- variable and its field values.

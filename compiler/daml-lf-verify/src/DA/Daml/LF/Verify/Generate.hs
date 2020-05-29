@@ -14,6 +14,7 @@ module DA.Daml.LF.Verify.Generate
 import Control.Monad.Error.Class (throwError)
 import Data.Maybe (listToMaybe)
 import qualified Data.NameMap as NM
+import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
@@ -166,6 +167,7 @@ genChoice pac tem this' temFs preExpr TemplateChoice{..} = do
   argFs <- recTypFields (snd chcArgBinder)
   let subst = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   extRecEnv arg argFs
+  _ <- extCidEnv False (EVar self) this
   let subst = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   -- TODO: Can preconditions perform updates?
   preOut <- genExpr False
@@ -525,19 +527,30 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
 bindCids b (TContractId (TCon tc)) cid (EVar this) fsExp = do
   fs <- recTypConFields $ qualObject tc
   extRecEnv this (map fst fs)
-  cidOut <- genExpr True cid
-  subst <- extCidEnv b (_oExpr cidOut) this
+  -- cidOut <- genExpr True cid
+  -- subst <- extCidEnv b (_oExpr cidOut) this
+  subst <- extCidEnv b cid this
   creFs <- maybe (pure []) recExpFields $ substituteTm subst fsExp
   extCtrRec this creFs
   return subst
 bindCids b (TCon tc) cid (EVar this) fsExp = do
   fs <- recTypConFields $ qualObject tc
   extRecEnv this (map fst fs)
-  cidOut <- genExpr True cid
-  subst <- extCidEnv b (_oExpr cidOut) this
+  -- cidOut <- genExpr True cid
+  -- subst <- extCidEnv b (_oExpr cidOut) this
+  subst <- extCidEnv b cid this
   creFs <- maybe (pure []) recExpFields $ substituteTm subst fsExp
   extCtrRec this creFs
   return subst
+bindCids b (TApp (TApp (TCon con) t1) t2) cid var fsExp =
+  case head $ unTypeConName $ qualObject con of
+    "Tuple2" -> do
+      -- TODO: Test this part more extensively.
+      -- cidOut <- genExpr True cid
+      subst1 <- trace ("Cid: " ++ show cid) $ bindCids b t1 (EStructProj (FieldName "_1") cid) var fsExp
+      subst2 <- bindCids b t2 (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExp
+      return (subst1 `concatExprSubst` subst2)
+    con' -> error ("Binding contract id's for this constructor has not been implemented yet: " ++ show con')
 bindCids _ (TBuiltin BTUnit) _ _ _ = return emptyExprSubst
 bindCids _ (TBuiltin BTTimestamp) _ _ _ = return emptyExprSubst
 -- TODO: Extend additional cases, like tuples.

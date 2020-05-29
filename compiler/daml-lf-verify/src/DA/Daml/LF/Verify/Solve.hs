@@ -9,6 +9,7 @@ module DA.Daml.LF.Verify.Solve
   , solveConstr
   , ConstraintSet(..)
   , Result(..)
+  , showResult
   ) where
 
 import Data.Bifunctor
@@ -160,6 +161,8 @@ instance ConstrExpr Expr where
   toCExp _syns (EBuiltin (BEBool b)) = CBool b
   toCExp _syns (EBuiltin (BEInt64 i)) = CInt $ toInteger i
   toCExp _syns (EBuiltin (BENumeric i)) = CReal $ toRational $ numericDecimal i
+  -- TODO: Temporary fix. This should already have been evaluated.
+  toCExp syns (ERecProj _ f (ERecCon _ fields)) = toCExp syns $ fromJust $ lookup f fields
   toCExp _syns e = error ("Conversion: " ++ show e)
 
 instance ConstrExpr a => ConstrExpr (Cond a) where
@@ -487,6 +490,20 @@ instance Show Result where
       step :: (S.SExpr, S.Value) -> String -> String
       step (var, val) str = ("\n" ++) $ S.ppSExpr var $ (" = " ++) $ S.ppSExpr (S.value val) str
   show Unknown = "Inconclusive."
+
+-- | Output a result to a String, including the choice and field names.
+showResult :: ChoiceName -> FieldName -> Result -> String
+showResult choice field result = case result of
+  Success -> "Success! The choice " ++ choiceStr ++ " preserves the field "
+    ++ fieldStr ++ "."
+  (Fail cs) -> "Fail. The choice " ++ choiceStr ++ " does not preserve the field "
+    ++ fieldStr ++ ". Counter example:" ++ foldl (flip step) "" cs
+  Unknown -> "Inconclusive result."
+  where
+    choiceStr = T.unpack $ unChoiceName choice
+    fieldStr = T.unpack $ unFieldName field
+    step :: (S.SExpr, S.Value) -> String -> String
+    step (var, val) str = ("\n" ++) $ S.ppSExpr var $ (" = " ++) $ S.ppSExpr (S.value val) str
 
 -- | Solve a give constraint set. Prints 'unsat' when the constraint set is
 -- valid. It asserts that the set of created and archived contracts are not

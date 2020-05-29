@@ -37,7 +37,7 @@ main = do
       fieldName = FieldName (T.pack optFieldName)
   result <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
   putStrLn "\n==========\n"
-  print result
+  putStrLn $ showResult choiceName fieldName result
 
 outputError :: Error
   -- ^ The error message.
