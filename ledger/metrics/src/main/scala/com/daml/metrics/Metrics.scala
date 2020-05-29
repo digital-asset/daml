@@ -314,7 +314,7 @@ class Metrics(val registry: MetricRegistry) {
           registry.timer(prefix :+ "stop_deduplicating_command")
 
         private val createDatabaseMetrics: String => DatabaseMetrics =
-          DatabaseMetrics(registry, prefix)(_)
+          new DatabaseMetrics(registry, prefix, _)
 
         private val overall = createDatabaseMetrics("all")
         val waitAll: Timer = overall.waitTimer
@@ -334,8 +334,24 @@ class Metrics(val registry: MetricRegistry) {
         val storePartyEntryDao
           : DatabaseMetrics = createDatabaseMetrics("store_party_entry") // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDatabaseMetrics("load_party_entries")
-        val storeTransactionDao
-          : DatabaseMetrics = createDatabaseMetrics("store_ledger_entry") // FIXME Base name conflicts with storeTransaction
+        object storeTransactionDao
+            extends DatabaseMetrics(registry, prefix, "store_ledger_entry") {
+          // outside of SQL transaction
+          val prepareBatches = registry.timer(dbPrefix :+ "prepare_batches")
+
+          // in order within SQL transaction
+          val commitValidation = registry.timer(dbPrefix :+ "commit_validation")
+          val eventsBatch = registry.timer(dbPrefix :+ "events_batch")
+          val deleteContractWitnessesBatch =
+            registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
+          val deleteContractsBatch = registry.timer(dbPrefix :+ "delete_contracts_batch")
+          val insertContractsBatch = registry.timer(dbPrefix :+ "insert_contracts_batch")
+          val insertContractWitnessesBatch =
+            registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
+
+          val insertCompletion = registry.timer(dbPrefix :+ "insert_completion")
+          val updateLedgerEnd = registry.timer(dbPrefix :+ "update_ledger_end")
+        }
         val storeRejectionDao
           : DatabaseMetrics = createDatabaseMetrics("store_rejection") // FIXME Base name conflicts with storeRejection
         val storeInitialStateFromScenario: DatabaseMetrics = createDatabaseMetrics(

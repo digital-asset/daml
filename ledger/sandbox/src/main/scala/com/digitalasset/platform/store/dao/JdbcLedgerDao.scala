@@ -31,7 +31,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.events.EventIdFormatter.split
@@ -477,35 +477,47 @@ private class JdbcLedgerDao(
       divulged: Iterable[DivulgedContract],
   ): Future[PersistenceResponse] = {
     val preparedTransactionInsert =
-      transactionsWriter.prepare(
-        submitterInfo = submitterInfo,
-        workflowId = workflowId,
-        transactionId = transactionId,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
-        transaction = transaction,
-        divulgedContracts = divulged,
+      Timed.value(
+        metrics.daml.index.db.storeTransactionDao.prepareBatches,
+        transactionsWriter.prepare(
+          submitterInfo = submitterInfo,
+          workflowId = workflowId,
+          transactionId = transactionId,
+          ledgerEffectiveTime = ledgerEffectiveTime,
+          offset = offset,
+          transaction = transaction,
+          divulgedContracts = divulged,
+        )
       )
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDao) { implicit conn =>
         val error =
-          postCommitValidation.validate(
-            transaction = transaction,
-            transactionLedgerEffectiveTime = ledgerEffectiveTime,
-            divulged = divulged.iterator.map(_.contractId).toSet,
+          Timed.value(
+            metrics.daml.index.db.storeTransactionDao.commitValidation,
+            postCommitValidation.validate(
+              transaction = transaction,
+              transactionLedgerEffectiveTime = ledgerEffectiveTime,
+              divulged = divulged.iterator.map(_.contractId).toSet,
+            )
           )
         if (error.isEmpty) {
-          preparedTransactionInsert.write()
-          submitterInfo
-            .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
-            .foreach(_.execute())
+          preparedTransactionInsert.write(metrics)
+          Timed.value(
+            metrics.daml.index.db.storeTransactionDao.insertCompletion,
+            submitterInfo
+              .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
+              .foreach(_.execute())
+          )
         } else {
           for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
             stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
             prepareRejectionInsert(info, offset, recordTime, error.get).execute()
           }
         }
-        updateLedgerEnd(offset)
+        Timed.value(
+          metrics.daml.index.db.storeTransactionDao.updateLedgerEnd,
+          updateLedgerEnd(offset)
+        )
         Ok
       }
   }
@@ -551,7 +563,7 @@ private class JdbcLedgerDao(
                     transaction = tx.transaction.mapNodeId(splitOrThrow),
                     divulgedContracts = Nil,
                   )
-                  .write()
+                  .write(metrics)
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())

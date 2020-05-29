@@ -25,26 +25,32 @@ private[dao] object TransactionsWriter {
       deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
   ) {
-    def write()(implicit connection: Connection): Unit = {
-      eventBatches.foreach(_.execute())
+    def write(metrics: Metrics)(implicit connection: Connection): Unit = {
+      import metrics.daml.index.db.storeTransactionDao
+
+      Timed.value(storeTransactionDao.eventsBatch, eventBatches.foreach(_.execute()))
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
-      deleteWitnessesBatch.map(_.execute())
+      Timed.value(
+        storeTransactionDao.deleteContractWitnessesBatch,
+        deleteWitnessesBatch.map(_.execute()))
       for ((_, deleteContractsBatch) <- contractBatches.deletions) {
-        deleteContractsBatch.execute()
+        Timed.value(storeTransactionDao.deleteContractsBatch, deleteContractsBatch.execute())
       }
       for ((_, insertContractsBatch) <- contractBatches.insertions) {
-        insertContractsBatch.execute()
+        Timed.value(storeTransactionDao.insertContractsBatch, insertContractsBatch.execute())
       }
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
-      insertWitnessesBatch.foreach(_.execute())
+      Timed.value(
+        storeTransactionDao.insertContractWitnessesBatch,
+        insertWitnessesBatch.foreach(_.execute()))
     }
   }
 
