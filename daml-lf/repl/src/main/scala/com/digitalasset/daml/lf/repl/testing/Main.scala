@@ -36,8 +36,6 @@ object Main extends App {
   val out = new PrintStream(System.out, true, "UTF-8")
   System.setOut(out)
 
-  case class ProfileArgs(scenarioId: String, inputFile: String, outputFile: String)
-
   def usage(): Unit = {
     println(
       """
@@ -82,7 +80,7 @@ object Main extends App {
       case List("test", id, file) =>
         if (!Repl.test(allowDev, id, file)._1) System.exit(1)
       case List("profile", scenarioId, inputFile, outputFile) =>
-        if (!Repl.profile(allowDev, scenarioId, inputFile, outputFile)._1) System.exit(1)
+        if (!Repl.profile(allowDev, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
       case List("validate", file) =>
         if (!Repl.validate(allowDev, file)._1) System.exit(1)
       case List(possibleFile) =>
@@ -142,7 +140,7 @@ object Repl {
       allowDev: Boolean,
       scenarioId: String,
       inputFile: String,
-      outputFile: String,
+      outputFile: Path,
   ): (Boolean, State) =
     load(inputFile, Compiler.FullProfile) fMap cmdValidate fMap (state =>
       cmdProfile(state, scenarioId, outputFile))
@@ -531,7 +529,7 @@ object Repl {
     (failures == 0, state)
   }
 
-  def cmdProfile(state: State, scenarioId: String, outputFile: String): (Boolean, State) = {
+  def cmdProfile(state: State, scenarioId: String, outputFile: Path): (Boolean, State) = {
     buildExpr(state, Seq(scenarioId))
       .map { expr =>
         println("Warming up JVM for 10s...")
