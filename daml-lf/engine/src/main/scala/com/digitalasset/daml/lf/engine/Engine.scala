@@ -329,7 +329,7 @@ final class Engine {
                   if (cb(SKeyLookupResult(result)))
                     interpretLoop(machine, time)
                   else
-                    ResultError(Error(s"dependency error: couldn't find key $gk"))
+                    ResultError(Error(s"dependency error: couldn't find key ${gk.key}"))
             )
           )
 

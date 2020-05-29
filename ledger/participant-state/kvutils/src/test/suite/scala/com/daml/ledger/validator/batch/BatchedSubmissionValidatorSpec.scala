@@ -264,6 +264,7 @@ class BatchedSubmissionValidatorSpec
 
     "collect size/count metrics for a batch" in {
       val metrics = new Metrics(new MetricRegistry)
+      val validatorMetrics = metrics.daml.kvutils.submission.validator
       val (submissions, batchSubmission, batchSubmissionBytes) = createBatchSubmissionOf(2)
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
@@ -296,12 +297,12 @@ class BatchedSubmissionValidatorSpec
           mockCommit
         )
         .map { _ =>
-          validator.Metrics.batchSizes.getSnapshot.getValues should equal(Array(2))
+          validatorMetrics.batchSizes.getSnapshot.getValues should equal(Array(2))
           val Array(actualBatchSubmissionSize) =
-            validator.Metrics.receivedBatchSubmissionBytes.getSnapshot.getValues
+            validatorMetrics.receivedBatchSubmissionBytes.getSnapshot.getValues
           actualBatchSubmissionSize should equal(batchSubmission.getSerializedSize)
           val expectedSubmissionSizes = submissions.map(_.getSerializedSize)
-          validator.Metrics.receivedSubmissionBytes.getSnapshot.getValues.toSet should contain allElementsOf
+          validatorMetrics.receivedSubmissionBytes.getSnapshot.getValues.toSet should contain allElementsOf
             expectedSubmissionSizes
         }
     }

@@ -68,7 +68,6 @@ object TriggerServiceFixture {
     val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
-        _ <- Future(println("Waiting for Toxiproxy..."))
         channel <- Future(new Socket(host, toxiProxyPort.value))
       } yield (channel.close())
     }
