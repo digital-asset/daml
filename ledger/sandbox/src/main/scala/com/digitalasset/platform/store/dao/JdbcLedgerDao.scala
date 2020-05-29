@@ -1020,7 +1020,7 @@ object JdbcLedgerDao {
         |on conflict (deduplication_key)
         |  do update
         |  set deduplicate_until={deduplicateUntil}
-        |  where pcs.deduplicate_until < {submittedAt}""".stripMargin
+        |  where pcs.deduplication_key = {deduplicationKey} and pcs.deduplicate_until < {submittedAt}""".stripMargin
 
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
 
