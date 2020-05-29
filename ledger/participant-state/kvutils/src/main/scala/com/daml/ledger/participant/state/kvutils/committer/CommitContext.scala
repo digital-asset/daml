@@ -8,9 +8,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Err, DamlStateMap}
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 
@@ -18,6 +19,8 @@ import scala.collection.mutable
   * allows committer to set state outputs.
   */
 private[kvutils] trait CommitContext {
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+
   def inputs: DamlStateMap
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -39,11 +42,23 @@ private[kvutils] trait CommitContext {
 
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {
-    if (!outputs.contains(key)) {
-      outputOrder += key
+    if (inputAlreadyContains(key, value)) {
+      logger.error(s"Identical output found for key $key")
+    } else {
+      if (!outputs.contains(key)) {
+        outputOrder += key
+      }
+      outputs(key) = value
     }
-    outputs(key) = value
   }
+
+  private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
+    inputs
+      .get(key)
+      .exists {
+        case Some(inputValue) => inputValue == value
+        case None => false
+      }
 
   /** Modify existing state. Throws if state does not exist. */
   def modify(key: DamlStateKey)(f: DamlStateValue => DamlStateValue): Unit =
