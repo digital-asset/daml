@@ -119,7 +119,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
     } yield {
       failure shouldBe an[IllegalArgumentException]
       failure.getMessage should startWith(
-        "One or more of the following contract identifiers has been found"
+        "One or more of the following contract identifiers has not been found"
       )
     }
   }
