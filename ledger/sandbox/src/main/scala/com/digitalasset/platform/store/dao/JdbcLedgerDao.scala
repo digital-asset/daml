@@ -12,7 +12,6 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
-import com.daml.caching.Cache
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
@@ -968,11 +967,19 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       eventsPageSize: Int,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, validate = true, metrics, Cache.none)
+    owner(
+      serverRole,
+      jdbcUrl,
+      maxConnections,
+      eventsPageSize,
+      validate = true,
+      metrics,
+      lfValueTranslationCache)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
