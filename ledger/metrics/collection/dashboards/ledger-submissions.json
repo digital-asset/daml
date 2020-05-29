@@ -571,12 +571,12 @@
         {
           "refCount": 0,
           "refId": "H",
-          "target": "daml.kvutils.submission.validator.validate_submission.mean"
+          "target": "daml.kvutils.submission.validator.fetch_inputs.mean"
         },
         {
           "refCount": 0,
           "refId": "I",
-          "target": "daml.kvutils.submission.validator.process_submission.mean"
+          "target": "daml.kvutils.submission.validator.validate.mean"
         },
         {
           "refCount": 0,
@@ -591,7 +591,7 @@
         {
           "refCount": 0,
           "refId": "J",
-          "target": "daml.kvutils.submission.validator.commit_submission.mean"
+          "target": "daml.kvutils.submission.validator.commit.mean"
         }
       ],
       "thresholds": [],
@@ -704,12 +704,12 @@
         {
           "refCount": 0,
           "refId": "H",
-          "target": "daml.kvutils.submission.validator.validate_submission.count"
+          "target": "daml.kvutils.submission.validator.fetch_inputs.count"
         },
         {
           "refCount": 0,
           "refId": "I",
-          "target": "daml.kvutils.submission.validator.process_submission.count"
+          "target": "daml.kvutils.submission.validator.validate.count"
         },
         {
           "refCount": 0,
@@ -724,7 +724,7 @@
         {
           "refCount": 0,
           "refId": "J",
-          "target": "daml.kvutils.submission.validator.commit_submission.count"
+          "target": "daml.kvutils.submission.validator.commit.count"
         }
       ],
       "thresholds": [],
