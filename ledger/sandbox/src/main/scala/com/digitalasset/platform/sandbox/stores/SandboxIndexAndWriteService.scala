@@ -34,6 +34,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
@@ -65,6 +66,7 @@ object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
@@ -81,6 +83,7 @@ object SandboxIndexAndWriteService {
         startMode = startMode,
         eventsPageSize = eventsPageSize,
         metrics = metrics,
+        lfValueTranslationCache
       )
       .flatMap(ledger =>
         owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
