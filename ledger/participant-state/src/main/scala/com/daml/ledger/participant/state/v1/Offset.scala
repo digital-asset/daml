@@ -34,7 +34,7 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
 
 object Offset {
 
-  val begin: Offset = Offset.fromByteArray(Array(0: Byte))
+  val beforeBegin: Offset = Offset.fromByteArray(Array.empty[Byte])
 
   def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
 

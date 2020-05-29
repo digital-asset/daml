@@ -7,6 +7,9 @@ import com.daml.ledger.participant.state.v1.Offset
 
 object EventsTableQueries {
 
+  private val NonExistingOffsetNodeIndexPair: (Offset, Int) =
+    (Offset.beforeBegin, Integer.MAX_VALUE)
+
   def previousOffsetWhereClauseValues(
       between: (Offset, Offset),
       lastEventNodeIndexFromPreviousPage: Option[Int]
@@ -18,5 +21,5 @@ object EventsTableQueries {
   ): (Offset, Int) =
     lastEventNodeIndexFromPreviousPage
       .map(x => (lastOffsetFromPreviousPage, x))
-      .getOrElse((Offset.begin, Integer.MAX_VALUE)) // nonsense
+      .getOrElse(NonExistingOffsetNodeIndexPair)
 }

@@ -50,7 +50,7 @@ abstract class BaseLedger(
 
   protected final val dispatcher: Dispatcher[Offset] = Dispatcher[Offset](
     "sql-ledger",
-    Offset.begin,
+    Offset.beforeBegin,
     headAtInitialization
   )
 
@@ -66,7 +66,7 @@ abstract class BaseLedger(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive
     )
@@ -77,7 +77,7 @@ abstract class BaseLedger(
       requestingParties: Set[Party],
       verbose: Boolean): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(
         ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)),
       endInclusive
@@ -91,7 +91,7 @@ abstract class BaseLedger(
       applicationId: ApplicationId,
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
       endInclusive
     )
@@ -158,7 +158,7 @@ abstract class BaseLedger(
   override def configurationEntries(
       startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.begin),
+      startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(
