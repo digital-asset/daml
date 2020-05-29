@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.lang.System
+import java.nio.file.Path
 import java.util.ArrayList
 
 /** Class for profiling information collected by Speedy. We use [[AnyRef]] for
@@ -28,9 +29,9 @@ final class Profile {
     events.add(Event(false, label, time))
   }
 
-  def writeSpeedscopeJson(filename: String) = {
+  def writeSpeedscopeJson(path: Path) = {
     val fileJson = SpeedscopeJson.FileJson.fromProfile(this)
-    fileJson.write(filename)
+    fileJson.write(path)
   }
 }
 
@@ -89,9 +90,9 @@ object Profile {
         exporter: String,
         name: String,
     ) {
-      def write(filename: String): Unit = {
+      def write(path: Path): Unit = {
         import JsonProtocol.fileFormat
-        val writer = new BufferedWriter(new FileWriter(filename))
+        val writer = new BufferedWriter(new FileWriter(path.toFile()))
         writer.write(this.toJson.compactPrint)
         writer.close()
       }

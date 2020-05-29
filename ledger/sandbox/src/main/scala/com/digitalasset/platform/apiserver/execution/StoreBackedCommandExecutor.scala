@@ -3,7 +3,8 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -82,6 +83,12 @@ final class StoreBackedCommandExecutor(
       implicit ec: ExecutionContext
   ): Future[Either[DamlLfError, A]] = {
 
+    val lookupActiveContractTime = new AtomicLong(0L)
+    val lookupActiveContractCount = new AtomicLong(0L)
+
+    val lookupContractKeyTime = new AtomicLong(0L)
+    val lookupContractKeyCount = new AtomicLong(0L)
+
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] =
       result match {
         case ResultDone(r) => Future.successful(Right(r))
@@ -89,19 +96,29 @@ final class StoreBackedCommandExecutor(
         case ResultError(err) => Future.successful(Left(err))
 
         case ResultNeedContract(acoid, resume) =>
+          val start = System.nanoTime
           Timed
             .future(
               metrics.daml.execution.lookupActiveContract,
               contractStore.lookupActiveContract(submitter, acoid),
             )
-            .flatMap(instance => resolveStep(resume(instance)))
+            .flatMap { instance =>
+              lookupActiveContractTime.addAndGet(System.nanoTime() - start)
+              lookupActiveContractCount.incrementAndGet()
+              resolveStep(resume(instance))
+            }
 
         case ResultNeedKey(key, resume) =>
+          val start = System.nanoTime
           Timed
             .future(
               metrics.daml.execution.lookupContractKey,
               contractStore.lookupContractKey(submitter, key))
-            .flatMap(contractId => resolveStep(resume(contractId)))
+            .flatMap { contractId =>
+              lookupContractKeyTime.addAndGet(System.nanoTime() - start)
+              lookupContractKeyCount.incrementAndGet()
+              resolveStep(resume(contractId))
+            }
 
         case ResultNeedPackage(packageId, resume) =>
           var gettingPackage = false
@@ -131,6 +148,16 @@ final class StoreBackedCommandExecutor(
           }
       }
 
-    resolveStep(result)
+    resolveStep(result).andThen {
+      case _ =>
+        metrics.daml.execution.lookupActiveContractPerExecution
+          .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
+        metrics.daml.execution.lookupActiveContractCountPerExecution
+          .update(lookupActiveContractCount.get)
+        metrics.daml.execution.lookupContractKeyPerExecution
+          .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
+        metrics.daml.execution.lookupContractKeyCountPerExecution
+          .update(lookupContractKeyCount.get())
+    }
   }
 }

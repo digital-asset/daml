@@ -36,7 +36,15 @@ class Metrics(val registry: MetricRegistry) {
       val prefix: MetricName = daml.prefix :+ "execution"
 
       val lookupActiveContract: Timer = registry.timer(prefix :+ "lookup_active_contract")
+      val lookupActiveContractPerExecution: Timer =
+        registry.timer(prefix :+ "lookup_active_contract_per_execution")
+      val lookupActiveContractCountPerExecution: Histogram =
+        registry.histogram(prefix :+ "lookup_active_contract_count_per_execution")
       val lookupContractKey: Timer = registry.timer(prefix :+ "lookup_contract_key")
+      val lookupContractKeyPerExecution: Timer =
+        registry.timer(prefix :+ "lookup_contract_key_per_execution")
+      val lookupContractKeyCountPerExecution: Histogram =
+        registry.histogram(prefix :+ "lookup_contract_key_count_per_execution")
       val getLfPackage: Timer = registry.timer(prefix :+ "get_lf_package")
       val retry: Meter = registry.meter(prefix :+ "retry")
       val total: Timer = registry.timer(prefix :+ "total")
