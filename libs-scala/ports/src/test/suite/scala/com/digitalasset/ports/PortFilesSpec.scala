@@ -10,7 +10,6 @@ import com.daml.ports.PortFiles.FileAlreadyExists
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.{-\/, \/-}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PortFilesSpec extends FreeSpec with Matchers with Inside {
 
   "Can create a port file with a unique file name" in {

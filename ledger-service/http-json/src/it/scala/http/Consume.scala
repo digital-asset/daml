@@ -31,7 +31,6 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 sealed abstract class Consume[-T, +V]
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object Consume {
   import scalaz.Free
   import scalaz.std.scalaFuture._

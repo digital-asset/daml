@@ -9,7 +9,6 @@ import com.daml.ledger.client.binding.{Primitive => P}
 
 import org.scalatest.{Inside, Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class GeneratedCommandsUT extends WordSpec with Matchers with Inside {
   private val alice = P.Party("Alice")
   private val contract = SimpleListExample(alice, List(42))

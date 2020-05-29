@@ -22,7 +22,6 @@ class ContractDao(xa: Connection.T) {
 
   implicit val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
 }

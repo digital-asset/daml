@@ -12,7 +12,6 @@ import com.daml.lf.codegen.backend.java.JavaBackend
 import com.daml.lf.codegen.conf.Conf
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
   behavior of "collectDamlLfInterfaces"

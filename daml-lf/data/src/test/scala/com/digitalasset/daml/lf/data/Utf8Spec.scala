@@ -10,7 +10,6 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Utf8Spec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   private def codepointToString(cp: Int): String =

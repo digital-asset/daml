@@ -74,7 +74,6 @@ object JwtSigner {
 
   private def str(bs: Array[Byte]) = new String(bs, charset)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def base64Encode(a: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[Array[Byte]] =
     a.traverse(base64Encode)
 

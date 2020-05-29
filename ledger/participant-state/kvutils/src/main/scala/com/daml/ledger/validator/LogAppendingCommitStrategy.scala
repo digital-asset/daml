@@ -20,7 +20,6 @@ class LogAppendingCommitStrategy[Index](
     keySerializationStrategy: StateKeySerializationStrategy)(
     implicit executionContext: ExecutionContext)
     extends CommitStrategy[Index] {
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // so we can use `breakOut`
   override def commit(
       participantId: ParticipantId,
       correlationId: String,

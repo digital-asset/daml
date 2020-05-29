@@ -19,7 +19,6 @@ class InMemoryLedgerReader(
     state: InMemoryState,
     metrics: Metrics)
     extends LedgerReader {
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // so we can use `.view`
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(

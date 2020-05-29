@@ -44,7 +44,6 @@ import scala.util.{Failure, Success, Try}
   * A new UI backend can be implemented by extending [[UIBackend]] and by providing
   * the [[customEndpoints]], [[customRoutes]], [[applicationInfo]] definitions.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
   def customEndpoints: Set[CustomEndpoint[_]]
@@ -324,7 +323,6 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
   * Note that two `CustomEndpoint`s are considered equal if their `endpointName`s are the same to simplify
   * registering new `CustomEndpoint`s and validate them
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class CustomEndpoint[T](implicit tGraphQL: GraphQLObject[T]) {
 
   /** The endpoint to be used as GraphQL top-level for the data served by this */

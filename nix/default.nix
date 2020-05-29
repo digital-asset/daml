@@ -113,8 +113,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    live-server =
-      (import ./tools/live-server { inherit pkgs; nodejs = tools.node; }).live-server;
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 

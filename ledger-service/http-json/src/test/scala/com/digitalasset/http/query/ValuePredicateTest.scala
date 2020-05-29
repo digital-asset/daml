@@ -18,7 +18,7 @@ import org.scalatest.{Inside, Matchers, WordSpec}
 import scalaz.Order
 import spray.json._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ValuePredicateTest
     extends WordSpec
     with Matchers
@@ -233,7 +233,6 @@ object ValuePredicateTest {
   import shapeless.{::, HNil}
 
   /** Flatten tuples and hlists in Fragment.a. */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def flattenFragmentExistential(v: Any): Seq[Any] = v match {
     case (l, r) => flattenFragmentExistential(l) ++ flattenFragmentExistential(r)
     case hd :: tl => hd +: flattenFragmentExistential(tl)

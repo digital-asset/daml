@@ -5,7 +5,6 @@ package com.daml.lf.codegen.backend.java.inner
 
 import org.scalatest.{FlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class VariantConstructorClassSpec extends FlatSpec with Matchers {
 
   behavior of "VariantConstructorClass.lowerCaseFieldName"

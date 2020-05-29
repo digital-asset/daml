@@ -22,7 +22,6 @@ import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.language.implicitConversions
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private def hash(s: String, i: Int) =

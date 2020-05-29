@@ -19,7 +19,6 @@ import org.scalatest.{FreeSpec, Matchers}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._

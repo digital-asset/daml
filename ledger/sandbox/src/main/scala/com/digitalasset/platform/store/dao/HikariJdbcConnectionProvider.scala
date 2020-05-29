@@ -21,7 +21,6 @@ import scala.util.control.NonFatal
 object HikariConnection {
   private val ConnectionPoolPrefix: String = "daml.index.db.connection"
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def owner(
       serverRole: ServerRole,
       jdbcUrl: String,
