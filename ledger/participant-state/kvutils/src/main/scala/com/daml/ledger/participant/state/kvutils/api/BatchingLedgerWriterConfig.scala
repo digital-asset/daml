@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 /** Configuration for the batching ledger writer.
   *
   * @param enableBatching Enables batching if true.
-  * @param maxBatchQueueSize The maximum number of submission to queue before dropping.
+  * @param maxBatchQueueSize The maximum number of submissions to queue before dropping new ones.
   * @param maxBatchSizeBytes Maximum size threshold after which batch is immediately emitted.
   * @param maxBatchWaitDuration The maximum duration to wait before emitting the batch.
   * @param maxBatchConcurrentCommits Maximum number of concurrent calls to commit.
