@@ -52,14 +52,6 @@ private[kvutils] trait CommitContext {
     }
   }
 
-  private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
-    inputs
-      .get(key)
-      .exists {
-        case Some(inputValue) => inputValue == value
-        case None => false
-      }
-
   /** Clear the output state. */
   def clear(): Unit = {
     outputOrder.clear()
@@ -70,4 +62,11 @@ private[kvutils] trait CommitContext {
   def getOutputs: Iterable[(DamlStateKey, DamlStateValue)] =
     outputOrder.map(k => k -> outputs(k))
 
+  private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
+    inputs
+      .get(key)
+      .exists {
+        case Some(inputValue) => inputValue == value
+        case None => false
+      }
 }
