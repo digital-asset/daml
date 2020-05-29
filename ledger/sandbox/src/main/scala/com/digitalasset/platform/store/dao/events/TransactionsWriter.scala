@@ -25,26 +25,32 @@ private[dao] object TransactionsWriter {
       deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
   ) {
-    def write()(implicit connection: Connection): Unit = {
-      eventBatches.foreach(_.execute())
+    def write(metrics: Metrics)(implicit connection: Connection): Unit = {
+      import metrics.daml.index.db.storeTransactionDbMetrics
+
+      Timed.value(storeTransactionDbMetrics.eventsBatch, eventBatches.foreach(_.execute()))
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
-      deleteWitnessesBatch.map(_.execute())
+      Timed.value(
+        storeTransactionDbMetrics.deleteContractWitnessesBatch,
+        deleteWitnessesBatch.map(_.execute()))
       for ((_, deleteContractsBatch) <- contractBatches.deletions) {
-        deleteContractsBatch.execute()
+        Timed.value(storeTransactionDbMetrics.deleteContractsBatch, deleteContractsBatch.execute())
       }
       for ((_, insertContractsBatch) <- contractBatches.insertions) {
-        insertContractsBatch.execute()
+        Timed.value(storeTransactionDbMetrics.insertContractsBatch, insertContractsBatch.execute())
       }
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
-      insertWitnessesBatch.foreach(_.execute())
+      Timed.value(
+        storeTransactionDbMetrics.insertContractWitnessesBatch,
+        insertWitnessesBatch.foreach(_.execute()))
     }
   }
 
@@ -193,7 +199,7 @@ private[dao] final class TransactionsWriter(
 
     val (serializedEventBatches, serializedContractBatches) =
       Timed.value(
-        metrics.daml.index.db.storeTransactionDao.translationTimer,
+        metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
         (
           rawEventBatches.applySerialization(lfValueTranslation),
           rawContractBatches.applySerialization(lfValueTranslation)

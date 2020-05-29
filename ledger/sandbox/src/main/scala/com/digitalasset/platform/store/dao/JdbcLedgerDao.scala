@@ -31,7 +31,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, NodeId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.events.EventIdFormatter.split
@@ -263,7 +263,7 @@ private class JdbcLedgerDao(
       rejectionReason: Option[String]
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(
-      metrics.daml.index.db.storeConfigurationEntryDao,
+      metrics.daml.index.db.storeConfigurationEntryDbMetrics,
       Some(s"submissionId=$submissionId"),
     ) { implicit conn =>
       val optCurrentConfig = selectLedgerConfiguration
@@ -338,7 +338,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       partyEntry: PartyLedgerEntry,
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDao) { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       updateLedgerEnd(offset)
 
       partyEntry match {
@@ -477,35 +477,47 @@ private class JdbcLedgerDao(
       divulged: Iterable[DivulgedContract],
   ): Future[PersistenceResponse] = {
     val preparedTransactionInsert =
-      transactionsWriter.prepare(
-        submitterInfo = submitterInfo,
-        workflowId = workflowId,
-        transactionId = transactionId,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
-        transaction = transaction,
-        divulgedContracts = divulged,
+      Timed.value(
+        metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
+        transactionsWriter.prepare(
+          submitterInfo = submitterInfo,
+          workflowId = workflowId,
+          transactionId = transactionId,
+          ledgerEffectiveTime = ledgerEffectiveTime,
+          offset = offset,
+          transaction = transaction,
+          divulgedContracts = divulged,
+        )
       )
     dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDao) { implicit conn =>
+      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         val error =
-          postCommitValidation.validate(
-            transaction = transaction,
-            transactionLedgerEffectiveTime = ledgerEffectiveTime,
-            divulged = divulged.iterator.map(_.contractId).toSet,
+          Timed.value(
+            metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
+            postCommitValidation.validate(
+              transaction = transaction,
+              transactionLedgerEffectiveTime = ledgerEffectiveTime,
+              divulged = divulged.iterator.map(_.contractId).toSet,
+            )
           )
         if (error.isEmpty) {
-          preparedTransactionInsert.write()
-          submitterInfo
-            .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
-            .foreach(_.execute())
+          preparedTransactionInsert.write(metrics)
+          Timed.value(
+            metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
+            submitterInfo
+              .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
+              .foreach(_.execute())
+          )
         } else {
           for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
             stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
             prepareRejectionInsert(info, offset, recordTime, error.get).execute()
           }
         }
-        updateLedgerEnd(offset)
+        Timed.value(
+          metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
+          updateLedgerEnd(offset)
+        )
         Ok
       }
   }
@@ -516,7 +528,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       reason: RejectionReason,
   ): Future[PersistenceResponse] =
-    dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDao) { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
       for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
         stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
         prepareRejectionInsert(info, offset, recordTime, reason).execute()
@@ -551,7 +563,7 @@ private class JdbcLedgerDao(
                     transaction = tx.transaction.mapNodeId(splitOrThrow),
                     divulgedContracts = Nil,
                   )
-                  .write()
+                  .write(metrics)
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
@@ -704,7 +716,7 @@ private class JdbcLedgerDao(
       optEntry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(
-      metrics.daml.index.db.storePackageEntryDao,
+      metrics.daml.index.db.storePackageEntryDbMetrics,
       Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
       updateLedgerEnd(offset)
 
@@ -815,7 +827,7 @@ private class JdbcLedgerDao(
       submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDao) { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { implicit conn =>
       val key = deduplicationKey(commandId, submitter)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
@@ -844,7 +856,7 @@ private class JdbcLedgerDao(
     """.stripMargin)
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.removeExpiredDeduplicationDataDao) {
+    dbDispatcher.executeSql(metrics.daml.index.db.removeExpiredDeduplicationDataDbMetrics) {
       implicit conn =>
         SQL_DELETE_EXPIRED_COMMANDS
           .on("currentTime" -> currentTime)
@@ -869,8 +881,9 @@ private class JdbcLedgerDao(
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
       submitter: Party): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDao) { implicit conn =>
-      stopDeduplicatingCommandSync(commandId, submitter)
+    dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics) {
+      implicit conn =>
+        stopDeduplicatingCommandSync(commandId, submitter)
     }
 
   override def reset(): Future[Unit] =
