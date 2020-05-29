@@ -230,15 +230,18 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     createNewDatabase()
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
     assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
-    Await.result(withHttpService(Some(dar), Some(testJdbcConfig)) {
-      (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-        for {
-          // Start trigger for Alice.
-          resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-          aliceTrigger <- parseTriggerId(resp)
-          _ <- assertTriggerIds(uri, "Alice", (triggerIds => triggerIds == Vector(aliceTrigger)))
-        } yield succeed
-    }, Duration.Inf)
+    Await.result(
+      withHttpService(Some(dar), Some(testJdbcConfig)) {
+        (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+          for {
+            // Start trigger for Alice.
+            resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+            aliceTrigger <- parseTriggerId(resp)
+            _ <- assertTriggerIds(uri, "Alice", (triggerIds => triggerIds == Vector(aliceTrigger)))
+          } yield succeed
+      },
+      Duration.Inf
+    )
     dropDatabase()
     disconnectFromPostgresqlServer()
     succeed

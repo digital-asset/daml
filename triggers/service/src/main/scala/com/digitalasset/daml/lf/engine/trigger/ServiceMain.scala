@@ -75,12 +75,12 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   private var triggerLog: Map[UUID, Vector[(String, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
-  dar.foreach(addDar(_))
+  dar.foreach(addDar)
 
   // FIXME(RJR): Figure out execution context
   val triggerDao: Option[TriggerDao] = jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
 
-  private def addDar(dar: Dar[(PackageId, Package)]) = {
+  private def addDar(dar: Dar[(PackageId, Package)]): Unit = {
     val darMap = dar.all.toMap
     darMap.foreach {
       case (pkgId, pkg) =>
@@ -89,6 +89,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
         // will still call addPackage even if we already fed the
         // package via the callback but this is harmless and not
         // expensive.
+        @scala.annotation.tailrec
         def go(r: Result[Unit]): Unit = r match {
           case ResultDone(()) => ()
           case ResultNeedPackage(pkgId, resume) =>
@@ -100,7 +101,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   }
 
   private def getRunningTrigger(uuid: UUID): RunningTrigger = {
-    triggers.get(uuid).get // TODO: Improve as might throw NoSuchElementException.
+    triggers(uuid) // TODO: Improve as might throw NoSuchElementException.
   }
 
   private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
@@ -120,9 +121,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
     triggers = triggers - t.triggerInstance
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken
-      .get(t.jwt)
-      .get - t.triggerInstance))
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken (t.jwt) - t.triggerInstance) )
   }
 
   private def listRunningTriggers(jwt: Jwt): List[String] = {
@@ -269,7 +268,7 @@ object Server {
                             .fromIdentifier(server.compiledPackages, params.triggerName) match {
                             case Left(err) =>
                               complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                            case Right(trigger) => {
+                            case Right(trigger) =>
                               val triggerInstance = startTrigger(
                                 ctx,
                                 token,
@@ -281,8 +280,7 @@ object Server {
                                 failureRetryTimeRange
                               )
                               complete(successResponse(triggerInstance))
-                            }
-                        }
+                          }
                       )
                 }
             }
@@ -519,7 +517,7 @@ object ServiceMain {
       case None => sys.exit(1)
       case Some(config) =>
         val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
-          case darPath =>
+          darPath =>
             val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
               DarReader().readArchiveFromFile(darPath.toFile) match {
                 case Failure(err) => sys.error(s"Failed to read archive: $err")
