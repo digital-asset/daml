@@ -43,7 +43,7 @@ private[kvutils] trait CommitContext {
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {
     if (inputAlreadyContains(key, value)) {
-      logger.error(s"Identical output found for key $key")
+      logger.trace(s"Identical output found for key $key")
     } else {
       if (!outputs.contains(key)) {
         outputOrder += key
