@@ -432,17 +432,17 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   private def splitOrThrow(id: EventId): NodeId =
     split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
-  protected final def store(
-      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
-      offsetAndTx: (Offset, LedgerEntry.Transaction))(
-      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
-    val (offset, entry) = offsetAndTx
-    val submitterInfo =
-      for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
-        yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
-    ledgerDao
-      .storeTransactions(
-        List(offset -> v1.Update.TransactionAccepted(
+  protected final def storeBatch(
+      entries: List[
+        ((Offset, LedgerEntry.Transaction), Map[(ContractId, v1.ContractInst), Set[Party]], )]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    val daoEntries = entries.map {
+      case ((offset, entry), divulgedContracts) =>
+        val submitterInfo =
+          for (submitter <- entry.submittingParty; app <- entry.applicationId;
+            cmd <- entry.commandId)
+            yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
+        offset -> v1.Update.TransactionAccepted(
           optSubmitterInfo = submitterInfo,
           transactionMeta = v1.TransactionMeta(
             ledgerEffectiveTime = Time.Timestamp.assertFromInstant(entry.ledgerEffectiveTime),
@@ -458,7 +458,19 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
           recordTime = Time.Timestamp.assertFromInstant(entry.recordedAt),
           divulgedContracts =
             divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
-        )))
+        )
+    }
+
+    ledgerDao
+      .storeTransactions(daoEntries)
+      .map(_ => ())
+  }
+
+  protected final def store(
+      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      offsetAndTx: (Offset, LedgerEntry.Transaction))(
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
+    storeBatch(List(offsetAndTx -> divulgedContracts))
       .map(_ => offsetAndTx)
   }
 
