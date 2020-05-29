@@ -26,22 +26,22 @@ private[dao] object TransactionsWriter {
       insertWitnessesBatch: Option[BatchSql],
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
-      import metrics.daml.index.db.storeTransactionDao
+      import metrics.daml.index.db.storeTransactionDbMetrics
 
-      Timed.value(storeTransactionDao.eventsBatch, eventBatches.foreach(_.execute()))
+      Timed.value(storeTransactionDbMetrics.eventsBatch, eventBatches.foreach(_.execute()))
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
       Timed.value(
-        storeTransactionDao.deleteContractWitnessesBatch,
+        storeTransactionDbMetrics.deleteContractWitnessesBatch,
         deleteWitnessesBatch.map(_.execute()))
       for ((_, deleteContractsBatch) <- contractBatches.deletions) {
-        Timed.value(storeTransactionDao.deleteContractsBatch, deleteContractsBatch.execute())
+        Timed.value(storeTransactionDbMetrics.deleteContractsBatch, deleteContractsBatch.execute())
       }
       for ((_, insertContractsBatch) <- contractBatches.insertions) {
-        Timed.value(storeTransactionDao.insertContractsBatch, insertContractsBatch.execute())
+        Timed.value(storeTransactionDbMetrics.insertContractsBatch, insertContractsBatch.execute())
       }
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
@@ -49,7 +49,7 @@ private[dao] object TransactionsWriter {
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
       Timed.value(
-        storeTransactionDao.insertContractWitnessesBatch,
+        storeTransactionDbMetrics.insertContractWitnessesBatch,
         insertWitnessesBatch.foreach(_.execute()))
     }
   }
@@ -199,7 +199,7 @@ private[dao] final class TransactionsWriter(
 
     val (serializedEventBatches, serializedContractBatches) =
       Timed.value(
-        metrics.daml.index.db.storeTransactionDao.translationTimer,
+        metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
         (
           rawEventBatches.applySerialization(lfValueTranslation),
           rawContractBatches.applySerialization(lfValueTranslation)
