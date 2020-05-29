@@ -7,5 +7,5 @@
 
 
 
-drop table participant_event_flat_transaction_witnesses;
-drop table participant_event_transaction_tree_witnesses;
+--drop table participant_event_flat_transaction_witnesses;
+--drop table participant_event_transaction_tree_witnesses;
