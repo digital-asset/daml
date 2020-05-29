@@ -26,9 +26,8 @@ module DA.Daml.LF.Verify.Context
   , runEnv
   , genRenamedVar
   , addUpd
-  , extVarEnv, extRecEnv, extValEnv, extChEnv, extDatsEnv, extCidEnv
-  , extCtrRec, extCtr
-  , extRecEnvLvl1
+  , extVarEnv, extRecEnv, extRecEnvTCons, extValEnv, extChEnv, extDatsEnv
+  , extCidEnv, extPrecond, extCtrRec, extCtr
   , lookupVar, lookupRec, lookupVal, lookupChoice, lookupDataCon, lookupCid
   , conditionalUpdateSet
   , solveValueReferences
@@ -219,6 +218,10 @@ class IsPhase (ph :: Phase) where
   envCids :: Env ph -> HM.HashMap Cid (ExprVarName, [ExprVarName])
   -- | Update the fetched cid's in the environment.
   setEnvCids :: HM.HashMap Cid (ExprVarName, [ExprVarName]) -> Env ph -> Env ph
+  -- | Get the set of preconditions from the environment.
+  envPreconds :: Env ph -> HM.HashMap (Qualified TypeConName) (Expr -> Expr)
+  -- | Update the set of preconditions in the environment.
+  setEnvPreconds :: HM.HashMap (Qualified TypeConName) (Expr -> Expr) -> Env ph -> Env ph
   -- | Get the additional constraints from the environment.
   envCtrs :: Env ph -> [BoolExpr]
   -- | Update the additional constraints in the environment.
@@ -277,6 +280,8 @@ instance IsPhase 'ValueGathering where
   setEnvDats dat (EnvVG sko val _ cid ctr) = EnvVG sko val dat cid ctr
   envCids (EnvVG _ _ _ cid _) = cid
   setEnvCids cid (EnvVG sko val dat _ ctr) = EnvVG sko val dat cid ctr
+  envPreconds _ = error "A value gathering phase environment does not contain preconditions."
+  setEnvPreconds _ _ = error "A value gathering phase environment does not contain preconditions."
   envCtrs (EnvVG _ _ _ _ ctr) = ctr
   setEnvCtrs ctr (EnvVG sko val dat cid _) = EnvVG sko val dat cid ctr
   envChoices _ = error "A value gathering phase environment does not contain choices."
@@ -298,6 +303,9 @@ instance IsPhase 'ChoiceGathering where
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
     -- with a list of any potential old variable names.
+    !(HM.HashMap (Qualified TypeConName) (Expr -> Expr))
+    -- ^ The set of preconditions per template. The precondition is represented
+    -- using a function from the `this` variable to the constraint expression.
     ![BoolExpr]
     -- ^ Additional constraints.
     !(HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering))
@@ -315,22 +323,25 @@ instance IsPhase 'ChoiceGathering where
   setUpdSetChoices cho (UpdateSetCG upd _) = UpdateSetCG upd cho
   updSetValues _ = error "A choice gathering update set does not contain value references."
   setUpdSetValues _ _ = error "A choice gathering update set does not contain value references."
-  emptyEnv = EnvCG [] HM.empty HM.empty HM.empty [] HM.empty
-  concatEnv (EnvCG vars1 vals1 dats1 cids1 ctrs1 chos1) (EnvCG vars2 vals2 dats2 cids2 ctrs2 chos2) =
+  emptyEnv = EnvCG [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
+  concatEnv (EnvCG vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvCG vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
     EnvCG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2) (chos1 `HM.union` chos2)
-  envSkols (EnvCG sko _ _ _ _ _) = sko
-  setEnvSkols sko (EnvCG _ val dat cid ctr cho) = EnvCG sko val dat cid ctr cho
-  envVals (EnvCG _ val _ _ _ _) = val
-  setEnvVals val (EnvCG sko _ dat cid ctr cho) = EnvCG sko val dat cid ctr cho
-  envDats (EnvCG _ _ dat _ _ _) = dat
-  setEnvDats dat (EnvCG sko val _ cid ctr cho) = EnvCG sko val dat cid ctr cho
-  envCids (EnvCG _ _ _ cid _ _) = cid
-  setEnvCids cid (EnvCG sko val dat _ ctr cho) = EnvCG sko val dat cid ctr cho
-  envCtrs (EnvCG _ _ _ _ ctr _) = ctr
-  setEnvCtrs ctr (EnvCG sko val dat cid _ cho) = EnvCG sko val dat cid ctr cho
-  envChoices (EnvCG _ _ _ _ _ cho) = cho
-  setEnvChoices cho (EnvCG sko val dat cid ctr _) = EnvCG sko val dat cid ctr cho
+      (cids1 `HM.union` cids2) (pres1 `HM.union` pres2) (ctrs1 ++ ctrs2)
+      (chos1 `HM.union` chos2)
+  envSkols (EnvCG sko _ _ _ _ _ _) = sko
+  setEnvSkols sko (EnvCG _ val dat cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
+  envVals (EnvCG _ val _ _ _ _ _) = val
+  setEnvVals val (EnvCG sko _ dat cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
+  envDats (EnvCG _ _ dat _ _ _ _) = dat
+  setEnvDats dat (EnvCG sko val _ cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
+  envCids (EnvCG _ _ _ cid _ _ _) = cid
+  setEnvCids cid (EnvCG sko val dat _ pre ctr cho) = EnvCG sko val dat cid pre ctr cho
+  envPreconds (EnvCG _ _ _ _ pre _ _) = pre
+  setEnvPreconds pre (EnvCG sko val dat cid _ ctr cho) = EnvCG sko val dat cid pre ctr cho
+  envCtrs (EnvCG _ _ _ _ _ ctr _) = ctr
+  setEnvCtrs ctr (EnvCG sko val dat cid pre _ cho) = EnvCG sko val dat cid pre ctr cho
+  envChoices (EnvCG _ _ _ _ _ _ cho) = cho
+  setEnvChoices cho (EnvCG sko val dat cid pre ctr _) = EnvCG sko val dat cid pre ctr cho
 
 instance IsPhase 'Solving where
   data UpdateSet 'Solving = UpdateSetS
@@ -346,6 +357,9 @@ instance IsPhase 'Solving where
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
     -- with a list of any potential old variable names.
+    !(HM.HashMap (Qualified TypeConName) (Expr -> Expr))
+    -- ^ The set of preconditions per template. The precondition is represented
+    -- using a function from the `this` variable to the constraint expression.
     ![BoolExpr]
     -- ^ Additional constraints.
     !(HM.HashMap UpdChoice (ChoiceData 'Solving))
@@ -362,22 +376,25 @@ instance IsPhase 'Solving where
   setUpdSetChoices _ _ = error "A solving update set does not contain choice references."
   updSetValues _ = error "A solving update set does not contain value references."
   setUpdSetValues _ _ = error "A solving update set does not contain value references."
-  emptyEnv = EnvS [] HM.empty HM.empty HM.empty [] HM.empty
-  concatEnv (EnvS vars1 vals1 dats1 cids1 ctrs1 chos1) (EnvS vars2 vals2 dats2 cids2 ctrs2 chos2) =
+  emptyEnv = EnvS [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
+  concatEnv (EnvS vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvS vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
     EnvS (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2) (chos1 `HM.union` chos2)
-  envSkols (EnvS sko _ _ _ _ _) = sko
-  setEnvSkols sko (EnvS _ val dat cid ctr cho) = EnvS sko val dat cid ctr cho
-  envVals (EnvS _ val _ _ _ _) = val
-  setEnvVals val (EnvS sko _ dat cid ctr cho) = EnvS sko val dat cid ctr cho
-  envDats (EnvS _ _ dat _ _ _) = dat
-  setEnvDats dat (EnvS sko val _ cid ctr cho) = EnvS sko val dat cid ctr cho
-  envCids (EnvS _ _ _ cid _ _) = cid
-  setEnvCids cid (EnvS sko val dat _ ctr cho) = EnvS sko val dat cid ctr cho
-  envCtrs (EnvS _ _ _ _ ctr _) = ctr
-  setEnvCtrs ctr (EnvS sko val dat cid _ cho) = EnvS sko val dat cid ctr cho
-  envChoices (EnvS _ _ _ _ _ cho) = cho
-  setEnvChoices cho (EnvS sko val dat cid ctr _) = EnvS sko val dat cid ctr cho
+      (cids1 `HM.union` cids2) (pres1 `HM.union` pres2) (ctrs1 ++ ctrs2)
+      (chos1 `HM.union` chos2)
+  envSkols (EnvS sko _ _ _ _ _ _) = sko
+  setEnvSkols sko (EnvS _ val dat cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
+  envVals (EnvS _ val _ _ _ _ _) = val
+  setEnvVals val (EnvS sko _ dat cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
+  envDats (EnvS _ _ dat _ _ _ _) = dat
+  setEnvDats dat (EnvS sko val _ cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
+  envCids (EnvS _ _ _ cid _ _ _) = cid
+  setEnvCids cid (EnvS sko val dat _ pre ctr cho) = EnvS sko val dat cid pre ctr cho
+  envPreconds (EnvS _ _ _ _ pre _ _) = pre
+  setEnvPreconds pre (EnvS sko val dat cid _ ctr cho) = EnvS sko val dat cid pre ctr cho
+  envCtrs (EnvS _ _ _ _ _ ctr _) = ctr
+  setEnvCtrs ctr (EnvS sko val dat cid pre _ cho) = EnvS sko val dat cid pre ctr cho
+  envChoices (EnvS _ _ _ _ _ _ cho) = cho
+  setEnvChoices cho (EnvS sko val dat cid pre ctr _) = EnvS sko val dat cid pre ctr cho
 
 -- | Add a single Upd to an UpdateSet
 addUpd :: IsPhase ph
@@ -532,6 +549,21 @@ extRecEnv x fs = do
         else fs ++ (head curFs)
   extSkolEnv (SkolRec x newFs)
 
+-- | Extend the environment with the fields of any given record or type
+-- constructor type.
+extRecEnvTCons :: (IsPhase ph, MonadEnv m ph)
+  => [(FieldName, Type)]
+  -- ^ The given fields and their corresponding types to analyse.
+  -> m ()
+extRecEnvTCons = mapM_ step
+  where
+    step :: (IsPhase ph, MonadEnv m ph) => (FieldName, Type) -> m ()
+    step (f,typ) =
+      recTypFields typ >>= \case
+        Nothing -> return ()
+        Just fsRec -> do
+          extRecEnv (fieldName2VarName f) $ map fst fsRec
+
 -- | Extend the environment with a new skolem variable.
 extSkolEnv :: (IsPhase ph, MonadEnv m ph)
   => Skolem
@@ -632,6 +664,18 @@ extCidEnv b exp var = do
       return $ null [fs' | SkolRec x' fs' <- skols, x == x']
     check_proj_cid _ = return $ True
 
+-- | Extend the environment with an additional precondition, assigned to the
+-- corresponding template.
+extPrecond :: (IsPhase ph, MonadEnv m ph)
+  => Qualified TypeConName
+  -- ^ The template to assign the precondition to.
+  -> (Expr -> Expr)
+  -- ^ The precondition function, taking the `this` variable.
+  -> m ()
+extPrecond tem precond = do
+  env <- getEnv
+  putEnv (setEnvPreconds (HM.insert tem precond (envPreconds env)) env)
+
 -- | Extend the environment with additional equality constraints, between a
 -- variable and its field values.
 extCtrRec :: (IsPhase ph, MonadEnv m ph)
@@ -654,23 +698,6 @@ extCtr exp = do
   let ctrs = toBoolExpr exp
   env <- getEnv
   putEnv $ setEnvCtrs (ctrs ++ envCtrs env) env
-
--- TODO: Is one layer of recursion enough?
--- | Recursively skolemise the given record fields, when they have a record
--- type. Note that this only works 1 level deep.
-extRecEnvLvl1 :: (IsPhase ph, MonadEnv m ph)
-  => [(FieldName, Type)]
-  -- ^ The record fields to skolemise, together with their types.
-  -> m ()
-extRecEnvLvl1 = mapM_ step
-  where
-    step :: (IsPhase ph, MonadEnv m ph) => (FieldName, Type) -> m ()
-    step (f,typ) = do
-      { fsRec <- recTypFields typ
-      ; extRecEnv (fieldName2VarName f) fsRec
-      }
-      -- TODO: Temporary fix
-      `catchError` (\_ -> return ())
 
 -- | Lookup an expression variable in the environment. Returns `True` if this variable
 -- has been skolemised, or `False` otherwise.
@@ -754,7 +781,7 @@ lookupCid exp = do
 solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
 solveValueReferences env =
   let valhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond empty_upds [] hmap ref) (envVals env) (HM.keys $ envVals env)
-  in EnvCG (envSkols env) (convertHMap valhmap) (envDats env) (envCids env) (envCtrs env) HM.empty
+  in EnvCG (envSkols env) (convertHMap valhmap) (envDats env) (envCids env) HM.empty (envCtrs env) HM.empty
   where
     lookup_ref :: Qualified ExprValName
       -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
@@ -804,7 +831,7 @@ solveChoiceReferences env =
   let chhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond empty_upds [] hmap ref) (envChoices env) (HM.keys $ envChoices env)
       chshmap = convertChHMap chhmap
       valhmap = HM.map (inlineChoices chshmap) (envVals env)
-  in EnvS (envSkols env) valhmap (envDats env) (envCids env) (envCtrs env) chshmap
+  in EnvS (envSkols env) valhmap (envDats env) (envCids env) (envPreconds env) (envCtrs env) chshmap
   where
     lookup_ref :: UpdChoice
       -> HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
@@ -936,25 +963,25 @@ solveReference lookup getRefs extUpds introCond emptyUpds vis hmap0 ref0 =
 
 -- TODO: This should work recursively
 -- | Lookup the field names and corresponding types, for a given record type
--- constructor name.
+-- constructor name, if possible.
 recTypConFields :: (IsPhase ph, MonadEnv m ph)
   => TypeConName
   -- ^ The record type constructor name to lookup.
-  -> m [(FieldName,Type)]
+  -> m (Maybe [(FieldName,Type)])
 recTypConFields tc = lookupDataCon tc >>= \dat -> case dataCons dat of
-  DataRecord fields -> return fields
-  _ -> throwError ExpectRecord
+  DataRecord fields -> return $ Just fields
+  _ -> return Nothing
 
--- | Lookup the fields for a given record type.
+-- | Lookup the fields for a given record type, if possible.
 recTypFields :: (IsPhase ph, MonadEnv m ph)
   => Type
   -- ^ The type to lookup.
-  -> m [FieldName]
+  -> m (Maybe [(FieldName,Type)])
 recTypFields (TCon tc) = do
-  fields <- recTypConFields $ qualObject tc
-  return $ map fst fields
-recTypFields (TStruct fs) = return $ map fst fs
-recTypFields _ = throwError ExpectRecord
+  recTypConFields $ qualObject tc
+recTypFields (TStruct fs) = return $ Just fs
+recTypFields (TApp (TBuiltin BTContractId) t) = recTypFields t
+recTypFields _ = return Nothing
 
 -- | Lookup the record fields and corresponding values from a given expression.
 recExpFields :: (IsPhase ph, MonadEnv m ph)

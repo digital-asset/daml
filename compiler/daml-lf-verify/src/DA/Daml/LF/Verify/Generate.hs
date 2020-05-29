@@ -11,10 +11,10 @@ module DA.Daml.LF.Verify.Generate
   , Phase(..)
   ) where
 
-import Control.Monad.Error.Class (throwError)
-import Data.Maybe (listToMaybe)
+import Control.Monad.Error.Class (MonadError (..), throwError)
+import Data.Maybe (fromMaybe, listToMaybe)
+import qualified Data.HashMap.Strict as HM
 import qualified Data.NameMap as NM
-import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
@@ -89,7 +89,7 @@ class IsPhase ph => GenPhase (ph :: Phase) where
 
 instance GenPhase 'ValueGathering where
   genModule pac mod = do
-    extDatsEnv (NM.toHashMap (moduleDataTypes mod))
+    extDatsEnv (HM.map (instPRSelf pac) (NM.toHashMap (moduleDataTypes mod)))
     mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
   genForVal w = return $ Output (EVal w) (setUpdSetValues [Determined w] emptyUpdateSet)
 
@@ -147,42 +147,51 @@ genChoice :: MonadEnv m 'ChoiceGathering
   -> ExprVarName
   -- ^ The `this` variable referencing the contract on which this choice is
   -- called.
-  -> [FieldName]
+  -> [(FieldName, Type)]
   -- ^ The list of fields available in the template.
-  -> Expr
-  -- ^ Any preconditions, posed in the template.
   -> TemplateChoice
   -- ^ The choice to be analysed and added.
   -> m ()
-genChoice pac tem this' temFs preExpr TemplateChoice{..} = do
+genChoice pac tem this' temFs TemplateChoice{..} = do
+  -- Get the current variable names.
   let self' = chcSelfBinder
       arg' = fst chcArgBinder
+  -- Refresh the variable names and extend the environment.
   self <- genRenamedVar self'
   arg <- genRenamedVar arg'
   this <- genRenamedVar this'
   extVarEnv self
   extVarEnv arg
   extVarEnv this
-  extRecEnv this temFs
-  argFs <- recTypFields (snd chcArgBinder)
-  let subst = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
-  extRecEnv arg argFs
-  _ <- extCidEnv False (EVar self) this
-  let subst = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
+  -- Extend the environment with any record fields from the arguments.
+  argFs <- recTypFields (snd chcArgBinder) >>= \case
+    Nothing -> throwError ExpectRecord
+    Just fs -> return fs
+  extRecEnv arg $ map fst argFs
+  extRecEnvTCons argFs
+  -- Extend the environment with any record fields from the template.
+  extRecEnv this $ map fst temFs
+  extRecEnvTCons temFs
+  -- Extend the environment with any contract id's and constraints from the arguments.
+  extEnvContractTCons argFs arg Nothing
+  -- Extend the environment with any contract id's and constraints from the template.
+  extEnvContract (TCon tem) (EVar self) (Just this)
+  extEnvContractTCons temFs this (Just this)
+  -- Substitute the renamed variables, and the `Self` package id.
+  -- Run the constraint generator on the resulting choice expression.
+  let substVar = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   -- TODO: Can preconditions perform updates?
-  preOut <- genExpr False
-    $ substituteTm subst
-    $ instPRSelf pac preExpr
-  extCtr (_oExpr preOut)
   expOut <- genExpr True
-    $ substituteTm subst
+    $ substituteTm substVar
     $ instPRSelf pac chcUpdate
+  -- Add the archive update.
   let out = if chcConsuming
         then addArchiveUpd tem (fields this) expOut
         else expOut
+  -- Extend the environment with the choice and its resulting updates.
   extChEnv tem chcName self this arg (_oUpdate out) chcReturnType
   where
-    fields this = map (\f -> (f, ERecProj (TypeConApp tem []) f (EVar this))) temFs
+    fields this = map (\(f,_) -> (f, ERecProj (TypeConApp tem []) f (EVar this))) temFs
 
 -- | Analyse a template definition and add all choices to the environment.
 genTemplate :: MonadEnv m 'ChoiceGathering
@@ -193,14 +202,17 @@ genTemplate :: MonadEnv m 'ChoiceGathering
   -> Template
   -- ^ The template to be analysed and added.
   -> m ()
--- TODO: Take preconditions into account?
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
-  fields <- recTypConFields tplTypeCon
-  let fs = map fst fields
-  -- TODO: move this to choice?
-  extRecEnvLvl1 fields
-  mapM_ (genChoice pac name tplParam fs tplPrecondition) (archive : NM.toList tplChoices)
+  fields <- recTypConFields tplTypeCon >>= \case
+    Nothing -> throwError ExpectRecord
+    Just fs -> return fs
+  let preCond (this :: Expr) =
+        substituteTm (singleExprSubst tplParam this)
+        (instPRSelf pac tplPrecondition)
+  extPrecond name preCond
+  mapM_ (genChoice pac name tplParam fields)
+    (archive : NM.toList tplChoices)
   where
     archive :: TemplateChoice
     archive = TemplateChoice Nothing (ChoiceName "Archive") True
@@ -524,8 +536,11 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -> Maybe Expr
   -- ^ The field values for any created contracts, if available.
   -> m ExprSubst
+-- TODO: combine these two cases.
 bindCids b (TContractId (TCon tc)) cid (EVar this) fsExp = do
-  fs <- recTypConFields $ qualObject tc
+  fs <- recTypConFields (qualObject tc) >>= \case
+    Nothing -> throwError ExpectRecord
+    Just fs -> return fs
   extRecEnv this (map fst fs)
   -- cidOut <- genExpr True cid
   -- subst <- extCidEnv b (_oExpr cidOut) this
@@ -534,7 +549,9 @@ bindCids b (TContractId (TCon tc)) cid (EVar this) fsExp = do
   extCtrRec this creFs
   return subst
 bindCids b (TCon tc) cid (EVar this) fsExp = do
-  fs <- recTypConFields $ qualObject tc
+  fs <- recTypConFields (qualObject tc) >>= \case
+    Nothing -> throwError ExpectRecord
+    Just fs -> return fs
   extRecEnv this (map fst fs)
   -- cidOut <- genExpr True cid
   -- subst <- extCidEnv b (_oExpr cidOut) this
@@ -547,7 +564,7 @@ bindCids b (TApp (TApp (TCon con) t1) t2) cid var fsExp =
     "Tuple2" -> do
       -- TODO: Test this part more extensively.
       -- cidOut <- genExpr True cid
-      subst1 <- trace ("Cid: " ++ show cid) $ bindCids b t1 (EStructProj (FieldName "_1") cid) var fsExp
+      subst1 <- bindCids b t1 (EStructProj (FieldName "_1") cid) var fsExp
       subst2 <- bindCids b t2 (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExp
       return (subst1 `concatExprSubst` subst2)
     con' -> error ("Binding contract id's for this constructor has not been implemented yet: " ++ show con')
@@ -556,3 +573,61 @@ bindCids _ (TBuiltin BTTimestamp) _ _ _ = return emptyExprSubst
 -- TODO: Extend additional cases, like tuples.
 bindCids _ typ _ _ _ =
   error ("Binding contract id's for this particular type has not been implemented yet: " ++ show typ)
+
+-- TODO: It would be much nicer to have these functions in Context.hs, but they
+-- require the `GenPhase` monad. Find a nicer way to fix this.
+-- | Lookup the preconditions for a given type, and instantiate the `this`
+-- variable.
+lookupPreconds :: (GenPhase ph, MonadEnv m ph)
+  => Type
+  -- ^ The type to lookup.
+  -> ExprVarName
+  -- ^ The variable for `this` to instantiate with.
+  -> m (Maybe Expr)
+lookupPreconds typ this = case typ of
+  (TCon tem) -> do
+    preconds <- envPreconds <$> getEnv
+    case HM.lookup tem preconds of
+      Nothing -> return Nothing
+      Just preFunc -> do
+        preOut <- genExpr False (preFunc $ EVar this)
+        return $ Just $ _oExpr preOut
+  _ -> return Nothing
+
+-- | Bind the given contract id, and add any required additional constraints to
+-- the environment.
+-- TODO: Combine this with `bindCids`?
+extEnvContract :: (GenPhase ph, MonadEnv m ph)
+  => Type
+  -- ^ The contract id type to add to the environment.
+  -> Expr
+  -- ^ The contract id being bound.
+  -> Maybe ExprVarName
+  -- ^ The variable to bind the contract id to, if available.
+  -> m ()
+extEnvContract (TContractId typ) cid bindM = extEnvContract typ cid bindM
+extEnvContract (TCon tem) cid bindM = do
+  bindV <- genRenamedVar (ExprVarName "var")
+  let bind = fromMaybe bindV bindM
+  _ <- bindCids False (TCon tem) cid (EVar bind) Nothing
+  lookupPreconds (TCon tem) bind >>= \case
+    Nothing -> return ()
+    Just precond -> do
+      extCtr precond
+extEnvContract _ _ _ = return ()
+
+-- | Bind any contract id's, together with their constraints, for the fields of
+-- any given record or type constructor type.
+extEnvContractTCons :: (GenPhase ph, MonadEnv m ph)
+  => [(FieldName, Type)]
+  -- ^ The record fields to bind, together with their types.
+  -> ExprVarName
+  -- ^ The variable name to project from, e.g. the `args` in `args.field`.
+  -> Maybe ExprVarName
+  -- ^ The variable to bind the contract id's to, if available.
+  -> m ()
+extEnvContractTCons fields var bind = mapM_ step fields
+  where
+    step :: (GenPhase ph, MonadEnv m ph)
+      => (FieldName, Type) -> m ()
+    step (f,typ) = extEnvContract typ (EStructProj f (EVar var)) bind
