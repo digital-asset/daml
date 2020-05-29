@@ -236,7 +236,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
           // Start trigger for Alice.
           resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
           aliceTrigger <- parseTriggerId(resp)
-          _ <- assertTriggerIds(uri, "Alice", Vector(aliceTrigger))
+          _ <- assertTriggerIds(uri, "Alice", (triggerIds => triggerIds == Vector(aliceTrigger)))
         } yield succeed
     }, Duration.Inf)
     dropDatabase()
