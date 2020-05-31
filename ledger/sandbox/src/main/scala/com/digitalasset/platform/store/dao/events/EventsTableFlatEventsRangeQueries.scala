@@ -134,6 +134,9 @@ private[events] object EventsTableFlatEventsRangeQueries {
       orderByColumns: String,
   ) extends EventsTableFlatEventsRangeQueries[(Offset, Offset)] {
 
+    private def formatArray(ps: Set[Party]): String =
+      ps.view.map(p => s"'$p'").mkString("array[", ",", "]")
+
     override protected def singleWildcardParty(
         between: (Offset, Offset),
         party: Party,
@@ -142,7 +145,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
     ): SimpleSql[Row] = {
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
-      SQL"""select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and event_witness = $party order by (#$orderByColumns) limit $pageSize"""
+//      val partyArray = formatArray(party)
+      SQL"""select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and flat_event_witnesses @> array[$party] order by (#$orderByColumns) limit $pageSize"""
     }
 
     override protected def singlePartyWithTemplates(
