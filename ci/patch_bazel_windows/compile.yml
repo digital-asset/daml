@@ -14,7 +14,7 @@ jobs:
   - bash: |
       set -euo pipefail
 
-      CACHE_KEY="$(md5sum $(find ci/patch_bazel_windows -type f) | md5sum | awk '{print $1}')"
+      CACHE_KEY="$(find ci/patch_bazel_windows -type f -print0 | sort -z | xargs -r0 md5sum | md5sum | awk '{print $1}')"
       TARGET="patch_bazel_windows/bazel-$CACHE_KEY.zip"
       TARGET_URL="https://daml-binaries.da-ext.net/$TARGET"
 
