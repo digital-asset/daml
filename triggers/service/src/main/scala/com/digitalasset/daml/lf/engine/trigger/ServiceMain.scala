@@ -255,8 +255,6 @@ object Server {
       }
     }
 
-    // 'fileUpload' triggers this warning we don't have a fix right
-    // now so we disable it.
     val route = concat(
       post {
         concat(
