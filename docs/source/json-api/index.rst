@@ -617,7 +617,7 @@ HTTP Response
 Please note that the response below is for a consuming choice, so it contains:
 
 - ``created`` and ``archived`` events for the initial contract (``"contractId": "#1:0"``), which was created and archived right away when a consuming choice was exercised on it,
-- a ``created`` event for the contract that is the result of the choice exercise (``"contractId": "#1:2"``).
+- a ``created`` event for the contract that is the result of the exercise choice (``"contractId": "#1:2"``).
 
 - Content-Type: ``application/json``
 - Content:
