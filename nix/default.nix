@@ -186,6 +186,7 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
+    findutils = pkgs.findutils;
 
     patch = pkgs.patch;
     wget = pkgs.wget;
@@ -256,7 +257,6 @@ in rec {
     cheat = pkgs.cheat;
     coreutils = pkgs.coreutils;
     dockerd = pkgs.docker;
-    findutils = pkgs.findutils;
     ftop = pkgs.ftop;
     gcc7 = pkgs.gcc7;
     glibc = pkgs.glibc;
