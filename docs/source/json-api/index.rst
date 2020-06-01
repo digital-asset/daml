@@ -1111,7 +1111,7 @@ HTTP Request
 - Method: ``GET``
 - Content: <EMPTY>
 
-Note that package ID is specified in the URL.
+Note that the desired package ID is specified in the URL.
 
 HTTP Response, status: 200 OK
 =============================
