@@ -202,9 +202,9 @@ choice for details.
 For HTTP JSON requests, you must pass two subprotocols:
 
 - ``daml.ws.auth``
-- ``jwt.token.copy-paste-token-here``
+- ``jwt.token.paste-token-here``
 
-where ``copy-paste-token-here`` is the encoded JWT token described above.
+where ``paste-token-here`` is the encoded JWT token described above.
 
 Error Reporting
 ***************
