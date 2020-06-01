@@ -332,6 +332,7 @@ object Server {
                   )
             }
           },
+          // Produce logs for the given trigger.
           pathPrefix("v1" / "status" / JavaUUID) { uuid =>
             complete(successResponse(JsObject(("logs", server.getTriggerStatus(uuid).toJson))))
           }
