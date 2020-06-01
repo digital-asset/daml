@@ -17,7 +17,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var evarS: Int = 0,
       var evarA: Int = 0,
       var evarF: Int = 0,
-      var eapp: Int = 0,
+      var eappE: Int = 0,
+      var eappA: Int = 0,
       var eclose: Int = 0,
       var ebuiltin: Int = 0,
       var eval: Int = 0,
@@ -48,7 +49,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- evarS", evarS),
         ("- evarA", evarA),
         ("- evarF", evarF),
-        ("- eapp", eapp),
+        ("- eappE", eappE),
+        ("- eappA", eappA),
         ("- eclose", eclose),
         ("- ebuiltin", ebuiltin),
         ("- eval", eval),
@@ -93,7 +95,8 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case _: SELocS => counts.evarS += 1
       case _: SELocA => counts.evarA += 1
       case _: SELocF => counts.evarF += 1
-      case _: SEApp => counts.eapp += 1
+      case _: SEAppE => counts.eappE += 1
+      case _: SEAppA => counts.eappA += 1
       case _: SEMakeClo => counts.eclose += 1
       case _: SEBuiltin => counts.ebuiltin += 1
       case _: SEVal => counts.eval += 1
