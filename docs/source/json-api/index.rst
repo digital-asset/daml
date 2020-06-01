@@ -606,7 +606,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` -- the initial contract template identifier, in the same format as in same as in the :ref:`create request <create-request>`,
+- ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
 - ``payload`` -- the initial contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`,
 - ``choice`` -- DAML contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
