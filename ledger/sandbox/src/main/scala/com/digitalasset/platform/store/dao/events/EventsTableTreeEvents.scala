@@ -7,7 +7,10 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.dao.events.EventsTableQueries.previousOffsetWhereClauseValues
+import com.daml.platform.store.dao.events.EventsTableQueries.{
+  format,
+  previousOffsetWhereClauseValues
+}
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
@@ -86,10 +89,10 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ).mkString(", ")
 
   private val witnessesAggregation =
-    "array_agg(event_witness) as event_witnesses"
+    "tree_event_witnesses"
 
   private val treeEventsTable =
-    "participant_events natural join participant_event_transaction_tree_witnesses"
+    "participant_events"
 
   private val groupByColumns = Seq(
     "event_offset",
@@ -132,13 +135,15 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       transactionId: TransactionId,
       requestingParty: Party,
   ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and event_witness = $requestingParty order by node_index asc"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and #$witnessesAggregation @> array[$requestingParty]::varchar[] order by node_index asc"
 
   private def multiPartyLookup(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns) order by node_index asc"
+  ): SimpleSql[Row] = {
+    val partiesStr = format(requestingParties)
+    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and #$witnessesAggregation @> array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by node_index asc"
+  }
 
   def preparePagedGetTransactionTrees(
       startExclusive: Offset,
@@ -161,7 +166,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val (prevOffset, prevNodeIndex) =
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and event_witness = $requestingParty order by (#$orderByColumns) limit $pageSize"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesAggregation @> array[$requestingParty]::varchar[] order by (#$orderByColumns) limit $pageSize"
   }
 
   private def multiPartyTrees(
@@ -173,7 +178,8 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val (prevOffset, prevNodeIndex) =
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and event_witness in ($requestingParties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+    val partiesStr = format(requestingParties)
+    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$treeEventsTable where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesAggregation @> array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
   }
 
 }
