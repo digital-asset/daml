@@ -225,7 +225,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     succeed
   }
 
-  it should "add running trigger to database" in {
+  it should "add running triggers to the database" in {
     connectToPostgresqlServer()
     createNewDatabase()
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
@@ -234,10 +234,16 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       withHttpService(Some(dar), Some(testJdbcConfig)) {
         (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
           for {
-            // Start trigger for Alice.
+            // Initially no triggers started for Alice
+            _ <- assertTriggerIds(uri, "Alice", _ == Vector())
+            // Start a trigger for Alice and check it appears in list.
             resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
             aliceTrigger <- parseTriggerId(resp)
             _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+            // Do the same for a second trigger.
+            resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+            aliceTrigger2 <- parseTriggerId(resp)
+            _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger, aliceTrigger2))
           } yield succeed
       },
       Duration.Inf
