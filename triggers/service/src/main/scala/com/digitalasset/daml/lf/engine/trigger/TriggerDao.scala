@@ -63,18 +63,19 @@ object TriggerDao {
   }
 
   def addRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
-    val partyToken = t.jwt.toString
+    val partyToken = t.jwt.value
     val fullTriggerName = t.triggerName.toString
     val insertTrigger: Fragment = Fragment.const(
-      s"insert into running_triggers values (${t.triggerInstance}, $partyToken, $fullTriggerName)"
+      s"insert into running_triggers values ('${t.triggerInstance}', '$partyToken', '$fullTriggerName')"
     )
     insertTrigger.update.run.void
   }
 
   def getTriggersForParty(partyToken: Jwt): ConnectionIO[Vector[UUID]] = {
-    val token = Fragment.const(s"'${partyToken.toString}'")
-    val list: Fragment =
-      fr"select trigger_instance from running_triggers where party_token = " ++ token
+    val token = partyToken.value
+    val list: Fragment = Fragment.const(
+      s"select trigger_instance from running_triggers where party_token = '$token'"
+    )
     list.query[UUID].to[Vector]
   }
 }
