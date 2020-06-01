@@ -50,7 +50,7 @@ Setting up Our Frontend
 
 Alright our backend is all up and running. Now let's start up our UI
 
-7. Set :code:`REACT_APP_LEDGER_ID=fabric-ledger` so our UI knows the id of the ledger to use
+7. Set our ledger id with :code:`export REACT_APP_LEDGER_ID=fabric-ledger` so our UI knows the id of the ledger to use. Alternativel you can place this in a `.env` file in the root directory of `my-app`
 8. Start the ui by running :code:`yarn start` from the :code:`my-app/ui` directory
 9. The UI should start up a browser window by itself once ready, if it doesn’t go to `<http://localhost:3000/>`__
 
