@@ -7,6 +7,7 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.dao.events.EventsTableQueries.format
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
@@ -112,13 +113,15 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       transactionId: TransactionId,
       requestingParty: Party,
   ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness = $requestingParty order by #$orderByColumns"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation @> array[$requestingParty]::varchar[] order by #$orderByColumns"
 
   private def multiPartyLookup(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns) order by #$orderByColumns"
+  ): SimpleSql[Row] = {
+    val partiesStr = format(requestingParties)
+    SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation @> array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by #$orderByColumns"
+  }
 
   private val getFlatTransactionsQueries =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
