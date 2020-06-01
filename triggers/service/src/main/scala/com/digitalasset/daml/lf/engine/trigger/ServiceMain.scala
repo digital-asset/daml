@@ -72,7 +72,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
 
   private var triggers: Map[UUID, RunningTrigger] = Map.empty;
   private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
-  private var triggerLog: Map[UUID, List[(String, String)]] = Map.empty;
+  private var triggerLog: Map[UUID, Vector[(String, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar(_))
@@ -123,14 +123,11 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   private def triggerStatus(t: RunningTrigger, msg: String): Unit = {
     val id = t.triggerInstance
     val entry = (timeStamp(), msg)
-    triggerLog += triggerLog.get(id).map(logs => id -> (entry :: logs)).getOrElse(id -> List(entry))
+    triggerLog += triggerLog.get(id).map(logs => id -> (logs :+ entry)).getOrElse(id -> Vector(entry))
   }
 
-  private def getTriggerStatus(uuid: UUID): List[(String, String)] = {
-    triggerLog.get(uuid) match {
-      case Some(logs) => logs
-      case None => List()
-    }
+  private def getTriggerStatus(uuid: UUID): Vector[(String, String)] = {
+    triggerLog.getOrElse(uuid, Vector())
   }
 
 }
@@ -220,7 +217,7 @@ object Server {
       //this).
       val runningTrigger = server.getRunningTrigger(uuid)
       runningTrigger.runner ! TriggerRunner.Stop
-      server.triggerStatus(runningTrigger, "stopped")
+      server.triggerStatus(runningTrigger, "stopped: by user request")
       server.removeRunningTrigger(runningTrigger)
       JsObject(("triggerId", uuid.toString.toJson))
     }
@@ -387,7 +384,7 @@ object Server {
             // The trigger has failed to start. Send the runner a stop
             // message. There's no point in it remaining alive since
             // its child actor is stopped and won't be restarted.
-            server.triggerStatus(runningTrigger, "stopped : initialization failure")
+            server.triggerStatus(runningTrigger, "stopped: initialization failure")
             runningTrigger.runner ! TriggerRunner.Stop
             // No need to update the running triggers tables since
             // this trigger never made it there.
@@ -395,7 +392,7 @@ object Server {
           case TriggerRuntimeFailure(runningTrigger, cause) =>
             // The trigger has failed. Remove it from the running
             // triggers tables.
-            server.triggerStatus(runningTrigger, "stopped : runtime failure")
+            server.triggerStatus(runningTrigger, "stopped: runtime failure")
             server.removeRunningTrigger(runningTrigger)
             // Don't send any messages to the runner. Its supervision
             // strategy will automatically restart the trigger up to

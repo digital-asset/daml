@@ -197,7 +197,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         case JsArray(Vector(JsString(_), JsString(msg))) => msg
         case _ => fail("""Unexpected format in the "logs" field""")
       }
-    } yield statusMsgs.reverse // Order with least recent at front.
+    } yield statusMsgs
   }
 
   def assertTriggerStatus(
@@ -381,9 +381,9 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
             Vector(
               "starting",
               "running",
-              "stopped : runtime failure",
+              "stopped: runtime failure",
               "starting",
-              "stopped : initialization failure"))
+              "stopped: initialization failure"))
       } yield succeed
   }
 
@@ -417,7 +417,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
             Vector(
               "starting",
               "running",
-              "stopped : runtime failure",
+              "stopped: runtime failure",
               "starting",
               "running"
             ))
