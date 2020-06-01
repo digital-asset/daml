@@ -170,6 +170,13 @@ message ScenarioError {
     repeated Party observers = 3;
   }
 
+  message ContractKeyNotVisible {
+    ContractRef contract_ref = 1;
+    Value key = 2;
+    Party committer = 3;
+    repeated Party observers = 4;
+  }
+
   message ContractNotEffective {
     ContractRef contract_ref = 1;
     sfixed64 effective_at = 2;
@@ -225,6 +232,7 @@ message ScenarioError {
     CommitError scenario_commit_error = 19;
     Empty scenario_mustfail_succeeded = 20;
     string scenario_invalid_party_name = 21;
+    ContractKeyNotVisible scenario_contract_key_not_visible = 22;
   }
 }
 

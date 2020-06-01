@@ -270,6 +270,21 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Disclosed to:"
             $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
+    ScenarioErrorErrorScenarioContractKeyNotVisible ScenarioError_ContractKeyNotVisible{..} ->
+      pure $ vcat
+        [ "Attempt to fetch, lookup or exercise a key associated with a contract not visible to the committer."
+        , label_ "Contract: "
+            $ prettyMay "<missing contract>"
+                (prettyContractRef world)
+                scenarioError_ContractKeyNotVisibleContractRef
+        , label_ "Key: "
+            $ prettyMay "<missing key>"
+                (prettyValue' False 0 world)
+                scenarioError_ContractKeyNotVisibleKey
+        , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractKeyNotVisibleCommitter
+        , label_ "Disclosed to:"
+            $ prettyParties scenarioError_ContractKeyNotVisibleObservers
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

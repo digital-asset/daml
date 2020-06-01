@@ -77,10 +77,7 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
     val template = unsafeGetTemplate(templateId)
     val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    val cids = contractId match {
-      case acoid: Value.ContractId => argCids + acoid
-      case _ => argCids
-    }
+    val cids = argCids + contractId
     speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> cids
   }
 

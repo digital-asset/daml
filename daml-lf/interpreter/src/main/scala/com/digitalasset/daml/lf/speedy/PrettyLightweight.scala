@@ -61,7 +61,8 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case SEValue(v) => pp(v)
     case SEVar(n) => s"D#$n" //dont expect these at runtime
     case loc: SELoc => pp(loc)
-    case SEApp(func, args) => s"@(${pp(func)},${commas(args.map(pp))})"
+    case SEAppE(func, args) => s"@E(${pp(func)},${commas(args.map(pp))})"
+    case SEAppA(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
     case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(pp))}]\\$arity.${pp(body)}"
     case SEBuiltin(b) => s"$b"
     case SEVal(ref) => s"${pp(ref)}"

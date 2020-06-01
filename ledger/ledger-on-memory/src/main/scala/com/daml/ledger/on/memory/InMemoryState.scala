@@ -52,7 +52,7 @@ object InMemoryState {
   type StateValue = Bytes
 
   // The first element will never be read because begin offsets are exclusive.
-  private val Beginning = LedgerRecord(Offset.begin, ByteString.EMPTY, ByteString.EMPTY)
+  private val Beginning = LedgerRecord(Offset.beforeBegin, ByteString.EMPTY, ByteString.EMPTY)
 
   def empty =
     new InMemoryState(

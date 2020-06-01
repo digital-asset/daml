@@ -44,4 +44,39 @@ object PaginatingAsyncStream {
       }
       .flatMapConcat(Source(_))
   }
+
+  /**
+    * Concatenates the results of multiple asynchronous calls into
+    * a single [[Source]], passing the last seen event's offset to the
+    * next iteration query, so it can continue reading events from this point.
+    *
+    * This is to implement pagination based on generic offset.
+    * The main purpose of the pagination is to break down large queries
+    * into smaller batches. The reason for this is that we are currently using
+    * simple blocking JDBC APIs and a long-running stream would end up
+    * occupying a thread in the DB pool, severely limiting the ability
+    * of keeping multiple, concurrent, long-running streams while serving
+    * lookup calls.
+    *
+    * @param startFromOffset initial offset
+    * @param getOffset function that returns a position/offset from the element of type [[T]]
+    * @param query a function that fetches results starting from provided offset
+    * @tparam Off the type of the offset
+    * @tparam T the type of the items returned in each call
+    */
+  def streamFrom[Off, T](startFromOffset: Off, getOffset: T => Off)(
+      query: Off => Future[Vector[T]]
+  ): Source[T, NotUsed] = {
+    Source
+      .unfoldAsync(Option(startFromOffset)) {
+        case None =>
+          Future.successful(None) // finished reading the whole thing
+        case Some(offset) =>
+          query(offset).map { result =>
+            val nextPageOffset: Option[Off] = result.lastOption.map(getOffset)
+            Some((nextPageOffset, result))
+          }(DirectExecutionContext) // run in the same thread as the query, avoid context switch for a cheap operation
+      }
+      .flatMapConcat(Source(_))
+  }
 }
