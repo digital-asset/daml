@@ -165,7 +165,7 @@ token.  The default "header" is fine.  Under "Payload", fill in:
       }
     }
 
-Keep in mind that the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox. You can replace ``Alice`` with whatever party you want to use.
+Keep in mind that the value of the ``ledgerId`` payload field has to match the one passed to the sandbox with the ``--ledgerid`` argument. You can replace ``Alice`` with whatever party you want to use.
 
 Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
