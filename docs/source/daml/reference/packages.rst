@@ -191,7 +191,7 @@ Handling module name collisions
 
 Sometimes you will have multiple packages with the same module name. In that case, a simple import will fail, since the compiler doesn't know which version of the module to load. Fortunately, there are a few tools you can use to approach this problem.
 
-The first is to use package qualified imports. Supposing you have packages with different names, ``foo`` and ``bar``, which both expose a module ``X``. You can select which on you want with a package qualified import.
+The first is to use package qualified imports. Supposing you have packages with different names, ``foo`` and ``bar``, which both expose a module ``X``. You can select which one you want with a package qualified import.
 
 To get ``X`` from ``foo``:
 
