@@ -238,7 +238,7 @@ Where:
 - ``status`` -- a JSON number which matches the HTTP response status code returned in the HTTP header,
 - ``errors`` -- a JSON array of strings, each string represents one error,
 - ``result`` -- a JSON object or JSON array, representing one or many results,
-- ``warnings`` -- optional field, a JSON object, representing one ore many warnings.
+- ``warnings`` -- an optional field with a JSON object, representing one or many warnings.
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
