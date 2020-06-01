@@ -12,6 +12,7 @@ da_haskell_library(
     hackage_deps = [
         "aeson",
         "base",
+        "containers",
         "directory",
         "extra",
         "filepath",
@@ -25,6 +26,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-package-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

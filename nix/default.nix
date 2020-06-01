@@ -113,8 +113,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    live-server =
-      (import ./tools/live-server { inherit pkgs; nodejs = tools.node; }).live-server;
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
@@ -188,6 +186,7 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
+    findutils = pkgs.findutils;
 
     patch = pkgs.patch;
     wget = pkgs.wget;
@@ -203,7 +202,6 @@ in rec {
     xmlstarlet = pkgs.xmlstarlet;
     grep = pkgs.gnugrep;
     bc = pkgs.bc;
-    envsubst = pkgs.envsubst;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
@@ -259,7 +257,6 @@ in rec {
     cheat = pkgs.cheat;
     coreutils = pkgs.coreutils;
     dockerd = pkgs.docker;
-    findutils = pkgs.findutils;
     ftop = pkgs.ftop;
     gcc7 = pkgs.gcc7;
     glibc = pkgs.glibc;

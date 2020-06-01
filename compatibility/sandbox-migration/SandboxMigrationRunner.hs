@@ -12,7 +12,7 @@ module Main (main) where
 -- 4. Stop sandbox.
 -- 5. In a loop over all versions:
 --    1. Start sandbox of the given version.
---    2. Run a script for querying and creating new contracts.
+--    2. Run a custom scala binary for querying and creating new contracts.
 --    3. Stop sandbox.
 -- 6. Stop postgres.
 
@@ -21,7 +21,7 @@ import Control.Monad
 import qualified Data.Aeson as A
 import Data.Foldable
 import qualified Data.Text as T
-import GHC.Generics
+import GHC.Generics (Generic)
 import Options.Applicative
 import Sandbox
     ( createSandbox
@@ -36,12 +36,10 @@ import System.FilePath
 import System.IO.Extra
 import System.Process
 import WithPostgres (withPostgres)
+import qualified Bazel.Runfiles
 
 data Options = Options
-  { scriptDar :: FilePath
-  , modelDar :: FilePath
-  , scriptAssistant :: FilePath
-  -- ^ Assistant binary used to run DAML Script
+  { modelDar :: FilePath
   , platformAssistants :: [FilePath]
   -- ^ Ordered list of assistant binaries that will be used to run sandbox.
   -- We run through migrations in the order of the list
@@ -49,16 +47,18 @@ data Options = Options
 
 optsParser :: Parser Options
 optsParser = Options
-    <$> strOption (long "script-dar")
-    <*> strOption (long "model-dar")
-    <*> strOption (long "script-assistant")
+    <$> strOption (long "model-dar")
     <*> many (strArgument mempty)
 
 main :: IO ()
 main = do
-    -- Limit sandbox and DAML Script memory.
+    -- Limit sandbox and model-step memory.
     setEnv "_JAVA_OPTIONS" "-Xms128m -Xmx1g" True
     Options{..} <- execParser (info optsParser fullDesc)
+    runfiles <- Bazel.Runfiles.create
+    let step = Bazel.Runfiles.rlocation
+            runfiles
+            ("compatibility" </> "sandbox-migration" </> "migration-step")
     withPostgres $ \jdbcUrl -> do
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
@@ -69,27 +69,30 @@ main = do
                 , "--host=localhost", "--port=" <> show p
                 ]
         hPutStrLn stderr "<-- Uploaded model DAR"
-        void $ foldlM (testVersion scriptAssistant scriptDar jdbcUrl) [] platformAssistants
+        void $ foldlM (testVersion step modelDar jdbcUrl) ([], []) platformAssistants
 
-testVersion :: FilePath -> FilePath -> T.Text -> [Tuple2 (ContractId T) T] -> FilePath -> IO [Tuple2 (ContractId T) T]
-testVersion scriptAssistant scriptDar jdbcUrl prevTs assistant = do
+testVersion
+    :: FilePath
+    -> FilePath
+    -> T.Text
+    -> ([Tuple2 (ContractId T) T], [Transaction])
+    -> FilePath
+    -> IO ([Tuple2 (ContractId T) T], [Transaction])
+testVersion step modelDar jdbcUrl (prevTs, prevTransactions) assistant = do
     let note = takeFileName (takeDirectory assistant)
     hPutStrLn stderr ("--> Testing " <> note)
     withSandbox assistant jdbcUrl $ \port ->
-        withTempFile $ \inputFile ->
         withTempFile $ \outputFile -> do
-        A.encodeFile inputFile (ScriptInput testProposer testAccepter note)
-        callProcess scriptAssistant
-            [ "script"
-            , "--dar"
-            , scriptDar
-            , "--ledger-host=localhost"
-            , "--ledger-port=" <> show port
-            , "--input-file", inputFile
-            , "--output-file", outputFile
-            , "--script-name=Script:run"
+        callProcess step
+            [ "--output", outputFile
+            , "--host=localhost"
+            , "--port=" <> show port
+            , "--proposer=" <> T.unpack (getParty testProposer)
+            , "--accepter=" <> T.unpack (getParty testAccepter)
+            , "--note=" <> note
+            , "--dar=" <> modelDar
             ]
-        Just Result{..} <- A.decodeFileStrict' outputFile
+        Result{..} <- either fail pure =<< A.eitherDecodeFileStrict' outputFile
         -- Test that all proposals are archived.
         unless (null oldTProposals) $
             fail ("Expected no old TProposals but got " <> show oldTProposals)
@@ -109,8 +112,39 @@ testVersion scriptAssistant scriptDar jdbcUrl prevTs assistant = do
                 unless (t == expected) $
                     fail ("Expected " <> show expected <> " but got " <> show t)
             _ -> fail ("Expected 1 new T contract but got: " <> show addedTs)
+        -- verify that the stream before and after the migration are the same.
+        unless (prevTransactions == oldTransactions) $
+            fail $ "Transaction stream changed after migration "
+                <> show (prevTransactions, oldTransactions)
+        -- verify that we created the right number of new transactions.
+        unless (length newTransactions == length oldTransactions + 5) $
+            fail $ "Expected 3 new transactions but got "
+                <> show (length newTransactions - length oldTransactions)
+        let (newStart, newEnd) = splitAt (length oldTransactions) newTransactions
+        -- verify that the new stream is identical to the old if we cut off the new transactions.
+        unless (newStart == oldTransactions) $
+            fail $ "New transaction stream does not contain old transactions "
+                <> show (oldTransactions, newStart)
+        -- verify that the new transactions are what we expect.
+        validateNewTransactions (map events newEnd)
         hPutStrLn stderr ("<-- Tested " <> note)
-        pure newTs
+        pure (newTs, newTransactions)
+
+validateNewTransactions :: [[Event]] -> IO ()
+validateNewTransactions
+  [ [CreatedTProposal prop1 _]
+  , [CreatedTProposal prop2 _]
+  , [ArchivedTProposal prop1',CreatedT t1 _]
+  , [ArchivedTProposal prop2',CreatedT _t2 _]
+  , [ArchivedT t1']
+  ] = do
+    checkArchive prop1 prop1'
+    checkArchive prop2 prop2'
+    checkArchive t1 t1'
+  where
+    checkArchive cid cid' = unless (cid == cid') $
+      fail ("Expected " <> show cid <> " to be archived but got " <> show cid')
+validateNewTransactions events = fail ("Unexpected events: " <> show events)
 
 testProposer :: Party
 testProposer = Party "proposer"
@@ -124,7 +158,7 @@ testAccepter = Party "accepter"
 newtype ContractId t = ContractId T.Text
   deriving newtype A.FromJSON
   deriving stock (Eq, Show)
-newtype Party = Party T.Text
+newtype Party = Party { getParty :: T.Text }
   deriving newtype (A.FromJSON, A.ToJSON)
   deriving stock (Eq, Show)
 
@@ -140,17 +174,9 @@ data TProposal = TProposal
   { proposer :: Party
   , accepter :: Party
   , note :: T.Text
-  } deriving (Generic, Show)
+  } deriving (Generic, Show, Eq)
 
 instance A.FromJSON TProposal
-
-data ScriptInput = ScriptInput
-  { _1 :: Party
-  , _2 :: Party
-  , _3 :: String
-  } deriving Generic
-
-instance A.ToJSON ScriptInput
 
 data Tuple2 a b = Tuple2
   { _1 :: a
@@ -159,11 +185,42 @@ data Tuple2 a b = Tuple2
 
 instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
 
+data Event
+  = CreatedT (ContractId T) T
+  | ArchivedT (ContractId T)
+  | CreatedTProposal (ContractId TProposal) TProposal
+  | ArchivedTProposal (ContractId TProposal)
+  deriving (Eq, Show)
+
+instance A.FromJSON Event where
+    parseJSON = A.withObject "Event" $ \o -> do
+        ty <- o A..: "type"
+        tpl <- o A..: "template"
+        case ty of
+            "created" -> case tpl of
+                "Model:T" -> CreatedT <$> o A..: "cid" <*> o A..: "argument"
+                "Model:TProposal" -> CreatedTProposal <$> o A..: "cid" <*> o A..: "argument"
+                _ -> fail ("Invalid template: " <> tpl)
+            "archived" -> case tpl of
+                "Model:T" -> ArchivedT <$> o A..: "cid"
+                "Model:TProposal" -> ArchivedTProposal <$> o A..: "cid"
+                _ -> fail ("Invalid template: " <> tpl)
+            _ -> fail ("Invalid type: " <> ty)
+
+data Transaction = Transaction
+  { transactionId :: T.Text
+  , events :: [Event]
+  } deriving (Generic, Eq, Show)
+
+instance A.FromJSON Transaction
+
 data Result = Result
   { oldTProposals :: [Tuple2 (ContractId TProposal) TProposal]
   , newTProposals :: [Tuple2 (ContractId TProposal) TProposal]
   , oldTs :: [Tuple2 (ContractId T) T]
   , newTs :: [Tuple2 (ContractId T) T]
+  , oldTransactions :: [Transaction]
+  , newTransactions :: [Transaction]
   } deriving Generic
 
 instance A.FromJSON Result

@@ -14,7 +14,6 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
 import scalaz.OneAnd
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TemplateSubscriptionSpec
     extends FlatSpec
     with Suite

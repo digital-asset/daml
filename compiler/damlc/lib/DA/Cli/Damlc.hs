@@ -54,6 +54,7 @@ import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.List.Split as Split
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
@@ -535,7 +536,7 @@ initPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
-                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pDependencies pDataDependencies
+                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pModulePrefixes pDependencies pDataDependencies
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
@@ -648,6 +649,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDependencies = []
                               , pDataDependencies = []
                               , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
+                              , pModulePrefixes = Map.empty
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput

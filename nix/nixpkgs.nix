@@ -8,6 +8,7 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
+    nodejs = pkgs.nodejs-12_x;
     grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
       version = "1.23.1";
       src = pkgs.fetchFromGitHub {

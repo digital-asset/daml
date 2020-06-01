@@ -12,7 +12,6 @@ import com.daml.platform.api.v1.event.EventOps.EventOps
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with OptionValues {
 
   private val otherPartyWhoSeesEvents = Ref.Party.assertFromString("otherParty")

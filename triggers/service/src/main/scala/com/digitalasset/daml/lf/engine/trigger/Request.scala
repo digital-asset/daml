@@ -31,6 +31,6 @@ object Request {
     def write(id: Identifier) = JsString(id.toString)
   }
 
-  case class StartParams(identifier: Identifier)
+  case class StartParams(triggerName: Identifier)
   implicit val startParamsFormat = jsonFormat1(StartParams)
 }

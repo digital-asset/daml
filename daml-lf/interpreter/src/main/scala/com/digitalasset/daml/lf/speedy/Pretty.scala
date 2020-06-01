@@ -113,6 +113,17 @@ object Pretty {
           comma + space,
           observers.map(prettyParty),
         ) + char('.')
+      case ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers) =>
+        text("due to the failure to fetch the contract") & prettyContractId(coid) &
+          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
+            prettyValue(false)(gk.key) &
+          text("The contract had not been disclosed to the committer") & prettyParty(committer) + char(
+          '.',
+        ) /
+          text("The contract had been disclosed to:") & intercalate(
+          comma + space,
+          observers.map(prettyParty),
+        ) + char('.')
       case ScenarioErrorCommitError(CommitError.FailedAuthorizations(fas)) =>
         (text("due to failed authorizations:") / prettyFailedAuthorizations(fas)).nested(4)
       case ScenarioErrorCommitError(CommitError.UniqueKeyViolation(gk)) =>
@@ -497,7 +508,11 @@ object Pretty {
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
-        case SEApp(fun, args) =>
+        case SEAppE(fun, args) =>
+          val prefix = prettySExpr(index)(fun) + char('(')
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
+        case SEAppA(fun, args) =>
           val prefix = prettySExpr(index)(fun) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))

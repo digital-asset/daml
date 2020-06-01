@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.services.tracking
 
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SizeCappedMapTest extends WordSpec with BeforeAndAfterEach with Matchers {
 
   private var sut: SizeCappedMap[Long, Long] = _

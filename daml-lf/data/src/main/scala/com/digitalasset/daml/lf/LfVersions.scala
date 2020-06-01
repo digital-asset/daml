@@ -5,8 +5,6 @@ package com.daml.lf
 
 import scalaz.NonEmptyList
 
-import scala.collection.breakOut
-
 abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V => String) {
 
   protected val maxVersion: V = versionsAscending.last
@@ -14,7 +12,7 @@ abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V =
   val acceptedVersions: List[V] = versionsAscending.list.toList
 
   private val acceptedVersionsMap: Map[String, V] =
-    acceptedVersions.map(v => (protoValue(v), v))(breakOut)
+    acceptedVersions.iterator.map(v => (protoValue(v), v)).toMap
 
   def isAcceptedVersion(version: String): Option[V] = acceptedVersionsMap.get(version)
 

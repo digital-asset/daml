@@ -14,7 +14,6 @@ object Collections {
 
     import collection.generic.CanBuildFrom
 
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def partitionMap[E, B, Es, That](f: A => E \/ B)(
         implicit es: CanBuildFrom[Self, E, Es],
         that: CanBuildFrom[Self, B, That]): (Es, That) = {

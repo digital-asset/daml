@@ -78,7 +78,6 @@ object LedgerClientJwt {
         }
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(client: LedgerClient): GetActiveContracts =
     (jwt, filter, verbose) =>
       client.activeContractSetClient

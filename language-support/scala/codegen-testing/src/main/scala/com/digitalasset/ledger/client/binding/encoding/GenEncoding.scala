@@ -17,7 +17,6 @@ import scalaz.std.vector._
 import scalaz.syntax.foldable._
 import scalaz.syntax.plus._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class GenEncoding extends LfTypeEncoding {
   import GenEncoding.{VariantCasesImpl, primitiveImpl}
 
@@ -64,7 +63,6 @@ abstract class GenEncoding extends LfTypeEncoding {
 
 object GenEncoding extends GenEncoding {
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
       a <+> b

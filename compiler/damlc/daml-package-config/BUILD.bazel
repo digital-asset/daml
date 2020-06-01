@@ -10,6 +10,7 @@ da_haskell_library(
     name = "daml-package-config",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "aeson",
         "base",
         "containers",
         "ghc-lib-parser",

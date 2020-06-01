@@ -95,7 +95,7 @@ object KeyValueParticipantStateWriterSpec {
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
-  private val anEmptyTransaction: Transaction.AbsTransaction =
+  private val anEmptyTransaction: Transaction.Transaction =
     GenTransaction(HashMap.empty, ImmArray.empty)
 
   private val aSubmissionId: SubmissionId =

@@ -65,7 +65,7 @@ if [ -d /usr/local/bin ]; then
     export PATH="/usr/local/bin:\$PATH"
 fi
 BASHRC
-/usr/local/bin/brew install jq netcat
+/usr/local/bin/brew install jq netcat xz
 TOOLS_INSTALL
 
 log "Done installing tools through Homebrew."
@@ -135,6 +135,7 @@ log "Created /nix partition."
 # writeable does not require sudoer access
 su -l vsts <<'END'
 set -euo pipefail
+export PATH="/usr/local/bin:/usr/sbin:$PATH"
 bash <(curl https://nixos.org/nix/install)
 echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
 END

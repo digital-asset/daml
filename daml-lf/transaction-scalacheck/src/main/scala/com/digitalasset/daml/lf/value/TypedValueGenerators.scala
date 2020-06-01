@@ -54,7 +54,6 @@ object TypedValueGenerators {
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   object ValueAddend extends PrimInstances[Lambda[a => ValueAddend { type Inj[_] = a }]] {
     type Aux[Inj0[_]] = ValueAddend {
       type Inj[Cid] = Inj0[Cid]
@@ -351,7 +350,6 @@ object TypedValueGenerators {
           case Inr(tl) => self.injVar(tl)
         }
 
-        @SuppressWarnings(Array("org.wartremover.warts.Any"))
         override val prjVar = self.prjVar transform { (_, tf) =>
           Lambda[Value ~> PrjResult](tv => tf(tv) map (Inr(_)))
         } updated (fname, Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))))
@@ -423,7 +421,6 @@ object TypedValueGenerators {
     private[TypedValueGenerators] override def varshrink[Cid: Shrink] = Shrink.shrinkAny
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[value] object RecVarSpec {
     // specifying records and variants works the same way: a
     // record written with ->> and ::, terminated with RNil (*not* HNil)
@@ -495,7 +492,6 @@ object TypedValueGenerators {
   /** Given a function that produces one-level-nested cases, produce a
     * ValueAddend gen.
     */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def indGenAddend(
       f: (Gen[ValueAddend], Gen[ValueAddend]) => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
     object Knot {

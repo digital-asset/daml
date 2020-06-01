@@ -137,10 +137,14 @@ object Cli {
             .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
               Some(c.copy(clientAuth = clientAuth)))))
 
-      opt[Int]("maxInboundMessageSize")
+      opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
           s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
+
+      opt[Int]("maxInboundMessageSize")
+        .action((x, c) => c.copy(maxInboundMessageSize = x))
+        .text("This flag is deprecated -- please use --max-inbound-message-size.")
 
       opt[String]("jdbcurl")
         .optional()
@@ -282,6 +286,12 @@ object Cli {
                 .copy(maximumWeight = maximumLfValueTranslationCacheEntries)
           )
         )
+
+      opt[File]("profile-dir")
+        .hidden()
+        .optional()
+        .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
+        .text("Enable profiling and write the profiles into the given directory.")
 
       help("help").text("Print the usage text")
 

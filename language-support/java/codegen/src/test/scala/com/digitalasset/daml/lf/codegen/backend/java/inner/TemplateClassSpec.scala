@@ -12,7 +12,6 @@ import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues with TryValues {
 
   behavior of "TemplateClass.generateFromIdAndRecord"

@@ -8,7 +8,6 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import data.ScalazEqual._
-import com.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
 import scalaz.{@@, Equal, Order, Tag}
@@ -222,13 +221,6 @@ object Value extends CidContainer1[Value] {
 
     private[lf] def map1[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
       VersionedValue.map1(f)(this)
-
-    /** Increase the `version` if appropriate for `languageVersions`. */
-    def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
-      import com.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
-      copy(version =
-        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
-    }
 
     def foreach1(f: Cid => Unit) =
       VersionedValue.foreach1(f)(self)

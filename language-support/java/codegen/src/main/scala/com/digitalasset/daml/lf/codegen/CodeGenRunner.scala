@@ -63,7 +63,6 @@ object CodeGenRunner extends StrictLogging {
     val _ = executor.shutdownNow()
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[codegen] def collectDamlLfInterfaces(
       conf: Conf): (Seq[Interface], Map[PackageId, String]) = {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap {
@@ -107,7 +106,6 @@ object CodeGenRunner extends StrictLogging {
     logger.warn(s"Finish writing file '$outputFile'")
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[CodeGenRunner] def generateCode(
       interfaces: Seq[Interface],
       conf: Conf,

@@ -96,7 +96,7 @@ class SubmissionValidator[LogResult] private[validator] (
       recordTime,
       participantId,
       commit,
-      Some(metrics.daml.kvutils.submission.validator.commitSubmission),
+      Some(metrics.daml.kvutils.submission.validator.commit),
     )
 
   def validateAndTransform[U](
@@ -140,7 +140,6 @@ class SubmissionValidator[LogResult] private[validator] (
     } yield logResult
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) // required to make `.view` work
   @tailrec
   private def runValidation[T](
       envelope: Bytes,
@@ -185,7 +184,7 @@ class SubmissionValidator[LogResult] private[validator] (
           .inTransaction { stateOperations =>
             for {
               readInputs <- Timed.future(
-                metrics.daml.kvutils.submission.validator.validateSubmission,
+                metrics.daml.kvutils.submission.validator.fetchInputs,
                 for {
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
                   readInputs = readStateValues.view
@@ -199,7 +198,7 @@ class SubmissionValidator[LogResult] private[validator] (
                 } yield readInputs
               )
               logEntryAndState <- Timed.future(
-                metrics.daml.kvutils.submission.validator.processSubmission,
+                metrics.daml.kvutils.submission.validator.validate,
                 Future.fromTry(
                   Try(
                     processSubmission(

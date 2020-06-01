@@ -50,7 +50,7 @@ const popoverTarget = (
 
 export default class PopoverGuide extends React.Component<{}, State> {
   constructor() {
-    super();
+    super({});
     this.state = {
       isOpen: false,
       arrow: true,
