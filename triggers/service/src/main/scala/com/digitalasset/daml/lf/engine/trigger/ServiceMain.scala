@@ -51,6 +51,8 @@ import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 case class LedgerConfig(
     host: String,
@@ -70,6 +72,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
 
   private var triggers: Map[UUID, RunningTrigger] = Map.empty;
   private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
+  private var triggerLog: Map[UUID, List[(String, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar(_))
@@ -112,6 +115,24 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   private def listRunningTriggers(jwt: Jwt): List[String] = {
     triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
   }
+
+  private def timeStamp (): String = {
+    DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mmss").format(LocalDateTime.now)
+  }
+
+  private def triggerStatus(t: RunningTrigger, msg: String): Unit = {
+    val id = t.triggerInstance
+    val entry = (timeStamp(), msg)
+    triggerLog += triggerLog.get(id).map(logs => id -> (entry :: logs)).getOrElse(id -> List(entry))
+  }
+
+  private def getTriggerStatus(uuid: UUID): List[(String, String)] = {
+    triggerLog.get(uuid) match {
+      case Some(logs) => logs
+      case None => List()
+    }
+  }
+
 }
 
 object Server {
@@ -199,6 +220,7 @@ object Server {
       //this).
       val runningTrigger = server.getRunningTrigger(uuid)
       runningTrigger.runner ! TriggerRunner.Stop
+      server.triggerStatus(runningTrigger, "stopped")
       server.removeRunningTrigger(runningTrigger)
       JsObject(("triggerId", uuid.toString.toJson))
     }
@@ -309,6 +331,9 @@ object Server {
                     triggerInstances => complete(successResponse(triggerInstances))
                   )
             }
+          },
+          pathPrefix("v1" / "status" / JavaUUID) {
+            uuid => complete (successResponse(server.getTriggerStatus(uuid)))
           }
         )
       },
@@ -350,17 +375,19 @@ object Server {
       Behaviors
         .receiveMessage[Message] {
           case TriggerStarting(runningTrigger) =>
-            // Nothing to do at this time.
+            server.triggerStatus(runningTrigger, "starting")
             Behaviors.same
           case TriggerStarted(runningTrigger) =>
             // The trigger has successfully started. Update the
             // running triggers tables.
+            server.triggerStatus(runningTrigger, "running")
             server.addRunningTrigger(runningTrigger)
             Behaviors.same
           case TriggerInitializationFailure(runningTrigger, cause) =>
             // The trigger has failed to start. Send the runner a stop
             // message. There's no point in it remaining alive since
             // its child actor is stopped and won't be restarted.
+            server.triggerStatus(runningTrigger, "stopped : initialization failure")
             runningTrigger.runner ! TriggerRunner.Stop
             // No need to update the running triggers tables since
             // this trigger never made it there.
@@ -368,6 +395,7 @@ object Server {
           case TriggerRuntimeFailure(runningTrigger, cause) =>
             // The trigger has failed. Remove it from the running
             // triggers tables.
+            server.triggerStatus(runningTrigger, "stopped : runtime failure")
             server.removeRunningTrigger(runningTrigger)
             // Don't send any messages to the runner. Its supervision
             // strategy will automatically restart the trigger up to
