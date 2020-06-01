@@ -11,8 +11,8 @@
 ---------------------------------------------------------------------------------------------------
 
 alter table participant_events
-  add column flat_event_witnesses text[] not null default '{}',
-  add column tree_event_witnesses text[] not null default '{}'
+  add column flat_event_witnesses varchar[] not null default '{}',
+  add column tree_event_witnesses varchar[] not null default '{}'
 ;
 
 create index on participant_events using GIN (flat_event_witnesses);
