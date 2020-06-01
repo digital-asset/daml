@@ -116,7 +116,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
     triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
   }
 
-  private def timeStamp (): String = {
+  private def timeStamp(): String = {
     DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mmss").format(LocalDateTime.now)
   }
 
@@ -332,8 +332,8 @@ object Server {
                   )
             }
           },
-          pathPrefix("v1" / "status" / JavaUUID) {
-            uuid => complete (successResponse(server.getTriggerStatus(uuid)))
+          pathPrefix("v1" / "status" / JavaUUID) { uuid =>
+            complete(successResponse(JsObject(("logs", server.getTriggerStatus(uuid).toJson))))
           }
         )
       },
