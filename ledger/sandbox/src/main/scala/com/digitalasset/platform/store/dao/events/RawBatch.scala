@@ -60,6 +60,8 @@ private[events] object RawBatch {
       submitter: Option[Party],
       ledgerEffectiveTime: Instant,
       offset: Offset,
+      flatWitnesses: Set[Party],
+      treeWitnesses: Set[Party],
   ) extends PartialParameters {
     final protected val eventId = fromTransactionId(transactionId, nodeId)
     final protected val base: Vector[NamedParameter] =
@@ -73,6 +75,8 @@ private[events] object RawBatch {
         "command_id" -> commandId,
         "application_id" -> applicationId,
         "submitter" -> submitter,
+        "flat_event_witnesses" -> Party.Array(flatWitnesses.toSeq: _*),
+        "tree_event_witnesses" -> Party.Array(treeWitnesses.toSeq: _*),
       )
   }
 
@@ -87,6 +91,8 @@ private[events] object RawBatch {
         submitter: Option[Party],
         ledgerEffectiveTime: Instant,
         offset: Offset,
+        flatWitnesses: Set[Party],
+        treeWitnesses: Set[Party],
         create: Create,
     ) extends Event(
           applicationId = applicationId,
@@ -97,6 +103,8 @@ private[events] object RawBatch {
           submitter = submitter,
           ledgerEffectiveTime = ledgerEffectiveTime,
           offset = offset,
+          flatWitnesses = flatWitnesses,
+          treeWitnesses = treeWitnesses,
         ) {
       val partial: Vector[NamedParameter] =
         base ++ Vector[NamedParameter](
@@ -121,6 +129,8 @@ private[events] object RawBatch {
         submitter: Option[Party],
         ledgerEffectiveTime: Instant,
         offset: Offset,
+        flatWitnesses: Set[Party],
+        treeWitnesses: Set[Party],
         exercise: Exercise,
     ) extends Event(
           applicationId = applicationId,
@@ -131,6 +141,8 @@ private[events] object RawBatch {
           submitter = submitter,
           ledgerEffectiveTime = ledgerEffectiveTime,
           offset = offset,
+          flatWitnesses = flatWitnesses,
+          treeWitnesses = treeWitnesses,
         ) {
       val partial: Vector[NamedParameter] =
         base ++ Vector[NamedParameter](
