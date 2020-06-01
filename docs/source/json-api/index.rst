@@ -209,7 +209,7 @@ where ``paste-token-here`` is the encoded JWT token described above.
 Error Reporting
 ***************
 
-The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes in 3 groups indicating:
+The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes into 3 groups indicating:
 
 1. success (200)
 2. failure due to a client-side problem (400, 401, 404)
@@ -223,7 +223,7 @@ The **JSON API** can return one of the following HTTP status codes:
 - 404 - Not Found
 - 500 - Internal Server Error
 
-If client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with ``status`` field, either ``errors`` or ``result`` and optional ``warnings``:
+If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field and an optional ``warnings``:
 
 .. code-block:: none
 
