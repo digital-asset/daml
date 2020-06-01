@@ -371,7 +371,7 @@ object Server {
       case Failure(ex) => StartFailed(ex)
     }
 
-    // The server running server.
+    // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
@@ -406,8 +406,8 @@ object Server {
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same
-          case StartFailed(_) => Behaviors.unhandled // Will never be received in this server
-          case Started(_) => Behaviors.unhandled // Will never be received in this server
+          case StartFailed(_) => Behaviors.unhandled // Will never be received in this state.
+          case Started(_) => Behaviors.unhandled // Will never be received in this state.
           case Stop =>
             ctx.log.info(
               "Stopping server http://{}:{}/",
@@ -422,7 +422,7 @@ object Server {
             Behaviors.same
         }
 
-    // The server starting server.
+    // The server starting state.
     def starting(
         wasStopped: Boolean,
         req: Option[ActorRef[ServerBinding]]): Behaviors.Receive[Message] =
