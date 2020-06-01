@@ -31,6 +31,7 @@ jobs:
     steps:
       - checkout: self
       - template: ../compatibility_ts_libs.yml
+      - template: ../daily_tell_slack.yml
 
   - job: compatibility
     dependsOn: compatibility_ts_libs
@@ -43,25 +44,12 @@ jobs:
           pool: macOS-pool
     pool:
       name: $(pool)
+      ${{ if eq(variables['pool'], 'linux-pool') }}:
+        demands: assignment -equals default
     steps:
       - checkout: self
       - template: ../compatibility.yml
-      - bash: |
-          set -euo pipefail
-          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
-          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
-          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
-              MESSAGE=":fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:"
-          else
-              MESSAGE="$(Agent.JobName) passed: $COMMIT_LINK"
-          fi
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"$MESSAGE\n\"}" \
-               $(Slack.team-daml)
-        displayName: report
-        condition: always()
+      - template: ../daily_tell_slack.yml
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
@@ -77,22 +65,8 @@ jobs:
         inputs:
           pathtoPublish: '$(Build.StagingDirectory)'
           artifactName: 'Bazel Compatibility Logs'
-      - bash: |
-          set -euo pipefail
-          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
-          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
-          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
-              MESSAGE=":fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:"
-          else
-              MESSAGE="$(Agent.JobName) passed: $COMMIT_LINK"
-          fi
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"$MESSAGE\n\"}" \
-               $(Slack.team-daml)
-        displayName: report
-        condition: always()
+      - template: ../daily_tell_slack.yml
+
   - job: performance_report
     timeoutInMinutes: 120
     pool:
@@ -117,27 +91,13 @@ jobs:
           if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
               # no changes, all good
               ci/cron/perf/compare.sh $BASELINE > $OUT
+              cat $(Build.StagingDirectory)/perf-results.json
           else
               # the tests have changed, we need to figure out what to do with
               # the baseline.
               echo "Baseline no longer valid, needs manual correction." > $OUT
           fi
         displayName: measure perf
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
-          cat $(Build.StagingDirectory)/perf-results.json
-          COMMIT_TITLE=$(git log --pretty=format:%s -n1)
-          COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
-          if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
-              MESSAGE="{\"text\": \":fire: <!here> :fire: :fire:\nperf *FAILED*: $COMMIT_LINK\n:fire: :fire:\"}"
-          else
-              MESSAGE=$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR '{"text": "perf for '"$COMMIT_LINK"':```\(.)```"}')
-          fi
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "$MESSAGE" \
-               $(Slack.team-daml)
-        displayName: report
-        condition: always()
+      - template: ../daily_tell_slack.yml
+        parameters:
+          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''{"text": "perf for ''"$COMMIT_LINK"'':```\(.)```"}'')'
