@@ -6,8 +6,8 @@
 HTTP JSON API Service
 #####################
 
-The **JSON API** provides a significantly simpler way than :doc:`the Ledger
-API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
+The **JSON API** provides a significantly simpler way to interact with a ledger than :doc:`the Ledger
+API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
