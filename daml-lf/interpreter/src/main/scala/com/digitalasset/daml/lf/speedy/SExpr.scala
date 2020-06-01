@@ -18,7 +18,6 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
-import java.util.ArrayList
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -91,18 +90,18 @@ object SExpr {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, new ArrayList())
+          SRecord(id, fields, new util.ArrayList())
         case _ =>
-          SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
+          SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
       }
     }
     def execute(machine: Machine): Unit = {
       /* special case for nullary record constructors */
       machine.returnValue = b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, new ArrayList())
+          SRecord(id, fields, new util.ArrayList())
         case _ =>
-          SPAP(PBuiltin(b), new util.ArrayList[SValue](), b.arity)
+          SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
       }
     }
   }
@@ -138,8 +137,8 @@ object SExpr {
 
   object SEApp {
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
-      (optimizeAtomicApps, fun) match {
-        case (true, vfun: SExprAtomic) => SEAppA(vfun, args)
+      fun match {
+        case vfun: SExprAtomic if optimizeAtomicApps => SEAppA(vfun, args)
         case _ => SEAppE(fun, args)
       }
     }
