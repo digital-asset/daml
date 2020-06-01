@@ -74,10 +74,10 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     ).mkString(", ")
 
   private val witnessesAggregation =
-    "array_agg(event_witness) as event_witnesses"
+    "flat_event_witnesses"
 
   private val flatEventsTable =
-    "participant_events natural join participant_event_flat_transaction_witnesses"
+    "participant_events"
 
   private val orderByColumns =
     Seq("event_offset", "transaction_id", "node_index").mkString(", ")

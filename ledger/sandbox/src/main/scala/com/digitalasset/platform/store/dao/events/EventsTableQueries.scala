@@ -22,4 +22,7 @@ object EventsTableQueries {
     lastEventNodeIndexFromPreviousPage
       .map(x => (lastOffsetFromPreviousPage, x))
       .getOrElse(NonExistingOffsetNodeIndexPair)
+
+  def format(ps: Set[Party]): String =
+    ps.view.map(p => s"'$p'").mkString(",")
 }
