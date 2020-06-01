@@ -816,7 +816,7 @@ Contract Search, All Templates
 
 List all currently active contracts for all known templates.
 
-Note that the retrieved contracts do not get persisted into query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with query store enabled.
+Note that the retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
 
 HTTP Request
 ============
@@ -948,7 +948,7 @@ Fetch Parties by Identifiers
 
     ["Alice", "Bob", "Dave"]
 
-If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
+If an empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
 
 .. code-block:: json
 
@@ -1051,9 +1051,9 @@ HTTP Request
       "displayName": "Carol & Co. LLC"
     }
 
-Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
+Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about the meaning of the fields.
 
-All fields in the request are optional, this means that empty JSON object is a valid request to allocate a new party:
+All fields in the request are optional, this means that an empty JSON object is a valid request to allocate a new party:
 
 .. code-block:: json
 
@@ -1099,7 +1099,7 @@ HTTP Response
       "status": 200
     }
 
-Where ``result`` is the JSON array containing package IDs of all loaded DALFs.
+Where ``result`` is the JSON array containing the package IDs of all loaded DALFs.
 
 Download a DALF Package
 ***********************
