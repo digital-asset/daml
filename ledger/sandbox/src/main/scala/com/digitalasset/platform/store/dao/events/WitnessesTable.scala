@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{BatchSql, NamedParameter, ToStatement}
-import com.daml.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 
@@ -45,34 +44,6 @@ private[events] sealed abstract class WitnessesTable[Id: ToStatement](
 }
 
 private[events] object WitnessesTable {
-
-  private[events] sealed abstract class EventWitnessesTable(tableName: String)
-      extends WitnessesTable[EventId](
-        tableName = tableName,
-        idColumn = "event_id",
-        witnessColumn = "event_witness",
-      ) {
-    protected val insert =
-      s"insert into $tableName($idColumn, $witnessColumn) values ({$idColumn}, {$witnessColumn})"
-  }
-
-  /**
-    * Concrete [[WitnessesTable]] to store which party can see which
-    * event in a flat transaction.
-    */
-  private[events] object ForFlatTransactions
-      extends EventWitnessesTable(
-        tableName = "participant_event_flat_transaction_witnesses",
-      )
-
-  /**
-    * Concrete [[WitnessesTable]] to store which party can see which
-    * event in a transaction tree.
-    */
-  private[events] object ForTransactionTrees
-      extends EventWitnessesTable(
-        tableName = "participant_event_transaction_tree_witnesses",
-      )
 
   /**
     * Concrete [[WitnessesTable]] to store which party can see which

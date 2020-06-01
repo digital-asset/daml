@@ -18,8 +18,6 @@ private[dao] object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
       eventBatches: EventsTable.PreparedBatches,
-      flatTransactionWitnessesBatch: Option[BatchSql],
-      complementWitnessesBatch: Option[BatchSql],
       contractBatches: ContractsTable#PreparedBatches,
       deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
@@ -28,8 +26,6 @@ private[dao] object TransactionsWriter {
       import metrics.daml.index.db.storeTransactionDbMetrics
 
       Timed.value(storeTransactionDbMetrics.eventsBatch, eventBatches.foreach(_.execute()))
-      flatTransactionWitnessesBatch.foreach(_.execute())
-      complementWitnessesBatch.foreach(_.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
@@ -195,8 +191,6 @@ private[dao] final class TransactionsWriter(
 
     new TransactionsWriter.PreparedInsert(
       eventBatches = eventBatches,
-      flatTransactionWitnessesBatch = None,
-      complementWitnessesBatch = None,
       contractBatches = contractBatches,
       deleteWitnessesBatch = deleteWitnessesBatch,
       insertWitnessesBatch = insertWitnessesBatch,
