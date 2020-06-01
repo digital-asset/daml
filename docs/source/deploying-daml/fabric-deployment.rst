@@ -26,7 +26,7 @@ Starting up Fabric
 
 Now that we have our DAML app built it needs a place to run, let's grab :code:`daml-on-fabric` and get it running
 
-3. Simply :code:`git clone git@github.com:digital-asset/daml-on-fabric.git` and follow the `instructions <hhttps://github.com/digital-asset/daml-on-fabric>`__ for "Running a local Hyperledger Fabric network"
+3. Simply :code:`git clone git@github.com:digital-asset/daml-on-fabric.git` and follow the `instructions <https://github.com/digital-asset/daml-on-fabric>`__ for "Running a local Hyperledger Fabric network"
 
 	Make sure for Java, Scala, and SBT that you are using the exact versions specified or otherwise you may encounter build or runtime issues. You can use sdkman.io to easily install these specific versions and manage multiple versions.
 
