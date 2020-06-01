@@ -113,14 +113,14 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       transactionId: TransactionId,
       requestingParty: Party,
   ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation @> array[$requestingParty]::varchar[] order by #$orderByColumns"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation && array[$requestingParty]::varchar[] order by #$orderByColumns"
 
   private def multiPartyLookup(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
     val partiesStr = format(requestingParties)
-    SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation @> array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by #$orderByColumns"
+    SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by #$orderByColumns"
   }
 
   private val getFlatTransactionsQueries =

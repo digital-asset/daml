@@ -141,6 +141,8 @@ private[dao] final class TransactionsWriter(
     val disclosureForFlatTransaction =
       computeDisclosureForFlatTransaction(transaction)
 
+    println(s"----disclosureForFlatTransaction: $disclosureForFlatTransaction")
+
     val disclosureForTransactionTree =
       computeDisclosureForTransactionTree(transaction, blinding)
 
