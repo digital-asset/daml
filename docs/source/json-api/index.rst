@@ -332,11 +332,13 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
+To create an instance of an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
+
+One can make a
 
 .. _create-request:
 
@@ -407,7 +409,7 @@ Where:
 
 .. _create-request-with-meta:
 
-Create a new Contract with optional meta field
+Create a new Contract with an optional meta field
 **********************************************
 
 When creating a new contract, client may specify an optional ``meta`` field:
@@ -435,7 +437,7 @@ Where:
 Exercise by Contract ID
 ***********************
 
-The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
+The JSON command below, demonstrates how to exercise an ``Iou_Transfer`` choice on an ``Iou`` contract:
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
