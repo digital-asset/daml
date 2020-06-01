@@ -29,10 +29,20 @@ bazel run //triggers/service:trigger-service-binary -- \
   --http-port $TRIGGER_SERVICE_HTTP_PORT --ledger-host $LEDGER_HOST --ledger-port $LEDGER_PORT --wall-clock-time &
 TRIGGER_SERVICE_PID=$!
 
-# A smoke test:
-#  curl -X GET \
+# Requests to the trigger service need an authorization header with the JWT token.
+# This can be generated from jwt.io using a payload of the form:
+# {
+#   "https://daml.com/ledger-api": {
+#     "ledgerId": "TRIGGER_SERVICE_TEST",
+#     "applicationId": "TriggerService",
+#     "actAs": ["Alice"]
+#   }
+# }
+# Encode it with the secret "secret" and without base64.
+# Then a request command looks like:
+#  curl -X GET localhost:$TRIGGER_SERVICE_HTTP_PORT/v1/health \
 #    -H "Content-type: application/health+json" -H "Accept: application/json" \
-#    "http://localhost:$TRIGGER_SERVICE_PORT/health"
+#    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJUUklHR0VSX1NFUlZJQ0VfVEVTVCIsImFwcGxpY2F0aW9uSWQiOiJUcmlnZ2VyU2VydmljZSIsImFjdEFzIjpbIkFsaWNlIl19fQ.Wce6q-zkeghzl0wjwCLMVAe17N35yTzMjFVKBAh1TsI"
 
 kill_everything() {
   kill $TRIGGER_SERVICE_PID || true
