@@ -65,7 +65,7 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.set(aKey, anotherValue)
       context.getOutputs.toSeq shouldBe Seq((aKey, anotherValue))
     }
-`
+
     "output last set value for a key that was also input" in {
       val context = newInstance(Map(aKey -> Some(aValue)))
 
