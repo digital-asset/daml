@@ -77,7 +77,10 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar)
 
-  // FIXME(RJR): Figure out execution context
+  // Note(RJR): It feels wrong to use a different execution context from that of the actor
+  // system but I haven't seen any misbehaviour due to this yet. We can revisit this if there's
+  // an issue. (Threading through the actor system execution context was a pain which is why
+  // I went with the global option instead.)
   val triggerDao: Option[TriggerDao] = jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
 
   private def addDar(dar: Dar[(PackageId, Package)]): Unit = {
