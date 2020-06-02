@@ -54,8 +54,8 @@ The following table lists open source DAML integrations.
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
      - `Github Repo <https://github.com/blockchaintp/daml-on-sawtooth>`__
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
-     - `Hacera <https://hacera.com/>`__
-     - `Github Repo <https://github.com/hacera/daml-on-fabric>`__
+     - `Digital Asset <https://digitalasset.com.com/>`__
+     - `Github Repo <https://github.com/digital-asset/daml-on-fabric>`__
    * - `PostgreSQL <https://www.postgresql.org/>`__
      - `Digital Asset <https://digitalasset.com/>`__
      - `DAML Sandbox Docs <https://docs.daml.com/tools/sandbox.html>`__
