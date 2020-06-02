@@ -215,7 +215,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesAndTemplatesCondition =
         formatWhereCondition(witnessesAggregation, partiesAndTemplateIds)
-      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (#$witnessesAggregation && array[#$wildcardPartiesStr]::varchar[] or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (#$witnessesAggregation && array[#$wildcardPartiesStr]::varchar[] or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
   }
