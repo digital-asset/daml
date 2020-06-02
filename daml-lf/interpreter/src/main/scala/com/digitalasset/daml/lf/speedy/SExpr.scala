@@ -35,8 +35,6 @@ sealed abstract class SExpr extends Product with Serializable {
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
 
-  val optimizeAtomicApps: Boolean = true //dev-time switch
-
   sealed abstract class SExprAtomic extends SExpr {
     def evaluate(machine: Machine): SValue
   }
@@ -157,12 +155,26 @@ object SExpr {
   }
 
   object SEApp {
+
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       fun match {
-        case SEBuiltin(builtin) if optimizeAtomicApps && builtin.arity == args.length =>
+        // Detect special cases of function-application which can we executed more efficiently
+
+        case SEBuiltin(builtin) if builtin.arity == args.length =>
           SEAppSaturatedBuiltinFun(builtin, args)
-        case vfun: SExprAtomic if optimizeAtomicApps => SEAppAtomicFun(vfun, args)
-        case _ => SEAppGeneral(fun, args)
+
+        case SEBuiltin(builtin) if builtin.arity < args.length =>
+          val arity = builtin.arity
+          val extra = args.length - arity
+          val arityArgs = new Array[SExpr](arity)
+          val extraArgs = new Array[SExpr](extra)
+          System.arraycopy(args, 0, arityArgs, 0, arity)
+          System.arraycopy(args, arity, extraArgs, 0, extra)
+          SEApp(SEAppSaturatedBuiltinFun(builtin, arityArgs), extraArgs)
+
+        case vfun: SExprAtomic => SEAppAtomicFun(vfun, args)
+
+        case _ => SEAppGeneral(fun, args) // fall back to the general case
       }
     }
   }
