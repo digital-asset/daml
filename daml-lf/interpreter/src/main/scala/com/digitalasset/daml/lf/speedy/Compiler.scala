@@ -1055,9 +1055,9 @@ private[lf] final case class Compiler(
         val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
 
-      case SEAppBuiltinFun(builtin, args) =>
+      case SEAppSaturatedBuiltinFun(builtin, args) =>
         val newArgs = args.map(closureConvert(remaps, _))
-        SEAppBuiltinFun(builtin, newArgs)
+        SEAppSaturatedBuiltinFun(builtin, newArgs)
 
       case SECase(scrut, alts) =>
         SECase(
@@ -1143,7 +1143,7 @@ private[lf] final case class Compiler(
         case SEAppAtomicFun(fun, args) =>
           go(fun)
           args.foreach(go)
-        case SEAppBuiltinFun(_, args) =>
+        case SEAppSaturatedBuiltinFun(_, args) =>
           args.foreach(go)
         case SEAbs(n, body) =>
           bound += n
@@ -1234,7 +1234,7 @@ private[lf] final case class Compiler(
         case SEAppAtomicFun(fun, args) =>
           go(fun)
           args.foreach(go)
-        case SEAppBuiltinFun(_, args) =>
+        case SEAppSaturatedBuiltinFun(_, args) =>
           args.foreach(go)
         case x: SEVar =>
           throw CompilationError(s"validate: SEVar encountered: $x")

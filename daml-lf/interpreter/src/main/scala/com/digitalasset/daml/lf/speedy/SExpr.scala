@@ -142,7 +142,7 @@ object SExpr {
     Special case: 'fun' is a builtin; size of `args' matches the builtin arity.
     */
   // A fully saturated builtin application
-  final case class SEAppBuiltinFun(builtin: SBuiltin, args: Array[SExpr])
+  final case class SEAppSaturatedBuiltinFun(builtin: SBuiltin, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
     if (args.size != builtin.arity) {
@@ -160,7 +160,7 @@ object SExpr {
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       fun match {
         case SEBuiltin(builtin) if optimizeAtomicApps && builtin.arity == args.length =>
-          SEAppBuiltinFun(builtin, args)
+          SEAppSaturatedBuiltinFun(builtin, args)
         case vfun: SExprAtomic if optimizeAtomicApps => SEAppAtomicFun(vfun, args)
         case _ => SEAppGeneral(fun, args)
       }

@@ -516,7 +516,7 @@ object Pretty {
           val prefix = prettySExpr(index)(fun) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
-        case SEAppBuiltinFun(builtin, args) =>
+        case SEAppSaturatedBuiltinFun(builtin, args) =>
           val prefix = prettySExpr(index)(SEBuiltin(builtin)) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
