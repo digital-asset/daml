@@ -408,7 +408,7 @@ Where:
 .. _create-request-with-meta:
 
 Create a new Contract with an optional meta field
-**********************************************
+*************************************************
 
 When creating a new contract, client may specify an optional ``meta`` field:
 
