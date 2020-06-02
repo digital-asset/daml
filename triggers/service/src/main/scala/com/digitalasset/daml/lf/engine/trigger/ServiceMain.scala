@@ -52,7 +52,6 @@ import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 case class LedgerConfig(
     host: String,
@@ -72,7 +71,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
 
   private var triggers: Map[UUID, RunningTrigger] = Map.empty;
   private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
-  private var triggerLog: Map[UUID, Vector[(String, String)]] = Map.empty;
+  private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar(_))
@@ -116,20 +115,16 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
     triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
   }
 
-  private def timeStamp(): String = {
-    DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mmss").format(LocalDateTime.now)
-  }
-
   private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {
     val id = t.triggerInstance
-    val entry = (timeStamp(), msg)
+    val entry = ((LocalDateTime.now), msg)
     triggerLog += triggerLog
       .get(id)
       .map(logs => id -> (logs :+ entry))
       .getOrElse(id -> Vector(entry))
   }
 
-  private def getTriggerStatus(uuid: UUID): Vector[(String, String)] = {
+  private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
     triggerLog.getOrElse(uuid, Vector())
   }
 
@@ -176,6 +171,7 @@ object Server {
     implicit val materializer: Materializer = Materializer(untypedSystem)
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
+    implicit val dateTimeFormat: RootJsonFormat[LocalDateTime] = LocalDateTimeJsonFormat
 
     def startTrigger(
         ctx: ActorContext[Server.Message],
