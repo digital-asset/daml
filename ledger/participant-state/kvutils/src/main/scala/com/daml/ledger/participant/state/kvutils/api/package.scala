@@ -3,6 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
+
+import scala.concurrent.Future
+
 /**
   * This package contains interfaces simplifying implementation of a participant server.
   *
@@ -27,13 +34,34 @@ package com.daml.ledger.participant.state.kvutils
   * @see [[com.daml.ledger.validator.SubmissionValidator]]
   * @see [[com.daml.ledger.validator.ValidatingCommitter]]
   *
+  * =Supporting Parallel Submission Validation=
+  * In order to support parallel submission validation there are two prerequisites:
+  *   - the Participant Server must batch submissions it receives to form `DamlSubmissionBatch`es instead of
+  * `DamlSubmission`s (see [[com.daml.ledger.participant.state.kvutils.api.BatchingLedgerWriter]]).
+  *    - the `BatchedSubmissionValidator` must be used instead of `SubmissionValidator` in the validator/committer.
+  *
   * For implementing a validator/committer component supporting parallel submission validation please see the below
   * references.
-  *
   * @see [[com.daml.ledger.validator.LedgerStateOperations]]
   * @see [[com.daml.ledger.validator.batch.BatchedSubmissionValidator]]
   * @see [[com.daml.ledger.validator.BatchedValidatingCommitter]]
   */
 package object api {
   type KeyValueLedger = LedgerReader with LedgerWriter
+
+  def createKeyValueLedger(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
+    new LedgerReader with LedgerWriter {
+      override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
+        reader.events(startExclusive)
+
+      override def ledgerId(): LedgerId = reader.ledgerId()
+
+      override def currentHealth(): HealthStatus =
+        reader.currentHealth().and(writer.currentHealth())
+
+      override def participantId: ParticipantId = writer.participantId
+
+      override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+        writer.commit(correlationId, envelope)
+    }
 }

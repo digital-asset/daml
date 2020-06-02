@@ -147,26 +147,10 @@ object InMemoryLedgerReaderWriter {
           batchingLedgerWriterConfig,
           readerWriter)
       }
-      Resource.successful(ledgerReaderWriterFrom(readerWriter, batchingLedgerWriter))
+      Resource.successful(createKeyValueLedger(readerWriter, batchingLedgerWriter))
     }
   }
 
   private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
     timeProvider != TimeProvider.UTC
-
-  private def ledgerReaderWriterFrom(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
-    new LedgerReader with LedgerWriter {
-      override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
-        reader.events(startExclusive)
-
-      override def ledgerId(): LedgerId = reader.ledgerId()
-
-      override def currentHealth(): HealthStatus =
-        reader.currentHealth().and(writer.currentHealth())
-
-      override def participantId: ParticipantId = writer.participantId
-
-      override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-        writer.commit(correlationId, envelope)
-    }
 }
