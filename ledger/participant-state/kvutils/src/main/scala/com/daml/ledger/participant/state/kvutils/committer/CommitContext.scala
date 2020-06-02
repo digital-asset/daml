@@ -63,10 +63,5 @@ private[kvutils] trait CommitContext {
     outputOrder.map(k => k -> outputs(k))
 
   private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
-    inputs
-      .get(key)
-      .exists {
-        case Some(inputValue) => inputValue == value
-        case None => false
-      }
+    inputs.get(key).exists(_.contains(value))
 }
