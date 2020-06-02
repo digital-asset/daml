@@ -14,16 +14,18 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerWriter
 }
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.{
+import com.daml.ledger.validator.caching.{
   CachingCommitStrategy,
   CachingDamlLedgerStateReader,
+  QueryableReadSet
+}
+import com.daml.ledger.validator.{
   CommitStrategy,
   DamlLedgerStateReader,
   DefaultStateKeySerializationStrategy,
   LedgerStateOperations,
   LedgerStateReader,
   LogAppendingCommitStrategy,
-  QueryableReadSet,
   StateKeySerializationStrategy
 }
 import com.daml.lf.engine.Engine
