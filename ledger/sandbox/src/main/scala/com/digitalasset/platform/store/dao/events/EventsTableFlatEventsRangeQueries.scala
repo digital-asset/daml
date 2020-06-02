@@ -170,7 +170,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesStr = format(parties)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesAggregation && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesAggregation && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     protected def sameTemplates(
@@ -183,7 +183,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesStr = format(parties)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesAggregation && array[#$partiesStr]::varchar[] and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesAggregation && array[#$partiesStr]::varchar[] and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     protected def mixedTemplates(
@@ -193,11 +193,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousEventNodeIndex: Option[Int],
     ): SimpleSql[Row] = {
       val parties = partiesAndTemplateIds.map(_._1)
+      val partiesStr = format(parties)
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesAndTemplatesCondition =
         formatWhereCondition(witnessesAggregation, partiesAndTemplateIds)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$partiesAndTemplatesCondition group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$partiesAndTemplatesCondition group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     protected def mixedTemplatesWithWildcardParties(
@@ -208,12 +209,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousEventNodeIndex: Option[Int],
     ): SimpleSql[Row] = {
       val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
+      val partiesStr = format(parties)
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
-      val partiesStr = format(parties)
       val partiesAndTemplatesCondition =
         formatWhereCondition(witnessesAggregation, partiesAndTemplateIds)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (#$witnessesAggregation && array[#$partiesStr]::varchar[] or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (#$witnessesAggregation && array[#$partiesStr]::varchar[] or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
   }
@@ -258,7 +259,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesStr = format(parties)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and  #$witnessesAggregation && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and  #$witnessesAggregation && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     def sameTemplates(
@@ -271,7 +272,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesStr = format(parties)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and  #$witnessesAggregation && array[#$partiesStr]::varchar[] and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and  #$witnessesAggregation && array[#$partiesStr]::varchar[] and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     def mixedTemplates(
@@ -281,11 +282,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousEventNodeIndex: Option[Int],
     ): SimpleSql[Row] = {
       val parties = partiesAndTemplateIds.map(_._1)
+      val partiesStr = format(parties)
       val partiesAndTemplatesCondition =
         formatWhereCondition(witnessesAggregation, partiesAndTemplateIds)
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and #$partiesAndTemplatesCondition group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and #$partiesAndTemplatesCondition group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     def mixedTemplatesWithWildcardParties(
@@ -296,12 +298,13 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousEventNodeIndex: Option[Int],
     ): SimpleSql[Row] = {
       val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
+      val partiesStr = format(parties)
       val (prevOffset, prevNodeIndex) =
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val wildcardPartiesStr = format(wildcardParties)
       val partiesAndTemplatesCondition =
         formatWhereCondition(witnessesAggregation, partiesAndTemplateIds)
-      SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and ( #$witnessesAggregation && array[#$wildcardPartiesStr]::varchar[] or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array(select unnest(#$witnessesAggregation) intersect select unnest(array[#$partiesStr])) as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and ( #$witnessesAggregation && array[#$wildcardPartiesStr]::varchar[] or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
   }
 
