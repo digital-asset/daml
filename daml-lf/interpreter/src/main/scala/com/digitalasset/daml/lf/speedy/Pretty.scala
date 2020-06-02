@@ -506,12 +506,16 @@ object Pretty {
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
-        case SEAppE(fun, args) =>
+        case SEAppGeneral(fun, args) =>
           val prefix = prettySExpr(index)(fun) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
-        case SEAppA(fun, args) =>
+        case SEAppAtomicFun(fun, args) =>
           val prefix = prettySExpr(index)(fun) + char('(')
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
+        case SEAppSaturatedBuiltinFun(builtin, args) =>
+          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAbs(n, body) =>
@@ -545,8 +549,10 @@ object Pretty {
           })).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
 
-        case other =>
-          str(other)
+        case x: SEBuiltinRecursiveDefinition => str(x)
+        case x: SEImportValue => str(x)
+        case x: SELabelClosure => str(x)
+        case x: SEWronglyTypeContractId => str(x)
       }
   }
 
