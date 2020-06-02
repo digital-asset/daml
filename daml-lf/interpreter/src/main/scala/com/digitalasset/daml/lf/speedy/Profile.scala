@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import collection.JavaConverters._
 import java.lang.System
 import java.nio.file.{Files, Path}
 import java.util.ArrayList
@@ -91,7 +92,7 @@ object Profile {
     ) {
       def write(path: Path): Unit = {
         import JsonProtocol.fileFormat
-        val _ = Files.write(path, this.toJson.compactPrint.getBytes)
+        val _ = Files.write(path, Seq(this.toJson.compactPrint).asJava)
       }
     }
 
