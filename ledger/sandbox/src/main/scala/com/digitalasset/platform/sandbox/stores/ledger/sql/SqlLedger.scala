@@ -30,6 +30,7 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
@@ -60,10 +61,16 @@ object SqlLedger {
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
-      ledgerDao <- JdbcLedgerDao.validatingWriteOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
+      ledgerDao <- JdbcLedgerDao.validatingWriteOwner(
+        serverRole,
+        jdbcUrl,
+        eventsPageSize,
+        metrics,
+        lfValueTranslationCache)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
           new SqlLedgerFactory(ledgerDao).createSqlLedger(

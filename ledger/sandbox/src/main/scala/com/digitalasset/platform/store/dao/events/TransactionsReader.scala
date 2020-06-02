@@ -59,8 +59,8 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val events: Source[EventsTable.Entry[Event], NotUsed] =
-      PaginatingAsyncStream.streamFrom(startExclusive, eventDetails) {
-        (prevOffset, prevNodeIndex) =>
+      PaginatingAsyncStream.streamFrom((startExclusive, Option.empty[Int]), getOffset[Event]) {
+        case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
               .preparePagedGetFlatTransactions(
@@ -91,11 +91,8 @@ private[dao] final class TransactionsReader(
       }
   }
 
-  private def eventDetails(a: EventsTable.Entry[Event]): (Offset, Int) =
-    (a.eventOffset, a.nodeIndex)
-
-  private def treeEventDetails(a: EventsTable.Entry[TreeEvent]): (Offset, Int) =
-    (a.eventOffset, a.nodeIndex)
+  private def getOffset[E](a: EventsTable.Entry[E]): (Offset, Option[Int]) =
+    (a.eventOffset, Some(a.nodeIndex))
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -125,8 +122,8 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
-      PaginatingAsyncStream.streamFrom(startExclusive, treeEventDetails) {
-        (prevOffset, prevNodeIndex) =>
+      PaginatingAsyncStream.streamFrom((startExclusive, Option.empty[Int]), getOffset[TreeEvent]) {
+        case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
               .preparePagedGetTransactionTrees(
@@ -184,8 +181,8 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
     val events =
-      PaginatingAsyncStream.streamFrom(Offset.beforeBegin, eventDetails) {
-        (prevOffset, prevNodeIndex) =>
+      PaginatingAsyncStream.streamFrom((Offset.beforeBegin, Option.empty[Int]), getOffset[Event]) {
+        case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
               .preparePagedGetActiveContracts(

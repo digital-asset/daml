@@ -1045,7 +1045,12 @@ private[lf] final case class Compiler(
       case x: SEMakeClo =>
         throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
 
-      case SEApp(fun, args) =>
+      case SEAppE(fun, args) =>
+        val newFun = closureConvert(remaps, fun)
+        val newArgs = args.map(closureConvert(remaps, _))
+        SEApp(newFun, newArgs)
+
+      case SEAppA(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
@@ -1128,7 +1133,10 @@ private[lf] final case class Compiler(
         case _: SEBuiltinRecursiveDefinition => ()
         case SELocation(_, body) =>
           go(body)
-        case SEApp(fun, args) =>
+        case SEAppE(fun, args) =>
+          go(fun)
+          args.foreach(go)
+        case SEAppA(fun, args) =>
           go(fun)
           args.foreach(go)
         case SEAbs(n, body) =>
@@ -1214,7 +1222,10 @@ private[lf] final case class Compiler(
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
-        case SEApp(fun, args) =>
+        case SEAppE(fun, args) =>
+          go(fun)
+          args.foreach(go)
+        case SEAppA(fun, args) =>
           go(fun)
           args.foreach(go)
         case x: SEVar =>

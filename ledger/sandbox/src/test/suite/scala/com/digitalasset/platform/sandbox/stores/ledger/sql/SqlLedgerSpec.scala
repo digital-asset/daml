@@ -8,6 +8,7 @@ import java.time.Instant
 
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.caching.Cache
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.Healthy
@@ -191,6 +192,7 @@ class SqlLedgerSpec
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),
+          lfValueTranslationCache = Cache.none,
         )
         .acquire()(system.dispatcher)
     }

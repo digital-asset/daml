@@ -270,6 +270,8 @@ object Speedy {
       ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
+      steps = 0
+      track = Instrumentation()
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
@@ -653,61 +655,65 @@ object Speedy {
   }
 
   /** The function has been evaluated to a value, now start evaluating the arguments. */
+  def executeApplication(machine: Machine, vfun: SValue, newArgs: Array[SExpr]): Unit = {
+    vfun match {
+      case SPAP(prim, actualsSoFar, arity) =>
+        val missing = arity - actualsSoFar.size
+        val newArgsLimit = Math.min(missing, newArgs.length)
+
+        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
+        actuals.addAll(actualsSoFar)
+
+        val othersLength = newArgs.length - missing
+
+        // Not enough arguments. Push a continuation to construct the PAP.
+        if (othersLength < 0) {
+          machine.pushKont(KPap(prim, actuals, arity))
+        } else {
+          // Too many arguments: Push a continuation to re-apply the over-applied args.
+          if (othersLength > 0) {
+            val others = new Array[SExpr](othersLength)
+            System.arraycopy(newArgs, missing, others, 0, othersLength)
+            machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
+          }
+          // Now the correct number of arguments is ensured. What kind of prim do we have?
+          prim match {
+            case PClosure(label, body, frame) =>
+              // Maybe push a continuation for the profiler
+              if (label != null) {
+                machine.profile.addOpenEvent(label)
+                machine.pushKont(KLeaveClosure(label))
+              }
+              // Push a continuation to execute the function body when the arguments have been evaluated
+              machine.pushKont(KFun(body, frame, actuals))
+
+            case PBuiltin(builtin) =>
+              // Push a continuation to execute the builtin when the arguments have been evaluated
+              machine.pushKont(KBuiltin(builtin, actuals))
+          }
+        }
+
+        // Start evaluating the arguments.
+        var i = 1
+        while (i < newArgsLimit) {
+          val arg = newArgs(newArgsLimit - i)
+          machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
+          i = i + 1
+        }
+        machine.ctrl = newArgs(0)
+
+      case _ =>
+        crash(s"Applying non-PAP: $vfun")
+    }
+  }
+
+  /** The function has been evaluated to a value. Now restore the environment and execute the application */
   final case class KArg(newArgs: Array[SExpr], frame: Frame, actuals: Actuals, envSize: Int)
       extends Kont
       with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
+    def execute(vfun: SValue, machine: Machine) = {
       machine.restoreEnv(frame, actuals, envSize)
-      v match {
-        case SPAP(prim, actualsSoFar, arity) =>
-          val missing = arity - actualsSoFar.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-
-          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-          actuals.addAll(actualsSoFar)
-
-          val othersLength = newArgs.length - missing
-
-          // Not enough arguments. Push a continuation to construct the PAP.
-          if (othersLength < 0) {
-            machine.pushKont(KPap(prim, actuals, arity))
-          } else {
-            // Too many arguments: Push a continuation to re-apply the over-applied args.
-            if (othersLength > 0) {
-              val others = new Array[SExpr](othersLength)
-              System.arraycopy(newArgs, missing, others, 0, othersLength)
-              machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
-            }
-            // Now the correct number of arguments is ensured. What kind of prim do we have?
-            prim match {
-              case PClosure(label, body, frame) =>
-                // Maybe push a continuation for the profiler
-                if (label != null) {
-                  machine.profile.addOpenEvent(label)
-                  machine.pushKont(KLeaveClosure(label))
-                }
-                // Push a continuation to execute the function body when the arguments have been evaluated
-                machine.pushKont(KFun(body, frame, actuals))
-
-              case PBuiltin(builtin) =>
-                // Push a continuation to execute the builtin when the arguments have been evaluated
-                machine.pushKont(KBuiltin(builtin, actuals))
-            }
-          }
-
-          // Start evaluating the arguments.
-          var i = 1
-          while (i < newArgsLimit) {
-            val arg = newArgs(newArgsLimit - i)
-            machine.pushKont(
-              KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
-            i = i + 1
-          }
-          machine.ctrl = newArgs(0)
-
-        case _ =>
-          crash(s"Applying non-PAP: $v")
-      }
+      executeApplication(machine, vfun, newArgs)
     }
   }
 
