@@ -456,4 +456,48 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
+  it should "stop a trigger when the user script fails init" in withHttpService(Some(dar)) {
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", "Alice")
+        aliceTrigger <- parseTriggerId(resp)
+        _ <- assertTriggerStatus(
+          uri,
+          aliceTrigger,
+          _ ==
+            Vector(
+              "starting",
+              "stopped: initialization failure",
+            ))
+      } yield succeed
+  }
+
+  it should "restart triggers with errors in user script" in withHttpService(Some(dar)) {
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", "Alice")
+        aliceTrigger <- parseTriggerId(resp)
+        _ <- assertTriggerStatus(
+          uri,
+          aliceTrigger,
+          _ ==
+            Vector(
+              "starting",
+              "running",
+              "stopped: runtime failure",
+              "starting",
+              "running",
+              "stopped: runtime failure",
+              "starting",
+              "running",
+              "stopped: runtime failure",
+              "starting",
+              "running",
+              "stopped: runtime failure"
+            )
+        )
+        _ <- assertTriggerIds(uri, "Alice", _.isEmpty)
+      } yield succeed
+  }
+
 }
