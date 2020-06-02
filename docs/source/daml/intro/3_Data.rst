@@ -62,7 +62,7 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 - Most of the variables are declared inside a ``let`` block.
 
   That's because the ``scenario do`` block expects scenario actions like ``submit`` or ``getParty``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.
-- None of the variables have annotations to say what type they are.
+- Few of the variables have annotations to say what type they are.
 
   That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int``, so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int``. This means you don't have to write the type annotation ``my_int : Int = 123``.
 
