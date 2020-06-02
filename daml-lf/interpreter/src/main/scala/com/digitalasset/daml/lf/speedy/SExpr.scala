@@ -150,7 +150,7 @@ object SExpr {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       machine.pushKont(KBuiltin(builtin, actuals))
-      evaluateArguments(machine, actuals, args);
+      evaluateArguments(machine, actuals, args, args.length);
     }
   }
 
