@@ -27,7 +27,7 @@ class CachingDamlLedgerStateReaderSpec
       val mockReader = mock[DamlLedgerStateReader]
       when(mockReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
         .thenReturn(Future.successful(Seq(Some(aDamlStateValue()))))
-      val instance = newInstance(mockReader)
+      val instance = newInstance(mockReader, shouldCache = false)
 
       instance.readState(Seq(aDamlStateKey)).map { actual =>
         actual should have size 1
@@ -36,21 +36,32 @@ class CachingDamlLedgerStateReaderSpec
       }
     }
 
-    "write to cache what was read" in {
+    "update cache upon read if policy allows" in {
       val mockReader = mock[DamlLedgerStateReader]
       when(mockReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
         .thenReturn(Future.successful(Seq(Some(aDamlStateValue()))))
-      val instance = newInstance(mockReader)
+      val instance = newInstance(mockReader, shouldCache = true)
 
       instance.readState(Seq(aDamlStateKey)).map { _ =>
-        instance.cache.getIfPresent(aDamlStateKey) should not be null
+        instance.cache.getIfPresent(aDamlStateKey) shouldBe defined
       }
     }
 
-    "serve request from cache for seen key" in {
+    "do not update cache upon read if policy does not allow" in {
+      val mockReader = mock[DamlLedgerStateReader]
+      when(mockReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
+        .thenReturn(Future.successful(Seq(Some(aDamlStateValue()))))
+      val instance = newInstance(mockReader, shouldCache = false)
+
+      instance.readState(Seq(aDamlStateKey)).map { _ =>
+        instance.cache.getIfPresent(aDamlStateKey) should not be defined
+      }
+    }
+
+    "serve request from cache for seen key (if policy allows)" in {
       val mockReader = mock[DamlLedgerStateReader]
       when(mockReader.readState(any[Seq[DamlStateKey]]())).thenReturn(Future.successful(Seq(None)))
-      val instance = newInstance(mockReader)
+      val instance = newInstance(mockReader, shouldCache = true)
 
       for {
         originalReadState <- instance.readState(Seq(aDamlStateKey))
@@ -68,9 +79,13 @@ class CachingDamlLedgerStateReaderSpec
 
   private def aDamlStateValue(): DamlStateValue = DamlStateValue.getDefaultInstance
 
-  private def newInstance(damlLedgerStateReader: DamlLedgerStateReader)(
+  private def newInstance(damlLedgerStateReader: DamlLedgerStateReader, shouldCache: Boolean)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
     val cache = Cache.from[DamlStateKey, DamlStateValue](Configuration(1024))
-    new CachingDamlLedgerStateReader(cache, keySerializationStrategy, damlLedgerStateReader)
+    new CachingDamlLedgerStateReader(
+      cache,
+      _ => shouldCache,
+      keySerializationStrategy,
+      damlLedgerStateReader)
   }
 }

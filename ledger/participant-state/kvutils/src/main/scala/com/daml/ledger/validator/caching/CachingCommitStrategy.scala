@@ -9,11 +9,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.CommitStrategy
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class CachingCommitStrategy[Result](
     cache: Cache[DamlStateKey, DamlStateValue],
-    delegate: CommitStrategy[Result])
+    shouldCache: DamlStateKey => Boolean,
+    delegate: CommitStrategy[Result])(implicit executionContext: ExecutionContext)
     extends CommitStrategy[Result] {
   override def commit(
       participantId: ParticipantId,
@@ -21,8 +22,19 @@ class CachingCommitStrategy[Result](
       entryId: DamlKvutils.DamlLogEntryId,
       entry: DamlKvutils.DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
-      outputState: Map[DamlStateKey, DamlStateValue]): Future[Result] = {
-    outputState.foreach { case (key, value) => cache.put(key, value) }
-    delegate.commit(participantId, correlationId, entryId, entry, inputState, outputState)
-  }
+      outputState: Map[DamlStateKey, DamlStateValue]): Future[Result] =
+    for {
+      _ <- Future {
+        outputState.view.filter { case (key, _) => shouldCache(key) }.foreach {
+          case (key, value) => cache.put(key, value)
+        }
+      }
+      result <- delegate.commit(
+        participantId,
+        correlationId,
+        entryId,
+        entry,
+        inputState,
+        outputState)
+    } yield result
 }
