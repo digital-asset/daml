@@ -338,8 +338,6 @@ To create an instance of an ``Iou`` contract from the :doc:`Quickstart guide </a
   :language: daml
   :lines: 9-15
 
-One can make a
-
 .. _create-request:
 
 HTTP Request
