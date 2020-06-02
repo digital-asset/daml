@@ -238,12 +238,13 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
             _ <- assertTriggerIds(uri, "Alice", _ == Vector())
             // Start a trigger for Alice and check it appears in list.
             resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-            aliceTrigger <- parseTriggerId(resp)
-            _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+            trigger1 <- parseTriggerId(resp)
+            _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
             // Do the same for a second trigger.
             resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-            aliceTrigger2 <- parseTriggerId(resp)
-            _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger, aliceTrigger2))
+            trigger2 <- parseTriggerId(resp)
+            expected = Vector(trigger1, trigger2).sorted
+            _ <- assertTriggerIds(uri, "Alice", _ == expected)
           } yield succeed
       },
       Duration.Inf

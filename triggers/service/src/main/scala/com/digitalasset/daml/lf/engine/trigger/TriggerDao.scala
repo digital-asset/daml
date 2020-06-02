@@ -82,10 +82,10 @@ object TriggerDao {
   }
 
   def getTriggersForParty(partyToken: Jwt): ConnectionIO[Vector[UUID]] = {
-    val token = partyToken.value
-    val list: Fragment = Fragment.const(
-      s"select trigger_instance from running_triggers where party_token = '$token'"
-    )
+    val select = Fragment.const("select trigger_instance from running_triggers")
+    val where = Fragment.const(s" where party_token = '${partyToken.value}'")
+    val order = Fragment.const(" order by running_triggers")
+    val list = select ++ where ++ order
     list.query[UUID].to[Vector]
   }
 }
