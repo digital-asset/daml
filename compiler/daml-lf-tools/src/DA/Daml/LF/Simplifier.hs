@@ -14,6 +14,7 @@ import Data.Functor.Foldable (cata, embed)
 import qualified Data.Graph as G
 import qualified Data.Text as T
 import qualified Data.Set as Set
+import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Safe
 import qualified Safe.Exact as Safe
@@ -314,34 +315,97 @@ getTypeClassDictionary world = \case
     _ ->
         Nothing
 
+-- | Go inside a closed expression and try to inline and beta reduce
+-- types and arguments, to try monomorphizing.
+inlineClosedExpr :: Int -> World -> Expr -> Simplifier Expr
+inlineClosedExpr d world e = do
+    e' <- go e
+    if e == e'
+        then pure e
+        else simplifyExpr' (d-1) e'
+  where
+    go = \case
+        e@(EVal x) -> do
+            case lookupValue x world of
+                Left _ -> pure e
+                Right dval -> pure (dvalBody dval)
+
+        ETmApp e1 e2 -> do
+            e1' <- go e1
+            case stripLoc e1' of
+                ETmLam (x,_) b -> do
+                    pure (applySubstInExpr (exprSubst x e2) b)
+                _ ->
+                    pure (ETmApp e1' e2)
+
+        ETyApp e t -> do
+            e' <- go e
+            case stripLoc e' of
+                ETyLam (x,_) b -> do
+                    pure (applySubstInExpr (typeSubst x t) b)
+                _ ->
+                    pure (ETyApp e' t)
+
+        ELocation l e -> ELocation l <$> go e
+
+        e -> pure e
+
+stripLoc :: Expr -> Expr
+stripLoc = \case
+    ELocation _ e -> stripLoc e
+    e -> e
+
+-- | Attempt to lift a closed expression to the top level. Returns either
+-- a variable expression that references the lifted expression, or
+-- returns the original expression.
+liftClosedExpr :: Int -> Expr -> Simplifier Expr
+liftClosedExpr d e = do
+    cache <- gets sCache
+    case Map.lookup e cache of
+        Just name -> do
+            EVal <$> selfQualify name
+
+        Nothing -> do
+            world <- gets sWorldExtended
+            version <- gets sVersion
+            case runGamma world version (typeOf' e) of
+                Right ty -> do
+                    name <- freshExprVarNameFor e
+                    e' <- inlineClosedExpr d world e
+                    addDefValue DefValue -- todo cacheing??
+                        { dvalBinder = (name, ty)
+                        , dvalBody = e'
+                        , dvalLocation = Nothing
+                        , dvalNoPartyLiterals = HasNoPartyLiterals True -- FIXME
+                        , dvalIsTest = IsTest False
+                        }
+                    EVal <$> selfQualify name
+
+                Left _ ->
+                    pure e
+
 simplifyExpr :: Expr -> Simplifier Expr
-simplifyExpr = fmap fst . cata go'
+simplifyExpr = simplifyExpr' 3
+
+simplifyExpr' :: Int -> Expr -> Simplifier Expr
+simplifyExpr' d e | d < 0 = pure e
+simplifyExpr' d e = fmap fst (cata go' e)
   where
     go' :: ExprF (Simplifier (Expr, Info)) -> Simplifier (Expr, Info)
     go' ms = do
         es <- sequence ms
         world <- gets sWorldExtended
         let v' = freeVarsStep (fmap (freeVars . snd) es)
-        if freeVarsNull v'
+        if freeVarsNull v' && not (alwaysLiftUnder es)
           then pure (go world es)
           else do -- constant lifting
-            version <- gets sVersion
             es' <- forM es $ \case
               (e,i)
                 | freeVarsNull (freeVars i)
                 , isWorthLifting e
-                , Right ty <- runGamma world version (typeOf' e)
                 -> do
-                    name <- freshExprVarName
-                    addDefValue DefValue -- todo cacheing??
-                        { dvalBinder = (name, ty)
-                        , dvalBody = e
-                        , dvalLocation = Nothing
-                        , dvalNoPartyLiterals = HasNoPartyLiterals True -- FIXME
-                        , dvalIsTest = IsTest False
-                        }
-                    qname <- selfQualify name
-                    pure (EVal qname, i)
+                    e' <- liftClosedExpr d e
+                    pure (e',i)
 
                 | otherwise
                 -> pure (e,i)
@@ -433,41 +497,30 @@ simplifyExpr = fmap fst . cata go'
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
+alwaysLiftUnder :: ExprF t -> Bool
+alwaysLiftUnder = \case
+    ETyLamF _ _ -> True
+    ETmLamF _ _ -> True
+    ECaseF _ _ -> True
+    _ -> False
+
 isWorthLifting :: Expr -> Bool
 isWorthLifting = \case
     EVar _ -> False
     EVal _ -> False
     EBuiltin _ -> False
-    ETmLam _ _ -> False
-    ETyLam _ _ -> False
-    ETmApp _ _ -> True
-    ETyApp _ _ -> True
-    ERecCon _ _ -> True
-    ERecProj _ _ _ -> True
-    ERecUpd _ _ _ _ -> True
-    EVariantCon _ _ _ -> True
     EEnumCon _ _ -> False
-    EStructCon _ -> True
-    EStructProj _ _ -> True
-    EStructUpd _ _ _ -> True
-    ECase _ _ -> True
-    ELet _ _ -> False
     ENil _ -> False
-    ECons _ _ _ -> True
     ENone _ -> False
-    ESome _ _ -> True
-    EToAny _ _ -> True
-    EFromAny _ _ -> True
-    ETypeRep _ -> True
-    EUpdate _ -> False
-    EScenario _ -> False
     ELocation _ e -> isWorthLifting e
+    _ -> True
 
 data SimplifierState = SimplifierState
     { sWorld :: World
     , sVersion :: Version
     , sModule :: Module
     , sReserved :: Set.Set ExprValName
+    , sCache :: Map.Map Expr ExprValName
     }
 
 sWorldExtended :: SimplifierState -> World
@@ -479,7 +532,14 @@ addDefValue :: DefValue -> Simplifier ()
 addDefValue dval = modify $ \s@SimplifierState{..} -> s
     { sModule = sModule { moduleValues = NM.insert dval (moduleValues sModule) }
     , sReserved = Set.insert (fst (dvalBinder dval)) sReserved
+    , sCache = Map.insert (dvalBody dval) (fst (dvalBinder dval)) sCache
     }
+
+freshExprVarNameFor :: Expr -> Simplifier ExprValName
+freshExprVarNameFor e = do
+    name <- freshExprVarName
+    modify $ \s -> s { sCache = Map.insert e name (sCache s) }
+    pure name
 
 freshExprVarName :: Simplifier ExprValName
 freshExprVarName = do
@@ -523,4 +583,5 @@ runSimplifier :: World -> Version -> Module -> Simplifier t -> t
 runSimplifier sWorld sVersion m x =
     let sModule = m { moduleValues = NM.empty }
         sReserved = Set.fromList (NM.names (moduleValues m))
+        sCache = Map.empty
     in evalState x SimplifierState {..}
