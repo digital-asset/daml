@@ -121,17 +121,22 @@ final class LedgerTestSuiteRunner(
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
     val testToExclude = List("blah", "TXDeduplicateCommands", "HScheck", "HSwatch")
-    val suites =  suiteConstructors.map(constructor => constructor(ledgerSession))
+    val suites = suiteConstructors.map(constructor => constructor(ledgerSession))
 
     val testCount = suites.map(_.tests.size).sum
-    val allTestScenarios: Vector[LedgerTestCase] = suites.flatMap(_.tests.filterNot(test => testToExclude.forall(e => test.shortIdentifier.contains(e))))
-
+    val allTestScenarios: Vector[LedgerTestCase] = suites.flatMap(
+      _.tests.filterNot(test => testToExclude.forall(e => test.shortIdentifier.contains(e))))
 
     logger.info(s"Running $testCount tests, ${math.min(testCount, concurrentTestRuns)} at a time.")
-    logger.info(s"All test cases ${allTestScenarios.foreach(test => println(s"${test.shortIdentifier} : ${test.description}" ))}")
+    logger.info(s"All test cases ${allTestScenarios.foreach(test =>
+      println(s"${test.shortIdentifier} : ${test.description}"))}")
 
     val tests = suites
-      .flatMap(suite => suite.tests.filterNot(test => testToExclude.forall(e => test.shortIdentifier.contains(e))).map(suite -> _))
+      .flatMap(
+        suite =>
+          suite.tests
+            .filterNot(test => testToExclude.forall(e => test.shortIdentifier.contains(e)))
+            .map(suite -> _))
       .zipWithIndex
     Source(tests)
       .mapAsyncUnordered(concurrentTestRuns) {
