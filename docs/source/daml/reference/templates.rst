@@ -71,7 +71,7 @@ Signatory parties
   ``NameOfTemplate requires authorizers Party1,Party2,Party, but only Party1 were given.``
 - When a signatory consents to the contract creation, this means they also authorize the consequences of :ref:`choices <daml-ref-choices>` that can be exercised on this contract.
 - The contract instance is visible to all signatories (as well as the other stakeholders of the contract). That is, the compiler automatically adds signatories as observers.
-- You **must** have least one signatory per template. You can have many, either as a comma-separated list or reusing the keyword. You could pass in a list (of type ``[Party]``).
+- Each template **must** have least one signatory declaration. This consists of the `signatory` keyword followed by a single name, a comma-separated list of names, or a list of type `[Party]`.
 
 .. _daml-ref-observers:
 
