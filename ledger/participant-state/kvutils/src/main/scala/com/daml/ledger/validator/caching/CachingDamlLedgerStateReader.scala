@@ -1,11 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.validator
+package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.validator.LedgerStateOperations.Key
+import com.daml.ledger.validator.{
+  DamlLedgerStateReader,
+  LedgerStateReader,
+  RawToDamlLedgerStateReaderAdapter,
+  StateKeySerializationStrategy
+}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,6 +30,7 @@ trait QueryableReadSet {
   */
 class CachingDamlLedgerStateReader(
     val cache: Cache[DamlStateKey, DamlStateValue],
+    shouldCache: DamlStateKey => Boolean,
     keySerializationStrategy: StateKeySerializationStrategy,
     delegate: DamlLedgerStateReader)(implicit executionContext: ExecutionContext)
     extends DamlLedgerStateReader
@@ -48,7 +55,7 @@ class CachingDamlLedgerStateReader(
         .map { readStateValues =>
           val readValues = keysToRead.zip(readStateValues).toMap
           readValues.collect {
-            case (key, Some(value)) => cache.put(key, value)
+            case (key, Some(value)) if shouldCache(key) => cache.put(key, value)
           }
           val all = cachedValues ++ readValues
           keys.map(all(_))
@@ -64,11 +71,13 @@ class CachingDamlLedgerStateReader(
 object CachingDamlLedgerStateReader {
   private[validator] def apply(
       cache: Cache[DamlStateKey, DamlStateValue],
+      cachingPolicy: CacheUpdatePolicy,
       ledgerStateOperations: LedgerStateReader,
       keySerializationStrategy: StateKeySerializationStrategy)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
     new CachingDamlLedgerStateReader(
       cache,
+      cachingPolicy.shouldCacheOnRead,
       keySerializationStrategy,
       new RawToDamlLedgerStateReaderAdapter(ledgerStateOperations, keySerializationStrategy))
   }

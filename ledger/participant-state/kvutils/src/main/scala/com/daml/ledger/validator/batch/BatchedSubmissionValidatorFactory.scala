@@ -14,16 +14,19 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerWriter
 }
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.{
+import com.daml.ledger.validator.caching.{
+  CacheUpdatePolicy,
   CachingCommitStrategy,
   CachingDamlLedgerStateReader,
+  QueryableReadSet
+}
+import com.daml.ledger.validator.{
   CommitStrategy,
   DamlLedgerStateReader,
   DefaultStateKeySerializationStrategy,
   LedgerStateOperations,
   LedgerStateReader,
   LogAppendingCommitStrategy,
-  QueryableReadSet,
   StateKeySerializationStrategy
 }
 import com.daml.lf.engine.Engine
@@ -96,11 +99,13 @@ object BatchedSubmissionValidatorFactory {
   def cachingReaderAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
       stateCache: Cache[DamlStateKey, DamlStateValue],
+      cacheUpdatePolicy: CacheUpdatePolicy,
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy)(
       implicit executionContext: ExecutionContext)
     : (DamlLedgerStateReader with QueryableReadSet, CommitStrategy[LogResult]) = {
     val ledgerStateReader = new CachingDamlLedgerStateReader(
       stateCache,
+      cacheUpdatePolicy.shouldCacheOnRead,
       keySerializationStrategy,
       DamlLedgerStateReader.from(
         new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
@@ -108,29 +113,31 @@ object BatchedSubmissionValidatorFactory {
     )
     val commitStrategy = new CachingCommitStrategy(
       stateCache,
+      cacheUpdatePolicy.shouldCacheOnWrite,
       new LogAppendingCommitStrategy[LogResult](ledgerStateOperations, keySerializationStrategy))
     (ledgerStateReader, commitStrategy)
   }
 
-  case class WriteThroughCachingComponents[LogResult](
+  case class CachingEnabledComponents[LogResult](
       ledgerStateReader: DamlLedgerStateReader with QueryableReadSet,
       commitStrategy: CommitStrategy[LogResult],
       batchValidator: BatchedSubmissionValidator[LogResult])
 
-  def componentsForWriteThroughCaching[LogResult](
+  def componentsEnabledForCaching[LogResult](
       params: BatchedSubmissionValidatorParameters,
       ledgerStateOperations: LedgerStateOperations[LogResult],
       stateCache: Cache[DamlStateKey, DamlStateValue],
+      cacheUpdatePolicy: CacheUpdatePolicy,
       metrics: Metrics,
       engine: Engine
-  )(implicit executionContext: ExecutionContext): WriteThroughCachingComponents[LogResult] = {
+  )(implicit executionContext: ExecutionContext): CachingEnabledComponents[LogResult] = {
     val (ledgerStateReader, commitStrategy) =
-      cachingReaderAndCommitStrategyFrom(ledgerStateOperations, stateCache)
+      cachingReaderAndCommitStrategyFrom(ledgerStateOperations, stateCache, cacheUpdatePolicy)
     val batchValidator = BatchedSubmissionValidator[LogResult](
       params,
       engine,
       metrics
     )
-    WriteThroughCachingComponents(ledgerStateReader, commitStrategy, batchValidator)
+    CachingEnabledComponents(ledgerStateReader, commitStrategy, batchValidator)
   }
 }
