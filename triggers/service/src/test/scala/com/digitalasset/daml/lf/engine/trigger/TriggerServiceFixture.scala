@@ -19,11 +19,7 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -31,12 +27,15 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.timer.RetryStrategy
-import org.scalatest.Assertions.fail
+import org.scalatest.Assertions._
+
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
-import java.net.{Socket, ServerSocket, InetAddress}
+import java.net.{InetAddress, ServerSocket, Socket}
+
 import eu.rekawek.toxiproxy._
+import org.scalatest.Assertion
 
 object TriggerServiceFixture {
 
@@ -51,6 +50,20 @@ object TriggerServiceFixture {
       socket.close()
     }
   }
+
+  def withTriggerServiceAndDb[A](
+      testName: String,
+      darPath: File,
+      dar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: JdbcConfig,
+    )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
+      implicit asys: ActorSystem,
+      mat: Materializer,
+      aesf: ExecutionSequencerFactory,
+      ec: ExecutionContext): Future[Assertion] = for {
+        _ <- withTriggerService(testName ++ " (no database)", List(darPath), dar, None)(testFn)
+        _ <- withTriggerService(testName ++ " (with database)", List(darPath), dar, Some(jdbcConfig))(testFn)
+      } yield succeed
 
   def withTriggerService[A](
       testName: String,

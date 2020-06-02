@@ -53,7 +53,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   val testPkgId = dar.main._1
 
   // Lazy because the postgresDatabase is only available once the tests start
-  lazy val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
+  private lazy val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
 
   def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -87,6 +87,13 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     val token = jwt(party)
     List(Authorization(OAuth2BearerToken(token.value)))
   }
+
+  def withTriggerService[A](
+      triggerDar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: JdbcConfig)
+  : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[Assertion] =
+    TriggerServiceFixture
+      .withTriggerServiceAndDb[A](testId, darPath, triggerDar, jdbcConfig)
 
   def withHttpService[A](
       triggerDar: Option[Dar[(PackageId, Package)]],
@@ -225,7 +232,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     }
 
   it should "add running triggers to the database" in
-    withHttpService(Some(dar), Some(testJdbcConfig)) {
+    withTriggerService(Some(dar), testJdbcConfig) {
       (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
         for {
           // Initially no triggers started for Alice
