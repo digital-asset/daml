@@ -135,9 +135,33 @@ object SExpr {
     }
   }
 
+  // A fully saturated builtin application
+  final case class SEAppB(builtin: SBuiltin, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
+    if (args.size != builtin.arity) {
+      throw SErrorCrash(s"SEAppB: arg.size != builtin.arity")
+    }
+    def execute(machine: Machine): Unit = {
+      val arity = builtin.arity
+      val actuals = new util.ArrayList[SValue](arity)
+      machine.pushKont(KBuiltin(builtin, actuals))
+      // Start evaluating the arguments.
+      var i = 1
+      while (i < arity) {
+        val arg = args(arity - i)
+        machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
+        i = i + 1
+      }
+      machine.ctrl = args(0)
+    }
+  }
+
   object SEApp {
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       fun match {
+        case SEBuiltin(builtin) if optimizeAtomicApps && builtin.arity == args.length =>
+          SEAppB(builtin, args)
         case vfun: SExprAtomic if optimizeAtomicApps => SEAppA(vfun, args)
         case _ => SEAppE(fun, args)
       }
