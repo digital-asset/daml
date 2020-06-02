@@ -80,10 +80,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  protected def headersWithAuth(party: String) = authorizationHeader(jwt(party))
-
-  protected def authorizationHeader(token: Jwt): List[Authorization] =
+  protected def headersWithAuth(party: String): List[Authorization] = {
+    val token = jwt(party)
     List(Authorization(OAuth2BearerToken(token.value)))
+  }
 
   def withHttpService[A](
       triggerDar: Option[Dar[(PackageId, Package)]],
