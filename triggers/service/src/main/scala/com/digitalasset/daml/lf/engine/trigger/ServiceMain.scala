@@ -74,9 +74,15 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
-  dar.foreach(addDar(_))
+  dar.foreach(addDar)
 
-  private def addDar(dar: Dar[(PackageId, Package)]) = {
+  // Note(RJR): It feels wrong to use a different execution context from that of the actor
+  // system but I haven't seen any misbehaviour due to this yet. We can revisit this if there's
+  // an issue. (Threading through the actor system execution context was a pain which is why
+  // I went with the global option instead.)
+  val triggerDao: Option[TriggerDao] = jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
+
+  private def addDar(dar: Dar[(PackageId, Package)]): Unit = {
     val darMap = dar.all.toMap
     darMap.foreach {
       case (pkgId, pkg) =>
@@ -85,34 +91,53 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
         // will still call addPackage even if we already fed the
         // package via the callback but this is harmless and not
         // expensive.
+        @scala.annotation.tailrec
         def go(r: Result[Unit]): Unit = r match {
           case ResultDone(()) => ()
           case ResultNeedPackage(pkgId, resume) =>
             go(resume(darMap.get(pkgId)))
           case _ => throw new RuntimeException(s"Unexpected engine result $r")
         }
+
         go(compiledPackages.addPackage(pkgId, pkg))
     }
   }
 
   private def getRunningTrigger(uuid: UUID): RunningTrigger = {
-    triggers.get(uuid).get // TODO: Improve as might throw NoSuchElementException.
+    triggers(uuid) // TODO: Improve as might throw NoSuchElementException.
   }
 
-  private def addRunningTrigger(t: RunningTrigger): Unit = {
-    triggers = triggers + (t.triggerInstance -> t)
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
+  private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
+    triggerDao match {
+      case None =>
+        triggers = triggers + (t.triggerInstance -> t)
+        triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
+        Right(())
+      case Some(dao) =>
+        val insert = dao.transact(TriggerDao.addRunningTrigger(t))
+        Try(insert.unsafeRunSync()) match {
+          case Failure(err) => Left(err.toString)
+          case Success(()) => Right(())
+        }
+    }
   }
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
     triggers = triggers - t.triggerInstance
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken
-      .get(t.jwt)
-      .get - t.triggerInstance))
+    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance))
   }
 
-  private def listRunningTriggers(jwt: Jwt): List[String] = {
-    triggersByToken.getOrElse(jwt, Set()).map(_.toString).toList
+  private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
+    triggerDao match {
+      case None =>
+        Right(triggersByToken.getOrElse(jwt, Set()).toVector)
+      case Some(dao) =>
+        val select = dao.transact(TriggerDao.getTriggersForParty(jwt))
+        Try(select.unsafeRunSync()) match {
+          case Failure(err) => Left(err.toString)
+          case Success(triggerInstances) => Right(triggerInstances)
+        }
+    }
   }
 
   private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {
@@ -221,12 +246,14 @@ object Server {
       JsObject(("triggerId", uuid.toString.toJson))
     }
 
-    def listTriggers(token: (Jwt, JwtPayload)): JsValue = {
-      JsObject(("triggerIds", server.listRunningTriggers(token._1).toJson))
+    def listTriggers(jwt: Jwt): (StatusCode, JsObject) = {
+      server.listRunningTriggers(jwt) match {
+        case Left(err) => errorResponse(StatusCodes.InternalServerError, err.toString)
+        case Right(triggerInstances) =>
+          successResponse(JsObject(("triggerIds", triggerInstances.map(_.toString).toJson)))
+      }
     }
 
-    // 'fileUpload' triggers this warning we don't have a fix right
-    // now so we disable it.
     val route = concat(
       post {
         concat(
@@ -252,7 +279,7 @@ object Server {
                             .fromIdentifier(server.compiledPackages, params.triggerName) match {
                             case Left(err) =>
                               complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                            case Right(trigger) => {
+                            case Right(trigger) =>
                               val triggerInstance = startTrigger(
                                 ctx,
                                 token,
@@ -264,7 +291,6 @@ object Server {
                                 failureRetryTimeRange
                               )
                               complete(successResponse(triggerInstance))
-                            }
                         }
                       )
                 }
@@ -310,22 +336,17 @@ object Server {
           },
           // List triggers currently running for the given party.
           path("v1" / "list") {
-            extractRequest {
-              request =>
-                TokenManagement
-                  .findJwt(request)
-                  .flatMap { jwt =>
-                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                  }
-                  .map { token =>
-                    listTriggers(token)
-                  }
-                  .fold(
-                    unauthorized =>
-                      complete(
-                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                    triggerInstances => complete(successResponse(triggerInstances))
-                  )
+            extractRequest { request =>
+              TokenManagement
+                .findJwt(request)
+                .flatMap { jwt =>
+                  TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                }
+                .fold(
+                  unauthorized =>
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                  token => complete(listTriggers(token._1))
+                )
             }
           },
           // Produce logs for the given trigger.
@@ -378,8 +399,13 @@ object Server {
             // The trigger has successfully started. Update the
             // running triggers tables.
             server.logTriggerStatus(runningTrigger, "running")
-            server.addRunningTrigger(runningTrigger)
-            Behaviors.same
+            server.addRunningTrigger(runningTrigger) match {
+              case Left(err) =>
+                val msg = "Failed to add running trigger to database.\n" + err
+                ctx.self ! TriggerInitializationFailure(runningTrigger, msg)
+                Behaviors.same
+              case Right(()) => Behaviors.same
+            }
           case TriggerInitializationFailure(runningTrigger, cause) =>
             // The trigger has failed to start. Send the runner a stop
             // message. There's no point in it remaining alive since
@@ -496,16 +522,15 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
-          case darPath =>
-            val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-              DarReader().readArchiveFromFile(darPath.toFile) match {
-                case Failure(err) => sys.error(s"Failed to read archive: $err")
-                case Success(dar) => dar
-              }
-            encodedDar.map {
-              case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map { darPath =>
+          val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+            DarReader().readArchiveFromFile(darPath.toFile) match {
+              case Failure(err) => sys.error(s"Failed to read archive: $err")
+              case Success(dar) => dar
             }
+          encodedDar.map {
+            case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+          }
         }
         val ledgerConfig =
           LedgerConfig(

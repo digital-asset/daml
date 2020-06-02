@@ -85,10 +85,12 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   protected def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))
 
-  def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
+  def withHttpService[A](
+      triggerDar: Option[Dar[(PackageId, Package)]],
+      jdbcConfig: Option[JdbcConfig] = None)
     : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
     TriggerServiceFixture
-      .withTriggerService[A](testId, List(darPath), triggerDar)
+      .withTriggerService[A](testId, List(darPath), triggerDar, jdbcConfig)
 
   def startTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -219,6 +221,36 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
     assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
     dropDatabase()
+    disconnectFromPostgresqlServer()
+    succeed
+  }
+
+  it should "add running triggers to the database" in {
+    connectToPostgresqlServer()
+    createNewDatabase()
+    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
+    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
+    Await.result(
+      withHttpService(Some(dar), Some(testJdbcConfig)) {
+        (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+          for {
+            // Initially no triggers started for Alice
+            _ <- assertTriggerIds(uri, "Alice", _ == Vector())
+            // Start a trigger for Alice and check it appears in list.
+            resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+            trigger1 <- parseTriggerId(resp)
+            _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
+            // Do the same for a second trigger.
+            resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+            trigger2 <- parseTriggerId(resp)
+            expected = Vector(trigger1, trigger2).sorted
+            _ <- assertTriggerIds(uri, "Alice", _ == expected)
+          } yield succeed
+      },
+      Duration.Inf
+    )
+    dropDatabase()
+    disconnectFromPostgresqlServer()
     succeed
   }
 
