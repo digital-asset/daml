@@ -5,7 +5,7 @@ package com.daml.ledger.validator.caching
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 
 /**
-  * Cache write policy that allows writing to-be-committed packages back to the cache and read
+  * Cache update policy that allows writing to-be-committed packages back to the cache and read
   * immutable values such as packages and party allocations from the ledger.
   * This policy should be used for ledgers with multiple committers.
   * In case a commit fails and hence does not get persisted e.g. because of a conflicting write set
