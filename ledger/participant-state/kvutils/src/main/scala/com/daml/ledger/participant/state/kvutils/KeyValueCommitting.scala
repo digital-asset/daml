@@ -146,7 +146,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics).run(
           entryId,
-          //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPackageUploadEntry,
@@ -304,7 +303,7 @@ class KeyValueCommitting private[daml] (
       GlobalKey(
         decodeIdentifier(templateId),
         decodeVersionedValue(key).value.ensureNoCid
-          .getOrElse(throw Err.DecodeError("ContractKey", s"Contract key contained contract id"))
+          .getOrElse(throw Err.DecodeError("ContractKey", "Contract key contained contract id"))
       )
     DamlStateKey.newBuilder
       .setContractKey(

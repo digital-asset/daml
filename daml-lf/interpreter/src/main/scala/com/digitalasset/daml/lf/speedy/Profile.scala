@@ -4,8 +4,9 @@
 package com.daml.lf
 package speedy
 
+import collection.JavaConverters._
 import java.lang.System
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import java.util.ArrayList
 
 /** Class for profiling information collected by Speedy. We use [[AnyRef]] for
@@ -58,7 +59,6 @@ object Profile {
     * https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources#speedscopes-file-format
     */
   private object SpeedscopeJson {
-    import java.io.{BufferedWriter, FileWriter}
     import spray.json._
 
     val schemaURI = "https://www.speedscope.app/file-format-schema.json"
@@ -92,9 +92,7 @@ object Profile {
     ) {
       def write(path: Path): Unit = {
         import JsonProtocol.fileFormat
-        val writer = new BufferedWriter(new FileWriter(path.toFile()))
-        writer.write(this.toJson.compactPrint)
-        writer.close()
+        val _ = Files.write(path, Seq(this.toJson.compactPrint).asJava)
       }
     }
 

@@ -215,7 +215,7 @@ private[kvutils] class PackageCommitter(
               _ => sys.error("Unexpected request to keys in preloadPackage")
             )
       }
-      trace(s"Preload complete")
+      trace("Preload complete")
     } catch {
       case scala.util.control.NonFatal(err) =>
         logger.error(

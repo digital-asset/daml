@@ -6,11 +6,14 @@ package com.daml.ledger.participant.state.kvutils
 import java.io.{DataOutputStream, FileOutputStream}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
 /** Utilities for debugging kvutils. */
 object Debug {
+
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   /** The ledger dump stream is a gzip-compressed stream of `LedgerDumpEntry` messages prefixed
     * by their size.
@@ -18,7 +21,8 @@ object Debug {
   private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
     Option(System.getenv("KVUTILS_LEDGER_DUMP"))
       .map { filename =>
-        new DataOutputStream((new FileOutputStream(filename)))
+        logger.info(s"Enabled writing ledger entries to $filename")
+        new DataOutputStream(new FileOutputStream(filename))
       }
   }
 
