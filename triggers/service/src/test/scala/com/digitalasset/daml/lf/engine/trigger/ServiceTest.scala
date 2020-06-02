@@ -112,6 +112,14 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     Http().singleRequest(req)
   }
 
+  def triggerStatus(uri: Uri, id: String): Future[HttpResponse] = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(Uri.Path(s"/v1/status/$id")),
+    )
+    Http().singleRequest(req)
+  }
+
   def stopTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -181,6 +189,30 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     }
   }
 
+  def parseTriggerStatus(resp: HttpResponse): Future[Vector[String]] = {
+    for {
+      JsObject(fields) <- parseResult(resp)
+      Some(JsArray(list)) = fields.get("logs")
+      statusMsgs = list map {
+        case JsArray(Vector(JsString(_), JsString(msg))) => msg
+        case _ => fail("""Unexpected format in the "logs" field""")
+      }
+    } yield statusMsgs
+  }
+
+  def assertTriggerStatus(
+      uri: Uri,
+      id: String,
+      pred: (Vector[String]) => Boolean): Future[Assertion] = {
+    eventually {
+      val actualTriggerStatus = Await.result(for {
+        resp <- triggerStatus(uri, id)
+        result <- parseTriggerStatus(resp)
+      } yield result, Duration.Inf)
+      assert(pred(actualTriggerStatus))
+    }
+  }
+
   it should "initialize database" in {
     connectToPostgresqlServer()
     createNewDatabase()
@@ -214,7 +246,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         _ <- mainPackageId should not be empty
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", (triggerIds => triggerIds == Vector(triggerId)))
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(triggerId))
         resp <- stopTrigger(uri, triggerId, "Alice")
         stoppedTriggerId <- parseTriggerId(resp)
         _ <- stoppedTriggerId should equal(triggerId)
@@ -230,32 +262,26 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", triggerIds => triggerIds == Vector(aliceTrigger))
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
         // Start trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger1 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Bob", triggerIds => triggerIds == Vector(bobTrigger1))
+        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1))
         // Start another trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(
-          uri,
-          "Bob",
-          triggerIds => triggerIds == Vector(bobTrigger1, bobTrigger2))
+        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1, bobTrigger2))
         // Stop Alice's trigger.
         resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, "Alice", triggerIds => triggerIds.isEmpty)
-        _ <- assertTriggerIds(
-          uri,
-          "Bob",
-          triggerIds => triggerIds == Vector(bobTrigger1, bobTrigger2))
+        _ <- assertTriggerIds(uri, "Alice", _.isEmpty)
+        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1, bobTrigger2))
         // Stop Bob's triggers.
         resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2, "Bob")
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, "Bob", triggerIds => triggerIds.isEmpty)
+        _ <- assertTriggerIds(uri, "Bob", _.isEmpty)
       } yield succeed
   }
 
@@ -312,7 +338,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         aliceTrigger <- parseTriggerId(resp)
         triggerId <- parseTriggerId(resp)
-      } yield (assertTriggerIds(uri, "Alice", triggerIds => triggerIds.nonEmpty))
+      } yield (assertTriggerIds(uri, "Alice", _.nonEmpty))
       // Wait a good while (10s) on the assertion to become true. If it
       // does, indicate the test has failed (because, since the trigger
       // can't be initialized for the lack of a viable ledger client
@@ -331,4 +357,71 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       ledgerProxy.enable()
     }
   }
+
+  it should "stop a failing trigger that can't be restarted" in withHttpService(Some(dar)) {
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      // Simulate the ledger becoming unrecoverably unavailable due to
+      // network connectivity loss. The stop strategy means the running
+      // trigger will be terminated.
+      for {
+        // Request a trigger be started for Alice.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        aliceTrigger <- parseTriggerId(resp)
+        // Proceed when it's confirmed to be running.
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+        // Simulate unrecoverable network connectivity loss.
+        _ <- Future { ledgerProxy.disable() }
+        // Confirm that the running trigger ends up stopped and that
+        // its history matches our expectations.
+        _ <- assertTriggerIds(uri, "Alice", _.isEmpty)
+        _ <- assertTriggerStatus(
+          uri,
+          aliceTrigger,
+          _ ==
+            Vector(
+              "starting",
+              "running",
+              "stopped: runtime failure",
+              "starting",
+              "stopped: initialization failure"))
+      } yield succeed
+  }
+
+  it should "restart a failing trigger if possible" in withHttpService(Some(dar)) {
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      // Simulate the ledger briefly being unavailable due to network
+      // connectivity loss. Our restart strategy means that the running
+      // trigger gets restarted.
+      for {
+        // Request a trigger be started for Alice.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        aliceTrigger <- parseTriggerId(resp)
+        // Proceed when it is confirmed to be running.
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+        // Simulate brief network connectivity loss. This will cause the
+        // running trigger's flow graph to complete with failure. Don't
+        // wait around to restore the network or the restart strategy
+        // will in turn lead to the stop strategy killing the trigger
+        // due to the lack of ability to initialize the restarted
+        // trigger.
+        _ <- Future { ledgerProxy.disable() }
+        _ <- Future { ledgerProxy.enable() }
+        // To conclude, check that the trigger survived the network
+        // outage and that its history indicates it went through a
+        // restart to do so.
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+        _ <- assertTriggerStatus(
+          uri,
+          aliceTrigger,
+          _ ==
+            Vector(
+              "starting",
+              "running",
+              "stopped: runtime failure",
+              "starting",
+              "running"
+            ))
+      } yield succeed
+  }
+
 }

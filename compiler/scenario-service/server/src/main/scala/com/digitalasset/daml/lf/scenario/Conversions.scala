@@ -131,6 +131,16 @@ final class Conversions(
             .build,
         )
 
+      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers) =>
+        builder.setScenarioContractKeyNotVisible(
+          ScenarioError.ContractKeyNotVisible.newBuilder
+            .setContractRef(mkContractRef(coid, gk.templateId))
+            .setKey(convertValue(gk.key))
+            .setCommitter(convertParty(committer))
+            .addAllObservers(observers.map(convertParty).asJava)
+            .build,
+        )
+
       case SError.ScenarioErrorCommitError(commitError) =>
         builder.setScenarioCommitError(
           convertCommitError(commitError),

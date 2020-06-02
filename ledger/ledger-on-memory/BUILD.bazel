@@ -119,7 +119,7 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--batching enable=true,max-queue-size=500",
+        "--batching enable=true,max-batch-size-bytes=262144",
     ],
     test_tool_args = [
         "--verbose",
@@ -139,7 +139,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example1,port=6865",
         "--participant participant-id=example2,port=6866",
-        "--batching enable=true,max-queue-size=500",
+        "--batching enable=true,max-batch-size-bytes=262144",
     ],
     test_tool_args = [
         "--verbose",

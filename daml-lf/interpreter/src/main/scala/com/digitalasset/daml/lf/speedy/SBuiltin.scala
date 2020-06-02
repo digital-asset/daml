@@ -891,28 +891,23 @@ object SBuiltin {
           else
             machine.returnValue = contract
         case None =>
-          coid match {
-            case acoid: V.ContractId =>
-              throw SpeedyHungry(
-                SResultNeedContract(
-                  acoid,
-                  templateId,
-                  machine.committers,
-                  cbMissing = _ => machine.tryHandleException(),
-                  cbPresent = { coinst =>
-                    // Note that we cannot throw in this continuation -- instead
-                    // set the control appropriately which will crash the machine
-                    // correctly later.
-                    if (coinst.template != templateId)
-                      machine.ctrl = SEWronglyTypeContractId(acoid, templateId, coinst.template)
-                    else
-                      machine.ctrl = SEImportValue(coinst.arg.value)
-                  },
-                ),
-              )
-            case _ =>
-              crash(s"contract $coid ($templateId) not found from partial transaction")
-          }
+          throw SpeedyHungry(
+            SResultNeedContract(
+              coid,
+              templateId,
+              machine.committers,
+              cbMissing = _ => machine.tryHandleException(),
+              cbPresent = { coinst =>
+                // Note that we cannot throw in this continuation -- instead
+                // set the control appropriately which will crash the machine
+                // correctly later.
+                if (coinst.template != templateId)
+                  machine.ctrl = SEWronglyTypeContractId(coid, templateId, coinst.template)
+                else
+                  machine.ctrl = SEImportValue(coinst.arg.value)
+              },
+            ),
+          )
       }
     }
   }

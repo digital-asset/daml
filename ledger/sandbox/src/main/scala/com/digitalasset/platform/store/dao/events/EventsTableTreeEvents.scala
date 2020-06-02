@@ -7,15 +7,17 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.dao.events.EventsTableQueries.previousOffsetWhereClauseValues
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -35,10 +37,11 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
+          nodeIndex = nodeIndex,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -142,11 +145,11 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       endInclusive: Offset,
       requestingParties: Set[Party],
       pageSize: Int,
-      rowOffset: Long,
+      previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyTrees(startExclusive, endInclusive, _, pageSize, rowOffset),
-      multi = multiPartyTrees(startExclusive, endInclusive, _, pageSize, rowOffset),
+      single = singlePartyTrees(startExclusive, endInclusive, _, pageSize, previousEventNodeIndex),
+      multi = multiPartyTrees(startExclusive, endInclusive, _, pageSize, previousEventNodeIndex),
     )
 
   private def singlePartyTrees(
@@ -154,17 +157,23 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       endInclusive: Offset,
       requestingParty: Party,
       pageSize: Int,
-      rowOffset: Long,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness = $requestingParty order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+      previousEventNodeIndex: Option[Int],
+  ): SimpleSql[Row] = {
+    val (prevOffset, prevNodeIndex) =
+      previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$treeEventsTable where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and event_witness = $requestingParty order by (#$orderByColumns) limit $pageSize"
+  }
 
   private def multiPartyTrees(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
       pageSize: Int,
-      rowOffset: Long,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness in ($requestingParties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+      previousEventNodeIndex: Option[Int],
+  ): SimpleSql[Row] = {
+    val (prevOffset, prevNodeIndex) =
+      previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
+    SQL"select #$selectColumns, #$witnessesAggregation, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and event_witness in ($requestingParties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+  }
 
 }

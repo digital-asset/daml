@@ -54,3 +54,35 @@ You can enable debug logging in Sandbox with `sandbox-log-level` system property
 Or when started from Bazel with:
 
     $ bazel run //ledger/sandbox:sandbox-binary -- --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar
+
+# Profiling
+
+You can enable profiling in Sandbox by passing a directory where the profiling
+information should be written via the `--profile-dir` flag, e.g.
+```shell
+$ bazel run //ledger/sandbox:sandbox-binary -- --profile-dir=/write/profiles/here/ ...
+```
+
+**DISCLAIMER**: Profiling is not intended to be used in production setups since
+it slows down DAML execution significantly and writes a lot of profiling
+information to disk.
+
+For every command submitted to the Sandbox, a JSON file named like
+`<submission time>-<command description>-<seed>.json` is written to the
+directory specified via `--profile-dir`. In this file name,
+`<command description>` is a string of the form `create:TemplateName` or
+`exercise:TemplateName:ChoiceName`.
+
+These JSON files can be viewed using the
+[speedscope](https://www.speedscope.app/) flamegraph visualizer. The easiest
+way to install speedscope is to run
+```shell
+$ npm install -g speedscope
+```
+See the [Offline usage](https://github.com/jlfwong/speedscope#usage) section of
+its documentation for alternatives.
+
+Once speedscope is installed, a specific profile can be viewed via
+```shell
+$ speedscope /path/to/profile.json
+```

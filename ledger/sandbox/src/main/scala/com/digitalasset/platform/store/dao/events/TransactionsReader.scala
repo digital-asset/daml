@@ -7,6 +7,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -56,29 +58,30 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val events =
-      PaginatingAsyncStream(pageSize) { offset =>
-        val query =
-          EventsTable
-            .preparePagedGetFlatTransactions(
-              startExclusive = startExclusive,
-              endInclusive = endInclusive,
-              filter = filter,
-              pageSize = pageSize,
-              rowOffset = offset,
+    val events: Source[EventsTable.Entry[Event], NotUsed] =
+      PaginatingAsyncStream.streamFrom((startExclusive, Option.empty[Int]), getOffset[Event]) {
+        case (prevOffset, prevNodeIndex) =>
+          val query =
+            EventsTable
+              .preparePagedGetFlatTransactions(
+                startExclusive = prevOffset,
+                endInclusive = endInclusive,
+                filter = filter,
+                pageSize = pageSize,
+                previousEventNodeIndex = prevNodeIndex,
+              )
+              .withFetchSize(Some(pageSize))
+          val rawEventsFuture =
+            dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
+              query.asVectorOf(EventsTable.rawFlatEventParser)
+            }
+          rawEventsFuture.flatMap(
+            rawEvents =>
+              Timed.future(
+                future = Future.traverse(rawEvents)(deserializeEntry(verbose)),
+                timer = dbMetrics.getFlatTransactions.translationTimer,
             )
-            .withFetchSize(Some(pageSize))
-        val rawEventsFuture =
-          dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
-            query.asVectorOf(EventsTable.rawFlatEventParser)
-          }
-        rawEventsFuture.flatMap(
-          rawEvents =>
-            Timed.future(
-              future = Future.traverse(rawEvents)(deserializeEntry(verbose)),
-              timer = dbMetrics.getFlatTransactions.translationTimer,
           )
-        )
       }
 
     groupContiguous(events)(by = _.transactionId)
@@ -87,6 +90,9 @@ private[dao] final class TransactionsReader(
         Source(response.map(r => offsetFor(r) -> r))
       }
   }
+
+  private def getOffset[E](a: EventsTable.Entry[E]): (Offset, Option[Int]) =
+    (a.eventOffset, Some(a.nodeIndex))
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -115,29 +121,30 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val events =
-      PaginatingAsyncStream(pageSize) { offset =>
-        val query =
-          EventsTable
-            .preparePagedGetTransactionTrees(
-              startExclusive = startExclusive,
-              endInclusive = endInclusive,
-              requestingParties = requestingParties,
-              pageSize = pageSize,
-              rowOffset = offset,
+    val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
+      PaginatingAsyncStream.streamFrom((startExclusive, Option.empty[Int]), getOffset[TreeEvent]) {
+        case (prevOffset, prevNodeIndex) =>
+          val query =
+            EventsTable
+              .preparePagedGetTransactionTrees(
+                startExclusive = prevOffset,
+                endInclusive = endInclusive,
+                requestingParties = requestingParties,
+                pageSize = pageSize,
+                previousEventNodeIndex = prevNodeIndex
+              )
+              .withFetchSize(Some(pageSize))
+          val rawEvents =
+            dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
+              query.asVectorOf(EventsTable.rawTreeEventParser)
+            }
+          rawEvents.flatMap(
+            es =>
+              Timed.future(
+                future = Future.traverse(es)(deserializeEntry(verbose)),
+                timer = dbMetrics.getTransactionTrees.translationTimer,
             )
-            .withFetchSize(Some(pageSize))
-        val rawEvents =
-          dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
-            query.asVectorOf(EventsTable.rawTreeEventParser)
-          }
-        rawEvents.flatMap(
-          es =>
-            Timed.future(
-              future = Future.traverse(es)(deserializeEntry(verbose)),
-              timer = dbMetrics.getTransactionTrees.translationTimer,
           )
-        )
       }
 
     groupContiguous(events)(by = _.transactionId)
@@ -174,24 +181,26 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
     val events =
-      PaginatingAsyncStream(pageSize) { offset =>
-        val query =
-          EventsTable
-            .preparePagedGetActiveContracts(
-              activeAt = activeAt,
-              filter = filter,
-              pageSize = pageSize,
-              rowOffset = offset,
-            )
-            .withFetchSize(Some(pageSize))
-        val rawEvents =
-          dispatcher.executeSql(dbMetrics.getActiveContracts) { implicit connection =>
-            query.asVectorOf(EventsTable.rawFlatEventParser)
-          }
-        Timed.future(
-          future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
-          timer = dbMetrics.getActiveContracts.translationTimer,
-        )
+      PaginatingAsyncStream.streamFrom((Offset.beforeBegin, Option.empty[Int]), getOffset[Event]) {
+        case (prevOffset, prevNodeIndex) =>
+          val query =
+            EventsTable
+              .preparePagedGetActiveContracts(
+                lastOffsetFromPrevPage = prevOffset,
+                activeAt = activeAt,
+                filter = filter,
+                pageSize = pageSize,
+                lastEventNodeIndexFromPrevPage = prevNodeIndex,
+              )
+              .withFetchSize(Some(pageSize))
+          val rawEvents =
+            dispatcher.executeSql(dbMetrics.getActiveContracts) { implicit connection =>
+              query.asVectorOf(EventsTable.rawFlatEventParser)
+            }
+          Timed.future(
+            future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
+            timer = dbMetrics.getActiveContracts.translationTimer,
+          )
       }
 
     groupContiguous(events)(by = _.transactionId)

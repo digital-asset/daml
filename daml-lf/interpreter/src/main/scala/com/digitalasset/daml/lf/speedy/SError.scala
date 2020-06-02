@@ -5,6 +5,7 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.types.Ledger
@@ -92,6 +93,16 @@ object SError {
   final case class ScenarioErrorContractNotVisible(
       coid: ContractId,
       templateId: Identifier,
+      committer: Party,
+      observers: Set[Party],
+  ) extends SErrorScenario
+
+  /** A fetchByKey or lookupByKey was being made against a key
+    * for which the contract exists but has not
+    * been disclosed to 'committer'. */
+  final case class ScenarioErrorContractKeyNotVisible(
+      coid: ContractId,
+      key: GlobalKey,
       committer: Party,
       observers: Set[Party],
   ) extends SErrorScenario

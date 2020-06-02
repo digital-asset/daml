@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.time.Instant
 
-import anorm.SqlParser.{array, binaryStream, bool, str}
+import anorm.SqlParser.{array, binaryStream, bool, str, int}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -43,6 +43,7 @@ private[events] object EventsTable
   final case class Entry[+E](
       eventOffset: Offset,
       transactionId: String,
+      nodeIndex: Int,
       ledgerEffectiveTime: Instant,
       commandId: String,
       workflowId: String,
@@ -164,11 +165,13 @@ private[events] object EventsTable
 private[events] trait EventsTable {
 
   private type SharedRow =
-    Offset ~ String ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~ Option[String] ~ Array[
-      String]
+    Offset ~ String ~ Int ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~ Option[String] ~
+      Array[String]
+
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
       str("transaction_id") ~
+      int("node_index") ~
       str("event_id") ~
       str("contract_id") ~
       instant("ledger_effective_time") ~

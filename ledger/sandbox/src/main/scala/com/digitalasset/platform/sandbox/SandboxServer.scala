@@ -42,6 +42,7 @@ import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
@@ -125,6 +126,14 @@ final class SandboxServer(
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
     this(config, materializer, new Metrics(new MetricRegistry))
+
+  // NOTE(MH): We must do this _before_ we load the first package.
+  config.profileDir match {
+    case None => ()
+    case Some(profileDir) =>
+      Files.createDirectories(profileDir)
+      engine.startProfiling(profileDir)
+  }
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -233,6 +242,12 @@ final class SandboxServer(
       config.seeding
         .fold[TransactionCommitter](LegacyTransactionCommitter)(_ => StandardTransactionCommitter)
 
+    val lfValueTranslationCache =
+      LfValueTranslation.Cache.newInstrumentedInstance(
+        configuration = config.lfValueTranslationCacheConfiguration,
+        metrics = metrics,
+      )
+
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
@@ -249,6 +264,7 @@ final class SandboxServer(
           packageStore,
           config.eventsPageSize,
           metrics,
+          lfValueTranslationCache
         )
 
       case None =>
@@ -321,7 +337,7 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
+        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}",
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,
@@ -330,6 +346,10 @@ final class SandboxServer(
         ledgerType,
         authService.getClass.getSimpleName,
         config.seeding.fold("no")(_.toString.toLowerCase),
+        config.profileDir match {
+          case None => ""
+          case Some(profileDir) => s", profile directory = ${profileDir}"
+        },
       )
       if (config.scenario.nonEmpty) {
         logger.withoutContext.warn(

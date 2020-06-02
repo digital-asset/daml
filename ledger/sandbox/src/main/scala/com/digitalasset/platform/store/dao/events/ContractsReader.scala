@@ -40,7 +40,7 @@ private[dao] sealed abstract class ContractsReader(
       contractId: ContractId,
   ): Future[Option[Contract]] =
     dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractDao) { implicit connection =>
+      .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
         SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
           .as(contractRowParser.singleOpt)
       }
@@ -50,7 +50,8 @@ private[dao] sealed abstract class ContractsReader(
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
-            deserializationTimer = metrics.daml.index.db.lookupActiveContractDao.translationTimer,
+            deserializationTimer =
+              metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
           )
       })
 
@@ -64,7 +65,7 @@ private[dao] sealed abstract class ContractsReader(
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
     dispatcher
-      .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDao) { implicit connection =>
+      .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
         committedContracts.lookupMaximumLedgerTime(ids)
       }
       .map(_.get)

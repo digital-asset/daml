@@ -6,6 +6,7 @@ package com.daml.platform.sandbox
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
+import com.daml.caching.Cache
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -77,6 +78,7 @@ object LedgerResource {
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),
+          lfValueTranslationCache = Cache.none,
         )
       } yield ledger
     )
