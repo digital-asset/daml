@@ -143,9 +143,7 @@ object InMemoryLedgerReaderWriter {
       // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
       // in-memory committer.
       val batchingLedgerWriter = newLoggingContext { implicit logCtx =>
-        BatchedSubmissionValidatorFactory.batchingLedgerWriterFrom(
-          batchingLedgerWriterConfig,
-          readerWriter)
+        BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
       }
       Resource.successful(createKeyValueLedger(readerWriter, batchingLedgerWriter))
     }
