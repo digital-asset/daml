@@ -1092,8 +1092,6 @@ object JdbcLedgerDao {
         |truncate table participant_command_completions;
         |truncate table participant_command_submissions;
         |truncate table participant_events;
-        |truncate table participant_event_flat_transaction_witnesses;
-        |truncate table participant_event_transaction_tree_witnesses;
         |truncate table participant_contracts;
         |truncate table participant_contract_witnesses;
         |truncate table parties;
