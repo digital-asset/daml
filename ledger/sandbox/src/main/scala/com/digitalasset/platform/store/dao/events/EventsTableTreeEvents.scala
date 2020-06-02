@@ -7,10 +7,7 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.dao.events.EventsTableQueries.{
-  format,
-  previousOffsetWhereClauseValues
-}
+import com.daml.platform.store.dao.events.EventsTableQueries.previousOffsetWhereClauseValues
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
@@ -116,30 +113,34 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   private val orderByColumns =
     Seq("event_offset", "transaction_id", "node_index").mkString(", ")
 
-  def prepareLookupTransactionTreeById(
+  def prepareLookupTransactionTreeById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyLookup(transactionId, _),
-      multi = multiPartyLookup(transactionId, _),
+      single = singlePartyLookup(sqlFunctions)(transactionId, _),
+      multi = multiPartyLookup(sqlFunctions)(transactionId, _),
     )
 
-  private def singlePartyLookup(
+  private def singlePartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParty: Party,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and tree_event_witnesses && array[$requestingParty]::varchar[] order by node_index asc"
+  ): SimpleSql[Row] = {
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by node_index asc"
+  }
 
-  private def multiPartyLookup(
+  private def multiPartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
-    val partiesStr = format(requestingParties)
-    SQL"select #$selectColumns, tree_event_witnesses as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and tree_event_witnesses && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by node_index asc"
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
+    SQL"select #$selectColumns, tree_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by node_index asc"
   }
 
-  def preparePagedGetTransactionTrees(
+  def preparePagedGetTransactionTrees(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
@@ -147,11 +148,21 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyTrees(startExclusive, endInclusive, _, pageSize, previousEventNodeIndex),
-      multi = multiPartyTrees(startExclusive, endInclusive, _, pageSize, previousEventNodeIndex),
+      single = singlePartyTrees(sqlFunctions)(
+        startExclusive,
+        endInclusive,
+        _,
+        pageSize,
+        previousEventNodeIndex),
+      multi = multiPartyTrees(sqlFunctions)(
+        startExclusive,
+        endInclusive,
+        _,
+        pageSize,
+        previousEventNodeIndex),
     )
 
-  private def singlePartyTrees(
+  private def singlePartyTrees(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParty: Party,
@@ -160,10 +171,12 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val (prevOffset, prevNodeIndex) =
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and tree_event_witnesses && array[$requestingParty]::varchar[] order by (#$orderByColumns) limit $pageSize"
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesWhereClause order by (#$orderByColumns) limit $pageSize"
   }
 
-  private def multiPartyTrees(
+  private def multiPartyTrees(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       requestingParties: Set[Party],
@@ -172,8 +185,9 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val (prevOffset, prevNodeIndex) =
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
-    val partiesStr = format(requestingParties)
-    SQL"select #$selectColumns, tree_event_witnesses as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and tree_event_witnesses && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
+    SQL"select #$selectColumns, tree_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesWhereClause group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
   }
 
 }

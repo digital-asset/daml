@@ -7,7 +7,6 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.dao.events.EventsTableQueries.format
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
@@ -94,65 +93,71 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  def prepareLookupFlatTransactionById(
+  def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     route(requestingParties)(
-      single = singlePartyLookup(transactionId, _),
-      multi = multiPartyLookup(transactionId, _),
+      single = singlePartyLookup(sqlFunctions)(transactionId, _),
+      multi = multiPartyLookup(sqlFunctions)(transactionId, _),
     )
 
-  private def singlePartyLookup(
+  private def singlePartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParty: Party,
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and flat_event_witnesses && array[$requestingParty]::varchar[] order by #$orderByColumns"
+  ): SimpleSql[Row] = {
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by #$orderByColumns"
+  }
 
-  private def multiPartyLookup(
+  private def multiPartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
-    val partiesStr = format(requestingParties)
-    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and flat_event_witnesses && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by #$orderByColumns"
+    val witnessesWhereClause =
+      sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
+    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by #$orderByColumns"
   }
 
-  private val getFlatTransactionsQueries =
+  private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,
+      sqlFunctions = sqlFunctions,
     )
 
-  def preparePagedGetFlatTransactions(
+  def preparePagedGetFlatTransactions(sqlFunctions: SqlFunctions)(
       startExclusive: Offset,
       endInclusive: Offset,
       filter: FilterRelation,
       pageSize: Int,
       previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
-    getFlatTransactionsQueries(
+    getFlatTransactionsQueries(sqlFunctions)(
       (startExclusive, endInclusive),
       filter,
       pageSize,
       previousEventNodeIndex,
     )
 
-  private val getActiveContractsQueries =
+  private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,
+      sqlFunctions = sqlFunctions
     )
 
-  def preparePagedGetActiveContracts(
+  def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(
       lastOffsetFromPrevPage: Offset,
       activeAt: Offset,
       filter: FilterRelation,
       pageSize: Int,
       lastEventNodeIndexFromPrevPage: Option[Int]
   ): SimpleSql[Row] =
-    getActiveContractsQueries(
+    getActiveContractsQueries(sqlFunctions)(
       (lastOffsetFromPrevPage, activeAt),
       filter,
       pageSize,
