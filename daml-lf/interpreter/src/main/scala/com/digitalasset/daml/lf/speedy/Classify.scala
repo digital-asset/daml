@@ -97,9 +97,9 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case _: SELocS => counts.evarS += 1
       case _: SELocA => counts.evarA += 1
       case _: SELocF => counts.evarF += 1
-      case _: SEAppE => counts.eappE += 1
-      case _: SEAppA => counts.eappA += 1
-      case _: SEAppB => counts.eappB += 1
+      case _: SEAppGeneral => counts.eappE += 1
+      case _: SEAppAtomicFun => counts.eappA += 1
+      case _: SEAppBuiltinFun => counts.eappB += 1
       case _: SEMakeClo => counts.eclose += 1
       case _: SEBuiltin => counts.ebuiltin += 1
       case _: SEVal => counts.eval += 1

@@ -118,25 +118,31 @@ object SExpr {
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application. Apply 'args' to function 'fun', where 'fun'
-    * evaluates to a builtin or a closure.
-    */
-  final case class SEAppE(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+  /** Function application:
+    General case: 'fun' and 'args' are any kind of expression */
+  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KArg(args, machine.frame, machine.actuals, machine.env.size))
       machine.ctrl = fun
     }
   }
 
-  final case class SEAppA(fun: SExprAtomic, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+  /** Function application:
+    Special case: 'fun' is an atomic expression. */
+  final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       val vfun = fun.evaluate(machine)
       executeApplication(machine, vfun, args)
     }
   }
 
+  /** Function application:
+    Special case: 'fun' is a builtin; size of `args' matches the builtin arity.
+    */
   // A fully saturated builtin application
-  final case class SEAppB(builtin: SBuiltin, args: Array[SExpr])
+  final case class SEAppBuiltinFun(builtin: SBuiltin, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
     if (args.size != builtin.arity) {
@@ -161,9 +167,9 @@ object SExpr {
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       fun match {
         case SEBuiltin(builtin) if optimizeAtomicApps && builtin.arity == args.length =>
-          SEAppB(builtin, args)
-        case vfun: SExprAtomic if optimizeAtomicApps => SEAppA(vfun, args)
-        case _ => SEAppE(fun, args)
+          SEAppBuiltinFun(builtin, args)
+        case vfun: SExprAtomic if optimizeAtomicApps => SEAppAtomicFun(vfun, args)
+        case _ => SEAppGeneral(fun, args)
       }
     }
   }
