@@ -42,14 +42,10 @@ private[kvutils] trait CommitContext {
 
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {
-    if (inputAlreadyContains(key, value)) {
-      logger.trace(s"Identical output found for key $key")
-    } else {
-      if (!outputs.contains(key)) {
-        outputOrder += key
-      }
-      outputs(key) = value
+    if (!outputs.contains(key)) {
+      outputOrder += key
     }
+    outputs(key) = value
   }
 
   /** Clear the output state. */
@@ -60,7 +56,14 @@ private[kvutils] trait CommitContext {
 
   /** Get the final output state, in insertion order. */
   def getOutputs: Iterable[(DamlStateKey, DamlStateValue)] =
-    outputOrder.map(k => k -> outputs(k))
+    outputOrder
+      .map(key => key -> outputs(key))
+      .filterNot {
+        case (key, value) if inputAlreadyContains(key, value) =>
+          logger.trace("Identical output found for key {}", key)
+          true
+        case _ => false
+      }
 
   private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
     inputs.get(key).exists(_.contains(value))
