@@ -229,10 +229,10 @@ object TransactionCoder {
           encodedCid <- encodeCid.encode(transactionVersion, ne.targetCoid)
           controllers <- if (transactionVersion precedes minNoControllers)
             Either.cond(
-              ne.controllers == ne.actingParties,
-              ne.controllers,
+              !ne.controllersDifferFromActors,
+              ne.actingParties,
               EncodeError(
-                s"As of version $minNoControllers, the controllers and actingParties of an exercise node _must_ be the same, but I got ${ne.controllers} as controllers and ${ne.actingParties} as actingParties.",
+                s"As of version $minNoControllers, the controllers and actingParties of an exercise node _must_ be the same, but controllers did not match ${ne.actingParties} as actingParties.",
               )
             )
           else
@@ -418,14 +418,14 @@ object TransactionCoder {
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
           actingParties <- toPartySet(protoExe.getActorsList)
           encodedControllers <- toPartySet(protoExe.getControllersList)
-          controllers <- if (!(txVersion precedes minNoControllers)) {
+          controllersDifferFromActors <- if (!(txVersion precedes minNoControllers)) {
             if (encodedControllers.isEmpty) {
-              Right(actingParties)
+              Right(false)
             } else {
               Left(DecodeError(s"As of version $txVersion, exercise controllers must be empty."))
             }
           } else {
-            Right(encodedControllers)
+            Right(encodedControllers != actingParties)
           }
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
@@ -443,7 +443,7 @@ object TransactionCoder {
               chosenValue = cv,
               stakeholders = stakeholders,
               signatories = signatories,
-              controllers = controllers,
+              controllersDifferFromActors = controllersDifferFromActors,
               children = children,
               exerciseResult = rv,
               key = keyWithMaintainers,

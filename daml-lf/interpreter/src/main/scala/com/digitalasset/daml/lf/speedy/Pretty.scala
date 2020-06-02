@@ -190,10 +190,8 @@ object Pretty {
               text(", exactly the following parties need to authorize::") &
             intercalate(comma + space, required.map(prettyParty))
 
-        case (nodeId, L.FAActorMismatch(templateId @ _, choiceId @ _, optLoc @ _, ctrls, actors)) =>
-          str(nodeId) + text(": actor mismatch, controllers:") &
-            intercalate(comma + space, ctrls.map(prettyParty)) &
-            text(", given actors:") &
+        case (nodeId, L.FAActorMismatch(templateId @ _, choiceId @ _, optLoc @ _, actors)) =>
+          str(nodeId) + text(": actor mismatch, given actors:") &
             intercalate(comma + space, actors.map(prettyParty))
 
         case (nodeId, L.FANoSignatories(templateId, optLoc @ _)) =>

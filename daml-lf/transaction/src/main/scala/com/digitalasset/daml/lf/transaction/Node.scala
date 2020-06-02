@@ -158,7 +158,7 @@ object Node {
           chosenValue,
           stakeholders @ _,
           signatories @ _,
-          controllers @ _,
+          controllersDifferFromActors @ _,
           children @ _,
           exerciseResult,
           key,
@@ -226,17 +226,20 @@ object Node {
       chosenValue: Val,
       stakeholders: Set[Party],
       signatories: Set[Party],
-      /** Note that here we have both actors and controllers because we use this
-        * data structure _before_ we validate the transaction. However for every
-        * valid transaction the actors must be the same as the controllers. This
-        * is why we removed the controllers field in transaction version 6.
+      /** When we decode transactions version<6, the controllers might be different
+        * from the actors.  However, such a transaction is always invalid, so we
+        * prevalidate that when decoding and report the error when we get to the
+        * actual validation stage.
         */
-      controllers: Set[Party],
+      controllersDifferFromActors: Boolean,
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
   ) extends GenNode[Nid, Cid, Val]
-      with NodeInfo.Exercise {}
+      with NodeInfo.Exercise {
+    @deprecated("use actingParties instead", since = "1.1.2")
+    private[daml] def controllers: actingParties.type = actingParties
+  }
 
   object NodeExercises extends WithTxValue3[NodeExercises] {
 
@@ -268,7 +271,7 @@ object Node {
         chosenValue,
         stakeholders,
         signatories,
-        actingParties,
+        controllersDifferFromActors = false,
         children,
         exerciseResult,
         key,
@@ -362,7 +365,7 @@ object Node {
             chosenValue2,
             stakeholders2,
             signatories2,
-            controllers2,
+            controllersDifferFromActors2,
             _,
             exerciseResult2,
             key2,
@@ -370,7 +373,8 @@ object Node {
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
-          stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
+          stakeholders == stakeholders2 && signatories == signatories2 &&
+          controllersDifferFromActors == controllersDifferFromActors2 &&
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
           key.fold(true)(_ => key === key2)
       }

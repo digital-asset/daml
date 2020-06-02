@@ -373,7 +373,7 @@ case class PartialTransaction(
           chosenValue = ec.chosenValue,
           stakeholders = ec.stakeholders,
           signatories = ec.signatories,
-          controllers = ec.controllers,
+          controllersDifferFromActors = ec.controllers != ec.actingParties,
           children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,

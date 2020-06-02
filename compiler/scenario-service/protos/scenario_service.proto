@@ -426,7 +426,6 @@ message FailedAuthorization {
     Identifier template_id = 1;
     string choice_id = 2;
     Location location = 3; // optional
-    repeated Party controllers = 4;
     repeated Party given_actors = 5;
   }
 
@@ -542,7 +541,6 @@ message Node {
     repeated Party observers = 7;
     repeated Party signatories = 8;
     repeated Party stakeholders = 9;
-    repeated Party controllers = 10;
     repeated NodeId children = 11;
   }
 
@@ -569,4 +567,3 @@ message Node {
     LookupByKey lookup_by_key = 11;
   }
 }
-

@@ -261,12 +261,11 @@ final class Conversions(
                   .addAllRequiredAuthorizers(reqParties.map(convertParty).asJava)
               optLocation.map(loc => emaBuilder.setLocation(convertLocation(loc)))
               faBuilder.setExerciseMissingAuthorization(emaBuilder.build)
-            case Ledger.FAActorMismatch(templateId, choiceId, optLocation, ctrls, givenActors) =>
+            case Ledger.FAActorMismatch(templateId, choiceId, optLocation, givenActors) =>
               val amBuilder =
                 FailedAuthorization.ActorMismatch.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
                   .setChoiceId(choiceId)
-                  .addAllControllers(ctrls.map(convertParty).asJava)
                   .addAllGivenActors(givenActors.map(convertParty).asJava)
               optLocation.map(loc => amBuilder.setLocation(convertLocation(loc)))
               faBuilder.setActorMismatch(amBuilder.build)
@@ -459,7 +458,6 @@ final class Conversions(
             .setChosenValue(convertValue(ex.chosenValue.value))
             .addAllSignatories(ex.signatories.map(convertParty).asJava)
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
-            .addAllControllers(ex.controllers.map(convertParty).asJava)
             .addAllChildren(
               ex.children
                 .map(nid => NodeId.newBuilder.setId(nid).build)
@@ -533,7 +531,6 @@ final class Conversions(
             .setChosenValue(convertValue(ex.chosenValue.value))
             .addAllSignatories(ex.signatories.map(convertParty).asJava)
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
-            .addAllControllers(ex.controllers.map(convertParty).asJava)
             .addAllChildren(
               ex.children
                 .map(nid => NodeId.newBuilder.setId(nid.index.toString).build)
