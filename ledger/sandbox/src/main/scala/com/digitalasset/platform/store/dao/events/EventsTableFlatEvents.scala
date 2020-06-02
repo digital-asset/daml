@@ -74,12 +74,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  private val witnessesAggregation =
-    "flat_event_witnesses"
-
-  private val flatEventsTable =
-    "participant_events"
-
   private val orderByColumns =
     Seq("event_offset", "transaction_id", "node_index").mkString(", ")
 
@@ -113,21 +107,19 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       transactionId: TransactionId,
       requestingParty: Party,
   ): SimpleSql[Row] =
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation && array[$requestingParty]::varchar[] order by #$orderByColumns"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and flat_event_witnesses && array[$requestingParty]::varchar[] order by #$orderByColumns"
 
   private def multiPartyLookup(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
     val partiesStr = format(requestingParties)
-    SQL"select #$selectColumns, #$witnessesAggregation as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and #$witnessesAggregation && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by #$orderByColumns"
+    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in (#$partiesStr) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and flat_event_witnesses && array[#$partiesStr]::varchar[] group by (#$groupByColumns) order by #$orderByColumns"
   }
 
   private val getFlatTransactionsQueries =
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
-      witnessesAggregation = witnessesAggregation,
-      flatEventsTable = flatEventsTable,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,
     )
@@ -149,8 +141,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   private val getActiveContractsQueries =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
-      witnessesAggregation = witnessesAggregation,
-      flatEventsTable = flatEventsTable,
       groupByColumns = groupByColumns,
       orderByColumns = orderByColumns,
     )

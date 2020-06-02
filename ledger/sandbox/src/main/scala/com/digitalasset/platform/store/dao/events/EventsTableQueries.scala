@@ -25,15 +25,4 @@ object EventsTableQueries {
 
   def format(ps: Set[Party]): String =
     ps.view.map(p => s"'$p'").mkString(",")
-
-  def formatWhereCondition(
-      witnessesAggregationColumn: String,
-      partiesAndTemplateIds: Set[(Party, Identifier)]
-  ): String =
-    partiesAndTemplateIds.view
-      .map {
-        case (p, i) =>
-          s"($witnessesAggregationColumn && array['$p']::varchar[] and template_id = '$i')"
-      }
-      .mkString("(", " or ", ")")
 }
