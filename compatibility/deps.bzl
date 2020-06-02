@@ -56,6 +56,8 @@ def daml_deps():
                 "@daml//bazel_tools:haskell-strict-source-names.patch",
                 "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                # This should be upstreamed to rules_haskell.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-wrapper-distdir.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
