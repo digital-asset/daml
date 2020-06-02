@@ -26,11 +26,3 @@ export const httpBaseUrl =
   deploymentMode === DeploymentMode.PROD_DABL
   ? `https://api.projectdabl.com/data/${ledgerId}/`
   : undefined;
-
-// Unfortunately, the development server of `create-react-app` does not proxy
-// websockets properly. Thus, we need to bypass it and talk to the JSON API
-// directly in development mode.
-export const wsBaseUrl =
-  deploymentMode === DeploymentMode.DEV
-  ? 'ws://localhost:7575/'
-  : undefined;
