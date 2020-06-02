@@ -194,7 +194,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(alice),
       Some("workflowId"),
       let,
@@ -215,7 +215,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"just-divulged-${id.coid}"),
       transactionId = txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(divulgees.head),
       workflowId = None,
       ledgerEffectiveTime = Instant.now,
@@ -263,7 +263,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some("Alice"),
       Some("workflowId"),
       let,
@@ -282,7 +282,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID().toString),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(alice),
       Some("workflowId"),
       let,
@@ -312,7 +312,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID.toString),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(alice),
       Some("workflowId"),
       let,
@@ -362,7 +362,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID().toString),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(charlie),
       Some("workflowId"),
       let,
@@ -419,7 +419,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = transactionId,
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       submittingParty = Some(operator),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = Instant.now,
@@ -434,7 +434,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   protected final def storeBatch(
       entries: List[
-        ((Offset, LedgerEntry.Transaction), Map[(ContractId, v1.ContractInst), Set[Party]], )]
+        ((Offset, LedgerEntry.Transaction), Map[(ContractId, v1.ContractInst), Set[Party]])]
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val daoEntries = entries.map {
       case ((offset, entry), divulgedContracts) =>
