@@ -216,15 +216,16 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   }
 
   it should "initialize database" in {
-    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
-    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
-    assert(ServiceMain.destroyDatabase(testJdbcConfig).isRight)
+    val dao = TriggerDao(JdbcConfig(postgresDatabase.url, "operator", "password"))
+    assert(ServiceMain.initDatabase(dao).isRight)
+    assert(ServiceMain.destroyDatabase(dao).isRight)
     succeed
   }
 
   it should "add running triggers to the database" in {
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
-    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
+    val dao = TriggerDao(testJdbcConfig)
+    assert(ServiceMain.initDatabase(dao).isRight)
     Await.result(
       withHttpService(Some(dar), Some(testJdbcConfig)) {
         (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
@@ -244,7 +245,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       },
       Duration.Inf
     )
-    assert(ServiceMain.destroyDatabase(testJdbcConfig).isRight)
+    assert(ServiceMain.destroyDatabase(dao).isRight)
     succeed
   }
 
