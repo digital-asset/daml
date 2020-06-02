@@ -58,11 +58,13 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       deletions: Map[ContractId, Vector[NamedParameter]],
   ) {
 
-    def add(other: TransactionBatches): AccumulatingBatches =
+    def add(other: TransactionBatches): AccumulatingBatches = {
+      val transient = insertions.keySet.filter(id => other.deletions.contains(id))
       copy(
-        insertions = (insertions ++ other.insertions) -- other.deletions.keySet,
-        deletions = deletions ++ other.deletions,
+        insertions = (insertions ++ other.insertions) -- transient,
+        deletions = (deletions ++ other.deletions) -- transient,
       )
+    }
 
     private def prepareRawNonEmpty(
         query: String,
