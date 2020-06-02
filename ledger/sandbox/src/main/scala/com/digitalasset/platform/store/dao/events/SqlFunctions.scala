@@ -11,9 +11,14 @@ trait SqlFunctions {
     arrayIntersectionWhereClause(arrayColumn: String, Set(party))
 
   def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String
+
+  def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String
 }
 
 object SqlFunctions {
+  def arrayIntersection(a: Array[String], b: Array[String]): Array[String] =
+    a.toSet.intersect(b.toSet).toArray
+
   def apply(dbType: DbType): SqlFunctions = dbType match {
     case DbType.Postgres => PostgresSqlFunctions
     case DbType.H2Database => H2SqlFunctions
@@ -22,10 +27,16 @@ object SqlFunctions {
   object PostgresSqlFunctions extends SqlFunctions {
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
       s"$arrayColumn && array[${format(parties)}]::varchar[]"
+
+    def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
+      s"array(select unnest($arrayColumn) intersect select unnest(array[${format(parties)}]))"
   }
 
   object H2SqlFunctions extends SqlFunctions {
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
       parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
+
+    def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
+      s"array_intersection($arrayColumn, array[${format(parties)}])"
   }
 }

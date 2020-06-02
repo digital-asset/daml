@@ -19,3 +19,5 @@ create index on participant_events(tree_event_witnesses);
 
 drop table participant_event_flat_transaction_witnesses;
 drop table participant_event_transaction_tree_witnesses;
+
+create alias array_intersection for "com.daml.platform.store.dao.events.SqlFunctions.arrayIntersection"
