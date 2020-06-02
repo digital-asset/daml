@@ -24,8 +24,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * Use `apply()` from the companion object to construct an instance from a [[BatchingLedgerWriterConfig]] and a
   * [[LedgerWriter]] delegate instance.
   *
-  * @param queue The batching queue implementation
-  * @param writer The underlying ledger writer to use to commit the batch
+  * @param queue batching queue implementation
+  * @param writer underlying ledger writer to use to commit batches
   */
 class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     implicit val materializer: Materializer,
