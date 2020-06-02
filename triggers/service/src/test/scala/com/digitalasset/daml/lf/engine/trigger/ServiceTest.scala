@@ -36,10 +36,10 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.testing.postgresql.PostgresAroundSuite
+import com.daml.testing.postgresql.PostgresAroundAll
 import eu.rekawek.toxiproxy._
 
-class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundSuite {
+class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundAll {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -216,18 +216,13 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   }
 
   it should "initialize database" in {
-    connectToPostgresqlServer()
-    createNewDatabase()
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
     assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
-    dropDatabase()
-    disconnectFromPostgresqlServer()
+    assert(ServiceMain.destroyDatabase(testJdbcConfig).isRight)
     succeed
   }
 
   it should "add running triggers to the database" in {
-    connectToPostgresqlServer()
-    createNewDatabase()
     val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
     assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
     Await.result(
@@ -249,8 +244,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       },
       Duration.Inf
     )
-    dropDatabase()
-    disconnectFromPostgresqlServer()
+    assert(ServiceMain.destroyDatabase(testJdbcConfig).isRight)
     succeed
   }
 

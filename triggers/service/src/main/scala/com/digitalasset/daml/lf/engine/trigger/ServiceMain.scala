@@ -531,6 +531,15 @@ object ServiceMain {
     }
   }
 
+  def destroyDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, Unit] = {
+    val triggerDao = TriggerDao(c)(ec)
+    val transaction = triggerDao.transact(TriggerDao.destroy)
+    Try(transaction.unsafeRunSync()) match {
+      case Failure(err) => Left(err.toString)
+      case Success(()) => Right(())
+    }
+  }
+
   def main(args: Array[String]): Unit = {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
