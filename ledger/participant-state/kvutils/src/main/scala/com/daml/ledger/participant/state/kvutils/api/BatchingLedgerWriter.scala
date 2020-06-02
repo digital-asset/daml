@@ -20,7 +20,9 @@ import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** A batching ledger writer that collects submissions into a batch and commits
-  * the batch once a set time and byte limit has been reached.
+  * the batch once a set time or byte limit has been reached.
+  * Use `apply()` from the companion object to construct an instance from a [[BatchingLedgerWriterConfig]] and a
+  * [[LedgerWriter]] delegate instance.
   *
   * @param queue The batching queue implementation
   * @param writer The underlying ledger writer to use to commit the batch

@@ -28,11 +28,10 @@ import scala.concurrent.Future
   *    participant server, including the indexer, gRPC interface, etc.
   * For an example ledger that implements the above interfaces please see the package [[com.daml.ledger.on.memory]].
   *
-  * For implementing a validator/committer component please see the below references.
-  *
-  * @see [[com.daml.ledger.validator.LedgerStateAccess]]
-  * @see [[com.daml.ledger.validator.SubmissionValidator]]
-  * @see [[com.daml.ledger.validator.ValidatingCommitter]]
+  * For implementing a validator/committer component please see the below references:
+  *   - [[com.daml.ledger.validator.LedgerStateAccess]]
+  *   - [[com.daml.ledger.validator.SubmissionValidator]]
+  *   - [[com.daml.ledger.validator.ValidatingCommitter]]
   *
   * =Supporting Parallel Submission Validation=
   * In order to support parallel submission validation there are two prerequisites:
@@ -41,10 +40,15 @@ import scala.concurrent.Future
   *    - the `BatchedSubmissionValidator` must be used instead of `SubmissionValidator` in the validator/committer.
   *
   * For implementing a validator/committer component supporting parallel submission validation please see the below
-  * references.
-  * @see [[com.daml.ledger.validator.LedgerStateOperations]]
-  * @see [[com.daml.ledger.validator.batch.BatchedSubmissionValidator]]
-  * @see [[com.daml.ledger.validator.BatchedValidatingCommitter]]
+  * references:
+  *   - [[com.daml.ledger.validator.LedgerStateOperations]]
+  *   - [[com.daml.ledger.validator.batch.BatchedSubmissionValidator]]
+  *   - [[com.daml.ledger.validator.BatchedValidatingCommitter]]
+  *
+  * @see [[com.daml.ledger.participant.state.kvutils.api.LedgerReader]]
+  * @see [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]]
+  * @see [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState]]
+  * @see [[com.daml.ledger.validator.ValidatingCommitter]]
   */
 package object api {
   type KeyValueLedger = LedgerReader with LedgerWriter
