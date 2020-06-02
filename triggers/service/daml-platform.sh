@@ -29,7 +29,7 @@ bazel run //triggers/service:trigger-service-binary -- \
   --http-port $TRIGGER_SERVICE_HTTP_PORT --ledger-host $LEDGER_HOST --ledger-port $LEDGER_PORT --wall-clock-time &
 TRIGGER_SERVICE_PID=$!
 
-# Requests to the trigger service need an authorization header with the JWT token.
+# Requests to the trigger service need an HTTP authorization header with the JWT token.
 # This can be generated from jwt.io using a payload of the form:
 # {
 #   "https://daml.com/ledger-api": {
@@ -38,11 +38,12 @@ TRIGGER_SERVICE_PID=$!
 #     "actAs": ["Alice"]
 #   }
 # }
-# Encode it with the secret "secret" and without base64.
+# (You can use the default JWT header and signature fields.)
+#
 # Then a request command looks like:
 #  curl -X GET localhost:$TRIGGER_SERVICE_HTTP_PORT/v1/health \
 #    -H "Content-type: application/health+json" -H "Accept: application/json" \
-#    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJUUklHR0VSX1NFUlZJQ0VfVEVTVCIsImFwcGxpY2F0aW9uSWQiOiJUcmlnZ2VyU2VydmljZSIsImFjdEFzIjpbIkFsaWNlIl19fQ.Wce6q-zkeghzl0wjwCLMVAe17N35yTzMjFVKBAh1TsI"
+#    -H "Authorization: Bearer $ENCODED_TOKEN"
 
 kill_everything() {
   kill $TRIGGER_SERVICE_PID || true
