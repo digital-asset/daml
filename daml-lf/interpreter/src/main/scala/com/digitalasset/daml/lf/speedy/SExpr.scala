@@ -152,14 +152,7 @@ object SExpr {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       machine.pushKont(KBuiltin(builtin, actuals))
-      // Start evaluating the arguments.
-      var i = 1
-      while (i < arity) {
-        val arg = args(arity - i)
-        machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
-        i = i + 1
-      }
-      machine.ctrl = args(0)
+      evaluateArguments(machine, actuals, args);
     }
   }
 

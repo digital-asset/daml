@@ -654,6 +654,18 @@ object Speedy {
     }
   }
 
+  /** Start evaluating the arguments. */
+  def evaluateArguments(machine: Machine, actuals: util.ArrayList[SValue], args: Array[SExpr]) = {
+    val arity = args.size
+    var i = 1
+    while (i < arity) {
+      val arg = args(arity - i)
+      machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
+      i = i + 1
+    }
+    machine.ctrl = args(0)
+  }
+
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   def executeApplication(machine: Machine, vfun: SValue, newArgs: Array[SExpr]): Unit = {
     vfun match {
@@ -692,15 +704,7 @@ object Speedy {
               machine.pushKont(KBuiltin(builtin, actuals))
           }
         }
-
-        // Start evaluating the arguments.
-        var i = 1
-        while (i < newArgsLimit) {
-          val arg = newArgs(newArgsLimit - i)
-          machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
-          i = i + 1
-        }
-        machine.ctrl = newArgs(0)
+        evaluateArguments(machine, actuals, newArgs)
 
       case _ =>
         crash(s"Applying non-PAP: $vfun")
