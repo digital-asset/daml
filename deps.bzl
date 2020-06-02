@@ -32,8 +32,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
 
-rules_haskell_version = "ac87721a4dbc0f7dbe731df928d322f02ed93330"
-rules_haskell_sha256 = "684f91defad36e9d6ce3ac4213864b89e8f6fe813508ae93bfe80996447a1516"
+rules_haskell_version = "844f87f5965fbf000faeeccab13e312672d0a932"
+rules_haskell_sha256 = "759ab23d72bce9c94c6f6a15fb50df19e7522627988b2dd36d83496abc393bfa"
 rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
 rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
 buildifier_version = "0.26.0"
@@ -78,8 +78,6 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # This can be upstreamed.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-pgmc.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
