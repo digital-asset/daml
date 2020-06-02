@@ -40,13 +40,13 @@ import scala.util.{Failure, Success}
   *       .map(...)
   * }}}
   *
-  * In case caching is enabled (i.e., [[stateValueCache]] is not a [[Cache.none]]) then for each
-  * request we cache the read state from the ledger and update the cache with the committed state.
+  * If caching is enabled (i.e., [[stateValueCache]] is not a [[Cache.none]]) then for each request
+  * we cache the read state from the ledger and update the cache with the committed state.
   *
-  * @param now function implementing resolution of current time when processing submission
-  * @param keySerializationStrategy instance to use for serializing & namespacing state keys
-  * @param validator validator instance to use
-  * @param stateValueCache cache instance to be used when reading from or committing to the ledger
+  * @param now resolves the current time when processing submission
+  * @param keySerializationStrategy strategy for serializing & namespacing state keys
+  * @param validator performs actual validation
+  * @param stateValueCache cache to be used when reading from and committing to the ledger
   * @tparam LogResult  type of the offset used for a log entry
   */
 class BatchedValidatingCommitter[LogResult](

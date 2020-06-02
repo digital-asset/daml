@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * [[LedgerWriter]] delegate instance.
   *
   * @param queue batching queue implementation
-  * @param writer underlying ledger writer to use to commit batches
+  * @param writer underlying ledger writer that will commit batches
   */
 class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     implicit val materializer: Materializer,
