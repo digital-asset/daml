@@ -147,8 +147,6 @@ private[dao] final class TransactionsWriter(
           _,
           divulgedContracts
           ) =>
-        // Console.println(s"XXX Processing TX [${transaction.nodes.toList.map {case (k,v) => s"${k.index}->${v.getClass.getSimpleName}"}.mkString(",")}]")
-
         val blinding = Blinding.blind(transaction)
 
         // --------------------------------------------------------------------
@@ -182,7 +180,6 @@ private[dao] final class TransactionsWriter(
           transaction = transaction,
           divulgedContracts = divulgedContracts,
         )
-        //Console.println(s"XXX transactionContractBatches: ${transactionContractBatches}")
 
         // Then, compute witnesses changes from the above
         val contractWitnessesInsertions = fullDivulgence(
@@ -193,8 +190,6 @@ private[dao] final class TransactionsWriter(
           blinding = blinding,
         )
         val contractWitnessesDeletions = transactionContractBatches.deletions.keySet
-        //Console.println(s"XXX contractWitnessesInsertions: ${contractWitnessesInsertions}")
-        //Console.println(s"XXX contractWitnessesDeletions: ${contractWitnessesDeletions}")
 
         // Finally, merge all contract and witness changes with previously accumulated ones
         val newContractWitnessesBatches = contractWitnessesBatches.add(
@@ -202,8 +197,6 @@ private[dao] final class TransactionsWriter(
           contractWitnessesDeletions,
         )
         val newContractBatches = contractBatches.add(transactionContractBatches)
-        //Console.println(s"XXX newContractBatches: ${newContractBatches}")
-        //Console.println(s"XXX newContractWitnessesBatches: ${newContractWitnessesBatches}")
 
         copy(
           eventBatches = newEventBatches,
@@ -273,8 +266,6 @@ private[dao] final class TransactionsWriter(
   def prepare(
       updates: List[(Offset, TransactionAccepted)],
   ): TransactionsWriter.PreparedInsert = {
-
-    //Console.println(s"XXX Preparing ${updates.length} updates")
 
     // Collect data from all transactions
     val raw = updates.foldLeft(AccumulatingBatches.empty) {
