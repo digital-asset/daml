@@ -70,7 +70,7 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
         )
         assert(
           acsBefore.size == 1,
-          s"After the contract has been created there should be one active contract but there's none",
+          "After the contract has been created there should be one active contract but there's none",
         )
         assert(
           acsAfter.isEmpty,
