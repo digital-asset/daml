@@ -122,7 +122,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
   }
 
   private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
-    triggerDao match {
+    val triggerInstances = triggerDao match {
       case None =>
         Right(triggersByToken.getOrElse(jwt, Set()).toVector)
       case Some(dao) =>
@@ -132,6 +132,9 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
           case Success(triggerInstances) => Right(triggerInstances)
         }
     }
+    // Note(RJR): We sort UUIDs here using Java's comparison of UUIDs.
+    // We do not rely on the Postgres ordering which is different.
+    triggerInstances.map(_.sorted)
   }
 
   private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {

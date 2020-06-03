@@ -35,7 +35,6 @@ import scala.sys.process.Process
 import java.net.{InetAddress, ServerSocket, Socket}
 
 import eu.rekawek.toxiproxy._
-import org.scalatest.Assertion
 
 object TriggerServiceFixture {
 
@@ -50,20 +49,6 @@ object TriggerServiceFixture {
       socket.close()
     }
   }
-
-  def withTriggerServiceAndDb[A](
-      testName: String,
-      darPath: File,
-      dar: Option[Dar[(PackageId, Package)]],
-      jdbcConfig: JdbcConfig,
-    )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
-      implicit asys: ActorSystem,
-      mat: Materializer,
-      aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[Assertion] = for {
-        _ <- withTriggerService(testName ++ " (no database)", List(darPath), dar, None)(testFn)
-        _ <- withTriggerService(testName ++ " (with database)", List(darPath), dar, Some(jdbcConfig))(testFn)
-      } yield succeed
 
   def withTriggerService[A](
       testName: String,
