@@ -1,13 +1,10 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module ErrorTrigger where
 
-import DA.Action
-import DA.Foldable
-import DA.Next.Map (Map)
 import Daml.Trigger
+import DA.Next.Map (Map)
 
 trigger : Trigger ()
 trigger = Trigger with
