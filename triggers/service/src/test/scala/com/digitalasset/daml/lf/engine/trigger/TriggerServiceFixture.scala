@@ -19,7 +19,11 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -141,9 +145,9 @@ object TriggerServiceFixture {
       ledgerF.foreach(_._1.close())
       toxiProxyProc.destroy()
       triggerDao.map(dao =>
-        ServiceMain.destroyDatabase(dao).getOrElse {
-          err: String => fail("Failed to remove database objects: " ++ err.toString)
-        })
+        ServiceMain.destroyDatabase(dao).getOrElse { err: String =>
+          fail("Failed to remove database objects: " ++ err.toString)
+      })
     }
 
     fa

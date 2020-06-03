@@ -186,7 +186,6 @@ object Server {
       dar: Option[Dar[(PackageId, Package)]],
       jdbcConfig: Option[JdbcConfig],
   ): Behavior[Message] = Behaviors.setup { ctx =>
-
     val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
     val server = new Server(dar, triggerDao)
 

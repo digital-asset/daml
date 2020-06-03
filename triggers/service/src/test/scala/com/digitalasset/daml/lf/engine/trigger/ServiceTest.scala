@@ -88,18 +88,19 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     List(Authorization(OAuth2BearerToken(token.value)))
   }
 
-  def withHttpService[A](
-      triggerDar: Option[Dar[(PackageId, Package)]])
+  def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
     : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
     TriggerServiceFixture
       .withTriggerService[A](testId, List(darPath), triggerDar, None)
 
   def withTriggerServiceAndDb[A](dar: Option[Dar[(PackageId, Package)]])
-  : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[Assertion] =
-    testFn => for {
-      _ <- TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, None)(testFn)
-      _ <- TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, Some(jdbcConfig))(testFn)
-    } yield succeed
+    : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[Assertion] =
+    testFn =>
+      for {
+        _ <- TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, None)(testFn)
+        _ <- TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, Some(jdbcConfig))(
+          testFn)
+      } yield succeed
 
   def startTrigger(uri: Uri, triggerName: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -227,27 +228,25 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   }
 
   it should "start up and shut down server" in
-    withTriggerServiceAndDb(Some(dar)) {
-      (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-        Future(succeed)
+    withTriggerServiceAndDb(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      Future(succeed)
     }
 
   it should "add running triggers" in
-    withTriggerServiceAndDb(Some(dar)) {
-      (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-        for {
-          // Initially no triggers started for Alice
-          _ <- assertTriggerIds(uri, "Alice", _ == Vector())
-          // Start a trigger for Alice and check it appears in list.
-          resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-          trigger1 <- parseTriggerId(resp)
-          _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
-          // Do the same for a second trigger.
-          resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-          trigger2 <- parseTriggerId(resp)
-          _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1, trigger2).sorted)
-        } yield succeed
-      }
+    withTriggerServiceAndDb(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        // Initially no triggers started for Alice
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector())
+        // Start a trigger for Alice and check it appears in list.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        trigger1 <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
+        // Do the same for a second trigger.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        trigger2 <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1, trigger2).sorted)
+      } yield succeed
+    }
 
   it should "fail to start non-existent trigger" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
