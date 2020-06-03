@@ -272,7 +272,7 @@ object Cli {
         .optional()
         .action((value, config) =>
           config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value)))
-        .text("Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties, overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
+        .text("Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
 
       opt[Int]("input-buffer-size")
         .optional()
