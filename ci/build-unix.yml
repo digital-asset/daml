@@ -44,11 +44,9 @@ steps:
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.npm.include.dev.dependencies=true \
       --detect.yarn.prod.only=false \
-      --detect.excluded.detector.types=NUGET \
+      --detect.python.python3=true \
       --detect.tools=DETECTOR,BAZEL,DOCKER \
       --detect.bazel.target=//... \
-      --detect.excluded.detector.types=MAVEN,GO_MOD \
-      --detect.excluded.detector.types=SBT \
       --detect.bazel.dependency.type=maven_install \
       --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts/ \
       --detect.report.timeout=360
