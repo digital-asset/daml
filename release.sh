@@ -23,6 +23,7 @@ function file_ends_with_newline() {
 }
 
 check() {
+    local sha ver ver_sha
     if ! file_ends_with_newline LATEST; then
         echo "LATEST file does not end with newline. Please correct."
         exit 1
@@ -32,11 +33,13 @@ check() {
         ver=$(echo "$line" | gawk '{print $2}')
         if ! echo "$ver" | grep -q -P $VERSION_REGEX; then
             echo "Invalid version number in LATEST file, needs manual correction."
+            echo "Offending version: '$ver'."
             exit 1
         fi
         if ! is_stable $ver; then
-            if ! echo "$ver" | grep -q -P "^${STABLE_REGEX}$(make_snapshot $sha)$"; then
-                echo "$ver does not match $sha, please correct."
+            ver_sha=$(echo $ver | sed 's/.*\.//')
+            if ! [ "${sha:0:8}" = "$ver_sha" ]; then
+                echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
                 exit 1
             fi
         fi
@@ -49,22 +52,25 @@ is_stable() {
 }
 
 make_snapshot() {
-    local sha=$1
-    local commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
-    local number_of_commits=$(git rev-list --count $sha)
-    local commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    echo "-snapshot.$commit_date.$number_of_commits.0.$commit_sha_8"
+    local sha prefix commit_date number_of_commits commit_sha_8
+    sha=$1
+    prefix=$2
+    commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
+    number_of_commits=$(git rev-list --count $sha)
+    commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
+    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.$commit_sha_8"
 }
 
 display_help() {
     cat <<EOF
 This script is meant to help with managing releases. Usage:
 
-$0 snapshot SHA
-        Prints the snapshot version suffix for the given commit. For example:
+$0 snapshot SHA PREFIX
+        Prints the snapshot line for commit SHA as a release candidate for
+        version PREFIX. For example:
 
-        $ $0 snapshot cc880e2
-        -snapshot.20200513.4174.0.cc880e29
+        $ $0 snapshot cc880e2 0.1.2
+        cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
 
         Any non-ambiguous git commit reference can be given as SHA.
 
@@ -80,12 +86,25 @@ if [ -z "${1+x}" ]; then
     exit 1
 fi
 
+commit_belongs_to_release_branch() {
+    local sha branches
+    sha=$1
+    branches="$(git branch --contains $sha --format='%(refname:short)')"
+    for branch in $branches; do
+        if [ "$branch" = "master" ] || [ "${branch:0:8}" = "release/" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 case $1 in
     snapshot)
-        check
-        git fetch origin master 1>/dev/null 2>&1
-        if [ -n "${2+x}" ] && git merge-base --is-ancestor $2 origin/master >/dev/null; then
-            make_snapshot $(git rev-parse $2)
+        if [ -n "${2+x}" ] && [ -n "${3+x}" ]; then
+            if ! commit_belongs_to_release_branch $2; then
+                echo "WARNING: Commit does not belong to a release branch."
+            fi
+            make_snapshot $(git rev-parse $2) $3
         else
             display_help
         fi

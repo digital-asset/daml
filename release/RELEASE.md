@@ -38,13 +38,17 @@ patches we backport to the 1.0 release branch).
    - If you are making the first snapshot for a new target version (i.e. there
      is no snapshot for it yet), add a new line for that version. It does not
      matter to the process where that line is, but try to keep versions sorted
-     by version number.
+     by version number (higher version numbers go higher in the file).
 
    - If you are making a new snapshot for an existing target version, i.e. the
      stable part of the version number is the same, replace the existing line.
 
-   In both of the latter cases, you can get the "snapshot" part of the version
-   tag by running `./release.sh snapshot $SHA`.
+   In both of the latter cases, you can get the correct line by running the
+   `release.sh` script with both the SHA and the version prefix, e.g.
+   ```
+   $ ./release.sh snapshot cc880e2 0.1.2
+   cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
+   ```
 
 1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
    and label for the new version. (See previous releases as examples.)
