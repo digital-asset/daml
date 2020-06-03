@@ -77,13 +77,13 @@ object Cli {
         .action { (_, c) =>
           setTimeProviderType(c, TimeProviderType.Static)
         }
-        .text("Use static time, configured with TimeService through gRPC.")
+        .text("Use static time. When not specified, wall-clock-time is used.")
 
       opt[Unit]('w', "wall-clock-time")
         .action { (_, c) =>
           setTimeProviderType(c, TimeProviderType.WallClock)
         }
-        .text("Use wall clock time (UTC). When not provided, static time is used.")
+        .text("Use wall clock time (UTC). This is the default.")
 
       // TODO(#577): Remove this flag.
       opt[Unit]("no-parity")
