@@ -500,4 +500,43 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
+  it should "stopping a trigger without providing a token should be unauthorized" in withHttpService(
+    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+    val req = HttpRequest(
+      method = HttpMethods.DELETE,
+      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
+    )
+    for {
+      resp <- Http().singleRequest(req)
+      body <- responseBodyToString(resp)
+      JsObject(fields) = body.parseJson
+      _ <- fields.get("status") should equal(Some(JsNumber(422)))
+      _ <- fields.get("errors") should equal(
+        Some(JsArray(JsString("missing Authorization header with OAuth 2.0 Bearer Token"))))
+    } yield succeed
+  }
+
+  it should "stopping a trigger that can't parse as a UUID gives a 404 response" in withHttpService(
+    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    for {
+      resp <- stopTrigger(uri, "No More Mr Nice Guy", "Alice")
+      _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)
+    } yield succeed
+  }
+
+  it should "stopping an unknown trigger gives an error response" in withHttpService(None) {
+    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+      for {
+        resp <- stopTrigger(uri, uuid, "Alice")
+        _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)
+        body <- responseBodyToString(resp)
+        JsObject(fields) = body.parseJson
+        _ <- fields.get("status") should equal(Some(JsNumber(404)))
+        _ <- fields.get("errors") should equal(
+          Some(JsArray(JsString("Unknown trigger: '" + uuid.toString + "'"))))
+      } yield succeed
+  }
+
 }

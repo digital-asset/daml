@@ -103,8 +103,8 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
     }
   }
 
-  private def getRunningTrigger(uuid: UUID): RunningTrigger = {
-    triggers(uuid) // TODO: Improve as might throw NoSuchElementException.
+  private def getRunningTrigger(uuid: UUID): Option[RunningTrigger] = {
+    triggers.get(uuid)
   }
 
   private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
@@ -234,16 +234,21 @@ object Server {
       JsObject(("triggerId", triggerInstance.toString.toJson))
     }
 
-    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): JsValue = {
+    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): Option[JsValue] = {
       //TODO(SF, 2020-05-20): At least check that the provided token
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
-      val runningTrigger = server.getRunningTrigger(uuid)
-      runningTrigger.runner ! TriggerRunner.Stop
-      server.logTriggerStatus(runningTrigger, "stopped: by user request")
-      server.removeRunningTrigger(runningTrigger)
-      JsObject(("triggerId", uuid.toString.toJson))
+      server
+        .getRunningTrigger(uuid)
+        .map(
+          runningTrigger => {
+            runningTrigger.runner ! TriggerRunner.Stop
+            server.logTriggerStatus(runningTrigger, "stopped: by user request")
+            server.removeRunningTrigger(runningTrigger)
+            JsObject(("triggerId", uuid.toString.toJson))
+          }
+        )
     }
 
     def listTriggers(jwt: Jwt): (StatusCode, JsObject) = {
@@ -373,7 +378,15 @@ object Server {
                     unauthorized =>
                       complete(
                         errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                    triggerInstance => complete(successResponse(triggerInstance))
+                    triggerInstance =>
+                      triggerInstance match {
+                        case Some(stoppedTriggerId) => complete(successResponse(stoppedTriggerId))
+                        case None =>
+                          complete(
+                            errorResponse(
+                              StatusCodes.NotFound,
+                              "Unknown trigger: '" + uuid.toString + "'"))
+                    }
                   )
             }
         }
