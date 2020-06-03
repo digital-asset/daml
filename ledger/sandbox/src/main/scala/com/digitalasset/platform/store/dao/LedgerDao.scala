@@ -9,14 +9,11 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
   Configuration,
-  DivulgedContract,
   Offset,
   ParticipantId,
   RejectionReason,
-  SubmitterInfo,
-  TransactionId
+  SubmitterInfo
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
@@ -24,9 +21,9 @@ import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.platform.store.dao.events.TransactionsReader
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -162,15 +159,8 @@ trait LedgerWriteDao extends ReportsHealth {
     */
   def initializeLedger(ledgerId: LedgerId): Future[Unit]
 
-  def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      recordTime: Instant,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+  def storeTransactions(
+      updates: List[(Offset, TransactionAccepted)],
   ): Future[PersistenceResponse]
 
   def storeRejection(

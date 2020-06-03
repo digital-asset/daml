@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{GenTransaction, Node}
 import com.daml.lf.value.Value.{
@@ -194,7 +194,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(alice),
       Some("workflowId"),
       let,
@@ -215,7 +215,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"just-divulged-${id.coid}"),
       transactionId = txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(divulgees.head),
       workflowId = None,
       ledgerEffectiveTime = Instant.now,
@@ -263,7 +263,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some("Alice"),
       Some("workflowId"),
       let,
@@ -282,7 +282,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID().toString),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(alice),
       Some("workflowId"),
       let,
@@ -312,7 +312,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID.toString),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(alice),
       Some("workflowId"),
       let,
@@ -362,7 +362,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID().toString),
       txId,
-      Some("appID1"),
+      Some(defaultAppId),
       Some(charlie),
       Some("workflowId"),
       let,
@@ -419,7 +419,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = transactionId,
-      applicationId = Some("appID1"),
+      applicationId = Some(defaultAppId),
       submittingParty = Some(operator),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = Instant.now,
@@ -432,25 +432,45 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   private def splitOrThrow(id: EventId): NodeId =
     split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
+  protected final def storeBatch(
+      entries: List[
+        ((Offset, LedgerEntry.Transaction), Map[(ContractId, v1.ContractInst), Set[Party]])]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    val daoEntries = entries.map {
+      case ((offset, entry), divulgedContracts) =>
+        val submitterInfo =
+          for (submitter <- entry.submittingParty; app <- entry.applicationId;
+            cmd <- entry.commandId)
+            yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
+        offset -> v1.Update.TransactionAccepted(
+          optSubmitterInfo = submitterInfo,
+          transactionMeta = v1.TransactionMeta(
+            ledgerEffectiveTime = Time.Timestamp.assertFromInstant(entry.ledgerEffectiveTime),
+            workflowId = entry.workflowId,
+            submissionTime = Time.Timestamp.Epoch,
+            submissionSeed = None,
+            optUsedPackages = None,
+            optNodeSeeds = None,
+            optByKeyNodes = None
+          ),
+          transaction = entry.transaction.mapNodeId(splitOrThrow),
+          transactionId = entry.transactionId,
+          recordTime = Time.Timestamp.assertFromInstant(entry.recordedAt),
+          divulgedContracts =
+            divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
+        )
+    }
+
+    ledgerDao
+      .storeTransactions(daoEntries)
+      .map(_ => ())
+  }
+
   protected final def store(
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       offsetAndTx: (Offset, LedgerEntry.Transaction))(
       implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
-    val (offset, entry) = offsetAndTx
-    val submitterInfo =
-      for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
-        yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
-    ledgerDao
-      .storeTransaction(
-        submitterInfo = submitterInfo,
-        workflowId = entry.workflowId,
-        transactionId = entry.transactionId,
-        transaction = entry.transaction.mapNodeId(splitOrThrow),
-        recordTime = entry.recordedAt,
-        ledgerEffectiveTime = entry.ledgerEffectiveTime,
-        offset = offset,
-        divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
-      )
+    storeBatch(List(offsetAndTx -> divulgedContracts))
       .map(_ => offsetAndTx)
   }
 

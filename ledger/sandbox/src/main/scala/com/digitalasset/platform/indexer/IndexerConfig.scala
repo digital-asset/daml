@@ -16,10 +16,10 @@ case class IndexerConfig(
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     allowExistingSchema: Boolean = false,
+    batchSize: Long = 16,
 )
 
 object IndexerConfig {
 
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-
 }

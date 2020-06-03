@@ -112,12 +112,11 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     }
   }
 
-  private case class AccumulatingBatches(
+  case class AccumulatingBatches private[EventsTableInsert] (
       creates: Vector[RawBatch.Event.Created],
       exercises: Vector[RawBatch.Event.Exercised],
       archives: Vector[Vector[NamedParameter]],
   ) {
-
     def add(create: RawBatch.Event.Created): AccumulatingBatches =
       copy(creates = creates :+ create)
 
@@ -148,8 +147,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
   }
 
-  private object AccumulatingBatches {
-    val empty: AccumulatingBatches = AccumulatingBatches(
+  object AccumulatingBatches {
+    def empty: AccumulatingBatches = AccumulatingBatches(
       creates = Vector.empty,
       exercises = Vector.empty,
       archives = Vector.empty,
@@ -167,9 +166,10 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
-  ): RawBatches =
+      previous: AccumulatingBatches,
+  ): AccumulatingBatches =
     transaction
-      .fold(AccumulatingBatches.empty) {
+      .fold(previous) {
         case (batches, (nodeId, node: Create)) =>
           batches.add(
             new RawBatch.Event.Created(
@@ -212,6 +212,5 @@ private[events] trait EventsTableInsert { this: EventsTable =>
         case (batches, _) =>
           batches // ignore any event which is neither a create nor an exercise
       }
-      .prepare
 
 }

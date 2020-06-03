@@ -16,6 +16,7 @@ import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Time}
@@ -199,15 +200,15 @@ private final class SqlLedger(
               reason,
           ),
           _ =>
-            ledgerDao.storeTransaction(
-              Some(submitterInfo),
-              transactionMeta.workflowId,
-              transactionId,
-              recordTime,
-              transactionMeta.ledgerEffectiveTime.toInstant,
-              offset,
-              transactionCommitter.commitTransaction(transactionId, transaction),
-              Nil,
+            ledgerDao.storeTransactions(
+              List(offset -> TransactionAccepted(
+                optSubmitterInfo = Some(submitterInfo),
+                transactionMeta = transactionMeta,
+                transaction = transactionCommitter.commitTransaction(transactionId, transaction),
+                transactionId = transactionId,
+                recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                divulgedContracts = Nil,
+              ))
           )
         )
         .transform(

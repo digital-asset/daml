@@ -8,10 +8,10 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
@@ -126,27 +126,12 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      recordTime: Instant,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract]): Future[PersistenceResponse] =
+  override def storeTransactions(
+      updates: List[(Offset, TransactionAccepted)],
+  ): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransaction,
-      ledgerDao.storeTransaction(
-        submitterInfo,
-        workflowId,
-        transactionId,
-        recordTime,
-        ledgerEffectiveTime,
-        offset,
-        transaction,
-        divulged,
-      )
+      ledgerDao.storeTransactions(updates)
     )
 
   override def storeRejection(

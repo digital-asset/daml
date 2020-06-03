@@ -65,7 +65,8 @@ final class JdbcIndexerFactory(
       )
       _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
-    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics))
+    } yield
+      new JdbcIndexer(initialLedgerEnd, config.participantId, config.batchSize, ledgerDao, metrics))
 
   private def initialized()(
       implicit executionContext: ExecutionContext
@@ -79,7 +80,8 @@ final class JdbcIndexerFactory(
         lfValueTranslationCache,
       )
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
-    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
+    } yield
+      new JdbcIndexer(initialLedgerEnd, config.participantId, config.batchSize, ledgerDao, metrics)
 
   private def initializeLedger(dao: LedgerDao)(
       implicit executionContext: ExecutionContext,
@@ -119,6 +121,7 @@ final class JdbcIndexerFactory(
 class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
     participantId: ParticipantId,
+    batchSize: Long,
     ledgerDao: LedgerDao,
     metrics: Metrics,
 )(implicit mat: Materializer)
@@ -128,14 +131,51 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedRecordTime: Long = Instant.now().toEpochMilli
 
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
-    new SubscriptionResourceOwner(readService)
+    new SubscriptionResourceOwner(readService, batchSize)
 
-  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
-    lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
+  /**
+    * Turns a list of generic updates into a list where consecutive [[Update.TransactionAccepted]] updates
+    * are grouped in sub-lists.
+    */
+  private def splitUpdates(list: List[(Offset, Update)])
+    : List[Either[(Offset, Update), List[(Offset, Update.TransactionAccepted)]]] =
+    list
+      .foldRight[List[Either[(Offset, Update), List[(Offset, Update.TransactionAccepted)]]]](
+        List.empty) {
+        case ((offset, tx @ TransactionAccepted(_, _, _, _, _, _)), acc) =>
+          acc match {
+            case Nil => List(Right(List(offset -> tx)))
+            case Right(transactions) :: accTail => Right((offset -> tx) :: transactions) :: accTail
+            case Left(_) :: accTail => Right(List(offset -> tx)) :: accTail
+          }
+        case (e, acc) =>
+          Left(e) :: acc
+      }
+      .reverse
+
+  private def handleStateUpdates(updates: List[(Offset, Update)]): Future[Unit] = {
+    lastReceivedRecordTime = updates.last._2.recordTime.toInstant.toEpochMilli
 
     metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
-    metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
+    metrics.daml.indexer.lastReceivedOffset.updateValue(updates.last._1.toApiString)
+    metrics.daml.indexer.receivedUpdates.inc(updates.size.toLong)
 
+    val updateBatches = splitUpdates(updates)
+
+    implicit val executionContext: ExecutionContext = DEC
+    Future
+      .traverse(updateBatches) {
+        case Left((offset, update)) =>
+          metrics.daml.indexer.updateBatchSizes.update(1)
+          handleStateUpdate(offset, update)
+        case Right(transactions) =>
+          metrics.daml.indexer.updateBatchSizes.update(transactions.size)
+          ledgerDao.storeTransactions(transactions).map(_ => ())
+      }
+      .map(_ => ())
+  }
+
+  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
     val result = update match {
       case PartyAddedToParticipant(
           party,
@@ -202,23 +242,8 @@ class JdbcIndexer private[indexer] (
             Some(entry)
           )
 
-      case TransactionAccepted(
-          optSubmitterInfo,
-          transactionMeta,
-          transaction,
-          transactionId,
-          recordTime,
-          divulgedContracts) =>
-        ledgerDao.storeTransaction(
-          submitterInfo = optSubmitterInfo,
-          workflowId = transactionMeta.workflowId,
-          transactionId = transactionId,
-          recordTime = recordTime.toInstant,
-          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-          offset = offset,
-          transaction = transaction,
-          divulged = divulgedContracts,
-        )
+      case tx @ TransactionAccepted(_, _, _, _, _, _) =>
+        ledgerDao.storeTransactions(List(offset -> tx))
 
       case config: ConfigurationChanged =>
         ledgerDao
@@ -248,7 +273,7 @@ class JdbcIndexer private[indexer] (
     result.map(_ => ())(DEC)
   }
 
-  private class SubscriptionResourceOwner(readService: ReadService)
+  private class SubscriptionResourceOwner(readService: ReadService, batchSize: Long)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -260,12 +285,13 @@ class JdbcIndexer private[indexer] (
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .mapAsync(1) {
-            case (offset, update) =>
-              Timed
-                .future(
-                  metrics.daml.indexer.stateUpdateProcessing,
-                  handleStateUpdate(offset, update))
+          .batchWeighted(batchSize, {
+            case (_, Update.TransactionAccepted(_, _, _, _, _, _)) => 1
+            case (_, _) => batchSize
+          }, x => List(x)) { case (acc, x) => acc :+ x }
+          .mapAsync(1) { updates =>
+            Timed
+              .future(metrics.daml.indexer.stateUpdateProcessing, handleStateUpdates(updates))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

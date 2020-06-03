@@ -295,6 +295,8 @@ class Metrics(val registry: MetricRegistry) {
         val storeRejection: Timer = registry.timer(prefix :+ "store_rejection")
         val storeConfigurationEntry: Timer = registry.timer(prefix :+ "store_configuration_entry")
 
+        val prepareTransaction: Timer = registry.timer(prefix :+ "prepare_transaction")
+
         val lookupLedgerId: Timer = registry.timer(prefix :+ "lookup_ledger_id")
         val lookupLedgerEnd: Timer = registry.timer(prefix :+ "lookup_ledger_end")
         val lookupTransaction: Timer = registry.timer(prefix :+ "lookup_transaction")
@@ -402,6 +404,11 @@ class Metrics(val registry: MetricRegistry) {
       def currentRecordTimeLag(value: () => Long): Gauge[Nothing] =
         gauge(prefix :+ "current_record_time_lag", () => () => value())
 
+      // Note: this counts individual updates
+      val receivedUpdates: Counter = registry.counter(prefix :+ "received_updates")
+
+      // Note: these measure update batches
+      val updateBatchSizes: Histogram = registry.histogram(prefix :+ "update_batch_sizes")
       val stateUpdateProcessing: Timer = registry.timer(prefix :+ "processed_state_updates")
     }
     object services {
