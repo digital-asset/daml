@@ -111,15 +111,16 @@ private[events] trait EventsTableInsert { this: EventsTable =>
   }
 
   private case class AccumulatingBatches(
-      creates: Vector[RawBatch.Event.Created],
-      exercises: Vector[RawBatch.Event.Exercised],
+      creates: Vector[RawBatch.Event[RawBatch.Event.Created]],
+      exercises: Vector[RawBatch.Event[RawBatch.Event.Exercised]],
       archives: Vector[Vector[NamedParameter]],
   ) {
 
-    def add(create: RawBatch.Event.Created): AccumulatingBatches =
+    def add(create: RawBatch.Event[RawBatch.Event.Created]): AccumulatingBatches =
       copy(creates = creates :+ create)
 
-    def add(exercise: RawBatch.Event.Exercised): AccumulatingBatches =
+    def add(exercise: RawBatch.Event[RawBatch.Event.Exercised])(
+        implicit dummy: DummyImplicit): AccumulatingBatches =
       copy(exercises = exercises :+ exercise)
 
     def add(archive: Vector[NamedParameter]): AccumulatingBatches =
@@ -127,7 +128,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
     private def prepareRawNonEmpty(
         query: String,
-        params: Vector[RawBatch.Event],
+        params: Vector[RawBatch.Event[_]],
     ): Option[RawBatch] =
       if (params.nonEmpty) Some(new RawBatch(query, params)) else None
 
@@ -167,42 +168,29 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       transaction: GenTransaction.WithTxValue[Nid, ContractId],
       flatWitnesses: WitnessRelation[Nid],
       treeWitnesses: WitnessRelation[Nid],
-  ): RawBatches =
+  ): RawBatches = {
+    def event[Sp <: RawBatch.Event.Specific](nodeId: Nid, sp: Sp) =
+      new RawBatch.Event(
+        applicationId = submitterInfo.map(_.applicationId),
+        workflowId = workflowId,
+        commandId = submitterInfo.map(_.commandId),
+        transactionId = transactionId,
+        nodeId = nodeId,
+        submitter = submitterInfo.map(_.submitter),
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        offset = offset,
+        flatWitnesses = flatWitnesses getOrElse (nodeId, Set.empty),
+        treeWitnesses = treeWitnesses getOrElse (nodeId, Set.empty),
+        specific = sp,
+      )
+
     transaction
       .fold(AccumulatingBatches.empty) {
         case (batches, (nodeId, node: Create)) =>
-          batches.add(
-            new RawBatch.Event.Created(
-              applicationId = submitterInfo.map(_.applicationId),
-              workflowId = workflowId,
-              commandId = submitterInfo.map(_.commandId),
-              transactionId = transactionId,
-              nodeId = nodeId,
-              submitter = submitterInfo.map(_.submitter),
-              ledgerEffectiveTime = ledgerEffectiveTime,
-              offset = offset,
-              flatWitnesses = flatWitnesses getOrElse (nodeId, Set.empty),
-              treeWitnesses = treeWitnesses getOrElse (nodeId, Set.empty),
-              create = node,
-            )
-          )
+          batches.add(event(nodeId, new RawBatch.Event.Created(node)))
         case (batches, (nodeId, node: Exercise)) =>
           val batchWithExercises =
-            batches.add(
-              new RawBatch.Event.Exercised(
-                applicationId = submitterInfo.map(_.applicationId),
-                workflowId = workflowId,
-                commandId = submitterInfo.map(_.commandId),
-                transactionId = transactionId,
-                nodeId = nodeId,
-                submitter = submitterInfo.map(_.submitter),
-                ledgerEffectiveTime = ledgerEffectiveTime,
-                offset = offset,
-                flatWitnesses = flatWitnesses getOrElse (nodeId, Set.empty),
-                treeWitnesses = treeWitnesses getOrElse (nodeId, Set.empty),
-                exercise = node,
-              )
-            )
+            batches.add(event(nodeId, new RawBatch.Event.Exercised(node)))
           if (node.consuming) {
             batchWithExercises.add(
               archive(
@@ -217,5 +205,6 @@ private[events] trait EventsTableInsert { this: EventsTable =>
           batches // ignore any event which is neither a create nor an exercise
       }
       .prepare
+  }
 
 }
