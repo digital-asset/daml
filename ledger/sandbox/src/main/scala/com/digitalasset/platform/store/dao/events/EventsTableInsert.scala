@@ -4,32 +4,40 @@
 package com.daml.platform.store.dao.events
 
 import java.time.Instant
-
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo}
 import com.daml.ledger._
+import com.daml.lf.transaction.GenTransaction
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableInsert { this: EventsTable =>
 
-  private def insertEvent(columnNameAndValues: (String, String)*): String = {
-    val (columns, values) = columnNameAndValues.unzip
+  private def insertEvent(
+      commonPrefix: Seq[(String, String)],
+      columnNameAndValues: (String, String)*): String = {
+    val (columns, values) = (commonPrefix ++ columnNameAndValues).unzip
     s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
   }
 
+  private def commonPrefix = Seq(
+    "event_id" -> "{event_id}",
+    "event_offset" -> "{event_offset}",
+    "contract_id" -> "{contract_id}",
+    "transaction_id" -> "{transaction_id}",
+    "workflow_id" -> "{workflow_id}",
+    "ledger_effective_time" -> "{ledger_effective_time}",
+    "template_id" -> "{template_id}",
+    "node_index" -> "{node_index}",
+    "command_id" -> "{command_id}",
+    "application_id" -> "{application_id}",
+    "submitter" -> "{submitter}",
+    "flat_event_witnesses" -> "{flat_event_witnesses}",
+    "tree_event_witnesses" -> "{tree_event_witnesses}",
+  )
+
   private val insertCreate: String =
     insertEvent(
-      "event_id" -> "{event_id}",
-      "event_offset" -> "{event_offset}",
-      "contract_id" -> "{contract_id}",
-      "transaction_id" -> "{transaction_id}",
-      "workflow_id" -> "{workflow_id}",
-      "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_id" -> "{template_id}",
-      "node_index" -> "{node_index}",
-      "command_id" -> "{command_id}",
-      "application_id" -> "{application_id}",
-      "submitter" -> "{submitter}",
+      commonPrefix,
       "create_argument" -> "{create_argument}",
       "create_signatories" -> "{create_signatories}",
       "create_observers" -> "{create_observers}",
@@ -40,17 +48,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
   private val insertExercise =
     insertEvent(
-      "event_id" -> "{event_id}",
-      "event_offset" -> "{event_offset}",
-      "contract_id" -> "{contract_id}",
-      "transaction_id" -> "{transaction_id}",
-      "workflow_id" -> "{workflow_id}",
-      "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_id" -> "{template_id}",
-      "node_index" -> "{node_index}",
-      "command_id" -> "{command_id}",
-      "application_id" -> "{application_id}",
-      "submitter" -> "{submitter}",
+      commonPrefix,
       "exercise_consuming" -> "{exercise_consuming}",
       "exercise_choice" -> "{exercise_choice}",
       "exercise_argument" -> "{exercise_argument}",
@@ -160,13 +158,15 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     * @throws RuntimeException If a value cannot be serialized into an array of bytes
     */
   @throws[RuntimeException]
-  def prepareBatchInsert(
+  def prepareBatchInsert[Nid <: NodeId](
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
-      transaction: Transaction,
+      transaction: GenTransaction.WithTxValue[Nid, ContractId],
+      flatWitnesses: WitnessRelation[Nid],
+      treeWitnesses: WitnessRelation[Nid],
   ): RawBatches =
     transaction
       .fold(AccumulatingBatches.empty) {
@@ -181,6 +181,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
               submitter = submitterInfo.map(_.submitter),
               ledgerEffectiveTime = ledgerEffectiveTime,
               offset = offset,
+              flatWitnesses = flatWitnesses getOrElse (nodeId, Set.empty),
+              treeWitnesses = treeWitnesses getOrElse (nodeId, Set.empty),
               create = node,
             )
           )
@@ -196,6 +198,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
                 submitter = submitterInfo.map(_.submitter),
                 ledgerEffectiveTime = ledgerEffectiveTime,
                 offset = offset,
+                flatWitnesses = flatWitnesses getOrElse (nodeId, Set.empty),
+                treeWitnesses = treeWitnesses getOrElse (nodeId, Set.empty),
                 exercise = node,
               )
             )

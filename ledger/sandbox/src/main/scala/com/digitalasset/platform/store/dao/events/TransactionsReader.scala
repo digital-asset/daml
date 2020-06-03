@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset
+import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 
@@ -31,12 +32,15 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
+    dbType: DbType,
     pageSize: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext) {
 
   private val dbMetrics = metrics.daml.index.db
+
+  private val sqlFunctions = SqlFunctions(dbType)
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -63,7 +67,7 @@ private[dao] final class TransactionsReader(
         case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
-              .preparePagedGetFlatTransactions(
+              .preparePagedGetFlatTransactions(sqlFunctions)(
                 startExclusive = prevOffset,
                 endInclusive = endInclusive,
                 filter = filter,
@@ -98,7 +102,8 @@ private[dao] final class TransactionsReader(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[Option[GetFlatTransactionResponse]] = {
-    val query = EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
+    val query =
+      EventsTable.prepareLookupFlatTransactionById(sqlFunctions)(transactionId, requestingParties)
     dispatcher
       .executeSql(
         databaseMetrics = dbMetrics.lookupFlatTransactionById,
@@ -126,7 +131,7 @@ private[dao] final class TransactionsReader(
         case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
-              .preparePagedGetTransactionTrees(
+              .preparePagedGetTransactionTrees(sqlFunctions)(
                 startExclusive = prevOffset,
                 endInclusive = endInclusive,
                 requestingParties = requestingParties,
@@ -158,7 +163,8 @@ private[dao] final class TransactionsReader(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[Option[GetTransactionResponse]] = {
-    val query = EventsTable.prepareLookupTransactionTreeById(transactionId, requestingParties)
+    val query =
+      EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
     dispatcher
       .executeSql(
         databaseMetrics = dbMetrics.lookupTransactionTreeById,
@@ -185,7 +191,7 @@ private[dao] final class TransactionsReader(
         case (prevOffset, prevNodeIndex) =>
           val query =
             EventsTable
-              .preparePagedGetActiveContracts(
+              .preparePagedGetActiveContracts(sqlFunctions)(
                 lastOffsetFromPrevPage = prevOffset,
                 activeAt = activeAt,
                 filter = filter,
