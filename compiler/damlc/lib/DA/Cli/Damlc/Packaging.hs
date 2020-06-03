@@ -103,7 +103,7 @@ createProjectPackageDb projectRoot opts thisSdkVer modulePrefixes deps dataDeps
     mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
         (,) <$> useNoFileE GenerateStablePackages
             <*> useE GeneratePackageMap projectRoot
-    (stablePkgs, dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
+    (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
     let dependenciesInPkgDbIds =

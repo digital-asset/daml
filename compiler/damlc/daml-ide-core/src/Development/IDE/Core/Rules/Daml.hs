@@ -207,7 +207,7 @@ diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
 getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getUnstableDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
-    pkgMap <- Map.unions <$> usesE GeneratePackageMap files
+    pkgMap <- Map.unions . map getPackageMap <$> usesE GeneratePackageMap files
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
@@ -250,7 +250,7 @@ generateRawDalfRule =
                     let core = cgGutsToCoreModule safeMode cgGuts details
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
-                    pkgMap <- use_ GeneratePackageMap file
+                    PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
@@ -264,7 +264,7 @@ generateRawDalfRule =
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
-    pkgMap <- use_ GeneratePackageMap file
+    PackageMap pkgMap <- use_ GeneratePackageMap file
     stablePackages <- useNoFile_ GenerateStablePackages
     -- We need to dedup here to make sure that each package only appears once.
     pure $
@@ -399,7 +399,7 @@ generateSerializedDalfRule options =
                         Nothing -> pure (diags, Nothing)
                         Just core -> fmap (first (diags ++)) $ do
                             -- lf conversion
-                            pkgMap <- use_ GeneratePackageMap file
+                            PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
                             case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
@@ -531,7 +531,7 @@ generatePackageMapRule opts = do
                 "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
                 "Errors:\n" ++ unlines (map show errs)
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
-        return (Just hash, ([], Just res))
+        return (Just hash, ([], Just (PackageMap res)))
 
 damlGhcSessionRule :: Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
@@ -715,7 +715,7 @@ contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
     WhnfPackage pkg <- use_ GeneratePackage file
-    pkgMap <- use_ GeneratePackageMap file
+    PackageMap pkgMap <- use_ GeneratePackageMap file
     stablePackages <- use_ GenerateStablePackages file
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $

@@ -188,7 +188,7 @@ runRepl opts mainDar replClient ideState = do
     Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
     (_, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
     let moduleNames = map LF.moduleName (NM.elems (LF.packageModules pkg))
-    Just pkgs <- runAction ideState (use GeneratePackageMap "Dummy.daml")
+    Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
     Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
     for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
