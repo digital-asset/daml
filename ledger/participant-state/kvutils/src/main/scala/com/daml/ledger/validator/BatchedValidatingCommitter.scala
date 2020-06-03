@@ -19,6 +19,37 @@ import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCache
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+/**
+  * Orchestrates committing to a ledger after validating submissions. Supports parallel validation.
+  * Example usage, assuming a [[com.daml.ledger.participant.state.kvutils.api.BatchingLedgerWriter]] sends the
+  * batched submissions over the wire:
+  * {{{
+  *   ...
+  *   private val ledgerStateOperations = ...
+  *   private val validator = BatchedSubmissionValidator.create(ledgerStateOperations)
+  *   private val validatingCommitter = BatchedValidatingCommitter(
+  *       () => Instant.now(),
+  *       validator)
+  *   ...
+  *
+  *   def commitRequestHandler(request: CommitRequest): Future[CommitResponse] =
+  *     validatingCommitter.commit(
+  *         request.correlationId,
+  *         request.envelope,
+  *         request.participantId,
+  *         ledgerStateOperations)
+  *       .map(...)
+  * }}}
+  *
+  * If caching is enabled (i.e., [[stateValueCache]] is not a [[Cache.none]]) then for each request
+  * we cache the read state from the ledger and update the cache with the committed state.
+  *
+  * @param now resolves the current time when processing submission
+  * @param keySerializationStrategy strategy for serializing & namespacing state keys
+  * @param validator performs actual validation
+  * @param stateValueCache cache to be used when reading from and committing to the ledger
+  * @tparam LogResult  type of the offset used for a log entry
+  */
 class BatchedValidatingCommitter[LogResult](
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,

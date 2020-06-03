@@ -16,13 +16,16 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** A batching ledger writer that collects submissions into a batch and commits
-  * the batch once a set time and byte limit has been reached.
+  * the batch once a set time or byte limit has been reached.
+  * Use `apply()` from the companion object to construct an instance from a [[BatchingLedgerWriterConfig]] and a
+  * [[LedgerWriter]] delegate instance.
   *
-  * @param queue The batching queue implementation
-  * @param writer The underlying ledger writer to use to commit the batch
+  * @param queue batching queue implementation
+  * @param writer underlying ledger writer that will commit batches
   */
 class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     implicit val materializer: Materializer,
@@ -76,4 +79,34 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   }
 
   override def close(): Unit = queueHandle.close()
+}
+
+object BatchingLedgerWriter {
+  def apply(batchingLedgerWriterConfig: BatchingLedgerWriterConfig, delegate: LedgerWriter)(
+      implicit materializer: Materializer,
+      loggingContext: LoggingContext): BatchingLedgerWriter = {
+    val batchingQueue = batchingQueueFrom(batchingLedgerWriterConfig)
+    new BatchingLedgerWriter(batchingQueue, delegate)
+  }
+
+  private def batchingQueueFrom(
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig): BatchingQueue =
+    if (batchingLedgerWriterConfig.enableBatching) {
+      DefaultBatchingQueue(
+        maxQueueSize = batchingLedgerWriterConfig.maxBatchQueueSize,
+        maxBatchSizeBytes = batchingLedgerWriterConfig.maxBatchSizeBytes,
+        maxWaitDuration = batchingLedgerWriterConfig.maxBatchWaitDuration,
+        maxConcurrentCommits = batchingLedgerWriterConfig.maxBatchConcurrentCommits
+      )
+    } else {
+      batchingQueueForSerialValidation(batchingLedgerWriterConfig.maxBatchQueueSize)
+    }
+
+  private def batchingQueueForSerialValidation(maxBatchQueueSize: Int): DefaultBatchingQueue =
+    DefaultBatchingQueue(
+      maxQueueSize = maxBatchQueueSize,
+      maxBatchSizeBytes = 1,
+      maxWaitDuration = Duration(1, MILLISECONDS),
+      maxConcurrentCommits = 1
+    )
 }
