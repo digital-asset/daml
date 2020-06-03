@@ -68,8 +68,8 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 
   However, if the type is ambiguous so that the compiler can't infer
   it, you do have to add a type annotation. This is the case for
-  ``0.001 : Decimal`` which could be any ``Numeric n``. Here we
-  specify ``Decimal`` which is a synonym for ``Numeric 10``. You can always choose to add type annotations to aid readability.
+  ``0.001`` which could be any ``Numeric n``. Here we
+  specify ``0.001 : Decimal`` which is a synonym for ``Numeric 10``. You can always choose to add type annotations to aid readability.
 - The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``.
 
   Try putting ``assert False`` somewhere in a scenario and see what happens to the scenario result.
