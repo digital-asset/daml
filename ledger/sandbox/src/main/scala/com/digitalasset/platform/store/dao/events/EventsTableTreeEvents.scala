@@ -175,7 +175,26 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesWhereClause order by (#$orderByColumns) limit $pageSize"
+    SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id
+         from participant_events,
+          (select min(row_id) row_id from (
+            select min(row_id) row_id
+            from participant_events
+            where (event_offset > $startExclusive)
+              and event_offset <= $endInclusive
+              and #$witnessesWhereClause
+           union all
+            -- this sub-query needs the index participant_event_event_offset_idx to run fast
+            select min(row_id) row_id
+            from participant_events
+            where
+              (event_offset = $prevOffset and node_index > $prevNodeIndex)
+              and #$witnessesWhereClause
+            ) rows) starting_row
+            where
+            participant_events.row_id >= starting_row.row_id
+            and participant_events.row_id < starting_row.row_id + $pageSize
+            and event_offset <= $endInclusive and #$witnessesWhereClause order by (#$orderByColumns) """
   }
 
   private def multiPartyTrees(sqlFunctions: SqlFunctions)(
