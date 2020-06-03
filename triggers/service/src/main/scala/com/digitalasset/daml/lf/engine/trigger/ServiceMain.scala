@@ -384,7 +384,7 @@ object Server {
                         case None =>
                           complete(
                             errorResponse(
-                              StatusCodes.UnprocessableEntity,
+                              StatusCodes.NotFound,
                               "Unknown trigger: '" + uuid.toString + "'"))
                     }
                   )

@@ -500,7 +500,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "stopping a trigger without providing a token should be unauthroized" in withHttpService(
+  it should "stopping a trigger without providing a token should be unauthorized" in withHttpService(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
     val req = HttpRequest(
@@ -530,9 +530,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
       for {
         resp <- stopTrigger(uri, uuid, "Alice")
+        _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)
         body <- responseBodyToString(resp)
         JsObject(fields) = body.parseJson
-        _ <- fields.get("status") should equal(Some(JsNumber(422)))
+        _ <- fields.get("status") should equal(Some(JsNumber(404)))
         _ <- fields.get("errors") should equal(
           Some(JsArray(JsString("Unknown trigger: '" + uuid.toString + "'"))))
       } yield succeed
