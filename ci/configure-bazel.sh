@@ -68,7 +68,7 @@ if is_windows; then
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
   echo "Working directory: $PWD"
-  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | md5sum)"
+  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -binary | openssl enc -base64)"
   SUFFIX="${SUFFIX:0:3}"
   echo "Platform suffix: $SUFFIX"
   echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
