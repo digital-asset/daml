@@ -337,14 +337,13 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
               ]
 
         Just (FailedAuthorizationSumActorMismatch
-          (FailedAuthorization_ActorMismatch templateId choiceId mbLoc ctrls givenActors)) ->
+          (FailedAuthorization_ActorMismatch templateId choiceId mbLoc givenActors)) ->
               [ "exercise of" <-> prettyChoiceId world templateId choiceId
                 <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
                 <-> "at" <-> prettyMayLocation world mbLoc
               , "failed due to authorization error:"
               , "the choice's controlling parties"
-                <-> brackets (prettyParties ctrls)
-              , "is not a subset of the authorizing parties"
+              , "are not a subset of the authorizing parties"
                 <-> brackets (prettyParties givenActors)
               ]
 

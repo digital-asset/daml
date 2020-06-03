@@ -63,6 +63,13 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
             resultSet.next shouldEqual false
           }
 
+          def checkTableDoesNotExist(table: String) = {
+            val resultSet = conn.createStatement().executeQuery(s"SELECT to_regclass('$table')")
+            resultSet.next shouldEqual true
+            Option(resultSet.getString(1)) shouldEqual Option.empty[String]
+            resultSet.wasNull() shouldEqual true
+          }
+
           checkTableExists("parameters")
           checkTableExists("configuration_entries")
 
@@ -70,8 +77,6 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           checkTableExists("participant_command_submissions")
           checkTableExists("participant_contract_witnesses")
           checkTableExists("participant_contracts")
-          checkTableExists("participant_event_flat_transaction_witnesses")
-          checkTableExists("participant_event_transaction_tree_witnesses")
           checkTableExists("participant_events")
 
           checkTableExists("parties")
@@ -80,6 +85,8 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           checkTableExists("packages")
           checkTableExists("package_entries")
 
+          checkTableDoesNotExist("participant_event_flat_transaction_witnesses")
+          checkTableDoesNotExist("participant_event_transaction_tree_witnesses")
         }
       }
     }

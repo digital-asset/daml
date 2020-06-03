@@ -1,0 +1,21 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module LowLevelErrorTrigger where
+
+import DA.Time
+import Daml.Trigger.LowLevel
+
+trigger : Trigger Int
+trigger = Trigger
+  { initialState = \party _ _ -> (0, [])
+  , update = \_ msg count ->
+      case msg of
+        _ -> if count == 5
+             then
+               error "Intentional error"
+             else (count + 1, [])
+  , registeredTemplates = AllInDar
+  , heartbeat = Some (convertMicrosecondsToRelTime 1)
+  }

@@ -14,6 +14,7 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory
 }
+import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCacheUpdatePolicy}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -53,7 +54,8 @@ class BatchedValidatingCommitter[LogResult](
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: BatchedSubmissionValidator[LogResult],
-    stateValueCache: Cache[DamlStateKey, DamlStateValue]
+    stateValueCache: Cache[DamlStateKey, DamlStateValue],
+    cacheUpdatePolicy: CacheUpdatePolicy
 )(implicit materializer: Materializer) {
   def commit(
       correlationId: String,
@@ -90,6 +92,7 @@ class BatchedValidatingCommitter[LogResult](
         .cachingReaderAndCommitStrategyFrom(
           ledgerStateOperations,
           stateValueCache,
+          cacheUpdatePolicy,
           keySerializationStrategy)
     }
 }
@@ -101,7 +104,8 @@ object BatchedValidatingCommitter {
       now,
       DefaultStateKeySerializationStrategy,
       validator,
-      Cache.none)
+      Cache.none,
+      ImmutablesOnlyCacheUpdatePolicy)
 
   def apply[LogResult](
       now: () => Instant,
@@ -112,5 +116,6 @@ object BatchedValidatingCommitter {
       now,
       DefaultStateKeySerializationStrategy,
       validator,
-      stateValueCache)
+      stateValueCache,
+      ImmutablesOnlyCacheUpdatePolicy)
 }

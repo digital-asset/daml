@@ -230,7 +230,7 @@ object TransactionSpec {
       chosenValue = V.ValueUnit,
       stakeholders = Set.empty,
       signatories = Set.empty,
-      controllers = Set.empty,
+      controllersDifferFromActors = false,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,

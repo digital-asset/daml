@@ -8,19 +8,16 @@ import java.time.Instant
 
 import anorm.BatchSql
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
-import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.DbType
 
 private[dao] object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
       eventBatches: EventsTable.PreparedBatches,
-      flatTransactionWitnessesBatch: Option[BatchSql],
-      complementWitnessesBatch: Option[BatchSql],
       contractBatches: ContractsTable#PreparedBatches,
       deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
@@ -29,8 +26,6 @@ private[dao] object TransactionsWriter {
       import metrics.daml.index.db.storeTransactionDbMetrics
 
       Timed.value(storeTransactionDbMetrics.eventsBatch, eventBatches.foreach(_.execute()))
-      flatTransactionWitnessesBatch.foreach(_.execute())
-      complementWitnessesBatch.foreach(_.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
@@ -66,30 +61,25 @@ private[dao] final class TransactionsWriter(
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
 
   private def computeDisclosureForFlatTransaction(
-      transactionId: TransactionId,
       transaction: Transaction,
-  ): WitnessRelation[EventId] =
+  ): WitnessRelation[NodeId] =
     transaction.nodes.collect {
       case (nodeId, c: Create) =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> c.stakeholders
+        nodeId -> c.stakeholders
       case (nodeId, e: Exercise) if e.consuming =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> e.stakeholders
+        nodeId -> e.stakeholders
     }
 
   private def computeDisclosureForTransactionTree(
-      transactionId: TransactionId,
       transaction: Transaction,
       blinding: BlindingInfo,
-  ): WitnessRelation[EventId] = {
+  ): WitnessRelation[NodeId] = {
     val disclosed =
       transaction.nodes.collect {
         case p @ (_, _: Create) => p
         case p @ (_, _: Exercise) => p
       }.keySet
-    blinding.disclosure.collect {
-      case (nodeId, party) if disclosed(nodeId) =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> party
-    }
+    blinding.disclosure.filter { case (nodeId, _) => disclosed(nodeId) }
   }
 
   private def divulgedContracts(
@@ -146,6 +136,14 @@ private[dao] final class TransactionsWriter(
       divulgedContracts: Iterable[DivulgedContract],
   ): TransactionsWriter.PreparedInsert = {
 
+    val blinding = Blinding.blind(transaction)
+
+    val disclosureForFlatTransaction =
+      computeDisclosureForFlatTransaction(transaction)
+
+    val disclosureForTransactionTree =
+      computeDisclosureForTransactionTree(transaction, blinding)
+
     val rawEventBatches = EventsTable.prepareBatchInsert(
       submitterInfo = submitterInfo,
       workflowId = workflowId,
@@ -153,27 +151,9 @@ private[dao] final class TransactionsWriter(
       ledgerEffectiveTime = ledgerEffectiveTime,
       offset = offset,
       transaction = transaction,
+      flatWitnesses = disclosureForFlatTransaction,
+      treeWitnesses = disclosureForTransactionTree,
     )
-
-    val blinding = Blinding.blind(transaction)
-
-    val disclosureForFlatTransaction =
-      computeDisclosureForFlatTransaction(transactionId, transaction)
-
-    val disclosureForTransactionTree =
-      computeDisclosureForTransactionTree(transactionId, transaction, blinding)
-
-    // Prepare batch inserts for flat transactions
-    val flatTransactionWitnessesBatch =
-      WitnessesTable.ForFlatTransactions.prepareBatchInsert(
-        witnesses = disclosureForFlatTransaction,
-      )
-
-    // Prepare batch inserts for all witnesses except those for flat transactions
-    val complementWitnessesBatch =
-      WitnessesTable.ForTransactionTrees.prepareBatchInsert(
-        witnesses = disclosureForTransactionTree,
-      )
 
     val rawContractBatches = contractsTable.prepareBatchInsert(
       ledgerEffectiveTime = ledgerEffectiveTime,
@@ -211,8 +191,6 @@ private[dao] final class TransactionsWriter(
 
     new TransactionsWriter.PreparedInsert(
       eventBatches = eventBatches,
-      flatTransactionWitnessesBatch = flatTransactionWitnessesBatch,
-      complementWitnessesBatch = complementWitnessesBatch,
       contractBatches = contractBatches,
       deleteWitnessesBatch = deleteWitnessesBatch,
       insertWitnessesBatch = insertWitnessesBatch,

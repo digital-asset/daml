@@ -318,7 +318,7 @@ object ValueGenerators {
         chosenValue,
         stakeholders,
         signatories,
-        actingParties,
+        false,
         children,
         Some(exerciseResultValue),
         Some(KeyWithMaintainers(key, maintainers))

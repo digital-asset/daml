@@ -523,7 +523,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
             chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
             stakeholders = Set(party),
             signatories = Set(party),
-            controllers = Set(party),
+            controllersDifferFromActors = false,
             children = ImmArray.empty,
             exerciseResult = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
             key = maybeKey.map(

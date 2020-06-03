@@ -35,8 +35,6 @@ sealed abstract class SExpr extends Product with Serializable {
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
 
-  val optimizeAtomicApps: Boolean = true //dev-time switch
-
   sealed abstract class SExprAtomic extends SExpr {
     def evaluate(machine: Machine): SValue
   }
@@ -118,28 +116,65 @@ object SExpr {
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application. Apply 'args' to function 'fun', where 'fun'
-    * evaluates to a builtin or a closure.
-    */
-  final case class SEAppE(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+  /** Function application:
+    General case: 'fun' and 'args' are any kind of expression */
+  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KArg(args, machine.frame, machine.actuals, machine.env.size))
       machine.ctrl = fun
     }
   }
 
-  final case class SEAppA(fun: SExprAtomic, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
+  /** Function application:
+    Special case: 'fun' is an atomic expression. */
+  final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       val vfun = fun.evaluate(machine)
       executeApplication(machine, vfun, args)
     }
   }
 
+  /** Function application:
+    Special case: 'fun' is a builtin; size of `args' matches the builtin arity.
+    */
+  // A fully saturated builtin application
+  final case class SEAppSaturatedBuiltinFun(builtin: SBuiltin, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
+    if (args.size != builtin.arity) {
+      throw SErrorCrash(s"SEAppB: arg.size != builtin.arity")
+    }
+    def execute(machine: Machine): Unit = {
+      val arity = builtin.arity
+      val actuals = new util.ArrayList[SValue](arity)
+      machine.pushKont(KBuiltin(builtin, actuals))
+      evaluateArguments(machine, actuals, args, args.length);
+    }
+  }
+
   object SEApp {
+
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       fun match {
-        case vfun: SExprAtomic if optimizeAtomicApps => SEAppA(vfun, args)
-        case _ => SEAppE(fun, args)
+        // Detect special cases of function-application which can we executed more efficiently
+
+        case SEBuiltin(builtin) if builtin.arity == args.length =>
+          SEAppSaturatedBuiltinFun(builtin, args)
+
+        case SEBuiltin(builtin) if builtin.arity < args.length =>
+          val arity = builtin.arity
+          val extra = args.length - arity
+          val arityArgs = new Array[SExpr](arity)
+          val extraArgs = new Array[SExpr](extra)
+          System.arraycopy(args, 0, arityArgs, 0, arity)
+          System.arraycopy(args, arity, extraArgs, 0, extra)
+          SEApp(SEAppSaturatedBuiltinFun(builtin, arityArgs), extraArgs)
+
+        case vfun: SExprAtomic => SEAppAtomicFun(vfun, args)
+
+        case _ => SEAppGeneral(fun, args) // fall back to the general case
       }
     }
   }

@@ -107,28 +107,41 @@ object TriggerRunnerImpl {
               // actor.
               throw new InitializationException("User stopped")
             } else {
-              // The trigger is a future that we only expect to
-              // complete if something goes wrong.
-              val (killSwitch, trigger) = runner.runWithACS(
-                acs,
-                offset,
-                msgFlow = KillSwitches.single[TriggerMsg],
-                name,
-              )
-              // TODO If we are stopped we will end up causing the
-              // future to complete which will trigger a message that
-              // is sent to a now terminated actor. We should fix this
-              // somehow™.
-              ctx.pipeToSelf(trigger) {
-                case Success(_) =>
-                  Failed(new RuntimeException("Trigger exited unexpectedly"))
-                case Failure(cause) =>
-                  Failed(cause)
+              // It's possible for 'runWithACS' to throw (fail to
+              // construct a flow).
+              try {
+                // The trigger is a future that we only expect to
+                // complete if something goes wrong.
+                val (killSwitch, trigger) = runner.runWithACS(
+                  acs,
+                  offset,
+                  msgFlow = KillSwitches.single[TriggerMsg],
+                  name,
+                )
+                // TODO If we are stopped we will end up causing the
+                // future to complete which will trigger a message that
+                // is sent to a now terminated actor. We should fix this
+                // somehow™.
+                ctx.pipeToSelf(trigger) {
+                  case Success(_) =>
+                    Failed(new RuntimeException("Trigger exited unexpectedly"))
+                  case Failure(cause) =>
+                    Failed(cause)
+                }
+                // Report to the server that this trigger is entering
+                // the running state.
+                config.server ! TriggerStarted(runningTrigger)
+                running(killSwitch)
+              } catch {
+                case cause: Throwable =>
+                  // Report the failure to the server.
+                  config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
+                  // Tell our monitor there's been a failure. The
+                  // monitor's supervisor strategy will respond to this by
+                  // writing the exception to the log and stopping this
+                  // actor.
+                  throw new InitializationException("Couldn't start: " + cause.toString)
               }
-              // Report to the server that this trigger is entering
-              // the running state.
-              config.server ! TriggerStarted(runningTrigger)
-              running(killSwitch)
             }
           case Stop =>
             // We got a stop message but the ACS query hasn't

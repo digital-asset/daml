@@ -654,6 +654,27 @@ object Speedy {
     }
   }
 
+  /** Evaluate the first 'n' arguments in 'args'.
+    'args' will contain at least 'n' expressions, but it may contain more(!)
+
+    This is because, in the call from 'executeApplication' below, although over-applied
+    arguments are pushed into a continuation, they are not removed from the original array
+    which is passed here as 'args'.
+    */
+  def evaluateArguments(
+      machine: Machine,
+      actuals: util.ArrayList[SValue],
+      args: Array[SExpr],
+      n: Int) = {
+    var i = 1
+    while (i < n) {
+      val arg = args(n - i)
+      machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
+      i = i + 1
+    }
+    machine.ctrl = args(0)
+  }
+
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   def executeApplication(machine: Machine, vfun: SValue, newArgs: Array[SExpr]): Unit = {
     vfun match {
@@ -692,15 +713,7 @@ object Speedy {
               machine.pushKont(KBuiltin(builtin, actuals))
           }
         }
-
-        // Start evaluating the arguments.
-        var i = 1
-        while (i < newArgsLimit) {
-          val arg = newArgs(newArgsLimit - i)
-          machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
-          i = i + 1
-        }
-        machine.ctrl = newArgs(0)
+        evaluateArguments(machine, actuals, newArgs, newArgsLimit)
 
       case _ =>
         crash(s"Applying non-PAP: $vfun")

@@ -1045,15 +1045,19 @@ private[lf] final case class Compiler(
       case x: SEMakeClo =>
         throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
 
-      case SEAppE(fun, args) =>
+      case SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
 
-      case SEAppA(fun, args) =>
+      case SEAppAtomicFun(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
+
+      case SEAppSaturatedBuiltinFun(builtin, args) =>
+        val newArgs = args.map(closureConvert(remaps, _))
+        SEAppSaturatedBuiltinFun(builtin, newArgs)
 
       case SECase(scrut, alts) =>
         SECase(
@@ -1133,11 +1137,13 @@ private[lf] final case class Compiler(
         case _: SEBuiltinRecursiveDefinition => ()
         case SELocation(_, body) =>
           go(body)
-        case SEAppE(fun, args) =>
+        case SEAppGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
-        case SEAppA(fun, args) =>
+        case SEAppAtomicFun(fun, args) =>
           go(fun)
+          args.foreach(go)
+        case SEAppSaturatedBuiltinFun(_, args) =>
           args.foreach(go)
         case SEAbs(n, body) =>
           bound += n
@@ -1222,11 +1228,13 @@ private[lf] final case class Compiler(
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
-        case SEAppE(fun, args) =>
+        case SEAppGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
-        case SEAppA(fun, args) =>
+        case SEAppAtomicFun(fun, args) =>
           go(fun)
+          args.foreach(go)
+        case SEAppSaturatedBuiltinFun(_, args) =>
           args.foreach(go)
         case x: SEVar =>
           throw CompilationError(s"validate: SEVar encountered: $x")
