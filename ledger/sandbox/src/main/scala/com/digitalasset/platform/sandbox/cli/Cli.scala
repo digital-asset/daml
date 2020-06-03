@@ -266,14 +266,19 @@ object Cli {
         .optional()
         .action((value, config) =>
           config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value)))
-        .text("The maximum number of unconfirmed commands in flight in CommandService.")
+        .text("Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256.")
 
       opt[Int]("max-parallel-submissions")
         .optional()
         .action((value, config) =>
           config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value)))
-        .text(
-          "The maximum number of parallel command submissions. Only applicable to sandbox-classic.")
+        .text("Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties, overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
+
+      opt[Int]("input-buffer-size")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value)))
+        .text("The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
 
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
