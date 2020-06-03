@@ -40,6 +40,10 @@ cd "$(dirname "$0")"/..
 
 step "configuring bazel"
 
+# We include the rules_haskell revision in the suffix since
+# it sometimes breaks Windows due to the lack of sandboxing.
+RULES_HASKELL_REV="$(sed -n 's/rules_haskell_version = "\(.*\)"$/\1/p' deps.bzl)"
+
 if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
     cd "$BAZEL_CONFIG_DIR"
 fi
@@ -64,8 +68,8 @@ if is_windows; then
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
   echo "Working directory: $PWD"
-  SUFFIX="$(echo $PWD | md5sum)"
-  SUFFIX="${SUFFIX:0:2}"
+  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -binary | openssl enc -base64)"
+  SUFFIX="${SUFFIX:0:3}"
   echo "Platform suffix: $SUFFIX"
   echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
 fi
