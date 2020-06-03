@@ -1,7 +1,7 @@
 # Collectd metrics
 
 
-## Collectd installation - MacOs
+## Collectd installation - macOS
 
 First, check whether the directory `/usr/local/sbin` exists on your machine.
 This directory does not exist on MacOs by default, and homebrew will try to link
