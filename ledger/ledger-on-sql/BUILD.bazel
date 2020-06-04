@@ -242,7 +242,7 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--all-tests",
-                "--exclude-regex=ConfigManagementService",
+                "--exclude-regex=ConfigManagement",
             ],
         ),
         conformance_test(

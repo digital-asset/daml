@@ -124,7 +124,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--all-tests",
-        "--exclude-regex=ConfigManagementService",
+        "--exclude-regex=ConfigManagement",
     ],
 )
 
@@ -144,7 +144,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--all-tests",
-        "--exclude-regex=ConfigManagementService",
+        "--exclude-regex=ConfigManagement",
     ],
 )
 
