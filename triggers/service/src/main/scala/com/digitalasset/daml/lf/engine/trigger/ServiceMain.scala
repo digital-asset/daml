@@ -393,6 +393,11 @@ object Server {
             server.logTriggerStatus(runningTrigger, "running")
             server.addRunningTrigger(runningTrigger) match {
               case Left(err) =>
+                // The trigger has just advised it's in the running
+                // state but updating the running trigger table has
+                // failed. This error condition is exogenous to the
+                // runner. We therefore need to tell it explicitly to
+                // stop.
                 val msg = "Failed to add running trigger to database.\n" + err
                 ctx.self ! TriggerInitializationFailure(runningTrigger, msg)
                 runningTrigger.runner ! TriggerRunner.Stop
@@ -400,20 +405,21 @@ object Server {
               case Right(()) => Behaviors.same
             }
           case TriggerInitializationFailure(runningTrigger, cause) =>
-            // The trigger has failed to start.
+            // The trigger has failed to start. No need to update the
+            // running triggers tables since this trigger never made
+            // it there.
             server.logTriggerStatus(runningTrigger, "stopped: initialization failure")
-            // No need to update the running triggers tables since
-            // this trigger never made it there.
+            // Don't send any messages to the runner here (it's either
+            // already been explicitly stopped [see above] or is under
+            // the management of a supervision strategy).
             Behaviors.same
           case TriggerRuntimeFailure(runningTrigger, cause) =>
             // The trigger has failed. Remove it from the running
             // triggers tables.
             server.logTriggerStatus(runningTrigger, "stopped: runtime failure")
             server.removeRunningTrigger(runningTrigger)
-            // Don't send any messages to the runner. Its supervision
-            // strategy will automatically restart the trigger up to
-            // some number of times beyond which it will remain
-            // stopped.
+            // Don't send any messages to the runner here (it's under
+            // the management of a supervision strategy).
             Behaviors.same
           case GetServerBinding(replyTo) =>
             replyTo ! binding
