@@ -6,7 +6,7 @@ Note: If you encounter bugs. Please report issues you find in the #team-ledger-a
 
 To build a fat JAR with the sandbox built from HEAD run
 
-    bazel build //ledger/sandbox:sandbox-binary
+    bazel build //ledger/sandbox:sandbox-binary_deploy.jar
 
 Sandbox application can be run from command line with the following command:
 
