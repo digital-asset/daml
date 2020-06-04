@@ -158,7 +158,7 @@ excluded_test_tool_tests = {
         {
             "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
             "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusion-regexes": ["ContractKeys"],
+            #"exclusion-regexes": ["ContractKeys"],
         },
     ],
 }
