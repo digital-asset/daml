@@ -30,7 +30,8 @@ final class HikariConnection(
     metrics: Option[MetricRegistry],
     connectionPoolPrefix: String,
     maxInitialConnectRetryAttempts: Int,
-)(implicit logCtx: LoggingContext) extends ResourceOwner[HikariDataSource] {
+)(implicit logCtx: LoggingContext)
+    extends ResourceOwner[HikariDataSource] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -59,7 +60,8 @@ final class HikariConnection(
         waitTime = 1.second
       ) { (i, _) =>
         Future {
-          logger.info(s"Attempting to connect to Postgres (attempt ${i + 1}/${maxInitialConnectRetryAttempts})")
+          logger.info(
+            s"Attempting to connect to Postgres (attempt ${i + 1}/${maxInitialConnectRetryAttempts})")
           new HikariDataSource(config)
         }
       }
