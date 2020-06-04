@@ -37,19 +37,12 @@ class TriggerRunner(
 
   import TriggerRunner.{Message, Stop}
 
-  // Spawn a trigger runner impl. Supervise it. If it fails to start
-  // its runner, send it a stop message (the server will later send us
-  // a stop message in due course in this case so this actor will get
-  // garbage collected too). If it something bad happens when the
-  // trigger is running, try to restart it up to 3 times.
+  // Spawn a trigger runner impl. Supervise it.
   private val child =
     ctx.spawn(
       Behaviors
-        .supervise(
-          Behaviors
-            .supervise(TriggerRunnerImpl(ctx.self, config))
-            .onFailure[InitializationException](stop))
-        .onFailure[RuntimeException](
+        .supervise(TriggerRunnerImpl(ctx.self, config))
+        .onFailure(
           restart.withLimit(config.maxFailureNumberOfRetries, config.failureRetryTimeRange)),
       name
     )

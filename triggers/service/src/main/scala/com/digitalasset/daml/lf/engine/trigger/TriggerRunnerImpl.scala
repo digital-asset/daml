@@ -10,6 +10,7 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import com.daml.lf.CompiledPackages
@@ -137,9 +138,10 @@ object TriggerRunnerImpl {
                   // Report the failure to the server.
                   config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
                   // Tell our monitor there's been a failure. The
-                  // monitor's supervisor strategy will respond to this by
-                  // writing the exception to the log and stopping this
-                  // actor.
+                  // monitor's supervisor strategy will respond to
+                  // this by writing the exception to the log and
+                  // attempting to restart this actor up to some
+                  // number of times.
                   throw new InitializationException("Couldn't start: " + cause.toString)
               }
             }

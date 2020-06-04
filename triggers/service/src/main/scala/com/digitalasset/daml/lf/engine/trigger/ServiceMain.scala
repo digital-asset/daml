@@ -399,11 +399,8 @@ object Server {
               case Right(()) => Behaviors.same
             }
           case TriggerInitializationFailure(runningTrigger, cause) =>
-            // The trigger has failed to start. Send the runner a stop
-            // message. There's no point in it remaining alive since
-            // its child actor is stopped and won't be restarted.
+            // The trigger has failed to start.
             server.logTriggerStatus(runningTrigger, "stopped: initialization failure")
-            runningTrigger.runner ! TriggerRunner.Stop
             // No need to update the running triggers tables since
             // this trigger never made it there.
             Behaviors.same
