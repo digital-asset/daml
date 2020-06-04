@@ -23,15 +23,17 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    connectionProviderResource = HikariJdbcConnectionProvider
-      .owner(
-        ServerRole.Testing(getClass),
-        postgresDatabase.url,
-        maxConnections = 4,
-        new MetricRegistry,
-      )
-      .acquire()(DirectExecutionContext)
-    connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
+    newLoggingContext { implicit logCtx =>
+      connectionProviderResource = HikariJdbcConnectionProvider
+        .owner(
+          ServerRole.Testing(getClass),
+          postgresDatabase.url,
+          maxConnections = 4,
+          new MetricRegistry,
+        )
+        .acquire()(DirectExecutionContext)
+      connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
+    }
   }
 
   override protected def afterAll(): Unit = {
