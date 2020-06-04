@@ -16,7 +16,7 @@ steps:
         MESSAGE=${{ parameters['success-message'] }}
     fi
     PAYLOAD="{\"text\":\"$MESSAGE\n\"}"
-    if [ "$(variables['Build.SourceBranchName'])" = "master" ]; then
+    if [ "$(Build.SourceBranchName)" = "master" ]; then
         curl -XPOST \
              -i \
              -H 'Content-type: application/json' \
