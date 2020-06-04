@@ -72,6 +72,15 @@ object TriggerDao {
       *> createPartyIndex.update.run).void
   }
 
+  // Drop all tables and other objects associated with the database.
+  // Only used between tests for now.
+  def destroy: ConnectionIO[Unit] = {
+    val dropTriggerTable: Fragment = sql"drop table running_triggers"
+    val dropDalfTable: Fragment = sql"drop table dalfs"
+    (dropTriggerTable.update.run
+      *> dropDalfTable.update.run).void
+  }
+
   def addRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
     val partyToken = t.jwt.value
     val fullTriggerName = t.triggerName.toString

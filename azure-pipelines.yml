@@ -82,8 +82,13 @@ jobs:
       - checkout: self
       - bash: ci/check-changelog.sh $(fork_sha)
 
+  - template: ci/da-ghc-lib/compile.yml
+    parameters:
+      final_job_name: da_ghc_lib
+
   - job: Linux
     dependsOn:
+      - da_ghc_lib
       - check_for_release
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -121,6 +126,7 @@ jobs:
 
   - job: macOS
     dependsOn:
+      - da_ghc_lib
       - check_for_release
     timeoutInMinutes: 360
     pool:
@@ -155,6 +161,7 @@ jobs:
 
   - job: Windows
     dependsOn:
+      - da_ghc_lib
       - check_for_release
       - patch_bazel_windows
     variables:
@@ -191,6 +198,7 @@ jobs:
 
   - job: compatibility_ts_libs
     dependsOn:
+      - da_ghc_lib
       - check_for_release
     timeoutInMinutes: 60
     pool:
@@ -205,6 +213,7 @@ jobs:
 
   - job: compatibility_linux
     dependsOn:
+      - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
     timeoutInMinutes: 60
@@ -222,6 +231,7 @@ jobs:
 
   - job: compatibility_macos
     dependsOn:
+      - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
     timeoutInMinutes: 60
@@ -238,6 +248,7 @@ jobs:
 
   - job: compatibility_windows
     dependsOn:
+      - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
       - patch_bazel_windows
@@ -470,7 +481,9 @@ jobs:
       - template: ci/report-end.yml
 
   - job: write_ledger_dump
-    dependsOn: [ "check_for_release" ]
+    dependsOn:
+      - check_for_release
+      - da_ghc_lib
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),

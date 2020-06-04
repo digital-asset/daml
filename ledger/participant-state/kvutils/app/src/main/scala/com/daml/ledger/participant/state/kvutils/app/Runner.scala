@@ -94,6 +94,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 transformIndexService = service => new TimedIndexService(service, metrics),
                 metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
+                otherInterceptors = factory.interceptors(config),
                 engine = sharedEngine,
                 lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
