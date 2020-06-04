@@ -90,6 +90,13 @@ object TriggerDao {
     insertTrigger.update.run.void
   }
 
+  def removeRunningTrigger(triggerInstance: UUID): ConnectionIO[Boolean] = {
+    val delete = sql"delete from running_triggers where trigger_instance = '$triggerInstance'"
+    // trigger_instance is the primary key on running_triggers so this deletes
+    // at most one row. Return whether it deleted or not.
+    delete.update.run.map(_ == 1)
+  }
+
   def getTriggersForParty(partyToken: Jwt): ConnectionIO[Vector[UUID]] = {
     val select = Fragment.const("select trigger_instance from running_triggers")
     val where = Fragment.const(s" where party_token = '${partyToken.value}'")
