@@ -116,8 +116,12 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
   }
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
-    triggers -= t.triggerInstance
-    triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
+    triggerDao match {
+      case None =>
+        triggers -= t.triggerInstance
+        triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
+      case Some(dao) =>
+    }
   }
 
   private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
