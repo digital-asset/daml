@@ -79,7 +79,8 @@ trait ConfigProvider[ExtraConfig] {
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def interceptors(config: Config[ExtraConfig]): List[ServerInterceptor] = List.empty
+  def interceptors(config: Config[ExtraConfig]): List[ServerInterceptor] =
+    List.empty
 
   def createMetrics(
       participantConfig: ParticipantConfig,
