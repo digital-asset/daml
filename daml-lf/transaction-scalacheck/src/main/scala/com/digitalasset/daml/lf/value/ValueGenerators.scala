@@ -247,7 +247,7 @@ object ValueGenerators {
   @deprecated("use genNonEmptyParties instead", since = "100.11.17")
   private[lf] def genParties = genNonEmptyParties
 
-  val contractInstanceGen: Gen[ContractInst[Tx.Value[Tx.TContractId]]] = {
+  val contractInstanceGen: Gen[ContractInst[Tx.Value[Value.ContractId]]] = {
     for {
       template <- idGen
       arg <- versionedValueGen
@@ -255,7 +255,7 @@ object ValueGenerators {
     } yield ContractInst(template, arg, agreement)
   }
 
-  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Tx.Value[Tx.TContractId]]] = {
+  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Tx.Value[Value.ContractId]]] = {
     for {
       key <- versionedValueGen
       maintainers <- genNonEmptyParties
@@ -267,7 +267,7 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Tx.TContractId]] = {
+  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Value.ContractId]] = {
     for {
       coid <- coidGen
       coinst <- contractInstanceGen
@@ -290,7 +290,7 @@ object ValueGenerators {
 
   /** Makes exercise nodes with some random child IDs. */
   val danglingRefExerciseNodeGen
-    : Gen[NodeExercises[Tx.NodeId, Tx.TContractId, Tx.Value[Tx.TContractId]]] = {
+    : Gen[NodeExercises[Tx.NodeId, Value.ContractId, Tx.Value[Value.ContractId]]] = {
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -390,7 +390,7 @@ object ValueGenerators {
             2 -> fetchNodeGen
           )
           nodeWithChildren <- node match {
-            case node: NodeExercises.WithTxValue[Tx.NodeId, Tx.TContractId] =>
+            case node: NodeExercises.WithTxValue[Tx.NodeId, Value.ContractId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)

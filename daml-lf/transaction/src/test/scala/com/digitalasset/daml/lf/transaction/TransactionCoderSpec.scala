@@ -37,7 +37,7 @@ class TransactionCoderSpec
 
   "encode-decode" should {
     "do contractInstance" in {
-      forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Tx.TContractId]] =>
+      forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Value.ContractId]] =>
         Right(coinst) shouldEqual TransactionCoder.decodeContractInstance(
           ValueCoder.CidDecoder,
           TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst).toOption.get,
@@ -47,7 +47,7 @@ class TransactionCoderSpec
 
     "do NodeCreate" in {
       forAll(malformedCreateNodeGen, valueVersionGen()) {
-        (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], _: ValueVersion) =>
+        (node: NodeCreate[Value.ContractId, Tx.Value[Value.ContractId]], _: ValueVersion) =>
           val encodedNode = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -74,7 +74,7 @@ class TransactionCoderSpec
 
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
-        (node: NodeFetch.WithTxValue[Tx.TContractId], _: ValueVersion) =>
+        (node: NodeFetch.WithTxValue[Value.ContractId], _: ValueVersion) =>
           val encodedNode =
             TransactionCoder
               .encodeNode(
@@ -101,7 +101,7 @@ class TransactionCoderSpec
 
     "do NodeExercises" in {
       forAll(danglingRefExerciseNodeGen) {
-        node: NodeExercises[Tx.NodeId, Tx.TContractId, Tx.Value[Tx.TContractId]] =>
+        node: NodeExercises[Tx.NodeId, Value.ContractId, Tx.Value[Value.ContractId]] =>
           val encodedNode =
             TransactionCoder
               .encodeNode(
@@ -135,7 +135,7 @@ class TransactionCoderSpec
               .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, t),
           )
 
-        val decodedVersionedTx: VersionedTransaction[Tx.NodeId, Tx.TContractId] =
+        val decodedVersionedTx: VersionedTransaction[Tx.NodeId, Value.ContractId] =
           assertRight(
             TransactionCoder
               .decodeVersionedTransaction(
