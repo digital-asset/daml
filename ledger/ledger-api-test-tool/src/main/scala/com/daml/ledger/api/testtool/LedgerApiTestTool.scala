@@ -41,7 +41,7 @@ object LedgerApiTestTool {
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
-  private def printAvailableTests(config : Config): Unit = {
+  private def printAvailableTests(config: Config): Unit = {
     val session = new LedgerSession(
       LedgerSessionConfiguration(
         config.participants,
@@ -50,17 +50,20 @@ object LedgerApiTestTool {
         config.loadScaleFactor,
         config.partyAllocation,
       ),
-      new ParticipantSessionManager)(ExecutionContext.global)
+      new ParticipantSessionManager
+    )(ExecutionContext.global)
     def print_suites(suites: Map[String, LedgerSession => LedgerTestSuite]): Unit = {
-      suites.toSeq.sortBy({ case (name, _) => name }).foreach({
-        case (name, toSuite) => {
-          val suite = toSuite(session)
-          println("\t" + name)
-          suite.tests.foreach(test => {
-            println("\t\t" + suite.name.toString + ":" + test.shortIdentifier.toString)
-          })
-        }
-      })
+      suites.toSeq
+        .sortBy({ case (name, _) => name })
+        .foreach({
+          case (name, toSuite) => {
+            val suite = toSuite(session)
+            println("\t" + name)
+            suite.tests.foreach(test => {
+              println("\t\t" + suite.name.toString + ":" + test.shortIdentifier.toString)
+            })
+          }
+        })
       println
     }
     println("These test suites are included by default:")
