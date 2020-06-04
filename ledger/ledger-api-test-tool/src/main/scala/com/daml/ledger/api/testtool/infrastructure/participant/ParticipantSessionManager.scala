@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
-private[infrastructure] final class ParticipantSessionManager {
+private[testtool] final class ParticipantSessionManager {
 
   private[this] val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
 

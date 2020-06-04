@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 import java.nio.file.{Path, Paths}
+import java.util.regex.Pattern
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.buildinfo.BuildInfo
@@ -127,11 +128,20 @@ object Cli {
       )
 
     opt[Seq[String]]("exclude")
-      .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
+      .action((ex, c) => {
+        System.err.println(
+          "WARNING: --exclude in its current form is deprecated. Please use --exclude-regex instead.")
+        c.copy(excluded = c.excluded ++ ex)
+      })
       .unbounded()
       .text(
-        """A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""",
+        """A comma-separated list of tests that should NOT be run. By default, no tests are excluded. This is deprecated and will be removed shortly; please use --exclude-regex instead.""",
       )
+
+    opt[String]("exclude-regex")
+      .action((regex, c) => c.copy(rexcluded = c.rexcluded + Pattern.compile(regex)))
+      .unbounded()
+      .text("""Can be specified multiple times. Each separate instance of this flag must be a regex (in Java format); any test that matches any of the provided regexes will be skipped. The regexex will be matched against the full name of the test, which is printed [inside brackets] when running.""")
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))
@@ -150,7 +160,7 @@ object Cli {
 
     opt[Unit]("all-tests")
       .action((_, c) => c.copy(allTests = true))
-      .text("""Run all default and optional tests. Respects the --exclude flag.""")
+      .text("""Run all default and optional tests. Respects the --exclude-regex flag.""")
 
     opt[Unit]("shuffle-participants")
       .action((_, c) => c.copy(shuffleParticipants = true))

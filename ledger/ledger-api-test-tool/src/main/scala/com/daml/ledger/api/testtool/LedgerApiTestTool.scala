@@ -14,8 +14,10 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestSuiteRunner,
   LedgerTestSummary
 }
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object LedgerApiTestTool {
@@ -39,16 +41,35 @@ object LedgerApiTestTool {
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
-  private def printAvailableTests(): Unit = {
-    println("Tests marked with * are run by default.")
+  private def printAvailableTests(config : Config): Unit = {
+    val session = new LedgerSession(
+      LedgerSessionConfiguration(
+        config.participants,
+        config.shuffleParticipants,
+        config.tlsConfig,
+        config.loadScaleFactor,
+        config.partyAllocation,
+      ),
+      new ParticipantSessionManager)(ExecutionContext.global)
+    def print_suites(suites: Map[String, LedgerSession => LedgerTestSuite]): Unit = {
+      suites.toSeq.sortBy({ case (name, _) => name }).foreach({
+        case (name, toSuite) => {
+          val suite = toSuite(session)
+          println("\t" + name)
+          suite.tests.foreach(test => {
+            println("\t\t" + suite.name.toString + ":" + test.shortIdentifier.toString)
+          })
+        }
+      })
+      println
+    }
+    println("These test suites are included by default:")
+    print_suites(Tests.default)
     println(
-      "You can include extra tests with `--include=TEST-NAME`, or run all tests with `--all-tests`.\n")
-    Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
-    Tests.optional.keySet.toSeq.sorted.foreach(println(_))
-
-    println("\nAlternatively, you can run performance tests.")
+      "These test suites are optional; you can run them either by specifying `--all-tests` or by selecting them individually with `--include`:")
+    print_suites(Tests.optional)
     println(
-      "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`.\n")
+      "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`:")
     Tests.PerformanceTestsKeys.sorted.foreach(println(_))
   }
 
@@ -69,7 +90,7 @@ object LedgerApiTestTool {
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
     if (config.listTests) {
-      printAvailableTests()
+      printAvailableTests(config)
       sys.exit(0)
     }
 
@@ -161,5 +182,6 @@ object LedgerApiTestTool {
       identifierSuffix,
       config.timeoutScaleFactor,
       concurrencyOverride.getOrElse(config.concurrentTestRuns),
+      config.rexcluded
     )
 }

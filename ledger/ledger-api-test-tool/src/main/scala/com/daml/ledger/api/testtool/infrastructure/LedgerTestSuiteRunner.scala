@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.concurrent.{ExecutionException, TimeoutException}
 import java.util.{Timer, TimerTask}
+import java.util.regex.Pattern
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -39,6 +40,7 @@ final class LedgerTestSuiteRunner(
     identifierSuffix: String,
     suiteTimeoutScale: Double,
     concurrentTestRuns: Int,
+    excluded: Set[Pattern]
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
@@ -106,7 +108,12 @@ final class LedgerTestSuiteRunner(
       result: Either[Result.Failure, Result.Success])(
       implicit ec: ExecutionContext,
   ): LedgerTestSummary =
-    LedgerTestSummary(suite.name, test.description, suite.session.config, result)
+    LedgerTestSummary(
+      suite.name,
+      test.description,
+      test.shortIdentifier,
+      suite.session.config,
+      result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext,
@@ -131,7 +138,19 @@ final class LedgerTestSuiteRunner(
     Source(tests)
       .mapAsyncUnordered(concurrentTestRuns) {
         case ((suite, test), index) =>
-          run(test, suite.session).map(testResult => (suite, test, testResult) -> index)
+          val matchName: String = suite.name + ":" + test.shortIdentifier
+          val matchings: Seq[Pattern] = excluded.toSeq.filter(_.matcher(matchName).find)
+          if (matchings.isEmpty) {
+            run(test, suite.session).map(testResult => (suite, test, testResult) -> index)
+          } else {
+            Future.successful(
+              (
+                suite,
+                test,
+                Right(Result.Skipped("Excluded by: " + matchings.toSeq
+                  .map(r => "'" + r.toString + "'")
+                  .mkString("; ")))) -> index)
+          }
       }
       .map {
         case ((suite, test, testResult), index) => summarize(suite, test, testResult) -> index

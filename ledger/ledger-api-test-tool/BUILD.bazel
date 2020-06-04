@@ -125,6 +125,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//daml-lf/data",
         ":ledger-api-test-tool-lib",
         ":ledger-api-test-tool-tests",
         "//ledger/ledger-api-common",

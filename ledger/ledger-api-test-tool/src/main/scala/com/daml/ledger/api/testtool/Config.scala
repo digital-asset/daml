@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 import java.nio.file.Path
+import java.util.regex.Pattern
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -20,6 +21,7 @@ final case class Config(
     extract: Boolean,
     tlsConfig: Option[TlsConfiguration],
     excluded: Set[String],
+    rexcluded: Set[Pattern],
     included: Set[String],
     performanceTests: Set[String],
     performanceTestsReport: Option[Path],
@@ -41,6 +43,7 @@ object Config {
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,
+    rexcluded = Set.empty,
     included = Set.empty,
     performanceTests = Set.empty,
     performanceTestsReport = None,

@@ -79,9 +79,15 @@ Tests that either change the global state of the ledger (e.g. configuration mana
 Use the following command line flags to select which tests to run:
 
 - ``--list``: print all available tests to the console, shows if they are run by default
-- ``--include``: only run the tests provided as argument
-- ``--exclude``: do not run the tests provided as argument
+- ``--include``: only run the test suites provided as argument
+- ``--exclude``: **[DEPRECATED]** do not run the test suites provided as argument
+- ``--exclude-regex``: skip tests that match the given regex; can be given multiple times to specify multiple regexes
 - ``--all-tests``: run all default and optional tests. This flag can be combined with the ``--exclude`` flag.
+
+Note: if both ``--include`` and ``--exclude-regex`` are given, the set of tests
+that actually gets run is all the tests in the included test suites that do not
+match any of the given regexes (i.e. exclusion always wins; both options can
+only reduce the set of tests run).
 
 Examples (hitting a single participant at ``localhost:6865``):
 

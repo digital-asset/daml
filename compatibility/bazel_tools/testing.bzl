@@ -153,12 +153,12 @@ excluded_test_tool_tests = {
     "0.0.0": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
+            "exclusion-regexes": ["ContractKeys"],
         },
         {
             "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
             "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
+            "exclusion-regexes": ["ContractKeys"],
         },
     ],
 }
@@ -166,6 +166,7 @@ excluded_test_tool_tests = {
 def get_excluded_tests(test_tool_version, sandbox_version):
     exclusion_ranges = excluded_test_tool_tests.get(test_tool_version, default = [])
     exclusions = []
+    regexes = []
     for range in exclusion_ranges:
         start = range.get("start")
         end = range.get("end")
@@ -174,7 +175,8 @@ def get_excluded_tests(test_tool_version, sandbox_version):
         if end and not versions.is_at_most(end, sandbox_version):
             continue
         exclusions += range["exclusions"]
-    return exclusions
+        regexes += range["exclusion-regexes"]
+    return (exclusions, regexes)
 
 def extra_tags(sdk_version, platform_version):
     if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable_version]):
@@ -387,7 +389,8 @@ def sdk_platform_test(sdk_version, platform_version):
         sdk_version = version_to_name(sdk_version),
         platform_version = version_to_name(platform_version),
     )
-    exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
+    (tests, pats) = get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)
+    exclusions = ["--exclude=" + test for test in tests].extend(["--exclude-regex=" + pat for pat in pats])
     client_server_test(
         name = name,
         client = ledger_api_test_tool,

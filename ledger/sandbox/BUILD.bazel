@@ -389,8 +389,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
-        "--exclude=ClosedWorldIT",
+        "--exclude-regex=ConfigManagementService",
+        "--exclude-regex=ClosedWorld",
     ],
 )
 
@@ -403,8 +403,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
-        "--exclude=ClosedWorldIT",
+        "--exclude-regex=ConfigManagementService",
+        "--exclude-regex=ClosedWorld",
     ],
 )
 
@@ -442,8 +442,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
-        "--exclude=ClosedWorldIT",
+        "--exclude-regex=ConfigManagementService",
+        "--exclude-regex=ClosedWorld",
     ],
 )
 
@@ -475,8 +475,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--all-tests",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ConfigManagementServiceIT",
+        "--exclude-regex=ClosedWorld",
+        "--exclude-regex=ConfigManagementService",
     ],
 )
 
@@ -489,8 +489,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--all-tests",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ConfigManagementServiceIT",
+        "--exclude-regex=ClosedWorld",
+        "--exclude-regex=ConfigManagementService",
     ],
 )
 
