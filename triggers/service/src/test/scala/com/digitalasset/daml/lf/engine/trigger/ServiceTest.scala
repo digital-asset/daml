@@ -413,7 +413,11 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart a failing trigger if possible" in withHttpService(Some(dar)) {
+  // TODO(SF, 2020-06-05): This test is temporarily disabled as too
+  // fragile. There is a race condition on the trigger restart and the
+  // network being unavailable (see
+  // https://dev.azure.com/digitalasset/adadc18a-d7df-446a-aacb-86042c1619c6/_apis/build/builds/45230/logs/124).
+  ignore should "restart a failing trigger if possible" in withHttpService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       // Simulate the ledger briefly being unavailable due to network
       // connectivity loss. Our restart strategy means that the running
