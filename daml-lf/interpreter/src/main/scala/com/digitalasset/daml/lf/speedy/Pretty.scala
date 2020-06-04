@@ -49,7 +49,7 @@ object Pretty {
       case DamlETemplatePreconditionViolated(tid, optLoc @ _, arg) =>
         text("Update failed due to precondition violation when creating") &
           prettyTypeConName(tid) &
-          text("with") & prettyVersionedValue(true)(arg)
+          text("with") & prettyValue(true)(arg)
 
       case DamlELocalContractNotActive(coid, tid, consumedBy) =>
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
@@ -62,7 +62,7 @@ object Pretty {
               case None =>
                 (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
               case Some(node) =>
-                (line + prettyTransactionNode(node)).nested(4)
+                (line + prettyPartialTransactionNode(node)).nested(4)
             })
 
       case DamlEWronglyTypedContract(coid, expected, actual) =>
@@ -73,18 +73,18 @@ object Pretty {
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
-  def prettyTransactionNode(node: Transaction.Node): Doc =
+  def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case create: NodeCreate.WithTxValue[ContractId] =>
+      case create @ NodeCreate(_, _, _, _, _, _) =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch.WithTxValue[ContractId] =>
+      case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
+      case ex @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
-          text("with") & prettyVersionedValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey.WithTxValue[ContractId] =>
+          text("with") & prettyValue(false)(ex.chosenValue)
+      case lbk @ NodeLookupByKey(_, _, _, _) =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -248,9 +248,14 @@ object Pretty {
         text("mustFailAt") & prettyParty(amf.actor) & prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Transaction.Value[ContractId]]): Doc =
+  def prettyVersionedKeyWithMaintainers(
+      key: KeyWithMaintainers[Transaction.Value[ContractId]]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyVersionedValue(false)(key.key)
+
+  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value[ContractId]]): Doc =
+    // the maintainers are induced from the key -- so don't clutter
+    prettyValue(false)(key.key)
 
   def prettyNodeInfo(l: L.Ledger)(nodeId: L.ScenarioNodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
@@ -259,10 +264,10 @@ object Pretty {
     val ni = l.ledgerData.nodeInfos(nodeId) /* Ekke Ekke Ekke Ekke Ptang Zoo Boing! */
     val ppNode = ni.node match {
       case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
-        val d = "create" &: prettyContractInst(create.coinst)
+        val d = "create" &: prettyVersionedContractInst(create.coinst)
         create.key match {
           case None => d
-          case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
+          case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
         }
       case ea: NodeFetch[ContractId, Transaction.Value[ContractId]] =>
         "ensure active" &: prettyContractId(ea.coid)
@@ -284,7 +289,7 @@ object Pretty {
             .nested(4)
       case lbk: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
-          text("key") & prettyKeyWithMaintainers(lbk.key) /
+          text("key") & prettyVersionedKeyWithMaintainers(lbk.key) /
           (lbk.result match {
             case None => text("not found")
             case Some(coid) => text("found") & prettyContractId(coid)
@@ -332,7 +337,11 @@ object Pretty {
   def prettyLedgerNodeId(n: L.ScenarioNodeId): Doc =
     text(n)
 
-  def prettyContractInst(coinst: ContractInst[Transaction.Value[ContractId]]): Doc =
+  def prettyContractInst(coinst: ContractInst[Value[ContractId]]): Doc =
+    (prettyIdentifier(coinst.template) / text("with:") &
+      prettyValue(false)(coinst.arg)).nested(4)
+
+  def prettyVersionedContractInst(coinst: ContractInst[Transaction.Value[ContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyVersionedValue(false)(coinst.arg)).nested(4)
 

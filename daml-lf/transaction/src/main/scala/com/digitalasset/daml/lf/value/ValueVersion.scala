@@ -37,6 +37,13 @@ object ValueVersions
   def assignVersion[Cid](
       v0: Value[Cid],
       supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+  ): Either[String, ValueVersion] =
+    assignVersion(v0, supportedVersions.min, supportedVersions.max)
+
+  def assignVersion[Cid](
+      v0: Value[Cid],
+      minVersion: ValueVersion,
+      maxVersion: ValueVersion,
   ): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
     import VersionTimeline.Implicits._
@@ -84,8 +91,8 @@ object ValueVersions
       }
     }
 
-    go(supportedVersions.min, FrontStack(v0)) match {
-      case Right(inferredVersion) if supportedVersions.max precedes inferredVersion =>
+    go(minVersion, FrontStack(v0)) match {
+      case Right(inferredVersion) if maxVersion precedes inferredVersion =>
         Left(s"inferred version $inferredVersion is not supported")
       case res =>
         res

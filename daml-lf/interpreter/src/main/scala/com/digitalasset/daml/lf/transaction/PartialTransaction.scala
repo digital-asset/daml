@@ -7,13 +7,15 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
-import com.daml.lf.value.Value
+import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
 
 import scala.collection.immutable.HashMap
 
 object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
+  type Node = Node.GenNode[Value.NodeId, Value.ContractId, Value[Value.ContractId]]
+  type LeafNode = Node.LeafOnlyNode[Value.ContractId, Value[Value.ContractId]]
 
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
@@ -86,12 +88,12 @@ object PartialTransaction {
   case class ExercisesContext(
       targetId: Value.ContractId,
       templateId: TypeConName,
-      contractKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      contractKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
       actingParties: Set[Party],
-      chosenValue: Tx.Value[Value.ContractId],
+      chosenValue: Value[Value.ContractId],
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
@@ -148,7 +150,7 @@ object PartialTransaction {
 case class PartialTransaction(
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
-    nodes: HashMap[Value.NodeId, Tx.Node],
+    nodes: HashMap[Value.NodeId, PartialTransaction.Node],
     nodeSeeds: BackStack[(Value.NodeId, crypto.Hash)],
     byKeyNodes: BackStack[Value.NodeId],
     consumedBy: Map[Value.ContractId, Value.NodeId],
@@ -166,7 +168,7 @@ case class PartialTransaction(
 
       def addToStringBuilder(
           nid: Value.NodeId,
-          node: Node.GenNode.WithTxValue[Value.NodeId, Value.ContractId],
+          node: Node,
           rootPrefix: String,
       ): Unit = {
         sb.append(rootPrefix)
@@ -208,22 +210,35 @@ case class PartialTransaction(
     *  the 'PartialTransaction' is not yet complete or has been
     *  aborted.
     */
-  def finish: Either[PartialTransaction, Tx.Transaction] =
+  def finish(
+      supportedVersions: VersionRange[ValueVersion],
+  ): Either[PartialTransaction, Tx.Transaction] = {
+
+    val versionNode: Node => Tx.Node =
+      Node.GenNode.map3(
+        identity,
+        identity,
+        ValueVersions.asVersionedValue(_, supportedVersions).fold(SError.crash, identity)
+      )
+
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
-      GenTransaction(nodes = nodes, roots = context.children.toImmArray),
+      GenTransaction(
+        nodes = nodes.transform((_, n) => versionNode(n)),
+        roots = context.children.toImmArray),
       this
     )
+  }
 
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
   def insertCreate(
-      coinst: Value.ContractInst[Tx.Value[Value.ContractId]],
+      coinst: Value.ContractInst[Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
   ): Either[String, (Value.ContractId, PartialTransaction)] = {
     val serializableErrs = serializable(coinst.arg)
     if (serializableErrs.nonEmpty) {
@@ -257,13 +272,13 @@ case class PartialTransaction(
       key match {
         case None => Right((cid, ptx))
         case Some(kWithM) =>
-          val ck = Node.GlobalKey(coinst.template, kWithM.key.value)
+          val ck = Node.GlobalKey(coinst.template, kWithM.key)
           Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
       }
     }
   }
 
-  def serializable(a: Tx.Value[Value.ContractId]): ImmArray[String] = a.value.serializable()
+  def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
       coid: Value.ContractId,
@@ -272,7 +287,7 @@ case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
   ): PartialTransaction =
     mustBeActive(
@@ -295,7 +310,7 @@ case class PartialTransaction(
   def insertLookup(
       templateId: TypeConName,
       optLocation: Option[Location],
-      key: Node.KeyWithMaintainers[Tx.Value[Nothing]],
+      key: Node.KeyWithMaintainers[Value[Nothing]],
       result: Option[Value.ContractId],
   ): PartialTransaction =
     insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result), byKey = true)
@@ -310,9 +325,9 @@ case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
-      mbKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
-      chosenValue: Tx.Value[Value.ContractId],
+      chosenValue: Value[Value.ContractId],
   ): Either[String, PartialTransaction] = {
     val serializableErrs = serializable(chosenValue)
     if (serializableErrs.nonEmpty) {
@@ -351,7 +366,7 @@ case class PartialTransaction(
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(Node.GlobalKey(templateId, kWithM.key.value), None)
+                keys.updated(Node.GlobalKey(templateId, kWithM.key), None)
               case _ => keys
             },
           ),
@@ -360,7 +375,7 @@ case class PartialTransaction(
     }
   }
 
-  def endExercises(value: Tx.Value[Value.ContractId]): PartialTransaction =
+  def endExercises(value: Value[Value.ContractId]): PartialTransaction =
     context.exeContext match {
       case Some(ec) =>
         val exerciseNode = Node.NodeExercises(
@@ -409,7 +424,7 @@ case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: Tx.LeafNode, byKey: Boolean): PartialTransaction = {
+  def insertLeafNode(node: LeafNode, byKey: Boolean): PartialTransaction = {
     val nid = Value.NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
