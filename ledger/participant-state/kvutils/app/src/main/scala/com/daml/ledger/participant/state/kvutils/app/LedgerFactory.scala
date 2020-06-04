@@ -19,6 +19,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.resources.ResourceOwner
+import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
 trait ConfigProvider[ExtraConfig] {
@@ -77,6 +78,8 @@ trait ConfigProvider[ExtraConfig] {
 
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
+
+  def interceptors(config: Config[ExtraConfig]): List[ServerInterceptor] = List.empty
 
   def createMetrics(
       participantConfig: ParticipantConfig,
