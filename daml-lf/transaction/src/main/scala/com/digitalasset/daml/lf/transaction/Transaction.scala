@@ -424,6 +424,7 @@ object Transaction {
   type NodeId = Value.NodeId
   val NodeId = Value.NodeId
 
+  @deprecated("Use daml.lf.value.Value.ContraId directly", since = "1.3.1")
   type TContractId = Value.ContractId
 
   type Value[+Cid] = Value.VersionedValue[Cid]
@@ -431,8 +432,8 @@ object Transaction {
   type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
 
   /** Transaction nodes */
-  type Node = GenNode.WithTxValue[NodeId, TContractId]
-  type LeafNode = LeafOnlyNode.WithTxValue[TContractId]
+  type Node = GenNode.WithTxValue[NodeId, Value.ContractId]
+  type LeafNode = LeafOnlyNode.WithTxValue[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -442,7 +443,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
+  type Transaction = GenTransaction.WithTxValue[NodeId, Value.ContractId]
 
   /** Transaction meta data
     * @param submissionSeed: the submission seed used to derive the contract IDs.
@@ -481,7 +482,10 @@ object Transaction {
   /** Signals that the contract-id `coid` was expected to be active, but
     *  is not.
     */
-  final case class ContractNotActive(coid: TContractId, templateId: TypeConName, consumedBy: NodeId)
+  final case class ContractNotActive(
+      coid: Value.ContractId,
+      templateId: TypeConName,
+      consumedBy: NodeId)
       extends TransactionError
 
 }
