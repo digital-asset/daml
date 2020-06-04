@@ -390,7 +390,7 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = version_to_name(platform_version),
     )
     (tests, pats) = get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)
-    exclusions = ["--exclude=" + test for test in tests].extend(["--exclude-regex=" + pat for pat in pats])
+    exclusions = ["--exclude=" + test for test in tests] + ["--exclude-regex=" + pat for pat in pats]
     client_server_test(
         name = name,
         client = ledger_api_test_tool,
