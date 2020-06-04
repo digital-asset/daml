@@ -395,6 +395,7 @@ object Server {
               case Left(err) =>
                 val msg = "Failed to add running trigger to database.\n" + err
                 ctx.self ! TriggerInitializationFailure(runningTrigger, msg)
+                runningTrigger.runner ! TriggerRunner.Stop
                 Behaviors.same
               case Right(()) => Behaviors.same
             }
