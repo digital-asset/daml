@@ -153,7 +153,7 @@ excluded_test_tool_tests = {
     "0.0.0": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusion-regexes": ["ContractKeys"],
+            #"exclusion-regexes": ["ContractKeys"],
         },
         {
             "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
