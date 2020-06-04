@@ -31,10 +31,13 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.timer.RetryStrategy
+import org.scalatest.Assertions._
+
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
-import java.net.{Socket, ServerSocket, InetAddress}
+import java.net.{InetAddress, ServerSocket, Socket}
+
 import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
@@ -95,6 +98,15 @@ object TriggerServiceFixture {
       client <- LedgerClient.singleHost(host.getHostName(), ledgerPort, clientConfig(applicationId))
     } yield client
 
+    val triggerDao: Option[TriggerDao] =
+      jdbcConfig.map(c => {
+        val dao = TriggerDao(c)
+        ServiceMain.initDatabase(dao) match {
+          case Left(err) => fail("Failed to initialize database: " ++ err.toString)
+          case Right(()) => dao
+        }
+      })
+
     // Configure the service with the ledger's *proxy* port.
     val serviceF: Future[(ServerBinding, TypedActorSystem[Server.Message])] = for {
       (_, _, ledgerProxyPort, _) <- ledgerF
@@ -118,7 +130,7 @@ object TriggerServiceFixture {
     // For adding toxics.
     val ledgerProxyF: Future[Proxy] = for {
       (_, _, _, ledgerProxy) <- ledgerF
-    } yield ledgerProxy // Not used yet.
+    } yield ledgerProxy
 
     val fa: Future[A] = for {
       client <- clientF
@@ -132,6 +144,10 @@ object TriggerServiceFixture {
       serviceF.foreach({ case (_, system) => system ! Server.Stop })
       ledgerF.foreach(_._1.close())
       toxiProxyProc.destroy()
+      triggerDao.map(dao =>
+        ServiceMain.destroyDatabase(dao).getOrElse { err: String =>
+          fail("Failed to remove database objects: " ++ err.toString)
+      })
     }
 
     fa

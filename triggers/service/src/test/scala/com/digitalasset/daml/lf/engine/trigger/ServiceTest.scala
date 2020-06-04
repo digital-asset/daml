@@ -36,10 +36,10 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.testing.postgresql.PostgresAroundSuite
+import com.daml.testing.postgresql.PostgresAroundAll
 import eu.rekawek.toxiproxy._
 
-class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundSuite {
+class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with PostgresAroundAll {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -51,6 +51,9 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
   }
   val testPkgId = dar.main._1
+
+  // Lazy because the postgresDatabase is only available once the tests start
+  private lazy val jdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
 
   def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -80,26 +83,33 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  protected def headersWithAuth(party: String) = authorizationHeader(jwt(party))
-
-  protected def authorizationHeader(token: Jwt): List[Authorization] =
+  protected def headersWithAuth(party: String): List[Authorization] = {
+    val token = jwt(party)
     List(Authorization(OAuth2BearerToken(token.value)))
+  }
 
-  def withHttpService[A](
-      triggerDar: Option[Dar[(PackageId, Package)]],
-      jdbcConfig: Option[JdbcConfig] = None)
+  def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
     : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
     TriggerServiceFixture
-      .withTriggerService[A](testId, List(darPath), triggerDar, jdbcConfig)
+      .withTriggerService[A](testId, List(darPath), triggerDar, None)
 
-  def startTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
+  def withTriggerServiceAndDb[A](dar: Option[Dar[(PackageId, Package)]])
+    : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[Assertion] =
+    testFn =>
+      for {
+        _ <- TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, None)(testFn)
+        _ <- TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, Some(jdbcConfig))(
+          testFn)
+      } yield succeed
+
+  def startTrigger(uri: Uri, triggerName: String, party: String): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/start")),
       headers = headersWithAuth(party),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"triggerName": "$id"}"""
+        s"""{"triggerName": "$triggerName"}"""
       )
     )
     Http().singleRequest(req)
@@ -114,7 +124,8 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     Http().singleRequest(req)
   }
 
-  def triggerStatus(uri: Uri, id: String): Future[HttpResponse] = {
+  def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
+    val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/v1/status/$id")),
@@ -122,10 +133,11 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     Http().singleRequest(req)
   }
 
-  def stopTrigger(uri: Uri, id: String, party: String): Future[HttpResponse] = {
+  def stopTrigger(uri: Uri, triggerInstance: UUID, party: String): Future[HttpResponse] = {
+    val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      headers = headersWithAuth(s"${party}"),
+      headers = headersWithAuth(party),
       uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
     )
     Http().singleRequest(req)
@@ -160,19 +172,19 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield result
   }
 
-  def parseTriggerId(resp: HttpResponse): Future[String] = {
+  def parseTriggerId(resp: HttpResponse): Future[UUID] = {
     for {
       JsObject(fields) <- parseResult(resp)
       Some(JsString(triggerId)) = fields.get("triggerId")
-    } yield triggerId
+    } yield UUID.fromString(triggerId)
   }
 
-  def parseTriggerIds(resp: HttpResponse): Future[Vector[String]] = {
+  def parseTriggerIds(resp: HttpResponse): Future[Vector[UUID]] = {
     for {
       JsObject(fields) <- parseResult(resp)
       Some(JsArray(ids)) = fields.get("triggerIds")
       triggerIds = ids map {
-        case JsString(id) => id
+        case JsString(id) => UUID.fromString(id)
         case _ => fail("""Non-string element of "triggerIds" field""")
       }
     } yield triggerIds
@@ -181,7 +193,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   def assertTriggerIds(
       uri: Uri,
       party: String,
-      pred: (Vector[String]) => Boolean): Future[Assertion] = {
+      pred: Vector[UUID] => Boolean): Future[Assertion] = {
     eventually {
       val actualTriggerIds = Await.result(for {
         resp <- listTriggers(uri, party)
@@ -204,57 +216,39 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
 
   def assertTriggerStatus(
       uri: Uri,
-      id: String,
+      triggerInstance: UUID,
       pred: (Vector[String]) => Boolean): Future[Assertion] = {
     eventually {
       val actualTriggerStatus = Await.result(for {
-        resp <- triggerStatus(uri, id)
+        resp <- triggerStatus(uri, triggerInstance)
         result <- parseTriggerStatus(resp)
       } yield result, Duration.Inf)
       assert(pred(actualTriggerStatus))
     }
   }
 
-  it should "initialize database" in {
-    connectToPostgresqlServer()
-    createNewDatabase()
-    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
-    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
-    dropDatabase()
-    disconnectFromPostgresqlServer()
-    succeed
-  }
+  it should "start up and shut down server" in
+    withTriggerServiceAndDb(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      Future(succeed)
+    }
 
-  it should "add running triggers to the database" in {
-    connectToPostgresqlServer()
-    createNewDatabase()
-    val testJdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
-    assert(ServiceMain.initDatabase(testJdbcConfig).isRight)
-    Await.result(
-      withHttpService(Some(dar), Some(testJdbcConfig)) {
-        (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-          for {
-            // Initially no triggers started for Alice
-            _ <- assertTriggerIds(uri, "Alice", _ == Vector())
-            // Start a trigger for Alice and check it appears in list.
-            resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-            trigger1 <- parseTriggerId(resp)
-            _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
-            // Do the same for a second trigger.
-            resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-            trigger2 <- parseTriggerId(resp)
-            expected = Vector(trigger1, trigger2).sorted
-            _ <- assertTriggerIds(uri, "Alice", _ == expected)
-          } yield succeed
-      },
-      Duration.Inf
-    )
-    dropDatabase()
-    disconnectFromPostgresqlServer()
-    succeed
-  }
+  it should "add running triggers" in
+    withTriggerServiceAndDb(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        // Initially no triggers started for Alice
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector())
+        // Start a trigger for Alice and check it appears in list.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        trigger1 <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
+        // Do the same for a second trigger.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        trigger2 <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1, trigger2).sorted)
+      } yield succeed
+    }
 
-  it should "fail to start non-existent trigger" in withHttpService(Some(dar)) {
+  it should "fail to start non-existent trigger" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       val expectedError = StatusCodes.UnprocessableEntity
       for {
@@ -302,12 +296,12 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
         // Start another trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         bobTrigger2 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1, bobTrigger2))
+        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1, bobTrigger2).sorted)
         // Stop Alice's trigger.
         resp <- stopTrigger(uri, aliceTrigger, "Alice")
         _ <- assert(resp.status.isSuccess)
         _ <- assertTriggerIds(uri, "Alice", _.isEmpty)
-        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1, bobTrigger2))
+        _ <- assertTriggerIds(uri, "Bob", _ == Vector(bobTrigger1, bobTrigger2).sorted)
         // Stop Bob's triggers.
         resp <- stopTrigger(uri, bobTrigger1, "Bob")
         _ <- assert(resp.status.isSuccess)
@@ -357,7 +351,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "fail to start a trigger if a ledger client can't be obtained" in withHttpService(
+  it should "fail to start a trigger if a ledger client can't be obtained" in withTriggerServiceAndDb(
     Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     // Disable the proxy. This means that the service won't be able to
     // get a ledger connection.
@@ -519,15 +513,20 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
 
   it should "stopping a trigger that can't parse as a UUID gives a 404 response" in withHttpService(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    val uuid: String = "No More Mr Nice Guy"
+    val req = HttpRequest(
+      method = HttpMethods.DELETE,
+      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
+    )
     for {
-      resp <- stopTrigger(uri, "No More Mr Nice Guy", "Alice")
+      resp <- Http().singleRequest(req)
       _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)
     } yield succeed
   }
 
   it should "stopping an unknown trigger gives an error response" in withHttpService(None) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+      val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
       for {
         resp <- stopTrigger(uri, uuid, "Alice")
         _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)

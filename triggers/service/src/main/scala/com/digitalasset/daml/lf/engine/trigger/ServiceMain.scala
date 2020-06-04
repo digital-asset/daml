@@ -67,7 +67,7 @@ final case class RunningTrigger(
     runner: ActorRef[TriggerRunner.Message]
 )
 
-class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConfig]) {
+class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerDao]) {
 
   private var triggers: Map[UUID, RunningTrigger] = Map.empty;
   private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
@@ -75,12 +75,6 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   dar.foreach(addDar)
-
-  // Note(RJR): It feels wrong to use a different execution context from that of the actor
-  // system but I haven't seen any misbehaviour due to this yet. We can revisit this if there's
-  // an issue. (Threading through the actor system execution context was a pain which is why
-  // I went with the global option instead.)
-  val triggerDao: Option[TriggerDao] = jdbcConfig.map(TriggerDao(_)(ExecutionContext.global))
 
   private def addDar(dar: Dar[(PackageId, Package)]): Unit = {
     val darMap = dar.all.toMap
@@ -128,7 +122,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
   }
 
   private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
-    triggerDao match {
+    val triggerInstances = triggerDao match {
       case None =>
         Right(triggersByToken.getOrElse(jwt, Set()).toVector)
       case Some(dao) =>
@@ -138,6 +132,9 @@ class Server(dar: Option[Dar[(PackageId, Package)]], jdbcConfig: Option[JdbcConf
           case Success(triggerInstances) => Right(triggerInstances)
         }
     }
+    // Note(RJR): We sort UUIDs here using Java's comparison of UUIDs.
+    // We do not rely on the Postgres ordering which is different.
+    triggerInstances.map(_.sorted)
   }
 
   private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {
@@ -189,7 +186,8 @@ object Server {
       dar: Option[Dar[(PackageId, Package)]],
       jdbcConfig: Option[JdbcConfig],
   ): Behavior[Message] = Behaviors.setup { ctx =>
-    val server = new Server(dar, jdbcConfig)
+    val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
+    val server = new Server(dar, triggerDao)
 
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -522,9 +520,16 @@ object ServiceMain {
     bindingFuture.map(server => (server, system))
   }
 
-  def initDatabase(c: JdbcConfig)(implicit ec: ExecutionContext): Either[String, Unit] = {
-    val triggerDao = TriggerDao(c)(ec)
-    val transaction = triggerDao.transact(TriggerDao.initialize(triggerDao.logHandler))
+  def initDatabase(dao: TriggerDao): Either[String, Unit] = {
+    val transaction = dao.transact(TriggerDao.initialize(dao.logHandler))
+    Try(transaction.unsafeRunSync()) match {
+      case Failure(err) => Left(err.toString)
+      case Success(()) => Right(())
+    }
+  }
+
+  def destroyDatabase(dao: TriggerDao): Either[String, Unit] = {
+    val transaction = dao.transact(TriggerDao.destroy)
     Try(transaction.unsafeRunSync()) match {
       case Failure(err) => Left(err.toString)
       case Success(()) => Right(())
@@ -576,7 +581,8 @@ object ServiceMain {
             system.log.error("No JDBC configuration for database initialization.")
             sys.exit(1)
           case (true, Some(jdbcConfig)) =>
-            initDatabase(jdbcConfig) match {
+            val dao = TriggerDao(jdbcConfig)(ec)
+            initDatabase(dao) match {
               case Left(err) =>
                 system.log.error(err)
                 sys.exit(1)
