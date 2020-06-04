@@ -51,7 +51,7 @@ final class DbDispatcher private (
       val startExec = System.nanoTime()
       try {
         // Actual execution
-        val result = connectionProvider.runSQL(sql)
+        val result = connectionProvider.runSQL(databaseMetrics)(sql)
         result
       } catch {
         case NonFatal(e) =>

@@ -15,4 +15,6 @@ class DatabaseMetrics private[metrics] (
   val waitTimer: Timer = registry.timer(dbPrefix :+ "wait")
   val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
   val translationTimer: Timer = registry.timer(dbPrefix :+ "translation")
+  val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
+  val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
 }
