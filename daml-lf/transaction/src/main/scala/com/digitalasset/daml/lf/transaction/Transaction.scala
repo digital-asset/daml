@@ -424,7 +424,7 @@ object Transaction {
   type NodeId = Value.NodeId
   val NodeId = Value.NodeId
 
-  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.3.1")
+  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.4.0")
   type TContractId = Value.ContractId
 
   type Value[+Cid] = Value.VersionedValue[Cid]
