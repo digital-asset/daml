@@ -139,17 +139,16 @@ final class LedgerTestSuiteRunner(
       .mapAsyncUnordered(concurrentTestRuns) {
         case ((suite, test), index) =>
           val matchName: String = suite.name + ":" + test.shortIdentifier
-          val matchings: Seq[Pattern] = excluded.toSeq.filter(_.matcher(matchName).find)
-          if (matchings.isEmpty) {
+          val matchingExclusions: Seq[Pattern] = excluded.toSeq.filter(_.matcher(matchName).find)
+          if (matchingExclusions.isEmpty) {
             run(test, suite.session).map(testResult => (suite, test, testResult) -> index)
           } else {
-            Future.successful(
-              (
-                suite,
-                test,
-                Right(Result.Skipped("Excluded by: " + matchings.toSeq
-                  .map(r => "'" + r.toString + "'")
-                  .mkString("; ")))) -> index)
+            val exclusions = matchingExclusions.toSeq
+              .map(regex => s"'${regex}'")
+              .mkString("; ")
+            val message = s"Excluded by: ${exclusions}"
+            val result = Right(Result.Skipped(message))
+            Future.successful((suite, test, result) -> index)
           }
       }
       .map {

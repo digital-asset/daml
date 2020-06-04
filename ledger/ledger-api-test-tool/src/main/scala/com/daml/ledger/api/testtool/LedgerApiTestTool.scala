@@ -52,25 +52,25 @@ object LedgerApiTestTool {
       ),
       new ParticipantSessionManager
     )(ExecutionContext.global)
-    def print_suites(suites: Map[String, LedgerSession => LedgerTestSuite]): Unit = {
+    def printSuites(suites: Map[String, LedgerSession => LedgerTestSuite]): Unit = {
       suites.toSeq
         .sortBy({ case (name, _) => name })
         .foreach({
           case (name, toSuite) => {
             val suite = toSuite(session)
-            println("\t" + name)
+            println(s"\t${name}")
             suite.tests.foreach(test => {
-              println("\t\t" + suite.name.toString + ":" + test.shortIdentifier.toString)
+              println(s"\t\t${suite.name}:${test.shortIdentifier}")
             })
           }
         })
       println
     }
     println("These test suites are included by default:")
-    print_suites(Tests.default)
+    printSuites(Tests.default)
     println(
       "These test suites are optional; you can run them either by specifying `--all-tests` or by selecting them individually with `--include`:")
-    print_suites(Tests.optional)
+    printSuites(Tests.optional)
     println(
       "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`:")
     Tests.PerformanceTestsKeys.sorted.foreach(println(_))
@@ -185,6 +185,6 @@ object LedgerApiTestTool {
       identifierSuffix,
       config.timeoutScaleFactor,
       concurrencyOverride.getOrElse(config.concurrentTestRuns),
-      config.rexcluded
+      config.excludedByRegex
     )
 }

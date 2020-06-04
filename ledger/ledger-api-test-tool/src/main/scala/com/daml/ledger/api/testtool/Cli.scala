@@ -139,9 +139,9 @@ object Cli {
       )
 
     opt[String]("exclude-regex")
-      .action((regex, c) => c.copy(rexcluded = c.rexcluded + Pattern.compile(regex)))
+      .action((regex, c) => c.copy(excludedByRegex = c.excludedByRegex + Pattern.compile(regex)))
       .unbounded()
-      .text("""Can be specified multiple times. Each separate instance of this flag must be a regex (in Java format); any test that matches any of the provided regexes will be skipped. The regexex will be matched against the full name of the test, which is printed [inside brackets] when running.""")
+      .text("""Can be specified multiple times. Each separate instance of this flag must be a regex (in Java format); any test that matches any of the provided regexes will be skipped. The regexes will be matched against the full name of the test, which is printed [inside brackets] when running.""")
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))
