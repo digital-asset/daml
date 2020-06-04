@@ -599,7 +599,7 @@ private[lf] final case class Compiler(
               SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
                 env = env.incrPos // key with maintainers
                 withLabel(
-                  s"<fetch_by_key ${retrieveByKey.templateId}",
+                  s"fetchByKey @${retrieveByKey.templateId.qualifiedName}",
                   SEAbs(1) {
                     env = env.incrPos // token
                     env = env.addExprVar(template.param)
@@ -713,7 +713,7 @@ private[lf] final case class Compiler(
           env = env.incrPos // $beginCommit
           SELet(party, update) in
             withLabel(
-              "<submit>",
+              "submit",
               SEAbs(1) {
                 SELet(
                   // stack: <party> <update> <token>
@@ -738,7 +738,7 @@ private[lf] final case class Compiler(
           env = env.incrPos // $beginCommit
           val update = translate(updateE)
           withLabel(
-            "<submit_must_fail>",
+            "submitMustFail",
             SEAbs(1) {
               SELet(
                 SBSBeginCommit(optLoc)(party, SEVar(1)),
@@ -755,7 +755,7 @@ private[lf] final case class Compiler(
         withEnv { _ =>
           env = env.incrPos // token
           withLabel(
-            "<get_party>",
+            "getParty",
             SEAbs(1) {
               SBSGetParty(translate(e), SEVar(1))
             }
@@ -766,7 +766,7 @@ private[lf] final case class Compiler(
         withEnv { _ =>
           env = env.incrPos // token
           withLabel(
-            "<pass>",
+            "pass",
             SEAbs(1) {
               SBSPass(translate(relTimeE), SEVar(1))
             }
@@ -887,7 +887,7 @@ private[lf] final case class Compiler(
           env = env.addExprVar(choice.selfBinder, selfBinderPos)
           val update = translate(choice.update)
           withLabel(
-            s"<exercise ${tmplId}:${cname}>",
+            s"exercise @${tmplId.qualifiedName} ${cname}",
             SEAbs(5) {
               SELet(
                 // stack: <byKey flag> <actors> <cid> <choice arg> <token>
@@ -1288,7 +1288,7 @@ private[lf] final case class Compiler(
       }
       SELet(coid) in
         withLabel(
-          s"<fetch ${tmplId}>",
+          s"fetch @${tmplId.qualifiedName}",
           SEAbs(1) {
             SELet(
               SBUFetch(tmplId)(
@@ -1337,7 +1337,7 @@ private[lf] final case class Compiler(
 
       SELet(arg) in
         withLabel(
-          s"<create ${tmplId}>",
+          s"create @${tmplId.qualifiedName}",
           SEAbs(1) {
             // We check precondition in a separated builtin to prevent
             // further evaluation of agreement, signatories, observers and key
@@ -1404,7 +1404,7 @@ private[lf] final case class Compiler(
       SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
         env = env.incrPos // key with maintainers
         withLabel(
-          s"<exercise_by_key ${tmplId}:${choiceId}>",
+          s"exerciseByKey @${tmplId.qualifiedName} ${choiceId}",
           SEAbs(1) {
             env = env.incrPos // token
             SELet(
@@ -1435,7 +1435,7 @@ private[lf] final case class Compiler(
 
     withEnv { _ =>
       withLabel(
-        s"<create_and_exercise ${tmplId}:${choiceId}>",
+        s"createAndExercise @${tmplId.qualifiedName} ${choiceId}",
         SEAbs(1) {
           env = env.incrPos // token
           SELet(
@@ -1468,7 +1468,7 @@ private[lf] final case class Compiler(
       SELet(encodeKeyWithMaintainers(key, templateKey)) in {
         env = env.incrPos // keyWithM
         withLabel(
-          s"<lookup_by_key ${templateId}>",
+          s"lookupByKey @${templateId.qualifiedName}",
           SEAbs(1) {
             env = env.incrPos // token
             SELet(

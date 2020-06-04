@@ -364,9 +364,11 @@ final class Engine {
         profileDir match {
           case None => ()
           case Some(profileDir) =>
-            val profileName = Engine.profileName(t, meta)
-            machine.profile.name = profileName
-            val profileFile = profileDir.resolve(Paths.get(profileName))
+            val hash = meta.nodeSeeds(0)._2.toHexString
+            val desc = Engine.profileDesc(t)
+            machine.profile.name = s"${desc}-${hash.substring(0, 6)}"
+            val profileFile = profileDir.resolve(Paths.get(s"${meta.submissionTime}-${desc}-${hash}.json"
+))
             machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((t, meta))
@@ -408,22 +410,19 @@ object Engine {
     InitialSeeding.TransactionSeed(
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
 
-  private def profileName(tx: Tx.Transaction, meta: Tx.Metadata): String = {
-    val hash = meta.nodeSeeds(0)._2.toHexString
-    val desc =
-      if (tx.roots.length == 1) {
-        val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
-          s"${kind}:${tmpl.qualifiedName.name}${extra.map(extra => s":${extra}").getOrElse("")}"
-        tx.nodes.get(tx.roots(0)).toList.head match {
-          case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
-          case exercise: NodeExercises[_, _, _] =>
-            makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
-          case fetch: NodeFetch[_, _] => makeDesc("fetch", fetch.templateId, None)
-          case lookup: NodeLookupByKey[_, _] => makeDesc("lookup", lookup.templateId, None)
-        }
-      } else {
-        s"compound:${tx.roots.length}"
+  private def profileDesc(tx: Tx.Transaction): String = {
+    if (tx.roots.length == 1) {
+      val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
+        s"${kind}:${tmpl.qualifiedName.name}${extra.map(extra => s":${extra}").getOrElse("")}"
+      tx.nodes.get(tx.roots(0)).toList.head match {
+        case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
+        case exercise: NodeExercises[_, _, _] =>
+          makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
+        case fetch: NodeFetch[_, _] => makeDesc("fetch", fetch.templateId, None)
+        case lookup: NodeLookupByKey[_, _] => makeDesc("lookup", lookup.templateId, None)
       }
-    s"${meta.submissionTime}-${desc}-${hash}.json"
+    } else {
+      s"compound:${tx.roots.length}"
+    }
   }
 }
