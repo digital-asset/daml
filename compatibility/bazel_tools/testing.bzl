@@ -174,8 +174,8 @@ def get_excluded_tests(test_tool_version, sandbox_version):
             continue
         if end and not versions.is_at_most(end, sandbox_version):
             continue
-        exclusions += range["exclusions"]
-        regexes += range["exclusion-regexes"]
+        exclusions += range.get("exclusions", [])
+        regexes += range.get("exclusion-regexes", [])
     return (exclusions, regexes)
 
 def extra_tags(sdk_version, platform_version):
