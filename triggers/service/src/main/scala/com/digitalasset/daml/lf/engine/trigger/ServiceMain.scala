@@ -398,8 +398,9 @@ object Server {
                 // failed. This error condition is exogenous to the
                 // runner. We therefore need to tell it explicitly to
                 // stop.
-                val msg = "Failed to add running trigger to database.\n" + err
-                ctx.self ! TriggerInitializationFailure(runningTrigger, msg)
+                server.logTriggerStatus(
+                  runningTrigger,
+                  "stopped: initialization failure (db write failure)")
                 runningTrigger.runner ! TriggerRunner.Stop
                 Behaviors.same
               case Right(()) => Behaviors.same
@@ -409,8 +410,7 @@ object Server {
             // running triggers tables since this trigger never made
             // it there.
             server.logTriggerStatus(runningTrigger, "stopped: initialization failure")
-            // Don't send any messages to the runner here (it's either
-            // already been explicitly stopped [see above] or is under
+            // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
           case TriggerRuntimeFailure(runningTrigger, cause) =>
