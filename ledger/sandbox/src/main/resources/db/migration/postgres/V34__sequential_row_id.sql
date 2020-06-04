@@ -20,7 +20,7 @@ where participant_events.event_offset = t.event_offset and participant_events.no
 drop index participant_events_event_offset_transaction_id_node_index_idx;
 
 -- 4. create a new index involving row_id
-create index on particpant_events (row_id, event_offset, node_index);
+create index on participant_events (row_id);
 
 -- 5. the second sub-query to find out the row_id needs this extra index to be fast
 create index on participant_events (event_offset)

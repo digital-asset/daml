@@ -178,10 +178,9 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id
          from participant_events,
           (select min(row_id) row_id from (
-            select min(row_id) row_id
+            select max(row_id) + 1 row_id
             from participant_events
-            where (event_offset > $startExclusive)
-              and event_offset <= $endInclusive
+            where event_offset = $startExclusive
               and #$witnessesWhereClause
            union all
             -- this sub-query needs the index participant_event_event_offset_idx to run fast
@@ -193,8 +192,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
             ) rows) starting_row
             where
             participant_events.row_id >= starting_row.row_id
-            and participant_events.row_id < starting_row.row_id + $pageSize
-            and event_offset <= $endInclusive and #$witnessesWhereClause order by (#$orderByColumns) """
+            and event_offset <= $endInclusive and #$witnessesWhereClause order by (row_id) limit $pageSize"""
   }
 
   private def multiPartyTrees(sqlFunctions: SqlFunctions)(
