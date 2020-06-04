@@ -44,14 +44,55 @@ object Profile {
       import com.daml.lf.speedy.SExpr._
       rawLabel match {
         case null => "<null>" // NOTE(MH): We should never see this but it's no problem if we do.
-        case AnonymousClosure => "<anonymous closure>"
-        case LfDefRef(ref) => ref.toString()
-        case ChoiceDefRef(tmplRef, name) => s"<exercise ${tmplRef}:${name}>"
-        case ref: SEBuiltinRecursiveDefinition.Reference => s"<${ref.toString().toLowerCase()}>"
+        case AnonymousClosure => "<lambda>"
+        case LfDefRef(ref) => ref.qualifiedName.toString()
+        case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
+        case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
         case str: String => str
         case any => s"<unknown ${any}>"
       }
     }
+  }
+
+  private def unmangleLenient(str: String): String = {
+    val builder = new StringBuilder(str.length)
+    var i = 0
+    while (i < str.length) {
+      if (str(i) == '$' && i + 1 < str.length) {
+        str(i + 1) match {
+          case '$' =>
+            builder.append('$')
+            i += 2
+          case 'u' if i + 5 < str.length =>
+            try {
+              val cp = Integer.parseUnsignedInt(str.substring(i + 2, i + 6), 16)
+              builder.appendAll(Character.toChars(cp))
+              i += 6
+            } catch {
+              case _: NumberFormatException =>
+                builder.append('$')
+                i += 1
+            }
+          case 'U' if i + 9 < str.length =>
+            try {
+              val cp = Integer.parseUnsignedInt(str.substring(i + 2, i + 10), 16)
+              builder.appendAll(Character.toChars(cp))
+              i += 10
+            } catch {
+              case _: NumberFormatException =>
+                builder.append('$')
+                i += 1
+            }
+          case _ =>
+            builder.append('$')
+            i += 1
+        }
+      } else {
+        builder.append(str(i))
+        i += 1
+      }
+    }
+    builder.toString
   }
 
   /** Utility object to convert the profile into the JSON format required by
@@ -111,7 +152,7 @@ object Profile {
             case Some(index) => index
             case None =>
               val index = frames.size()
-              frames.add(FrameJson(label))
+              frames.add(FrameJson(unmangleLenient(label)))
               frameIndices.put(label, index)
               index
           }
