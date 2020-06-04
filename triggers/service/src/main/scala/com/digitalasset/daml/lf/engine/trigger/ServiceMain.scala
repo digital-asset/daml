@@ -138,11 +138,8 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
 
   private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {
     val id = t.triggerInstance
-    val entry = ((LocalDateTime.now), msg)
-    triggerLog += triggerLog
-      .get(id)
-      .map(logs => id -> (logs :+ entry))
-      .getOrElse(id -> Vector(entry))
+    val entry = (LocalDateTime.now, msg)
+    triggerLog += id -> (getTriggerStatus(id) :+ entry)
   }
 
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
