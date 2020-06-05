@@ -14,6 +14,7 @@ import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 
+class InitializationHalted(s: String) extends Exception(s) {}
 class InitializationException(s: String) extends Exception(s) {}
 
 object TriggerRunner {
@@ -37,11 +38,17 @@ class TriggerRunner(
 
   import TriggerRunner.{Message, Stop}
 
-  // Spawn a trigger runner impl. Supervise it.
+  // Spawn a trigger runner impl. Supervise it. Stop immediately on
+  // initalization halted exceptions, retry any initialization or
+  // execution failure exceptions.
   private val child =
     ctx.spawn(
       Behaviors
-        .supervise(TriggerRunnerImpl(ctx.self, config))
+        .supervise(
+          Behaviors
+            .supervise(TriggerRunnerImpl(ctx.self, config))
+            .onFailure[InitializationHalted](stop)
+        )
         .onFailure(
           restart.withLimit(config.maxFailureNumberOfRetries, config.failureRetryTimeRange)),
       name

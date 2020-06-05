@@ -82,31 +82,30 @@ object TriggerRunnerImpl {
         Behaviors.receiveMessagePartial[Message] {
           case QueryACSFailed(cause) =>
             if (wasStopped) {
-              // Report the failure to the server.
+              // The stop endpoint can't send a message to a runner
+              // that isn't in the running triggers table so this is
+              // an odd case.
               config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
-              // Tell our monitor there's been a failure. The
-              // monitor's supervision strategy will respond to this
-              // by writing the exception to the log and stopping this
-              // actor.
-              throw new InitializationException("User stopped")
+              // However we got here though, one thing is clear. We
+              // don't want to restart the actor.
+              throw new InitializationHalted("User stopped") // Don't retry!
             } else {
               // Report the failure to the server.
               config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
               // Tell our monitor there's been a failure. The
-              // monitor's supervisor strategy will respond to this by
-              // writing the exception to the log and stopping this
-              // actor.
+              // monitor's supervision strategy will respond to this
+              // (including logging the exception).
               throw new InitializationException("Couldn't start: " + cause.toString)
             }
           case QueriedACS(runner, acs, offset) =>
             if (wasStopped) {
-              // Report that we won't be going on to the server.
+              // The stop endpoint can't send a message to a runner
+              // that isn't in the running triggers table so this is
+              // an odd case.
               config.server ! TriggerInitializationFailure(runningTrigger, "User stopped")
-              // Tell our monitor there's been a failure. The
-              // monitor's supervisor strategy will respond to this
-              // writing the exception to the log and stopping this
-              // actor.
-              throw new InitializationException("User stopped")
+              // However we got here though, one thing is clear. We
+              // don't want to restart the actor.
+              throw new InitializationHalted("User stopped") // Don't retry!
             } else {
               // It's possible for 'runWithACS' to throw (fail to
               // construct a flow).
