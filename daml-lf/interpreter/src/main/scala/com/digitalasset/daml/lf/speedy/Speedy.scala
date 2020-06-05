@@ -699,14 +699,9 @@ object Speedy {
           }
           // Now the correct number of arguments is ensured. What kind of prim do we have?
           prim match {
-            case PClosure(label, body, frame) =>
-              // Maybe push a continuation for the profiler
-              if (label != null) {
-                machine.profile.addOpenEvent(label)
-                machine.pushKont(KLeaveClosure(label))
-              }
+            case closure: PClosure =>
               // Push a continuation to execute the function body when the arguments have been evaluated
-              machine.pushKont(KFun(body, frame, actuals))
+              machine.pushKont(KFun(closure, actuals))
 
             case PBuiltin(builtin) =>
               // Push a continuation to execute the builtin when the arguments have been evaluated
@@ -731,16 +726,22 @@ object Speedy {
   }
 
   /** The function-closure and arguments have been evaluated. Now execute the body. */
-  final case class KFun(body: SExpr, frame: Frame, actuals: util.ArrayList[SValue])
+  final case class KFun(closure: PClosure, actuals: util.ArrayList[SValue])
       extends Kont
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
-      machine.frame = frame
+      machine.frame = closure.frame
       machine.actuals = actuals
+      // Maybe push a continuation for the profiler
+      val label = closure.label
+      if (label != null) {
+        machine.profile.addOpenEvent(label)
+        machine.pushKont(KLeaveClosure(label))
+      }
       // Start evaluating the body of the closure.
-      machine.ctrl = body
+      machine.ctrl = closure.expr
     }
   }
 

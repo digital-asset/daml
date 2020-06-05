@@ -17,7 +17,7 @@ import java.util.ArrayList
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
-  private val events: ArrayList[Event] = new ArrayList()
+  private[lf] val events: ArrayList[Event] = new ArrayList()
   var name: String = "DAML Engine profile"
 
   def addOpenEvent(label: AnyRef) = {
@@ -39,7 +39,7 @@ final class Profile {
 object Profile {
   // NOTE(MH): See the documenation of [[Profile]] above for why we use
   // [[AnyRef]] for the labels.
-  private final case class Event(val open: Boolean, val rawLabel: AnyRef, val time: Long) {
+  private[lf] final case class Event(val open: Boolean, val rawLabel: AnyRef, val time: Long) {
     def label: String = {
       import com.daml.lf.speedy.SExpr._
       rawLabel match {
