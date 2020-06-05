@@ -96,10 +96,6 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
     }
   }
 
-  private def getRunningTrigger(uuid: UUID): Option[RunningTrigger] = {
-    triggers.get(uuid)
-  }
-
   private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
     triggerDao match {
       case None =>
@@ -115,12 +111,17 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
     }
   }
 
-  private def removeRunningTrigger(t: RunningTrigger): Unit = {
+  private def removeRunningTrigger(triggerInstance: UUID): Boolean = {
     triggerDao match {
       case None =>
-        triggers -= t.triggerInstance
-        triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
-      case Some(dao) =>
+        triggers.get(triggerInstance) match {
+          case None => false
+          case Some(t) =>
+            triggers -= t.triggerInstance
+            triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
+            true
+        }
+      case Some(dao) => false
     }
   }
 
@@ -140,10 +141,9 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
     triggerInstances.map(_.sorted)
   }
 
-  private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {
-    val id = t.triggerInstance
+  private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
-    triggerLog += id -> (getTriggerStatus(id) :+ entry)
+    triggerLog += triggerInstance -> (getTriggerStatus(triggerInstance) :+ entry)
   }
 
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
@@ -196,6 +196,9 @@ object Server {
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
     implicit val dateTimeFormat: RootJsonFormat[LocalDateTime] = LocalDateTimeJsonFormat
 
+    def getRunner(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] =
+      ctx.child(triggerInstance.toString ++ "-monitor").asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+
     def startTrigger(token: (Jwt, JwtPayload), triggerName: Identifier): Either[String, JsValue] = {
       for {
         trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
@@ -222,7 +225,7 @@ object Server {
           ),
           triggerInstance.toString + "-monitor"
         )
-      } yield (JsObject(("triggerId", triggerInstance.toString.toJson)))
+      } yield JsObject(("triggerId", triggerInstance.toString.toJson))
     }
 
     def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): Option[JsValue] = {
@@ -230,16 +233,15 @@ object Server {
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
-      server
-        .getRunningTrigger(uuid)
-        .map(
-          runningTrigger => {
-            runningTrigger.runner ! TriggerRunner.Stop
-            server.logTriggerStatus(runningTrigger, "stopped: by user request")
-            server.removeRunningTrigger(runningTrigger)
-            JsObject(("triggerId", uuid.toString.toJson))
-          }
-        )
+      if (server.removeRunningTrigger(uuid)) {
+        getRunner(uuid) foreach {
+          runner => runner ! TriggerRunner.Stop
+        }
+        // If we couldn't find the runner then there is nothing to stop anyway,
+        // so pretend everything went normally.
+        server.logTriggerStatus(uuid, "stopped: by user request")
+        Some(JsObject(("triggerId", uuid.toString.toJson)))
+      } else None
     }
 
     def listTriggers(jwt: Jwt): Either[String, JsValue] = {
@@ -356,20 +358,15 @@ object Server {
                   .flatMap { jwt =>
                     TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
                   }
-                  .map { token =>
-                    stopTrigger(uuid, token)
-                  }
                   .fold(
                     unauthorized =>
                       complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
-                    triggerInstance =>
-                      triggerInstance match {
-                        case Some(stoppedTriggerId) => complete(successResponse(stoppedTriggerId))
+                    token => stopTrigger(uuid, token) match {
                         case None =>
-                          complete(
-                            errorResponse(
-                              StatusCodes.NotFound,
-                              "Unknown trigger: '" + uuid.toString + "'"))
+                          val err = s"No trigger running with id $uuid"
+                          complete(errorResponse(StatusCodes.NotFound, err))
+                        case Some(stoppedTriggerId) =>
+                          complete(successResponse(stoppedTriggerId))
                     }
                   )
             }
@@ -390,12 +387,12 @@ object Server {
       Behaviors
         .receiveMessage[Message] {
           case TriggerStarting(runningTrigger) =>
-            server.logTriggerStatus(runningTrigger, "starting")
+            server.logTriggerStatus(runningTrigger.triggerInstance, "starting")
             Behaviors.same
           case TriggerStarted(runningTrigger) =>
             // The trigger has successfully started. Update the
             // running triggers tables.
-            server.logTriggerStatus(runningTrigger, "running")
+            server.logTriggerStatus(runningTrigger.triggerInstance, "running")
             server.addRunningTrigger(runningTrigger) match {
               case Left(err) =>
                 // The trigger has just advised it's in the running
@@ -404,7 +401,7 @@ object Server {
                 // runner. We therefore need to tell it explicitly to
                 // stop.
                 server.logTriggerStatus(
-                  runningTrigger,
+                  runningTrigger.triggerInstance,
                   "stopped: initialization failure (db write failure)")
                 runningTrigger.runner ! TriggerRunner.Stop
                 Behaviors.same
@@ -414,15 +411,15 @@ object Server {
             // The trigger has failed to start. No need to update the
             // running triggers tables since this trigger never made
             // it there.
-            server.logTriggerStatus(runningTrigger, "stopped: initialization failure")
+            server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
           case TriggerRuntimeFailure(runningTrigger, cause) =>
             // The trigger has failed. Remove it from the running
             // triggers tables.
-            server.logTriggerStatus(runningTrigger, "stopped: runtime failure")
-            server.removeRunningTrigger(runningTrigger)
+            server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
+            val _ = server.removeRunningTrigger(runningTrigger.triggerInstance)
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same

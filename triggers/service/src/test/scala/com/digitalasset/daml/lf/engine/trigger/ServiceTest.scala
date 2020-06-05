@@ -509,7 +509,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       JsObject(fields) = body.parseJson
       _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.NotFound.intValue)))
       _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString("Unknown trigger: '" + uuid.toString + "'"))))
+        Some(JsArray(JsString(s"No trigger running with id $uuid"))))
     } yield succeed
   }
 
