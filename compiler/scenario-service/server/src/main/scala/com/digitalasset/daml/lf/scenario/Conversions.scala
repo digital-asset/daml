@@ -28,7 +28,7 @@ final class Conversions(
   // We need the mapping for converting error message so we manually add it here.
   private val ptxCoidToNodeId = machine.ptx.nodes
     .collect {
-      case (nodeId, node @ N.NodeCreate(_, _, _, _, _, _)) =>
+      case (nodeId, node: N.NodeCreate[V.ContractId, _]) =>
         node.coid -> ledger.ptxNodeId(nodeId)
     }
 
@@ -585,7 +585,7 @@ final class Conversions(
 
   }
 
-  private def convertVersionnedValue(value: V.VersionedValue[V.ContractId]): Value =
+  private def convertVersionedValue(value: V.VersionedValue[V.ContractId]): Value =
     convertValue(value.value)
 
   def convertValue(value: V[V.ContractId]): Value = {
