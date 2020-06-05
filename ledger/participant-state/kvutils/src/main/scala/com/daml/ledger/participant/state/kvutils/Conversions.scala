@@ -158,44 +158,49 @@ private[state] object Conversions {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }
 
-  def encodeTransaction(tx: Transaction.Transaction): TransactionOuterClass.Transaction = {
-    TransactionCoder
-      .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
-      .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
-  }
+  private def assertDecode[X](context: => String, x: Either[ValueCoder.DecodeError, X]): X =
+    x.fold(err => throw Err.DecodeError(context, err.errorMessage), identity)
 
-  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.Transaction = {
-    TransactionCoder
-      .decodeVersionedTransaction(
-        TransactionCoder.NidDecoder,
-        ValueCoder.CidDecoder,
-        tx
-      )
-      .fold(err => throw Err.DecodeError("Transaction", err.errorMessage), _.transaction)
-  }
+  private def assertEncode[X](context: => String, x: Either[ValueCoder.EncodeError, X]): X =
+    x.fold(err => throw Err.EncodeError(context, err.errorMessage), identity)
+
+  def encodeTransaction(tx: Transaction.Transaction): TransactionOuterClass.Transaction =
+    assertEncode(
+      "Transaction",
+      TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx),
+    )
+
+  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.Transaction =
+    assertDecode(
+      "Transaction",
+      TransactionCoder
+        .decodeVersionedTransaction(
+          TransactionCoder.NidDecoder,
+          ValueCoder.CidDecoder,
+          tx
+        ),
+    ).transaction
 
   def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue[ContractId] =
-    ValueCoder
-      .decodeVersionedValue(ValueCoder.CidDecoder, protoValue)
-      .fold(
-        err => throw Err.DecodeError("ContractInstance", err.errorMessage),
-        identity
-      )
+    assertDecode(
+      "ContractInstance",
+      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, protoValue),
+    )
 
   def decodeContractInstance(coinst: TransactionOuterClass.ContractInstance)
     : Value.ContractInst[VersionedValue[ContractId]] =
-    TransactionCoder
-      .decodeContractInstance(ValueCoder.CidDecoder, coinst)
-      .fold(
-        err => throw Err.DecodeError("ContractInstance", err.errorMessage),
-        identity
-      )
+    assertDecode(
+      "ContractInstance",
+      TransactionCoder
+        .decodeContractInstance(ValueCoder.CidDecoder, coinst)
+    )
 
   def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[Value.ContractId]])
     : TransactionOuterClass.ContractInstance =
-    TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, coinst)
-      .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
+    assertEncode(
+      "ContractInstance",
+      TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst)
+    )
 
   def forceNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
     v.ensureNoCid.fold(
@@ -209,15 +214,15 @@ private[state] object Conversions {
       coidString: String,
       coidStruct: ValueOuterClass.ContractId,
   ): DamlStateKey =
-    ValueCoder.CidDecoder
-      .decode(
-        sv = transactionVersion,
-        stringForm = coidString,
-        structForm = coidStruct,
+    contractIdToStateKey(
+      assertDecode(
+        "ContractId",
+        ValueCoder.CidDecoder.decode(
+          sv = transactionVersion,
+          stringForm = coidString,
+          structForm = coidStruct,
+        ),
       )
-      .fold(
-        err => throw Err.DecodeError("ContractId", s"Cannot decode contract id: $err"),
-        contractIdToStateKey
-      )
+    )
 
 }
