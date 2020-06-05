@@ -238,12 +238,12 @@ object Server {
         )
     }
 
-    def listTriggers(jwt: Jwt): (StatusCode, JsObject) = {
-      server.listRunningTriggers(jwt) match {
-        case Left(err) => errorResponse(StatusCodes.InternalServerError, err.toString)
-        case Right(triggerInstances) =>
-          successResponse(JsObject(("triggerIds", triggerInstances.map(_.toString).toJson)))
-      }
+    def listTriggers(jwt: Jwt): Either[String, JsValue] = {
+      server
+        .listRunningTriggers(jwt)
+        .map(
+          triggerInstances => JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
+        )
     }
 
     val route = concat(
@@ -317,17 +317,24 @@ object Server {
           },
           // List triggers currently running for the given party.
           path("v1" / "list") {
-            extractRequest { request =>
-              TokenManagement
-                .findJwt(request)
-                .flatMap { jwt =>
-                  TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                }
-                .fold(
-                  unauthorized =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
-                  token => complete(listTriggers(token._1))
-                )
+            extractRequest {
+              request =>
+                TokenManagement
+                  .findJwt(request)
+                  .flatMap { jwt =>
+                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
+                  }
+                  .fold(
+                    unauthorized =>
+                      complete(
+                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                    token =>
+                      listTriggers(token._1) match {
+                        case Left(err) =>
+                          complete(errorResponse(StatusCodes.InternalServerError, err))
+                        case Right(triggerInstances) => complete(successResponse(triggerInstances))
+                    }
+                  )
             }
           },
           // Produce logs for the given trigger.
