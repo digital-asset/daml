@@ -6,8 +6,8 @@ package com.daml.lf.speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.Transaction
-import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.value.Value
 import com.daml.lf.types.Ledger
 import com.daml.lf.value.Value.ContractId
 
@@ -48,7 +48,7 @@ object SError {
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Transaction.Value[ContractId],
+      arg: Value[ContractId],
   ) extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
@@ -56,7 +56,7 @@ object SError {
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
-      consumedBy: Transaction.NodeId,
+      consumedBy: Tx.NodeId,
   ) extends SErrorDamlException
 
   /** Error during an operation on the update transaction. */
@@ -111,7 +111,7 @@ object SError {
   final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
-  final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario
+  final case class ScenarioErrorMustFailSucceeded(tx: Tx.Transaction) extends SErrorScenario
 
   /** Invalid party name supplied to 'getParty'. */
   final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario

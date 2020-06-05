@@ -28,7 +28,7 @@ final class Conversions(
   // We need the mapping for converting error message so we manually add it here.
   private val ptxCoidToNodeId = machine.ptx.nodes
     .collect {
-      case (nodeId, node: N.NodeCreate.WithTxValue[V.ContractId]) =>
+      case (nodeId, node: N.NodeCreate[V.ContractId, _]) =>
         node.coid -> ledger.ptxNodeId(nodeId)
     }
 
@@ -96,7 +96,7 @@ final class Conversions(
         builder.setTemplatePrecondViolated(
           uepvBuilder
             .setTemplateId(convertIdentifier(tid))
-            .setArg(convertValue(arg.value))
+            .setArg(convertValue(arg))
             .build,
         )
       case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
@@ -374,7 +374,7 @@ final class Conversions(
 
   def convertPartialTransaction(ptx: SPartialTransaction): PartialTransaction = {
     val builder = PartialTransaction.newBuilder
-      .addAllNodes(ptx.nodes.map(Function.tupled(convertTxNode)).asJava)
+      .addAllNodes(ptx.nodes.map(convertNode(convertValue(_), _)).asJava)
       .addAllRoots(
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava,
       )
@@ -385,7 +385,7 @@ final class Conversions(
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
-          .setChosenValue(convertValue(ctx.chosenValue.value))
+          .setChosenValue(convertValue(ctx.chosenValue))
         ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
         builder.setExerciseContext(ecBuilder.build)
     }
@@ -471,7 +471,7 @@ final class Conversions(
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
-          .setKeyWithMaintainers(convertKeyWithMaintainers(lbk.key))
+          .setKeyWithMaintainers(convertKeyWithMaintainers(convertVersionedValue, lbk.key))
         lbk.result.foreach(cid => lbkBuilder.setContractId(coidToNodeId(cid)))
         builder.setLookupByKey(lbkBuilder)
 
@@ -479,38 +479,43 @@ final class Conversions(
     builder.build
   }
 
-  def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]],
+  def convertKeyWithMaintainers[Val](
+      convertValue: Val => Value,
+      key: N.KeyWithMaintainers[Val],
   ): KeyWithMaintainers = {
     KeyWithMaintainers
       .newBuilder()
-      .setKey(convertValue(key.key.value))
+      .setKey(convertValue(key.key))
       .addAllMaintainers(key.maintainers.map(convertParty).asJava)
       .build()
   }
 
-  def convertTxNode( /*ptx: Tx.PartialTransaction, */ nodeId: Tx.NodeId, node: Tx.Node): Node = {
+  def convertNode[Val](
+      convertValue: Val => Value,
+      nodeWithId: (Tx.NodeId, N.GenNode[V.NodeId, V.ContractId, Val]),
+  ): Node = {
+    val (nodeId, node) = nodeWithId
     val builder = Node.newBuilder
     builder
       .setNodeId(NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case create: N.NodeCreate.WithTxValue[V.ContractId] =>
+      case create: N.NodeCreate[V.ContractId, Val] =>
         val createBuilder =
           Node.Create.newBuilder
             .setContractInstance(
               ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
-                .setValue(convertValue(create.coinst.arg.value))
+                .setValue(convertValue(create.coinst.arg))
                 .build,
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
         create.key.foreach(key =>
-          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)))
+          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(convertValue, key)))
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch.WithTxValue[V.ContractId] =>
+      case fetch: N.NodeFetch[V.ContractId, Val] =>
         builder.setFetch(
           Node.Fetch.newBuilder
             .setContractId(coidToNodeId(fetch.coid))
@@ -519,7 +524,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build,
         )
-      case ex: N.NodeExercises.WithTxValue[Tx.NodeId, V.ContractId] =>
+      case ex: N.NodeExercises[V.NodeId, V.ContractId, Val] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -528,7 +533,7 @@ final class Conversions(
             .setChoiceId(ex.choiceId)
             .setConsuming(ex.consuming)
             .addAllActingParties(ex.actingParties.map(convertParty).asJava)
-            .setChosenValue(convertValue(ex.chosenValue.value))
+            .setChosenValue(convertValue(ex.chosenValue))
             .addAllSignatories(ex.signatories.map(convertParty).asJava)
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllChildren(
@@ -540,11 +545,11 @@ final class Conversions(
             .build,
         )
 
-      case lookup: N.NodeLookupByKey.WithTxValue[V.ContractId] =>
+      case lookup: N.NodeLookupByKey[V.ContractId, Val] =>
         lookup.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = Node.LookupByKey.newBuilder
-            .setKeyWithMaintainers(convertKeyWithMaintainers(lookup.key))
+            .setKeyWithMaintainers(convertKeyWithMaintainers(convertValue, lookup.key))
           lookup.result.foreach(cid => builder.setContractId(coidToNodeId(cid)))
           builder.build
         })
@@ -579,6 +584,9 @@ final class Conversions(
       .build
 
   }
+
+  private def convertVersionedValue(value: V.VersionedValue[V.ContractId]): Value =
+    convertValue(value.value)
 
   def convertValue(value: V[V.ContractId]): Value = {
     val builder = Value.newBuilder
