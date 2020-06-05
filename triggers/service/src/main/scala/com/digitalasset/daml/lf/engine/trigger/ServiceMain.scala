@@ -149,7 +149,6 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
     triggerLog.getOrElse(uuid, Vector())
   }
-
 }
 
 object Server {
@@ -196,8 +195,10 @@ object Server {
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
     implicit val dateTimeFormat: RootJsonFormat[LocalDateTime] = LocalDateTimeJsonFormat
 
+    def triggerRunnerName(triggerInstance: UUID): String = triggerInstance.toString ++ "-monitor"
+
     def getRunner(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] =
-      ctx.child(triggerInstance.toString ++ "-monitor").asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+      ctx.child(triggerRunnerName(triggerInstance)).asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
     def startTrigger(token: (Jwt, JwtPayload), triggerName: Identifier): Either[String, JsValue] = {
       for {
@@ -223,7 +224,7 @@ object Server {
             ),
             triggerInstance.toString
           ),
-          triggerInstance.toString + "-monitor"
+          triggerRunnerName(triggerInstance)
         )
       } yield JsObject(("triggerId", triggerInstance.toString.toJson))
     }
