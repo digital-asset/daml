@@ -103,8 +103,8 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
   private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
     triggerDao match {
       case None =>
-        triggers = triggers + (t.triggerInstance -> t)
-        triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
+        triggers += t.triggerInstance -> t
+        triggersByToken += t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance)
         Right(())
       case Some(dao) =>
         val insert = dao.transact(TriggerDao.addRunningTrigger(t))
@@ -116,8 +116,8 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
   }
 
   private def removeRunningTrigger(t: RunningTrigger): Unit = {
-    triggers = triggers - t.triggerInstance
-    triggersByToken = triggersByToken + (t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance))
+    triggers -= t.triggerInstance
+    triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
   }
 
   private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
@@ -138,11 +138,8 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
 
   private def logTriggerStatus(t: RunningTrigger, msg: String): Unit = {
     val id = t.triggerInstance
-    val entry = ((LocalDateTime.now), msg)
-    triggerLog += triggerLog
-      .get(id)
-      .map(logs => id -> (logs :+ entry))
-      .getOrElse(id -> Vector(entry))
+    val entry = (LocalDateTime.now, msg)
+    triggerLog += id -> (getTriggerStatus(id) :+ entry)
   }
 
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {

@@ -44,18 +44,18 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
 
-  val darPath = requiredResource("triggers/service/test-model.dar")
-  val encodedDar =
+  private val darPath = requiredResource("triggers/service/test-model.dar")
+  private val encodedDar =
     DarReader().readArchiveFromFile(darPath).get
-  val dar = encodedDar.map {
+  private val dar = encodedDar.map {
     case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
   }
-  val testPkgId = dar.main._1
+  private val testPkgId = dar.main._1
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig = JdbcConfig(postgresDatabase.url, "operator", "password")
 
-  def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
+  private def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
       Some(
         Commands(

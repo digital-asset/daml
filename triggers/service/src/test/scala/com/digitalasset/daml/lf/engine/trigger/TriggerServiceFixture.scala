@@ -48,7 +48,7 @@ object TriggerServiceFixture {
   private def findFreePort(): Port = {
     val socket = new ServerSocket(Port(0).value)
     try {
-      Port(socket.getLocalPort())
+      Port(socket.getLocalPort)
     } finally {
       socket.close()
     }
@@ -66,7 +66,7 @@ object TriggerServiceFixture {
       ec: ExecutionContext): Future[A] = {
     // Launch a toxiproxy instance. Wait on it to be ready to accept
     // connections.
-    val host = InetAddress.getLoopbackAddress()
+    val host = InetAddress.getLoopbackAddress
     val toxiProxyExe = BazelRunfiles.rlocation(System.getProperty("com.daml.toxiproxy"))
     val toxiProxyPort = findFreePort()
     val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
@@ -75,7 +75,7 @@ object TriggerServiceFixture {
         channel <- Future(new Socket(host, toxiProxyPort.value))
       } yield (channel.close())
     }
-    val toxiProxyClient = new ToxiproxyClient(host.getHostName(), toxiProxyPort.value);
+    val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.value);
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
@@ -86,8 +86,8 @@ object TriggerServiceFixture {
       ledgerProxyPort = findFreePort()
       ledgerProxy = toxiProxyClient.createProxy(
         "sandbox",
-        s"${host.getHostName()}:${ledgerProxyPort}",
-        s"${host.getHostName()}:${ledgerPort}")
+        s"${host.getHostName}:$ledgerProxyPort",
+        s"${host.getHostName}:$ledgerPort")
     } yield (ledger, ledgerPort, ledgerProxyPort, ledgerProxy)
     // 'ledgerProxyPort' is managed by the toxiproxy instance and
     // forwards to the real sandbox port.
@@ -95,7 +95,7 @@ object TriggerServiceFixture {
     // Configure this client with the ledger's *actual* port.
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort, _, _) <- ledgerF
-      client <- LedgerClient.singleHost(host.getHostName(), ledgerPort, clientConfig(applicationId))
+      client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
     } yield client
 
     val triggerDao: Option[TriggerDao] =
@@ -111,7 +111,7 @@ object TriggerServiceFixture {
     val serviceF: Future[(ServerBinding, TypedActorSystem[Server.Message])] = for {
       (_, _, ledgerProxyPort, _) <- ledgerF
       ledgerConfig = LedgerConfig(
-        host.getHostName(),
+        host.getHostName,
         ledgerProxyPort.value,
         TimeProviderType.Static,
         Duration.ofSeconds(30))
