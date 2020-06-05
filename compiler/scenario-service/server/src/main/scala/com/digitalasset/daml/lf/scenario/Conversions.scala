@@ -471,7 +471,7 @@ final class Conversions(
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
-          .setKeyWithMaintainers(convertKeyWithMaintainers(convertVersionnedValue, lbk.key))
+          .setKeyWithMaintainers(convertKeyWithMaintainers(convertVersionedValue, lbk.key))
         lbk.result.foreach(cid => lbkBuilder.setContractId(coidToNodeId(cid)))
         builder.setLookupByKey(lbkBuilder)
 
@@ -500,7 +500,7 @@ final class Conversions(
       .setNodeId(NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case create @ N.NodeCreate(_, _, _, _, _, _) =>
+      case create: N.NodeCreate[V.ContractId, Val] =>
         val createBuilder =
           Node.Create.newBuilder
             .setContractInstance(
@@ -515,7 +515,7 @@ final class Conversions(
           createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(convertValue, key)))
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch @ N.NodeFetch(_, _, _, _, _, _, _) =>
+      case fetch: N.NodeFetch[V.ContractId, Val] =>
         builder.setFetch(
           Node.Fetch.newBuilder
             .setContractId(coidToNodeId(fetch.coid))
@@ -524,7 +524,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build,
         )
-      case ex @ N.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case ex: N.NodeExercises[V.NodeId, V.ContractId, Val] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -545,7 +545,7 @@ final class Conversions(
             .build,
         )
 
-      case lookup @ N.NodeLookupByKey(_, _, _, _) =>
+      case lookup: N.NodeLookupByKey[V.ContractId, Val] =>
         lookup.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = Node.LookupByKey.newBuilder

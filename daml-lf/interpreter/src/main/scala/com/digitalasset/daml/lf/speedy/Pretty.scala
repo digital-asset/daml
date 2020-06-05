@@ -75,16 +75,16 @@ object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case create @ NodeCreate(_, _, _, _, _, _) =>
+      case create: NodeCreate[Value.ContractId, Value[Value.ContractId]] =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
+      case fetch: NodeFetch[Value.ContractId, Value[Value.ContractId]] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case ex: NodeExercises[Value.NodeId, Value.ContractId, Value[Value.ContractId]] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyValue(false)(ex.chosenValue)
-      case lbk @ NodeLookupByKey(_, _, _, _) =>
+      case lbk: NodeLookupByKey[Value.ContractId, Value[Value.ContractId]] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
