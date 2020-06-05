@@ -1,9 +1,9 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Model where
+module ProposeAccept where
 
-template TProposal
+template ProposeDeal
   with
     proposer : Party
     accepter : Party
@@ -11,11 +11,11 @@ template TProposal
   where
     signatory proposer
     observer accepter
-    choice Accept : ContractId T
+    choice Accept : ContractId Deal
       controller accepter
-      do create T with ..
+      do create Deal with ..
 
-template T
+template Deal
   with
     proposer : Party
     accepter : Party

@@ -75,9 +75,9 @@ testVersion
     :: FilePath
     -> FilePath
     -> T.Text
-    -> ([Tuple2 (ContractId T) T], [Transaction])
+    -> ([Tuple2 (ContractId Deal) Deal], [Transaction])
     -> FilePath
-    -> IO ([Tuple2 (ContractId T) T], [Transaction])
+    -> IO ([Tuple2 (ContractId Deal) Deal], [Transaction])
 testVersion step modelDar jdbcUrl (prevTs, prevTransactions) assistant = do
     let note = takeFileName (takeDirectory assistant)
     hPutStrLn stderr ("--> Testing " <> note)
@@ -94,21 +94,21 @@ testVersion step modelDar jdbcUrl (prevTs, prevTransactions) assistant = do
             ]
         Result{..} <- either fail pure =<< A.eitherDecodeFileStrict' outputFile
         -- Test that all proposals are archived.
-        unless (null oldTProposals) $
-            fail ("Expected no old TProposals but got " <> show oldTProposals)
-        unless (null newTProposals) $
-            fail ("Expected no new TProposals but got " <> show newTProposals)
-        unless (prevTs == oldTs) $
-            fail ("Active ts should not have changed after migration: " <> show (prevTs, oldTs))
+        unless (null oldProposeDeals) $
+            fail ("Expected no old ProposeDeals but got " <> show oldProposeDeals)
+        unless (null newProposeDeals) $
+            fail ("Expected no new ProposeDeals but got " <> show newProposeDeals)
+        unless (prevTs == oldDeals) $
+            fail ("Active ts should not have changed after migration: " <> show (prevTs, oldDeals))
         -- Test that no T contracts got archived.
-        let missingTs = filter (`notElem` newTs) oldTs
+        let missingTs = filter (`notElem` newDeals) oldDeals
         unless (null missingTs) $
             fail ("The following contracts got lost during the migration: " <> show missingTs)
         -- Test that only one new T contract is not archived.
-        let addedTs = filter (`notElem` oldTs) newTs
+        let addedTs = filter (`notElem` oldDeals) newDeals
         case addedTs of
             [Tuple2 _ t] -> do
-                let expected = T testProposer testAccepter note
+                let expected = Deal testProposer testAccepter note
                 unless (t == expected) $
                     fail ("Expected " <> show expected <> " but got " <> show t)
             _ -> fail ("Expected 1 new T contract but got: " <> show addedTs)
@@ -128,15 +128,15 @@ testVersion step modelDar jdbcUrl (prevTs, prevTransactions) assistant = do
         -- verify that the new transactions are what we expect.
         validateNewTransactions (map events newEnd)
         hPutStrLn stderr ("<-- Tested " <> note)
-        pure (newTs, newTransactions)
+        pure (newDeals, newTransactions)
 
 validateNewTransactions :: [[Event]] -> IO ()
 validateNewTransactions
-  [ [CreatedTProposal prop1 _]
-  , [CreatedTProposal prop2 _]
-  , [ArchivedTProposal prop1',CreatedT t1 _]
-  , [ArchivedTProposal prop2',CreatedT _t2 _]
-  , [ArchivedT t1']
+  [ [CreatedProposeDeal prop1 _]
+  , [CreatedProposeDeal prop2 _]
+  , [ArchivedProposeDeal prop1',CreatedDeal t1 _]
+  , [ArchivedProposeDeal prop2',CreatedDeal _t2 _]
+  , [ArchivedDeal t1']
   ] = do
     checkArchive prop1 prop1'
     checkArchive prop2 prop2'
@@ -162,21 +162,21 @@ newtype Party = Party { getParty :: T.Text }
   deriving newtype (A.FromJSON, A.ToJSON)
   deriving stock (Eq, Show)
 
-data T = T
+data Deal = Deal
   { proposer :: Party
   , accepter :: Party
   , note :: String
   } deriving (Eq, Generic, Show)
 
-instance A.FromJSON T
+instance A.FromJSON Deal
 
-data TProposal = TProposal
+data ProposeDeal = ProposeDeal
   { proposer :: Party
   , accepter :: Party
   , note :: T.Text
   } deriving (Generic, Show, Eq)
 
-instance A.FromJSON TProposal
+instance A.FromJSON ProposeDeal
 
 data Tuple2 a b = Tuple2
   { _1 :: a
@@ -186,26 +186,29 @@ data Tuple2 a b = Tuple2
 instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
 
 data Event
-  = CreatedT (ContractId T) T
-  | ArchivedT (ContractId T)
-  | CreatedTProposal (ContractId TProposal) TProposal
-  | ArchivedTProposal (ContractId TProposal)
+  = CreatedDeal (ContractId Deal) Deal
+  | ArchivedDeal (ContractId Deal)
+  | CreatedProposeDeal (ContractId ProposeDeal) ProposeDeal
+  | ArchivedProposeDeal (ContractId ProposeDeal)
   deriving (Eq, Show)
 
 instance A.FromJSON Event where
     parseJSON = A.withObject "Event" $ \o -> do
         ty <- o A..: "type"
-        tpl <- o A..: "template"
-        case ty of
-            "created" -> case tpl of
-                "Model:T" -> CreatedT <$> o A..: "cid" <*> o A..: "argument"
-                "Model:TProposal" -> CreatedTProposal <$> o A..: "cid" <*> o A..: "argument"
-                _ -> fail ("Invalid template: " <> tpl)
-            "archived" -> case tpl of
-                "Model:T" -> ArchivedT <$> o A..: "cid"
-                "Model:TProposal" -> ArchivedTProposal <$> o A..: "cid"
-                _ -> fail ("Invalid template: " <> tpl)
-            _ -> fail ("Invalid type: " <> ty)
+        moduleName <- o A..: "moduleName"
+        entityName <- o A..: "entityName"
+        case moduleName of
+            "ProposeAccept" -> case ty of
+                "created" -> case entityName of
+                    "Deal" -> CreatedDeal <$> o A..: "contractId" <*> o A..: "argument"
+                    "ProposeDeal" -> CreatedProposeDeal <$> o A..: "contractId" <*> o A..: "argument"
+                    _ -> fail ("Invalid entity: " <> entityName)
+                "archived" -> case entityName of
+                    "Deal" -> ArchivedDeal <$> o A..: "contractId"
+                    "ProposeDeal" -> ArchivedProposeDeal <$> o A..: "contractId"
+                    _ -> fail ("Invalid entity: " <> entityName)
+                _ -> fail ("Invalid event type: " <> ty)
+            _ -> fail ("Invalid module: " <> moduleName)
 
 data Transaction = Transaction
   { transactionId :: T.Text
@@ -215,10 +218,10 @@ data Transaction = Transaction
 instance A.FromJSON Transaction
 
 data Result = Result
-  { oldTProposals :: [Tuple2 (ContractId TProposal) TProposal]
-  , newTProposals :: [Tuple2 (ContractId TProposal) TProposal]
-  , oldTs :: [Tuple2 (ContractId T) T]
-  , newTs :: [Tuple2 (ContractId T) T]
+  { oldProposeDeals :: [Tuple2 (ContractId ProposeDeal) ProposeDeal]
+  , newProposeDeals :: [Tuple2 (ContractId ProposeDeal) ProposeDeal]
+  , oldDeals :: [Tuple2 (ContractId Deal) Deal]
+  , newDeals :: [Tuple2 (ContractId Deal) Deal]
   , oldTransactions :: [Transaction]
   , newTransactions :: [Transaction]
   } deriving Generic
