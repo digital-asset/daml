@@ -103,8 +103,8 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
   private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
     triggerDao match {
       case None =>
-        triggers = triggers + (t.triggerInstance -> t)
-        triggersByToken = triggersByToken + (t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance))
+        triggers += t.triggerInstance -> t
+        triggersByToken += t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance)
         Right(())
       case Some(dao) =>
         val insert = dao.transact(TriggerDao.addRunningTrigger(t))
