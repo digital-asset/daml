@@ -198,7 +198,9 @@ object Server {
     def triggerRunnerName(triggerInstance: UUID): String = triggerInstance.toString ++ "-monitor"
 
     def getRunner(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] =
-      ctx.child(triggerRunnerName(triggerInstance)).asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+      ctx
+        .child(triggerRunnerName(triggerInstance))
+        .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
     def startTrigger(token: (Jwt, JwtPayload), triggerName: Identifier): Either[String, JsValue] = {
       for {
@@ -235,8 +237,8 @@ object Server {
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
       if (server.removeRunningTrigger(uuid)) {
-        getRunner(uuid) foreach {
-          runner => runner ! TriggerRunner.Stop
+        getRunner(uuid) foreach { runner =>
+          runner ! TriggerRunner.Stop
         }
         // If we couldn't find the runner then there is nothing to stop anyway,
         // so pretend everything went normally.
@@ -362,7 +364,8 @@ object Server {
                   .fold(
                     unauthorized =>
                       complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
-                    token => stopTrigger(uuid, token) match {
+                    token =>
+                      stopTrigger(uuid, token) match {
                         case None =>
                           val err = s"No trigger running with id $uuid"
                           complete(errorResponse(StatusCodes.NotFound, err))
@@ -412,7 +415,8 @@ object Server {
             // The trigger has failed to start. No need to update the
             // running triggers tables since this trigger never made
             // it there.
-            server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
+            server
+              .logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
