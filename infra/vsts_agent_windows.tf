@@ -107,7 +107,7 @@ $partition | Set-Content C:\diskpart.txt
 & diskpart /s C:\diskpart.txt 2>&1 | %{ "$_" }
 
 # Create a temporary and random password for the VSTS user, forget about it once this script has finished running
-$Username = "VssAdministrator"
+$Username = "u"
 $Account = "$env:COMPUTERNAME\$Username"
 Add-Type -AssemblyName System.Web
 $Password = [System.Web.Security.Membership]::GeneratePassword(24, 0)
