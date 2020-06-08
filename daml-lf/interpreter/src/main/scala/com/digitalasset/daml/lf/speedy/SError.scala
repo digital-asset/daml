@@ -5,10 +5,11 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.types.Ledger
+import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.value.Value.ContractId
 
 object SError {
@@ -76,7 +77,7 @@ object SError {
   final case class ScenarioErrorContractNotActive(
       coid: ContractId,
       templateId: Identifier,
-      consumedBy: Ledger.EventId,
+      consumedBy: EventId,
   ) extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --
@@ -108,7 +109,8 @@ object SError {
   ) extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
-  final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
+  final case class ScenarioErrorCommitError(commitError: ScenarioLedger.CommitError)
+      extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
   final case class ScenarioErrorMustFailSucceeded(tx: Tx.Transaction) extends SErrorScenario

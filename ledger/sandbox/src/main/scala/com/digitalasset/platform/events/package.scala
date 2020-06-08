@@ -3,11 +3,11 @@
 
 package com.daml.platform
 
-import com.daml.lf.types.Ledger
+import com.daml.lf.ledger.EventId
 
 package object events {
 
-  type TransactionIdWithIndex = Ledger.EventId
-  val TransactionIdWithIndex: Ledger.EventId.type = Ledger.EventId
+  type TransactionIdWithIndex = EventId
+  val TransactionIdWithIndex: EventId.type = EventId
 
 }

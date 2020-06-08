@@ -17,7 +17,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
-import com.daml.lf.types.Ledger.Ledger
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -164,7 +163,7 @@ class Context(val contextId: Context.ContextId) {
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
+  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
       Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
     ).map { machine =>

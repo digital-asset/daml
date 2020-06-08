@@ -13,7 +13,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.types.Ledger
+import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
@@ -178,8 +178,9 @@ object Repl {
         Time.Timestamp.MinValue,
         nextSeed())
       .fold(err => sys.error(err.toString), identity)
-    def run(expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger, SValue)]) = {
+    def run(expr: Expr): (
+        Speedy.Machine,
+        Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
       val machine = build(expr)
       (machine, ScenarioRunner(machine).run())
     }

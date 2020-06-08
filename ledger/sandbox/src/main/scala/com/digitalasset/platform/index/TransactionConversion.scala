@@ -9,8 +9,7 @@ import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
-import com.daml.lf.value.{Value => Lf}
-import com.daml.lf.types.Ledger
+import com.daml.lf
 import com.daml.ledger.{CommandId, EventId, TransactionId}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event
@@ -34,7 +33,7 @@ import scala.annotation.tailrec
 
 object TransactionConversion {
 
-  private type ContractId = Lf.ContractId
+  private type ContractId = lf.value.Value.ContractId
   private type Transaction = GenTransaction.WithTxValue[EventId, ContractId]
   private type Node = GenNode.WithTxValue[EventId, ContractId]
   private type Create = NodeCreate.WithTxValue[ContractId]
@@ -109,13 +108,13 @@ object TransactionConversion {
   ): Option[Relation[EventId, Ref.Party]] =
     Some(
       Blinding
-        .blind(transaction.mapNodeId(Ledger.EventId.assertFromString(_).nodeId))
+        .blind(transaction.mapNodeId(lf.ledger.EventId.assertFromString(_).nodeId))
         .disclosure
         .flatMap {
           case (nodeId, disclosure) =>
             List(disclosure.intersect(parties)).collect {
               case disclosure if disclosure.nonEmpty =>
-                Ledger.EventId(transactionId, nodeId).toLedgerString -> disclosure
+                lf.ledger.EventId(transactionId, nodeId).toLedgerString -> disclosure
             }
         }
     ).filter(_.nonEmpty)

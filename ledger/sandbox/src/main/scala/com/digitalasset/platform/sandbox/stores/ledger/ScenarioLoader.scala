@@ -8,12 +8,10 @@ import java.time.Instant
 import com.daml.lf.{CompiledPackages, crypto}
 import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
 import com.daml.lf.language.Ast
+import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.daml.lf.transaction.GenTransaction
-import com.daml.lf.types.Ledger.ScenarioTransactionId
-import com.daml.lf.types.{Ledger => L}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
@@ -65,8 +63,9 @@ object ScenarioLoader {
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
-      new ArrayBuffer[(ScenarioTransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
-    type Acc = (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioTransactionId])
+      new ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)](
+        scenarioLedger.scenarioSteps.size)
+    type Acc = (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioLedger.TransactionId])
     val (acs, time, txId) =
       scenarioLedger.scenarioSteps.iterator
         .foldLeft[Acc]((InMemoryActiveLedgerState.empty, Time.Timestamp.Epoch, None)) {
@@ -77,9 +76,10 @@ object ScenarioLoader {
     @tailrec
     def decorateWithIncrement(
         processed: BackStack[LedgerEntryOrBump],
-        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)]): ImmArray[LedgerEntryOrBump] = {
+        toProcess: ImmArray[(ScenarioLedger.TransactionId, LedgerEntry)])
+      : ImmArray[LedgerEntryOrBump] = {
 
-      def bumps(entryTxId: ScenarioTransactionId, nextTxId: ScenarioTransactionId) =
+      def bumps(entryTxId: ScenarioLedger.TransactionId, nextTxId: ScenarioLedger.TransactionId) =
         if ((nextTxId.index - entryTxId.index) == 1)
           ImmArray.empty
         else
@@ -116,7 +116,7 @@ object ScenarioLoader {
       compiledPackages: CompiledPackages,
       scenario: String,
       submissionSeed: crypto.Hash,
-  ): (L.Ledger, Ref.DefinitionRef) = {
+  ): (ScenarioLedger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
@@ -129,7 +129,7 @@ object ScenarioLoader {
   private def getScenarioLedger(
       scenarioRef: Ref.DefinitionRef,
       speedyMachine: Speedy.Machine,
-  ): L.Ledger =
+  ): ScenarioLedger =
     ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
@@ -146,13 +146,15 @@ object ScenarioLoader {
       case Right(build) => build(scenarioExpr)
     }
 
-  private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
+  private def getScenarioExpr(
+      scenarioRef: Ref.DefinitionRef,
+      scenarioDef: Ast.Definition): Ast.Expr = {
     scenarioDef match {
-      case DValue(_, _, body, _) => body
-      case _: DTypeSyn =>
+      case Ast.DValue(_, _, body, _) => body
+      case _: Ast.DTypeSyn =>
         throw new RuntimeException(
           s"Requested scenario $scenarioRef is a type synonym, not a definition")
-      case _: DDataType =>
+      case _: Ast.DDataType =>
         throw new RuntimeException(
           s"Requested scenario $scenarioRef is a data type, not a definition")
     }
@@ -161,8 +163,8 @@ object ScenarioLoader {
   private def identifyScenario(
       packages: InMemoryPackageStore,
       scenario: String,
-      candidateScenarios: List[(Ref.DefinitionRef, Definition)])
-    : (Ref.DefinitionRef, Definition) = {
+      candidateScenarios: List[(Ref.DefinitionRef, Ast.Definition)])
+    : (Ref.DefinitionRef, Ast.Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
@@ -209,16 +211,19 @@ object ScenarioLoader {
   private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
 
   private def executeScenarioStep(
-      ledger: ArrayBuffer[(ScenarioTransactionId, LedgerEntry)],
+      ledger: ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
       acs: InMemoryActiveLedgerState,
       time: Time.Timestamp,
-      mbOldTxId: Option[ScenarioTransactionId],
+      mbOldTxId: Option[ScenarioLedger.TransactionId],
       stepId: Int,
-      step: L.ScenarioStep
-  ): (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioTransactionId]) = {
+      step: ScenarioLedger.ScenarioStep
+  ): (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioLedger.TransactionId]) = {
     step match {
-      case L.Commit(txId: ScenarioTransactionId, richTransaction: L.RichTransaction, _) =>
+      case ScenarioLedger.Commit(
+          txId: ScenarioLedger.TransactionId,
+          richTransaction: ScenarioLedger.RichTransaction,
+          _) =>
         mbOldTxId match {
           case None => ()
           case Some(oldTxId) =>
@@ -268,9 +273,9 @@ object ScenarioLoader {
           case Left(err) =>
             throw new RuntimeException(s"Error when augmenting acs at step $stepId: $err")
         }
-      case _: L.AssertMustFail =>
+      case _: ScenarioLedger.AssertMustFail =>
         (acs, time, mbOldTxId)
-      case L.PassTime(dtMicros) =>
+      case ScenarioLedger.PassTime(dtMicros) =>
         (acs, time.addMicros(dtMicros), mbOldTxId)
     }
   }

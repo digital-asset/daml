@@ -7,7 +7,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
-import com.daml.lf.types.Ledger._
+import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
@@ -18,29 +18,29 @@ object Blinding {
       tx: Transaction.Transaction,
       authorization: Authorization): Either[AuthorizationError, BlindingInfo] = {
     val enrichedTx =
-      enrichTransaction(authorization, tx)
+      EnrichedTransaction(authorization, tx)
     def authorizationErrors(failures: Map[Transaction.NodeId, FailedAuthorization]) = {
       failures
         .map {
           case (id, failure) =>
             failure match {
-              case nc: FANoControllers =>
+              case nc: FailedAuthorization.NoControllers =>
                 s"node $id (${nc.templateId}) has no controllers"
-              case am: FAActorMismatch =>
+              case am: FailedAuthorization.ActorMismatch =>
                 s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
-              case ma: FACreateMissingAuthorization =>
+              case ma: FailedAuthorization.CreateMissingAuthorization =>
                 s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
                   .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
-              case ma: FAFetchMissingAuthorization =>
+              case ma: FailedAuthorization.FetchMissingAuthorization =>
                 s"node $id requires one of the stakeholders ${ma.stakeholders} of the fetched contract to be an authorizer, but authorizers were ${ma.authorizingParties}"
-              case ma: FAExerciseMissingAuthorization =>
+              case ma: FailedAuthorization.ExerciseMissingAuthorization =>
                 s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
                   .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
-              case ns: FANoSignatories =>
+              case ns: FailedAuthorization.NoSignatories =>
                 s"node $id (${ns.templateId}) has no signatories"
-              case nlbk: FALookupByKeyMissingAuthorization =>
+              case nlbk: FailedAuthorization.LookupByKeyMissingAuthorization =>
                 s"node $id (${nlbk.templateId}) requires authorizers ${nlbk.maintainers} for lookup by key, but it only has ${nlbk.authorizingParties}"
-              case mns: FAMaintainersNotSubsetOfSignatories =>
+              case mns: FailedAuthorization.MaintainersNotSubsetOfSignatories =>
                 s"node $id (${mns.templateId}) has maintainers ${mns.maintainers} which are not a subset of the signatories ${mns.signatories}"
 
             }

@@ -7,19 +7,18 @@ package perf
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
-import com.daml.lf.data.Ref.{Identifier, QualifiedName, Party}
+import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.Transaction.Value
-import com.daml.lf.types.Ledger
-import com.daml.lf.types.Ledger._
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
-
 import java.io.File
 import java.util.concurrent.TimeUnit
+
 import org.openjdk.jmh.annotations._
 
 class CollectAuthority {
@@ -97,7 +96,7 @@ class CollectAuthorityState {
   // interacting with the ledger, so they can be reused during the benchmark runs.
 
   def setup(): Unit = {
-    var ledger: Ledger = Ledger.initialLedger(Time.Timestamp.Epoch)
+    var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
     var step = 0
     var finalValue: SValue = null
     while (finalValue == null) {
@@ -112,7 +111,7 @@ class CollectAuthorityState {
               crash(s"Party.fromString failed: $msg")
           }
         case SResultScenarioCommit(value, tx, committers, callback) =>
-          Ledger.commitTransaction(
+          ScenarioLedger.commitTransaction(
             committers.head,
             ledger.currentTime,
             machine.commitLocation,
@@ -127,8 +126,11 @@ class CollectAuthorityState {
           }
         case SResultNeedContract(acoid, _, committers, _, callback) =>
           val effectiveAt = ledger.currentTime
-          ledger.lookupGlobalContract(ParticipantView(committers.head), effectiveAt, acoid) match {
-            case LookupOk(_, result, _) =>
+          ledger.lookupGlobalContract(
+            ScenarioLedger.ParticipantView(committers.head),
+            effectiveAt,
+            acoid) match {
+            case ScenarioLedger.LookupOk(_, result, _) =>
               cachedContract = cachedContract + (step -> result)
               callback(result)
             case x =>
