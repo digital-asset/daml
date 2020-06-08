@@ -425,6 +425,7 @@ jobs:
           echo "$GPG_KEY" | base64 -d > $KEY_FILE
           gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
           cd $(Build.StagingDirectory)/release
+          sha256sum $(find . -type f | sort) > sha256sums
           # Note: relies on our release artifacts not having spaces in their
           # names. Creates a ${f}.asc with the signature for each $f.
           for f in *; do
