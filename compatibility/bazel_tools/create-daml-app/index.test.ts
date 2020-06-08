@@ -307,7 +307,9 @@ test("log in as three different users and start following each other", async () 
 
   // Add Party 3 as well and check both are in the list.
   await follow(page1, party3);
-  await page1.waitForSelector(".test-select-following");
+  await page1.waitForFunction(
+    () => document.querySelectorAll(".test-select-following").length == 2
+  );
   const followingList11 = await page1.$$eval(
     ".test-select-following",
     (following) => following.map((e) => e.innerHTML)
@@ -344,7 +346,9 @@ test("log in as three different users and start following each other", async () 
   await follow(page2, party3);
 
   // Check the following list is updated correctly.
-  await page2.waitForSelector(".test-select-following");
+  await page2.waitForFunction(
+    () => document.querySelectorAll(".test-select-following").length == 2
+  );
   const followingList2 = await page2.$$eval(
     ".test-select-following",
     (following) => following.map((e) => e.innerHTML)
