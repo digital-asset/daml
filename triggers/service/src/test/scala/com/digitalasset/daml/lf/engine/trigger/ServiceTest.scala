@@ -232,22 +232,6 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       Future(succeed)
     }
 
-  it should "add running triggers" in
-    withTriggerServiceAndDb(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      for {
-        // Initially no triggers started for Alice
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector())
-        // Start a trigger for Alice and check it appears in list.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        trigger1 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
-        // Do the same for a second trigger.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        trigger2 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1, trigger2).sorted)
-      } yield succeed
-    }
-
   it should "fail to start non-existent trigger" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       val expectedError = StatusCodes.UnprocessableEntity
@@ -263,7 +247,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "start a trigger after uploading it" in withHttpService(None) {
+  it should "start a trigger after uploading it" in withTriggerServiceAndDb(None) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- uploadDar(uri, darPath)
@@ -279,7 +263,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
+  it should "start multiple triggers and list them by party" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- listTriggers(uri, "Alice")
@@ -311,7 +295,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
+  it should "should enable a trigger on http request" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         // Start the trigger
@@ -384,7 +368,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     }
   }
 
-  it should "stop a failing trigger that can't be restarted" in withHttpService(Some(dar)) {
+  it should "stop a failing trigger that can't be restarted" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       // Simulate the ledger becoming unrecoverably unavailable due to
       // network connectivity loss. The stop strategy means the running
@@ -404,35 +388,35 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart a trigger failing due to a dropped connection" in withHttpService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      // Simulate the ledger briefly being unavailable due to network
-      // connectivity loss. Our restart strategy means that the running
-      // trigger gets restarted.
-      for {
-        // Request a trigger be started for Alice.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        aliceTrigger <- parseTriggerId(resp)
-        // Proceed when it is confirmed to be running.
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
-        // Simulate brief network connectivity loss.
-        _ <- Future { ledgerProxy.disable() }
-        _ <- Future { ledgerProxy.enable() }
-        // Check that the trigger survived the outage and that its
-        // history shows it went through a restart.
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          triggerStatus => {
-            triggerStatus.count(_ == "stopped: runtime failure") == 1 &&
-            triggerStatus.last == "running"
-          }
-        )
-      } yield succeed
+  it should "restart a trigger failing due to a dropped connection" in withTriggerServiceAndDb(
+    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    // Simulate the ledger briefly being unavailable due to network
+    // connectivity loss. Our restart strategy means that the running
+    // trigger gets restarted.
+    for {
+      // Request a trigger be started for Alice.
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+      aliceTrigger <- parseTriggerId(resp)
+      // Proceed when it is confirmed to be running.
+      _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+      // Simulate brief network connectivity loss.
+      _ <- Future { ledgerProxy.disable() }
+      _ <- Future { ledgerProxy.enable() }
+      // Check that the trigger survived the outage and that its
+      // history shows it went through a restart.
+      _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+      _ <- assertTriggerStatus(
+        uri,
+        aliceTrigger,
+        triggerStatus => {
+          triggerStatus.count(_ == "stopped: runtime failure") == 1 &&
+          triggerStatus.last == "running"
+        }
+      )
+    } yield succeed
   }
 
-  it should "restart triggers with script init errors" in withHttpService(Some(dar)) {
+  it should "restart triggers with script init errors" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", "Alice")
@@ -450,7 +434,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart triggers with script update errors" in withHttpService(Some(dar)) {
+  it should "restart triggers with script update errors" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", "Alice")
@@ -468,7 +452,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "give an 'unauthorized' response for a stop request without an authorization header" in withHttpService(
+  it should "give an 'unauthorized' response for a stop request without an authorization header" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
     val req = HttpRequest(
@@ -486,7 +470,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield succeed
   }
 
-  it should "give a 'not found' response for a stop request with unparseable UUID" in withHttpService(
+  it should "give a 'not found' response for a stop request with unparseable UUID" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
@@ -499,7 +483,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield succeed
   }
 
-  it should "give a 'not found' response for a stop request on an unknown UUID" in withHttpService(
+  it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
@@ -509,7 +493,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       JsObject(fields) = body.parseJson
       _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.NotFound.intValue)))
       _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString("Unknown trigger: '" + uuid.toString + "'"))))
+        Some(JsArray(JsString(s"No trigger running with id $uuid"))))
     } yield succeed
   }
 
