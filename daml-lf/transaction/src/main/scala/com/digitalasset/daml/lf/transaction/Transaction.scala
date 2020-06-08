@@ -501,8 +501,6 @@ object Transaction {
   ): Either[String, CommittedTransaction] =
     tx.suffixCid(f).map(CommittedTransaction(_))
 
-  sealed trait CommandIdTag
-
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
 
