@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
-import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest._
 
@@ -179,11 +179,15 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         case Some(transaction) =>
           val createEventId =
             tx.transaction.nodes.collectFirst {
-              case (eventId, _) if split(eventId).exists(_.nodeId.index == 2) => eventId
+              case (eventId, _)
+                  if TransactionIdWithIndex.fromString(eventId).exists(_.nodeId.index == 2) =>
+                eventId
             }.get
           val exerciseEventId =
             tx.transaction.nodes.collectFirst {
-              case (eventId, _) if split(eventId).exists(_.nodeId.index == 3) => eventId
+              case (eventId, _)
+                  if TransactionIdWithIndex.fromString(eventId).exists(_.nodeId.index == 3) =>
+                eventId
             }.get
 
           transaction.eventsById should have size 2

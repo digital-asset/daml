@@ -33,7 +33,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -463,7 +463,12 @@ private class JdbcLedgerDao(
     contractsReader.lookupContractKey(forParty, key)
 
   private def splitOrThrow(id: EventId): NodeId =
-    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+    TransactionIdWithIndex
+      .fromString(id)
+      .fold(
+        _ => sys.error(s"Illegal format for event identifier $id"),
+        _.nodeId
+      )
 
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],

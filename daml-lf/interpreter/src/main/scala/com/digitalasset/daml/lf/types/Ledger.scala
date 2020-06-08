@@ -4,10 +4,10 @@
 package com.daml.lf
 package types
 
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Time}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.data.Relation.Relation
@@ -16,30 +16,46 @@ import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.breakOut
 import scala.collection.immutable
+import scala.util.Try
 
 /** An in-memory representation of a ledger for scenarios */
 object Ledger {
 
-  import Ref.{ContractIdString => _, _}
-
-  type ScenarioNodeId = LedgerString
-
-  private object ScenarioNodeId {
-    def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
-      txNodeIdToScenarioNodeId(commitPrefix, txnid.index)
+  // transactionId should be small so the concatenation in toLedgerString do not exceed 255 chars
+  case class EventId(
+      transactionId: LedgerString,
+      nodeId: Tx.NodeId
+  ) {
+    lazy val toLedgerString: LedgerString = {
+      val builder = StringBuilder.newBuilder
+      builder += '#'
+      builder ++= transactionId
+      builder += ':'
+      builder ++= nodeId.index.toString
+      LedgerString.assertFromString(builder.result())
+    }
   }
 
-  /** This is the function that we use to turn relative contract ids (which are made of
-    * transaction node ids) in the still
-    * to be committed transaction into contract ids in the ledger.
-    */
-  //  The prefix should be smaller than 244 chars.
-  @inline
-  private def txNodeIdToScenarioNodeId(
-      commitPrefix: LedgerString,
-      txnidx: Int,
-  ): ScenarioNodeId =
-    LedgerString.assertConcat(commitPrefix, LedgerString.fromInt(txnidx))
+  object EventId {
+    def fromString(s: String): Either[String, EventId] = {
+      def err = Left(s"""cannot parse eventId $s""")
+      s.split(":") match {
+        case Array(transactionId, index) =>
+          transactionId.splitAt(1) match {
+            case ("#", transIdString) =>
+              for {
+                ix <- Try(index.toInt).fold(_ => err, Right(_))
+                transId <- LedgerString.fromString(transIdString)
+              } yield EventId(transId, Tx.NodeId(ix))
+            case _ => err
+          }
+        case _ => err
+      }
+    }
+
+    def assertFromString(s: String): EventId =
+      data.assertRight(fromString(s))
+  }
 
   @inline
   def assertNoContractId(key: Value[Value.ContractId]): Value[Nothing] =
@@ -48,16 +64,11 @@ object Ledger {
       identity,
     )
 
-  private val `:` = LedgerString.assertFromString(":")
-  private val `#` = LedgerString.assertFromString("#")
-
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
     // The resulting LedgerString is at most 11 chars long
     val id: LedgerString = LedgerString.fromLong(index.toLong)
     override def compare(that: ScenarioTransactionId): Int = index compare that.index
-    // The resulting LedgerString is at most 13 chars long
-    def makeCommitPrefix: LedgerString = LedgerString.assertConcat(`#`, id, `:`)
   }
 
   /** Errors */
@@ -76,7 +87,7 @@ object Ledger {
     * transaction node * in the node identifier, where here the identifier
     * is global.
     */
-  type Node = GenNode.WithTxValue[ScenarioNodeId, ContractId]
+  type Node = GenNode.WithTxValue[EventId, ContractId]
 
   /** A transaction as it is committed to the ledger.
     *
@@ -103,10 +114,10 @@ object Ledger {
   final case class RichTransaction(
       committer: Party,
       effectiveAt: Time.Timestamp,
-      roots: ImmArray[ScenarioNodeId],
-      nodes: immutable.HashMap[ScenarioNodeId, Node],
-      explicitDisclosure: Relation[ScenarioNodeId, Party],
-      localImplicitDisclosure: Relation[ScenarioNodeId, Party],
+      roots: ImmArray[EventId],
+      nodes: immutable.HashMap[EventId, Node],
+      explicitDisclosure: Relation[EventId, Party],
+      localImplicitDisclosure: Relation[EventId, Party],
       globalImplicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
   ) {
@@ -115,14 +126,14 @@ object Ledger {
 
   final case class EnrichedTransaction(
       // The transaction root nodes.
-      roots: ImmArray[Transaction.NodeId],
+      roots: ImmArray[Tx.NodeId],
       // All nodes of this transaction.
-      nodes: immutable.HashMap[Transaction.NodeId, Transaction.Node],
+      nodes: immutable.HashMap[Tx.NodeId, Tx.Node],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
-      explicitDisclosure: Relation[Transaction.NodeId, Party],
+      explicitDisclosure: Relation[Tx.NodeId, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed
       // (aka divulgence)
-      localImplicitDisclosure: Relation[Transaction.NodeId, Party],
+      localImplicitDisclosure: Relation[Tx.NodeId, Party],
       // A relation between contract id and the parties to which the contract id gets
       // explicitly disclosed.
       globalImplicitDisclosure: Relation[ContractId, Party],
@@ -131,7 +142,7 @@ object Ledger {
   )
 
   /**
-    * Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain relative
+    * Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain local
     * node id's and contain additional information in the most detailed form suitable for different
     * consumers. The RichTransaction is the transaction that we serialize in the sandbox to compare
     * different ledgers. All relative and absolute node id's are translated to absolute node id's of
@@ -146,19 +157,19 @@ object Ledger {
     RichTransaction(
       committer = committer,
       effectiveAt = effectiveAt,
-      roots = enrichedTx.roots.map(ScenarioNodeId(commitPrefix, _)),
+      roots = enrichedTx.roots.map(EventId(commitPrefix, _)),
       nodes = enrichedTx.nodes.map {
         case (nodeId, node) =>
-          ScenarioNodeId(commitPrefix, nodeId) -> node
-            .mapNodeId(ScenarioNodeId(commitPrefix, _))
+          EventId(commitPrefix, nodeId) -> node
+            .mapNodeId(EventId(commitPrefix, _))
       }(breakOut),
       explicitDisclosure = enrichedTx.explicitDisclosure.map {
         case (nodeId, ps) =>
-          (ScenarioNodeId(commitPrefix, nodeId), ps)
+          (EventId(commitPrefix, nodeId), ps)
       },
       localImplicitDisclosure = enrichedTx.localImplicitDisclosure.map {
         case (nodeId, ps) =>
-          (ScenarioNodeId(commitPrefix, nodeId), ps)
+          (EventId(commitPrefix, nodeId), ps)
       },
       globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
       failedAuthorizations = enrichedTx.failedAuthorizations,
@@ -216,9 +227,9 @@ object Ledger {
       transaction: ScenarioTransactionId,
       effectiveAt: Time.Timestamp,
       observingSince: Map[Party, ScenarioTransactionId],
-      referencedBy: Set[ScenarioNodeId],
-      consumedBy: Option[ScenarioNodeId],
-      parent: Option[ScenarioNodeId],
+      referencedBy: Set[EventId],
+      consumedBy: Option[EventId],
+      parent: Option[EventId],
   ) {
 
     /** 'True' if the given 'View' contains the given 'Node'. */
@@ -233,7 +244,7 @@ object Ledger {
     }
   }
 
-  type LedgerNodeInfos = Map[ScenarioNodeId, LedgerNodeInfo]
+  type LedgerNodeInfos = Map[EventId, LedgerNodeInfo]
 
   /*
    * Result from lookupGlobalContract. We provide detailed information why a lookup
@@ -243,7 +254,7 @@ object Ledger {
 
   final case class LookupOk(
       coid: ContractId,
-      coinst: ContractInst[Transaction.Value[ContractId]],
+      coinst: ContractInst[Tx.Value[ContractId]],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -256,7 +267,7 @@ object Ledger {
   final case class LookupContractNotActive(
       coid: ContractId,
       templateId: Identifier,
-      consumedBy: ScenarioNodeId,
+      consumedBy: EventId,
   ) extends LookupResult
   final case class LookupContractNotVisible(
       coid: ContractId,
@@ -349,9 +360,9 @@ object Ledger {
     }
 
     // Given a ledger and the node index of a node in a partial transaction
-    // turn it into a node it that can be used in scenario error messages.
-    def ptxNodeId(nodeIdx: NodeId): ScenarioNodeId =
-      ScenarioNodeId(scenarioStepId.makeCommitPrefix, nodeIdx)
+    // turn it into a event id that can be used in scenario error messages.
+    def ptxEventId(nodeIdx: NodeId): EventId =
+      EventId(scenarioStepId.id, nodeIdx)
   }
 
   sealed trait CommitError
@@ -372,16 +383,15 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
-      tr: Transaction.Transaction,
+      tr: Tx.Transaction,
       l: Ledger,
   ): Either[CommitError, CommitResult] = {
-    val i = l.scenarioStepId
-    // commitPrefix is small enough (< 20 chars), so we do no exceed the 255
-    // chars limit when concatenate in txNodeIdToScenarioNodeId method.
-    val commitPrefix = i.makeCommitPrefix
+    // transactionId is small enough (< 20 chars), so we do no exceed the 255
+    // chars limit when concatenate in EventId#toLedgerString method.
+    val transactionId = l.scenarioStepId.id
     val richTr =
       enrichedTransactionToRichTransaction(
-        commitPrefix,
+        transactionId,
         committer,
         effectiveAt,
         enrichTransaction(Authorize(Set(committer)), tr),
@@ -389,17 +399,20 @@ object Ledger {
     if (richTr.failedAuthorizations.nonEmpty)
       Left(CommitError.FailedAuthorizations(richTr.failedAuthorizations))
     else {
-      processTransaction(i, richTr, l.ledgerData) match {
+      processTransaction(l.scenarioStepId, richTr, l.ledgerData) match {
         case Left(err) => Left(CommitError.UniqueKeyViolation(err))
         case Right(updatedCache) =>
           Right(
             CommitResult(
               l.copy(
-                scenarioSteps = l.scenarioSteps + (i.index -> Commit(i, richTr, optLocation)),
+                scenarioSteps = l.scenarioSteps + (l.scenarioStepId.index -> Commit(
+                  l.scenarioStepId,
+                  richTr,
+                  optLocation)),
                 scenarioStepId = l.scenarioStepId.next,
                 ledgerData = updatedCache,
               ),
-              i,
+              l.scenarioStepId,
               richTr,
             ),
           )
@@ -438,7 +451,7 @@ object Ledger {
 
   sealed trait FailedAuthorization
 
-  type FailedAuthorizations = Map[Transaction.NodeId, FailedAuthorization]
+  type FailedAuthorizations = Map[Tx.NodeId, FailedAuthorization]
 
   final case class FACreateMissingAuthorization(
       templateId: Identifier,
@@ -496,16 +509,16 @@ object Ledger {
 
   /** State to use during enriching a transaction with disclosure information. */
   final case class EnrichState(
-      nodes: Map[ScenarioNodeId, Node],
-      disclosures: Relation[Transaction.NodeId, Party],
-      localDivulgences: Relation[Transaction.NodeId, Party],
+      nodes: Map[EventId, Node],
+      disclosures: Relation[Tx.NodeId, Party],
+      localDivulgences: Relation[Tx.NodeId, Party],
       globalDivulgences: Relation[ContractId, Party],
-      failedAuthorizations: Map[Transaction.NodeId, FailedAuthorization],
+      failedAuthorizations: Map[Tx.NodeId, FailedAuthorization],
   ) {
     def discloseNode(
         parentWitnesses: Set[Party],
-        nid: Transaction.NodeId,
-        node: Transaction.Node,
+        nid: Tx.NodeId,
+        node: Tx.Node,
     ): (Set[Party], EnrichState) = {
       val witnesses = parentWitnesses union node.informeesOfNode
       witnesses ->
@@ -528,7 +541,7 @@ object Ledger {
     }
 
     def authorize(
-        nodeId: Transaction.NodeId,
+        nodeId: Tx.NodeId,
         passIf: Boolean,
         failWith: FailedAuthorization,
     ): EnrichState =
@@ -540,7 +553,7 @@ object Ledger {
         copy(failedAuthorizations = failedAuthorizations + (nodeId -> failWith))
 
     def authorizeCreate(
-        nodeId: Transaction.NodeId,
+        nodeId: Tx.NodeId,
         create: NodeCreate.WithTxValue[ContractId],
         signatories: Set[Party],
         authorization: Authorization,
@@ -581,8 +594,8 @@ object Ledger {
       })
 
     def authorizeExercise(
-        nodeId: Transaction.NodeId,
-        ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId],
+        nodeId: Tx.NodeId,
+        ex: NodeExercises.WithTxValue[Tx.NodeId, ContractId],
         actingParties: Set[Party],
         authorization: Authorization,
         controllersDifferFromActors: Boolean,
@@ -624,7 +637,7 @@ object Ledger {
     }
 
     def authorizeFetch(
-        nodeId: Transaction.NodeId,
+        nodeId: Tx.NodeId,
         fetch: NodeFetch.WithTxValue[ContractId],
         stakeholders: Set[Party],
         authorization: Authorization,
@@ -714,7 +727,7 @@ object Ledger {
       that `authorizers ∩ stakeholders ≠ ∅`.
      */
     def authorizeLookupByKey(
-        nodeId: Transaction.NodeId,
+        nodeId: Tx.NodeId,
         lbk: NodeLookupByKey.WithTxValue[ContractId],
         authorization: Authorization,
     ): EnrichState = {
@@ -768,7 +781,7 @@ object Ledger {
     */
   def enrichTransaction(
       authorization: Authorization,
-      tr: Transaction.Transaction,
+      tr: Tx.Transaction,
   ): EnrichedTransaction = {
 
     // Before we traversed through an exercise node the exercise witnesses
@@ -783,7 +796,7 @@ object Ledger {
         state: EnrichState,
         parentExerciseWitnesses: Set[Party],
         authorization: Authorization,
-        nodeId: Transaction.NodeId,
+        nodeId: Tx.NodeId,
     ): EnrichState = {
       val node =
         tr.nodes
@@ -824,7 +837,7 @@ object Ledger {
               authorization = authorization,
             )
 
-        case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
+        case ex: NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
           // ------------------------------------------------------------------
           // witnesses:
           //    | consuming  -> stakeholders(targetId) union witnesses of parent exercise node
@@ -953,7 +966,7 @@ object Ledger {
       activeContracts: Set[ContractId],
       nodeInfos: LedgerNodeInfos,
       activeKeys: Map[GlobalKey, ContractId],
-      coidToNodeId: Map[ContractId, ScenarioNodeId],
+      coidToNodeId: Map[ContractId, EventId],
   ) {
     def nodeInfoByCoid(coid: ContractId): LedgerNodeInfo = nodeInfos(coidToNodeId(coid))
 
@@ -963,7 +976,7 @@ object Ledger {
       coidToNodeId.get(coid).map(updateLedgerNodeInfo(_)(f)).getOrElse(this)
 
     def updateLedgerNodeInfo(
-        nodeId: ScenarioNodeId,
+        nodeId: EventId,
     )(f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
       copy(
         nodeInfos = nodeInfos
@@ -978,7 +991,7 @@ object Ledger {
     def markAsInactive(coid: ContractId): LedgerData =
       copy(activeContracts = activeContracts - coid)
 
-    def createdIn(coid: ContractId, nodeId: ScenarioNodeId): LedgerData =
+    def createdIn(coid: ContractId, nodeId: EventId): LedgerData =
       copy(coidToNodeId = coidToNodeId + (coid -> nodeId))
 
     def addKey(key: GlobalKey, acoid: ContractId): LedgerData =
@@ -996,7 +1009,7 @@ object Ledger {
       richTr: RichTransaction,
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
-    type ExerciseNodeProcessing = (Option[ScenarioNodeId], List[ScenarioNodeId])
+    type ExerciseNodeProcessing = (Option[EventId], List[EventId])
 
     @tailrec
     def processNodes(
@@ -1055,7 +1068,7 @@ object Ledger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises.WithTxValue[ScenarioNodeId, ContractId] =>
+                    case ex: NodeExercises.WithTxValue[EventId, ContractId] =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(
                           info =>
@@ -1069,11 +1082,7 @@ object Ledger {
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
-                            .asInstanceOf[NodeCreate[
-                              ContractId,
-                              Transaction.Value[
-                                ContractId
-                              ]]]
+                            .asInstanceOf[NodeCreate[ContractId, Tx.Value[ContractId]]]
                           nc.key match {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>

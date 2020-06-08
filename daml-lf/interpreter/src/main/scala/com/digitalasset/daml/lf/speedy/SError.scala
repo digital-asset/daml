@@ -76,7 +76,7 @@ object SError {
   final case class ScenarioErrorContractNotActive(
       coid: ContractId,
       templateId: Identifier,
-      consumedBy: Ledger.ScenarioNodeId,
+      consumedBy: Ledger.EventId,
   ) extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --

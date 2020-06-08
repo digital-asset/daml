@@ -24,7 +24,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
@@ -667,7 +667,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
             val unmappedTx: Transaction.Transaction = tx.transaction
-              .mapNodeId(EventIdFormatter.split(_).get.nodeId)
+              .mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId)
 
             val blindingInfo = Blinding.blind(unmappedTx)
 

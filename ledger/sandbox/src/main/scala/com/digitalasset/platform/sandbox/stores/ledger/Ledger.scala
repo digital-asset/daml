@@ -15,7 +15,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.EventId
-import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
@@ -80,11 +80,11 @@ object Ledger {
     // convert LF NodeId to Index EventId
     val disclosureForIndex: Map[EventId, Set[Party]] = blindingInfo.disclosure.map {
       case (nodeId, parties) =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
+        TransactionIdWithIndex(transactionId, nodeId).toLedgerString -> parties
     }
 
     val transactionForIndex: TransactionForIndex =
-      committedTransaction.mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _))
+      committedTransaction.mapNodeId(TransactionIdWithIndex(transactionId, _).toLedgerString)
 
     (transactionForIndex, disclosureForIndex, blindingInfo.globalDivulgence)
   }
