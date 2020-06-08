@@ -13,14 +13,20 @@ class Metrics(val registry: MetricRegistry) {
     registry.gauge(name, metricSupplier).asInstanceOf[Gauge[T]]
   }
 
+  object test {
+    val prefix: MetricName = MetricName("test")
+
+    val db: DatabaseMetrics = new DatabaseMetrics(registry, prefix, "db")
+  }
+
   object daml {
     val prefix: MetricName = MetricName.DAML
 
     object commands {
       val prefix: MetricName = daml.prefix :+ "commands"
 
-      val submissions: Timer = registry.timer(prefix :+ "submissions")
       val validation: Timer = registry.timer(prefix :+ "validation")
+      val submissions: Timer = registry.timer(prefix :+ "submissions")
 
       val failedCommandInterpretations: Meter =
         registry.meter(prefix :+ "failed_command_interpretations")

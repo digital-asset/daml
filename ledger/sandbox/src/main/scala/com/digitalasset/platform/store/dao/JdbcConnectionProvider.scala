@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import java.sql.Connection
 
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.metrics.DatabaseMetrics
 
 /** A helper to run JDBC queries using a pool of managed connections */
 trait JdbcConnectionProvider extends ReportsHealth {
@@ -14,5 +15,5 @@ trait JdbcConnectionProvider extends ReportsHealth {
     * is returned to the pool.
     * The block must not recursively call [[runSQL]], as this could result in a deadlock
     * waiting for a free connection from the same pool. */
-  def runSQL[T](block: Connection => T): T
+  def runSQL[T](databaseMetrics: DatabaseMetrics)(block: Connection => T): T
 }

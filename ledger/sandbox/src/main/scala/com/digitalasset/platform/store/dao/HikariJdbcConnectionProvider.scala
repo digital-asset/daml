@@ -10,6 +10,7 @@ import java.util.{Timer, TimerTask}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.HikariJdbcConnectionProvider._
@@ -120,12 +121,18 @@ class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: T
     else
       Unhealthy
 
-  override def runSQL[T](block: Connection => T): T = {
+  override def runSQL[T](databaseMetrics: DatabaseMetrics)(block: Connection => T): T = {
     val conn = dataSource.getConnection()
     conn.setAutoCommit(false)
     try {
-      val res = block(conn)
-      conn.commit()
+      val res = Timed.value(
+        databaseMetrics.queryTimer,
+        block(conn)
+      )
+      Timed.value(
+        databaseMetrics.commitTimer,
+        conn.commit()
+      )
       res
     } catch {
       case e: SQLTransientConnectionException =>
