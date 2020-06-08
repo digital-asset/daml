@@ -88,7 +88,7 @@ build:windows --noremote_accept_cached
 # We use a special windows configuration on CI: cache is enabled. The caching
 # is not totally reliable on Windows yet re. absolute paths, but it is not a
 # problem on CI if all builds share a similar directory structure.
-build:windows-ci --remote_accept_cached=true
+build:windows-ci --remote_accept_cached=false
 
 # The Windows CI machines have 4 physical and 8 logical cores. By default Bazel
 # will parallelize up to the number of logical cores. This can cause flakyness
