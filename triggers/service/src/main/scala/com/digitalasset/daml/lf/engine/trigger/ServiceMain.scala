@@ -25,13 +25,7 @@ import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
+import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
 import com.daml.lf.language.Ast._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
@@ -121,7 +115,15 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
             triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
             true
         }
-      case Some(dao) => false
+      case Some(dao) =>
+        val delete = dao.transact(TriggerDao.removeRunningTrigger(triggerInstance))
+        Try(delete.unsafeRunSync) match {
+          case Failure(err) =>
+            println("[DEBUG] Delete failed.")
+            println(err.toString)
+            false // FIXME(RJR): Propagate error in Either
+          case Success(deleted) => deleted
+        }
     }
   }
 
