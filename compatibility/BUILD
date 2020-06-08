@@ -115,15 +115,3 @@ migration_test(
     tags = ["exclusive"],
     versions = platform_versions,
 ) if not is_windows else None
-
-migration_test(
-    name = "migration-test",
-    tags = [
-        "exclusive",
-        "manual",
-    ],
-    versions = [
-        "1.0.0",
-        "0.0.0",
-    ],
-)
