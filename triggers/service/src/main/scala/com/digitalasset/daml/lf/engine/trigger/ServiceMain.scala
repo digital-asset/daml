@@ -19,7 +19,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
 
-import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -69,10 +68,8 @@ final case class RunningTrigger(
     runner: ActorRef[TriggerRunner.Message]
 )
 
-class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerDao]) {
+class Server(dar: Option[Dar[(PackageId, Package)]]) {
 
-  private var triggers: Map[UUID, RunningTrigger] = Map.empty;
-  private var triggersByParty: Map[UserCredentials, Set[UUID]] = Map.empty;
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
@@ -97,56 +94,6 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
 
         go(compiledPackages.addPackage(pkgId, pkg))
     }
-  }
-
-  private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
-    triggerDao match {
-      case None =>
-        triggers += t.triggerInstance -> t
-        triggersByParty += t.credentials -> (triggersByParty.getOrElse(t.credentials, Set()) + t.triggerInstance)
-        Right(())
-      case Some(dao) =>
-        val insert = dao.transact(TriggerDao.addRunningTrigger(t))
-        Try(insert.unsafeRunSync()) match {
-          case Failure(err) => Left(err.toString)
-          case Success(()) => Right(())
-        }
-    }
-  }
-
-  private def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] = {
-    triggerDao match {
-      case None =>
-        triggers.get(triggerInstance) match {
-          case None => Right(false)
-          case Some(t) =>
-            triggers -= t.triggerInstance
-            triggersByParty += t.credentials -> (triggersByParty(t.credentials) - t.triggerInstance)
-            Right(true)
-        }
-      case Some(dao) =>
-        val delete = dao.transact(TriggerDao.removeRunningTrigger(triggerInstance))
-        Try(delete.unsafeRunSync) match {
-          case Failure(err) => Left(err.toString)
-          case Success(deleted) => Right(deleted)
-        }
-    }
-  }
-
-  private def listRunningTriggers(credentials: UserCredentials): Either[String, Vector[UUID]] = {
-    val triggerInstances = triggerDao match {
-      case None =>
-        Right(triggersByParty.getOrElse(credentials, Set()).toVector)
-      case Some(dao) =>
-        val select = dao.transact(TriggerDao.getTriggersForParty(credentials))
-        Try(select.unsafeRunSync()) match {
-          case Failure(err) => Left(err.toString)
-          case Success(triggerInstances) => Right(triggerInstances)
-        }
-    }
-    // Note(RJR): We sort UUIDs here using Java's comparison of UUIDs.
-    // We do not rely on the Postgres ordering which is different.
-    triggerInstances.map(_.sorted)
   }
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
@@ -194,7 +141,11 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
-    val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
+    val triggerDao: RunningTriggerDao =
+      jdbcConfig match {
+        case None => InMemoryTriggerDao()
+        case Some(c) => DbTriggerDao(c)(ctx.system.executionContext)
+      }
 
     val key: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
@@ -210,7 +161,7 @@ object Server {
         }
       }
 
-    val server = new Server(dar, triggerDao)
+    val server = new Server(dar)
 
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -230,7 +181,7 @@ object Server {
         credentials: UserCredentials,
         triggerName: Identifier): Either[String, JsValue] = {
       for {
-        trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
+        trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName)
         party = TokenManagement.decodeCredentials(key, credentials)._1
         triggerInstance = UUID.randomUUID
         _ = ctx.spawn(
@@ -260,7 +211,7 @@ object Server {
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
-      server.removeRunningTrigger(uuid) map {
+      triggerDao.removeRunningTrigger(uuid) map {
         case false => None
         case true =>
           getRunner(uuid) foreach { runner =>
@@ -274,11 +225,9 @@ object Server {
     }
 
     def listTriggers(credentials: UserCredentials): Either[String, JsValue] = {
-      server
-        .listRunningTriggers(credentials)
-        .map(
-          triggerInstances => JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
-        )
+      triggerDao.listRunningTriggers(credentials) map { triggerInstances =>
+        JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
+      }
     }
 
     val route = concat(
@@ -413,7 +362,7 @@ object Server {
             // The trigger has successfully started. Update the
             // running triggers tables.
             server.logTriggerStatus(runningTrigger.triggerInstance, "running")
-            server.addRunningTrigger(runningTrigger) match {
+            triggerDao.addRunningTrigger(runningTrigger) match {
               case Left(err) =>
                 // The trigger has just advised it's in the running
                 // state but updating the running trigger table has
@@ -441,7 +390,7 @@ object Server {
             server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
             // Ignore the result of the deletion as we don't have a sensible way
             // to handle a failure here at the moment.
-            val _ = server.removeRunningTrigger(runningTrigger.triggerInstance)
+            val _ = triggerDao.removeRunningTrigger(runningTrigger.triggerInstance)
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
@@ -533,22 +482,6 @@ object ServiceMain {
     bindingFuture.map(server => (server, system))
   }
 
-  def initDatabase(dao: TriggerDao): Either[String, Unit] = {
-    val transaction = dao.transact(TriggerDao.initialize(dao.logHandler))
-    Try(transaction.unsafeRunSync()) match {
-      case Failure(err) => Left(err.toString)
-      case Success(()) => Right(())
-    }
-  }
-
-  def destroyDatabase(dao: TriggerDao): Either[String, Unit] = {
-    val transaction = dao.transact(TriggerDao.destroy)
-    Try(transaction.unsafeRunSync()) match {
-      case Failure(err) => Left(err.toString)
-      case Success(()) => Right(())
-    }
-  }
-
   def main(args: Array[String]): Unit = {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
@@ -595,13 +528,12 @@ object ServiceMain {
             system.log.error("No JDBC configuration for database initialization.")
             sys.exit(1)
           case (true, Some(jdbcConfig)) =>
-            val dao = TriggerDao(jdbcConfig)(ec)
-            initDatabase(dao) match {
+            DbTriggerDao(jdbcConfig).initialize match {
               case Left(err) =>
                 system.log.error(err)
                 sys.exit(1)
               case Right(()) =>
-                system.log.info("Initialized database.")
+                system.log.info("Successfully initialized database.")
                 sys.exit(0)
             }
           case _ =>

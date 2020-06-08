@@ -97,11 +97,13 @@ object TriggerServiceFixture {
       client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
     } yield client
 
-    val triggerDao: Option[TriggerDao] =
+    // Construct a database DAO for initialization and clean up if provided a JDBC config.
+    // Fail the test immediately if database initialization fails.
+    val dbTriggerDao: Option[DbTriggerDao] =
       jdbcConfig.map(c => {
-        val dao = TriggerDao(c)
-        ServiceMain.initDatabase(dao) match {
-          case Left(err) => fail("Failed to initialize database: " ++ err.toString)
+        val dao = DbTriggerDao(c)
+        dao.initialize match {
+          case Left(err) => fail(err)
           case Right(()) => dao
         }
       })
@@ -143,10 +145,11 @@ object TriggerServiceFixture {
     fa.onComplete { _ =>
       serviceF.foreach({ case (_, system) => system ! Server.Stop })
       ledgerF.foreach(_._1.close())
-      toxiProxyProc.destroy()
-      triggerDao.map(dao =>
-        ServiceMain.destroyDatabase(dao).getOrElse { err: String =>
-          fail("Failed to remove database objects: " ++ err.toString)
+      toxiProxyProc.destroy
+      dbTriggerDao.foreach(dao =>
+        dao.destroy match {
+          case Left(err) => fail(err)
+          case Right(()) =>
       })
     }
 
