@@ -25,7 +25,13 @@ import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{ConcurrentCompiledPackages, MutableCompiledPackages, Result, ResultDone, ResultNeedPackage}
+import com.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
 import com.daml.lf.language.Ast._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._

@@ -404,32 +404,32 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart a trigger failing due to a dropped connection" in withTriggerServiceAndDb(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      // Simulate the ledger briefly being unavailable due to network
-      // connectivity loss. Our restart strategy means that the running
-      // trigger gets restarted.
-      for {
-        // Request a trigger be started for Alice.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        aliceTrigger <- parseTriggerId(resp)
-        // Proceed when it is confirmed to be running.
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
-        // Simulate brief network connectivity loss.
-        _ <- Future { ledgerProxy.disable() }
-        _ <- Future { ledgerProxy.enable() }
-        // Check that the trigger survived the outage and that its
-        // history shows it went through a restart.
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          triggerStatus => {
-            triggerStatus.count(_ == "stopped: runtime failure") == 1 &&
-            triggerStatus.last == "running"
-          }
-        )
-      } yield succeed
+  it should "restart a trigger failing due to a dropped connection" in withTriggerServiceAndDb(
+    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    // Simulate the ledger briefly being unavailable due to network
+    // connectivity loss. Our restart strategy means that the running
+    // trigger gets restarted.
+    for {
+      // Request a trigger be started for Alice.
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+      aliceTrigger <- parseTriggerId(resp)
+      // Proceed when it is confirmed to be running.
+      _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+      // Simulate brief network connectivity loss.
+      _ <- Future { ledgerProxy.disable() }
+      _ <- Future { ledgerProxy.enable() }
+      // Check that the trigger survived the outage and that its
+      // history shows it went through a restart.
+      _ <- assertTriggerIds(uri, "Alice", _ == Vector(aliceTrigger))
+      _ <- assertTriggerStatus(
+        uri,
+        aliceTrigger,
+        triggerStatus => {
+          triggerStatus.count(_ == "stopped: runtime failure") == 1 &&
+          triggerStatus.last == "running"
+        }
+      )
+    } yield succeed
   }
 
   it should "restart triggers with script init errors" in withTriggerServiceAndDb(Some(dar)) {
