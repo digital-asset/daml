@@ -468,21 +468,22 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "not act on a stop request without a token" in withHttpService(None) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
-      val req = HttpRequest(
-        method = HttpMethods.DELETE,
-        uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
-      )
-      for {
-        resp <- Http().singleRequest(req)
-        body <- responseBodyToString(resp)
-        JsObject(fields) = body.parseJson
-        _ <- fields.get("status") should equal(Some(JsNumber(422)))
-        _ <- fields.get("errors") should equal(
-          Some(JsArray(JsString("missing Authorization header with OAuth 2.0 Bearer Token"))))
-      } yield succeed
+  it should "give a 401 response for a stop request without an authorization header" in withHttpService(
+    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+    val req = HttpRequest(
+      method = HttpMethods.DELETE,
+      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
+    )
+    for {
+      resp <- Http().singleRequest(req)
+      _ <- resp.status should equal(StatusCodes.Unauthorized)
+      body <- responseBodyToString(resp)
+      JsObject(fields) = body.parseJson
+      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.Unauthorized.intValue)))
+      _ <- fields.get("errors") should equal(
+        Some(JsArray(JsString("missing Authorization header with OAuth 2.0 Bearer Token"))))
+    } yield succeed
   }
 
   it should "give a 404 response for a stop request with unparseable UUID" in withHttpService(None) {
@@ -494,7 +495,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       )
       for {
         resp <- Http().singleRequest(req)
-        _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)
+        _ <- resp.status should equal(StatusCodes.NotFound)
       } yield succeed
   }
 
@@ -503,10 +504,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
       resp <- stopTrigger(uri, uuid, "Alice")
-      _ <- assert(resp.status.isFailure() && resp.status.intValue() == 404)
+      _ <- resp.status should equal(StatusCodes.NotFound)
       body <- responseBodyToString(resp)
       JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(404)))
+      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.NotFound.intValue)))
       _ <- fields.get("errors") should equal(
         Some(JsArray(JsString("Unknown trigger: '" + uuid.toString + "'"))))
     } yield succeed
