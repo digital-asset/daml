@@ -232,22 +232,6 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       Future(succeed)
     }
 
-  it should "add running triggers" in
-    withTriggerServiceAndDb(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      for {
-        // Initially no triggers started for Alice
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector())
-        // Start a trigger for Alice and check it appears in list.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        trigger1 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1))
-        // Do the same for a second trigger.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        trigger2 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, "Alice", _ == Vector(trigger1, trigger2).sorted)
-      } yield succeed
-    }
-
   it should "fail to start non-existent trigger" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       val expectedError = StatusCodes.UnprocessableEntity
