@@ -263,7 +263,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "start a trigger after uploading it" in withHttpService(None) {
+  it should "start a trigger after uploading it" in withTriggerServiceAndDb(None) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- uploadDar(uri, darPath)
@@ -279,7 +279,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
+  it should "start multiple triggers and list them by party" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- listTriggers(uri, "Alice")
@@ -311,7 +311,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
+  it should "should enable a trigger on http request" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         // Start the trigger
@@ -384,7 +384,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     }
   }
 
-  it should "stop a failing trigger that can't be restarted" in withHttpService(Some(dar)) {
+  it should "stop a failing trigger that can't be restarted" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       // Simulate the ledger becoming unrecoverably unavailable due to
       // network connectivity loss. The stop strategy means the running
@@ -404,7 +404,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart a trigger failing due to a dropped connection" in withHttpService(Some(dar)) {
+  it should "restart a trigger failing due to a dropped connection" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       // Simulate the ledger briefly being unavailable due to network
       // connectivity loss. Our restart strategy means that the running
@@ -432,7 +432,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart triggers with script init errors" in withHttpService(Some(dar)) {
+  it should "restart triggers with script init errors" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", "Alice")
@@ -450,7 +450,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "restart triggers with script update errors" in withHttpService(Some(dar)) {
+  it should "restart triggers with script update errors" in withTriggerServiceAndDb(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", "Alice")
@@ -468,7 +468,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "give an 'unauthorized' response for a stop request without an authorization header" in withHttpService(
+  it should "give an 'unauthorized' response for a stop request without an authorization header" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
     val req = HttpRequest(
@@ -486,7 +486,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield succeed
   }
 
-  it should "give a 'not found' response for a stop request with unparseable UUID" in withHttpService(
+  it should "give a 'not found' response for a stop request with unparseable UUID" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
@@ -499,7 +499,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield succeed
   }
 
-  it should "give a 'not found' response for a stop request on an unknown UUID" in withHttpService(
+  it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
