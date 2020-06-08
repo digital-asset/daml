@@ -468,7 +468,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
       } yield succeed
   }
 
-  it should "give a 401 response for a stop request without an authorization header" in withHttpService(
+  it should "give an 'unauthorized' response for a stop request without an authorization header" in withHttpService(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "ffffffff-ffff-ffff-ffff-ffffffffffff"
     val req = HttpRequest(
@@ -486,20 +486,20 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield succeed
   }
 
-  it should "give a 404 response for a stop request with unparseable UUID" in withHttpService(None) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      val uuid: String = "No More Mr Nice Guy"
-      val req = HttpRequest(
-        method = HttpMethods.DELETE,
-        uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
-      )
-      for {
-        resp <- Http().singleRequest(req)
-        _ <- resp.status should equal(StatusCodes.NotFound)
-      } yield succeed
+  it should "give a 'not found' response for a stop request with unparseable UUID" in withHttpService(
+    None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    val uuid: String = "No More Mr Nice Guy"
+    val req = HttpRequest(
+      method = HttpMethods.DELETE,
+      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
+    )
+    for {
+      resp <- Http().singleRequest(req)
+      _ <- resp.status should equal(StatusCodes.NotFound)
+    } yield succeed
   }
 
-  it should "give a 404 error response for a stop request on an unknown UUID" in withHttpService(
+  it should "give a 'not found' response for a stop request on an unknown UUID" in withHttpService(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
