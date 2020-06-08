@@ -264,8 +264,7 @@ object Server {
                       }
                       .fold(
                         unauthorized =>
-                          complete(
-                            errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                          complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
                         token =>
                           startTrigger(token, params.triggerName) match {
                             case Left(err) =>
@@ -326,8 +325,7 @@ object Server {
                   }
                   .fold(
                     unauthorized =>
-                      complete(
-                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
                     token =>
                       listTriggers(token._1) match {
                         case Left(err) =>
@@ -359,8 +357,7 @@ object Server {
                   }
                   .fold(
                     unauthorized =>
-                      complete(
-                        errorResponse(StatusCodes.UnprocessableEntity, unauthorized.message)),
+                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
                     triggerInstance =>
                       triggerInstance match {
                         case Some(stoppedTriggerId) => complete(successResponse(stoppedTriggerId))

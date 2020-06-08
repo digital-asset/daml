@@ -118,10 +118,13 @@ object TriggerRunnerImpl {
                   msgFlow = KillSwitches.single[TriggerMsg],
                   name,
                 )
-                // TODO If we are stopped we will end up causing the
-                // future to complete which will trigger a message that
-                // is sent to a now terminated actor. We should fix this
-                // somehow™.
+
+                // If we are stopped we will end up causing the future
+                // to complete which will trigger a message that is
+                // sent to a now terminated actor. In
+                // https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#dead-letters
+                // it is explained that this is a somewhat ordinary
+                // circumstance and not to be worried about.
                 ctx.pipeToSelf(trigger) {
                   case Success(_) =>
                     Failed(new RuntimeException("Trigger exited unexpectedly"))
