@@ -3,115 +3,55 @@
 
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-module Main (main) where
+module Migration.ProposeAccept (test) where
 
--- This test runs through the following steps:
--- 1. Start postgres
--- 2. Start the oldest version of sandbox.
--- 3. Upload a DAR using the same SDK version.
--- 4. Stop sandbox.
--- 5. In a loop over all versions:
---    1. Start sandbox of the given version.
---    2. Run a custom scala binary for querying and creating new contracts.
---    3. Stop sandbox.
--- 6. Stop postgres.
-
-import Control.Exception
 import Control.Monad
+import Control.Monad.Except
 import qualified Data.Aeson as A
-import Data.Foldable
 import qualified Data.Text as T
 import GHC.Generics (Generic)
-import Options.Applicative
-import Sandbox
-    ( createSandbox
-    , defaultSandboxConf
-    , destroySandbox
-    , nullDevice
-    , sandboxPort
-    , SandboxConfig(..)
-    )
-import System.Environment.Blank
-import System.FilePath
 import System.IO.Extra
 import System.Process
-import WithPostgres (withPostgres)
-import qualified Bazel.Runfiles
 
-data Options = Options
-  { modelDar :: FilePath
-  , platformAssistants :: [FilePath]
-  -- ^ Ordered list of assistant binaries that will be used to run sandbox.
-  -- We run through migrations in the order of the list
-  }
+import Migration.Types
 
-optsParser :: Parser Options
-optsParser = Options
-    <$> strOption (long "model-dar")
-    <*> many (strArgument mempty)
-
-main :: IO ()
-main = do
-    -- Limit sandbox and model-step memory.
-    setEnv "_JAVA_OPTIONS" "-Xms128m -Xmx1g" True
-    Options{..} <- execParser (info optsParser fullDesc)
-    runfiles <- Bazel.Runfiles.create
-    let step = Bazel.Runfiles.rlocation
-            runfiles
-            ("compatibility" </> "sandbox-migration" </> "migration-step")
-    withPostgres $ \jdbcUrl -> do
-        initialPlatform : _ <- pure platformAssistants
-        hPutStrLn stderr "--> Uploading model DAR"
-        withSandbox initialPlatform jdbcUrl $ \p ->
-            callProcess initialPlatform
-                [ "ledger"
-                , "upload-dar", modelDar
-                , "--host=localhost", "--port=" <> show p
-                ]
-        hPutStrLn stderr "<-- Uploaded model DAR"
-        void $ foldlM (testVersion step modelDar jdbcUrl) ([], []) platformAssistants
-
-testVersion
-    :: FilePath
-    -> FilePath
-    -> T.Text
-    -> ([Tuple2 (ContractId Deal) Deal], [Transaction])
-    -> FilePath
-    -> IO ([Tuple2 (ContractId Deal) Deal], [Transaction])
-testVersion step modelDar jdbcUrl (prevTs, prevTransactions) assistant = do
-    let note = takeFileName (takeDirectory assistant)
-    hPutStrLn stderr ("--> Testing " <> note)
-    withSandbox assistant jdbcUrl $ \port ->
-        withTempFile $ \outputFile -> do
+test :: FilePath -> FilePath -> Test ([Tuple2 (ContractId Deal) Deal], [Transaction]) Result
+test step modelDar = Test {..}
+  where
+    initialState = ([], [])
+    executeStep sdkVersion host port _state = withTempFile $ \outputFile -> do
+        let note = getSdkVersion sdkVersion
         callProcess step
             [ "--output", outputFile
-            , "--host=localhost"
+            , "--host=" <> host
             , "--port=" <> show port
             , "--proposer=" <> T.unpack (getParty testProposer)
             , "--accepter=" <> T.unpack (getParty testAccepter)
             , "--note=" <> note
             , "--dar=" <> modelDar
             ]
-        Result{..} <- either fail pure =<< A.eitherDecodeFileStrict' outputFile
+        either fail pure =<< A.eitherDecodeFileStrict' outputFile
+    validateStep sdkVersion (prevTs, prevTransactions) Result{..} = do
+        let note = getSdkVersion sdkVersion
         -- Test that all proposals are archived.
         unless (null oldProposeDeals) $
-            fail ("Expected no old ProposeDeals but got " <> show oldProposeDeals)
+            throwError ("Expected no old ProposeDeals but got " <> show oldProposeDeals)
         unless (null newProposeDeals) $
-            fail ("Expected no new ProposeDeals but got " <> show newProposeDeals)
+            throwError ("Expected no new ProposeDeals but got " <> show newProposeDeals)
         unless (prevTs == oldDeals) $
-            fail ("Active ts should not have changed after migration: " <> show (prevTs, oldDeals))
+            throwError ("Active ts should not have changed after migration: " <> show (prevTs, oldDeals))
         -- Test that no T contracts got archived.
         let missingTs = filter (`notElem` newDeals) oldDeals
         unless (null missingTs) $
-            fail ("The following contracts got lost during the migration: " <> show missingTs)
+            throwError ("The following contracts got lost during the migration: " <> show missingTs)
         -- Test that only one new T contract is not archived.
         let addedTs = filter (`notElem` oldDeals) newDeals
         case addedTs of
             [Tuple2 _ t] -> do
                 let expected = Deal testProposer testAccepter note
                 unless (t == expected) $
-                    fail ("Expected " <> show expected <> " but got " <> show t)
-            _ -> fail ("Expected 1 new T contract but got: " <> show addedTs)
+                    throwError ("Expected " <> show expected <> " but got " <> show t)
+            _ -> throwError ("Expected 1 new T contract but got: " <> show addedTs)
         -- verify that the stream before and after the migration are the same.
         unless (prevTransactions == oldTransactions) $
             fail $ "Transaction stream changed after migration "
@@ -127,30 +67,25 @@ testVersion step modelDar jdbcUrl (prevTs, prevTransactions) assistant = do
                 <> show (oldTransactions, newStart)
         -- verify that the new transactions are what we expect.
         validateNewTransactions (map events newEnd)
-        hPutStrLn stderr ("<-- Tested " <> note)
         pure (newDeals, newTransactions)
-
-validateNewTransactions :: [[Event]] -> IO ()
-validateNewTransactions
-  [ [CreatedProposeDeal prop1 _]
-  , [CreatedProposeDeal prop2 _]
-  , [ArchivedProposeDeal prop1',CreatedDeal t1 _]
-  , [ArchivedProposeDeal prop2',CreatedDeal _t2 _]
-  , [ArchivedDeal t1']
-  ] = do
-    checkArchive prop1 prop1'
-    checkArchive prop2 prop2'
-    checkArchive t1 t1'
-  where
+    validateNewTransactions :: [[Event]] -> Either String ()
+    validateNewTransactions = \case
+      [ [CreatedProposeDeal prop1 _],
+        [CreatedProposeDeal prop2 _],
+        [ArchivedProposeDeal prop1',CreatedDeal t1 _],
+        [ArchivedProposeDeal prop2',CreatedDeal _t2 _],
+        [ArchivedDeal t1'] ] -> do
+        checkArchive prop1 prop1'
+        checkArchive prop2 prop2'
+        checkArchive t1 t1'
+      events -> throwError ("Unexpected events: " <> show events)
     checkArchive cid cid' = unless (cid == cid') $
-      fail ("Expected " <> show cid <> " to be archived but got " <> show cid')
-validateNewTransactions events = fail ("Unexpected events: " <> show events)
+        throwError ("Expected " <> show cid <> " to be archived but got " <> show cid')
 
-testProposer :: Party
-testProposer = Party "proposer"
-
-testAccepter :: Party
-testAccepter = Party "accepter"
+    testProposer :: Party
+    testProposer = Party "proposer"
+    testAccepter :: Party
+    testAccepter = Party "accepter"
 
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.
@@ -228,14 +163,3 @@ data Result = Result
 
 instance A.FromJSON Result
 
-withSandbox :: FilePath -> T.Text -> (Int -> IO a) -> IO a
-withSandbox assistant jdbcUrl f =
-    withBinaryFile nullDevice ReadWriteMode $ \handle ->
-    withTempFile $ \portFile ->
-    bracket (createSandbox portFile handle sandboxConfig) destroySandbox $ \resource ->
-      f (sandboxPort resource)
-  where
-    sandboxConfig = defaultSandboxConf
-        { sandboxBinary = assistant
-        , sandboxArgs = ["sandbox-classic", "--jdbcurl=" <> T.unpack jdbcUrl]
-        }

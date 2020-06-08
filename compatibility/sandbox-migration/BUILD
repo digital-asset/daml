@@ -62,7 +62,7 @@ da_scala_binary(
 
 da_haskell_binary(
     name = "sandbox-migration-runner",
-    srcs = ["SandboxMigrationRunner.hs"],
+    srcs = glob(["runner/**/*.hs"]),
     data = [
         ":migration-step",
         "@daml-sdk-0.0.0//:daml",
@@ -74,10 +74,12 @@ da_haskell_binary(
         "filepath",
         "lens",
         "lens-aeson",
+        "mtl",
         "optparse-applicative",
         "process",
         "text",
     ],
+    main_function = "Migration.Runner.main",
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/client_server/with-postgres",
