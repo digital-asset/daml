@@ -23,17 +23,17 @@ import com.daml.ledger.participant.state.index.v2.{
   PackageDetails
 }
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.{EventId, WorkflowId}
+import com.daml.ledger.WorkflowId
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value.{ContractId, NodeId}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -462,9 +462,6 @@ private class JdbcLedgerDao(
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(forParty, key)
 
-  private def splitOrThrow(id: EventId): NodeId =
-    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
-
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
@@ -559,7 +556,8 @@ private class JdbcLedgerDao(
                     transactionId = tx.transactionId,
                     ledgerEffectiveTime = tx.ledgerEffectiveTime,
                     offset = offset,
-                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    transaction =
+                      tx.transaction.mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId),
                     divulgedContracts = Nil,
                   )
                   .write(metrics)

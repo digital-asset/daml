@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.events.TransactionIdWithIndex
 
 object V25TransactionsWriter extends V25TransactionsWriter {
 
@@ -20,9 +20,9 @@ object V25TransactionsWriter extends V25TransactionsWriter {
   ): WitnessRelation[EventId] =
     transaction.nodes.collect {
       case (nodeId, c: Create) =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> c.stakeholders
+        TransactionIdWithIndex(transactionId, nodeId).toLedgerString -> c.stakeholders
       case (nodeId, e: Exercise) if e.consuming =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> e.stakeholders
+        TransactionIdWithIndex(transactionId, nodeId).toLedgerString -> e.stakeholders
     }
 
   private def computeDisclosureForTransactionTree(
@@ -37,7 +37,7 @@ object V25TransactionsWriter extends V25TransactionsWriter {
       }.keySet
     blinding.disclosure.collect {
       case (nodeId, party) if disclosed(nodeId) =>
-        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> party
+        TransactionIdWithIndex(transactionId, nodeId).toLedgerString -> party
     }
   }
 

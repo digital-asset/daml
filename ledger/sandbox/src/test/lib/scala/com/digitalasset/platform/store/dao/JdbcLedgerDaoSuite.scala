@@ -31,8 +31,7 @@ import com.daml.lf.value.ValueVersions
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.{EventId, TransactionId}
-import com.daml.platform.events.EventIdFormatter
-import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.Suite
 
@@ -108,7 +107,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     Ref.LedgerString.assertFromString(s)
 
   protected final def event(txid: TransactionId, idx: Long): EventId =
-    EventIdFormatter.fromTransactionId(txid, NodeId(idx.toInt))
+    TransactionIdWithIndex(txid, NodeId(idx.toInt)).toLedgerString
 
   private def create(
       absCid: ContractId,
@@ -429,9 +428,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
-  private def splitOrThrow(id: EventId): NodeId =
-    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
-
   protected final def store(
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       offsetAndTx: (Offset, LedgerEntry.Transaction))(
@@ -445,7 +441,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         submitterInfo = submitterInfo,
         workflowId = entry.workflowId,
         transactionId = entry.transactionId,
-        transaction = entry.transaction.mapNodeId(splitOrThrow),
+        transaction = entry.transaction.mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId),
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = entry.ledgerEffectiveTime,
         offset = offset,

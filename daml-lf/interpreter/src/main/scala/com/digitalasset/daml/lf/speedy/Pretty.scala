@@ -248,16 +248,16 @@ object Pretty {
         text("mustFailAt") & prettyParty(amf.actor) & prettyLoc(amf.optLocation)
     }
 
+  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value[ContractId]]): Doc =
+    // the maintainers are induced from the key -- so don't clutter
+    prettyValue(false)(key.key)
+
   def prettyVersionedKeyWithMaintainers(
       key: KeyWithMaintainers[Transaction.Value[ContractId]]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyVersionedValue(false)(key.key)
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value[ContractId]]): Doc =
-    // the maintainers are induced from the key -- so don't clutter
-    prettyValue(false)(key.key)
-
-  def prettyNodeInfo(l: L.Ledger)(nodeId: L.ScenarioNodeId): Doc = {
+  def prettyNodeInfo(l: L.Ledger)(nodeId: L.EventId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
 
@@ -272,11 +272,10 @@ object Pretty {
       case ea: NodeFetch[ContractId, Transaction.Value[ContractId]] =>
         "ensure active" &: prettyContractId(ea.coid)
       case ex: NodeExercises[
-            L.ScenarioNodeId,
+            L.EventId,
             ContractId,
-            Transaction.Value[
-              ContractId
-            ]] =>
+            Transaction.Value[ContractId]
+          ] =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyNodeInfo(l)))
@@ -334,8 +333,8 @@ object Pretty {
     )
   }
 
-  def prettyLedgerNodeId(n: L.ScenarioNodeId): Doc =
-    text(n)
+  def prettyLedgerNodeId(n: L.EventId): Doc =
+    text(n.toLedgerString)
 
   def prettyContractInst(coinst: ContractInst[Value[ContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &

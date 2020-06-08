@@ -10,6 +10,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.{Value => Lf}
+import com.daml.lf.types.Ledger
 import com.daml.ledger.{CommandId, EventId, TransactionId}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event
@@ -20,7 +21,6 @@ import com.daml.ledger.api.v1.transaction.{
 }
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
-import com.daml.platform.events.EventIdFormatter.{fromTransactionId, split}
 import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
   lfNodeCreateToEvent,
@@ -109,13 +109,13 @@ object TransactionConversion {
   ): Option[Relation[EventId, Ref.Party]] =
     Some(
       Blinding
-        .blind(transaction.mapNodeId(split(_).get.nodeId))
+        .blind(transaction.mapNodeId(Ledger.EventId.assertFromString(_).nodeId))
         .disclosure
         .flatMap {
           case (nodeId, disclosure) =>
             List(disclosure.intersect(parties)).collect {
               case disclosure if disclosure.nonEmpty =>
-                fromTransactionId(transactionId, nodeId) -> disclosure
+                Ledger.EventId(transactionId, nodeId).toLedgerString -> disclosure
             }
         }
     ).filter(_.nonEmpty)
