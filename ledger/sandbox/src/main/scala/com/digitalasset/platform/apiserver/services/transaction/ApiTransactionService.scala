@@ -135,14 +135,15 @@ final class ApiTransactionService private (
     ) { implicit logCtx =>
       TransactionIdWithIndex
         .fromString(request.eventId.unwrap)
-        .toOption
         .fold(
-          Future.failed[GetFlatTransactionResponse](Status.NOT_FOUND
-            .withDescription(s"invalid eventId: ${request.eventId}")
-            .asRuntimeException())) {
-          case TransactionIdWithIndex(transactionId, _) =>
-            lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
-        }
+          err =>
+            Future.failed[GetFlatTransactionResponse](
+              Status.NOT_FOUND.withDescription(s"invalid eventId: $err").asRuntimeException()),
+          eventId =>
+            lookUpFlatByTransactionId(
+              TransactionId(eventId.transactionId),
+              request.requestingParties)
+        )
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
 

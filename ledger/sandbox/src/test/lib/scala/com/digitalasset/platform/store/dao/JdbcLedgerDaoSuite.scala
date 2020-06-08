@@ -428,9 +428,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
-  private def splitOrThrow(id: EventId): NodeId =
-    TransactionIdWithIndex.assertFromString(id).nodeId
-
   protected final def store(
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       offsetAndTx: (Offset, LedgerEntry.Transaction))(
@@ -444,7 +441,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         submitterInfo = submitterInfo,
         workflowId = entry.workflowId,
         transactionId = entry.transactionId,
-        transaction = entry.transaction.mapNodeId(splitOrThrow),
+        transaction = entry.transaction.mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId),
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = entry.ledgerEffectiveTime,
         offset = offset,

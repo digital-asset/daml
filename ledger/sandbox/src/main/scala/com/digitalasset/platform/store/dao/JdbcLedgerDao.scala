@@ -462,14 +462,6 @@ private class JdbcLedgerDao(
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(forParty, key)
 
-  private def splitOrThrow(id: EventId): NodeId =
-    TransactionIdWithIndex
-      .fromString(id)
-      .fold(
-        _ => sys.error(s"Illegal format for event identifier $id"),
-        _.nodeId
-      )
-
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
@@ -564,7 +556,7 @@ private class JdbcLedgerDao(
                     transactionId = tx.transactionId,
                     ledgerEffectiveTime = tx.ledgerEffectiveTime,
                     offset = offset,
-                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    transaction = tx.transaction.mapNodeId(TransactionIdWithIndex.assertFromString),
                     divulgedContracts = Nil,
                   )
                   .write(metrics)
