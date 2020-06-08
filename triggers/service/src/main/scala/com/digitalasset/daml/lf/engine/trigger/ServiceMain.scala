@@ -111,24 +111,21 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
     }
   }
 
-  private def removeRunningTrigger(triggerInstance: UUID): Boolean = {
+  private def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] = {
     triggerDao match {
       case None =>
         triggers.get(triggerInstance) match {
-          case None => false
+          case None => Right(false)
           case Some(t) =>
             triggers -= t.triggerInstance
             triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
-            true
+            Right(true)
         }
       case Some(dao) =>
         val delete = dao.transact(TriggerDao.removeRunningTrigger(triggerInstance))
         Try(delete.unsafeRunSync) match {
-          case Failure(err) =>
-            println("[DEBUG] Delete failed.")
-            println(err.toString)
-            false // FIXME(RJR): Propagate error in Either
-          case Success(deleted) => deleted
+          case Failure(err) => Left(err.toString)
+          case Success(deleted) => Right(deleted)
         }
     }
   }
@@ -239,20 +236,22 @@ object Server {
       } yield JsObject(("triggerId", triggerInstance.toString.toJson))
     }
 
-    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): Option[JsValue] = {
+    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): Either[String, Option[JsValue]] = {
       //TODO(SF, 2020-05-20): At least check that the provided token
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
-      if (server.removeRunningTrigger(uuid)) {
-        getRunner(uuid) foreach { runner =>
-          runner ! TriggerRunner.Stop
-        }
-        // If we couldn't find the runner then there is nothing to stop anyway,
-        // so pretend everything went normally.
-        server.logTriggerStatus(uuid, "stopped: by user request")
-        Some(JsObject(("triggerId", uuid.toString.toJson)))
-      } else None
+      server.removeRunningTrigger(uuid) map {
+        case false => None
+        case true =>
+          getRunner(uuid) foreach { runner =>
+            runner ! TriggerRunner.Stop
+          }
+          // If we couldn't find the runner then there is nothing to stop anyway,
+          // so pretend everything went normally.
+          server.logTriggerStatus(uuid, "stopped: by user request")
+          Some(JsObject(("triggerId", uuid.toString.toJson)))
+      }
     }
 
     def listTriggers(jwt: Jwt): Either[String, JsValue] = {
@@ -374,10 +373,12 @@ object Server {
                       complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
                     token =>
                       stopTrigger(uuid, token) match {
-                        case None =>
+                        case Left(err) =>
+                          complete(errorResponse(StatusCodes.InternalServerError, err))
+                        case Right(None) =>
                           val err = s"No trigger running with id $uuid"
                           complete(errorResponse(StatusCodes.NotFound, err))
-                        case Some(stoppedTriggerId) =>
+                        case Right(Some(stoppedTriggerId)) =>
                           complete(successResponse(stoppedTriggerId))
                     }
                   )
@@ -429,9 +430,10 @@ object Server {
             // the management of a supervision strategy).
             Behaviors.same
           case TriggerRuntimeFailure(runningTrigger, cause) =>
-            // The trigger has failed. Remove it from the running
-            // triggers tables.
+            // The trigger has failed. Remove it from the running triggers tables.
             server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
+            // Ignore the result of the deletion as we don't have a sensible way
+            // to handle a failure here at the moment.
             val _ = server.removeRunningTrigger(runningTrigger.triggerInstance)
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
