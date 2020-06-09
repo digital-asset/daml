@@ -69,29 +69,39 @@ main = do
           liftIO exitFailure
 
       -- find out all the missing internal dependencies
-      missingDepsForAllArtifacts <- forM nonDeployJars $ \a -> do
-          -- run a bazel query to find all internal java and scala library dependencies
-          -- We exclude the scenario service and the script service to avoid a false dependency on scala files
-          -- originating from genrules that use damlc. This is a bit hacky but
-          -- given that it’s fairly unlikely to accidentally introduce a dependency on the scenario
+      missingDepsForAllArtifacts <- do
+          let bazelQueryDeps target = do
+              let query = "kind(\"(java|scala)_library\", deps(" <> target <> ")) intersect //..."
+              liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
+
+          -- run a Bazel query to find all internal Java and Scala library dependencies
+          -- We exclude the scenario service and the script service to avoid a false dependency on
+          -- Scala files originating from genrules that use damlc. This is a bit hacky but given
+          -- that it’s fairly unlikely to accidentally introduce a dependency on the scenario
           -- service it doesn’t seem worth fixing properly.
-          let bazelQueryCommand = shell $
-                  "bazel query 'kind(\"(scala|java)_library\", deps(" ++
-                  (T.unpack . getBazelTarget . artTarget) a ++
-                  ")) intersect //...'"
-          internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
+          let targets = map (getBazelTarget . artTarget) nonDeployJars
+          internalDeps <- bazelQueryDeps ("set(" <> T.unpack (T.intercalate " " targets) <> ")")
           -- check if a dependency is not already a maven target from artifacts.yaml
           let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
-          return (a, missingDeps)
+          -- if there's a missing artifact, find out what depends on it by querying each artifact
+          -- separately, one by one (this is slow, so we don't do it unless we have to)
+          if null missingDeps
+              then
+                  return []
+              else do
+                  maybeMissingDeps <- forM nonDeployJars $ \a -> do
+                      internalDeps <- bazelQueryDeps (T.unpack (getBazelTarget (artTarget a)))
+                      let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
+                      if null missingDeps then return Nothing else return (Just (a, missingDeps))
+                  return $ Maybe.catMaybes maybeMissingDeps
 
-      let onlyMissing = filter (not . null . snd) missingDepsForAllArtifacts
       -- now we can report all the missing dependencies per artifact
-      when (not (null onlyMissing)) $ do
-                  $logError "Some internal dependencies are not published to maven central!"
-                  forM_ onlyMissing $ \(artifact, missingDeps) -> do
-                      $logError (getBazelTarget (artTarget artifact))
-                      forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
-                  liftIO exitFailure
+      when (not (null missingDepsForAllArtifacts)) $ do
+          $logError "Some internal dependencies are not published to Maven Central!"
+          forM_ missingDepsForAllArtifacts $ \(artifact, missingDeps) -> do
+              $logError (getBazelTarget (artTarget artifact))
+              forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
+          liftIO exitFailure
 
       mvnFiles <- fmap concat $ forM mvnArtifacts $ \a -> do
           fs <- artifactFiles a
@@ -103,10 +113,10 @@ main = do
 
       -- npm packages we want to publish.
       let npmPackages =
-            [ "//language-support/ts/daml-types"
-            , "//language-support/ts/daml-ledger"
-            , "//language-support/ts/daml-react"
-            ]
+              [ "//language-support/ts/daml-types"
+              , "//language-support/ts/daml-ledger"
+              , "//language-support/ts/daml-react"
+              ]
       -- make sure the npm packages can be build.
       $logDebug "Building language-support typescript packages"
       forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
