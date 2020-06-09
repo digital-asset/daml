@@ -51,9 +51,13 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
       )
     )
 
-  // Doesn't go through caching, for now caching is limited to events
-  def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter =
+  def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter = {
+    cache.put(
+      key = LfValueTranslation.Cache.Key(contractId.coid),
+      value = LfValueTranslation.Cache.Value.Create(createArgument, None),
+    )
     ("create_argument", serializeCreateArgOrThrow(contractId, createArgument))
+  }
 
   def serialize(eventId: EventId, create: Create): Vector[NamedParameter] = {
     cache.put(

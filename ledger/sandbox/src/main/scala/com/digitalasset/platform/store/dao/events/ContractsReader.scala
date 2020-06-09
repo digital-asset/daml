@@ -25,6 +25,7 @@ private[dao] sealed abstract class ContractsReader(
     val committedContracts: PostCommitValidationData,
     dispatcher: DbDispatcher,
     metrics: Metrics,
+    lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit ec: ExecutionContext)
     extends ContractStore {
 
@@ -33,9 +34,16 @@ private[dao] sealed abstract class ContractsReader(
   private val contractRowParser: RowParser[(String, InputStream)] =
     str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
 
+  private val contractWithoutValueRowParser: RowParser[String] =
+    str("template_id")
+
+  private val translation: LfValueTranslation =
+    new LfValueTranslation(lfValueTranslationCache)
+
   protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
 
-  override def lookupActiveContract(
+  /** Lookup of a contract in the case the contract value is not already known */
+  private[this] def lookupActiveContractWithArgument(
       submitter: Party,
       contractId: ContractId,
   ): Future[Option[Contract]] =
@@ -54,6 +62,44 @@ private[dao] sealed abstract class ContractsReader(
               metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
           )
       })
+
+  /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
+  private[this] def lookupActiveContractWithoutArgument(
+      submitter: Party,
+      contractId: ContractId,
+      createArgument: Value,
+  ): Future[Option[Contract]] =
+    dispatcher
+      .executeSql(metrics.daml.index.db.lookupActiveContractWithoutArgumentDbMetrics) { implicit connection =>
+        SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
+          .as(contractWithoutValueRowParser.singleOpt)
+      }
+      .map(
+        _.map(
+          templateId =>
+            toContract(
+              contractId = contractId,
+              templateId = templateId,
+              createArgument = createArgument,
+          )))
+
+  override def lookupActiveContract(
+      submitter: Party,
+      contractId: ContractId,
+  ): Future[Option[Contract]] =
+    // Depending on whether the contract argument is cached or not, submit a different query to the database
+    translation.cache.getIfPresent(LfValueTranslation.Cache.Key(contractId.coid)) match {
+      case Some(createArgument) =>
+        metrics.daml.index.db.lookupActiveContractArgumentCache.hitCount.inc()
+        lookupActiveContractWithoutArgument(
+          submitter,
+          contractId,
+          createArgument.assertCreate().argument)
+      case None =>
+        metrics.daml.index.db.lookupActiveContractArgumentCache.missCount.inc()
+        lookupActiveContractWithArgument(submitter, contractId)
+
+    }
 
   override def lookupContractKey(
       submitter: Party,
@@ -78,11 +124,12 @@ object ContractsReader {
       dispatcher: DbDispatcher,
       dbType: DbType,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext): ContractsReader = {
     val table = ContractsTable(dbType)
     dbType match {
-      case DbType.Postgres => new Postgresql(table, dispatcher, metrics)
-      case DbType.H2Database => new H2Database(table, dispatcher, metrics)
+      case DbType.Postgres => new Postgresql(table, dispatcher, metrics, lfValueTranslationCache)
+      case DbType.H2Database => new H2Database(table, dispatcher, metrics, lfValueTranslationCache)
     }
   }
 
@@ -90,8 +137,9 @@ object ContractsReader {
       table: ContractsTable,
       dispatcher: DbDispatcher,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext)
-      extends ContractsReader(table, dispatcher, metrics) {
+      extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: Key,
@@ -103,8 +151,9 @@ object ContractsReader {
       table: ContractsTable,
       dispatcher: DbDispatcher,
       metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext)
-      extends ContractsReader(table, dispatcher, metrics) {
+      extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: Key,
@@ -135,4 +184,14 @@ object ContractsReader {
       agreementText = ""
     )
 
+  private def toContract(
+      contractId: ContractId,
+      templateId: String,
+      createArgument: Value,
+  ): Contract =
+    Contract(
+      template = Identifier.assertFromString(templateId),
+      arg = createArgument,
+      agreementText = ""
+    )
 }
