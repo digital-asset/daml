@@ -44,5 +44,7 @@ function bazel() {
     Write-Output "<< bazel $args (ok)"
 }
 
-ls D:\a\1\s | select name,target
-ls D:\a\1\s\compatibility | select name,target
+ls D:\a\1\s\bazel-out | select name,target
+ls D:\a\1\s\compatibility\bazel-out | select name,target
+ls D:\a\2\s\bazel-out | select name,target
+ls D:\a\2\s\compatibility\bazel-out | select name,target
