@@ -51,7 +51,6 @@ fi
 CACHE_URL="https://storage.googleapis.com/daml-bazel-cache"
 
 if is_windows; then
-  CACHE_URL="$CACHE_URL/v1"
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
 
@@ -74,7 +73,10 @@ if is_windows; then
   SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -binary | openssl enc -base64)"
   SUFFIX="${SUFFIX:0:3}"
   echo "Platform suffix: $SUFFIX"
-  echo "build --platform_suffix=-$SUFFIX" >> .bazelrc.local
+  # We include an extra version at the end that we can bump manually.
+  CACHE_SUFFIX="$SUFFIX-v1"
+  CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
+  echo "build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
