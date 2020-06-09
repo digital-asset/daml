@@ -247,6 +247,27 @@ infoStep world e = Info
     (safetyStep (fmap safety e))
     (typeclassStep world (fmap tcinfo e))
 
+-- | Take the free variables and safety of a let-expression `let x = e1 in e2`
+-- and compute over-approximations of the free variables and
+-- under-approximations of the safe of `e1` and `e2`. The reasoning behind the
+-- choice of `s1` and `s2` is as follows:
+-- * If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and `fv(e2) ⊆ V ∪ {x}`.
+-- * If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is k-safe.
+infoUnstepELet :: ExprVarName -> Info -> (Info, Info)
+infoUnstepELet x (Info fv sf _) = (s1, s2)
+  where
+    s1 = Info fv (sf `min` Safe 0) TCNeither
+    s2 = Info (freeExprVar x <> fv) sf TCNeither
+
+-- | Take the free variables and safety of a lambda-expression `λx. e1` and
+-- compute an over-approximation of the free variables and an
+-- under-approximation of the safety of `e1`. The reasoning behind the result
+-- is as follows:
+-- * If `fv(λx. e1) ⊆ V`, then `fv(e1) ⊆ V ∪ {x}`.
+-- * If `λx. e1` is k-safe, then `e1` is (k-1)-safe.
+infoUnstepETmapp :: ExprVarName -> Info -> Info
+infoUnstepETmapp x (Info fv sf _) = Info (freeExprVar x <> fv) (decrSafety sf) TCNeither
+
 -- | Try to get the actual field value from the body of
 -- a typeclass projection function, after substitution of the
 -- dictionary function inside.
@@ -347,16 +368,32 @@ simplifyExpr world = fst . cata go
         , not (isFreeExprVar x (freeVars (snd e2))) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
-      -- NOTE(MH): The reason for the choice of `s1` and `s2` is as follows:
-      -- - If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and
-      --   `fv(e2) ⊆ V ∪ {x}`.
-      -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
-      --   k-safe.
-      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf _) ->
+      EStructProjF f (ELet (Binding (x, t) e1) e2, s0) ->
         go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
-          s1 = Info fv (sf `min` Safe 0) TCNeither
-          s2 = Info (freeExprVar x <> fv) sf TCNeither
+          (s1, s2) = infoUnstepELet x s0
+
+      -- (λx1 ... xn. e0) e1 ... en    ==>    let x1 = e2 in ... let xn = en in e0,
+      -- if `xi` is not free in `ej` for any `i < j`
+      --
+      -- This rule is achieved by combining the rules for `(λx. e1) e2` and
+      -- `(let x = e1 in e2) e3` repeatedly.
+
+      -- (λx. e1) e2    ==>    let x = e2 in e1
+      --
+      -- NOTE(MH): This also works when `x` is free in `e2` since let-bindings
+      -- are _not_ recursive.
+      ETmAppF (ETmLam (x, t) e1, s0) (e2, s2) ->
+        go $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
+        where
+          s1 = infoUnstepETmapp x s0
+
+      -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
+      ETmAppF (ELet (Binding (x, t) e1) e2, s0) e3
+        | not (isFreeExprVar x (freeVars (snd e3))) ->
+          go $ ELetF (BindingF (x, t) (e1, s1)) (go $ ETmAppF (e2, s2) e3)
+          where
+            (s1, s2) = infoUnstepELet x s0
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
