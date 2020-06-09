@@ -6,16 +6,16 @@
 HTTP JSON API Service
 #####################
 
-The **JSON API** provides a significantly simpler way than :doc:`the Ledger
-API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
+The **JSON API** provides a significantly simpler way to interact with a ledger than :doc:`the Ledger
+API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
 - querying the current active contract set, and
 - retrieving all known parties.
 
-The goal of this API is to get you up and running distributed ledger applications quickly, so we have deliberately excluded
-complicating concerns, including but not limited to:
+The goal of this API is to get your distributed ledger application up and running quickly, so we have deliberately excluded
+complicating concerns including, but not limited to:
 
 - inspecting transactions,
 - asynchronous submit/completion workflows,
@@ -165,9 +165,9 @@ token.  The default "header" is fine.  Under "Payload", fill in:
       }
     }
 
-Keep in mind that the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox. You can replace ``Alice`` with whatever party you want to use.
+Keep in mind that the value of the ``ledgerId`` payload field has to match the one passed to the sandbox with the ``--ledgerid`` argument. You can replace ``Alice`` with whatever party you want to use.
 
-Under "Verify Signature", put ``secret`` as the secret (_not_ base64
+Under "Verify Signature", put ``secret`` as the secret (*not* base64
 encoded); that is the hardcoded secret for testing.
 
 Then the "Encoded" box should have your **token**, ready for passing to
@@ -202,14 +202,14 @@ choice for details.
 For HTTP JSON requests, you must pass two subprotocols:
 
 - ``daml.ws.auth``
-- ``jwt.token.copy-paste-token-here``
+- ``jwt.token.paste-token-here``
 
-where ``copy-paste-token-here`` is the encoded JWT token described above.
+where ``paste-token-here`` is the encoded JWT token described above.
 
 Error Reporting
 ***************
 
-The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes in 3 groups indicating:
+The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes into 3 groups indicating:
 
 1. success (200)
 2. failure due to a client-side problem (400, 401, 404)
@@ -223,7 +223,7 @@ The **JSON API** can return one of the following HTTP status codes:
 - 404 - Not Found
 - 500 - Internal Server Error
 
-If client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with ``status`` field, either ``errors`` or ``result`` and optional ``warnings``:
+If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field and an optional ``warnings``:
 
 .. code-block:: none
 
@@ -238,7 +238,7 @@ Where:
 - ``status`` -- a JSON number which matches the HTTP response status code returned in the HTTP header,
 - ``errors`` -- a JSON array of strings, each string represents one error,
 - ``result`` -- a JSON object or JSON array, representing one or many results,
-- ``warnings`` -- optional field, a JSON object, representing one ore many warnings.
+- ``warnings`` -- an optional field with a JSON object, representing one or many warnings.
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
@@ -332,7 +332,7 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
+To create an instance of an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
@@ -407,8 +407,8 @@ Where:
 
 .. _create-request-with-meta:
 
-Create a new Contract with optional meta field
-**********************************************
+Create a new Contract with an optional meta field
+*************************************************
 
 When creating a new contract, client may specify an optional ``meta`` field:
 
@@ -435,7 +435,7 @@ Where:
 Exercise by Contract ID
 ***********************
 
-The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
+The JSON command below, demonstrates how to exercise an ``Iou_Transfer`` choice on an ``Iou`` contract:
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
@@ -604,7 +604,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` -- the initial contract template identifier, in the same format as in same as in the :ref:`create request <create-request>`,
+- ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
 - ``payload`` -- the initial contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`,
 - ``choice`` -- DAML contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
@@ -615,7 +615,7 @@ HTTP Response
 Please note that the response below is for a consuming choice, so it contains:
 
 - ``created`` and ``archived`` events for the initial contract (``"contractId": "#1:0"``), which was created and archived right away when a consuming choice was exercised on it,
-- a ``created`` event for the contract that is the result of the choice exercise (``"contractId": "#1:2"``).
+- a ``created`` event for the contract that is the result of exercising the choice (``"contractId": "#1:2"``).
 
 - Content-Type: ``application/json``
 - Content:
@@ -814,7 +814,7 @@ Contract Search, All Templates
 
 List all currently active contracts for all known templates.
 
-Note that the retrieved contracts do not get persisted into query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with query store enabled.
+Note that the retrieved contracts do not get persisted into a query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with a query store enabled.
 
 HTTP Request
 ============
@@ -946,7 +946,7 @@ Fetch Parties by Identifiers
 
     ["Alice", "Bob", "Dave"]
 
-If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
+If an empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
 
 .. code-block:: json
 
@@ -1049,9 +1049,9 @@ HTTP Request
       "displayName": "Carol & Co. LLC"
     }
 
-Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
+Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about the meaning of the fields.
 
-All fields in the request are optional, this means that empty JSON object is a valid request to allocate a new party:
+All fields in the request are optional, this means that an empty JSON object is a valid request to allocate a new party:
 
 .. code-block:: json
 
@@ -1097,7 +1097,7 @@ HTTP Response
       "status": 200
     }
 
-Where ``result`` is the JSON array containing package IDs of all loaded DALFs.
+Where ``result`` is the JSON array containing the package IDs of all loaded DALFs.
 
 Download a DALF Package
 ***********************
@@ -1109,7 +1109,7 @@ HTTP Request
 - Method: ``GET``
 - Content: <EMPTY>
 
-Note that package ID is specified in the URL.
+Note that the desired package ID is specified in the URL.
 
 HTTP Response, status: 200 OK
 =============================
