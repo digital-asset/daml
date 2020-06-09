@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.DivulgedContract
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract}
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.platform.store.Conversions._
@@ -119,7 +119,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
   def prepareBatchInsert(
       ledgerEffectiveTime: Instant,
-      transaction: Transaction,
+      transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
   ): RawBatches = {
 

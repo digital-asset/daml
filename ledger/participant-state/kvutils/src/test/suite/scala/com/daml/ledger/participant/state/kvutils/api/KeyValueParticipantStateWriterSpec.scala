@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
@@ -95,8 +95,8 @@ object KeyValueParticipantStateWriterSpec {
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
-  private val anEmptyTransaction: Transaction.Transaction =
-    GenTransaction(HashMap.empty, ImmArray.empty)
+  private val anEmptyTransaction: Tx.SubmittedTransaction =
+    Tx.SubmittedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
 
   private val aSubmissionId: SubmissionId =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)

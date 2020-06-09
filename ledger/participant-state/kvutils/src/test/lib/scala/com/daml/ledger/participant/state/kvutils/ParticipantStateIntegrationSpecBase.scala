@@ -20,7 +20,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -671,8 +671,8 @@ object ParticipantStateIntegrationSpecBase {
 
   private val IdleTimeout: FiniteDuration = 5.seconds
 
-  private val emptyTransaction: Transaction.Transaction =
-    GenTransaction(HashMap.empty, ImmArray.empty)
+  private val emptyTransaction: SubmittedTransaction =
+    Tx.SubmittedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")

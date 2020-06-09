@@ -21,7 +21,7 @@ object StandardTransactionCommitter extends TransactionCommitter {
       transactionId: Ref.LedgerString,
       transaction: SubmittedTransaction
   ): CommittedTransaction =
-    transaction
+    Transaction.commitTransaction(transaction)
 }
 
 // Committer emulating Contract ID legacy scheme
@@ -41,11 +41,12 @@ object LegacyTransactionCommitter extends TransactionCommitter {
           Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString)))
         .withDefault(identity)
 
-    GenTransaction.map3(
-      identity[Transaction.NodeId],
-      contractMapping,
-      Value.VersionedValue.map1(contractMapping)
-    )(transaction)
+    Transaction.CommittedTransaction(
+      GenTransaction.map3(
+        identity[Transaction.NodeId],
+        contractMapping,
+        Value.VersionedValue.map1(contractMapping)
+      )(transaction))
 
   }
 

@@ -82,7 +82,7 @@ final class Engine {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
-  ): Result[(Tx.Transaction, Tx.Metadata)] = {
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
@@ -133,7 +133,7 @@ final class Engine {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Tx.Transaction, Tx.Metadata)] =
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
     for {
       commandWithCids <- preprocessor.translateNode(node)
       (command, globalCids) = commandWithCids
@@ -147,7 +147,8 @@ final class Engine {
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
         globalCids,
       )
-    } yield result
+      (tx, meta) = result
+    } yield (Tx.SubmittedTransaction(tx), meta)
 
   /**
     * Check if the given transaction is a valid result of some single-submitter command.
@@ -165,7 +166,7 @@ final class Engine {
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
     */
   def validate(
-      tx: Tx.Transaction,
+      tx: Tx.SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
@@ -265,7 +266,7 @@ final class Engine {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
-  ): Result[(Tx.Transaction, Tx.Metadata)] =
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
@@ -286,7 +287,7 @@ final class Engine {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[(Tx.Transaction, Tx.Metadata)] = {
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {
@@ -371,7 +372,7 @@ final class Engine {
               profileDir.resolve(Paths.get(s"${meta.submissionTime}-${desc}-${hash}.json"))
             machine.profile.writeSpeedscopeJson(profileFile)
         }
-        ResultDone((t, meta))
+        ResultDone((Tx.SubmittedTransaction(t), meta))
     }
   }
 

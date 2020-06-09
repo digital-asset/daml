@@ -5,6 +5,7 @@ package com.daml.platform.store.dao.events
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{ChoiceName, Name}
+import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
 
 import scala.collection.immutable.HashMap
 import scala.util.control.NonFatal
@@ -40,8 +41,8 @@ final class TransactionBuilder {
     nodeId
   }
 
-  def build(): Transaction = ids.synchronized {
-    Transaction(nodes.result(), roots.result())
+  def build(): Tx.Transaction = ids.synchronized {
+    GenTransaction(nodes.result(), roots.result())
   }
 
 }
@@ -149,13 +150,13 @@ object TransactionBuilder {
       result = if (found) Some(contract.coid) else None
     )
 
-  def just(node: Node, nodes: Node*): Transaction = {
+  def just(node: Node, nodes: Node*): Tx.CommittedTransaction = {
     val builder = new TransactionBuilder
     val _ = builder.add(node)
     for (node <- nodes) {
       val _ = builder.add(node)
     }
-    builder.build()
+    Tx.CommittedTransaction(builder.build())
   }
 
 }

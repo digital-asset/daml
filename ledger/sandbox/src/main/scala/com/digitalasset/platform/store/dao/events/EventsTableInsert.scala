@@ -5,9 +5,8 @@ package com.daml.platform.store.dao.events
 
 import java.time.Instant
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, Offset, SubmitterInfo}
 import com.daml.ledger._
-import com.daml.lf.transaction.GenTransaction
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableInsert { this: EventsTable =>
@@ -159,17 +158,17 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     * @throws RuntimeException If a value cannot be serialized into an array of bytes
     */
   @throws[RuntimeException]
-  def prepareBatchInsert[Nid <: NodeId](
+  def prepareBatchInsert(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
-      transaction: GenTransaction.WithTxValue[Nid, ContractId],
-      flatWitnesses: WitnessRelation[Nid],
-      treeWitnesses: WitnessRelation[Nid],
+      transaction: CommittedTransaction,
+      flatWitnesses: WitnessRelation[NodeId],
+      treeWitnesses: WitnessRelation[NodeId],
   ): RawBatches = {
-    def event[Sp <: RawBatch.Event.Specific](nodeId: Nid, sp: Sp) =
+    def event[Sp <: RawBatch.Event.Specific](nodeId: NodeId, sp: Sp) =
       new RawBatch.Event(
         applicationId = submitterInfo.map(_.applicationId),
         workflowId = workflowId,
