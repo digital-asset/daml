@@ -377,9 +377,12 @@ simplifyExpr world = fst . cata go
       -- if `xi` is not free in `ej` for any `i < j`
       --
       -- This rule is achieved by combining the rules for `(λx. e1) e2` and
-      -- `(let x = e1 in e1) e3`, if `x` is not free in `e3`, repeatedly.
+      -- `(let x = e1 in e2) e3` repeatedly.
 
       -- (λx. e1) e2    ==>    let x = e2 in e1
+      --
+      -- NOTE(MH): This also works when `x` is free in `e2` since let-bindings
+      -- are _not_ recursive.
       ETmAppF (ETmLam (x, t) e1, s0) (e2, s2) ->
         go $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
         where
