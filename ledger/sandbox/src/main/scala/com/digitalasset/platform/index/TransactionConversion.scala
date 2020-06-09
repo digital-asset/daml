@@ -4,7 +4,7 @@
 package com.daml.platform.index
 
 import com.daml.api.util.TimestampConversion
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GenTransaction
@@ -18,8 +18,7 @@ import com.daml.ledger.api.v1.transaction.{
   Transaction => ApiTransaction,
   TransactionTree => ApiTransactionTree
 }
-import com.daml.platform.api.v1.event.EventOps.EventOps
-import com.daml.platform.api.v1.event.EventOps.TreeEventOps
+import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
   lfNodeCreateToEvent,
@@ -145,23 +144,28 @@ object TransactionConversion {
       )
   }
 
-  @tailrec
   private def newRoots(
       tx: Transaction,
-      disclosure: Relation[EventId, Ref.Party],
-  ): Seq[String] = {
-    val (replaced, roots) =
-      tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
-        case ((replaced, roots), eventId) =>
-          if (isCreateOrExercise(tx.nodes(eventId)) && disclosure.contains(eventId)) {
-            (replaced, roots :+ eventId)
-          } else
-            tx.nodes(eventId) match {
-              case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
-              case _ => (true, roots)
-            }
+      disclosed: EventId => Boolean,
+  ) = {
+
+    @tailrec
+    def go(toProcess: FrontStack[EventId], acc: BackStack[EventId]): Seq[EventId] =
+      toProcess match {
+        case FrontStackCons(head, tail) =>
+          tx.nodes(head) match {
+            case _: Create | _: Exercise if disclosed(head) =>
+              go(tail, acc :+ head)
+            case exe: Exercise =>
+              go(exe.children ++: tail, acc)
+            case _ =>
+              go(tail, acc)
+          }
+        case FrontStack() =>
+          acc.toImmArray.toSeq
       }
-    if (replaced) newRoots(tx.copy(roots = ImmArray(roots)), disclosure) else roots
+
+    go(FrontStack(tx.roots), BackStack.empty)
   }
 
   private def applyDisclosure(
@@ -173,7 +177,7 @@ object TransactionConversion {
       case events if events.nonEmpty =>
         ApiTransactionTree(
           eventsById = events.toMap,
-          rootEventIds = newRoots(tx, disclosure)
+          rootEventIds = newRoots(tx, disclosure.contains)
         )
     }
 
