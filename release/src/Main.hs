@@ -15,11 +15,13 @@ import Path
 import Path.IO hiding (removeFile)
 
 import qualified Data.Text as T
+import qualified Data.Text.IO as T.IO
 import qualified Data.Maybe as Maybe
 import qualified System.Directory as Dir
 import System.Exit
 import System.Process
 
+import Maven
 import Options
 import Types
 import Upload
@@ -103,14 +105,6 @@ main = do
               forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
           liftIO exitFailure
 
-      mvnFiles <- fmap concat $ forM mvnArtifacts $ \a -> do
-          fs <- artifactFiles a
-          pure $ map (a,) fs
-      mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) mvnFiles
-
-      mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
-      validateMavenArtifacts releaseDir mvnUploadArtifacts
-
       -- npm packages we want to publish.
       let npmPackages =
               [ "//language-support/ts/daml-types"
@@ -121,7 +115,15 @@ main = do
       $logDebug "Building language-support typescript packages"
       forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
 
-      if | getPerformUpload optsPerformUpload -> do
+      if  | getPerformUpload optsPerformUpload -> do
+              mvnFiles <- fmap concat $ forM mvnArtifacts $ \a -> do
+                  fs <- artifactFiles a
+                  pure $ map (a,) fs
+              mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) mvnFiles
+
+              mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
+              validateMavenArtifacts releaseDir mvnUploadArtifacts
+
               $logInfo "Uploading to Maven Central"
               mavenUploadConfig <- mavenConfigFromEnv
               if not (null mvnUploadArtifacts)
@@ -141,17 +143,15 @@ main = do
                 (forM_ npmPackages
                   $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
 
-         | optsLocallyInstallJars -> do
-              let lib_jars = filter (\(mvn,_) -> (artifactType mvn == "jar" || artifactType mvn == "pom") && Maybe.isNothing (classifier mvn)) mvnUploadArtifacts
-              forM_ lib_jars $ \(mvn_coords, path) -> do
-                  let args = ["install:install-file",
-                              "-Dfile=" <> pathToString releaseDir <> pathToString path,
-                              "-DgroupId=" <> (groupIdString $ groupId mvn_coords),
-                              "-DartifactId=" <> (T.unpack $ artifactId mvn_coords),
-                              "-Dversion=0.0.0",
-                              "-Dpackaging=" <> (T.unpack $ artifactType mvn_coords)]
-                  liftIO $ callProcess "mvn" args
-         | otherwise -> $logInfo "Dry run selected: not uploading, not installing"
+          | optsLocallyInstallJars -> do
+              pom <- generateAggregatePom bazelLocations mvnArtifacts
+              pomPath <- (releaseDir </>) <$> parseRelFile "pom.xml"
+              liftIO $ do
+                  T.IO.writeFile (toFilePath pomPath) pom
+                  (_, _, _, mvnHandle) <- createProcess ((proc "mvn" ["initialize"]) { cwd = Just (toFilePath releaseDir) })
+                  exitCode <- waitForProcess mvnHandle
+                  unless (exitCode == ExitSuccess) $ ioError $ userError "Failed to install JARs locally."
+          | otherwise -> $logInfo "Dry run selected: not uploading, not installing"
   where
     runLog Options{..} m0 = do
         let m = filterLogger (\_ ll -> ll >= LevelDebug) m0

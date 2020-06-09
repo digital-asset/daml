@@ -17,13 +17,20 @@ module Util (
     PomData(..),
 
     artifactFiles,
-    mavenArtifactCoords,
-    copyToReleaseDir,
     buildTargets,
+    copyToReleaseDir,
     getBazelLocations,
-    resolvePomData,
-    loggedProcess_,
+    isJar,
     isDeployJar,
+    loggedProcess_,
+    mavenArtifactCoords,
+    resolvePomData,
+    splitBazelTarget,
+
+    mainArtifactPath,
+    pomFilePath,
+    sourceJarPath,
+    javadocJarPath,
 
     osName
   ) where
@@ -270,29 +277,23 @@ customJavadocJarName Artifact{..} = T.pack . toFilePath <$> artJavadocJar
 
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
 artifactFiles :: E.MonadThrow m => Artifact PomData -> m [(Path Rel File, Path Rel File)]
-artifactFiles art@Artifact{..} = do
+artifactFiles artifact@Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# pomVersion #"/"
     let (directory, name) = splitBazelTarget artTarget
     directory <- parseRelDir $ unpack directory
 
-    mainArtifactIn <- parseRelFile $ unpack $ mainFileName artReleaseType name
+    mainArtifactIn <- mainArtifactPath name artifact
     mainArtifactOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # "." # mainExt artReleaseType))
 
-    pomFileIn <- parseRelFile (unpack (name <> "_pom.xml"))
+    pomFileIn <- pomFilePath name
     pomFileOut <- releasePomPath artMetadata
 
-    mbSourceJarIn <-
-        traverse
-            (parseRelFile . unpack)
-            (customSourceJarName art <|> sourceJarName art <|> scalaSourceJarName art <|> deploySourceJarName art <|> protoSourceJarName art)
+    mbSourceJarIn <- sourceJarPath artifact
     sourceJarOut <- releaseSourceJarPath artMetadata
 
-    mbJavadocJarIn <-
-        traverse
-            (parseRelFile . unpack)
-            (customJavadocJarName art <|> javadocJarName art <|> scaladocJarName art <|> javadocDeployJarName art <|> javadocProtoJarName art)
+    mbJavadocJarIn <- javadocJarPath artifact
     javadocJarOut <- releaseDocJarPath artMetadata
 
     pure $
@@ -301,6 +302,24 @@ artifactFiles art@Artifact{..} = do
         [(directory </> sourceJarIn, outDir </> sourceJarOut) | Just sourceJarIn <- pure mbSourceJarIn] <>
         [(directory </> javadocJarIn, outDir </> javadocJarOut) | Just javadocJarIn <- pure mbJavadocJarIn]
         -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
+
+mainArtifactPath :: E.MonadThrow m => Text -> Artifact a -> m (Path Rel File)
+mainArtifactPath name artifact = parseRelFile $ unpack $ mainFileName (artReleaseType artifact) name
+
+pomFilePath :: E.MonadThrow m => Text -> m (Path Rel File)
+pomFilePath name = parseRelFile $ unpack $ name <> "_pom.xml"
+
+sourceJarPath :: E.MonadThrow m => Artifact a -> m (Maybe (Path Rel File))
+sourceJarPath artifact =
+    traverse
+        (parseRelFile . unpack)
+        (customSourceJarName artifact <|> sourceJarName artifact <|> scalaSourceJarName artifact <|> deploySourceJarName artifact <|> protoSourceJarName artifact)
+
+javadocJarPath :: E.MonadThrow m => Artifact a -> m (Maybe (Path Rel File))
+javadocJarPath artifact =
+    traverse
+        (parseRelFile . unpack)
+        (customJavadocJarName artifact <|> javadocJarName artifact <|> scaladocJarName artifact <|> javadocDeployJarName artifact <|> javadocProtoJarName artifact)
 
 -- | The file path to the source jar for the given artifact in the release directory.
 releaseSourceJarPath :: E.MonadThrow m => PomData -> m (Path Rel File)
