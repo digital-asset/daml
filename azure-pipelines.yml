@@ -172,7 +172,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
-      demands: assignment -equals default
+      demands: assignment -equals broken-windows
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -247,6 +247,7 @@ jobs:
       - template: ci/report-end.yml
 
   - job: compatibility_windows
+    condition: false
     dependsOn:
       - da_ghc_lib
       - check_for_release
