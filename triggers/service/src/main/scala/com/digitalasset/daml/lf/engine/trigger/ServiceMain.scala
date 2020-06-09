@@ -38,7 +38,6 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import scalaz.syntax.traverse._
 
@@ -62,14 +61,15 @@ case class LedgerConfig(
 final case class RunningTrigger(
     triggerInstance: UUID,
     triggerName: Identifier,
-    jwt: Jwt,
+    token: String, // User credentials.
+    // TODO(SF, 2020-): Add access token field here in the presence of authentication.
     runner: ActorRef[TriggerRunner.Message]
 )
 
 class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerDao]) {
 
   private var triggers: Map[UUID, RunningTrigger] = Map.empty;
-  private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
+  private var triggersByToken: Map[String, Set[UUID]] = Map.empty;
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
@@ -100,7 +100,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
     triggerDao match {
       case None =>
         triggers += t.triggerInstance -> t
-        triggersByToken += t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance)
+        triggersByToken += t.token -> (triggersByToken.getOrElse(t.token, Set()) + t.triggerInstance)
         Right(())
       case Some(dao) =>
         val insert = dao.transact(TriggerDao.addRunningTrigger(t))
@@ -118,7 +118,7 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
           case None => Right(false)
           case Some(t) =>
             triggers -= t.triggerInstance
-            triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
+            triggersByToken += t.token -> (triggersByToken(t.token) - t.triggerInstance)
             Right(true)
         }
       case Some(dao) =>
@@ -130,12 +130,12 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
     }
   }
 
-  private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
+  private def listRunningTriggers(token: String): Either[String, Vector[UUID]] = {
     val triggerInstances = triggerDao match {
       case None =>
-        Right(triggersByToken.getOrElse(jwt, Set()).toVector)
+        Right(triggersByToken.getOrElse(token, Set()).toVector)
       case Some(dao) =>
-        val select = dao.transact(TriggerDao.getTriggersForParty(jwt))
+        val select = dao.transact(TriggerDao.getTriggersForParty(token))
         Try(select.unsafeRunSync()) match {
           case Failure(err) => Left(err.toString)
           case Success(triggerInstances) => Right(triggerInstances)
@@ -207,12 +207,10 @@ object Server {
         .child(triggerRunnerName(triggerInstance))
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
-    def startTrigger(token: (Jwt, JwtPayload), triggerName: Identifier): Either[String, JsValue] = {
+    def startTrigger(token: String, triggerName: Identifier): Either[String, JsValue] = {
       for {
         trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
-        jwt = token._1
-        jwtPayload = token._2
-        party = Party(jwtPayload.party);
+        party = Party(TokenManagement.decodeCredentials(token)._1);
         triggerInstance = UUID.randomUUID
         _ = ctx.spawn(
           TriggerRunner(
@@ -220,7 +218,7 @@ object Server {
               ctx.self,
               triggerInstance,
               triggerName,
-              jwt,
+              token,
               server.compiledPackages,
               trigger,
               ledgerConfig,
@@ -236,7 +234,7 @@ object Server {
       } yield JsObject(("triggerId", triggerInstance.toString.toJson))
     }
 
-    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): Either[String, Option[JsValue]] = {
+    def stopTrigger(uuid: UUID, token: String): Either[String, Option[JsValue]] = {
       //TODO(SF, 2020-05-20): At least check that the provided token
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
@@ -254,9 +252,9 @@ object Server {
       }
     }
 
-    def listTriggers(jwt: Jwt): Either[String, JsValue] = {
+    def listTriggers(token: String): Either[String, JsValue] = {
       server
-        .listRunningTriggers(jwt)
+        .listRunningTriggers(token)
         .map(
           triggerInstances => JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
         )
@@ -274,10 +272,7 @@ object Server {
                 entity(as[StartParams]) {
                   params =>
                     TokenManagement
-                      .findJwt(request)
-                      .flatMap { jwt =>
-                        TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                      }
+                      .findCredentials(request)
                       .fold(
                         unauthorized =>
                           complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
@@ -335,15 +330,12 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findJwt(request)
-                  .flatMap { jwt =>
-                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                  }
+                  .findCredentials(request)
                   .fold(
                     unauthorized =>
                       complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
                     token =>
-                      listTriggers(token._1) match {
+                      listTriggers(token) match {
                         case Left(err) =>
                           complete(errorResponse(StatusCodes.InternalServerError, err))
                         case Right(triggerInstances) => complete(successResponse(triggerInstances))
@@ -364,10 +356,7 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findJwt(request)
-                  .flatMap { jwt =>
-                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                  }
+                  .findCredentials(request)
                   .fold(
                     unauthorized =>
                       complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
