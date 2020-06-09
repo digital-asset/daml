@@ -44,7 +44,11 @@ function bazel() {
     Write-Output "<< bazel $args (ok)"
 }
 
-ls D:\a\1\s\bazel-out | select name,target
-ls D:\a\1\s\compatibility\bazel-out | select name,target
-ls D:\a\2\s\bazel-out | select name,target
-ls D:\a\2\s\compatibility\bazel-out | select name,target
+echo "------ 1"
+ls D:\a\1\s\bazel* | select name,target
+echo "------ 1-compat"
+ls D:\a\1\s\compatibility\bazel* | select name,target
+echo "------ 2"
+ls D:\a\2\s\bazel* | select name,target
+echo "------ 2-compat"
+ls D:\a\2\s\compatibility\bazel* | select name,target
