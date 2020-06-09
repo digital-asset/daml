@@ -703,9 +703,9 @@ execInspect inFile outFile jsonOutput lvl =
         (pkgId, lfPkg) <- errorOnLeft "Cannot decode package" $
                    Archive.decodeArchive Archive.DecodeAsMain bytes
         writeOutput outFile $ render Plain $
-          DA.Pretty.vsep
-            [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
-            , DA.Pretty.nest 2 (DA.Pretty.pPrintPrec lvl 0 lfPkg)
+          DA.Pretty.vcat
+            [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId)
+            , DA.Pretty.pPrintPrec lvl 0 lfPkg
             ]
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
