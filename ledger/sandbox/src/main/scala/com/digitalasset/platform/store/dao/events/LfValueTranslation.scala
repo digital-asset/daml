@@ -105,11 +105,12 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
         ),
     )
 
+  private def key(s: String) = LfValueTranslation.Cache.Key(EventId.assertFromString(s))
+
   def deserialize[E](raw: Raw.Created[E], verbose: Boolean): CreatedEvent = {
-    val key = LfValueTranslation.Cache.Key(raw.partial.eventId)
     val create =
       cache
-        .getIfPresent(key)
+        .getIfPresent(key(raw.partial.eventId))
         .getOrElse(
           LfValueTranslation.Cache.Value.Create(
             argument = ValueSerializer.deserializeValue(raw.createArgument),
@@ -137,10 +138,9 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   }
 
   def deserialize(raw: Raw.TreeEvent.Exercised, verbose: Boolean): ExercisedEvent = {
-    val key = LfValueTranslation.Cache.Key(raw.partial.eventId)
     val exercise =
       cache
-        .getIfPresent(key)
+        .getIfPresent(key(raw.partial.eventId))
         .getOrElse(
           LfValueTranslation.Cache.Value.Exercise(
             argument = ValueSerializer.deserializeValue(raw.exerciseArgument),
@@ -197,7 +197,7 @@ object LfValueTranslation {
     final class UnexpectedTypeException(value: Value)
         extends RuntimeException(s"Unexpected value $value")
 
-    final case class Key(eventId: String)
+    final case class Key(eventId: EventId)
 
     sealed abstract class Value {
       def assertCreate(): Value.Create

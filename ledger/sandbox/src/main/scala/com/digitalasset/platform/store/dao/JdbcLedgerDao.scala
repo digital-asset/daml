@@ -33,7 +33,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -556,9 +555,7 @@ private class JdbcLedgerDao(
                     transactionId = tx.transactionId,
                     ledgerEffectiveTime = tx.ledgerEffectiveTime,
                     offset = offset,
-                    transaction = Tx.CommittedTransaction(
-                      tx.transaction.mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId)
-                    ),
+                    transaction = Tx.CommittedTransaction(tx.transaction.mapNodeId(_.nodeId)),
                     divulgedContracts = Nil,
                   )
                   .write(metrics)

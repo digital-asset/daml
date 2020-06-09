@@ -214,7 +214,6 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         // both bob and alice see the entire transaction:
         // 1x Exercise IouTrade.IouTrade_Accept
         // 2 x Iou transfer with 4 nodes each (see below)
-        //
         assert(aliceTree.eventsById.size == 9)
         assert(bobTree.eventsById.size == 9)
 

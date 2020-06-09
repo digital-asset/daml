@@ -14,7 +14,6 @@ import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
-import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest._
 
@@ -66,7 +65,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
           val created = transaction.eventsById.values.loneElement.getCreated
           transaction.rootEventIds.loneElement shouldEqual created.eventId
-          created.eventId shouldBe eventId
+          created.eventId shouldBe eventId.toLedgerString
           created.witnessParties should contain only tx.submittingParty.get
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
@@ -98,7 +97,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
           val exercised = transaction.eventsById.values.loneElement.getExercised
           transaction.rootEventIds.loneElement shouldEqual exercised.eventId
-          exercised.eventId shouldBe eventId
+          exercised.eventId shouldBe eventId.toLedgerString
           exercised.witnessParties should contain only exercise.submittingParty.get
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
@@ -139,13 +138,13 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
 
           transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe createEventId
-          transaction.rootEventIds(1) shouldBe exerciseEventId
+          transaction.rootEventIds(0) shouldBe createEventId.toLedgerString
+          transaction.rootEventIds(1) shouldBe exerciseEventId.toLedgerString
 
-          val created = transaction.eventsById(createEventId).getCreated
-          val exercised = transaction.eventsById(exerciseEventId).getExercised
+          val created = transaction.eventsById(createEventId.toLedgerString).getCreated
+          val exercised = transaction.eventsById(exerciseEventId.toLedgerString).getExercised
 
-          created.eventId shouldBe createEventId
+          created.eventId shouldBe createEventId.toLedgerString
           created.witnessParties should contain only tx.submittingParty.get
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
@@ -155,7 +154,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             createNode.signatories)
           created.templateId shouldNot be(None)
 
-          exercised.eventId shouldBe exerciseEventId
+          exercised.eventId shouldBe exerciseEventId.toLedgerString
           exercised.witnessParties should contain only tx.submittingParty.get
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
@@ -179,22 +178,20 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         case Some(transaction) =>
           val createEventId =
             tx.transaction.nodes.collectFirst {
-              case (eventId, _)
-                  if TransactionIdWithIndex.fromString(eventId).exists(_.nodeId.index == 2) =>
+              case (eventId, _) if eventId.nodeId.index == 2 =>
                 eventId
             }.get
           val exerciseEventId =
             tx.transaction.nodes.collectFirst {
-              case (eventId, _)
-                  if TransactionIdWithIndex.fromString(eventId).exists(_.nodeId.index == 3) =>
+              case (eventId, _) if eventId.nodeId.index == 3 =>
                 eventId
             }.get
 
           transaction.eventsById should have size 2
 
           transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe createEventId
-          transaction.rootEventIds(1) shouldBe exerciseEventId
+          transaction.rootEventIds(0) shouldBe createEventId.toLedgerString
+          transaction.rootEventIds(1) shouldBe exerciseEventId.toLedgerString
       }
     }
   }

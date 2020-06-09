@@ -8,7 +8,6 @@ import java.time.Instant
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger._
-import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
@@ -85,7 +84,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       create: Create,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
-      "event_id" -> TransactionIdWithIndex(transactionId, nodeId).toLedgerString,
+      "event_id" -> EventId(transactionId, nodeId),
       "event_offset" -> offset,
       "contract_id" -> create.coid.coid,
       "transaction_id" -> transactionId,
@@ -137,7 +136,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       exercise: Exercise,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
-      "event_id" -> TransactionIdWithIndex(transactionId, nodeId).toLedgerString,
+      "event_id" -> EventId(transactionId, nodeId),
       "event_offset" -> offset,
       "contract_id" -> exercise.targetCoid.coid,
       "transaction_id" -> transactionId,
@@ -153,8 +152,8 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
       "exercise_result" -> serializeNullableExerciseResultOrThrow(exercise),
       "exercise_actors" -> exercise.actingParties.toArray[String],
-      "exercise_child_event_ids" -> exercise.children
-        .map(TransactionIdWithIndex(transactionId, _).toLedgerString)
+      "exercise_child_event_ids" -> exercise.children.iterator
+        .map(EventId(transactionId, _).toLedgerString)
         .toArray[String],
     )
 

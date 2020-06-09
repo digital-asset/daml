@@ -5,7 +5,6 @@ package db.migration.postgres
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.events.TransactionIdWithIndex
 import db.migration.postgres.v29_fix_participant_events.V29TransactionsWriter
 import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -44,7 +43,7 @@ class V29__Fix_participant_events extends BaseJavaMigration {
       val transaction = TransactionSerializer
         .deserializeTransaction(rows.getBinaryStream("transaction"))
         .getOrElse(sys.error(s"failed to deserialize transaction $transactionId"))
-        .mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId)
+        .mapNodeId(_.nodeId)
 
       V29TransactionsWriter.apply(
         applicationId,
