@@ -100,4 +100,4 @@ jobs:
         displayName: measure perf
       - template: ../daily_tell_slack.yml
         parameters:
-          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''{"text": "perf for ''"$COMMIT_LINK"'':```\(.)```"}'')'
+          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
