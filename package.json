@@ -6,6 +6,8 @@
   "version": "0.0.0",
   "dependencies": {
     "bower": "1.8.8",
+    "color-convert": "2.0.1",
+    "colors": "1.4.0",
     "dockerode": "^2.5.8",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
@@ -21,10 +23,8 @@
     "grunt-contrib-watch": "1.1.0",
     "grunt-exec": "3.0.0",
     "grunt-open": "0.2.4",
-    "matchdep": "2.0.0",
-    "color-convert": "2.0.1",
-    "colors": "1.4.0",
     "http-proxy": "^1.17.0",
+    "matchdep": "2.0.0",
     "node-cache": "^4.2.0",
     "typescript": "3.7.4",
     "url": "^0.11.0"
