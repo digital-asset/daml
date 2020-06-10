@@ -70,9 +70,10 @@ private[dao] sealed abstract class ContractsReader(
       createArgument: Value,
   ): Future[Option[Contract]] =
     dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractWithoutArgumentDbMetrics) { implicit connection =>
-        SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
-          .as(contractWithoutValueRowParser.singleOpt)
+      .executeSql(metrics.daml.index.db.lookupActiveContractWithoutArgumentDbMetrics) {
+        implicit connection =>
+          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
+            .as(contractWithoutValueRowParser.singleOpt)
       }
       .map(
         _.map(
