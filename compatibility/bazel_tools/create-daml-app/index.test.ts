@@ -422,3 +422,97 @@ test("error when adding a user that you are already following", async () => {
 
   await page.close();
 }, 60_000);
+
+// Send a message to the given user.
+// NOTE: There must be at least one user available in the dropdown,
+// otherwise the function hangs waiting for the selector to match.
+// Throws an exception if the given user does not appear in the dropdown menu.
+const sendMessage = async (page: Page, receiver: string, content: string) => {
+  // Selectors for the dropdown and the items inside it.
+  const dropdown = '.test-select-message-receiver > .dropdown';
+  const item = `${dropdown} > .menu > .item`;
+
+  // After clicking the dropdown, we need to wait for the choices to appear.
+  await page.click(dropdown);
+  await page.waitForSelector(item);
+
+  // Select the dropdown items and extract their names.
+  const receivers = await page.$$(item);
+  const names = await Promise.all(receivers.map(e => e.$eval('.text', name => name.innerHTML)));
+
+  // Find which item corresponds to the given user and click it.
+  const receiverIndex = names.indexOf(receiver);
+  if (receiverIndex < 0) {
+    throw Error(`sendMessage: '${receiver}' does not appear in the dropdown menu`);
+  }
+  await receivers[receiverIndex].click();
+
+  // Type the message into the text input.
+  const messageInput = await page.waitForSelector('.test-select-message-content');
+  await messageInput.click();
+  await messageInput.type(content);
+
+  // Click send and wait for the request to complete.
+  await page.click('.test-select-message-send-button');
+  await page.waitForSelector('.test-select-message-send-button:not(.loading)');
+}
+
+// Count the number of messages on the page, assuming there is *at least one*.
+// The restriction against zero messages is because we need to wait on the
+// class in the message item itself to get an accurate count.
+// Waiting on other selectors (e.g. on the Send button not loading, or the
+// message list instead of the items) doesn't seem to be effective.
+const countMessagesNotZero = async (page: Page) => {
+  await page.waitForSelector('.test-select-message-item');
+  const messages = await page.$$('.test-select-message-item');
+  return messages.length;
+}
+
+test('send messages between users', async () => {
+  const party0 = getParty();
+  const party1 = getParty();
+  const party2 = getParty();
+
+  const page0 = await newUiPage();
+  await login(page0, party0);
+
+  const page1 = await newUiPage();
+  await login(page1, party1);
+
+  const page2 = await newUiPage();
+  await login(page2, party2);
+
+  // Party 0 and 1 both follow Party 2.
+  await follow(page0, party2);
+  await follow(page1, party2);
+
+  // Party 2 has two choices of whom to message.
+  // Party 2 sends two messages to Party 1.
+  await sendMessage(page2, party1, `Hey ${party1}!`);
+  await sendMessage(page2, party1, `What's up?`);
+
+  // Both Party 1 and 2 should see the messages.
+  // Note: It's not obvious how to test that the message list is empty for Party
+  // 0 as even when we get a message we need to wait a bit for it to render.
+  expect(await countMessagesNotZero(page1)).toEqual(2);
+  expect(await countMessagesNotZero(page2)).toEqual(2);
+
+  // As Party 2, follow Party 1 and log out.
+  // We will test that a message is received even when logged out.
+  await follow(page2, party1);
+  await logout(page2);
+
+  // Party 1 can now send Party 2 a message.
+  await sendMessage(page1, party2, `Hey ${party2}!`);
+
+  // Log back in as Party 2.
+  await login(page2, party2);
+
+  // Now both Party 1 and 2 can see all the messages.
+  expect(await countMessagesNotZero(page1)).toEqual(3);
+  expect(await countMessagesNotZero(page2)).toEqual(3);
+
+  await page0.close();
+  await page1.close();
+  await page2.close();
+}, 40_000);
