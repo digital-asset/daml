@@ -33,7 +33,7 @@ object TriggerRunnerImpl {
       server: ActorRef[Server.Message],
       triggerInstance: UUID,
       triggerName: Identifier,
-      token: String, // User credentials.
+      credentials: UserCredentials,
       // TODO(SF, 2020-06-09): Add access token field here in the
       // presence of authentication.
       compiledPackages: CompiledPackages,
@@ -65,7 +65,7 @@ object TriggerRunnerImpl {
       implicit val ec: ExecutionContext = ctx.executionContext
       // Report to the server that this trigger is starting.
       val runningTrigger =
-        RunningTrigger(config.triggerInstance, config.triggerName, config.token, parent)
+        RunningTrigger(config.triggerInstance, config.triggerName, config.credentials, parent)
       config.server ! TriggerStarting(runningTrigger)
       ctx.log.info(s"Trigger ${name} is starting")
       val appId = ApplicationId(name)

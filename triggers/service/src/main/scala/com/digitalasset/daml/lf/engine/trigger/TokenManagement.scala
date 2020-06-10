@@ -19,7 +19,8 @@ object TokenManagement {
   // token. By construction we ensure that there will always be two
   // components (see 'findCredentials'). We use the first component to
   // identify parties.
-  def decodeCredentials(token: String): (String, String) = {
+  def decodeCredentials(credentials: UserCredentials): (String, String) = {
+    val token = credentials.token
     val bytes = java.util.Base64.getDecoder.decode(token.getBytes())
     val components = new String(bytes, StandardCharsets.UTF_8).split(":")
     (components(0), components(1))
@@ -30,11 +31,11 @@ object TokenManagement {
    Password : &alC2l3SDS*V
    curl -X GET localhost:8080/hello -H "Authorization: Basic YWxpY2U6JmFsQzJsM1NEUypW"
    */
-  def findCredentials(req: HttpRequest): Unauthorized \/ String = {
+  def findCredentials(req: HttpRequest): Unauthorized \/ UserCredentials = {
     req.headers
       .collectFirst {
         case Authorization(c @ BasicHttpCredentials(username, password)) => {
-          c.token()
+          UserCredentials(c.token())
         }
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with Basic Token"))
