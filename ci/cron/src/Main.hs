@@ -265,7 +265,7 @@ find_commit_for_version version = do
                      _ -> Nothing)
     case matching of
       [sha] -> return sha
-      _ -> error $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
+      _ -> fail $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
 
 fetch_s3_versions :: IO (Set.Set Version, Set.Set Version)
 fetch_s3_versions = do
@@ -323,7 +323,7 @@ fetch_gh_paginated url = do
               in
               case typed_regex of
                 (_, _, _, [url, rel]) -> (rel, url)
-                _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
+                _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
 fetch_gh_versions :: IO ([GitHubVersion], GitHubVersion)
 fetch_gh_versions = do
