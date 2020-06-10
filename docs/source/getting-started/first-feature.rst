@@ -233,6 +233,9 @@ For example, you might have noticed that your list of messages can get out of or
 You could add a timestamp to the ``Message`` template and sort messages in the ``MessageList`` component so your most recent are at the top.
 Of course there are many more features you could imagine (just think of your favourite social media app).
 
-Hopefully this exercise gives you a sense of the power and ease of building DAML apps.
+Another direction to explore is how to rigorously test your app.
+The :doc:`testing` guide shows how to simulate browser interactions to produce an end-to-end test suite.
+
+Hopefully this guide gave you a sense of the power and ease of building DAML apps.
 Explore the documentation to learn more, and keep shipping DAML apps.
 Have fun!
