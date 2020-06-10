@@ -145,12 +145,13 @@ You can see this ``followers`` field bound at the start of the ``MessageEdit`` c
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
 The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
-The call to ``ledger.exerciseByKey`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
-The ``sendMessage`` wrapper reports potential errors to the user, and ``submitMessage`` additionally uses the ``isSubmitting`` state to ensure message requests are processed one at a time.
+The call to ``ledger.exerciseByKey`` in ``submitMessage`` looks up the ``User`` contract with the receiver's username and exercises the ``SendMessage`` choice with the appropriate arguments.
+If the choice fails, the ``catch`` block reports the error in a dialog box.
+Additionally, ``submitMessage`` sets the ``isSubmitting`` state so that the *Send* button is disabled while the request is processed.
 The result of a successful call to ``submitMessage`` is a new ``Message`` contract created on the ledger.
 
 The return value of this component is the React ``Form`` element.
-This contains a dropdown menu to select a receiver from the ``following``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
+This contains a dropdown menu to select a receiver from the ``followers``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
 
 There is again an important point here, in this case about how *authorization* is enforced.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).
