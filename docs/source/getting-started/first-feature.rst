@@ -117,7 +117,7 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
 
 In the component body, ``messagesResult`` gets the stream of all ``Message`` contracts visible to the current user.
 The streaming aspect means that we don't need to reload the page when new messages come in.
-For each contract in the stream, we extract the *payload* (the data as opposed to metadata like the contract ID) to the ``{sender, receiver, content}`` record.
+For each contract in the stream, we destructure the *payload* (the data as opposed to metadata like the contract ID) into the ``{sender, receiver, content}`` object pattern.
 Then we construct a ``ListItem`` UI element with the details of the message.
 
 There is one important point about privacy here.
