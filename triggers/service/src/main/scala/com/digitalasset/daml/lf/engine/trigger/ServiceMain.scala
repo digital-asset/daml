@@ -193,6 +193,18 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
   ): Behavior[Message] = Behaviors.setup { ctx =>
     val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
+
+    val key =
+      sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
+        case Some(key) => key
+        case None => {
+          val logMsg =
+            "WARNING : The environment variable 'TRIGGER_SERVICE_SECRET_KEY' is not defined. It is highly recommended that a non-empty value for this variable be set. If the service startup parameters do not include the '--no-secret-key' option, the service will now terminate."
+          ctx.log.info(logMsg)
+          "secret key"
+        }
+      }
+
     val server = new Server(dar, triggerDao)
 
     // http doesn't know about akka typed so provide untyped system
@@ -214,7 +226,7 @@ object Server {
         triggerName: Identifier): Either[String, JsValue] = {
       for {
         trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
-        party = TokenManagement.decodeCredentials(credentials)._1;
+        party = TokenManagement.decodeCredentials(key, credentials)._1
         triggerInstance = UUID.randomUUID
         _ = ctx.spawn(
           TriggerRunner(
@@ -276,7 +288,7 @@ object Server {
                 entity(as[StartParams]) {
                   params =>
                     TokenManagement
-                      .findCredentials(request)
+                      .findCredentials(key, request)
                       .fold(
                         message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                         credentials =>
@@ -333,7 +345,7 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findCredentials(request)
+                  .findCredentials(key, request)
                   .fold(
                     message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                     credentials =>
@@ -358,7 +370,7 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findCredentials(request)
+                  .findCredentials(key, request)
                   .fold(
                     message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                     credentials =>

@@ -18,12 +18,6 @@ case class UnencryptedToken(token: String)
 
 object TokenManagement {
 
-  private val key =
-    sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
-      case Some(key) => key
-      case None => "secret key"
-    }
-
   // TL;DR You can store the SALT in plaintext without any form of
   // obfuscation or encryption, but don't just give it out to anyone
   // that wants it.
@@ -44,7 +38,7 @@ object TokenManagement {
   // value and then base64 encode the result (the resulting string
   // consists of characters strictly in the set [a-z], [A-Z], [0-9] +
   // and /.
-  private def encrypt(value: UnencryptedToken): EncryptedToken = {
+  private def encrypt(key: String, value: UnencryptedToken): EncryptedToken = {
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
     cipher.init(Cipher.ENCRYPT_MODE, keyToSpec(key))
     val bytes = java.util.Base64.getEncoder
@@ -54,7 +48,7 @@ object TokenManagement {
 
   // AES decrypt 'value' given 'key'. Proceed by first decoding from
   // base64 then decrypt the result.
-  private def decrypt(value: EncryptedToken): UnencryptedToken = {
+  private def decrypt(key: String, value: EncryptedToken): UnencryptedToken = {
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING")
     cipher.init(Cipher.DECRYPT_MODE, keyToSpec(key))
     UnencryptedToken(
@@ -68,25 +62,26 @@ object TokenManagement {
   // components and that the first component is a syntactically valid
   // party identifier (see 'findCredentials').
   def decodeCredentials(
+      key: String,
       credentials: UserCredentials): (com.daml.ledger.api.refinements.ApiTypes.Party, String) = {
-    val components = decrypt(credentials.token).token.split(":")
+    val components = decrypt(key, credentials.token).token.split(":")
     (com.daml.ledger.api.refinements.ApiTypes.Party(components(0)), components(1))
   }
 
   // Parse the user credentials out of a request's headers.
-  def findCredentials(req: HttpRequest): Either[String, UserCredentials] = {
+  def findCredentials(key: String, req: HttpRequest): Either[String, UserCredentials] = {
     req.headers
       .collectFirst {
         case Authorization(c @ BasicHttpCredentials(username, password)) => {
           val token = c.token()
           val bytes = java.util.Base64.getDecoder.decode(token.getBytes())
-          UserCredentials(encrypt(UnencryptedToken(new String(bytes, StandardCharsets.UTF_8))))
+          UserCredentials(encrypt(key, UnencryptedToken(new String(bytes, StandardCharsets.UTF_8))))
         }
       } match {
       // Check the given username conforms to the syntactic
       // requirements of a party identifier.
       case Some(credentials) =>
-        decodeCredentials(credentials) match {
+        decodeCredentials(key, credentials) match {
           case (party, _) =>
             val ident = party.toString()
             if (Party.fromString(ident).isRight) {
