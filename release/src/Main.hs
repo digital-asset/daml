@@ -143,12 +143,15 @@ main = do
           | optsLocallyInstallJars -> do
               pom <- generateAggregatePom bazelLocations mvnArtifacts
               pomPath <- (releaseDir </>) <$> parseRelFile "pom.xml"
-              liftIO $ do
-                  T.IO.writeFile (toFilePath pomPath) pom
-                  (_, _, _, mvnHandle) <- createProcess ((proc "mvn" ["initialize"]) { cwd = Just (toFilePath releaseDir) })
-                  exitCode <- waitForProcess mvnHandle
-                  unless (exitCode == ExitSuccess) $ ioError $ userError "Failed to install JARs locally."
-          | otherwise -> $logInfo "Dry run selected: not uploading, not installing"
+              liftIO $ T.IO.writeFile (toFilePath pomPath) pom
+              exitCode <- liftIO $ withCreateProcess ((proc "mvn" ["initialize"]) { cwd = Just (toFilePath releaseDir) }) $ \_ _ _ mvnHandle ->
+                  liftIO $ waitForProcess mvnHandle
+              unless (exitCode == ExitSuccess) $ do
+                  $logError "Failed to install JARs locally."
+                  liftIO exitFailure
+
+          | otherwise ->
+              $logInfo "Dry run selected: not uploading, not installing"
   where
     runLog Options{..} m0 = do
         let m = filterLogger (\_ ll -> ll >= LevelDebug) m0
