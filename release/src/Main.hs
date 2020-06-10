@@ -145,7 +145,7 @@ main = do
               pomPath <- (releaseDir </>) <$> parseRelFile "pom.xml"
               liftIO $ T.IO.writeFile (toFilePath pomPath) pom
               exitCode <- liftIO $ withCreateProcess ((proc "mvn" ["initialize"]) { cwd = Just (toFilePath releaseDir) }) $ \_ _ _ mvnHandle ->
-                  liftIO $ waitForProcess mvnHandle
+                  waitForProcess mvnHandle
               unless (exitCode == ExitSuccess) $ do
                   $logError "Failed to install JARs locally."
                   liftIO exitFailure
