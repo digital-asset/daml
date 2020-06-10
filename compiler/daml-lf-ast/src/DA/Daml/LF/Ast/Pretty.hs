@@ -24,7 +24,7 @@ import           DA.Daml.LF.Ast.Optics
 import           DA.Pretty hiding (keyword_, pretty, type_)
 
 -- NOTE(MH): We define 4 detail levels:
--- -2: Omit all type and kind annotations, all package ids and all location information.
+-- -2: Omit all type information, kind annotations, package ids and location information.
 -- -1: Omit all package ids and all location information.
 -- 0 (default): Omit all location information.
 -- 1: Print everything.
