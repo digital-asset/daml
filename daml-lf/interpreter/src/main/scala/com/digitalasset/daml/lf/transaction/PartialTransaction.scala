@@ -212,7 +212,7 @@ case class PartialTransaction(
     */
   def finish(
       supportedVersions: VersionRange[ValueVersion],
-  ): Either[PartialTransaction, Tx.Transaction] = {
+  ): Either[PartialTransaction, Tx.SubmittedTransaction] = {
 
     val versionNode: Node => Tx.Node =
       Node.GenNode.map3(
@@ -223,9 +223,11 @@ case class PartialTransaction(
 
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
-      GenTransaction(
-        nodes = nodes.transform((_, n) => versionNode(n)),
-        roots = context.children.toImmArray),
+      Tx.SubmittedTransaction(
+        GenTransaction(
+          nodes = nodes.transform((_, n) => versionNode(n)),
+          roots = context.children.toImmArray)
+      ),
       this
     )
   }

@@ -6,7 +6,7 @@ package com.daml.lf.speedy
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.Transaction._
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
@@ -105,7 +105,7 @@ final case class ScenarioRunner(
     }
   }
 
-  private def mustFail(tx: Transaction, committers: Set[Party]) = {
+  private def mustFail(tx: Tx.SubmittedTransaction, committers: Set[Party]) = {
     // Update expression evaluated successfully,
     // however we might still have an authorization failure.
     val committer =
@@ -116,7 +116,7 @@ final case class ScenarioRunner(
           committer = committer,
           effectiveAt = ledger.currentTime,
           optLocation = machine.commitLocation,
-          tr = tx,
+          tx = tx,
           l = ledger)
         .isRight) {
       throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
@@ -126,7 +126,7 @@ final case class ScenarioRunner(
 
   private def commit(
       value: SValue,
-      tx: Transaction,
+      tx: Tx.SubmittedTransaction,
       committers: Set[Party],
       callback: SValue => Unit) = {
     val committer =
@@ -136,7 +136,7 @@ final case class ScenarioRunner(
       committer = committer,
       effectiveAt = ledger.currentTime,
       optLocation = machine.commitLocation,
-      tr = tx,
+      tx = tx,
       l = ledger
     ) match {
       case Left(fas) =>
@@ -156,7 +156,7 @@ final case class ScenarioRunner(
       acoid: ContractId,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value[ContractId]] => Unit) = {
+      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit) = {
 
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)

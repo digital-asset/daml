@@ -8,17 +8,15 @@ package db.migration.h2database
 import java.sql.Connection
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.transaction.Node.NodeCreate
-import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.platform.store.Conversions._
 import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V5_1__Populate_Event_Data extends BaseJavaMigration {
-
-  private type Transaction = GenTransaction.WithTxValue[EventId, ContractId]
 
   val SELECT_TRANSACTIONS =
     "select distinct le.transaction_id, le.transaction from contracts c join ledger_entries le  on c.transaction_id = le.transaction_id"
@@ -27,13 +25,13 @@ class V5_1__Populate_Event_Data extends BaseJavaMigration {
     val statement = conn.createStatement()
     val rows = statement.executeQuery(SELECT_TRANSACTIONS)
 
-    new Iterator[(String, Transaction)] {
+    new Iterator[(LedgerString, Tx.Transaction)] {
       var hasNext: Boolean = rows.next()
 
-      def next(): (String, Transaction) = {
-        val transactionId = rows.getString("transaction_id")
+      def next(): (LedgerString, Tx.Transaction) = {
+        val transactionId = LedgerString.assertFromString(rows.getString("transaction_id"))
         val transaction = TransactionSerializer
-          .deserializeTransaction(rows.getBinaryStream("transaction"))
+          .deserializeTransaction(transactionId, rows.getBinaryStream("transaction"))
           .getOrElse(sys.error(s"failed to deserialize transaction $transactionId"))
 
         hasNext = rows.next()
@@ -55,8 +53,8 @@ class V5_1__Populate_Event_Data extends BaseJavaMigration {
     val data = txs.flatMap {
       case (txId, tx) =>
         tx.nodes.collect {
-          case (eventId, NodeCreate(cid, _, _, signatories, stakeholders, _)) =>
-            (cid, eventId, signatories, stakeholders -- signatories)
+          case (nodeId, NodeCreate(cid, _, _, signatories, stakeholders, _)) =>
+            (cid, EventId(txId, nodeId), signatories, stakeholders -- signatories)
         }
     }
 

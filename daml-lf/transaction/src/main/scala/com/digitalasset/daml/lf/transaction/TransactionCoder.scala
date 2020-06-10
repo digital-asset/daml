@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.BackStack
+import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
@@ -43,17 +43,27 @@ object TransactionCoder {
         .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(Value.NodeId(idx)))
   }
 
-  val EventIdEncoder: EncodeNid[ledger.EventId] = new EncodeNid[ledger.EventId] {
-    override def asString(id: ledger.EventId): String = id.toLedgerString
-  }
+  def EventIdEncoder(trId: Ref.LedgerString): EncodeNid[Value.NodeId] =
+    new EncodeNid[Value.NodeId] {
+      override def asString(id: Value.NodeId): String = ledger.EventId(trId, id).toLedgerString
+    }
 
-  val EventIdDecoder: DecodeNid[ledger.EventId] = new DecodeNid[ledger.EventId] {
-    override def fromString(s: String): Either[DecodeError, ledger.EventId] =
-      ledger.EventId
-        .fromString(s)
-        .left
-        .map(_ => DecodeError(s"cannot decode noid: $s"))
-  }
+  def EventIdDecoder(trId: Ref.LedgerString): DecodeNid[Value.NodeId] =
+    new DecodeNid[Value.NodeId] {
+      override def fromString(s: String): Either[DecodeError, Value.NodeId] =
+        ledger.EventId
+          .fromString(s)
+          .fold(
+            _ => Left(DecodeError(s"cannot decode noid: $s")),
+            eventId =>
+              Either.cond(
+                eventId.transactionId == trId,
+                eventId.nodeId,
+                DecodeError(
+                  s"eventId with unexpected transaction ID, expected $trId but found ${eventId.transactionId}"),
+            )
+          )
+    }
 
   def encodeValue[Cid](
       cidEncoder: ValueCoder.EncodeCid[Cid],

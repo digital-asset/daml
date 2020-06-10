@@ -10,7 +10,6 @@ import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.{ScenarioRunner, Speedy}
-import com.daml.lf.transaction.GenTransaction
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
@@ -235,9 +234,7 @@ object ScenarioLoader {
         val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.assertConcat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        val tx = GenTransaction(richTransaction.nodes, richTransaction.roots)
-        val mappedExplicitDisclosure = richTransaction.explicitDisclosure
-        val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure
+        val tx = richTransaction.transaction
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         acs.addTransaction(
@@ -246,8 +243,8 @@ object ScenarioLoader {
           workflowId,
           Some(richTransaction.committer),
           tx,
-          mappedExplicitDisclosure,
-          mappedGlobalImplicitDisclosure,
+          richTransaction.explicitDisclosure,
+          richTransaction.globalImplicitDisclosure,
           List.empty
         ) match {
           case Right(newAcs) =>
@@ -264,7 +261,7 @@ object ScenarioLoader {
                     time.toInstant,
                     time.toInstant,
                     tx,
-                    mappedExplicitDisclosure
+                    richTransaction.explicitDisclosure
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>
