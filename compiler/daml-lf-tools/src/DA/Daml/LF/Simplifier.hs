@@ -6,6 +6,7 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
+import Control.Lens (over)
 import Control.Monad (guard)
 import Data.Maybe (mapMaybe)
 import Data.List (foldl')
@@ -22,6 +23,7 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.FreeVars
+import DA.Daml.LF.Ast.Optics
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -419,10 +421,12 @@ simplifyDefValue :: World -> DefValue -> DefValue
 simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dval) }
 
 simplifyModule :: World -> Module -> Module
-simplifyModule world m =
+simplifyModule world0 mod0 =
     let step accum dval =
-            let m' = m { moduleValues = accum }
-                w' = extendWorldSelf m' world
+            let m' = mod0 { moduleValues = accum }
+                w' = extendWorldSelf m' world0
                 d' = simplifyDefValue w' dval
             in NM.insert d' accum
-    in m { moduleValues = foldl' step NM.empty (topoSortDefValues m) }
+        mod1 = mod0 { moduleValues = foldl' step NM.empty (topoSortDefValues mod0) }
+        world1 = extendWorldSelf mod1 world0
+    in mod1 { moduleTemplates = NM.map (over templateExpr (simplifyExpr world1)) (moduleTemplates mod1) }
