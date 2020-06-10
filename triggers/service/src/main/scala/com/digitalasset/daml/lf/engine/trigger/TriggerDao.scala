@@ -81,7 +81,9 @@ object TriggerDao {
   }
 
   def addRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
-    val partyToken = t.credentials.token
+    val partyToken: String = t.credentials match {
+      case UserCredentials(EncryptedToken(token)) => token
+    }
     val fullTriggerName = t.triggerName.toString
     val insertTrigger: Fragment = Fragment.const(
       s"insert into running_triggers values ('${t.triggerInstance}', '$partyToken', '$fullTriggerName')"
@@ -100,7 +102,9 @@ object TriggerDao {
   }
 
   def getTriggersForParty(credentials: UserCredentials): ConnectionIO[Vector[UUID]] = {
-    val partyToken = credentials.token
+    val partyToken: String = credentials match {
+      case UserCredentials(EncryptedToken(token)) => token
+    }
     val select = Fragment.const("select trigger_instance from running_triggers")
     val where = Fragment.const(s" where party_token = '${partyToken}'")
     val order = Fragment.const(" order by running_triggers")

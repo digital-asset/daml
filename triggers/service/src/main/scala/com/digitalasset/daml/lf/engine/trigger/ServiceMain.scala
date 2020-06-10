@@ -38,7 +38,6 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import scalaz.syntax.traverse._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -58,7 +57,7 @@ case class LedgerConfig(
     commandTtl: Duration,
 )
 
-final case class UserCredentials(token: String)
+final case class UserCredentials(token: EncryptedToken)
 
 final case class RunningTrigger(
     triggerInstance: UUID,
@@ -194,6 +193,18 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
   ): Behavior[Message] = Behaviors.setup { ctx =>
     val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
+
+    val key =
+      sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
+        case Some(key) => key
+        case None => {
+          val logMsg =
+            "WARNING : The environment variable 'TRIGGER_SERVICE_SECRET_KEY' is not defined. It is highly recommended that a non-empty value for this variable be set. If the service startup parameters do not include the '--no-secret-key' option, the service will now terminate."
+          ctx.log.info(logMsg)
+          "secret key"
+        }
+      }
+
     val server = new Server(dar, triggerDao)
 
     // http doesn't know about akka typed so provide untyped system
@@ -215,7 +226,7 @@ object Server {
         triggerName: Identifier): Either[String, JsValue] = {
       for {
         trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
-        party = Party(TokenManagement.decodeCredentials(credentials)._1);
+        party = TokenManagement.decodeCredentials(key, credentials)._1
         triggerInstance = UUID.randomUUID
         _ = ctx.spawn(
           TriggerRunner(
@@ -277,10 +288,9 @@ object Server {
                 entity(as[StartParams]) {
                   params =>
                     TokenManagement
-                      .findCredentials(request)
+                      .findCredentials(key, request)
                       .fold(
-                        unauthorized =>
-                          complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
+                        message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                         credentials =>
                           startTrigger(credentials, params.triggerName) match {
                             case Left(err) =>
@@ -335,10 +345,9 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findCredentials(request)
+                  .findCredentials(key, request)
                   .fold(
-                    unauthorized =>
-                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
+                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                     credentials =>
                       listTriggers(credentials) match {
                         case Left(err) =>
@@ -361,10 +370,9 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findCredentials(request)
+                  .findCredentials(key, request)
                   .fold(
-                    unauthorized =>
-                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
+                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                     credentials =>
                       stopTrigger(uuid, credentials) match {
                         case Left(err) =>
