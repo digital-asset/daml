@@ -460,7 +460,20 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers with Postg
     } yield succeed
   }
 
-  it should "give a 'not found' response for a stop request with unparseable UUID" in withTriggerServiceAndDb(
+  it should "give an 'unauthorized' response for a start request with an invalid party identifier" in withTriggerServiceAndDb(
+    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", User("Alice-!", "&alC2l3SDS*V"))
+      _ <- resp.status should equal(StatusCodes.Unauthorized)
+      body <- responseBodyToString(resp)
+      JsObject(fields) = body.parseJson
+      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.Unauthorized.intValue)))
+      _ <- fields.get("errors") should equal(
+        Some(JsArray(JsString("invalid party identifier 'Alice-!'"))))
+    } yield succeed
+  }
+
+  it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerServiceAndDb(
     None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(

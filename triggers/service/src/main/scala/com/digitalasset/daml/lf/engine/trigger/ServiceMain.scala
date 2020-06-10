@@ -38,7 +38,6 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import scalaz.syntax.traverse._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -58,7 +57,7 @@ case class LedgerConfig(
     commandTtl: Duration,
 )
 
-final case class UserCredentials(token: String)
+final case class UserCredentials(token: EncryptedToken)
 
 final case class RunningTrigger(
     triggerInstance: UUID,
@@ -215,7 +214,7 @@ object Server {
         triggerName: Identifier): Either[String, JsValue] = {
       for {
         trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
-        party = Party(TokenManagement.decodeCredentials(credentials)._1);
+        party = TokenManagement.decodeCredentials(credentials)._1;
         triggerInstance = UUID.randomUUID
         _ = ctx.spawn(
           TriggerRunner(
@@ -279,8 +278,7 @@ object Server {
                     TokenManagement
                       .findCredentials(request)
                       .fold(
-                        unauthorized =>
-                          complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
+                        message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                         credentials =>
                           startTrigger(credentials, params.triggerName) match {
                             case Left(err) =>
@@ -337,8 +335,7 @@ object Server {
                 TokenManagement
                   .findCredentials(request)
                   .fold(
-                    unauthorized =>
-                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
+                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                     credentials =>
                       listTriggers(credentials) match {
                         case Left(err) =>
@@ -363,8 +360,7 @@ object Server {
                 TokenManagement
                   .findCredentials(request)
                   .fold(
-                    unauthorized =>
-                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
+                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
                     credentials =>
                       stopTrigger(uuid, credentials) match {
                         case Left(err) =>
