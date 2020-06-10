@@ -23,6 +23,17 @@ import           DA.Daml.LF.Ast.Util
 import           DA.Daml.LF.Ast.Optics
 import           DA.Pretty hiding (keyword_, pretty, type_)
 
+-- NOTE(MH): We define 4 detail levels:
+-- -2: Omit all type information, kind annotations, package ids and location information.
+-- -1: Omit all package ids and all location information.
+-- 0 (default): Omit all location information.
+-- 1: Print everything.
+levelHasTypes, levelHasKinds, levelHasPackageIds, levelHasLocations :: PrettyLevel -> Bool
+levelHasTypes lvl = lvl >= PrettyLevel (-1)
+levelHasKinds lvl = lvl >= PrettyLevel (-1)
+levelHasPackageIds lvl = lvl >= PrettyLevel 0
+levelHasLocations lvl = lvl >= PrettyLevel 1
+
 infixr 6 <:>
 (<:>) :: Doc ann -> Doc ann -> Doc ann
 x <:> y = x <-> ":" <-> y
@@ -70,11 +81,13 @@ instance Pretty ExprValName where
     pPrint = text . unExprValName
 
 pPrintModuleRef :: PrettyLevel -> (PackageRef, ModuleName) -> Doc ann
-pPrintModuleRef _lvl (pkgRef, modName) = docPkgRef <> pPrint modName
+pPrintModuleRef lvl (pkgRef, modName) = docPkgRef <> pPrint modName
   where
     docPkgRef = case pkgRef of
       PRSelf -> empty
-      PRImport pkgId -> pPrint pkgId <> ":"
+      PRImport pkgId
+        | levelHasPackageIds lvl -> pPrint pkgId <> ":"
+        | otherwise -> empty
 
 instance Pretty a => Pretty (Qualified a) where
     pPrintPrec lvl _prec (Qualified pkgRef modName x) =
@@ -88,8 +101,9 @@ instance Pretty SourceLoc where
     ]
 
 withSourceLoc :: PrettyLevel -> Maybe SourceLoc -> Doc ann -> Doc ann
-withSourceLoc lvl mbLoc doc =
-  maybe doc (\loc -> "@location" <> parens (pPrintPrec lvl 0 loc) $$ doc) mbLoc
+withSourceLoc lvl mbLoc doc
+  | Just loc <- mbLoc, levelHasLocations lvl = "@location" <> parens (pPrintPrec lvl 0 loc) $$ doc
+  | otherwise = doc
 
 precHighest, precKArrow, precTApp, precTFun, precTForall :: Rational
 precHighest = 1000  -- NOTE(MH): Used for type applications in 'Expr'.
@@ -294,13 +308,16 @@ precBinding = 0
 precParam = 1
 
 pPrintAndKind :: Pretty a => PrettyLevel -> Rational -> (a, Kind) -> Doc ann
-pPrintAndKind lvl prec (v, k) = case k of
-    KStar -> pPrintPrec lvl 0 v
-    _ -> maybeParens (prec > precBinding) (pPrintPrec lvl 0 v <-> docHasType <-> kind_ (pPrintPrec lvl 0 k))
+pPrintAndKind lvl prec (v, k)
+  | levelHasKinds lvl = maybeParens (prec > precBinding) $
+      pPrintPrec lvl 0 v <-> docHasType <-> kind_ (pPrintPrec lvl 0 k)
+  | otherwise = pPrintPrec lvl 0 v
 
 pPrintAndType :: Pretty a => PrettyLevel -> Rational -> (a, Type) -> Doc ann
-pPrintAndType lvl prec (x, t) = maybeParens (prec > precBinding) $
-  pPrintPrec lvl 0 x <-> docHasType <-> type_ (pPrintPrec lvl 0 t)
+pPrintAndType lvl prec (x, t)
+  | levelHasTypes lvl = maybeParens (prec > precBinding) $
+      pPrintPrec lvl 0 x <-> docHasType <-> type_ (pPrintPrec lvl 0 t)
+  | otherwise = pPrintPrec lvl 0 x
 
 instance Pretty CasePattern where
   pPrintPrec lvl _prec = \case
@@ -325,7 +342,9 @@ instance Pretty Binding where
     hang (pPrintAndType lvl precBinding binder <-> "=") 2 (pPrintPrec lvl 0 expr)
 
 pPrintTyArg :: PrettyLevel -> Type -> Doc ann
-pPrintTyArg lvl t = type_ ("@" <> pPrintPrec lvl precHighest t)
+pPrintTyArg lvl t
+  | levelHasTypes lvl = type_ ("@" <> pPrintPrec lvl precHighest t)
+  | otherwise = empty
 
 pPrintTmArg :: PrettyLevel -> Expr -> Doc ann
 pPrintTmArg lvl = pPrintPrec lvl (succ precEApp)
@@ -448,10 +467,14 @@ instance Pretty Expr where
       let (bs, e1) = view (rightSpine (unlocate _ETmLam)) e0
       in  hang (docTmLambda <> hsep (map (pPrintAndType lvl precParam) bs) <> docTmLambdaDot)
             2 (pPrintPrec lvl precELam e1)
-    e0@ETyLam{} -> maybeParens (prec > precELam) $
-      let (ts, e1) = view (rightSpine (unlocate _ETyLam)) e0
-      in  hang (docTyLambda <> hsep (map (pPrintAndKind lvl precParam) ts) <> docTyLambdaDot)
+    e0@ETyLam{}
+      | levelHasTypes lvl ->
+        maybeParens (prec > precELam) $
+          hang (docTyLambda <> hsep (map (pPrintAndKind lvl precParam) ts) <> docTyLambdaDot)
             2 (pPrintPrec lvl precELam e1)
+      | otherwise -> pPrintPrec lvl prec e1
+      where
+        (ts, e1) = view (rightSpine (unlocate _ETyLam)) e0
     ECase scrut alts -> maybeParens (prec > precEApp) $
       keyword_ "case" <-> pPrintPrec lvl 0 scrut <-> keyword_ "of"
       $$ nest 2 (vcat (map (pPrintPrec lvl 0) alts))
@@ -466,7 +489,7 @@ instance Pretty Expr where
     EUpdate upd -> pPrintPrec lvl prec upd
     EScenario scen -> pPrintPrec lvl prec scen
     ELocation loc x
-        | lvl >= PrettyLevel 1 -> pPrintAppDoc lvl prec ("@location" <> parens (pPrintPrec lvl 0 loc)) [TmArg x]
+        | levelHasLocations lvl -> pPrintAppDoc lvl prec ("@location" <> parens (pPrintPrec lvl 0 loc)) [TmArg x]
         | otherwise -> pPrintPrec lvl prec x
     ESome typ body -> pPrintAppKeyword lvl prec "some" [TyArg typ, TmArg body]
     ENone typ -> pPrintAppKeyword lvl prec "none" [TyArg typ]
@@ -517,7 +540,7 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
       , pPrint name
       , pPrintAndType lvl precParam (selfBinder, TContractId (TCon (Qualified PRSelf modName tpl)))
       , pPrintAndType lvl precParam argBinder
-      , docHasType, pPrintPrec lvl 0 retType
+      , if levelHasTypes lvl then docHasType <-> pPrintPrec lvl 0 retType else empty
       ]
     , nest 2 (keyword_ "controller" <-> pPrintPrec lvl 0 controller)
     , nest 2 (keyword_ "do" <-> pPrintPrec lvl 0 update)
@@ -539,7 +562,7 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
       mbKeyDoc = toList $ do
         key <- mbKey
         return $ vcat
-          [ keyword_ "key" <-> pPrintPrec lvl 0 (tplKeyType key)
+          [ keyword_ "key" <-> if levelHasTypes lvl then pPrintPrec lvl 0 (tplKeyType key) else empty
           , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
