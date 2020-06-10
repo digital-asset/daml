@@ -136,25 +136,6 @@ Ledger Integration Kit
 -  The Ledger API Test Tool has gained
    the ``TransactionSize`` performance benchmark test.
 
-What’s Coming
-~~~~~~~~~~~~~
-
-Our priorities for the imminent future remain unchanged.
-
--  DAML Triggers currently need to be started one-by-one using
-   the ``daml trigger`` command making them difficult to control
-   dynamically at runtime. We are working on a solution to make them
-   easier to use in practice.
--  We will work to complete the Websockets streaming part of the JSON
-   API.
--  We will work to complete DAML REPL.
--  DAML will get a generic Map type as part of DAML-LF 1.9.
--  We will work to make the integration kit components used to build
-   DAML Ledgers more performant.
--  We will continue to work on our release process and to tighten the
-   interfaces between different components of DAML so that we can
-   give clearer compatibility and long term support guarantees.
-
 .. _release-1.1.1:
 
 1.1.1 - 2020-05-13
