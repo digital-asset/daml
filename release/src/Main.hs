@@ -110,15 +110,15 @@ main = do
       mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
       validateMavenArtifacts releaseDir mvnUploadArtifacts
 
-      -- npm packages we want to publish.
+      -- NPM packages we want to publish
       let npmPackages =
               [ "//language-support/ts/daml-types"
               , "//language-support/ts/daml-ledger"
               , "//language-support/ts/daml-react"
               ]
-      -- make sure the npm packages can be build.
-      $logDebug "Building language-support typescript packages"
-      forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
+      -- make sure the NPM packages can be built
+      $logInfo "Building language-support TypeScript packages"
+      liftIO $ callProcess "bazel" $ ["build"] ++ npmPackages
 
       if  | getPerformUpload optsPerformUpload -> do
               $logInfo "Uploading to Maven Central"
