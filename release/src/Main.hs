@@ -77,10 +77,6 @@ main = do
               liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
 
           -- run a Bazel query to find all internal Java and Scala library dependencies
-          -- We exclude the scenario service and the script service to avoid a false dependency on
-          -- Scala files originating from genrules that use damlc. This is a bit hacky but given
-          -- that it’s fairly unlikely to accidentally introduce a dependency on the scenario
-          -- service it doesn’t seem worth fixing properly.
           let targets = map (getBazelTarget . artTarget) nonDeployJars
           internalDeps <- bazelQueryDeps ("set(" <> T.unpack (T.intercalate " " targets) <> ")")
           -- check if a dependency is not already a maven target from artifacts.yaml
