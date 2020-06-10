@@ -138,10 +138,9 @@ private[dao] final class TransactionsReader(
                 pageSize = pageSize,
                 previousEventNodeIndex = prevNodeIndex
               )
-              .withFetchSize(Some(pageSize))
           val rawEvents =
             dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
-              query.asVectorOf(EventsTable.rawTreeEventParser)
+              query.executeSql
             }
           rawEvents.flatMap(
             es =>
