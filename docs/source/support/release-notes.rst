@@ -6,9 +6,158 @@ Release notes
 
 This page contains release notes for the SDK.
 
-.. _release-1.1.0:
+.. _release-1.2.0:
 
-1.1.0 - 2020-05-13
+1.2.0 - 2020-06-10
+------------------
+
+Summary
+~~~~~~~
+
+-  Module prefixes can now be stored in ``daml.yaml``. This means that
+   you can use multiple versions of libraries in the same project by
+   specifying them in ``daml.yaml`` instead of with the ``--package`` command
+   line flag.
+-  A new flag, ``--max-lf-value-translation-cache-entries``, allows you to
+   set a number of events for which DAML-LF values will be cached.
+   This can help reduce latency when serving transactions.
+
+What’s New
+~~~~~~~~~~
+
+Module Prefixes
+^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+When upgrading a package using a DAML upgrade workflow, one has to
+import both the old and new version of the package as dependencies.
+If both the package and module names are the same, this used to
+require setting compiler flags. The new Module Prefixes feature gives
+an easier means of disambiguating the packages and modules.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+The compiler picks up a new block ``module-prefixes`` specified
+in ``daml.yaml``. ``module-prefixes`` takes entries of the form 
+``package: Prefix``, and modules from the package are then accessible using that
+prefix. For example, the below makes
+module ``X`` from ``foo-1.0.0`` available as ``Foo1.X``,
+and ``X`` from ``foo-2.0.0`` as ``Foo2.X``.
+
+.. code::
+
+   module-prefixes:
+     foo-1.0.0: Foo1
+     foo-2.0.0: Foo2
+
+Refer to the `documentation <https://docs.daml.com/1.2.0/daml/reference/packages.html#handling-module-name-collisions>`__ for
+detailed information.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+This is a purely additive feature, so no migration is necessary. If
+your project uses the old ``--package`` compiler flag to disambiguate
+packages, you can switch to this simpler method.
+
+Minor Improvements
+~~~~~~~~~~~~~~~~~~
+
+-  The Sandbox’s ``--max-lf-value-translation-cache-entries`` option
+   allows you to set a number of events for which DAML-LF values are
+   cached. This can reduce latency in serving transactions.
+-  ``daml damlc inspect-dar`` now has a ``--json`` flag to produce
+   machine-readable output. See
+   the `documentation <https://docs.daml.com/1.2.0/daml/reference/packages.html#inspecting-dars>`__
+   for more information.
+-  The Scala bindings have gained a method, ``LedgerClient#close``, which
+   will shut down the channel and await termination. This is
+   optional; the channel will still be shut down on JVM exit if this
+   method is not called.
+-  Record dot syntax like ``rec.field1.field2`` is now handled in
+   expressions entered into the REPL.
+-  ``daml trigger``, ``daml script`` and ``daml repl`` now all support
+   the ``--max-inbound-message-size`` command line flag, which configures
+   the maximum size of transactions that can be handled.
+-  The ``createAndExerciseCmd`` command has been added to DAML Triggers.
+
+Security and Bugfixes
+~~~~~~~~~~~~~~~~~~~~~
+
+-  Dependencies have been upgraded to newer versions to avoid
+   exposure to reported security vulnerabilities.
+
+   -  Upgrade ``jackson`` version to ``2.11.0`` from ``2.9.9.3``
+   -  Upgrade ``io.grpc:grpc-xxxxx`` and ``io.netty:netty-xxx`` version
+      to latest
+   -  Upgrade ``protobuf`` and ``protobuf-java`` to 3.11.0
+
+-  A Sandbox Classic migration issue when used with postgres has been
+   fixed.
+   See `#6017 <https://github.com/digital-asset/daml/issues/6017>`__
+-  A bug where large multi-command transactions would cause a stack
+   overflow in DAML Script was fixed.
+-  The Standard Library’s ``DA.Text.splitOn`` function will now correctly
+   handle the case where the separator appears at the end but should
+   not be matched, as in ``splitOn "aa" "aaa" == ["", "a"]``.
+   See `#5786 <https://github.com/digital-asset/daml/issues/6017>`__ for
+   more details.
+-  The DAML linter, dlint, has been improved by removing some
+   Haskell-based rules not currently applicable to DAML and by
+   changing some function references.
+
+Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~
+
+-  The Ledger API Server emits new metrics for the LF Value Cache. If
+   the ``--max-state-value-cache-size`` is greater than zero, the
+   following additional metrics will be recorded under the
+   ``daml.kvutils.submission.validator.state_value_cache`` namespace: 
+
+   -  ``hits``
+   -  ``misses``
+   -  ``load_successes``
+   -  ``load_failures``
+   -  ``load_total_time``
+   -  ``evictions``
+   -  ``evicted_weight``
+
+-  Added new Ledger API Server metrics
+   for ``daml.index.db.*.translation`` to measure the time spent
+   translating to and from the serialized DAML-LF values when fetched
+   from the participant index.
+-  Added new Ledger API Server metrics
+   for ``daml.index.db.*.deserialization`` to measure the duration of the
+   translation of the serialized DAML-LF values when fetched from the
+   participant index.
+-  The Ledger API Test Tool has gained
+   the ``TransactionSize`` performance benchmark test.
+
+What’s Coming
+~~~~~~~~~~~~~
+
+Our priorities for the imminent future remain unchanged.
+
+-  DAML Triggers currently need to be started one-by-one using
+   the ``daml trigger`` command making them difficult to control
+   dynamically at runtime. We are working on a solution to make them
+   easier to use in practice.
+-  We will work to complete the Websockets streaming part of the JSON
+   API.
+-  We will work to complete DAML REPL.
+-  DAML will get a generic Map type as part of DAML-LF 1.9.
+-  We will work to make the integration kit components used to build
+   DAML Ledgers more performant.
+-  We will continue to work on our release process and to tighten the
+   interfaces between different components of DAML so that we can
+   give clearer compatibility and long term support guarantees.
+
+.. _release-1.1.1:
+
+1.1.1 - 2020-05-13
 ------------------
 
 Summary
