@@ -3,60 +3,42 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.HttpRequest
 
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec}
-import com.daml.jwt.domain.Jwt
-import com.daml.jwt.{JwtDecoder}
-import com.daml.jwt.domain.{DecodedJwt}
-
-import scalaz.syntax.show._
 import scalaz.syntax.std.option._
-import scalaz.{\/, -\/}
+import scalaz.{\/}
+
+import java.nio.charset.StandardCharsets
 
 case class Unauthorized(message: String) extends Error(message)
-case class JwtPayload(ledgerId: String, applicationId: String, party: String)
 
 object TokenManagement {
 
-  def decodeJwt(jwt: Jwt): Unauthorized \/ DecodedJwt[String] = {
-    JwtDecoder.decode(jwt).leftMap(e => Unauthorized(e.shows))
+  // Utility to get the username and password out of a basic auth
+  // token. By construction we ensure that there will always be two
+  // components (see 'findCredentials'). We use the first component to
+  // identify parties.
+  def decodeCredentials(credentials: UserCredentials): (String, String) = {
+    val token = credentials.token
+    val bytes = java.util.Base64.getDecoder.decode(token.getBytes())
+    val components = new String(bytes, StandardCharsets.UTF_8).split(":")
+    (components(0), components(1))
   }
 
-  def findJwt(req: HttpRequest): Unauthorized \/ Jwt = {
+  /*
+   User : alice
+   Password : &alC2l3SDS*V
+   curl -X GET localhost:8080/hello -H "Authorization: Basic YWxpY2U6JmFsQzJsM1NEUypW"
+   */
+  def findCredentials(req: HttpRequest): Unauthorized \/ UserCredentials = {
     req.headers
       .collectFirst {
-        case Authorization(OAuth2BearerToken(token)) => Jwt(token)
+        case Authorization(c @ BasicHttpCredentials(username, password)) => {
+          UserCredentials(c.token())
+        }
       }
-      .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
+      .toRightDisjunction(Unauthorized("missing Authorization header with Basic Token"))
   }
 
-  def decodeAndParsePayload(jwt: Jwt, decodeJwt: Jwt => Unauthorized \/ DecodedJwt[String])
-    : Unauthorized \/ (jwt.type, JwtPayload) =
-    for {
-      a <- decodeJwt(jwt)
-      p <- parsePayload(a)
-    } yield (jwt, p)
-
-  def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload = {
-    // AuthServiceJWTCodec is the JWT reader used by the sandbox and
-    // some DAML-on-X ledgers. Most JWT fields are optional for the
-    // sandbox, but not for the trigger service (exactly as the case
-    // as for the http-json serive).
-    AuthServiceJWTCodec
-      .readFromString(jwt.payload)
-      .fold(
-        e => -\/(Unauthorized(e.getMessage)),
-        payload =>
-          for {
-            ledgerId <- payload.ledgerId.toRightDisjunction(
-              Unauthorized("ledgerId missing in access token"))
-            applicationId <- payload.applicationId.toRightDisjunction(
-              Unauthorized("applicationId missing in access token"))
-            party <- payload.party.toRightDisjunction(
-              Unauthorized("party missing or not unique in access token"))
-          } yield JwtPayload(ledgerId, applicationId, party)
-      )
-  }
 }

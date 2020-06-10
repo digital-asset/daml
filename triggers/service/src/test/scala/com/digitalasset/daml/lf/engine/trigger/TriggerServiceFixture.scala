@@ -15,7 +15,6 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
@@ -156,15 +155,14 @@ object TriggerServiceFixture {
   private def ledgerConfig(
       ledgerPort: Port,
       dars: List[File],
-      ledgerId: LedgerId,
-      authService: Option[AuthService] = None
+      ledgerId: LedgerId
   ): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = None
     )
 
   private def clientConfig[A](
