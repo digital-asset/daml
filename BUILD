@@ -56,7 +56,7 @@ load(
 
 c2hs_toolchain(
     name = "c2hs-toolchain",
-    c2hs = "@c2hs//:c2hs",
+    c2hs = "@stackage-exe//c2hs",
 )
 
 filegroup(

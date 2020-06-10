@@ -171,7 +171,7 @@ daml_package_rule = rule(
             cfg = "host",
         ),
         "cpp": attr.label(
-            default = Label("@hpp//:hpp"),
+            default = Label("@stackage-exe//hpp"),
             executable = True,
             cfg = "host",
         ),
