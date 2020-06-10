@@ -4,7 +4,7 @@ load(":util.bzl", "migration_test")
 
 genrule(
     name = "migration-model",
-    srcs = ["daml/ProposeAccept.daml"],
+    srcs = glob(["daml/*.daml"]),
     outs = ["migration-model.dar"],
     cmd = """
 TMP=$$(mktemp -d)
@@ -21,6 +21,7 @@ dependencies: [daml-stdlib, daml-prim]
 EOF
 
 cp $(location :daml/ProposeAccept.daml) $$TMP/ProposeAccept.daml
+cp $(location :daml/KeyTransfer.daml) $$TMP/KeyTransfer.daml
 $$DAML build --project-root $$TMP -o $$PWD/$(location :migration-model.dar)
 """,
     tools = ["@daml-sdk-1.0.0//:daml"],

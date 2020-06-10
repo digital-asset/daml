@@ -22,13 +22,11 @@ test step modelDar = Test {..}
     executeStep sdkVersion host port _state = withTempFile $ \outputFile -> do
         let note = getSdkVersion sdkVersion
         callProcess step
-            [ "--output", outputFile
-            , "--host=" <> host
+            [ "--host=" <> host
             , "--port=" <> show port
-            , "--proposer=" <> T.unpack (getParty testProposer)
-            , "--accepter=" <> T.unpack (getParty testAccepter)
-            , "--note=" <> note
+            , "--output", outputFile
             , "--dar=" <> modelDar
+            , "--test=propose-accept," <> T.unpack (getParty testProposer) <> "," <> T.unpack (getParty testAccepter) <> "," <> note
             ]
         either fail pure =<< A.eitherDecodeFileStrict' outputFile
     validateStep sdkVersion (prevTs, prevTransactions) Result{..} = do

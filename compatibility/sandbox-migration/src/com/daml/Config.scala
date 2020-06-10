@@ -5,16 +5,24 @@ package com.daml
 
 import java.nio.file.{Path, Paths}
 
-import scopt.Read
+import scopt.{OptionParser, Read}
 
 object Config {
 
   private implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
-  val parser = new scopt.OptionParser[Config]("migration-step") {
-    opt[Path]("output")
-      .action((path, c) => c.copy(outputFile = path))
-      .required()
+  private implicit val readTest: Read[MigrationStep.Test] =
+    Read.stringRead.map(s =>
+      s.split(",", -1) match {
+        case Array(ProposeAccept.ApplicationId, proposer, accepter, note) =>
+          new ProposeAccept(proposer, accepter, note)
+        case Array(KeyTransfer.ApplicationId, owner, receiver, suffix) =>
+          new KeyTransfer(owner, receiver, suffix)
+        case _ =>
+          throw new IllegalArgumentException(s"Illegal test name or parameters '$s'")
+    })
+
+  val parser: OptionParser[Config] = new scopt.OptionParser[Config]("migration-step") {
     opt[Path]("dar")
       .action((dar, c) => c.copy(dar = dar))
       .required()
@@ -24,28 +32,29 @@ object Config {
     opt[Int]("port")
       .action((port, c) => c.copy(port = port))
       .required()
-    opt[String]("proposer")
-      .action((proposer, c) => c.copy(proposer = proposer))
+    opt[Path]("output")
+      .action((path, c) => c.copy(outputFile = path))
       .required()
-    opt[String]("accepter")
-      .action((accepter, c) => c.copy(accepter = accepter))
-      .required()
-    opt[String]("note")
-      .action((note, c) => c.copy(note = note))
+    opt[MigrationStep.Test]("test")
+      .action((test, c) => c.copy(test = test))
       .required()
   }
 
   // Null-safety is provided by the CLI parser making all fields required
-  val default: Config = Config(null, null, null, 0, null, null, null)
+  val default: Config = Config(null, 0, null, null, null)
+
+  sealed trait Test {
+    def host: String
+    def port: Int
+    def outputFile: Path
+  }
 
 }
 
 final case class Config(
-    outputFile: Path,
-    dar: Path,
     host: String,
     port: Int,
-    proposer: String,
-    accepter: String,
-    note: String,
-)
+    outputFile: Path,
+    dar: Path,
+    test: MigrationStep.Test,
+) extends Config.Test
