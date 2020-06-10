@@ -4,7 +4,9 @@
 -- Check that immediately applied lambdas get rewritten into a expressions
 -- without lambdas.
 
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["f"]) | .expr | has("abs")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["f"]) | isempty(.expr.abs.body | .. | .abs? | values)
+-- @QUERY-LF [.modules[] | .templates[] | select(lf::get_template_name($pkg) == ["Arithmetic"]) | .choices[]] | length == 2 and all(isempty(.update | .. | .abs? | values))
 module SimplifyAppliedLambda where
 
 f: Int -> Int -> Int
@@ -12,3 +14,15 @@ f x y = g (h x) y
   where
     g x y = x+y
     h x = 2*x
+
+template Arithmetic with
+    owner: Party
+  where
+    signatory owner
+
+    choice Add: Int with
+        x: Int
+        y: Int
+      controller owner
+      do
+        pure $ (\a b -> a+b) x y
