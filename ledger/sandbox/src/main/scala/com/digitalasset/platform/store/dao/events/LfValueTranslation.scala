@@ -53,15 +53,15 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
   def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter = {
     cache.put(
-      key = LfValueTranslation.Cache.Key(contractId.coid),
-      value = LfValueTranslation.Cache.Value.Create(createArgument, None),
+      key = LfValueTranslation.Cache.ContractKey(contractId),
+      value = LfValueTranslation.Cache.Value.Contract(createArgument),
     )
     ("create_argument", serializeCreateArgOrThrow(contractId, createArgument))
   }
 
   def serialize(eventId: EventId, create: Create): Vector[NamedParameter] = {
     cache.put(
-      key = LfValueTranslation.Cache.Key(eventId),
+      key = LfValueTranslation.Cache.EventKey(eventId),
       value = LfValueTranslation.Cache.Value.Create(create.coinst.arg, create.key.map(_.key)),
     )
     Vector[NamedParameter](
@@ -72,7 +72,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
   def serialize(eventId: EventId, exercise: Exercise): Vector[NamedParameter] = {
     cache.put(
-      key = LfValueTranslation.Cache.Key(eventId),
+      key = LfValueTranslation.Cache.EventKey(eventId),
       value = LfValueTranslation.Cache.Value.Exercise(exercise.chosenValue, exercise.exerciseResult),
     )
     Vector[NamedParameter](
@@ -109,12 +109,12 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
         ),
     )
 
-  private def key(s: String) = LfValueTranslation.Cache.Key(EventId.assertFromString(s))
+  private def eventKey(s: String) = LfValueTranslation.Cache.EventKey(EventId.assertFromString(s))
 
   def deserialize[E](raw: Raw.Created[E], verbose: Boolean): CreatedEvent = {
     val create =
       cache
-        .getIfPresent(key(raw.partial.eventId))
+        .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
           LfValueTranslation.Cache.Value.Create(
             argument = ValueSerializer.deserializeValue(raw.createArgument),
@@ -144,7 +144,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   def deserialize(raw: Raw.TreeEvent.Exercised, verbose: Boolean): ExercisedEvent = {
     val exercise =
       cache
-        .getIfPresent(key(raw.partial.eventId))
+        .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
           LfValueTranslation.Cache.Value.Exercise(
             argument = ValueSerializer.deserializeValue(raw.exerciseArgument),
@@ -201,21 +201,31 @@ object LfValueTranslation {
     final class UnexpectedTypeException(value: Value)
         extends RuntimeException(s"Unexpected value $value")
 
-    final case class Key(eventId: EventId)
+    sealed abstract class Key
+    final case class EventKey(eventId: EventId) extends Key
+    final case class ContractKey(contractId: ContractId) extends Key
 
     sealed abstract class Value {
       def assertCreate(): Value.Create
       def assertExercise(): Value.Exercise
+      def assertContract(): Value.Contract
     }
 
     object Value {
       final case class Create(argument: LfValue, key: Option[LfValue]) extends Value {
         override def assertCreate(): Create = this
         override def assertExercise(): Exercise = throw new UnexpectedTypeException(this)
+        override def assertContract(): Contract = throw new UnexpectedTypeException(this)
       }
       final case class Exercise(argument: LfValue, result: Option[LfValue]) extends Value {
         override def assertCreate(): Create = throw new UnexpectedTypeException(this)
         override def assertExercise(): Exercise = this
+        override def assertContract(): Contract = throw new UnexpectedTypeException(this)
+      }
+      final case class Contract(argument: LfValue) extends Value {
+        override def assertCreate(): Create = throw new UnexpectedTypeException(this)
+        override def assertExercise(): Exercise = throw new UnexpectedTypeException(this)
+        override def assertContract(): Contract = this
       }
     }
 

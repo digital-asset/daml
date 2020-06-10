@@ -88,13 +88,13 @@ private[dao] sealed abstract class ContractsReader(
       contractId: ContractId,
   ): Future[Option[Contract]] =
     // Depending on whether the contract argument is cached or not, submit a different query to the database
-    translation.cache.getIfPresent(LfValueTranslation.Cache.Key(contractId.coid)) match {
+    translation.cache.getIfPresent(LfValueTranslation.Cache.ContractKey(contractId)) match {
       case Some(createArgument) =>
         metrics.daml.index.db.lookupActiveContractArgumentCache.hitCount.inc()
         lookupActiveContractWithoutArgument(
           submitter,
           contractId,
-          createArgument.assertCreate().argument)
+          createArgument.assertContract().argument)
       case None =>
         metrics.daml.index.db.lookupActiveContractArgumentCache.missCount.inc()
         lookupActiveContractWithArgument(submitter, contractId)
