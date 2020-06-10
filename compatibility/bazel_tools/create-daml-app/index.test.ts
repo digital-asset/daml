@@ -432,7 +432,8 @@ const sendMessage = async (page: Page, receiver: string, content: string) => {
   const dropdown = '.test-select-message-receiver > .dropdown';
   const item = `${dropdown} > .menu > .item`;
 
-  // After clicking the dropdown, we need to wait for the choices to appear.
+  // Click the dropdown and then wait for the choices to appear.
+  await page.waitForSelector(dropdown);
   await page.click(dropdown);
   await page.waitForSelector(item);
 
@@ -462,10 +463,12 @@ const sendMessage = async (page: Page, receiver: string, content: string) => {
 // class in the message item itself to get an accurate count.
 // Waiting on other selectors (e.g. on the Send button not loading, or the
 // message list instead of the items) doesn't seem to be effective.
-const countMessagesNotZero = async (page: Page) => {
-  await page.waitForSelector('.test-select-message-item');
-  const messages = await page.$$('.test-select-message-item');
-  return messages.length;
+const countMessagesNotZero = async (page: Page, expected: number) => {
+  await page.waitForFunction(
+    expected => document.querySelectorAll('.test-select-message-item').length === expected,
+    {},
+    expected
+  );
 }
 
 test('send messages between users', async () => {
@@ -494,8 +497,8 @@ test('send messages between users', async () => {
   // Both Party 1 and 2 should see the messages.
   // Note: It's not obvious how to test that the message list is empty for Party
   // 0 as even when we get a message we need to wait a bit for it to render.
-  expect(await countMessagesNotZero(page1)).toEqual(2);
-  expect(await countMessagesNotZero(page2)).toEqual(2);
+  await countMessagesNotZero(page1, 2);
+  await countMessagesNotZero(page2, 2);
 
   // As Party 2, follow Party 1 and log out.
   // We will test that a message is received even when logged out.
@@ -509,10 +512,10 @@ test('send messages between users', async () => {
   await login(page2, party2);
 
   // Now both Party 1 and 2 can see all the messages.
-  expect(await countMessagesNotZero(page1)).toEqual(3);
-  expect(await countMessagesNotZero(page2)).toEqual(3);
+  await countMessagesNotZero(page1, 3);
+  await countMessagesNotZero(page2, 3);
 
   await page0.close();
   await page1.close();
   await page2.close();
-}, 40_000);
+}, 60_000);
