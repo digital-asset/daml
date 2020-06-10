@@ -85,12 +85,13 @@ main = do
           internalDeps <- bazelQueryDeps ("set(" <> T.unpack (T.intercalate " " targets) <> ")")
           -- check if a dependency is not already a maven target from artifacts.yaml
           let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
-          -- if there's a missing artifact, find out what depends on it by querying each artifact
-          -- separately, one by one (this is slow, so we don't do it unless we have to)
           if null missingDeps
               then
                   return []
               else do
+                  -- if there's a missing artifact, find out what depends on it by querying each
+                  -- artifact separately, one by one, so that the error message is more useful
+                  -- (this is slow, so we don't do it unless we have to)
                   maybeMissingDeps <- forM nonDeployJars $ \a -> do
                       internalDeps <- bazelQueryDeps (T.unpack (getBazelTarget (artTarget a)))
                       let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
