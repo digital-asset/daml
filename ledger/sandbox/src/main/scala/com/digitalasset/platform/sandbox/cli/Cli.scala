@@ -301,9 +301,14 @@ object Cli {
 
       opt[Long]("max-ledger-time-skew")
         .optional()
-        .action((value, config) =>
-          config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = config.ledgerConfig.initialConfiguration.copy(timeModel = config.ledgerConfig.initialConfiguration.timeModel.copy(minSkew = Duration.ofSeconds(value), maxSkew = Duration.ofSeconds(value))))))
-        .text(s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}.")
+        .action((value, config) => {
+          val timeModel = config.ledgerConfig.initialConfiguration.timeModel
+            .copy(minSkew = Duration.ofSeconds(value), maxSkew = Duration.ofSeconds(value))
+          val ledgerConfig = config.ledgerConfig.initialConfiguration.copy(timeModel = timeModel)
+          config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
+        })
+        .text(
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
       help("help").text("Print the usage text")
 
