@@ -346,7 +346,7 @@ const sendMessage = async (page: Page, receiver: string, content: string) => {
   const item = `${dropdown} > .menu > .item`;
 
   // Click the dropdown and then wait for the choices to appear.
-  await page.waitForSelector(dropdown);
+  await page.waitForSelector(dropdown, {timeout: 60_000});
   await page.click(dropdown);
   await page.waitForSelector(item);
 
