@@ -1,16 +1,34 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Maven (generateAggregatePom) where
+{-# LANGUAGE TemplateHaskell #-}
+
+module Maven (
+    generateAggregatePom,
+    validateMavenArtifacts,
+) where
 
 import qualified Control.Exception.Safe as E
+import           Control.Monad
+import           Control.Monad.Logger
+import           Control.Monad.IO.Class
 import qualified Data.Maybe as Maybe
 import qualified Data.Text as T
-import Data.Text (Text)
-import Path
+import           Data.Text (Text)
+import           Path
+import           Path.IO
+import           System.Exit
 
-import Util
 import Types
+import Util
+
+validateMavenArtifacts :: MonadCI m => Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
+validateMavenArtifacts releaseDir artifacts =
+    forM_ artifacts $ \(_, file) -> do
+        exists <- doesFileExist (releaseDir </> file)
+        unless exists $ do
+            $logError $ T.pack $ show file <> " is required for publishing to Maven"
+            liftIO exitFailure
 
 generateAggregatePom :: E.MonadThrow m => BazelLocations -> [Artifact PomData] -> m Text
 generateAggregatePom BazelLocations{bazelBin} artifacts = do

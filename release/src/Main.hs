@@ -105,6 +105,14 @@ main = do
               forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
           liftIO exitFailure
 
+      mvnFiles <- fmap concat $ forM mvnArtifacts $ \artifact ->
+          map (artifact,) <$> artifactFiles artifact
+      forM_ mvnFiles $ \(_, (inp, outp)) ->
+          copyToReleaseDir bazelLocations releaseDir inp outp
+
+      mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
+      validateMavenArtifacts releaseDir mvnUploadArtifacts
+
       -- npm packages we want to publish.
       let npmPackages =
               [ "//language-support/ts/daml-types"
@@ -116,14 +124,6 @@ main = do
       forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
 
       if  | getPerformUpload optsPerformUpload -> do
-              mvnFiles <- fmap concat $ forM mvnArtifacts $ \a -> do
-                  fs <- artifactFiles a
-                  pure $ map (a,) fs
-              mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) mvnFiles
-
-              mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
-              validateMavenArtifacts releaseDir mvnUploadArtifacts
-
               $logInfo "Uploading to Maven Central"
               mavenUploadConfig <- mavenConfigFromEnv
               if not (null mvnUploadArtifacts)
