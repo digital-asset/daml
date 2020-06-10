@@ -168,6 +168,7 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   extVarEnv self
   extVarEnv arg
   extVarEnv this
+  -- TODO Bug: `create this`, without a single record assignment throws an error.
   -- Extend the environment with any record fields from the arguments.
   argFs <- recTypFields (snd chcArgBinder) >>= \case
     Nothing -> throwError ExpectRecord
@@ -215,6 +216,7 @@ genTemplate pac mod Template{..} = do
   let preCond (this :: Expr) =
         substituteTm (singleExprSubst tplParam this)
         (instPRSelf pac tplPrecondition)
+  -- TODO: This might break in combination with forward references. To be checked.
   extPrecond name preCond
   mapM_ (genChoice pac name tplParam fields)
     (archive : NM.toList tplChoices)
@@ -470,13 +472,28 @@ genForExercise :: (GenPhase ph, MonadEnv m ph)
 genForExercise tem ch cid par arg = do
   cidOut <- genExpr True cid
   arout <- genExpr True arg
-  (updSubst, resType) <- lookupChoice tem ch
-  this <- fst <$> lookupCid (_oExpr cidOut)
-  -- TODO: Should we further eval after subst? But how to eval an update set?
-  let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
-  return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
-         , resType
-         , Nothing ) -- TODO!
+  lookupChoice tem ch >>= \case
+    Just (updSubst, resType) -> do
+      this <- fst <$> lookupCid (_oExpr cidOut)
+      let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
+      -- TODO: Clean up this duplication.
+      if null (updSetChoices updSet)
+        then do
+          -- TODO: Why doesn't this work? The solver should inline this anyway?
+          -- let updSet = addChoice emptyUpdateSet tem ch
+          return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+                 , resType
+                 , Nothing ) -- TODO!
+        else do
+          let updSet = addChoice emptyUpdateSet tem ch
+          return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+                 , resType
+                 , Nothing )
+    Nothing -> do
+      let updSet = addChoice emptyUpdateSet tem ch
+      return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+             , TBuiltin BTUnit -- TODO: Make the return type a Maybe?
+             , Nothing )
 
 -- | Analyse a bind update expression.
 -- Returns both the generator output and the return type.

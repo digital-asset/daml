@@ -14,6 +14,7 @@ module DA.Daml.LF.Verify.Context
   , IsPhase(..)
   , BoolExpr(..)
   , Cond(..)
+  , Rec(..)
   , Env(..)
   , Error(..)
   , MonadEnv
@@ -26,11 +27,13 @@ module DA.Daml.LF.Verify.Context
   , runEnv
   , genRenamedVar
   , createCond
-  , addUpd
+  , makeRec, makeMutRec
+  , addUpd, addChoice
   , extVarEnv, extRecEnv, extRecEnvTCons, extValEnv, extChEnv, extDatsEnv
   , extCidEnv, extPrecond, extCtrRec, extCtr
   , lookupVar, lookupRec, lookupVal, lookupChoice, lookupDataCon, lookupCid
   , conditionalUpdateSet
+  , computeCycles
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
   ) where
@@ -80,7 +83,7 @@ data BoolExpr
   -- ^ Less than operator.
   | BLtE Expr Expr
   -- ^ Less than or equal operator.
-  deriving Show
+  deriving (Eq, Show)
 
 -- | Convert an expression constraint into boolean expressions.
 toBoolExpr :: Expr -> [BoolExpr]
@@ -99,11 +102,9 @@ data Cond a
   = Determined a
   -- ^ Non-conditional value.
   | Conditional BoolExpr [Cond a] [Cond a]
-  -- ^ Conditional value, with a (Boolean) condition, at least one value in case
-  -- the condition holds, and at least one value in case it doesn't.
-  -- Note that these branch lists should not be empty.
-  -- TODO: Encode this invariant in the type system?
-  deriving (Show, Functor)
+  -- ^ Conditional value, with a (Boolean) condition, values in case
+  -- the condition holds, and values in case it doesn't.
+  deriving (Eq, Show, Functor)
 
 -- | Construct a simple conditional.
 createCond :: BoolExpr
@@ -115,9 +116,28 @@ createCond :: BoolExpr
   -> Cond a
 createCond cond x y = Conditional cond [Determined x] [Determined y]
 
--- | Construct a single conditional, if the input is not empty.
+-- TODO: I don't very much like that this creates empty branches.
+extCond :: BoolExpr -> Cond a -> Cond a
+extCond b (Determined x) = Conditional b [Determined x] []
+extCond b (Conditional b' xs ys) = Conditional (b `BAnd` b') xs ys
+
+-- | Perform common simplifications on Conditionals.
+-- TODO: Extend with additional cases.
+simplifyCond :: Eq a => Cond a -> [Cond a]
+simplifyCond (Conditional (BAnd b1 b2) xs ys)
+  | b1 == b2 = simplifyCond (Conditional b1 xs ys)
+  | b1 == BNot b2 = ys
+  | b2 == BNot b1 = ys
+simplifyCond (Conditional b [Conditional b1 xs1 _] [Conditional b2 _ ys2])
+  | b1 == b2 = simplifyCond (Conditional b xs1 ys2)
+simplifyCond (Conditional _ xs ys)
+  | xs == ys = concatMap simplifyCond xs
+simplifyCond c = [c]
+
+-- | Construct a single conditional, combining the two input lists and the
+-- boolean expression, if the input is non-empty.
 -- Helper function for `introCond`.
-buildCond :: IsPhase ph
+buildCond :: (IsPhase ph, Eq a)
   => BoolExpr
   -- ^ The condition.
   -> [Cond (UpdateSet ph)]
@@ -128,21 +148,94 @@ buildCond :: IsPhase ph
   -- ^ The fetch function.
   -> [Cond a]
 buildCond e updx updy get =
-  let xs = concatCond updx get
-      ys = concatCond updy get
-  in [Conditional e xs ys | not (null xs && null ys)]
+  let xs = flattenCond updx get
+      ys = flattenCond updy get
+  in concatMap simplifyCond [Conditional e xs ys | not (null xs && null ys)]
+
+-- | Construct a single recursive conditional, combining the two input lists and
+-- the boolean expression, if the input is non-empty.
+-- Helper function for `introCond`.
+buildRecCond :: (IsPhase ph, Eq a)
+  => BoolExpr
+  -- ^ The condition.
+  -> [Cond (UpdateSet ph)]
+  -- ^ The input for the true case.
+  -> [Cond (UpdateSet ph)]
+  -- ^ The input for the false case.
+  -> (UpdateSet ph -> [Rec [Cond a]])
+  -- ^ The fetch function.
+  -> [Rec [Cond a]]
+buildRecCond e updx updy get =
+  let xs = flattenCond updx get
+      ys = flattenCond updy get
+      (xsimples, xrecs, xmutrecs) = splitRecs xs
+      (ysimples, yrecs, ymutrecs) = splitRecs ys
+  in map (fmap (concatMap simplifyCond))
+      ( [Simple [Conditional e xsimples ysimples] | not (null xsimples && null ysimples)]
+      ++ map (fmap $ map (extCond e)) (xrecs ++ xmutrecs)
+      ++ map (fmap $ map (extCond (BNot e))) (yrecs ++ ymutrecs) )
 
 -- | Fetch the conditionals from the conditional update set, and flatten the
 -- two layers into one.
-concatCond :: IsPhase ph
+-- Helper function for `build(Rec)Cond`.
+flattenCond :: IsPhase ph
   => [Cond (UpdateSet ph)]
   -- ^ The conditional update set to fetch from.
-  -> (UpdateSet ph -> [Cond a])
+  -> (UpdateSet ph -> [a])
   -- ^ The fetch function.
-  -> [Cond a]
-concatCond upds get =
+  -> [a]
+flattenCond upds get =
   let upds' = map introCond upds
   in concatMap get upds'
+
+-- | Data type denoting a potential recursion cycle.
+-- TODO: Would it be worth merging the definitions of Rec and Cond?
+data Rec a
+  = Simple a
+  -- ^ Basic, non-recursive value.
+  | Rec [a]
+  -- ^ (Possibly multiple) recursion cycles.
+  | MutRec [(String,a)]
+  -- ^ (Possibly multiple) mutual recursion cycles.
+  -- Note that this behaves idential to regular recursion, with the addition of
+  -- an information field for debugging purposes.
+  deriving Functor
+
+-- | Take out the value from a Simple Rec value, or fail.
+fromSimple :: Rec a -> a
+fromSimple (Simple x) = x
+fromSimple _ = error "Impossible: Expected a Simple value"
+
+-- | Split a list of Rec values by constructor.
+splitRecs :: [Rec [a]] -> ([a], [Rec [a]], [Rec [a]])
+splitRecs inp = (simples, recs, mutrecs)
+  where
+    simples = concat [x | Simple x <- inp]
+    recs = [Rec xs | Rec xs <- inp]
+    mutrecs = [MutRec xs | MutRec xs <- inp]
+
+-- | Introduce a Rec constructor.
+-- TODO: For now, we assume that there is no nested recursion.
+makeRec :: [Rec [Cond a]] -> [Rec [Cond a]]
+makeRec inp = Rec [simples] : recs ++ mutrecs
+  where
+    (simples, recs, mutrecs) = splitRecs inp
+
+-- | Introduce a MutRec constructor.
+makeMutRec :: [Rec [Cond a]] -> String -> [Rec [Cond a]]
+makeMutRec inp str = MutRec [(str,simples)] : recs ++ mutrecs
+  where
+    (simples, recs, mutrecs) = splitRecs inp
+
+-- | Take a conditional Rec value apart, by splitting into the simple values,
+-- and constructing a list of all possible cycles (along with some debugging
+-- information).
+computeCycles :: [Rec [Cond a]] -> [(String, [Cond a])]
+computeCycles inp = ("Main flow: ", simples) : recs
+  where
+    simples = concat [x | Simple x <- inp]
+    recs = [("Recursion cycle: ", x) | Rec xs <- inp, x <- xs]
+        ++ [("Mutual recursion cycle: " ++ info, x) | MutRec xs <- inp, (info, x) <- xs]
 
 -- | Data type denoting an update.
 data Upd
@@ -160,7 +253,7 @@ data Upd
     , _arcField :: ![(FieldName, Expr)]
       -- ^ The fields to be verified, together with their value.
     }
-  deriving Show
+  deriving (Eq, Show)
 
 -- | Data type denoting an exercised choice.
 data UpdChoice = UpdChoice
@@ -185,9 +278,9 @@ class IsPhase (ph :: Phase) where
   -- | Shift the conditional inside the update set.
   introCond :: Cond (UpdateSet ph) -> UpdateSet ph
   -- | Get the list of updates from an update set.
-  updSetUpdates :: UpdateSet ph -> [Cond Upd]
+  updSetUpdates :: UpdateSet ph -> [Rec [Cond Upd]]
   -- | Update the list of updates in an update set.
-  setUpdSetUpdates :: [Cond Upd] -> UpdateSet ph -> UpdateSet ph
+  setUpdSetUpdates :: [Rec [Cond Upd]] -> UpdateSet ph -> UpdateSet ph
   -- | Get the list of exercised choices from an update set.
   updSetChoices :: UpdateSet ph -> [Cond UpdChoice]
   -- | Update the list of exercised choices in an update set.
@@ -255,11 +348,11 @@ instance IsPhase 'ValueGathering where
     UpdateSetVG (upd1 ++ upd2) (cho1 ++ cho2) (val1 ++ val2)
   introCond (Determined upds) = upds
   introCond (Conditional e updx updy) = UpdateSetVG
-    (buildCond e updx updy updSetUpdates)
+    (buildCond e updx updy ((concatMap fromSimple) . updSetUpdates))
     (buildCond e updx updy updSetChoices)
     (buildCond e updx updy updSetValues)
-  updSetUpdates (UpdateSetVG upd _ _) = upd
-  setUpdSetUpdates upd (UpdateSetVG _ cho val) = UpdateSetVG upd cho val
+  updSetUpdates (UpdateSetVG upd _ _) = [Simple upd]
+  setUpdSetUpdates upd (UpdateSetVG _ cho val) = UpdateSetVG (concatMap fromSimple upd) cho val
   updSetChoices (UpdateSetVG _ cho _) = cho
   setUpdSetChoices cho (UpdateSetVG upd _ val) = UpdateSetVG upd cho val
   updSetValues (UpdateSetVG _ _ val) = val
@@ -288,8 +381,8 @@ instance IsPhase 'ValueGathering where
 
 instance IsPhase 'ChoiceGathering where
   data UpdateSet 'ChoiceGathering = UpdateSetCG
-    ![Cond Upd]
-    -- ^ The list of updates.
+    ![Rec [Cond Upd]]
+    -- ^ A list of recursion cycles, each containing a list of updates.
     ![Cond UpdChoice]
     -- ^ The list of exercised choices.
   data Env 'ChoiceGathering = EnvCG
@@ -314,7 +407,7 @@ instance IsPhase 'ChoiceGathering where
     UpdateSetCG (upd1 ++ upd2) (cho1 ++ cho2)
   introCond (Determined upds) = upds
   introCond (Conditional e updx updy) = UpdateSetCG
-    (buildCond e updx updy updSetUpdates)
+    (buildRecCond e updx updy updSetUpdates)
     (buildCond e updx updy updSetChoices)
   updSetUpdates (UpdateSetCG upd _) = upd
   setUpdSetUpdates upd (UpdateSetCG _ cho) = UpdateSetCG upd cho
@@ -344,7 +437,7 @@ instance IsPhase 'ChoiceGathering where
 
 instance IsPhase 'Solving where
   data UpdateSet 'Solving = UpdateSetS
-    ![Cond Upd]
+    ![Rec [Cond Upd]]
     -- ^ The list of updates.
   data Env 'Solving = EnvS
     ![Skolem]
@@ -368,7 +461,7 @@ instance IsPhase 'Solving where
     UpdateSetS (upd1 ++ upd2)
   introCond (Determined upds) = upds
   introCond (Conditional e updx updy) = UpdateSetS
-    (buildCond e updx updy updSetUpdates)
+    (buildRecCond e updx updy updSetUpdates)
   updSetUpdates (UpdateSetS upd) = upd
   setUpdSetUpdates upd (UpdateSetS _) = UpdateSetS upd
   updSetChoices _ = error "A solving update set does not contain choice references."
@@ -395,14 +488,26 @@ instance IsPhase 'Solving where
   envChoices (EnvS _ _ _ _ _ _ cho) = cho
   setEnvChoices cho (EnvS sko val dat cid pre ctr _) = EnvS sko val dat cid pre ctr cho
 
--- | Add a single Upd to an UpdateSet
+-- | Add a single Upd to an UpdateSet.
 addUpd :: IsPhase ph
   => UpdateSet ph
   -- ^ The update set to extend.
   -> Upd
   -- ^ The update to add.
   -> UpdateSet ph
-addUpd upds upd = setUpdSetUpdates (Determined upd : updSetUpdates upds) upds
+addUpd upds upd = setUpdSetUpdates (Simple [Determined upd] : updSetUpdates upds) upds
+
+-- | Add a single choice reference to an UpdateSet.
+addChoice :: IsPhase ph
+  => UpdateSet ph
+  -- ^ The update set to extend.
+  -> Qualified TypeConName
+  -- ^ The template name in which this choice is defined.
+  -> ChoiceName
+  -- ^ The choice name to add.
+  -> UpdateSet ph
+addChoice upds tem cho =
+  setUpdSetChoices ((Determined $ UpdChoice tem cho) : updSetChoices upds) upds
 
 -- | Make an update set conditional. A second update set can also be introduced
 -- for the case where the condition does not hold.
@@ -742,16 +847,16 @@ lookupChoice :: (IsPhase ph, MonadEnv m ph)
   -- ^ The template name in which this choice is defined.
   -> ChoiceName
   -- ^ The choice name to lookup.
-  -> m (Expr -> Expr -> Expr -> UpdateSet ph, Type)
+  -> m (Maybe (Expr -> Expr -> Expr -> UpdateSet ph, Type))
 lookupChoice tem ch = do
   chs <- envChoices <$> getEnv
   case HM.lookup (UpdChoice tem ch) chs of
-    Nothing -> throwError (UnknownChoice ch)
+    Nothing -> return Nothing
     Just ChoiceData{..} -> do
       let updFunc (self :: Expr) (this :: Expr) (args :: Expr) =
             let subst = createExprSubst [(_cdSelf,self),(_cdThis,this),(_cdArgs,args)]
             in substituteTm subst _cdUpds
-      return (updFunc, _cdType)
+      return $ Just (updFunc, _cdType)
 
 -- | Lookup a data type definition in the environment.
 lookupDataCon :: (IsPhase ph, MonadEnv m ph)
@@ -847,6 +952,12 @@ instance SubstTm a => SubstTm (Cond a) where
   substituteTm s (Determined x) = Determined $ substituteTm s x
   substituteTm s (Conditional e x y) =
     Conditional (substituteTm s e) (map (substituteTm s) x) (map (substituteTm s) y)
+
+instance SubstTm a => SubstTm (Rec a) where
+  substituteTm s = \case
+    Simple x -> Simple (substituteTm s x)
+    Rec xs -> Rec (map (substituteTm s) xs)
+    MutRec xs -> MutRec (map (second (substituteTm s)) xs)
 
 instance IsPhase ph => SubstTm (UpdateSet ph) where
   substituteTm s upds = setUpdSetUpdates substUpd upds

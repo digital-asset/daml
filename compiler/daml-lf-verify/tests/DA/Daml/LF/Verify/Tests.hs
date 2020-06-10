@@ -29,7 +29,7 @@ quickstartTests = testGroup "Quickstart"
           field = FieldName "amount"
       result <- verify quickstartDar debug tmpl choice tmpl field
       assertEqual "Verification failed for Iou_Split - amount"
-        Success result
+        [Success] result
   , testCase "Iou_Merge" $ do
       quickstartDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/quickstart.dar")
       let tmpl = TypeConName ["Iou"]
@@ -37,7 +37,7 @@ quickstartTests = testGroup "Quickstart"
           field = FieldName "amount"
       result <- verify quickstartDar debug tmpl choice tmpl field
       assertEqual "Verification failed for Iou_Merge - amount"
-        Success result
+        [Success] result
   ]
 
 conditionalTests :: TestTree
@@ -49,7 +49,7 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccA - content"
-        Success result
+        [Success] result
   , testCase "Success B" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -57,7 +57,7 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccB - content"
-        Success result
+        [Success] result
   , testCase "Success C" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -65,7 +65,7 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccC - content"
-        Success result
+        [Success] result
   , testCase "Success D" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -73,7 +73,7 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccD - content"
-        Success result
+        [Success] result
   , testCase "Success E" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -81,7 +81,7 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccE - content"
-        Success result
+        [Success] result
   , testCase "Success F" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -89,7 +89,7 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccF - content"
-        Success result
+        [Success] result
   , testCase "Success G" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
@@ -97,34 +97,37 @@ conditionalTests = testGroup "Conditionals"
           field = FieldName "content"
       result <- verify condDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccG - content"
-        Success result
+        [Success] result
   , testCase "Fail A" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "FailA"
           field = FieldName "content"
       verify condDar debug tmpl choice tmpl field >>= \case
-        Success -> assertFailure "Verification wrongfully passed for FailA - content"
-        Unknown -> assertFailure "Verification inconclusive for FailA - content"
-        Fail _ -> return ()
+        [Success] -> assertFailure "Verification wrongfully passed for FailA - content"
+        [Unknown] -> assertFailure "Verification inconclusive for FailA - content"
+        [Fail _] -> return ()
+        _ -> assertFailure "Verification produced an incorrect number of outcomes for FailA - content"
   , testCase "Fail B" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "FailB"
           field = FieldName "content"
       verify condDar debug tmpl choice tmpl field >>= \case
-        Success -> assertFailure "Verification wrongfully passed for FailB - content"
-        Unknown -> assertFailure "Verification inconclusive for FailB - content"
-        Fail _ -> return ()
+        [Success] -> assertFailure "Verification wrongfully passed for FailB - content"
+        [Unknown] -> assertFailure "Verification inconclusive for FailB - content"
+        [Fail _] -> return ()
+        _ -> assertFailure "Verification produced an incorrect number of outcomes for FailB - content"
   , testCase "Fail C" $ do
       condDar <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-verify/conditionals.dar")
       let tmpl = TypeConName ["Iou"]
           choice = ChoiceName "FailC"
           field = FieldName "content"
       verify condDar debug tmpl choice tmpl field >>= \case
-        Success -> assertFailure "Verification wrongfully passed for FailC - content"
-        Unknown -> assertFailure "Verification inconclusive for FailC - content"
-        Fail _ -> return ()
+        [Success] -> assertFailure "Verification wrongfully passed for FailC - content"
+        [Unknown] -> assertFailure "Verification inconclusive for FailC - content"
+        [Fail _] -> return ()
+        _ -> assertFailure "Verification produced an incorrect number of outcomes for FailC - content"
   ]
 
 debug :: String -> IO ()

@@ -126,6 +126,9 @@ instance SubstTm Update where
 instance SubstTm TemplateChoice where
   substituteTm s cho@TemplateChoice{..} = cho{chcUpdate = substituteTm s chcUpdate}
 
+instance SubstTm a => SubstTm [a] where
+  substituteTm s = map (substituteTm s)
+
 instance SubstTm a => SubstTm (Maybe a) where
   substituteTm s m = substituteTm s <$> m
 

@@ -18,6 +18,7 @@ import Data.List
 import Data.List.Extra (nubOrd)
 import Data.Tuple.Extra (both)
 import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.String
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified SimpleSMT as S
@@ -140,7 +141,12 @@ instance ConstrExpr Expr where
     Just y -> CVar $ recProj2Var y f
     Nothing -> CVar $ recProj2Var x f
   toCExp syns (ETmApp (ETmApp op e1) e2) = case op of
+    -- TODO: Cleanup this code
     (EBuiltin (BEEqual _)) -> CEq (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BEGreater _)) -> CGt (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BEGreaterEq _)) -> CGtE (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BELess _)) -> CLt (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BELessEq _)) -> CLtE (toCExp syns e1) (toCExp syns e2)
     (EBuiltin BEAddInt64) -> CAdd (toCExp syns e1) (toCExp syns e2)
     (EBuiltin BESubInt64) -> CSub (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BEGreaterNumeric) _) -> CGt (toCExp syns e1) (toCExp syns e2)
@@ -156,6 +162,7 @@ instance ConstrExpr Expr where
     (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "-"))) _) _) ->
       CSub (toCExp syns e1) (toCExp syns e2)
     _ -> error ("Builtin: " ++ show op)
+    -- TODO Bug: `negate` seems to be undefined?
   toCExp syns (ETmApp (ETyApp (ETyApp (EBuiltin BECastNumeric) _) _) e) = toCExp syns e
   toCExp syns (ELocation _ e) = toCExp syns e
   toCExp _syns (EBuiltin (BEBool b)) = CBool b
@@ -219,7 +226,9 @@ data ConstraintSet = ConstraintSet
   , _cArcs :: ![ConstraintExpr]
     -- ^ The field values of all archived contracts.
   , _cCtrs :: ![ConstraintExpr]
-    -- ^ Additional equality constraints.
+    -- ^ Additional boolean constraints.
+  , _cInfo :: !String
+    -- ^ Debugging information.
   }
   deriving Show
 
@@ -242,7 +251,7 @@ filterUpd tem syns f UpdArchive{..} = if tem == _arcTemp
   then (Nothing, Just (toCExp syns $ fromJust $ lookup f _arcField))
   else (Nothing, Nothing)
 
--- | Filters and converts a conditional update into (possibly two) constraint
+-- | Filters and converts a conditional update into constraint
 -- expressions, while splitting it into create and archive updates.
 filterCondUpd :: Qualified TypeConName
   -- ^ The template name to filter against
@@ -295,7 +304,7 @@ constructConstr :: Env 'Solving
   -- ^ The template name of the field to be verified.
   -> FieldName
   -- ^ The field name to be verified.
-  -> ConstraintSet
+  -> [ConstraintSet]
 constructConstr env chtem ch ftem f =
   case HM.lookup (UpdChoice chtem ch) (envChoices env) of
     Just ChoiceData{..} ->
@@ -303,11 +312,25 @@ constructConstr env chtem ch ftem f =
           vars = concatMap skol2var (envSkols env)
           syns = constructSynonyms $ HM.elems $ envCids env
           ctrs = map (toCExp syns) (envCtrs env)
-          (cres, arcs) = foldl
-            (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
-            ([],[]) upds
-      in ConstraintSet vars cres arcs ctrs
+          cycleUpds = computeCycles upds
+      in map (constructSingleSet vars ctrs syns) cycleUpds
     Nothing -> error ("Choice not found " ++ show ch)
+  where
+    constructSingleSet :: [ExprVarName]
+      -- ^ The variables to be declared.
+      -> [ConstraintExpr]
+      -- ^ The additional constraints.
+      -> [(ExprVarName, ExprVarName)]
+      -- ^ The contract name synonyms, along with their current alias.
+      -> (String, [Cond Upd])
+      -- ^ The updates to analyse.
+      -> ConstraintSet
+    constructSingleSet vars ctrs syns (info, upds) =
+      let (cres, arcs) = foldl
+            (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
+            ([],[])
+            upds
+      in ConstraintSet vars cres arcs ctrs info
 
 -- | Convert a constraint expression into an SMT expression from the solving library.
 cexp2sexp :: [(ExprVarName,S.SExpr)]
@@ -386,14 +409,12 @@ declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
 -- additional required variables.
 declareCtrs :: S.Solver
   -- ^ The SMT solver.
-  -> (String -> IO ())
-  -- ^ Function for debugging printouts.
   -> [(ExprVarName,S.SExpr)]
   -- ^ The set of variable names, mapped to their corresponding SMT counterparts.
   -> [ConstraintExpr]
   -- ^ The constraints to be declared.
-  -> IO [(ExprVarName,S.SExpr)]
-declareCtrs sol debug cvars1 exprs = do
+  -> IO (String, [(ExprVarName,S.SExpr)])
+declareCtrs sol cvars1 exprs = do
   let edges = map toTuple exprs
   -- let edges = map (\(l,r) -> (l,r,gatherFreeVars l ++ gatherFreeVars r)) ctrs
       components = conn_comp edges
@@ -407,8 +428,8 @@ declareCtrs sol debug cvars1 exprs = do
         nubOrd (concatMap (concatMap (\(_,_,_,vars) -> vars)) useful_components)
         \\ useful_nodes
   cvars2 <- declareVars sol required_vars
-  mapM_ (declare $ cvars1 ++ cvars2) useful_equalities
-  return cvars2
+  debug <- (concat . (intersperse "\n")) <$> mapM (declare $ cvars1 ++ cvars2) useful_equalities
+  return (debug, cvars2)
   where
     -- | Convert the constraint expression into a tuple of a binary operator, a
     -- left and right expression, and the enclosed variables.
@@ -451,26 +472,26 @@ declareCtrs sol debug cvars1 exprs = do
 
     declare :: [(ExprVarName,S.SExpr)]
       -> (CtrOperator, ConstraintExpr, ConstraintExpr)
-      -> IO ()
+      -> IO String
     declare vars (op, cexp1, cexp2) = do
       sexp1 <- cexp2sexp vars cexp1
       sexp2 <- cexp2sexp vars cexp2
       case op of
         OpEq -> do
-          debug ("Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
           S.assert sol (sexp1 `S.eq` sexp2)
+          return ("Assert: " ++ S.ppSExpr sexp1 (" = " ++ S.ppSExpr sexp2 ""))
         OpGt -> do
-          debug ("Assert: " ++ S.ppSExpr sexp1 (" > " ++ S.ppSExpr sexp2 ""))
           S.assert sol (sexp1 `S.gt` sexp2)
+          return ("Assert: " ++ S.ppSExpr sexp1 (" > " ++ S.ppSExpr sexp2 ""))
         OpGtE -> do
-          debug ("Assert: " ++ S.ppSExpr sexp1 (" >= " ++ S.ppSExpr sexp2 ""))
           S.assert sol (sexp1 `S.geq` sexp2)
+          return ("Assert: " ++ S.ppSExpr sexp1 (" >= " ++ S.ppSExpr sexp2 ""))
         OpLt -> do
-          debug ("Assert: " ++ S.ppSExpr sexp1 (" < " ++ S.ppSExpr sexp2 ""))
           S.assert sol (sexp1 `S.lt` sexp2)
+          return ("Assert: " ++ S.ppSExpr sexp1 (" < " ++ S.ppSExpr sexp2 ""))
         OpLtE -> do
-          debug ("Assert: " ++ S.ppSExpr sexp1 (" <= " ++ S.ppSExpr sexp2 ""))
           S.assert sol (sexp1 `S.leq` sexp2)
+          return ("Assert: " ++ S.ppSExpr sexp1 (" <= " ++ S.ppSExpr sexp2 ""))
 
 -- | Data type denoting the outcome of the solver.
 data Result
@@ -507,28 +528,35 @@ showResult choice field result = case result of
 
 -- | Solve a give constraint set. Prints 'unsat' when the constraint set is
 -- valid. It asserts that the set of created and archived contracts are not
--- equal.
+-- equal. Returns both the debugging information, and the result.
 solveConstr :: FilePath
   -- ^ The path to the constraint solver.
-  -> (String -> IO ())
-  -- ^ Function for debugging printouts.
   -> ConstraintSet
   -- ^ The constraint set to solve.
-  -> IO Result
-solveConstr spath debug ConstraintSet{..} = do
+  -> IO (ChoiceName -> FieldName -> String, Result)
+solveConstr spath ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
   vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
-  vars2 <- declareCtrs sol debug vars1 _cCtrs
+  (ctr_debug, vars2) <- declareCtrs sol vars1 _cCtrs
   vars <- if null (vars1 ++ vars2)
     then declareVars sol [ExprVarName "var"]
     else pure (vars1 ++ vars2)
   cre <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cCres
   arc <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cArcs
   S.assert sol (S.not (cre `S.eq` arc))
-  S.check sol >>= \case
+  result <- S.check sol >>= \case
     S.Sat -> do
       counter <- S.getExprs sol $ map snd vars
       return $ Fail counter
     S.Unsat -> return Success
     S.Unknown -> return Unknown
+  let debug (ch :: ChoiceName) (f :: FieldName) =
+           "\n==========\n\n"
+        ++ _cInfo ++ "\n\n"
+        ++ (renderString $ layoutCompact ("Create: " <+> pretty _cCres <+> "\n"))
+        ++ (renderString $ layoutCompact ("Archive: " <+> pretty _cArcs <+> "\n"))
+        ++ ctr_debug
+        ++ "\n~~~~~~~~~~\n\n"
+        ++ (showResult ch f result)
+  return (debug, result)

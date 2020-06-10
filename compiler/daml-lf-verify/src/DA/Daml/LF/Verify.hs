@@ -12,8 +12,6 @@ module DA.Daml.LF.Verify
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.String
 import Options.Applicative
 import System.Exit
 import System.IO
@@ -36,9 +34,9 @@ main = do
       choiceName = ChoiceName (T.pack optChoiceName)
       fieldTmpl = TypeConName [T.pack optFieldTmpl]
       fieldName = FieldName (T.pack optFieldName)
-  result <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
+  _ <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
   putStrLn "\n==========\n"
-  putStrLn $ showResult choiceName fieldName result
+  putStrLn "Done."
 
 outputError :: Error
   -- ^ The error message.
@@ -63,7 +61,7 @@ verify :: FilePath
   -- ^ The template in which the given field is defined.
   -> FieldName
   -- ^ The field to be verified.
-  -> IO Result
+  -> IO [Result]
 verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
   -- Read the packages to analyse, and initialise the provided solver.
   pkgs <- readPackages [dar]
@@ -73,14 +71,12 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
   fieldTmpl <- findTemplate pkgs fieldTmplName
   -- Start reading data type and value definitions. References to other
   -- values are just stored as references at this point.
-  debug "Start value gathering"
   case runEnv (genPackages pkgs) (emptyEnv :: Env 'ValueGathering) of
     Left err-> outputError err "Value phase finished with error: "
     Right env1 -> do
       -- All value definitions have been handled. Start computing closures of
       -- the stored value references. After this phase, all value references
       -- should be inlined.
-      debug "Start value solving"
       let env2 = solveValueReferences env1
       -- Inline the newly solved references in the boolean constraints.
       case runEnv inlineReferences env2 of
@@ -98,14 +94,17 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
               debug "Start choice solving"
               let env5 = solveChoiceReferences env4
               -- Construct the actual constraints to be solved by the SMT solver.
-              debug "Start constraint solving phase"
-              let cset = constructConstr env5 choiceTmpl choiceName fieldTmpl fieldName
-              debug "\n==========\n"
-              debug $ renderString $ layoutCompact ("Create: " <+> pretty (_cCres cset) <+> "\n")
-              debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset) <+> "\n")
-              -- Pass the constraints to the SMT solver.
-              solveConstr solver debug cset
+              let csets = constructConstr env5 choiceTmpl choiceName fieldTmpl fieldName
+              mapM (debugAndSolve solver) csets
   where
+    -- | Output some debugging information and solve the given constraints.
+    debugAndSolve :: FilePath -> ConstraintSet -> IO Result
+    debugAndSolve solver cset = do
+      -- Pass the constraints to the SMT solver.
+      (debug_info, result) <- solveConstr solver cset
+      debug $ debug_info choiceName fieldName
+      return result
+
     -- | Lookup the first package that defines the given template. This avoids
     -- having to pass in the package reference manually when using the tool.
     findTemplate :: [(PackageId, (Package, Maybe PackageName))]
