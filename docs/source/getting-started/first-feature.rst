@@ -115,11 +115,10 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
   :start-after: // MESSAGELIST_BEGIN
   :end-before: // MESSAGELIST_END
 
-First we get the ``username`` of the current user with the ``useParty`` hook.
-Then ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
+In the component body, ``messagesResult`` gets the stream of all ``Message`` contracts visible to the current user.
 The streaming aspect means that we don't need to reload the page when new messages come in.
-We extract the *payload* of every ``Message`` contract (the data as opposed to metadata like the contract ID) in ``messages``.
-The rest of the component simply constructs a React ``List`` element with an item for each message.
+For each contract in the stream, we extract the *payload* (the data as opposed to metadata like the contract ID) to the ``{sender, receiver, content}`` record.
+Then we construct a ``ListItem`` UI element with the details of the message.
 
 There is one important point about privacy here.
 No matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the DAML model.
