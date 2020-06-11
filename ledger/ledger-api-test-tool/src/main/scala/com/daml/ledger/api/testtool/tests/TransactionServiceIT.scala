@@ -6,9 +6,9 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.api.testtool.tests.TransactionServiceIT.{
   comparableTransactionTrees,
   comparableTransactions
@@ -38,7 +38,7 @@ import scalaz.Tag
 import scala.collection.mutable
 import scala.concurrent.Future
 
-class TransactionServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+class TransactionServiceIT extends LedgerTestSuite {
   test(
     "TXBeginToBegin",
     "An empty stream should be served when getting transactions from and to the beginning of the ledger",

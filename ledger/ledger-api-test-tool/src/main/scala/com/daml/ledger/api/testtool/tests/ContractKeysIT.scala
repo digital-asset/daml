@@ -8,9 +8,9 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.test_stable.DA.Types.Tuple2
 import com.daml.ledger.test_stable.Test.Delegated._
@@ -22,7 +22,7 @@ import com.daml.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
 
-final class ContractKeysIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class ContractKeysIT extends LedgerTestSuite {
   test(
     "CKFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",

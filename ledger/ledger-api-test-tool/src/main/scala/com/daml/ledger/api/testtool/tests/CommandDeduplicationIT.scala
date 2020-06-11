@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test_stable.DA.Types.Tuple2
 import com.daml.ledger.test_stable.Test.TextKeyOperations._
 import com.daml.ledger.test_stable.Test._
@@ -19,7 +19,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-final class CommandDeduplicationIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class CommandDeduplicationIT extends LedgerTestSuite {
 
   /** A deduplicated submission can either
     * succeed (if the participant knows that the original submission has succeeded),
