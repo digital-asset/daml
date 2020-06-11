@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite._
 import com.daml.lf.data.Ref
 
 import scala.collection.mutable.ListBuffer
@@ -28,16 +27,4 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       new LedgerTestCase(shortIdentifierRef, description, timeoutScale, participants, testCase),
     )
   }
-
-  protected final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
-
-  protected final def skipIf(reason: String)(p: => Boolean): Future[Unit] =
-    if (p)
-      skip(reason)
-    else
-      Future.successful(())
-}
-
-private[testtool] object LedgerTestSuite {
-  final case class SkipTestException(message: String) extends RuntimeException(message)
 }
