@@ -178,40 +178,42 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     for {
       foundStartingRow <- SqlSequence(
         SQL"""select min(row_id) row_id from (
-                               select max(row_id) + 1 row_id
-                               from participant_events
-                               where event_offset = $startExclusive
-                                 and #$witnessesWhereClause
-                              union all
-                               -- this sub-query needs the index participant_event_event_offset_idx to run fast
-                               select min(row_id) row_id
-                               from participant_events
-                               where
-                                 (event_offset = $prevOffset and node_index > $prevNodeIndex)
-                                 and #$witnessesWhereClause
-                               ) rows""".withFetchSize(Some(1)),
+                select max(row_id) + 1 row_id
+                from participant_events
+                where event_offset = $startExclusive
+                  and #$witnessesWhereClause
+               union all
+                -- this sub-query needs the index participant_event_event_offset_idx to run fast
+                select min(row_id) row_id
+                from participant_events
+                where
+                  (event_offset = $prevOffset and node_index > $prevNodeIndex)
+                  and #$witnessesWhereClause
+              ) rows""".withFetchSize(Some(1)),
         SqlParser.int("row_id").?.single
       )
       startingRow = foundStartingRow getOrElse 0
       boundSelection <- SqlSequence.vector(
-        SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id
-         from participant_events
-            where
-            participant_events.row_id >= $startingRow
-            and participant_events.row_id < ${startingRow + pageSize}
-            and event_offset <= $endInclusive and #$witnessesWhereClause
-            order by (participant_events.row_id)"""
+        SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
+                     case when submitter = $requestingParty then command_id else '' end as command_id
+              from participant_events
+              where
+                participant_events.row_id >= $startingRow
+                and participant_events.row_id < ${startingRow + pageSize}
+                and event_offset <= $endInclusive and #$witnessesWhereClause
+              order by (participant_events.row_id)"""
           .withFetchSize(Some(pageSize)),
         rawTreeEventParser
       )
       tryHarderForNonEmpty <- if (boundSelection.isEmpty)
         SqlSequence(
-          SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id
-         from participant_events
-            where
-            participant_events.row_id >= ${startingRow + pageSize}
-            and event_offset <= $endInclusive and #$witnessesWhereClause
-            order by (participant_events.row_id) limit 1"""
+          SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
+                       case when submitter = $requestingParty then command_id else '' end as command_id
+                from participant_events
+                where
+                  participant_events.row_id >= ${startingRow + pageSize}
+                  and event_offset <= $endInclusive and #$witnessesWhereClause
+                order by (participant_events.row_id) limit 1"""
             .withFetchSize(Some(1)),
           rawTreeEventParser.singleOpt map (_.toList.toVector)
         )
