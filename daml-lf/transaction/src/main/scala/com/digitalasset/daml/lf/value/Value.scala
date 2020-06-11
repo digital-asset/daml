@@ -367,7 +367,7 @@ object Value extends CidContainer1[Value] {
       // For more details, please refer to  V1 Contract ID allocation scheme
       // daml-lf/spec/contract-id.rst
 
-      val MaxSuffixLength = 94
+      private[lf] val MaxSuffixLength = 94
 
       def apply(discriminator: Hash): V1 = new V1(discriminator, Bytes.Empty)
 
