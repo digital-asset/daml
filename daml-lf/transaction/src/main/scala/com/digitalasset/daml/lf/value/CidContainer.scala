@@ -55,7 +55,7 @@ trait CidContainer[+A] {
 
   import CidMapper._
 
-  protected val self: A
+  protected def self: A
 
   final def ensureNoCid[B](
       implicit checker: NoCidChecker[A, B]
@@ -108,6 +108,38 @@ trait CidContainer1[F[_]] {
   final implicit def cidSuffixerInstance[A1, A2](
       implicit resolver1: CidSuffixer[A1, A2],
   ): CidSuffixer[F[A1], F[A2]] =
+    cidMapperInstance
+
+}
+
+trait CidContainer2[F[_, _]] {
+
+  import CidMapper._
+
+  private[lf] def map2[A1, B1, C1, A2, B2, C2](
+      f1: A1 => A2,
+      f2: B1 => B2,
+  ): F[A1, B1] => F[A2, B2]
+
+  private[lf] def foreach2[A, B](
+      f1: A => Unit,
+      f2: B => Unit,
+  ): F[A, B] => Unit
+
+  protected final def cidMapperInstance[A1, B1, C1, A2, B2, C2, In, Out](
+      implicit mapper1: CidMapper[A1, A2, In, Out],
+      mapper2: CidMapper[B1, B2, In, Out],
+  ): CidMapper[F[A1, B1], F[A2, B2], In, Out] =
+    new CidMapper[F[A1, B1], F[A2, B2], In, Out] {
+      override def map(f: In => Out): F[A1, B1] => F[A2, B2] = {
+        map2[A1, B1, C1, A2, B2, C2](mapper1.map(f), mapper2.map(f))
+      }
+    }
+
+  final implicit def cidSuffixerInstance[A1, B1, C1, A2, B2, C2](
+      implicit suffixer1: CidSuffixer[A1, A2],
+      suffixer2: CidSuffixer[B1, B2],
+  ): CidSuffixer[F[A1, B1], F[A2, B2]] =
     cidMapperInstance
 
 }

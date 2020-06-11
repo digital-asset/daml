@@ -28,7 +28,7 @@ object Node {
       with NodeInfo
       with value.CidContainer[GenNode[Nid, Cid, Val]] {
 
-    final override protected val self: this.type = this
+    final override protected def self: this.type = this
 
     @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     final def mapContractIdAndValue[Cid2, Val2](
@@ -51,7 +51,7 @@ object Node {
     def requiredAuthorizers: Set[Party]
 
     def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
-      GenNode.foreach3(fNid, fCid, fVal)(self)
+      GenNode.foreach3(fNid, fCid, fVal)(this)
   }
 
   object GenNode extends WithTxValue3[GenNode] with value.CidContainer3[GenNode] {
@@ -296,14 +296,14 @@ object Node {
   final case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party])
       extends value.CidContainer[KeyWithMaintainers[Val]] {
 
-    override protected val self: KeyWithMaintainers[Val] = this
+    override protected def self: this.type = this
 
     @deprecated("Use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] =
       KeyWithMaintainers.map1(f)(this)
 
     def foreach1(f: Val => Unit): Unit =
-      KeyWithMaintainers.foreach1(f)(self)
+      KeyWithMaintainers.foreach1(f)(this)
   }
 
   object KeyWithMaintainers extends value.CidContainer1[KeyWithMaintainers] {
