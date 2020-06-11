@@ -63,7 +63,7 @@ class V5_1__Populate_Event_Data extends BaseJavaMigration {
     data.grouped(batchSize).foreach { batch =>
       val updateContractsParams = batch.map {
         case (cid, eventId, _, _) =>
-          Seq[NamedParameter]("event_id" -> (eventId: String), "contract_id" -> cid.coid)
+          Seq[NamedParameter]("event_id" -> eventId, "contract_id" -> cid.coid)
       }
       BatchSql(
         "UPDATE contracts SET create_event_id = {event_id} where id = {contract_id}",

@@ -31,7 +31,6 @@ import com.daml.lf.value.ValueVersions
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.{EventId, TransactionId}
-import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.Suite
 
@@ -107,7 +106,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     Ref.LedgerString.assertFromString(s)
 
   protected final def event(txid: TransactionId, idx: Long): EventId =
-    TransactionIdWithIndex(txid, NodeId(idx.toInt)).toLedgerString
+    EventId(txid, NodeId(idx.toInt))
 
   private def create(
       absCid: ContractId,
@@ -441,9 +440,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         submitterInfo = submitterInfo,
         workflowId = entry.workflowId,
         transactionId = entry.transactionId,
-        transaction = Tx.CommittedTransaction(
-          entry.transaction.mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId)
-        ),
+        transaction = Tx.CommittedTransaction(entry.transaction.mapNodeId(_.nodeId)),
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = entry.ledgerEffectiveTime,
         offset = offset,

@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.transaction.{
   Transaction => ApiTransaction,
   TransactionTree => ApiTransactionTree
 }
-import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
   lfNodeCreateToEvent,
@@ -38,7 +38,7 @@ object TransactionConversion {
   private type Create = NodeCreate.WithTxValue[ContractId]
   private type Exercise = NodeExercises.WithTxValue[EventId, ContractId]
 
-  private def collect[A](tx: Transaction)(pf: PartialFunction[(EventId, Node), A]): Vector[A] =
+  private def collect[A](tx: Transaction)(pf: PartialFunction[(EventId, Node), A]): Seq[A] =
     tx.fold(Vector.empty[A]) {
       case (nodes, node) if pf.isDefinedAt(node) => nodes :+ pf(node)
       case (nodes, _) => nodes
@@ -64,7 +64,7 @@ object TransactionConversion {
       )
   }
 
-  private def permanent(events: Vector[Event]): Set[String] = {
+  private def permanent(events: Seq[Event]): Set[String] = {
     events.foldLeft(Set.empty[String]) { (contractIds, event) =>
       if (event.isCreated || !contractIds.contains(event.contractId)) {
         contractIds + event.contractId
@@ -74,7 +74,8 @@ object TransactionConversion {
     }
   }
 
-  private[platform] def removeTransient(events: Vector[Event]): Vector[Event] = {
+  // `events` must be in creation order
+  private[platform] def removeTransient(events: Seq[Event]): Seq[Event] = {
     val toKeep = permanent(events)
     events.filter(event => toKeep(event.contractId))
   }
@@ -107,13 +108,13 @@ object TransactionConversion {
   ): Option[Relation[EventId, Ref.Party]] =
     Some(
       Blinding
-        .blind(transaction.mapNodeId(lf.ledger.EventId.assertFromString(_).nodeId))
+        .blind(transaction.mapNodeId(_.nodeId))
         .disclosure
         .flatMap {
           case (nodeId, disclosure) =>
             List(disclosure.intersect(parties)).collect {
               case disclosure if disclosure.nonEmpty =>
-                lf.ledger.EventId(transactionId, nodeId).toLedgerString -> disclosure
+                lf.ledger.EventId(transactionId, nodeId) -> disclosure
             }
         }
     ).filter(_.nonEmpty)
@@ -131,16 +132,19 @@ object TransactionConversion {
       eventsById: Map[EventId, Node],
   ): PartialFunction[(EventId, Node), (String, TreeEvent)] = {
     case (eventId, node: Create) if disclosure.contains(eventId) =>
-      eventId -> assertOrRuntimeEx(
+      eventId.toLedgerString -> assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
         lfNodeCreateToTreeEvent(verbose, eventId, disclosure(eventId), node),
       )
     case (eventId, node: Exercise) if disclosure.contains(eventId) =>
-      eventId -> assertOrRuntimeEx(
+      eventId.toLedgerString -> assertOrRuntimeEx(
         failureContext = "converting an exercise node to an exercise event",
-        lfNodeExercisesToTreeEvent(verbose, eventId, disclosure(eventId), node)
-          .map(_.filterChildEventIds(eventId =>
-            isCreateOrExercise(eventsById(eventId.asInstanceOf[EventId]))))
+        lfNodeExercisesToTreeEvent(
+          verbose = verbose,
+          eventId = eventId,
+          witnessParties = disclosure(eventId),
+          node = node,
+          filterChildren = eventId => isCreateOrExercise(eventsById(eventId)))
       )
   }
 
@@ -177,7 +181,7 @@ object TransactionConversion {
       case events if events.nonEmpty =>
         ApiTransactionTree(
           eventsById = events.toMap,
-          rootEventIds = newRoots(tx, disclosure.contains)
+          rootEventIds = newRoots(tx, disclosure.contains).map(_.toLedgerString)
         )
     }
 

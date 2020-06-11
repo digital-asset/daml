@@ -8,6 +8,7 @@ import java.time.Instant
 import java.util.Date
 
 import anorm._
+import com.daml.ledger.EventId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
@@ -72,6 +73,23 @@ object Conversions {
 
   implicit val ledgerStringMetaParameter: ParameterMetaData[Ref.LedgerString] =
     new SubTypeOfStringMetaParameter[Ref.LedgerString]
+
+  // EventId
+
+  implicit val columnToEventId: Column[EventId] =
+    stringColumnToX(EventId.fromString)
+
+  implicit val eventIdToStatement: ToStatement[EventId] =
+    (s: PreparedStatement, i: Int, v: EventId) =>
+      ToStatement.stringToStatement.set(s, i, v.toLedgerString)
+
+  def eventId(columnName: String): RowParser[EventId] =
+    SqlParser.get[EventId](columnName)
+
+  implicit val eventIdMetaParameter: ParameterMetaData[EventId] = new ParameterMetaData[EventId] {
+    override val sqlType: String = ParameterMetaData.StringParameterMetaData.sqlType
+    override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
+  }
 
   // ParticipantId
 

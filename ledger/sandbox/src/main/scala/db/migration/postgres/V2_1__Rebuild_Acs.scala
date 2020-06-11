@@ -24,7 +24,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
@@ -500,7 +499,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "ledger_offset"
     )
 
-  private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
+  private val DisclosureParser = (eventId("event_id") ~ party("party") map (flatten))
 
   private def toLedgerEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): (Long, LedgerEntry) = parsedEntry match {
@@ -667,7 +666,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
             val unmappedTx: Transaction.Transaction = tx.transaction
-              .mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId)
+              .mapNodeId(_.nodeId)
 
             val blindingInfo = Blinding.blind(unmappedTx)
 

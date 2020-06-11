@@ -1,9 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.transaction
+package com.daml.lf
+package transaction
 
-import com.daml.lf.data.{BackStack, Ref}
+import com.daml.lf.data.BackStack
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
@@ -42,13 +43,13 @@ object TransactionCoder {
         .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(Value.NodeId(idx)))
   }
 
-  val EventIdEncoder: EncodeNid[Ref.LedgerString] = new EncodeNid[Ref.LedgerString] {
-    override def asString(id: Ref.LedgerString): String = id
+  val EventIdEncoder: EncodeNid[ledger.EventId] = new EncodeNid[ledger.EventId] {
+    override def asString(id: ledger.EventId): String = id.toLedgerString
   }
 
-  val EventIdDecoder: DecodeNid[Ref.LedgerString] = new DecodeNid[Ref.LedgerString] {
-    override def fromString(s: String): Either[DecodeError, Ref.LedgerString] =
-      Ref.LedgerString
+  val EventIdDecoder: DecodeNid[ledger.EventId] = new DecodeNid[ledger.EventId] {
+    override def fromString(s: String): Either[DecodeError, ledger.EventId] =
+      ledger.EventId
         .fromString(s)
         .left
         .map(_ => DecodeError(s"cannot decode noid: $s"))

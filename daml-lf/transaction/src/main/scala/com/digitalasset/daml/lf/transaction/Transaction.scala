@@ -111,7 +111,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
   }
 
   /**
-    * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
+    * Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */

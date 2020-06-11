@@ -7,7 +7,6 @@ import java.time.Instant
 
 import com.daml.lf.{CompiledPackages, crypto}
 import com.daml.lf.data.{Relation => _, _}
-import com.daml.lf.data.Relation.Relation
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.{ScenarioRunner, Speedy}
@@ -236,10 +235,8 @@ object ScenarioLoader {
         val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.assertConcat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        val tx =
-          GenTransaction(richTransaction.nodes, richTransaction.roots).mapNodeId(_.toLedgerString)
-        val mappedExplicitDisclosure =
-          Relation.mapKeys(richTransaction.explicitDisclosure)(_.toLedgerString)
+        val tx = GenTransaction(richTransaction.nodes, richTransaction.roots)
+        val mappedExplicitDisclosure = richTransaction.explicitDisclosure
         val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later

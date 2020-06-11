@@ -217,7 +217,7 @@ class InMemoryLedger(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
               CreatedEvent(
-                contract.eventId,
+                contract.eventId.toLedgerString,
                 contract.id.coid,
                 Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
                 contractKey = contract.key.map(
