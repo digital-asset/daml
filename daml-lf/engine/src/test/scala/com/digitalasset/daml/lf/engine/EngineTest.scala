@@ -1370,7 +1370,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val fetchedCid = toContractId("#1")
     val now = Time.Timestamp.now()
     val submissionSeed = crypto.Hash.hashPrivateKey(
-      "fetching contracts that have keys correctly fills in the transaction structur")
+      "fetching contracts that have keys correctly fills in the transaction structure")
     val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, now)
 
     "fetched via a fetch" in {

@@ -154,7 +154,7 @@ object ValueGenerators {
     Gen
       .containerOfN[Array, Byte](crypto.Hash.underlyingHashLength, arbitrary[Byte]) map crypto.Hash.assertFromByteArray
   private val genSuffixes: Gen[Bytes] = for {
-    sz <- Gen.chooseNum(0, ContractId.V1.maxSuffixLength)
+    sz <- Gen.chooseNum(0, ContractId.V1.MaxSuffixLength)
     ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
   } yield Bytes fromByteArray ab
 
