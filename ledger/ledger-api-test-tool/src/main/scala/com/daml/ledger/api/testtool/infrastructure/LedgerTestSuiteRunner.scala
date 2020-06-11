@@ -9,7 +9,6 @@ import java.util.{Timer, TimerTask}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
@@ -83,8 +82,6 @@ final class LedgerTestSuiteRunner(
     startedTest
       .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
       .recover[Either[Result.Failure, Result.Success]] {
-        case SkipTestException(reason) =>
-          Right(Result.Skipped(reason))
         case _: TimeoutException =>
           Left(Result.TimedOut)
         case failure: AssertionError =>
