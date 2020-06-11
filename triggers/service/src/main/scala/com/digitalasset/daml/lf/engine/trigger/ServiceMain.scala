@@ -57,6 +57,7 @@ case class LedgerConfig(
     commandTtl: Duration,
 )
 
+final case class SecretKey(value: String)
 final case class UserCredentials(token: EncryptedToken)
 
 final case class RunningTrigger(
@@ -195,14 +196,14 @@ object Server {
   ): Behavior[Message] = Behaviors.setup { ctx =>
     val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
 
-    val key =
+    val key: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
-        case Some(key) => key
+        case Some(key) => SecretKey(key)
         case None => {
           ctx.log.warn(
             "The environment variable 'TRIGGER_SERVICE_SECRET_KEY' is not defined. It is highly recommended that a non-empty value for this variable be set. If the service startup parameters do not include the '--no-secret-key' option, the service will now terminate.")
           if (noSecretKey) {
-            "secret key" // Provided for testing.
+            SecretKey("secret key") // Provided for testing.
           } else {
             sys.exit(1)
           }

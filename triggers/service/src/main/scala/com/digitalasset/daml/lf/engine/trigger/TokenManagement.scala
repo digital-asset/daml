@@ -3,7 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.http.scaladsl.model.HttpRequest
 import java.nio.charset.StandardCharsets
@@ -15,6 +16,7 @@ import javax.crypto.spec.SecretKeySpec
 case class Unauthorized(message: String) extends Error(message)
 case class EncryptedToken(token: String)
 case class UnencryptedToken(token: String)
+case class Password(password: String)
 
 object TokenManagement {
 
@@ -26,8 +28,8 @@ object TokenManagement {
   // Given 'key', use 'SALT' to produce an AES (Advanced Encryption
   // Standard) secret key specification. This utility is called from
   // the 'encrypt' and 'decrypt' functions.
-  private def keyToSpec(key: String): SecretKeySpec = {
-    var keyBytes: Array[Byte] = (SALT + key).getBytes("UTF-8")
+  private def keyToSpec(key: SecretKey): SecretKeySpec = {
+    var keyBytes: Array[Byte] = (SALT + key.value).getBytes("UTF-8")
     val sha: MessageDigest = MessageDigest.getInstance("SHA-1")
     keyBytes = sha.digest(keyBytes)
     keyBytes = util.Arrays.copyOf(keyBytes, 16)
@@ -38,7 +40,7 @@ object TokenManagement {
   // value and then base64 encode the result (the resulting string
   // consists of characters strictly in the set [a-z], [A-Z], [0-9] +
   // and /.
-  private def encrypt(key: String, value: UnencryptedToken): EncryptedToken = {
+  private def encrypt(key: SecretKey, value: UnencryptedToken): EncryptedToken = {
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
     cipher.init(Cipher.ENCRYPT_MODE, keyToSpec(key))
     val bytes = java.util.Base64.getEncoder
@@ -48,7 +50,7 @@ object TokenManagement {
 
   // AES decrypt 'value' given 'key'. Proceed by first decoding from
   // base64 then decrypt the result.
-  private def decrypt(key: String, value: EncryptedToken): UnencryptedToken = {
+  private def decrypt(key: SecretKey, value: EncryptedToken): UnencryptedToken = {
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING")
     cipher.init(Cipher.DECRYPT_MODE, keyToSpec(key))
     UnencryptedToken(
@@ -61,34 +63,24 @@ object TokenManagement {
   // token. By construction we ensure that there will always be two
   // components and that the first component is a syntactically valid
   // party identifier (see 'findCredentials').
-  def decodeCredentials(
-      key: String,
-      credentials: UserCredentials): (com.daml.ledger.api.refinements.ApiTypes.Party, String) = {
-    val components = decrypt(key, credentials.token).token.split(":")
-    (com.daml.ledger.api.refinements.ApiTypes.Party(components(0)), components(1))
+  def decodeCredentials(key: SecretKey, creds: UserCredentials): (Party, Password) = {
+    val segments = decrypt(key, creds.token).token.split(":")
+    (Party(segments(0)), Password(segments(1)))
   }
 
   // Parse the user credentials out of a request's headers.
-  def findCredentials(key: String, req: HttpRequest): Either[String, UserCredentials] = {
+  def findCredentials(key: SecretKey, req: HttpRequest): Either[String, UserCredentials] = {
     req.headers
       .collectFirst {
-        case Authorization(c @ BasicHttpCredentials(username, password)) => {
-          val token = c.token()
-          val bytes = java.util.Base64.getDecoder.decode(token.getBytes())
-          UserCredentials(encrypt(key, UnencryptedToken(new String(bytes, StandardCharsets.UTF_8))))
+        case Authorization(BasicHttpCredentials(username, password)) => {
+          (username, password)
         }
       } match {
-      // Check the given username conforms to the syntactic
-      // requirements of a party identifier.
-      case Some(credentials) =>
-        decodeCredentials(key, credentials) match {
-          case (party, _) =>
-            val ident = party.toString()
-            if (Party.fromString(ident).isRight) {
-              Right(credentials)
-            } else {
-              Left("invalid party identifier '" + ident + "'")
-            }
+      case Some((username, password)) =>
+        if (Ref.Party.fromString(username).isRight) {
+          Right(UserCredentials(encrypt(key, UnencryptedToken(username + ":" + password))))
+        } else {
+          Left("invalid party identifier '" + username + "'")
         }
       case None => Left("missing Authorization header with Basic Token")
     }
