@@ -129,9 +129,8 @@ object KeyValueParticipantStateWriterSpec {
     ledgerEffectiveTime = let,
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
     submissionTime = let.addMicros(1000),
-    submissionSeed = Some(
-      crypto.Hash.assertFromString(
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
+    submissionSeed = crypto.Hash.assertFromString(
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
     optUsedPackages = Some(Set.empty),
     optNodeSeeds = None,
     optByKeyNodes = None
