@@ -24,6 +24,7 @@ case class ServiceConfig(
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
+    noSecretKey: Boolean, // Default false
     jdbcConfig: Option[JdbcConfig],
 )
 
@@ -84,22 +85,22 @@ object ServiceConfig {
     opt[String]("dar")
       .optional()
       .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
-      .text("Path to the dar file containing the trigger")
+      .text("Path to the dar file containing the trigger.")
 
     opt[Int]("http-port")
       .optional()
       .action((t, c) => c.copy(httpPort = t))
-      .text(s"Optional HTTP port. Defaults to ${DefaultHttpPort}")
+      .text(s"Optional HTTP port. Defaults to ${DefaultHttpPort}.")
 
     opt[String]("ledger-host")
       .required()
       .action((t, c) => c.copy(ledgerHost = t))
-      .text("Ledger hostname")
+      .text("Ledger hostname.")
 
     opt[Int]("ledger-port")
       .required()
       .action((t, c) => c.copy(ledgerPort = t))
-      .text("Ledger port")
+      .text("Ledger port.")
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -139,9 +140,14 @@ object ServiceConfig {
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
 
+    opt[Unit]("no-secret-key")
+      .action((_, c) => c.copy(noSecretKey = true))
+      .text("Allow running without a secret key.")
+
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")
+
   }
 
   def parse(args: Array[String]): Option[ServiceConfig] =
@@ -158,6 +164,7 @@ object ServiceConfig {
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
+        noSecretKey = false,
         jdbcConfig = None,
       ),
     )
