@@ -137,9 +137,8 @@ in rec {
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
-    sphinx-autobuild = import ./tools/sphinx-autobuild {
+    sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
       inherit pkgs;
-      python37Packages = pkgs.python37Packages;
     };
 
     sphinx183 = bazel_dependencies.sphinx183;
