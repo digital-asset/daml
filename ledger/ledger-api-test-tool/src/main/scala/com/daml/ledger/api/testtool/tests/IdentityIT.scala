@@ -8,7 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSui
 
 import scala.concurrent.Future
 
-final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
+final class IdentityIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "IdNotEmpty",
     "A ledger should return a non-empty string as its identity",

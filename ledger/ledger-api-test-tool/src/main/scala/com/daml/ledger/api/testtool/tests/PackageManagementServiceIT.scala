@@ -13,7 +13,7 @@ import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(session) {
+final class PackageManagementServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   private[this] val testPackageResourcePath =
     "/ledger/ledger-api-test-tool/PackageManagementTest.dar"
 

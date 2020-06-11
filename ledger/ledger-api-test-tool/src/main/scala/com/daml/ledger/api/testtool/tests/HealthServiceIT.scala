@@ -8,7 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import io.grpc.health.v1.health.HealthCheckResponse
 
-class HealthService(session: LedgerSession) extends LedgerTestSuite(session) {
+class HealthServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties))(
     implicit ec => {
       case Participants(Participant(ledger)) =>

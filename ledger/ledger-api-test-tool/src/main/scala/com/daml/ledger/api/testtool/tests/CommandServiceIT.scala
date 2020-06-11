@@ -20,7 +20,7 @@ import com.daml.ledger.test_stable.Test.{Dummy, _}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
-final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
+final class CommandServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CSsubmitAndWait",
     "SubmitAndWait creates a contract of the expected template",

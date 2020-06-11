@@ -22,23 +22,23 @@ object Tests {
     * always run by default, unless otherwise specified.
     */
   val default: Tests = Map(
-    "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
-    "CommandServiceIT" -> (new CommandService(_)),
-    "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletion(_)),
-    "CommandDeduplicationIT" -> (new CommandDeduplication(_)),
-    "ContractKeysIT" -> (new ContractKeys(_)),
-    "DivulgenceIT" -> (new Divulgence(_)),
-    "HealthServiceIT" -> (new HealthService(_)),
-    "IdentityIT" -> (new Identity(_)),
-    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_)),
-    "PackageManagementServiceIT" -> (new PackageManagement(_)),
-    "PackageServiceIT" -> (new Packages(_)),
-    "PartyManagementServiceIT" -> (new PartyManagement(_)),
+    "ActiveContractsServiceIT" -> (new ActiveContractsServiceIT(_)),
+    "CommandServiceIT" -> (new CommandServiceIT(_)),
+    "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletionIT(_)),
+    "CommandDeduplicationIT" -> (new CommandDeduplicationIT(_)),
+    "ContractKeysIT" -> (new ContractKeysIT(_)),
+    "DivulgenceIT" -> (new DivulgenceIT(_)),
+    "HealthServiceIT" -> (new HealthServiceIT(_)),
+    "IdentityIT" -> (new IdentityIT(_)),
+    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationServiceIT(_)),
+    "PackageManagementServiceIT" -> (new PackageManagementServiceIT(_)),
+    "PackageServiceIT" -> (new PackageServiceIT(_)),
+    "PartyManagementServiceIT" -> (new PartyManagementServiceIT(_)),
     "SemanticTests" -> (new SemanticTests(_)),
-    "TransactionServiceIT" -> (new TransactionService(_)),
-    "WitnessesIT" -> (new Witnesses(_)),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
-    "ClosedWorldIT" -> (new ClosedWorld(_)),
+    "TransactionServiceIT" -> (new TransactionServiceIT(_)),
+    "WitnessesIT" -> (new WitnessesIT(_)),
+    "WronglyTypedContractIdIT" -> (new WronglyTypedContractIdIT(_)),
+    "ClosedWorldIT" -> (new ClosedWorldIT(_)),
   )
 
   /**
@@ -49,9 +49,9 @@ object Tests {
     * These are consequently not run unless otherwise specified.
     */
   val optional: Tests = Map(
-    "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
-    "LotsOfPartiesIT" -> (new LotsOfParties(_)),
-    "TransactionScaleIT" -> (new TransactionScale(_)),
+    "ConfigManagementServiceIT" -> (new ConfigManagementServiceIT(_)),
+    "LotsOfPartiesIT" -> (new LotsOfPartiesIT(_)),
+    "TransactionScaleIT" -> (new TransactionScaleIT(_)),
   )
 
   val all: Tests = default ++ optional
