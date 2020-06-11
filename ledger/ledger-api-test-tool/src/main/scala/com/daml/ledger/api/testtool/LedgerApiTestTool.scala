@@ -15,7 +15,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
 }
 import org.slf4j.LoggerFactory
 
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 object LedgerApiTestTool {
 
@@ -42,8 +42,8 @@ object LedgerApiTestTool {
     println("Tests marked with * are run by default.")
     println(
       "You can include extra tests with `--include=TEST-NAME`, or run all tests with `--all-tests`.\n")
-    Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
-    Tests.optional(config).keySet.toSeq.sorted.foreach(println(_))
+    Tests.default.map(_.name + " * ").sorted.foreach(println(_))
+    Tests.optional(config).map(_.name).sorted.foreach(println(_))
 
     println("\nAlternatively, you can run performance tests.")
     println(
@@ -88,7 +88,8 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val missingTests = (config.included ++ config.excluded).filterNot(Tests.all(config).contains)
+    val missingTests =
+      (config.included ++ config.excluded).filterNot(Tests.all(config).map(_.name).contains)
     if (missingTests.nonEmpty) {
       println("The following tests could not be found:")
       missingTests.foreach { testName =>
@@ -98,13 +99,15 @@ object LedgerApiTestTool {
     }
 
     val included =
-      if (config.allTests) Tests.all(config).keySet
-      else if (config.included.isEmpty) Tests.default.keySet
+      if (config.allTests) Tests.all(config).map(_.name).toSet
+      else if (config.included.isEmpty) Tests.default.map(_.name).toSet
       else config.included
 
-    val testsToRun = Tests.all(config).filterKeys(included -- config.excluded)
+    val testsToRun = Tests.all(config).filter(suite => (included -- config.excluded)(suite.name))
     val performanceTestsToRun =
-      Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
+      Tests
+        .performanceTests(config.performanceTestsReport)
+        .filter(suite => config.performanceTests(suite.name))
 
     if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
       println("No tests to run.")
@@ -125,13 +128,13 @@ object LedgerApiTestTool {
       if (performanceTestsToRun.nonEmpty)
         newLedgerSuiteRunner(
           config,
-          performanceTestsToRun.values,
+          performanceTestsToRun,
           concurrencyOverride = Some(1),
         )
       else
         newLedgerSuiteRunner(
           config,
-          testsToRun.values,
+          Random.shuffle(testsToRun),
         )
 
     runner.verifyRequirementsAndRun {

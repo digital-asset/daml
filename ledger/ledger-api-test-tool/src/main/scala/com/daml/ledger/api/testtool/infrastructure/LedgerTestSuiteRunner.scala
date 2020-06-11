@@ -125,6 +125,7 @@ final class LedgerTestSuiteRunner(
       .flatMap(suite => suite.tests.map(suite -> _))
       .zipWithIndex
     Source(tests)
+      .throttle(3, 1.second)
       .mapAsyncUnordered(concurrentTestRuns) {
         case ((suite, test), index) =>
           run(test, ledgerSession).map(testResult => (suite, test, testResult) -> index)

@@ -333,6 +333,7 @@ object PerformanceEnvelope {
     * @param numWarmupPings how many pings to run before the perf test to warm up the system
     */
   class ThroughputTest(
+      override val name: String,
       val logger: Logger,
       val envelope: Envelope,
       val numPings: Int = 200,
@@ -375,6 +376,7 @@ object PerformanceEnvelope {
   }
 
   class LatencyTest(
+      override val name: String,
       val logger: Logger,
       val envelope: Envelope,
       val numPings: Int = 20,
@@ -423,7 +425,10 @@ object PerformanceEnvelope {
     s"Sample size of ${sample.length}: avg=${"%.0f" format avg} ms, median=$med ms, stdev=${"%.0f" format stddev} ms"
   }
 
-  class TransactionSizeScaleTest(val logger: Logger, val envelope: Envelope)
+  class TransactionSizeScaleTest(
+      override val name: String,
+      val logger: Logger,
+      val envelope: Envelope)
       extends LedgerTestSuite
       with PerformanceEnvelope {
 

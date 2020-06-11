@@ -11,30 +11,30 @@ import com.daml.ledger.api.testtool.tests._
 import org.slf4j.LoggerFactory
 
 object Tests {
-  type Tests = Map[String, LedgerTestSuite]
+  type Tests = Seq[LedgerTestSuite]
 
   /**
     * These tests are safe to be run concurrently and are
     * always run by default, unless otherwise specified.
     */
-  val default: Tests = Map(
-    "ActiveContractsServiceIT" -> (new ActiveContractsServiceIT),
-    "CommandServiceIT" -> (new CommandServiceIT),
-    "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletionIT),
-    "CommandDeduplicationIT" -> (new CommandDeduplicationIT),
-    "ContractKeysIT" -> (new ContractKeysIT),
-    "DivulgenceIT" -> (new DivulgenceIT),
-    "HealthServiceIT" -> (new HealthServiceIT),
-    "IdentityIT" -> (new IdentityIT),
-    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationServiceIT),
-    "PackageManagementServiceIT" -> (new PackageManagementServiceIT),
-    "PackageServiceIT" -> (new PackageServiceIT),
-    "PartyManagementServiceIT" -> (new PartyManagementServiceIT),
-    "SemanticTests" -> (new SemanticTests),
-    "TransactionServiceIT" -> (new TransactionServiceIT),
-    "WitnessesIT" -> (new WitnessesIT),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractIdIT),
-    "ClosedWorldIT" -> (new ClosedWorldIT),
+  val default: Tests = Seq(
+    new ActiveContractsServiceIT,
+    new ClosedWorldIT,
+    new CommandDeduplicationIT,
+    new CommandServiceIT,
+    new CommandSubmissionCompletionIT,
+    new ContractKeysIT,
+    new DivulgenceIT,
+    new HealthServiceIT,
+    new IdentityIT,
+    new LedgerConfigurationServiceIT,
+    new PackageManagementServiceIT,
+    new PackageServiceIT,
+    new PartyManagementServiceIT,
+    new SemanticTests,
+    new TransactionServiceIT,
+    new WitnessesIT,
+    new WronglyTypedContractIdIT,
   )
 
   /**
@@ -44,10 +44,10 @@ object Tests {
     *
     * These are consequently not run unless otherwise specified.
     */
-  def optional(config: Config): Tests = Map(
-    "ConfigManagementServiceIT" -> (new ConfigManagementServiceIT),
-    "LotsOfPartiesIT" -> (new LotsOfPartiesIT),
-    "TransactionScaleIT" -> (new TransactionScaleIT(config.loadScaleFactor)),
+  def optional(config: Config): Tests = Seq(
+    new ConfigManagementServiceIT,
+    new LotsOfPartiesIT,
+    new TransactionScaleIT(config.loadScaleFactor),
   )
 
   def all(config: Config): Tests = default ++ optional(config)
@@ -71,24 +71,27 @@ object Tests {
         val latencyKey: String = performanceEnvelopeLatencyTestKey(envelope)
         val transactionSizeKey: String = performanceEnvelopeTransactionSizeTestKey(envelope)
         List(
-          throughputKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+          new testtool.tests.PerformanceEnvelope.ThroughputTest(
+            throughputKey,
             logger = LoggerFactory.getLogger(throughputKey),
             envelope = envelope,
             reporter = reporter,
-          )),
-          latencyKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+          ),
+          new testtool.tests.PerformanceEnvelope.LatencyTest(
+            latencyKey,
             logger = LoggerFactory.getLogger(latencyKey),
             envelope = envelope,
             reporter = reporter,
-          )),
-          transactionSizeKey -> (new testtool.tests.PerformanceEnvelope.TransactionSizeScaleTest(
+          ),
+          new testtool.tests.PerformanceEnvelope.TransactionSizeScaleTest(
+            transactionSizeKey,
             logger = LoggerFactory.getLogger(transactionSizeKey),
             envelope = envelope,
-          )),
+          ),
         )
       }
     }
-  }.toMap
+  }.toSeq
 
   private[this] def performanceEnvelopeThroughputTestKey(envelope: Envelope): String =
     s"PerformanceEnvelope.${envelope.name}.Throughput"
