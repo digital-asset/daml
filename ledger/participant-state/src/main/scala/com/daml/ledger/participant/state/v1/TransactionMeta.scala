@@ -37,7 +37,7 @@ final case class TransactionMeta(
     ledgerEffectiveTime: Time.Timestamp,
     workflowId: Option[WorkflowId],
     submissionTime: Time.Timestamp,
-    submissionSeed: Option[crypto.Hash],
+    submissionSeed: crypto.Hash,
     optUsedPackages: Option[Set[Ref.PackageId]],
     optNodeSeeds: Option[ImmArray[(Tx.NodeId, crypto.Hash)]],
     optByKeyNodes: Option[ImmArray[Tx.NodeId]]

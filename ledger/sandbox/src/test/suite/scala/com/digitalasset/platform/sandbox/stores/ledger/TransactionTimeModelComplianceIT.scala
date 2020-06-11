@@ -75,7 +75,7 @@ class TransactionTimeModelComplianceIT
     }
   }
 
-  private[this] val submissionSeed = Some(crypto.Hash.hashPrivateKey(this.getClass.getName))
+  private[this] val submissionSeed = crypto.Hash.hashPrivateKey(this.getClass.getName)
 
   private[this] def publishConfig(
       ledger: Ledger,

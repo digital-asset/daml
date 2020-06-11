@@ -65,7 +65,7 @@ final class StoreBackedCommandExecutor(
               commands.commands.ledgerEffectiveTime,
               commands.workflowId.map(_.unwrap),
               meta.submissionTime,
-              Some(submissionSeed),
+              submissionSeed,
               Some(meta.usedPackages),
               Some(meta.nodeSeeds),
               Some(meta.byKeyNodes),
