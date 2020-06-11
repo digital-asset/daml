@@ -10,6 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerTestCase(
     val shortIdentifier: Ref.LedgerString,
+    val name: String,
     val description: String,
     val timeoutScale: Double,
     participants: ParticipantAllocation,

@@ -24,7 +24,13 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   )(testCase: ExecutionContext => Participants => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
-      new LedgerTestCase(shortIdentifierRef, description, timeoutScale, participants, testCase),
+      new LedgerTestCase(
+        shortIdentifierRef,
+        s"${name}:${shortIdentifier}",
+        description,
+        timeoutScale,
+        participants,
+        testCase),
     )
   }
 }
