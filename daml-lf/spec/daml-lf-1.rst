@@ -558,7 +558,7 @@ strings as *package identifiers*.  ::
            pversion ::= PackageVersionString        -- PackageVersion
 
   V0 Contract identifiers:
-          cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]+           -- V0ContractId
+          cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]{1,254}     -- V0ContractId
 
   V1 Contract identifiers:
           cidV1  ∈  00([0-9a-f][0-9a-f]){32,126}    -- V1ContractId
