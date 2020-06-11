@@ -89,12 +89,10 @@ private[dao] sealed abstract class ContractsReader(
       contractId: ContractId,
   ): Future[Option[Contract]] =
     // Depending on whether the contract argument is cached or not, submit a different query to the database
-    translation.cache.getIfPresent(LfValueTranslation.Cache.ContractKey(contractId)) match {
+    translation.cache.contracts
+      .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
       case Some(createArgument) =>
-        lookupActiveContractWithoutArgument(
-          submitter,
-          contractId,
-          createArgument.assertContract().argument)
+        lookupActiveContractWithoutArgument(submitter, contractId, createArgument.argument)
       case None =>
         lookupActiveContractWithArgument(submitter, contractId)
 

@@ -4,13 +4,13 @@
 package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.caching.Cache
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.resources.{Resource, ResourceOwner}
 import org.scalatest.Suite
@@ -30,7 +30,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
         jdbcUrl = jdbcUrl,
         eventsPageSize = 100,
         metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = Cache.none,
+        lfValueTranslationCache = LfValueTranslation.Cache.none,
       )
 
   protected final var ledgerDao: LedgerDao = _

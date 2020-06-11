@@ -41,7 +41,8 @@ final case class SandboxConfig(
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     eventsPageSize: Int,
-    lfValueTranslationCacheConfiguration: caching.Configuration,
+    lfValueTranslationEventCacheConfiguration: caching.Configuration,
+    lfValueTranslationContractCacheConfiguration: caching.Configuration,
     profileDir: Option[Path],
 )
 
@@ -78,7 +79,8 @@ object SandboxConfig {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       eventsPageSize = DefaultEventsPageSize,
-      lfValueTranslationCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
+      lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
+      lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
     )
 
