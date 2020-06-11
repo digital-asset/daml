@@ -151,14 +151,25 @@ excluded_test_tool_tests = {
         },
     ],
     "0.0.0": [
+        # Note: looking at the releases page on GitHub might give the impression
+        # that there is no version in-between 3908 and 3991. This is because the
+        # releases page orders releases by date, whereas we order releases by
+        # semver. In semver order, 1.0.1-3917 and 1.0.1 are both "in-between"
+        # 1.0.1-3908 and 1.1.0-3991.
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
+            "exclusions": [
+                "ContractKeysIT:CKFetchOrLookup",
+                "ContractKeysIT:CKNoFetchUndisclosed",
+            ],
         },
         {
             "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
             "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
+            "exclusions": [
+                "ContractKeysIT:CKFetchOrLookup",
+                "ContractKeysIT:CKNoFetchUndisclosed",
+            ],
         },
     ],
 }

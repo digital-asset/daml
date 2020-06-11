@@ -38,17 +38,26 @@ object LedgerApiTestTool {
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
-  private def printAvailableTests(config: Config): Unit = {
+  private def print[A](defaults: Seq[A], optionals: Seq[A])(t: A => String): Unit = {
     println("Tests marked with * are run by default.")
     println(
       "You can include extra tests with `--include=TEST-NAME`, or run all tests with `--all-tests`.\n")
-    Tests.default.map(_.name + " * ").sorted.foreach(println(_))
-    Tests.optional(config).map(_.name).sorted.foreach(println(_))
+    defaults.map(t(_) + " * ").sorted.foreach(println(_))
+    optionals.map(t).sorted.foreach(println(_))
 
     println("\nAlternatively, you can run performance tests.")
     println(
       "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`.\n")
     Tests.PerformanceTestsKeys.sorted.foreach(println(_))
+  }
+  private def printAvailableTestSuites(config: Config): Unit = {
+    println("Listing test suites. Run with --list-all to see individual tests.")
+    print(Tests.default, Tests.optional(config))(_.name)
+  }
+
+  private def printAvailableTests(config: Config): Unit = {
+    println("Listing all tests. Run with --list to only see test suites.")
+    print(Tests.default.flatMap(_.tests), Tests.optional(config).flatMap(_.tests))(_.name)
   }
 
   private def extractResources(resources: String*): Unit = {
@@ -66,6 +75,11 @@ object LedgerApiTestTool {
   def main(args: Array[String]): Unit = {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
+
+    if (config.listTestSuites) {
+      printAvailableTestSuites(config)
+      sys.exit(0)
+    }
 
     if (config.listTests) {
       printAvailableTests(config)
@@ -88,31 +102,22 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val missingTests =
-      (config.included ++ config.excluded).filterNot(Tests.all(config).map(_.name).contains)
+    val missingTests = (config.included ++ config.excluded).filterNot(pref =>
+      Tests.all(config).flatMap(_.tests).map(_.name).exists(test => test.startsWith(pref)))
     if (missingTests.nonEmpty) {
-      println("The following tests could not be found:")
+      println("The following exclusion or inclusion does not match any test:")
       missingTests.foreach { testName =>
         println(s"  - $testName")
       }
       sys.exit(64)
     }
 
-    val included =
-      if (config.allTests) Tests.all(config).map(_.name).toSet
-      else if (config.included.isEmpty) Tests.default.map(_.name).toSet
-      else config.included
-
-    val testsToRun = Tests.all(config).filter(suite => (included -- config.excluded)(suite.name))
     val performanceTestsToRun =
       Tests
         .performanceTests(config.performanceTestsReport)
         .filter(suite => config.performanceTests(suite.name))
 
-    if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
-      println("No tests to run.")
-      sys.exit(0)
-    } else if ((config.allTests || config.included.nonEmpty) && performanceTestsToRun.nonEmpty) {
+    if ((config.allTests || config.included.nonEmpty) && performanceTestsToRun.nonEmpty) {
       println("Either regular or performance tests can be run, but not both.")
       sys.exit(64)
     }
@@ -124,17 +129,27 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
+    val included_p =
+      if (config.allTests) Tests.all(config).map(_.name).toSet
+      else if (config.included.isEmpty) Tests.default.map(_.name).toSet
+      else config.included
+    val shouldRun: String => Boolean = caseName => {
+      included_p.exists(caseName.startsWith) && !config.excluded.exists(caseName.startsWith)
+    }
+
     val runner =
       if (performanceTestsToRun.nonEmpty)
         newLedgerSuiteRunner(
           config,
           performanceTestsToRun,
+          caseName => true,
           concurrencyOverride = Some(1),
         )
       else
         newLedgerSuiteRunner(
           config,
-          Random.shuffle(testsToRun),
+          Random.shuffle(Tests.all(config)),
+          shouldRun,
         )
 
     runner.verifyRequirementsAndRun {
@@ -150,6 +165,7 @@ object LedgerApiTestTool {
   private[this] def newLedgerSuiteRunner(
       config: Config,
       suites: Iterable[LedgerTestSuite],
+      shouldRun: String => Boolean,
       concurrencyOverride: Option[Int] = None): LedgerTestSuiteRunner =
     new LedgerTestSuiteRunner(
       LedgerSessionConfiguration(
@@ -162,6 +178,7 @@ object LedgerApiTestTool {
       suites.toVector,
       identifierSuffix,
       config.timeoutScaleFactor,
+      shouldRun,
       concurrencyOverride.getOrElse(config.concurrentTestRuns),
     )
 }

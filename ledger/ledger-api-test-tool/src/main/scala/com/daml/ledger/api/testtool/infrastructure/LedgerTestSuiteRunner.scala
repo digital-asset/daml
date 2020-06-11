@@ -37,6 +37,7 @@ final class LedgerTestSuiteRunner(
     suites: Vector[LedgerTestSuite],
     identifierSuffix: String,
     suiteTimeoutScale: Double,
+    shouldRun: String => Boolean,
     concurrentTestRuns: Int,
 ) {
   private[this] val verifyRequirements: Try[Unit] =
@@ -103,7 +104,7 @@ final class LedgerTestSuiteRunner(
       result: Either[Result.Failure, Result.Success])(
       implicit ec: ExecutionContext,
   ): LedgerTestSummary =
-    LedgerTestSummary(suite.name, test.description, config, result)
+    LedgerTestSummary(suite.name, test.name, test.description, config, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext,
@@ -127,8 +128,13 @@ final class LedgerTestSuiteRunner(
     Source(tests)
       .throttle(3, 1.second)
       .mapAsyncUnordered(concurrentTestRuns) {
-        case ((suite, test), index) =>
-          run(test, ledgerSession).map(testResult => (suite, test, testResult) -> index)
+        case ((suite, test), index) => {
+          if (shouldRun(test.name)) {
+            run(test, ledgerSession).map(testResult => (suite, test, testResult) -> index)
+          } else {
+            Future.successful((suite, test, Right(Result.Skipped("Skipped"))) -> index)
+          }
+        }
       }
       .map {
         case ((suite, test, testResult), index) => summarize(suite, test, testResult) -> index

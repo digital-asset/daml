@@ -54,8 +54,8 @@ object Reporter {
           s.println()
           s.println(cyan(suite))
 
-          for (LedgerTestSummary(_, test, _, result) <- summaries) {
-            s.print(cyan(s"- $test ... "))
+          for (LedgerTestSummary(_, name, desc, _, result) <- summaries) {
+            s.print(cyan(s"- [$name] $desc ... "))
             result match {
               case Right(Result.Succeeded(duration)) =>
                 s.println(green(s"Success (${duration.toMillis} ms)"))
