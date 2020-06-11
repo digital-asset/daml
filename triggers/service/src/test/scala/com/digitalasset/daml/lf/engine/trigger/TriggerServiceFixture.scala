@@ -122,7 +122,8 @@ object TriggerServiceFixture {
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,
         dar,
-        jdbcConfig
+        jdbcConfig,
+        noSecretKey = true // That's ok, use the default.
       )
     } yield service
 
