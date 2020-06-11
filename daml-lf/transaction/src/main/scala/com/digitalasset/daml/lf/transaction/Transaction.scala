@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import scala.language.higherKinds
 
-case class VersionedTransaction[Nid, Cid](
+case class VersionedTransaction[Nid, +Cid](
     version: TransactionVersion,
     transaction: GenTransaction.WithTxValue[Nid, Cid],
 ) extends value.CidContainer[VersionedTransaction[Nid, Cid]] {
