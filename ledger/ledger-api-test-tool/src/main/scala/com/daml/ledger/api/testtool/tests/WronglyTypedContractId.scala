@@ -13,20 +13,21 @@ import com.daml.ledger.test_stable.Test.{Delegated, Delegation, Dummy, DummyWith
 import io.grpc.Status.Code
 
 final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSuite(session) {
-  test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      for {
-        dummy <- ledger.create(party, Dummy(party))
-        fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
-        exerciseFailure <- ledger
-          .exercise(party, fakeDummyWithParam.exerciseDummyChoice2(_, "txt"))
-          .failed
-      } yield {
-        assertGrpcError(exerciseFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
-      }
-  }
+  test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty))(
+    implicit ec => {
+      case Participants(Participant(ledger, party)) =>
+        for {
+          dummy <- ledger.create(party, Dummy(party))
+          fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
+          exerciseFailure <- ledger
+            .exercise(party, fakeDummyWithParam.exerciseDummyChoice2(_, "txt"))
+            .failed
+        } yield {
+          assertGrpcError(exerciseFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
+        }
+    })
 
-  test("WTFetchFails", "Fetching of the wrong type fails", allocate(TwoParties)) {
+  test("WTFetchFails", "Fetching of the wrong type fails", allocate(TwoParties))(implicit ec => {
     case Participants(Participant(ledger, owner, delegate)) =>
       for {
         dummy <- ledger.create(owner, Dummy(owner))
@@ -39,5 +40,5 @@ final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSui
       } yield {
         assertGrpcError(fetchFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
       }
-  }
+  })
 }

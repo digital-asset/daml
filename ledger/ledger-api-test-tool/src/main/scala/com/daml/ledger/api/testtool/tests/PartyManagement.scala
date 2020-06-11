@@ -17,21 +17,21 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "PMNonEmptyParticipantID",
     "Asking for the participant identifier should return a non-empty string",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         participantId <- ledger.participantId()
       } yield {
         assert(participantId.nonEmpty, "The ledger returned an empty participant identifier")
       }
-  }
+  })
 
   private val pMAllocateWithHint = "PMAllocateWithHint"
   test(
     pMAllocateWithHint,
     "It should be possible to provide a hint when allocating a party",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(
@@ -43,13 +43,13 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           Tag.unwrap(party).nonEmpty,
           "The allocated party identifier is an empty string",
         )
-  }
+  })
 
   test(
     "PMAllocateWithoutHint",
     "It should be possible to not provide a hint when allocating a party",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(partyIdHint = None, displayName = Some("Jebediah Kerman"))
@@ -58,14 +58,14 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           Tag.unwrap(party).nonEmpty,
           "The allocated party identifier is an empty string",
         )
-  }
+  })
 
   private val pMAllocateWithoutDisplayName = "PMAllocateWithoutDisplayName"
   test(
     pMAllocateWithoutDisplayName,
     "It should be possible to not provide a display name when allocating a party",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(
@@ -78,13 +78,13 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           Tag.unwrap(party).nonEmpty,
           "The allocated party identifier is an empty string",
         )
-  }
+  })
 
   test(
     "PMAllocateDuplicateDisplayName",
     "It should be possible to allocate parties with the same display names",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         p1 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
@@ -94,13 +94,13 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         assert(Tag.unwrap(p2).nonEmpty, "The second allocated party identifier is an empty string")
         assert(p1 != p2, "The two parties have the same party identifier")
       }
-  }
+  })
 
   test(
     "PMAllocateOneHundred",
     "It should create unique party names when allocating many parties",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         parties <- ledger.allocateParties(100)
@@ -110,13 +110,13 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           .map { case (name, count) => s"$name ($count)" }
           .mkString(", ")}")
       }
-  }
+  })
 
   test(
     "PMGetParties",
     "It should get details for multiple parties, if they exist",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         party1 <- ledger.allocateParty(
@@ -154,13 +154,13 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           zeroPartyDetails.isEmpty,
           s"Retrieved some parties when no parties were requested: $zeroPartyDetails")
       }
-  }
+  })
 
   test(
     "PMListKnownParties",
     "It should list all known, previously-allocated parties",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         party1 <- ledger.allocateParty(
@@ -182,5 +182,5 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           allocatedPartyIds subsetOf knownPartyIds,
           s"The allocated party IDs $allocatedPartyIds are not a subset of $knownPartyIds.")
       }
-  }
+  })
 }

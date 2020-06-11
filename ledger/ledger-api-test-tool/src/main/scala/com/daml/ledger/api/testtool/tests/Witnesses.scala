@@ -10,7 +10,10 @@ import com.daml.ledger.test_stable.Test.{DivulgeWitnesses, Witnesses => Witnesse
 import scalaz.Tag
 
 final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
-  test("RespectDisclosureRules", "The ledger should respect disclosure rules", allocate(Parties(3))) {
+  test(
+    "RespectDisclosureRules",
+    "The ledger should respect disclosure rules",
+    allocate(Parties(3)))(implicit ec => {
     case Participants(Participant(ledger, alice, bob, charlie)) =>
       for {
         // Create the Witnesses contract as Alice and get the resulting transaction as seen by all parties
@@ -97,5 +100,5 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
         )
 
       }
-  }
+  })
 }

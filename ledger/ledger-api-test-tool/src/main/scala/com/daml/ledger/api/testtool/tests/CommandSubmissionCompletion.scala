@@ -21,7 +21,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "CSCCompletions",
     "Read completions correctly with a correct application identifier and reading party",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
@@ -35,13 +35,13 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
           "Wrong command identifier on completion",
         )
       }
-  }
+  })
 
   test(
     "CSCNoCompletionsWithoutRightAppId",
     "Read no completions without the correct application identifier",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
@@ -53,13 +53,13 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
       } yield {
         assert(failed == TimeoutException, "Timeout expected")
       }
-  }
+  })
 
   test(
     "CSCNoCompletionsWithoutRightParty",
     "Read no completions without the correct party",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party, notTheSubmittingParty)) =>
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
@@ -68,13 +68,13 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
       } yield {
         assert(failed == TimeoutException, "Timeout expected")
       }
-  }
+  })
 
   test(
     "CSCRefuseBadChoice",
     "The submission of an exercise of a choice that does not exist should yield INVALID_ARGUMENT",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val badChoice = "THIS_IS_NOT_A_VALID_CHOICE"
       for {
@@ -90,13 +90,13 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
           s"Couldn't find requested choice $badChoice",
         )
       }
-  }
+  })
 
   test(
     "CSCSubmitWithInvalidLedgerId",
     "Submit should fail for an invalid ledger identifier",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
       val request = ledger
@@ -110,13 +110,13 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
           Status.Code.NOT_FOUND,
           s"Ledger ID '$invalidLedgerId' not found.",
         )
-  }
+  })
 
   test(
     "CSCDisallowEmptyTransactionsSubmission",
     "The submission of an empty command should be rejected with INVALID_ARGUMENT",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val emptyRequest = ledger.submitRequest(party)
       for {
@@ -124,13 +124,13 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
       }
-  }
+  })
 
   test(
     "CSCHandleMultiPartySubscriptions",
     "Listening for completions should support multi-party subscriptions",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       val a = UUID.randomUUID.toString
       val b = UUID.randomUUID.toString
@@ -144,6 +144,6 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
       } yield {
         // Nothing to do, if the two completions are found the test is passed
       }
-  }
+  })
 
 }

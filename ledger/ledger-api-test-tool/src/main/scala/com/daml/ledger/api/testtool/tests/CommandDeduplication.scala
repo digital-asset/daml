@@ -15,8 +15,8 @@ import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite(session) {
@@ -33,7 +33,7 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "CDSimpleDeduplication",
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
@@ -75,13 +75,13 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
           s"There should be 3 active contracts, but received $activeContracts",
         )
       }
-  }
+  })
 
   test(
     "CDStopOnSubmissionFailure",
     "Stop deduplicating commands on submission failure",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       // Do not set the deduplication timeout.
       // The server will default to the maximum possible deduplication timeout.
@@ -97,13 +97,13 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         assertGrpcError(failure1, Status.Code.INVALID_ARGUMENT, "")
         assertGrpcError(failure2, Status.Code.INVALID_ARGUMENT, "")
       }
-  }
+  })
 
   test(
     "CDStopOnCompletionFailure",
     "Stop deduplicating commands on completion failure",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val key = UUID.randomUUID().toString
       val commandId = UUID.randomUUID().toString
@@ -136,13 +136,13 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
       } yield {
         ()
       }
-  }
+  })
 
   test(
     "CDSimpleDeduplicationCommandClient",
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
@@ -177,13 +177,13 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
           s"There should be 2 active contracts, but received $activeContracts",
         )
       }
-  }
+  })
 
   test(
     "CDDeduplicateSubmitter",
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
       val bobRequest = ledger
@@ -218,13 +218,13 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
           s"Only one contract was expected to be seen by $bob but ${bobContracts.length} appeared",
         )
       }
-  }
+  })
 
   test(
     "CDDeduplicateSubmitterCommandClient",
     "Commands with identical submitter and command identifier should be deduplicated by the command client",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       val aliceRequest = ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       val bobRequest = ledger
@@ -257,6 +257,6 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
           s"Only one contract was expected to be seen by $bob but ${bobContracts.length} appeared",
         )
       }
-  }
+  })
 
 }

@@ -27,7 +27,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     "CKFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
     allocate(SingleParty, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -60,13 +60,13 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
         assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
       }
-  }
+  })
 
   test(
     "CKNoFetchUndisclosed",
     "Contract Keys should reject fetching an undisclosed contract",
     allocate(SingleParty, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -103,13 +103,13 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
         assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
       }
-  }
+  })
 
   test(
     "CKMaintainerScoped",
     "Contract keys should be scoped by maintainer",
     allocate(SingleParty, SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
@@ -186,40 +186,41 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           "are not a subset of the signatories",
         )
       }
-  }
+  })
 
-  test("CKRecreate", "Contract keys can be recreated in single transaction", allocate(SingleParty)) {
-    case Participants(Participant(ledger, owner)) =>
-      val key = s"${UUID.randomUUID.toString}-key"
-      for {
-        delegated1TxTree <- ledger
-          .submitAndWaitForTransactionTree(
-            ledger.submitAndWaitRequest(owner, Delegated(owner, key).create.command)
+  test("CKRecreate", "Contract keys can be recreated in single transaction", allocate(SingleParty))(
+    implicit ec => {
+      case Participants(Participant(ledger, owner)) =>
+        val key = s"${UUID.randomUUID.toString}-key"
+        for {
+          delegated1TxTree <- ledger
+            .submitAndWaitForTransactionTree(
+              ledger.submitAndWaitRequest(owner, Delegated(owner, key).create.command)
+            )
+          delegated1Id = com.daml.ledger.client.binding.Primitive
+            .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
+
+          delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate)
+        } yield {
+          assert(delegated2TxTree.eventsById.size == 2)
+          val event = delegated2TxTree.eventsById.filter(_._2.kind.isCreated).head._2
+          assert(
+            Tag.unwrap(delegated1Id) != event.getCreated.contractId,
+            "New contract was not created",
           )
-        delegated1Id = com.daml.ledger.client.binding.Primitive
-          .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
+          assert(
+            event.getCreated.contractKey == delegated1TxTree.eventsById.head._2.getCreated.contractKey,
+            "Contract keys did not match",
+          )
 
-        delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate)
-      } yield {
-        assert(delegated2TxTree.eventsById.size == 2)
-        val event = delegated2TxTree.eventsById.filter(_._2.kind.isCreated).head._2
-        assert(
-          Tag.unwrap(delegated1Id) != event.getCreated.contractId,
-          "New contract was not created",
-        )
-        assert(
-          event.getCreated.contractKey == delegated1TxTree.eventsById.head._2.getCreated.contractKey,
-          "Contract keys did not match",
-        )
-
-      }
-  }
+        }
+    })
 
   test(
     "CKTransients",
     "Contract keys created by transient contracts are properly archived",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, owner)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       val key2 = s"${UUID.randomUUID.toString}-key"
@@ -241,13 +242,13 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       } yield {
         assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       }
-  }
+  })
 
   test(
     "CKExposedByTemplate",
     "The contract key should be exposed if the template specifies one",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val expectedKey = "some-fancy-key"
       for {
@@ -264,13 +265,13 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           ),
         )
       }
-  }
+  })
 
   test(
     "CKExerciseByKey",
     "Exercising by key should be possible only when the corresponding contract is available",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val keyString = UUID.randomUUID.toString
       val expectedKey = Value(
@@ -322,5 +323,5 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           "dependency error: couldn't find key",
         )
       }
-  }
+  })
 }
