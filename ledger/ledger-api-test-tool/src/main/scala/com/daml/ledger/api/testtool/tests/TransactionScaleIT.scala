@@ -5,13 +5,13 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.tests.TransactionScaleIT.numberOfCommandsUnit
 import com.daml.ledger.test_stable.Test.{Dummy, TextContainer}
-import TransactionScaleIT.numberOfCommandsUnit
 
 import scala.concurrent.Future
 
-class TransactionScaleIT(session: LedgerSession) extends LedgerTestSuite(session) {
+class TransactionScaleIT(loadScaleFactor: Double) extends LedgerTestSuite {
   require(
     numberOfCommands(units = 1) > 0,
     s"The load scale factor must be at least ${1.0 / numberOfCommandsUnit}",
@@ -51,7 +51,7 @@ class TransactionScaleIT(session: LedgerSession) extends LedgerTestSuite(session
     })
 
   private def numberOfCommands(units: Int): Int =
-    (units * numberOfCommandsUnit * session.config.loadScaleFactor).toInt
+    (units * numberOfCommandsUnit * loadScaleFactor).toInt
 
 }
 

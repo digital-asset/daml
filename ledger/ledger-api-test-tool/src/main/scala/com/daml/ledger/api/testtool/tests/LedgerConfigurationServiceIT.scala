@@ -5,11 +5,11 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test_stable.Test.Dummy
 import io.grpc.Status
 
-class LedgerConfigurationServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+class LedgerConfigurationServiceIT extends LedgerTestSuite {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties))(
     implicit ec => {
       case Participants(Participant(ledger)) =>

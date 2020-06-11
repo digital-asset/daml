@@ -6,10 +6,10 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.SemanticTests.Delegation._
@@ -26,7 +26,7 @@ import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(session) {
+final class SemanticTests extends LedgerTestSuite {
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
   private[this] val twoPounds = Amount(BigDecimal(2), "GBP")
 

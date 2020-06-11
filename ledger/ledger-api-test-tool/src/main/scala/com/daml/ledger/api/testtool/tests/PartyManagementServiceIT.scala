@@ -4,15 +4,15 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
+import com.daml.lf.data.Ref
 import scalaz.Tag
 
 import scala.util.Random
 
-final class PartyManagementServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class PartyManagementServiceIT extends LedgerTestSuite {
   test(
     "PMNonEmptyParticipantID",
     "Asking for the participant identifier should return a non-empty string",

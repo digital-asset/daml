@@ -5,9 +5,9 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
@@ -20,7 +20,7 @@ import com.daml.ledger.test_stable.Test.{Dummy, _}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
-final class CommandServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class CommandServiceIT extends LedgerTestSuite {
   test(
     "CSsubmitAndWait",
     "SubmitAndWait creates a contract of the expected template",

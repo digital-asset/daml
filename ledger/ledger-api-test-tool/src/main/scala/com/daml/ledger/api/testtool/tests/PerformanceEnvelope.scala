@@ -9,33 +9,28 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{
-  Allocation,
-  Assertions,
-  LedgerSession,
-  LedgerTestSuite
-}
+import com.daml.ledger.api.testtool.infrastructure.{Allocation, Assertions, LedgerTestSuite}
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.client.binding.{Primitive => P}
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{GetTransactionsRequest, GetTransactionsResponse}
-import io.grpc.{Context, Status}
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import io.grpc.stub.StreamObserver
+import io.grpc.{Context, Status}
+import org.slf4j.Logger
 import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Random, Success, Try}
-import com.daml.ledger.test.performance.{PingPong => PingPongModule}
-import org.slf4j.Logger
 
 sealed trait Envelope {
   val name: String
@@ -343,8 +338,8 @@ object PerformanceEnvelope {
       val numPings: Int = 200,
       val maxInflight: Int = 40,
       val numWarmupPings: Int = 40,
-      reporter: (String, Double) => Unit)(session: LedgerSession)
-      extends LedgerTestSuite(session)
+      reporter: (String, Double) => Unit)
+      extends LedgerTestSuite
       with PerformanceEnvelope {
 
     test(
@@ -384,8 +379,8 @@ object PerformanceEnvelope {
       val envelope: Envelope,
       val numPings: Int = 20,
       val numWarmupPings: Int = 10,
-      reporter: (String, Double) => Unit)(session: LedgerSession)
-      extends LedgerTestSuite(session)
+      reporter: (String, Double) => Unit)
+      extends LedgerTestSuite
       with PerformanceEnvelope {
 
     val maxInflight = 1 // will only be one
@@ -428,8 +423,8 @@ object PerformanceEnvelope {
     s"Sample size of ${sample.length}: avg=${"%.0f" format avg} ms, median=$med ms, stdev=${"%.0f" format stddev} ms"
   }
 
-  class TransactionSizeScaleTest(val logger: Logger, val envelope: Envelope)(session: LedgerSession)
-      extends LedgerTestSuite(session)
+  class TransactionSizeScaleTest(val logger: Logger, val envelope: Envelope)
+      extends LedgerTestSuite
       with PerformanceEnvelope {
 
     val maxInflight = 10
