@@ -18,7 +18,9 @@ import scala.language.higherKinds
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
     transaction: GenTransaction.WithTxValue[Nid, Cid],
-) {
+) extends value.CidContainer[VersionedTransaction[Nid, Cid]] {
+
+  val self: VersionedTransaction[Nid, Cid] = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
@@ -48,6 +50,24 @@ case class VersionedTransaction[Nid, Cid](
     copy(
       version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
     )
+  }
+}
+
+object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
+  override private[lf] def map2[A1, B1, C1, A2, B2, C2](
+      f1: A1 => A2,
+      f2: B1 => B2,
+  ): VersionedTransaction[A1, B1] => VersionedTransaction[A2, B2] = {
+    case VersionedTransaction(version, transaction) =>
+      VersionedTransaction(version, transaction.map3(f1, f2, Value.VersionedValue.map1(f2)))
+  }
+
+  override private[lf] def foreach2[A, B](
+      f1: A => Unit,
+      f2: B => Unit,
+  ): VersionedTransaction[A, B] => Unit = {
+    case VersionedTransaction(_, transaction) =>
+      transaction.foreach3(f1, f2, Value.VersionedValue.foreach1(f2))
   }
 }
 
