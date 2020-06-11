@@ -10,6 +10,8 @@ import akka.stream.scaladsl.Source
   */
 package object events {
 
+  type SqlSequence[A] = SqlSequence.T[A]
+
   import com.daml.lf.value.{Value => lfval}
   private[events] type ContractId = lfval.ContractId
   private[events] val ContractId = com.daml.lf.value.Value.ContractId

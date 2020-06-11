@@ -148,7 +148,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       requestingParties: Set[Party],
       pageSize: Int,
       previousEventNodeIndex: Option[Int],
-  ): SqlSequence.T[Vector[EventsTable.Entry[Raw.TreeEvent]]] =
+  ): SqlSequence[Vector[EventsTable.Entry[Raw.TreeEvent]]] =
     route(requestingParties)(
       single = singlePartyTrees(sqlFunctions)(
         startExclusive,
@@ -170,7 +170,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       requestingParty: Party,
       pageSize: Int,
       previousEventNodeIndex: Option[Int],
-  ): SqlSequence.T[Vector[EventsTable.Entry[Raw.TreeEvent]]] = {
+  ): SqlSequence[Vector[EventsTable.Entry[Raw.TreeEvent]]] = {
     val (prevOffset, prevNodeIndex) =
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
     val witnessesWhereClause =
@@ -227,7 +227,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       requestingParties: Set[Party],
       pageSize: Int,
       previousEventNodeIndex: Option[Int],
-  ): SqlSequence.T[Vector[EventsTable.Entry[Raw.TreeEvent]]] = {
+  ): SqlSequence[Vector[EventsTable.Entry[Raw.TreeEvent]]] = {
     val (prevOffset, prevNodeIndex) =
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
     val witnessesWhereClause =
@@ -237,7 +237,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     SqlSequence.vector(
       SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where (event_offset > $startExclusive or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= $endInclusive and #$witnessesWhereClause group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
         .withFetchSize(Some(pageSize)),
-      EventsTable.rawTreeEventParser
+      rawTreeEventParser
     )
   }
 
