@@ -226,7 +226,7 @@ object KVTest {
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
           workflowId = None,
           submissionTime = txMetaData.submissionTime,
-          submissionSeed = Some(submissionSeed),
+          submissionSeed = submissionSeed,
           optUsedPackages = Some(txMetaData.usedPackages),
           optNodeSeeds = None,
           optByKeyNodes = None,
