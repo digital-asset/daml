@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
-final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(session) {
+final class ConfigManagementServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CMSetAndGetTimeModel",
     "It should be able to get, set and restore the time model",

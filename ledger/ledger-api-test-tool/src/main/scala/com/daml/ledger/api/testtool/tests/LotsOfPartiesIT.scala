@@ -15,7 +15,7 @@ import com.daml.ledger.test_stable.Test.WithObservers
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(session) {
+final class LotsOfPartiesIT(session: LedgerSession) extends LedgerTestSuite(session) {
   type Parties = Set[Party]
   type PartyMap[T] = Map[Party, T]
 

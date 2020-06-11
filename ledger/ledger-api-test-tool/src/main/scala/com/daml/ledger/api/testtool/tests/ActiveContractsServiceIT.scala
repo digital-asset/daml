@@ -26,7 +26,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
 
-class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(session) {
+class ActiveContractsServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "ACSinvalidLedgerId",
     "The ActiveContractService should fail for requests with an invalid ledger identifier",

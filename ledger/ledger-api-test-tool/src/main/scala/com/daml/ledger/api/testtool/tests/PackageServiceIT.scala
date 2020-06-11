@@ -8,7 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import io.grpc.Status
 
-final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
+final class PackageServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
 
   /** A package ID that is guaranteed to not be uploaded */
   private[this] val unknownPackageId = " "

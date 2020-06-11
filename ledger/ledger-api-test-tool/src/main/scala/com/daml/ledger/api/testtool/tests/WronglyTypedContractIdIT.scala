@@ -12,7 +12,7 @@ import com.daml.ledger.test_stable.Test.DummyWithParam._
 import com.daml.ledger.test_stable.Test.{Delegated, Delegation, Dummy, DummyWithParam}
 import io.grpc.Status.Code
 
-final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSuite(session) {
+final class WronglyTypedContractIdIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty))(
     implicit ec => {
       case Participants(Participant(ledger, party)) =>
