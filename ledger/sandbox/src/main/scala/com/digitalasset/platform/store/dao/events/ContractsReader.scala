@@ -43,7 +43,7 @@ private[dao] sealed abstract class ContractsReader(
   protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
 
   /** Lookup of a contract in the case the contract value is not already known */
-  private[this] def lookupActiveContractWithArgument(
+  private def lookupActiveContractWithArgument(
       submitter: Party,
       contractId: ContractId,
   ): Future[Option[Contract]] =
@@ -64,7 +64,7 @@ private[dao] sealed abstract class ContractsReader(
       })
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
-  private[this] def lookupActiveContractWithoutArgument(
+  private def lookupActiveContractWithoutArgument(
       submitter: Party,
       contractId: ContractId,
       createArgument: Value,
@@ -91,13 +91,11 @@ private[dao] sealed abstract class ContractsReader(
     // Depending on whether the contract argument is cached or not, submit a different query to the database
     translation.cache.getIfPresent(LfValueTranslation.Cache.ContractKey(contractId)) match {
       case Some(createArgument) =>
-        metrics.daml.index.db.lookupActiveContractArgumentCache.hitCount.inc()
         lookupActiveContractWithoutArgument(
           submitter,
           contractId,
           createArgument.assertContract().argument)
       case None =>
-        metrics.daml.index.db.lookupActiveContractArgumentCache.missCount.inc()
         lookupActiveContractWithArgument(submitter, contractId)
 
     }
