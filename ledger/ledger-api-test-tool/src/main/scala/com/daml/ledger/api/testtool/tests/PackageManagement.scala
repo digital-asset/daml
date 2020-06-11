@@ -32,7 +32,7 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
     "PackageManagementEmptyUpload",
     "An attempt at uploading an empty payload should fail",
     allocate(NoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       for {
         failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
@@ -43,13 +43,13 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
           "Invalid argument: Invalid DAR: package-upload",
         )
       }
-  }
+  })
 
   test(
     "PackageManagementLoad",
     "Concurrent uploads of the same package should be idempotent and result in the package being available for use",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         testPackage <- loadTestPackage()
@@ -77,5 +77,5 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
           s"There should be no active package after the contract has been consumed: ${acsAfter.map(_.contractId).mkString(", ")}",
         )
       }
-  }
+  })
 }

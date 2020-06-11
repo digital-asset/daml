@@ -24,12 +24,14 @@ import com.daml.ledger.test_stable.Test.{
 import io.grpc.Status
 import scalaz.syntax.tag._
 
+import scala.concurrent.ExecutionContext
+
 class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "ACSinvalidLedgerId",
     "The ActiveContractService should fail for requests with an invalid ledger identifier",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, parties @ _*)) =>
       val invalidLedgerId = "ACSinvalidLedgerId"
       val invalidRequest = ledger
@@ -40,13 +42,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       } yield {
         assertGrpcError(failure, Status.Code.NOT_FOUND, "not found. Actual Ledger ID")
       }
-  }
+  })
 
   test(
     "ACSemptyResponse",
     "The ActiveContractService should succeed with an empty response if no contracts have been created for a party",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         activeContracts <- ledger.activeContracts(party)
@@ -56,13 +58,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"There should be no active contracts, but received ${activeContracts}",
         )
       }
-  }
+  })
 
   test(
     "ACSallContracts",
     "The ActiveContractService should return all active contracts",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
@@ -98,13 +100,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Found contracts with non-empty observers: $invalidObservers",
         )
       }
-  }
+  })
 
   test(
     "ACSfilterContracts",
     "The ActiveContractService should return contracts filtered by templateId",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         (dummy, _, _) <- createDummyContracts(party, ledger)
@@ -124,13 +126,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Expected contract with contractId ${dummy}, but received ${activeContracts.head.contractId}.",
         )
       }
-  }
+  })
 
   test(
     "ACSarchivedContracts",
     "The ActiveContractService does not return archived contracts",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         (dummy, _, _) <- createDummyContracts(party, ledger)
@@ -162,13 +164,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Expected to not receive contract with contractId ${dummy}.",
         )
       }
-  }
+  })
 
   test(
     "ACSusableOffset",
     "The ActiveContractService should return a usable offset to resume streaming transactions",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         dummy <- ledger.create(party, Dummy(party))
@@ -205,13 +207,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Expected a CreateEvent for ${dummyWithParam}, but received ${createdEvent}.",
         )
       }
-  }
+  })
 
   test(
     "ACSverbosity",
     "The ActiveContractService should emit field names only if the verbose flag is set to true",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         _ <- ledger.create(party, Dummy(party))
@@ -232,13 +234,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"$party expected a contract without labels, but received $nonVerboseEvents.",
         )
       }
-  }
+  })
 
   test(
     "ACSmultiParty",
     "The ActiveContractsService should return contracts for the requesting parties",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         _ <- createDummyContracts(alice, ledger)
@@ -289,13 +291,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
         )
         assertTemplates((Seq(alice, bob)), dummyContractsForAliceAndBob, Dummy.id, 2)
       }
-  }
+  })
 
   test(
     "ACSagreementText",
     "The ActiveContractService should properly fill the agreementText field",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         dummyCid <- ledger.create(party, Dummy(party))
@@ -319,13 +321,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"$party expected an empty agreement text, but received $dummyWithParamAgreementText.",
         )
       }
-  }
+  })
 
   test(
     "ACSeventId",
     "The ActiveContractService should properly fill the eventId field",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       for {
         _ <- ledger.create(party, Dummy(party))
@@ -338,13 +340,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"EventId ${dummyEvent.eventId} did not resolve to the same flat transaction (${flatTransaction.transactionId}) and transaction tree (${transactionTree.transactionId}).",
         )
       }
-  }
+  })
 
   test(
     "ACSnoWitnessedContracts",
     "The ActiveContractService should not return witnessed contracts",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         witnesses <- ledger.create(alice, TestWitnesses(alice, bob, bob))
@@ -361,13 +363,13 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Expected to receive 1 active contracts for $alice, but received ${aliceContracts.size}.",
         )
       }
-  }
+  })
 
   test(
     "ACSnoDivulgedContracts",
     "The ActiveContractService should not return divulged contracts",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
@@ -385,9 +387,10 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Expected to receive 2 active contracts for $alice, but received ${aliceContracts.size}.",
         )
       }
-  }
+  })
 
-  private def createDummyContracts(party: Party, ledger: ParticipantTestContext) = {
+  private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(
+      implicit ec: ExecutionContext) = {
     for {
       dummy <- ledger.create(party, Dummy(party))
       dummyWithParam <- ledger.create(party, DummyWithParam(party))

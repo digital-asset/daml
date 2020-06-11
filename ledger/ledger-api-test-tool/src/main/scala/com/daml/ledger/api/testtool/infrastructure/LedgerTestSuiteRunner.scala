@@ -57,7 +57,7 @@ final class LedgerTestSuiteRunner(
         .createTestContext(test.shortIdentifier, identifierSuffix)
         .flatMap { context =>
           val start = System.nanoTime()
-          val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
+          val result = test.run(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
           logger.info(s"Started '${test.description}' with a timeout of $scaledTimeout.")
           result
         }

@@ -15,8 +15,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
     "CMSetAndGetTimeModel",
     "It should be able to get, set and restore the time model",
     allocate(NoParties),
-  ) {
-
+  )(implicit ec => {
     case Participants(Participant(ledger)) =>
       val newTimeModel = TimeModel(
         avgTransactionLatency = Some(Duration(0, 1)),
@@ -79,7 +78,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
 
         assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, "")
       }
-  }
+  })
 
   // TODO(JM): Test that sets the time model and verifies that a transaction with invalid
   // ttl/mrt won't be accepted. Can only implement once ApiSubmissionService properly

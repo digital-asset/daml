@@ -14,7 +14,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
@@ -149,13 +149,13 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}",
         )
       }
-  }
+  })
 
   test(
     "DivulgenceAcs",
     "Divulged contracts should not be exposed by the active contract service",
     allocate(TwoParties),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
@@ -207,5 +207,5 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses",
         )
       }
-  }
+  })
 }

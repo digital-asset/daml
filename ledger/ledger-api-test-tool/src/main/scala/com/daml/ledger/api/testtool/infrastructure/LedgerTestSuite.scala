@@ -17,14 +17,12 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector
 
-  protected implicit final val ec: ExecutionContext = session.executionContext
-
   protected final def test(
       shortIdentifier: String,
       description: String,
       participants: ParticipantAllocation,
       timeoutScale: Double = 1.0,
-  )(testCase: Participants => Future[Unit]): Unit = {
+  )(testCase: ExecutionContext => Participants => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
       new LedgerTestCase(shortIdentifierRef, description, timeoutScale, participants, testCase),

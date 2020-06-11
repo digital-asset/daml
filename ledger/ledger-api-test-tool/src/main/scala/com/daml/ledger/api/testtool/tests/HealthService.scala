@@ -9,22 +9,24 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSui
 import io.grpc.health.v1.health.HealthCheckResponse
 
 class HealthService(session: LedgerSession) extends LedgerTestSuite(session) {
-  test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
-      for {
-        health <- ledger.checkHealth()
-      } yield {
-        assertEquals("HSisServing", health.status, HealthCheckResponse.ServingStatus.SERVING)
-      }
-  }
+  test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties))(
+    implicit ec => {
+      case Participants(Participant(ledger)) =>
+        for {
+          health <- ledger.checkHealth()
+        } yield {
+          assertEquals("HSisServing", health.status, HealthCheckResponse.ServingStatus.SERVING)
+        }
+    })
 
-  test("HSwatch", "The Health.Watch endpoint reports everything is well", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
-      for {
-        healthSeq <- ledger.watchHealth()
-      } yield {
-        val health = assertSingleton("HScontinuesToServe", healthSeq)
-        assert(health.status == HealthCheckResponse.ServingStatus.SERVING)
-      }
-  }
+  test("HSwatch", "The Health.Watch endpoint reports everything is well", allocate(NoParties))(
+    implicit ec => {
+      case Participants(Participant(ledger)) =>
+        for {
+          healthSeq <- ledger.watchHealth()
+        } yield {
+          val health = assertSingleton("HScontinuesToServe", healthSeq)
+          assert(health.status == HealthCheckResponse.ServingStatus.SERVING)
+        }
+    })
 }
