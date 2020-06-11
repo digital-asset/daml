@@ -192,6 +192,13 @@ object Server {
       dar: Option[Dar[(PackageId, Package)]],
       jdbcConfig: Option[JdbcConfig],
   ): Behavior[Message] = Behaviors.setup { ctx =>
+    println(""" ______         _                             ____                    _
+/_  __/  ____  (_)  ___ _  ___ _ ___   ____  / __/ ___   ____ _  __  (_) ____ ___
+ / /    / __/ / /  / _ `/ / _ `// -_) / __/ _\ \  / -_) / __/| |/ / / / / __// -_)
+/_/    /_/   /_/   \_, /  \_, / \__/ /_/   /___/  \__/ /_/   |___/ /_/  \__/ \__/
+                  /___/  /___/
+""")
+
     val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
 
     val key =
