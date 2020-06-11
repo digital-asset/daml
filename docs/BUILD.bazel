@@ -28,7 +28,6 @@ genrule(
     ) + [
         # we need to list all the transitive dependencies here because of https://github.com/bazelbuild/rules_nodejs/issues/1553
         "@npm//acorn",
-        "@npm//acorn-dynamic-import",
         "@npm//acorn-node",
         "@npm//acorn-walk",
         "@npm//ansi-regex",
@@ -90,6 +89,7 @@ genrule(
         "@npm//eventemitter2",
         "@npm//events",
         "@npm//exit",
+        "@npm//fast-safe-stringify",
         "@npm//faye-websocket",
         "@npm//figures",
         "@npm//file-sync-cmp",
@@ -187,7 +187,9 @@ genrule(
         "@npm//send",
         "@npm//serve-index",
         "@npm//serve-static",
+        "@npm//setprototypeof",
         "@npm//shasum",
+        "@npm//shasum-object",
         "@npm//sprintf-js",
         "@npm//statuses",
         "@npm//stream-browserify",
