@@ -31,7 +31,7 @@ patches we backport to the 1.0 release branch).
 
 1. **[STABLE]** Go through the checklist at
    https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
-   before making the release. Note that the checklist is not available publically.
+   before making the release. Note that the checklist is not available publicly.
 
 1. Pull the latest master branch of the `daml` repository and create a new,
    clean branch off it. Now, we have three possible cases:
