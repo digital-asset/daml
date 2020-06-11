@@ -141,12 +141,6 @@ private[state] object Conversions {
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
-  def parseOptHash(a: com.google.protobuf.ByteString): Option[crypto.Hash] =
-    if (a.isEmpty)
-      None
-    else
-      Some(crypto.Hash.assertFromBytes(data.Bytes.fromByteString(a)))
-
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder
       .setSeconds(dur.getSeconds)
