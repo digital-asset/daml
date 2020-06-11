@@ -51,9 +51,36 @@ final case class VersionedTransaction[Nid, +Cid](
       version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
     )
   }
+
+  def nodes: HashMap[Nid, GenNode.WithTxValue[Nid, Cid]] =
+    transaction.nodes
+
+  def roots: ImmArray[Nid] =
+    transaction.roots
+
+  def foreach(f: (Nid, GenNode.WithTxValue[Nid, Cid]) => Unit): Unit =
+    transaction.foreach(f)
+
+  def fold[A](z: A)(f: (A, (Nid, GenNode.WithTxValue[Nid, Cid])) => A): A =
+    transaction.fold[A](z)(f)
+
+  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+      op: (A, B, Nid, GenNode.WithTxValue[Nid, Cid]) => (A, B)): A =
+    transaction.foldWithPathState[A, B](globalState0, pathState0)(op)
+
+  def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
+    transaction.localContracts
+
+  def inputContracts[Cid2 >: Cid]: Set[Cid2] =
+    transaction.inputContracts
+
 }
 
 object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
+
+  val empty: VersionedTransaction[Transaction.NodeId, Value.ContractId] =
+    TransactionVersions.assertAsVersionedTransaction(GenTransaction.empty)
+
   override private[lf] def map2[A1, B1, C1, A2, B2, C2](
       f1: A1 => A2,
       f2: B1 => B2,
@@ -405,6 +432,13 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
+  private val Empty =
+    GenTransaction[Nothing, Nothing, Nothing](
+      HashMap.empty[Nothing, Nothing],
+      ImmArray.empty[Nothing])
+
+  def empty[A, B, C]: GenTransaction[A, B, C] = Empty.asInstanceOf[GenTransaction[A, B, C]]
+
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
   sealed trait NotWellFormedErrorReason
   case object DanglingNodeId extends NotWellFormedErrorReason
@@ -464,7 +498,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = GenTransaction.WithTxValue[NodeId, Value.ContractId]
+  type Transaction = VersionedTransaction[NodeId, Value.ContractId]
 
   /** Transaction meta data
     * @param submissionSeed: the submission seed used to derive the contract IDs.

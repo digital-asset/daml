@@ -199,7 +199,7 @@ final class Engine {
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
-      commandsWithCids <- preprocessor.translateTransactionRoots(tx)
+      commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
         validating = true,
@@ -211,7 +211,7 @@ final class Engine {
         globalCids,
       )
       (rtx, _) = result
-      validationResult <- if (tx isReplayedBy rtx) {
+      validationResult <- if (tx.transaction isReplayedBy rtx.transaction) {
         ResultDone.Unit
       } else {
         ResultError(

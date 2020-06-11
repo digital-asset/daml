@@ -5,7 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value, ValueVersion}
 
 final case class TransactionVersion(protoValue: String)
@@ -33,7 +33,7 @@ object TransactionVersions
   private[transaction] val minOutputVersion = TransactionVersion("10")
 
   def assignVersion(
-      a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
+      a: GenTransaction.WithTxValue[_, Value.ContractId],
   ): TransactionVersion = {
     require(a != null)
     import VersionTimeline.Implicits._
@@ -97,4 +97,16 @@ object TransactionVersions
         minVersion,
     )
   }
+
+  def asVersionedTransaction(
+      tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
+  ): Either[String, Tx.Transaction] =
+    Right(VersionedTransaction(assignVersion(tx), tx))
+
+  @throws[IllegalArgumentException]
+  def assertAsVersionedTransaction[Nid, Cid](
+      tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
+  ): Tx.Transaction =
+    data.assertRight(asVersionedTransaction(tx))
+
 }

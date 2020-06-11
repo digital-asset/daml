@@ -7,13 +7,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.lf.data.{FrontStack, FrontStackCons}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
 trait PrivateLedgerData {
-  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit
+  def update(tx: Tx.Transaction): Unit
   def get(id: ContractId): Option[ContractInst[VersionedValue[ContractId]]]
   def transactionCounter: Int
   def clear(): Unit
@@ -24,10 +24,10 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     new ConcurrentHashMap()
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
-  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
+  def update(tx: Tx.Transaction): Unit =
     updateWithContractId(tx)
 
-  def updateWithContractId(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
+  def updateWithContractId(tx: Tx.Transaction): Unit =
     this.synchronized {
       // traverse in topo order and add / remove
       @tailrec

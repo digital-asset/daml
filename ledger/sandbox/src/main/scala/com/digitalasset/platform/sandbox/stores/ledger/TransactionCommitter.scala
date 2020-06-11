@@ -42,11 +42,8 @@ object LegacyTransactionCommitter extends TransactionCommitter {
         .withDefault(identity)
 
     Transaction.CommittedTransaction(
-      GenTransaction.map3(
-        identity[Transaction.NodeId],
-        contractMapping,
-        Value.VersionedValue.map1(contractMapping)
-      )(transaction))
+      VersionedTransaction.map2(identity[Transaction.NodeId], contractMapping)(transaction)
+    )
 
   }
 

@@ -14,7 +14,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
+import com.daml.lf.transaction.{TransactionVersions, GenTransaction => GenTx, Transaction => Tx}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
@@ -1609,6 +1609,10 @@ object EngineTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
+  private implicit def toGenTransaction(
+      tx: Tx.Transaction): GenTx.WithTxValue[Tx.NodeId, ContractId] =
+    tx.transaction
+
   private def toContractId(s: String): ContractId =
     ContractId.assertFromString(s)
 
@@ -1718,7 +1722,7 @@ object EngineTest {
     iterate.map {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
-          GenTx(nodes, roots.toImmArray),
+          TransactionVersions.assertAsVersionedTransaction(GenTx(nodes, roots.toImmArray)),
           Tx.Metadata(
             submissionSeed = None,
             submissionTime = txMeta.submissionTime,

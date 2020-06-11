@@ -312,7 +312,7 @@ private[kvutils] class TransactionCommitter(
           node.informeesOfNode.foldLeft(accum)(f)
       }
 
-    val allExist = foldInformeeParties(transactionEntry.transaction, init = true) {
+    val allExist = foldInformeeParties(transactionEntry.transaction.transaction, init = true) {
       (accum, party) =>
         commitContext.get(partyStateKey(party)).fold(false)(_ => accum)
     }

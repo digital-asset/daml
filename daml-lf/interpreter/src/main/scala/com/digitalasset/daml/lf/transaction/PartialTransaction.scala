@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
-import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
+import com.daml.lf.transaction.{GenTransaction, Node, TransactionVersions, Transaction => Tx}
 import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
 
 import scala.collection.immutable.HashMap
@@ -224,9 +224,11 @@ case class PartialTransaction(
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
       Tx.SubmittedTransaction(
-        GenTransaction(
-          nodes = nodes.transform((_, n) => versionNode(n)),
-          roots = context.children.toImmArray)
+        TransactionVersions.assertAsVersionedTransaction(
+          GenTransaction(
+            nodes = nodes.transform((_, n) => versionNode(n)),
+            roots = context.children.toImmArray)
+        )
       ),
       this
     )
