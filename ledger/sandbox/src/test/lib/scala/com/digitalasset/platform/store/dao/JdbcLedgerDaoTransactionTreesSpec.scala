@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -55,7 +56,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (eventId, createNode: NodeCreate.WithTxValue[ContractId]) =
+          val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
             tx.transaction.nodes.head
           transaction.commandId shouldBe tx.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -65,7 +66,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
           val created = transaction.eventsById.values.loneElement.getCreated
           transaction.rootEventIds.loneElement shouldEqual created.eventId
-          created.eventId shouldBe eventId.toLedgerString
+          created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only tx.submittingParty.get
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
@@ -87,7 +88,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (eventId, exerciseNode: NodeExercises.WithTxValue[EventId, ContractId]) =
+          val (nodeId, exerciseNode: NodeExercises.WithTxValue[Tx.NodeId, ContractId]) =
             exercise.transaction.nodes.head
           transaction.commandId shouldBe exercise.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -97,7 +98,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
           val exercised = transaction.eventsById.values.loneElement.getExercised
           transaction.rootEventIds.loneElement shouldEqual exercised.eventId
-          exercised.eventId shouldBe eventId.toLedgerString
+          exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
           exercised.witnessParties should contain only exercise.submittingParty.get
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
@@ -119,15 +120,15 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (createEventId, createNode) =
+          val (createNodeId, createNode) =
             tx.transaction.nodes.collectFirst {
-              case (eventId, node: NodeCreate.WithTxValue[ContractId]) =>
-                eventId -> node
+              case (nodeId, node: NodeCreate.WithTxValue[ContractId]) =>
+                nodeId -> node
             }.get
-          val (exerciseEventId, exerciseNode) =
+          val (exerciseNodeId, exerciseNode) =
             tx.transaction.nodes.collectFirst {
-              case (eventId, node: NodeExercises.WithTxValue[EventId, ContractId]) =>
-                eventId -> node
+              case (nodeId, node: NodeExercises.WithTxValue[Tx.NodeId, ContractId]) =>
+                nodeId -> node
             }.get
 
           transaction.commandId shouldBe tx.commandId.get
@@ -138,13 +139,17 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
 
           transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe createEventId.toLedgerString
-          transaction.rootEventIds(1) shouldBe exerciseEventId.toLedgerString
+          transaction.rootEventIds(0) shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
+          transaction.rootEventIds(1) shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
 
-          val created = transaction.eventsById(createEventId.toLedgerString).getCreated
-          val exercised = transaction.eventsById(exerciseEventId.toLedgerString).getExercised
+          val created = transaction
+            .eventsById(EventId(transaction.transactionId, createNodeId).toLedgerString)
+            .getCreated
+          val exercised = transaction
+            .eventsById(EventId(transaction.transactionId, exerciseNodeId).toLedgerString)
+            .getExercised
 
-          created.eventId shouldBe createEventId.toLedgerString
+          created.eventId shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
           created.witnessParties should contain only tx.submittingParty.get
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
@@ -154,7 +159,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             createNode.signatories)
           created.templateId shouldNot be(None)
 
-          exercised.eventId shouldBe exerciseEventId.toLedgerString
+          exercised.eventId shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
           exercised.witnessParties should contain only tx.submittingParty.get
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
@@ -176,22 +181,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val createEventId =
-            tx.transaction.nodes.collectFirst {
-              case (eventId, _) if eventId.nodeId.index == 2 =>
-                eventId
-            }.get
-          val exerciseEventId =
-            tx.transaction.nodes.collectFirst {
-              case (eventId, _) if eventId.nodeId.index == 3 =>
-                eventId
-            }.get
-
           transaction.eventsById should have size 2
 
           transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe createEventId.toLedgerString
-          transaction.rootEventIds(1) shouldBe exerciseEventId.toLedgerString
+          transaction.rootEventIds(0) shouldBe EventId(transaction.transactionId, Tx.NodeId(2)).toLedgerString
+          transaction.rootEventIds(1) shouldBe EventId(transaction.transactionId, Tx.NodeId(3)).toLedgerString
       }
     }
   }

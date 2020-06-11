@@ -217,7 +217,7 @@ class InMemoryLedger(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
               CreatedEvent(
-                contract.eventId.toLedgerString,
+                ledger.EventId(contract.transactionId, contract.nodeId).toLedgerString,
                 contract.id.coid,
                 Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
                 contractKey = contract.key.map(
@@ -310,7 +310,7 @@ class InMemoryLedger(
       .fold(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
-          val (transactionForIndex, disclosureForIndex, globalDivulgence) =
+          val (committedTransaction, disclosureForIndex, globalDivulgence) =
             Ledger
               .convertToCommittedTransaction(
                 transactionCommitter,
@@ -322,7 +322,7 @@ class InMemoryLedger(
             transactionId,
             transactionMeta.workflowId,
             Some(submitterInfo.submitter),
-            transactionForIndex,
+            committedTransaction,
             disclosureForIndex,
             globalDivulgence,
             List.empty
@@ -343,7 +343,7 @@ class InMemoryLedger(
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime.toInstant,
                   recordTime,
-                  transactionForIndex,
+                  committedTransaction,
                   disclosureForIndex
                 )
               entries.publish(InMemoryLedgerEntry(entry))

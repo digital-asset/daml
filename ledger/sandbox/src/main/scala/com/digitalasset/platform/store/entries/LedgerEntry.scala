@@ -7,8 +7,7 @@ import java.time.Instant
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.GenTransaction
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.ledger._
 import com.daml.ledger.api.domain.RejectionReason
 
@@ -32,7 +31,7 @@ object LedgerEntry {
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,
-      transaction: GenTransaction.WithTxValue[EventId, ContractId],
-      explicitDisclosure: Relation[EventId, Party])
+      transaction: Tx.CommittedTransaction,
+      explicitDisclosure: Relation[Tx.NodeId, Party])
       extends LedgerEntry
 }

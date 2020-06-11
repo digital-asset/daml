@@ -32,9 +32,8 @@ class V25__Backfill_Participant_Events extends BaseJavaMigration {
       val offset = Offset.fromByteArray(rows.getBytes("ledger_offset"))
 
       val transaction = TransactionSerializer
-        .deserializeTransaction(rows.getBinaryStream("transaction"))
+        .deserializeTransaction(transactionId, rows.getBinaryStream("transaction"))
         .getOrElse(sys.error(s"failed to deserialize transaction $transactionId"))
-        .mapNodeId(_.nodeId)
 
       V25TransactionsWriter.apply(
         applicationId,

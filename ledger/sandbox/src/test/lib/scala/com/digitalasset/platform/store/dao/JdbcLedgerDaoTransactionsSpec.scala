@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -60,9 +61,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
           inside(transaction.events.loneElement.event.created) {
             case Some(created) =>
-              val (eventId, createNode: NodeCreate.WithTxValue[ContractId]) =
+              val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
                 tx.transaction.nodes.head
-              created.eventId shouldBe eventId.toLedgerString
+              created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
               created.witnessParties should contain only tx.submittingParty.get
               created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
               created.contractKey shouldBe None
@@ -93,9 +94,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
           inside(transaction.events.loneElement.event.archived) {
             case Some(archived) =>
-              val (eventId, exerciseNode: NodeExercises.WithTxValue[EventId, ContractId]) =
+              val (nodeId, exerciseNode: NodeExercises.WithTxValue[Tx.NodeId, ContractId]) =
                 exercise.transaction.nodes.head
-              archived.eventId shouldBe eventId.toLedgerString
+              archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
               archived.witnessParties should contain only exercise.submittingParty.get
               archived.contractId shouldBe exerciseNode.targetCoid.coid
               archived.templateId shouldNot be(None)

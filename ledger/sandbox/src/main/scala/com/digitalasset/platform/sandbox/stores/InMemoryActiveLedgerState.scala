@@ -7,11 +7,11 @@ import java.time.Instant
 
 import com.daml.ledger.api.domain.{PartyDetails, RejectionReason}
 import com.daml.ledger.participant.state.v1.ContractInst
-import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.{ActiveContract, DivulgedContract}
@@ -150,8 +150,8 @@ case class InMemoryActiveLedgerState(
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
-      transaction: GenTransaction.WithTxValue[EventId, ContractId],
-      disclosure: Relation[EventId, Party],
+      transaction: Tx.CommittedTransaction,
+      disclosure: Relation[Tx.NodeId, Party],
       globalDivulgence: Relation[ContractId, Party],
       referencedContracts: List[(Value.ContractId, ContractInst)]
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =

@@ -148,7 +148,7 @@ final class Engine {
         globalCids,
       )
       (tx, meta) = result
-    } yield (Tx.SubmittedTransaction(tx), meta)
+    } yield (tx, meta)
 
   /**
     * Check if the given transaction is a valid result of some single-submitter command.
@@ -353,7 +353,7 @@ final class Engine {
     machine.ptx.finish(machine.supportedValueVersions) match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Right(t) =>
+      case Right(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = machine.ptx.submissionTime,
@@ -366,13 +366,13 @@ final class Engine {
           case None => ()
           case Some(profileDir) =>
             val hash = meta.nodeSeeds(0)._2.toHexString
-            val desc = Engine.profileDesc(t)
+            val desc = Engine.profileDesc(tx)
             machine.profile.name = s"${desc}-${hash.substring(0, 6)}"
             val profileFile =
               profileDir.resolve(Paths.get(s"${meta.submissionTime}-${desc}-${hash}.json"))
             machine.profile.writeSpeedscopeJson(profileFile)
         }
-        ResultDone((Tx.SubmittedTransaction(t), meta))
+        ResultDone((tx, meta))
     }
   }
 
