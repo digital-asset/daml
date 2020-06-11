@@ -11,6 +11,7 @@ import Value._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
+import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.speedy.SError._
@@ -242,10 +243,10 @@ object Pretty {
 
   def prettyScenarioStep(l: ScenarioLedger)(step: ScenarioLedger.ScenarioStep): Doc =
     step match {
-      case ScenarioLedger.Commit(txid, rtx, optLoc) =>
+      case ScenarioLedger.Commit(txId, rtx, optLoc) =>
         val children =
-          intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l)))
-        text("TX") & char('#') + str(txid.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
+          intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
+        text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
           children
       case ScenarioLedger.PassTime(dt) =>
         "pass" &: str(dt)
@@ -261,10 +262,10 @@ object Pretty {
     // the maintainers are induced from the key -- so don't clutter
     prettyVersionedValue(false)(key.key)
 
-  def prettyEventInfo(l: ScenarioLedger)(nodeId: NodeId): Doc = {
+  def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
-    val eventId = EventId(l.scenarioStepId.id, nodeId)
+    val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
       case create: NodeCreate[ContractId, Tx.Value[ContractId]] =>
@@ -282,7 +283,7 @@ object Pretty {
           ] =>
         val children =
           if (ex.children.nonEmpty)
-            text("children:") / stack(ex.children.toList.map(prettyEventInfo(l)))
+            text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
           else
             text("")
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
