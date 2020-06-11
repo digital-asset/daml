@@ -15,12 +15,12 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import scala.language.higherKinds
 
-case class VersionedTransaction[Nid, +Cid](
+final case class VersionedTransaction[Nid, +Cid](
     version: TransactionVersion,
     transaction: GenTransaction.WithTxValue[Nid, Cid],
 ) extends value.CidContainer[VersionedTransaction[Nid, Cid]] {
 
-  val self: VersionedTransaction[Nid, Cid] = this
+  override protected def self: this.type = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
@@ -89,7 +89,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
   import GenTransaction._
 
-  override protected val self: this.type = this
+  override protected def self: this.type = this
 
   private[lf] def map3[Nid2, Cid2, Val2](
       f: Nid => Nid2,
@@ -347,7 +347,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     }
 
   def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
-    GenTransaction.foreach3(fNid, fCid, fVal)(self)
+    GenTransaction.foreach3(fNid, fCid, fVal)(this)
 
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.

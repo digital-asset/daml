@@ -55,7 +55,7 @@ trait CidContainer[+A] {
 
   import CidMapper._
 
-  protected val self: A
+  protected def self: A
 
   final def ensureNoCid[B](
       implicit checker: NoCidChecker[A, B]
