@@ -19,7 +19,8 @@ import scala.language.higherKinds
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
     private[lf] val transaction: GenTransaction.WithTxValue[Nid, Cid],
-) extends value.CidContainer[VersionedTransaction[Nid, Cid]]
+) extends HasTxNodes[Nid, Cid, Transaction.Value[Cid]]
+    with value.CidContainer[VersionedTransaction[Nid, Cid]]
     with NoCopy {
 
   override protected def self: this.type = this
@@ -58,42 +59,11 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
     )
   }
 
-  def nodes: HashMap[Nid, GenNode.WithTxValue[Nid, Cid]] =
+  override def nodes: HashMap[Nid, GenNode.WithTxValue[Nid, Cid]] =
     transaction.nodes
 
-  def roots: ImmArray[Nid] =
+  override def roots: ImmArray[Nid] =
     transaction.roots
-
-  def foreach(f: (Nid, GenNode.WithTxValue[Nid, Cid]) => Unit): Unit =
-    transaction.foreach(f)
-
-  def fold[A](z: A)(f: (A, (Nid, GenNode.WithTxValue[Nid, Cid])) => A): A =
-    transaction.fold[A](z)(f)
-
-  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
-      op: (A, B, Nid, GenNode.WithTxValue[Nid, Cid]) => (A, B)): A =
-    transaction.foldWithPathState[A, B](globalState0, pathState0)(op)
-
-  def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
-    transaction.localContracts
-
-  def inputContracts[Cid2 >: Cid]: Set[Cid2] =
-    transaction.inputContracts
-
-  def foreachInExecutionOrder(
-      exerciseBegin: (Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => Unit,
-      leaf: (Nid, Node.LeafOnlyNode.WithTxValue[Cid]) => Unit,
-      exerciseEnd: (Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => Unit,
-  ): Unit =
-    transaction.foreachInExecutionOrder(exerciseBegin, leaf, exerciseEnd)
-
-  def foldInExecutionOrder[A](z: A)(
-      exerciseBegin: (A, Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => A,
-      leaf: (A, Nid, Node.LeafOnlyNode.WithTxValue[Cid]) => A,
-      exerciseEnd: (A, Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => A,
-  ): A =
-    transaction.foldInExecutionOrder(z)(exerciseBegin, leaf, exerciseEnd)
-
 }
 
 object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
@@ -135,7 +105,8 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
 final private[lf] case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
+) extends HasTxNodes[Nid, Cid, Val]
+    with value.CidContainer[GenTransaction[Nid, Cid, Val]] {
 
   import GenTransaction._
 
@@ -158,71 +129,6 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
     map3(f, identity, identity)
-
-  /**
-    * This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
-    *
-    * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
-    */
-  def foreach(f: (Nid, GenNode[Nid, Cid, Val]) => Unit): Unit = {
-
-    @tailrec
-    def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
-      case FrontStack() =>
-      case FrontStackCons(nodeId, toVisit) =>
-        val node = nodes(nodeId)
-        f(nodeId, node)
-        node match {
-          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
-          case ne: NodeExercises[Nid, Cid, Val] => go(ne.children ++: toVisit)
-        }
-    }
-    go(FrontStack(roots))
-  }
-
-  /**
-    * Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
-    *
-    * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
-    */
-  def fold[A](z: A)(f: (A, (Nid, GenNode[Nid, Cid, Val])) => A): A = {
-    var acc = z
-    foreach { (nodeId, node) =>
-      // make sure to not tie the knot by mistake by evaluating early
-      val acc2 = acc
-      acc = f(acc2, (nodeId, node))
-    }
-    acc
-  }
-
-  /**
-    * A fold over the transaction that maintains global and path-specific state.
-    * Takes constant stack space. Returns the global state.
-    *
-    * Used to for example compute the roots of per-party projections from the
-    * transaction.
-    */
-  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
-      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
-  ): A = {
-    var globalState = globalState0
-
-    @tailrec
-    def go(toVisit: FrontStack[(Nid, B)]): Unit = toVisit match {
-      case FrontStack() =>
-      case FrontStackCons((nodeId, pathState), toVisit) =>
-        val node = nodes(nodeId)
-        val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
-        globalState = globalState1
-        node match {
-          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
-          case ne: NodeExercises[Nid, Cid, Val] =>
-            go(ne.children.map(_ -> newPathState) ++: toVisit)
-        }
-    }
-    go(FrontStack(roots.map(_ -> pathState0)))
-    globalState
-  }
 
   /** This function checks the following properties:
     *
@@ -269,27 +175,6 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
     val orphaned = nodes.keys.toSet.diff(visited).map(nid => NotWellFormedError(nid, OrphanedNode))
     errors ++ orphaned
   }
-
-  def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
-    fold(Map.empty[Cid2, Nid]) {
-      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _))) =>
-        acc.updated(create.coid, nid)
-      case (acc, _) => acc
-    }
-
-  /**
-    * Returns the IDs of all input contracts that are used by this transaction.
-    */
-  def inputContracts[Cid2 >: Cid]: Set[Cid2] =
-    fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
-        acc + coid
-      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _))) =>
-        acc + coid
-      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
-        acc + coid
-      case (acc, _) => acc
-    } -- localContracts.keySet
 
   /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
@@ -398,10 +283,104 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
 
   private[lf] def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
     GenTransaction.foreach3(fNid, fCid, fVal)(this)
+}
+
+sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
+
+  def nodes: HashMap[Nid, GenNode[Nid, Cid, Val]]
+  def roots: ImmArray[Nid]
+
+  /**
+    * This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
+    *
+    * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
+    */
+  final def foreach(f: (Nid, GenNode[Nid, Cid, Val]) => Unit): Unit = {
+
+    @tailrec
+    def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
+      case FrontStack() =>
+      case FrontStackCons(nodeId, toVisit) =>
+        val node = nodes(nodeId)
+        f(nodeId, node)
+        node match {
+          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: NodeExercises[Nid, Cid, Val] => go(ne.children ++: toVisit)
+        }
+    }
+
+    go(FrontStack(roots))
+  }
+
+  /**
+    * Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
+    *
+    * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
+    */
+  final def fold[A](z: A)(f: (A, (Nid, GenNode[Nid, Cid, Val])) => A): A = {
+    var acc = z
+    foreach { (nodeId, node) =>
+      // make sure to not tie the knot by mistake by evaluating early
+      val acc2 = acc
+      acc = f(acc2, (nodeId, node))
+    }
+    acc
+  }
+
+  /**
+    * A fold over the transaction that maintains global and path-specific state.
+    * Takes constant stack space. Returns the global state.
+    *
+    * Used to for example compute the roots of per-party projections from the
+    * transaction.
+    */
+  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
+  ): A = {
+    var globalState = globalState0
+
+    @tailrec
+    def go(toVisit: FrontStack[(Nid, B)]): Unit = toVisit match {
+      case FrontStack() =>
+      case FrontStackCons((nodeId, pathState), toVisit) =>
+        val node = nodes(nodeId)
+        val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
+        globalState = globalState1
+        node match {
+          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: NodeExercises[Nid, Cid, Val] =>
+            go(ne.children.map(_ -> newPathState) ++: toVisit)
+        }
+    }
+
+    go(FrontStack(roots.map(_ -> pathState0)))
+    globalState
+  }
+
+  final def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
+    fold(Map.empty[Cid2, Nid]) {
+      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _))) =>
+        acc.updated(create.coid, nid)
+      case (acc, _) => acc
+    }
+
+  /**
+    * Returns the IDs of all input contracts that are used by this transaction.
+    */
+  final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
+    fold(Set.empty[Cid2]) {
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+        acc + coid
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _))) =>
+        acc + coid
+      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
+        acc + coid
+      case (acc, _) => acc
+    } -- localContracts.keySet
 
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
-  def foreachInExecutionOrder(
+  final def foreachInExecutionOrder(
       exerciseBegin: (Nid, Node.NodeExercises[Nid, Cid, Val]) => Unit,
       leaf: (Nid, Node.LeafOnlyNode[Cid, Val]) => Unit,
       exerciseEnd: (Nid, Node.NodeExercises[Nid, Cid, Val]) => Unit,
@@ -435,7 +414,7 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
 
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
-  def foldInExecutionOrder[A](z: A)(
+  final def foldInExecutionOrder[A](z: A)(
       exerciseBegin: (A, Nid, Node.NodeExercises[Nid, Cid, Val]) => A,
       leaf: (A, Nid, Node.LeafOnlyNode[Cid, Val]) => A,
       exerciseEnd: (A, Nid, Node.NodeExercises[Nid, Cid, Val]) => A,
