@@ -189,14 +189,16 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       )
       foundStartingRow <- startingRowInOffset.cata(
         _ => SqlSequence point startingRowInOffset,
-        none = SqlSequence(
-          SQL"""select min(row_id) row_id
-                from participant_events
-                where event_offset > $startExclusive
-                  and event_offset <= $endInclusive
-                  and #$witnessesWhereClause""".withFetchSize(Some(1)),
-          minRowIdParser
-        )
+        none =
+          if (startExclusive == Offset.beforeBegin)
+            SqlSequence point Some(1L) // minimum row_id
+          else // assumes that event_offset=startExclusive exists in participant_events
+            SqlSequence(
+              SQL"""select max(row_id) + 1 row_id
+                    from participant_events
+                    where event_offset = $startExclusive""".withFetchSize(Some(1)),
+              minRowIdParser
+            )
       )
       bestEffortNonEmpty <- foundStartingRow.cata(
         some = startingRow =>
