@@ -199,7 +199,6 @@ avoids rebuilding the documentation:
 ```
 directories:
   .
-  -.bazel-cache
   -docs
 
 # Automatically includes all relevant targets under the 'directories' above
