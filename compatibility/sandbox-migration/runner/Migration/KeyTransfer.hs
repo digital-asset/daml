@@ -40,7 +40,7 @@ test step modelDar = Test {..}
         let suffix = getSdkVersion sdkVersion
         unless (equivalent oldAssets prevAssets) $
             throwError ("The old assets do not match those returned by the previous run: " <> show oldAssets)
-        unless (equivalent oldTransactions prevTransactions) $
+        unless (oldTransactions == prevTransactions) $
             throwError ("The old transactions do not match those returned by the previous run: " <> show oldTransactions)
         let assetDiff = symDiff (map _2 oldAssets) (map _2 newAssets)
         unless (equivalent assetDiff [Asset testOwner ("keep-" <> suffix), Asset testReceiver ("transfer-" <> suffix)]) $
