@@ -46,6 +46,8 @@ trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
     Option(toHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomParticipantId =
     Option(toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+  protected val canReadAsMainActorRandomApplicationId =
+    Option(toHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canActAsMainActorActualLedgerId =
@@ -56,5 +58,7 @@ trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
     Option(toHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
   protected val canActAsMainActorRandomParticipantId =
     Option(toHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+  protected val canActAsMainActorRandomApplicationId =
+    Option(toHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor))))
 
 }
