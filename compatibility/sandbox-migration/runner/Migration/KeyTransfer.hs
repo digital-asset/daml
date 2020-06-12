@@ -81,26 +81,12 @@ test step modelDar = Test {..}
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.
 
-newtype ContractId t = ContractId T.Text
-  deriving newtype A.FromJSON
-  deriving stock (Eq, Show)
-newtype Party = Party { getParty :: T.Text }
-  deriving newtype (A.FromJSON, A.ToJSON)
-  deriving stock (Eq, Show)
-
 data Asset = Asset
   { owner :: Party
   , name :: String
   } deriving (Eq, Generic, Show)
 
 instance A.FromJSON Asset
-
-data Tuple2 a b = Tuple2
-  { _1 :: a
-  , _2 :: b
-  } deriving (Eq, Generic, Show)
-
-instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
 
 data Event
   = CreatedAsset (ContractId Asset) Asset
