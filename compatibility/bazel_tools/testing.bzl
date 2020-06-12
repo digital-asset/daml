@@ -32,32 +32,6 @@ excluded_test_tool_tests = {
             "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
         },
     ],
-    "1.0.1-snapshot.20200417.3908.1.722bac90": [
-        {
-            "start": "1.0.1-snapshot.20200424.3917.0.16093690",
-            "end": "1.0.1",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-            "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
-        },
-    ],
-    "1.0.1-snapshot.20200424.3917.0.16093690": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-            "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
-        },
-    ],
     "1.0.1": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
@@ -73,39 +47,6 @@ excluded_test_tool_tests = {
             "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
         },
     ],
-    "1.1.0-snapshot.20200422.3991.0.6391ee9f": [
-        {
-            "start": "1.0.1-snapshot.20200424.3917.0.16093690",
-            "end": "1.0.1",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-            "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
-        },
-    ],
-    "1.1.0-snapshot.20200430.4057.0.681c862d": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
-    "1.1.0-snapshot.20200506.4107.0.7e448d81": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
     "1.1.1": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
@@ -117,7 +58,7 @@ excluded_test_tool_tests = {
             "exclusions": ["ContractKeysIT"],
         },
     ],
-    "1.2.0-snapshot.20200513.4172.0.021f4af3": [
+    "1.2.0": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
             "exclusions": ["ContractKeysIT"],
@@ -128,7 +69,7 @@ excluded_test_tool_tests = {
             "exclusions": ["ContractKeysIT"],
         },
     ],
-    "1.2.0-snapshot.20200520.4224.0.2af134ca": [
+    "1.3.0-snapshot.20200603.4345.0.1386abc0": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
             "exclusions": ["ContractKeysIT"],
@@ -139,7 +80,7 @@ excluded_test_tool_tests = {
             "exclusions": ["ContractKeysIT"],
         },
     ],
-    "1.2.0-snapshot.20200520.4228.0.595f1e27": [
+    "1.3.0-snapshot.20200610.4412.0.0544323d": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
             "exclusions": ["ContractKeysIT"],
