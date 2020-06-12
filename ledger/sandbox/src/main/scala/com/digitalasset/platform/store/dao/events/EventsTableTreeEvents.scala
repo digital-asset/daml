@@ -176,23 +176,27 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       previousOffsetWhereClauseValues(startExclusive, previousEventNodeIndex)
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
+    val minRowIdParser = SqlParser.long("row_id").?.single
     for {
-      foundStartingRow <- SqlSequence(
-        SQL"""select min(row_id) row_id from (
-                select min(row_id) row_id
+      startingRowInOffset <- SqlSequence(
+        // this query needs the index participant_event_event_offset_idx to run fast
+        SQL"""select min(row_id) row_id
+              from participant_events
+              where
+                event_offset = $prevOffset and node_index > $prevNodeIndex
+                and #$witnessesWhereClause""".withFetchSize(Some(1)),
+        minRowIdParser
+      )
+      foundStartingRow <- startingRowInOffset.cata(
+        _ => SqlSequence point startingRowInOffset,
+        none = SqlSequence(
+          SQL"""select min(row_id) row_id
                 from participant_events
                 where event_offset > $startExclusive
                   and event_offset <= $endInclusive
-                  and #$witnessesWhereClause
-               union all
-                -- this sub-query needs the index participant_event_event_offset_idx to run fast
-                select min(row_id) row_id
-                from participant_events
-                where
-                  event_offset = $prevOffset and node_index > $prevNodeIndex
-                  and #$witnessesWhereClause
-              ) rows""".withFetchSize(Some(1)),
-        SqlParser.long("row_id").?.single
+                  and #$witnessesWhereClause""".withFetchSize(Some(1)),
+          minRowIdParser
+        )
       )
       bestEffortNonEmpty <- foundStartingRow.cata(
         some = startingRow =>
