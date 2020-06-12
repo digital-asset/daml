@@ -356,7 +356,7 @@ argWhitelist = S.fromList
     , "codegen", "java", "scala", "js"
     , "deploy"
     , "json-api"
-    , "trigger", "list"
+    , "trigger", "trigger-service", "list"
     , "script"
     , "test-script"
     ]
