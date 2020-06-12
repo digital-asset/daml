@@ -18,11 +18,47 @@
 /compatibility/head_sdk/
 .bazelrc.local
 .bazelproject
-.ijwb
 
 # node.js
 node_modules/
 
+
+### Operating Systems ###
+
 # macOS
 .DS_Store
 ._.DS_Store
+
+
+### Editors ###
+
+# Eclipse
+.classpath
+.factorypath
+.project
+.settings
+
+# Emacs
+\#*\#
+.\#*\#
+*~
+
+# Ensime
+.ensime
+.ensime_cache
+
+# IntelliJ IDEA
+.idea
+.ijwb # Bazel
+*.iml
+*.ipr
+*.iws
+out
+
+# Vim
+*~
+*.swo
+*.swp
+
+# Visual Studio Code
+.vscode
