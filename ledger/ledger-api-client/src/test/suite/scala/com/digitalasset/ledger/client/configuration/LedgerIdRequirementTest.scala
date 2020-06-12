@@ -7,20 +7,25 @@ import org.scalatest.{Matchers, WordSpec}
 
 class LedgerIdRequirementTest extends WordSpec with Matchers {
 
-  "LedgerIdRequirement" should {
+  "LedgerIdRequirement" when {
+    "matching a specific value" should {
+      "accept a matching ledger ID" in {
+        val expected = "ledger-a"
+        val requirement = LedgerIdRequirement.matching(expected)
+        requirement.isAccepted(expected) shouldBe true
+      }
 
-    "allow accept matching ledger" in {
-      val expected = "ledger-a"
-      LedgerIdRequirement.matching(expected).isAccepted(expected) shouldBe true
+      "reject any other ledger ID" in {
+        val requirement = LedgerIdRequirement.matching("ledger-b")
+        requirement.isAccepted("not-b") shouldBe false
+      }
     }
 
-    "allow not accept non-matching ledger" in {
-      LedgerIdRequirement.matching("ledger-b").isAccepted("not-b") shouldBe false
+    "none" should {
+      "allow any ledger ID" in {
+        val requirement = LedgerIdRequirement.none
+        requirement.isAccepted("any-ledger") shouldBe true
+      }
     }
-
-    "empty constructor should allow any ledger" in {
-      LedgerIdRequirement.none.isAccepted("any-ledger") shouldBe true
-    }
-
   }
 }
