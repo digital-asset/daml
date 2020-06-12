@@ -4,14 +4,16 @@
 V1 Contract ID allocation scheme
 ================================
 
+
 Goals
 ^^^^^
 
 * Allows ordering contract IDs and make DAML semantics depend on this
   order, e.g., for comparison builtin and maps using IDs as keys.
-* Eliminate all contract ID translations for central commiter ledger
+* Eliminate all contract ID translations for central committer ledger
 * Allows ledgers to store arbitrary information about the contract and
   the creating transaction in the contract ID if necessary.
+
 
 Requirements
 ^^^^^^^^^^^^
@@ -40,6 +42,7 @@ C2 with the same contract ID such that one of the following holds:
 **Distinctness**: The ledger can enforce that the seeds are pairwise
 different.
 
+
 Contract Identifiers
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -59,6 +62,7 @@ where
   discriminators_>`_ that supports validation (see below).
 * ``suffix`` is a sequence of 0 to 94 bytes used to enforce global
   uniqueness of the contract ID in a distributed ledger.
+
 
 Discriminator freshness
 -----------------------
@@ -92,6 +96,7 @@ This ensures that only the discriminators, not the suffix are needed
 to order the contract IDs of created contracts w.r.t. other contract
 IDs. 
 
+
 Contract ID uniqueness
 ----------------------
 
@@ -103,11 +108,12 @@ contract IDs.  No other requirement (except the 94 bytes size limit)
 is assumed for those suffices.
 
 The simplest approach consists to suffix all local contract ID with a
-uniquely global transaction ID. Alternatively central commiter ledger
+uniquely global transaction ID. Alternatively central committer ledger
 can completely avoid suffixing by enforcing that same pair (submission
 seed, submission time) is never used more that once, the discriminator
 allocation scheme ensuring in this case the uniqueness of allocated
 discriminators.
+
 
 Submission time
 ---------------
@@ -117,9 +123,10 @@ practice, it should be close to the original time at which the
 submission was initiated. No particular requirement is made in this
 specification. However a particular ledger implementation can require
 this time to be within a particular time window around the commit
-time. This allows, for instance, the commiter of a central commiter
+time. This allows, for instance, the committer of a central committer
 ledger to enforce global uniqueness of the pair (submission seed,
 submission time).
+
 
 Allocation scheme for discriminators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -133,7 +140,7 @@ construction. It assumes a hash-based MAC function HMAC, and defines
 for each big-endian 32 bits integer ``n`` the derived seed:
 
   deriveSeed(seed, n) := HMAC(seed, n)
-  
+
 
 Submission seed
 ---------------
@@ -157,8 +164,7 @@ where
 * ``submissionTime`` is the submission time in micro second encoded as
   a 64 bytes big-endian integer;
 
-  
-     
+
 Derivation of seeds for root nodes the transaction
 --------------------------------------------------
 
@@ -200,7 +206,7 @@ Submission
 The submission performs the following steps:
 
 * Pick a submission seed with high entropy.
-* Derive the transaction seed and start the interperation
+* Derive the transaction seed and start the interpretation
 * During interpretation derive the node seeds, and the discriminator
   of local contract ID accordingly the scheme described above.  If the
   discriminator is not `fresh <Discriminator Freshness_>`_, abort the
@@ -214,7 +220,6 @@ suffixed with a suffix in a later step. This yields the *committed
 transaction*. For ledgers that do not require suffixing, committed and submitted
 transactions coincide. Committed transactions are the source of truth to
 derive the state of the ledger.
-
 
 
 Validation
@@ -235,9 +240,11 @@ submission. The resulting transactions are then compared with the
 original ones ignoring the suffix of the local contract IDs.
 
 
+
 .. Local Variables:
 .. eval: (flyspell-mode 1)
 .. eval: (set-input-method "TeX")
 .. End:
 
-..  LocalWords:  commiter lexicographically endian
+..  LocalWords:  subactions lexicographically endian Executability
+..  LocalWords:  Unlinkability
