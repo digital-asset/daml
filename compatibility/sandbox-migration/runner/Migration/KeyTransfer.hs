@@ -20,16 +20,8 @@ diff :: Eq a => [a] -> [a] -> [a]
 diff left right = (left \\ right) ++ (right \\ left)
 
 equivalent :: Eq a => [a] -> [a] -> Bool
-equivalent xs = null . (diff xs)
+equivalent xs = null . diff xs
 
---data Result = Result
---  { oldKeptAssets :: [Tuple2 (ContractId Asset) Asset]
---  , newKeptAssets :: [Tuple2 (ContractId Asset) Asset]
---  , oldTransferredAssets :: [Tuple2 (ContractId Asset) Asset]
---  , newTransferredAssets :: [Tuple2 (ContractId Asset) Asset]
---  , oldTransactions :: [Transaction]
---  , newTransactions :: [Transaction]
---  } deriving Generic
 test :: FilePath -> FilePath -> Test ([Tuple2 (ContractId Asset) Asset], [Transaction]) Result
 test step modelDar = Test {..}
   where
