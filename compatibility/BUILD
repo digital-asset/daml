@@ -151,4 +151,3 @@ migration_test(
     # data-dependencies on packages built with an older SDK version.
     if versions.is_at_least(old_sdk_version, new_sdk_version)
 ]
-
