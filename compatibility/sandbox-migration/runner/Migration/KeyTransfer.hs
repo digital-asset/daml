@@ -45,38 +45,38 @@ test step modelDar = Test {..}
         let assetDiff = symDiff (map _2 oldAssets) (map _2 newAssets)
         unless (equivalent assetDiff [Asset testOwner ("keep-" <> suffix), Asset testReceiver ("transfer-" <> suffix)]) $
             throwError ("Expected one kept and one transferred contract, got " <> show assetDiff)
-        let transactionDiff = concat $ symDiff (map events oldTransactions) (map events newTransactions)
-        unless (length transactionDiff == 6) $
-            throwError ("Expected six unique contract state changes, transaction diff: " <> show transactionDiff)
-        let groupedByContract = groupBy contractId transactionDiff
-        unless (length groupedByContract == 4) $
-            throwError ("Expected four unique contract idenfiers, transaction diff: " <> show transactionDiff)
-        unless (any (activeContract testOwner ("keep-" <> suffix)) groupedByContract) $
-            throwError ("Cannot find create event for active kept contract, transaction diff: " <> show transactionDiff)
-        unless (any (archivedContract testOwner ("archive-" <> suffix)) groupedByContract) $
-            throwError ("Cannot find create event for archived contract, transaction diff: " <> show transactionDiff)
-        unless (any (archivedContract testOwner ("transfer-" <> suffix)) groupedByContract) $
-            throwError ("Cannot find create event for archived transferred contract, transaction diff: " <> show transactionDiff)
-        unless (any (activeContract testReceiver ("transfer-" <> suffix)) groupedByContract) $
-            throwError ("Cannot find create event for active transferred contract, transaction diff: " <> show transactionDiff)
+        let transactionDiff = symDiff (map events oldTransactions) (map events newTransactions)
+        case transactionDiff of
+            [[CreatedAsset (ContractId _) (Asset owner1 keep)],[CreatedAsset (ContractId archiveCreate) (Asset owner2 archive)],[ArchivedAsset (ContractId archiveArchive)],[CreatedAsset (ContractId transferCreate) (Asset owner3 transfer1)],[ArchivedAsset (ContractId transferArchive),CreatedAsset (ContractId _) (Asset receiver transfer2)]] -> do
+                unless (archiveCreate == archiveArchive) $
+                    throwError ("Mismatching contract idenfier between create and archive for asset " <> archive <> ", transaction diff: " <> show transactionDiff)
+                let expectedTransfer = "transfer-" <> suffix
+                unless (transfer1 == expectedTransfer && transfer2 == expectedTransfer) $
+                    throwError ("Mismatching name for either asset '" <> transfer1 <> "' or '" <> transfer2 <> "' (expecting '" <> expectedTransfer <> "')), transaction diff: " <> show transactionDiff)
+                unless (transferCreate == transferArchive) $
+                    throwError ("Mismatching contract idenfier between create and archive for asset " <> expectedTransfer <> ", transaction diff: " <> show transactionDiff)
+                let expectedArchive = "archive-" <> suffix
+                unless (archive == expectedArchive) $
+                    throwError ("Mismatching name for asset '" <> archive <> "' (expecting '" <> expectedArchive <> "')), transaction diff: " <> show transactionDiff)
+                let expectedKeep = "keep-" <> suffix
+                unless (keep == expectedKeep) $
+                    throwError ("Mismatching name for asset '" <> keep <> "' (expecting '" <> expectedKeep <> "')), transaction diff: " <> show transactionDiff)
+                unless (receiver == testReceiver) $
+                    throwError ("Mismatching party '" <> show (getParty receiver) <> "' (expecting '" <> show (getParty testReceiver) <> "'), transaction diff: " <> show transactionDiff)
+                unless (owner1 == testOwner) $
+                    throwError ("Mismatching party '" <> show (getParty owner1) <> "' (expecting '" <> show (getParty testOwner) <> "'), transaction diff: " <> show transactionDiff)
+                unless (owner2 == testOwner) $
+                    throwError ("Mismatching party '" <> show (getParty owner2) <> "' (expecting '" <> show (getParty testOwner) <> "'), transaction diff: " <> show transactionDiff)
+                unless (owner3 == testOwner) $
+                    throwError ("Mismatching party '" <> show (getParty owner3) <> "' (expecting '" <> show (getParty testOwner) <> "'), transaction diff: " <> show transactionDiff)
+            _ ->
+                throwError ("Unexpected transaction pattern in " <> show transactionDiff)
         pure (newAssets, newTransactions)
 
     testOwner :: Party
     testOwner = Party "owner"
     testReceiver :: Party
     testReceiver = Party "receiver"
-
-activeContract :: Party -> String -> [Event] -> Bool
-activeContract expectedParty expectedName event =
-    case event of
-        [CreatedAsset _ (Asset party name)] -> party == expectedParty && name == expectedName
-        _ -> False
-
-archivedContract :: Party -> String -> [Event] -> Bool
-archivedContract expectedParty expectedName event =
-    case event of
-        [CreatedAsset _ (Asset party name), ArchivedAsset _] -> party == expectedParty && name == expectedName
-        _ -> False
 
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.
@@ -106,15 +106,6 @@ data Event
   = CreatedAsset (ContractId Asset) Asset
   | ArchivedAsset (ContractId Asset)
   deriving (Eq, Show)
-
-getContractId :: Event -> T.Text
-getContractId event =
-    case event of
-        CreatedAsset (ContractId cid) _ -> cid
-        ArchivedAsset (ContractId cid) -> cid
-
-contractId :: Event -> Event -> Bool
-contractId e1 e2 = getContractId e1 == getContractId e2
 
 instance A.FromJSON Event where
     parseJSON = A.withObject "Event" $ \o -> do
