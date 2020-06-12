@@ -34,8 +34,8 @@ case class LedgerClientConfig(
       ssl.map(_.sslContext)
     )
 
-  private val ledgerIdRequirement = ledgerId.fold(LedgerIdRequirement("", enabled = false))(lid =>
-    LedgerIdRequirement(lid, enabled = true))
+  private val ledgerIdRequirement =
+    ledgerId.fold(LedgerIdRequirement(None))(lid => LedgerIdRequirement(Some(lid)))
 }
 
 object LedgerClientConfig {

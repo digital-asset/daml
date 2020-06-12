@@ -8,11 +8,12 @@ package com.daml.ledger.client.configuration
   *                 expected LedgerId. Note that this setting only affects the binding process, when the ledger ID
   *                 on the server is checked.
   */
-final case class LedgerIdRequirement(ledgerId: String, enabled: Boolean) {
-
-  def isAccepted(checkedLedgerId: String): Boolean = !enabled || checkedLedgerId == ledgerId
+final case class LedgerIdRequirement(ledgerId: Option[String]) {
+  def isAccepted(checkedLedgerId: String): Boolean = ledgerId.fold(true)(checkedLedgerId.equals)
 }
 
 object LedgerIdRequirement {
-  def apply(ledgerId: Option[String]): LedgerIdRequirement = LedgerIdRequirement(ledgerId.getOrElse(""), ledgerId.isDefined)
+  @deprecated("Use option based constructor", "1.3.0")
+  def apply(ledgerId: String, enabled: Boolean): LedgerIdRequirement =
+    LedgerIdRequirement(if (enabled) Some(ledgerId) else None)
 }

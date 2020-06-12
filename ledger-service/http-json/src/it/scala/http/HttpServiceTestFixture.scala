@@ -183,7 +183,7 @@ object HttpServiceTestFixture {
       useTls: UseTls = UseTls.NoTls): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement(None),
       commandClient = CommandClientConfiguration.default,
       sslContext = if (useTls) clientTlsConfig.client else None,
       token = token

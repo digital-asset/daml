@@ -281,7 +281,7 @@ class PlatformStore(
 
     val configuration = LedgerClientConfiguration(
       applicationId,
-      LedgerIdRequirement("_", enabled = false),
+      LedgerIdRequirement(None),
       CommandClientConfiguration(
         maxCommandsInFlight,
         maxParallelSubmissions,

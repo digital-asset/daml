@@ -171,7 +171,7 @@ object TriggerServiceFixture {
       token: Option[String] = None): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement(None),
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
       token = token

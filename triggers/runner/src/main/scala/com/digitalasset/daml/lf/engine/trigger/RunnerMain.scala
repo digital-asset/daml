@@ -79,7 +79,7 @@ object RunnerMain {
         val applicationId = ApplicationId("Trigger Runner")
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+          ledgerIdRequirement = LedgerIdRequirement(None),
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
           sslContext = config.tlsConfig.flatMap(_.client),

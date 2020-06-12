@@ -52,7 +52,7 @@ object TestMain extends StrictLogging {
         val applicationId = ApplicationId("Script Test")
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+          ledgerIdRequirement = LedgerIdRequirement(None),
           commandClient = CommandClientConfiguration.default,
           sslContext = None
         )
