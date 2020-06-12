@@ -16,7 +16,7 @@ load(
 load(
     "//bazel_tools/data_dependencies:data_dependencies.bzl",
     "data_dependencies_coins",
-    "data_dependencies_upgrade",
+    "data_dependencies_upgrade_test",
 )
 load("//bazel_tools:versions.bzl", "versions")
 load("//sandbox-migration:util.bzl", "migration_test")
@@ -141,7 +141,7 @@ migration_test(
 ]
 
 [
-    data_dependencies_upgrade(
+    data_dependencies_upgrade_test(
         new_sdk_version = new_sdk_version,
         old_sdk_version = old_sdk_version,
     )
