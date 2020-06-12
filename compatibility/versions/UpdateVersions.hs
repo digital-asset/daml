@@ -4,13 +4,17 @@
 module Main (main) where
 
 import Control.Concurrent.Async
-import Control.Lens (view)
-import Crypto.Hash (hashlazy, Digest, SHA256)
+import Control.Lens ((.~), (&), (^?!), view, _Right)
+import Control.Monad
+import Crypto.Hash (digestFromByteString, hashlazy, Digest, SHA256)
 import Data.Aeson
-import Data.ByteArray.Encoding (Base(Base16), convertToBase)
+import Data.ByteArray.Encoding (Base(Base16), convertFromBase, convertToBase)
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as BSL
 import Data.Either (fromRight)
+import Data.Either.Extra (eitherToMaybe)
 import qualified Data.HashMap.Strict as HashMap
+import Data.List
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -18,6 +22,7 @@ import qualified Data.Set as Set
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Network.HTTP.Client (responseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Options.Applicative
@@ -118,21 +123,29 @@ firstMessagingPatch =
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
     putStrLn ("Requesting hashes for " <> SemVer.toString ver)
-    [ linuxHash, macosHash, windowsHash, testToolHash,
-      damlTypesHash, damlLedgerHash, damlReactHash] <-
+    req <- parseRequestThrow sha256Url
+    lines <- map T.words . T.lines . T.decodeUtf8 . BSL.toStrict . getResponseBody <$> httpLbs req
+    Just [linuxHash, macosHash, windowsHash] <- pure $
+        forM [sdkFilePath "linux", sdkFilePath "macos", sdkFilePath "windows"] $ \path -> do
+            -- This is fairly hacky but given that we only run this script
+            -- offline that seems fine for now.
+            (base16Hash : _) <- find (\line -> path == line !! 1) lines
+            byteHash <- (eitherToMaybe . convertFromBase Base16 . T.encodeUtf8) base16Hash
+            digestFromByteString @SHA256 @ByteString byteHash
+    [ testToolHash, damlTypesHash, damlLedgerHash, damlReactHash] <-
         forConcurrently
-            [ sdkUrl "linux", sdkUrl "macos", sdkUrl "windows"
-            , testToolUrl
+            [ testToolUrl
             , tsLib "types"
             , tsLib "ledger"
             , tsLib "react"
             ] getHash
     mbCreateDamlAppPatchHash <- traverse getHash mbCreateDamlAppUrl
     pure Checksums {..}
-  where sdkUrl platform =
+  where sdkFilePath platform = T.pack $
+            "./daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
+        sha256Url =
             "https://github.com/digital-asset/daml/releases/download/v" <>
-            SemVer.toString ver <> "/" <>
-            "daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
+            SemVer.toString ver <> "/sha256sums"
         testToolUrl =
             "https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/" <>
             SemVer.toString ver <> "/ledger-api-test-tool-" <> SemVer.toString ver <> ".jar"
@@ -162,7 +175,16 @@ main = do
     snapshotsReq <- parseRequestThrow "https://docs.daml.com/snapshots.json"
     versionsResp <- httpJSON versionsReq
     snapshotsResp <- httpJSON snapshotsReq
-    let allVersions = Versions (Set.filter (>= minimumVersion) (getVersions (getResponseBody versionsResp <> getResponseBody snapshotsResp)))
+    let stableVers = getVersions (getResponseBody versionsResp)
+    let allSnapshots = getVersions (getResponseBody snapshotsResp)
+    -- List of releases that we want to filter out snapshots for even
+    -- though they do not exist.
+    let skipped = Set.fromList [SemVer.fromText "1.1.0" ^?! _Right]
+    -- Only include snapshots for which there is no following stable version.
+    -- We do not simply filter for anything > than the latest stable version
+    -- since we might have a snapshot for a bugfix release.
+    let prunedSnapshots = Set.filter (\v -> toStable v `Set.notMember` (stableVers <> skipped)) allSnapshots
+    let allVersions = Versions (Set.filter (>= minimumVersion) (stableVers <> prunedSnapshots))
     checksums <- mapM (\ver -> (ver,) <$> getChecksums ver) (Set.toList $ getVersions allVersions)
     writeFileUTF8 outputFile (T.unpack $ renderVersionsFile allVersions $ Map.fromList checksums)
-
+  where toStable v = v & SemVer.release .~ [] & SemVer.metadata .~ []
