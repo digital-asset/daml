@@ -41,7 +41,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   protected def ledgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = MockMessages.applicationId,
-      ledgerIdRequirement = LedgerIdRequirement(None),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
       token = None

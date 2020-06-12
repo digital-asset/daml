@@ -13,6 +13,10 @@ final case class LedgerIdRequirement(ledgerId: Option[String]) {
 }
 
 object LedgerIdRequirement {
+
+  val none: LedgerIdRequirement = LedgerIdRequirement(None)
+  def matching(ledgerId: String): LedgerIdRequirement = LedgerIdRequirement(Some(ledgerId))
+
   @deprecated("Use option based constructor", "1.3.0")
   def apply(ledgerId: String, enabled: Boolean): LedgerIdRequirement =
     LedgerIdRequirement(if (enabled) Some(ledgerId) else None)

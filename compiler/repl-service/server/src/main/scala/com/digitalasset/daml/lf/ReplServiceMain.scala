@@ -141,7 +141,7 @@ object ReplServiceMain extends App {
   val applicationId = ApplicationId("daml repl")
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement(None),
+    ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     sslContext = config.tlsConfig.flatMap(_.client),
     token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),

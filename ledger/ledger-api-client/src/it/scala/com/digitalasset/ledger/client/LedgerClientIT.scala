@@ -24,7 +24,7 @@ final class LedgerClientIT
     "shut down the channel when closed" in {
       val clientConfig = LedgerClientConfiguration(
         applicationId = classOf[LedgerClientIT].getSimpleName,
-        ledgerIdRequirement = LedgerIdRequirement(None),
+        ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         sslContext = None,
         token = None,

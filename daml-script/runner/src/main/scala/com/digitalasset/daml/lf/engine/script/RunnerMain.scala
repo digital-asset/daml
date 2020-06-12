@@ -110,7 +110,7 @@ object RunnerMain {
             val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
             val clientConfig = LedgerClientConfiguration(
               applicationId = ApplicationId.unwrap(applicationId),
-              ledgerIdRequirement = LedgerIdRequirement(None),
+              ledgerIdRequirement = LedgerIdRequirement.none,
               commandClient = CommandClientConfiguration.default,
               sslContext = config.tlsConfig.flatMap(_.client),
               token = tokenHolder.flatMap(_.token),

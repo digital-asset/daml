@@ -9,15 +9,17 @@ class LedgerIdRequirementTest extends WordSpec with Matchers {
 
   "LedgerIdRequirement" should {
 
-    "allow verify ledger" in {
+    "allow accept matching ledger" in {
       val expected = "ledger-a"
-      val underTest = LedgerIdRequirement(Some(expected))
-      underTest.isAccepted(expected) shouldBe true
-      underTest.isAccepted("not-a") shouldBe false
+      LedgerIdRequirement.matching(expected).isAccepted(expected) shouldBe true
+    }
+
+    "allow not accept non-matching ledger" in {
+      LedgerIdRequirement.matching("ledger-b").isAccepted("not-b") shouldBe false
     }
 
     "empty constructor should allow any ledger" in {
-      LedgerIdRequirement(None).isAccepted("any-ledger") shouldBe true
+      LedgerIdRequirement.none.isAccepted("any-ledger") shouldBe true
     }
 
   }

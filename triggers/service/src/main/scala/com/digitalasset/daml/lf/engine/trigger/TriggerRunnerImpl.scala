@@ -71,7 +71,7 @@ object TriggerRunnerImpl {
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
-        ledgerIdRequirement = LedgerIdRequirement(None),
+        ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
