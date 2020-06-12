@@ -7,7 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.platform.store.dao.events.TransactionBuilder._
+import com.daml.lf.transaction.test.TransactionBuilder._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.{Failure, Success, Try}
@@ -29,7 +29,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(createWithKey),
+            transaction = justCommitted(createWithKey),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -44,7 +44,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(createWithoutKey),
+            transaction = justCommitted(createWithoutKey),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -60,7 +60,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(createContract, exerciseContract),
+            transaction = justCommitted(createContract, exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -76,7 +76,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(exerciseContract),
+            transaction = justCommitted(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
           )
@@ -92,7 +92,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(exerciseContract),
+            transaction = justCommitted(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -107,7 +107,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(createContract, fetch(createContract)),
+            transaction = justCommitted(createContract, fetch(createContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -122,7 +122,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(fetch(divulgedContract)),
+            transaction = justCommitted(fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
           )
@@ -137,7 +137,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(fetch(missingCreate)),
+            transaction = justCommitted(fetch(missingCreate)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -152,7 +152,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(createContract, lookupByKey(createContract, found = true)),
+            transaction = justCommitted(createContract, lookupByKey(createContract, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -167,7 +167,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(lookupByKey(missingCreate, found = true)),
+            transaction = justCommitted(lookupByKey(missingCreate, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -187,7 +187,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(lookupByKey(missingContract, found = false)),
+            transaction = justCommitted(lookupByKey(missingContract, found = false)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -218,7 +218,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(committedContract),
+            transaction = justCommitted(committedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -231,7 +231,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(exerciseOnCommittedContract),
+            transaction = justCommitted(exerciseOnCommittedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -244,7 +244,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(exerciseOnCommittedContract),
+            transaction = justCommitted(exerciseOnCommittedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
             divulged = Set.empty,
           )
@@ -262,7 +262,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(fetch(committedContract)),
+            transaction = justCommitted(fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -275,7 +275,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(fetch(committedContract)),
+            transaction = justCommitted(fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
             divulged = Set.empty,
           )
@@ -293,7 +293,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(lookupByKey(committedContract, found = true)),
+            transaction = justCommitted(lookupByKey(committedContract, found = true)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -306,7 +306,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(lookupByKey(committedContract, found = false)),
+            transaction = justCommitted(lookupByKey(committedContract, found = false)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -337,7 +337,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(exerciseOnDivulgedContract),
+            transaction = justCommitted(exerciseOnDivulgedContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -350,7 +350,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = just(fetch(divulgedContract)),
+            transaction = justCommitted(fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )

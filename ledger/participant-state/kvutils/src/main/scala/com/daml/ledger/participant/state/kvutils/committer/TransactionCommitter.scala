@@ -19,7 +19,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node, Transaction => Tx}
+import com.daml.lf.transaction.{BlindingInfo, Node, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -304,7 +304,7 @@ private[kvutils] class TransactionCommitter(
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
   private def checkInformeePartiesAllocation: Step = (commitContext, transactionEntry) => {
-    def foldInformeeParties(tx: GenTransaction.WithTxValue[_, _], init: Boolean)(
+    def foldInformeeParties(tx: Tx.Transaction, init: Boolean)(
         f: (Boolean, String) => Boolean
     ): Boolean =
       tx.fold(init) {

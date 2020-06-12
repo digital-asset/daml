@@ -8,12 +8,11 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
-import com.daml.lf.transaction.{GenTransaction, Node}
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, ContractInst, NodeId, ValueText, VersionedValue}
 import com.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.collection.immutable.HashMap
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
@@ -38,7 +37,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      children: ImmArray[NodeId]) =
+  ) =
     Node.NodeExercises(
       targetCoid = target,
       templateId = Identifier(
@@ -51,7 +50,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       chosenValue = VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
       stakeholders = stakeholders,
       signatories = signatories,
-      children = children,
+      children = ImmArray.empty,
       exerciseResult = None,
       key = None
     )
@@ -67,18 +66,19 @@ class ProjectionsSpec extends WordSpec with Matchers {
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
-      val emptyTransaction: Transaction = GenTransaction(HashMap.empty, ImmArray.empty)
+      val emptyTransaction: Transaction = TransactionBuilder.Empty
       project(emptyTransaction) shouldBe List.empty
     }
 
     "yield two projection roots for single root transaction with two parties" in {
-      val nid = NodeId(1)
-      val root = makeCreateNode(
-        toCid(nid),
-        Set(Party.assertFromString("Alice")),
-        Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
-      val tx =
-        GenTransaction(nodes = HashMap(nid -> root), roots = ImmArray(nid))
+      val builder = new TransactionBuilder
+      val nid = builder.add(
+        makeCreateNode(
+          builder.newCid,
+          Set(Party.assertFromString("Alice")),
+          Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
+      )
+      val tx = builder.build()
 
       project(tx) shouldBe List(
         ProjectionRoots(Party.assertFromString("Alice"), BackStack(nid)),
@@ -87,40 +87,37 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield proper projection roots in complex transaction" in {
-      val nid1 = NodeId(1)
-      val nid2 = NodeId(2)
-      val nid3 = NodeId(3)
-      val nid4 = NodeId(4)
+      val builder = new TransactionBuilder
 
       // Alice creates an "offer contract" to Bob as part of her workflow.
       // Alice sees both the exercise and the create, and Bob only
       // sees the offer.
       val create = makeCreateNode(
-        toCid(nid2),
+        builder.newCid,
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Bob")))
       val exe = makeExeNode(
-        toCid(nid1),
+        builder.newCid,
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
-        ImmArray(nid2)
       )
       val bobCreate = makeCreateNode(
-        toCid(nid3),
+        builder.newCid,
         Set(Party.assertFromString("Bob")),
         Set(Party.assertFromString("Bob")))
 
       val charlieCreate = makeCreateNode(
-        toCid(nid4),
+        builder.newCid,
         Set(Party.assertFromString("Charlie")),
         Set(Party.assertFromString("Charlie")))
 
-      val tx =
-        GenTransaction(
-          nodes = HashMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
-          roots = ImmArray(nid1, nid3, nid4),
-        )
+      val nid1 = builder.add(exe)
+      val nid2 = builder.add(create, nid1)
+      val nid3 = builder.add(bobCreate)
+      val nid4 = builder.add(charlieCreate)
+
+      val tx = builder.build()
 
       project(tx) shouldBe List(
         // Alice should see the exercise as the root.
