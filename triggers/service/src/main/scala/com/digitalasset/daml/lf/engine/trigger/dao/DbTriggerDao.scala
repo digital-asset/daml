@@ -1,18 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger.dao
+
+import java.util.UUID
 
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
-import doobie._
-import doobie.LogHandler
+import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.postgres.implicits._
 import doobie.util.log
-import java.util.UUID
+import doobie.{LogHandler, Transactor, _}
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}

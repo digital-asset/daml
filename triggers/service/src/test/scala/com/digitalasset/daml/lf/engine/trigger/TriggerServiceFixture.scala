@@ -37,6 +37,7 @@ import scala.concurrent.duration._
 import scala.sys.process.Process
 import java.net.{InetAddress, ServerSocket, Socket}
 
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
