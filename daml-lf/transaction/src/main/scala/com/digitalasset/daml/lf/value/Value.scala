@@ -375,7 +375,7 @@ object Value extends CidContainer1[Value] {
         Either.cond(
           suffix.length <= MaxSuffixLength,
           new V1(discriminator, suffix),
-          s"the suffix is too long, expected at most ${MaxSuffixLength} bytes, but got ${suffix.length}"
+          s"the suffix is too long, expected at most $MaxSuffixLength bytes, but got ${suffix.length}"
         )
 
       def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =
