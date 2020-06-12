@@ -9,7 +9,15 @@ package com.daml.ledger.client.configuration
   *                 on the server is checked.
   */
 final case class LedgerIdRequirement(ledgerId: Option[String]) {
-  def isAccepted(checkedLedgerId: String): Boolean = ledgerId.fold(true)(checkedLedgerId.equals)
+  def isAccepted(checkedLedgerId: String): Boolean =
+    ledgerId.fold(true)(checkedLedgerId.equals)
+
+  def copy(ledgerId: Option[String]): LedgerIdRequirement =
+    LedgerIdRequirement(ledgerId = ledgerId)
+
+  @deprecated("Use Option-based copy", "1.3.0")
+  def copy(ledgerId: String): LedgerIdRequirement =
+    LedgerIdRequirement(this.ledgerId.map(_ => ledgerId))
 }
 
 object LedgerIdRequirement {
@@ -17,7 +25,7 @@ object LedgerIdRequirement {
   val none: LedgerIdRequirement = LedgerIdRequirement(None)
   def matching(ledgerId: String): LedgerIdRequirement = LedgerIdRequirement(Some(ledgerId))
 
-  @deprecated("Use option based constructor", "1.3.0")
+  @deprecated("Use Option-based constructor", "1.3.0")
   def apply(ledgerId: String, enabled: Boolean): LedgerIdRequirement =
     LedgerIdRequirement(if (enabled) Some(ledgerId) else None)
 }
