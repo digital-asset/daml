@@ -546,7 +546,7 @@ extRecEnv x fs = do
       curFs = [fs' | SkolRec x' fs' <- skols, x == x']
       newFs = if null curFs
         then fs
-        else fs ++ (head curFs)
+        else fs ++ head curFs
   extSkolEnv (SkolRec x newFs)
 
 -- | Extend the environment with the fields of any given record or type
@@ -565,6 +565,7 @@ extRecEnvTCons = mapM_ step
           extRecEnv (fieldName2VarName f) $ map fst fsRec
 
 -- | Extend the environment with a new skolem variable.
+-- TODO: Avoid duplicates.
 extSkolEnv :: (IsPhase ph, MonadEnv m ph)
   => Skolem
   -- ^ The skolem variable to add.
@@ -662,7 +663,7 @@ extCidEnv b exp var = do
     check_proj_cid (EStructProj _ (EVar x)) = do
       skols <- envSkols <$> getEnv
       return $ null [fs' | SkolRec x' fs' <- skols, x == x']
-    check_proj_cid _ = return $ True
+    check_proj_cid _ = return True
 
 -- | Extend the environment with an additional precondition, assigned to the
 -- corresponding template.

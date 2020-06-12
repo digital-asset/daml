@@ -97,13 +97,16 @@ instance SubstTm Expr where
     EStructUpd f e1 e2 -> EStructUpd f (substituteTm s e1) (substituteTm s e2)
     ETmApp e1 e2 -> ETmApp (substituteTm s e1) (substituteTm s e2)
     ETyApp e t -> ETyApp (substituteTm s e) t
-    ETmLam (x,t) e -> let s' = removeSubst s x
-      in ETmLam (x,t) (substituteTm s' e)
+    ETmLam (x,t) e -> if x `elem` substDom s
+      then ETmLam (x,t) (substituteTm (removeSubst s x) e)
+      else ETmLam (x,t) (substituteTm s e)
     ETyLam (a,k) e -> ETyLam (a,k) (substituteTm s e)
     ECase e cs -> ECase (substituteTm s e)
       $ map (\CaseAlternative{..} -> CaseAlternative altPattern (substituteTm s altExpr)) cs
-    ELet (Binding (var,ty) e1) e2 -> let s' = removeSubst s var
-      in ELet (Binding (var,ty) (substituteTm s e1)) (substituteTm s' e2)
+    ELet (Binding (var,ty) e1) e2 -> if var `elem` substDom s
+      then let s' = removeSubst s var
+           in ELet (Binding (var,ty) (substituteTm s e1)) (substituteTm s' e2)
+      else ELet (Binding (var,ty) (substituteTm s e1)) (substituteTm s e2)
     ECons t e1 e2 -> ECons t (substituteTm s e1) (substituteTm s e2)
     ESome t e -> ESome t (substituteTm s e)
     EToAny t e -> EToAny t (substituteTm s e)

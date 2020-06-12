@@ -169,9 +169,15 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
     Just fs -> return fs
   extRecEnv arg $ map fst argFs
   extRecEnvTCons argFs
+  -- Replace the argument fields with their record projection form.
+  let argFieldSubst = foldl concatExprSubst emptyExprSubst
+        (map (\(f,_) -> singleExprSubst (fieldName2VarName f) (EStructProj f (EVar arg))) argFs)
   -- Extend the environment with any record fields from the template.
   extRecEnv this $ map fst temFs
   extRecEnvTCons temFs
+  -- Replace the template fields with their record projection form.
+  let thisFieldSubst = foldl concatExprSubst emptyExprSubst
+        (map (\(f,_) -> singleExprSubst (fieldName2VarName f) (EStructProj f (EVar this))) temFs)
   -- Extend the environment with any contract id's and constraints from the arguments.
   extEnvContractTCons argFs arg Nothing
   -- Extend the environment with any contract id's and constraints from the template.
@@ -182,7 +188,7 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   let substVar = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   -- TODO: Can preconditions perform updates?
   expOut <- genExpr True
-    $ substituteTm substVar
+    $ substituteTm (substVar `concatExprSubst` thisFieldSubst `concatExprSubst` argFieldSubst)
     $ instPRSelf pac chcUpdate
   -- Add the archive update.
   let out = if chcConsuming
@@ -326,7 +332,8 @@ genForLet :: (GenPhase ph, MonadEnv m ph)
   -> m (Output ph)
 genForLet updFlag bind body = do
   bindOut <- genExpr False (bindingBound bind)
-  let subst = singleExprSubst (fst $ bindingBinder bind) (_oExpr bindOut)
+  let var = fst $ bindingBinder bind
+      subst = singleExprSubst var (_oExpr bindOut)
       resExpr = substituteTm subst body
   resOut <- genExpr updFlag resExpr
   return $ combineOut resOut bindOut
