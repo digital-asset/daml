@@ -16,11 +16,11 @@ import System.Process
 
 import Migration.Types
 
-diff :: Eq a => [a] -> [a] -> [a]
-diff left right = (left \\ right) ++ (right \\ left)
+symDiff :: Eq a => [a] -> [a] -> [a]
+symDiff left right = (left \\ right) ++ (right \\ left)
 
 equivalent :: Eq a => [a] -> [a] -> Bool
-equivalent xs = null . diff xs
+equivalent xs = null . symDiff xs
 
 test :: FilePath -> FilePath -> Test ([Tuple2 (ContractId Asset) Asset], [Transaction]) Result
 test step modelDar = Test {..}
@@ -42,10 +42,10 @@ test step modelDar = Test {..}
             throwError ("The old assets do not match those returned by the previous run: " <> show oldAssets)
         unless (equivalent oldTransactions prevTransactions) $
             throwError ("The old transactions do not match those returned by the previous run: " <> show oldTransactions)
-        let assetDiff = diff (map _2 oldAssets) (map _2 newAssets)
+        let assetDiff = symDiff (map _2 oldAssets) (map _2 newAssets)
         unless (equivalent assetDiff [Asset testOwner ("keep-" <> suffix), Asset testReceiver ("transfer-" <> suffix)]) $
             throwError ("Expected one kept and one transferred contract, got " <> show assetDiff)
-        let transactionDiff = concat $ diff (map events oldTransactions) (map events newTransactions)
+        let transactionDiff = concat $ symDiff (map events oldTransactions) (map events newTransactions)
         unless (length transactionDiff == 6) $
             throwError ("Expected six unique contract state changes, transaction diff: " <> show transactionDiff)
         let groupedByContract = groupBy contractId transactionDiff
