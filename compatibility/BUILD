@@ -115,6 +115,18 @@ migration_test(
 ) if not is_windows else None
 
 migration_test(
+    name = "meta-migration-test",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    versions = [
+        "1.0.0",
+        "0.0.0",
+    ],
+)
+
+migration_test(
     name = "migration-all",
     # Exclusive due to hardcoded postgres ports.
     tags = ["exclusive"],

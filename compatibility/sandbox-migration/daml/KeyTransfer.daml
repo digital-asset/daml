@@ -1,0 +1,20 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module KeyTransfer where
+
+template Asset
+  with
+    owner: Party
+    receiver: Party
+    name: Text
+  where
+    signatory owner
+    observer receiver
+
+    key (owner, name): (Party, Text)
+    maintainer key._1
+
+    choice AssetTransfer: ContractId Asset with
+      controller receiver
+      do create (Asset receiver owner name)

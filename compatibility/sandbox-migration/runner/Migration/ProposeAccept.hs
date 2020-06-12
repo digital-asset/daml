@@ -22,13 +22,11 @@ test step modelDar = Test {..}
     executeStep sdkVersion host port _state = withTempFile $ \outputFile -> do
         let note = getSdkVersion sdkVersion
         callProcess step
-            [ "--output", outputFile
-            , "--host=" <> host
+            [ "--host=" <> host
             , "--port=" <> show port
-            , "--proposer=" <> T.unpack (getParty testProposer)
-            , "--accepter=" <> T.unpack (getParty testAccepter)
-            , "--note=" <> note
+            , "--output", outputFile
             , "--dar=" <> modelDar
+            , "--test=propose-accept," <> T.unpack (getParty testProposer) <> "," <> T.unpack (getParty testAccepter) <> "," <> note
             ]
         either fail pure =<< A.eitherDecodeFileStrict' outputFile
     validateStep sdkVersion (prevTs, prevTransactions) Result{..} = do
@@ -90,13 +88,6 @@ test step modelDar = Test {..}
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.
 
-newtype ContractId t = ContractId T.Text
-  deriving newtype A.FromJSON
-  deriving stock (Eq, Show)
-newtype Party = Party { getParty :: T.Text }
-  deriving newtype (A.FromJSON, A.ToJSON)
-  deriving stock (Eq, Show)
-
 data Deal = Deal
   { proposer :: Party
   , accepter :: Party
@@ -112,13 +103,6 @@ data ProposeDeal = ProposeDeal
   } deriving (Generic, Show, Eq)
 
 instance A.FromJSON ProposeDeal
-
-data Tuple2 a b = Tuple2
-  { _1 :: a
-  , _2 :: b
-  } deriving (Eq, Generic, Show)
-
-instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
 
 data Event
   = CreatedDeal (ContractId Deal) Deal

@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand, ExerciseCommand}
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
@@ -26,6 +26,54 @@ object Application {
   final case class Template(identifier: Identifier) extends AnyVal
 
   final case class Choice(template: Template, name: String)
+
+  private def toEventResult(e: Event): EventResult = {
+    e.event match {
+      case Event.Event.Created(created) =>
+        CreatedResult(
+          entityName = created.getTemplateId.entityName,
+          moduleName = created.getTemplateId.moduleName,
+          contractId = created.contractId,
+          argument = created.getCreateArguments,
+        )
+      case Event.Event.Archived(archived) =>
+        ArchivedResult(
+          entityName = archived.getTemplateId.entityName,
+          moduleName = archived.getTemplateId.moduleName,
+          archived.contractId,
+        )
+      case Event.Event.Empty =>
+        throw new RuntimeException("Invalid empty event")
+    }
+  }
+
+  object ContractResult {
+    def fromCreateEvent(event: CreatedEvent): ContractResult =
+      ContractResult(event.contractId, event.createArguments.get)
+  }
+  final case class ContractResult(_1: String, _2: Record)
+
+  object TransactionResult {
+    def fromTransaction(transaction: Transaction): TransactionResult =
+      TransactionResult(transaction.transactionId, transaction.events.map(toEventResult))
+  }
+  final case class TransactionResult(
+      transactionId: String,
+      events: Seq[EventResult],
+  )
+
+  sealed abstract class EventResult
+  final case class CreatedResult(
+      entityName: String,
+      moduleName: String,
+      contractId: String,
+      argument: Record,
+  ) extends EventResult
+  final case class ArchivedResult(
+      entityName: String,
+      moduleName: String,
+      contractId: String,
+  ) extends EventResult
 
   final class Party(
       val name: String,
