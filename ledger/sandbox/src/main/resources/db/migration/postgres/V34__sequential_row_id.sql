@@ -7,7 +7,7 @@
 ---------------------------------------------------------------------------------------------------
 
 -- 1. add the column
-alter table participant_events add column row_id serial;
+alter table participant_events add column row_id bigserial;
 
 -- 2. fix the row_id to be sequential according to the order of (event_offset, transaction_id, node_index)
 update participant_events

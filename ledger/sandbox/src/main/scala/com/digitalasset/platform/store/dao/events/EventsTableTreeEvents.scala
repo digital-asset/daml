@@ -192,7 +192,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                   event_offset = $prevOffset and node_index > $prevNodeIndex
                   and #$witnessesWhereClause
               ) rows""".withFetchSize(Some(1)),
-        SqlParser.int("row_id").?.single
+        SqlParser.long("row_id").?.single
       )
       bestEffortNonEmpty <- foundStartingRow.cata(
         some = startingRow =>
