@@ -7,6 +7,7 @@ package transaction
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import scalaz.Equal
@@ -15,16 +16,20 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import scala.language.higherKinds
 
-final case class VersionedTransaction[Nid, +Cid](
+final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
-    transaction: GenTransaction.WithTxValue[Nid, Cid],
-) extends value.CidContainer[VersionedTransaction[Nid, Cid]] {
+    private[lf] val transaction: GenTransaction.WithTxValue[Nid, Cid],
+) extends value.CidContainer[VersionedTransaction[Nid, Cid]]
+    with NoCopy {
 
   override protected def self: this.type = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
-    copy(transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f)))
+    VersionedTransaction(
+      version,
+      transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
+    )
 
   /** Increase the `version` if appropriate for `languageVersions`.
     *
@@ -47,8 +52,9 @@ final case class VersionedTransaction[Nid, +Cid](
   def typedBy(languageVersions: LanguageVersion*): VersionedTransaction[Nid, Cid] = {
     import VersionTimeline._
     import Implicits._
-    copy(
-      version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
+    VersionedTransaction(
+      latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
+      transaction,
     )
   }
 
@@ -74,12 +80,23 @@ final case class VersionedTransaction[Nid, +Cid](
   def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     transaction.inputContracts
 
+  def foreachInExecutionOrder(
+      exerciseBegin: (Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => Unit,
+      leaf: (Nid, Node.LeafOnlyNode.WithTxValue[Cid]) => Unit,
+      exerciseEnd: (Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => Unit,
+  ): Unit =
+    transaction.foreachInExecutionOrder(exerciseBegin, leaf, exerciseEnd)
+
+  def foldInExecutionOrder[A](z: A)(
+      exerciseBegin: (A, Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => A,
+      leaf: (A, Nid, Node.LeafOnlyNode.WithTxValue[Cid]) => A,
+      exerciseEnd: (A, Nid, Node.NodeExercises.WithTxValue[Nid, Cid]) => A,
+  ): A =
+    transaction.foldInExecutionOrder(z)(exerciseBegin, leaf, exerciseEnd)
+
 }
 
 object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
-
-  val empty: VersionedTransaction[Transaction.NodeId, Value.ContractId] =
-    TransactionVersions.assertAsVersionedTransaction(GenTransaction.empty)
 
   override private[lf] def map2[A1, B1, C1, A2, B2, C2](
       f1: A1 => A2,
@@ -96,6 +113,12 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
     case VersionedTransaction(_, transaction) =>
       transaction.foreach3(f1, f2, Value.VersionedValue.foreach1(f2))
   }
+
+  private[lf] def unapply[Nid, Cid](
+      arg: VersionedTransaction[Nid, Cid],
+  ): Some[(TransactionVersion, WithTxValue[Nid, Cid])] =
+    Some((arg.version, arg.transaction))
+
 }
 
 /** General transaction type
@@ -109,7 +132,7 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final case class GenTransaction[Nid, +Cid, +Val](
+final private[lf] case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
 ) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
@@ -373,7 +396,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
         }
     }
 
-  def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
+  private[lf] def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
     GenTransaction.foreach3(fNid, fCid, fVal)(this)
 
   // This method visits to all nodes of the transaction in execution order.
@@ -428,7 +451,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
 }
 
-object GenTransaction extends value.CidContainer3[GenTransaction] {
+private[lf] object GenTransaction extends value.CidContainer3[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
@@ -499,6 +522,7 @@ object Transaction {
     *
     */
   type Transaction = VersionedTransaction[NodeId, Value.ContractId]
+  val Transaction = VersionedTransaction
 
   /** Transaction meta data
     * @param submissionSeed: the submission seed used to derive the contract IDs.

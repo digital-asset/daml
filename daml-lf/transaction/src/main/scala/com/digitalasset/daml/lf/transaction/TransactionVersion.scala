@@ -104,7 +104,7 @@ object TransactionVersions
     Right(VersionedTransaction(assignVersion(tx), tx))
 
   @throws[IllegalArgumentException]
-  def assertAsVersionedTransaction[Nid, Cid](
+  def assertAsVersionedTransaction(
       tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
   ): Tx.Transaction =
     data.assertRight(asVersionedTransaction(tx))

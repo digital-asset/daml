@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
+package lf
 package value
 
 import scala.language.higherKinds
@@ -17,10 +18,9 @@ import iface.{
   TypeConName,
   TypeNumeric,
   TypePrim,
-  PrimType => PT,
   Variant,
+  PrimType => PT
 }
-
 import scalaz.{@@, Order, Ordering, Tag, ~>}
 import scalaz.Id.Id
 import scalaz.syntax.bitraverse._
