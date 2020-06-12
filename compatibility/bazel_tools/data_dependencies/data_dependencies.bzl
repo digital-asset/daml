@@ -79,17 +79,21 @@ def data_dependencies_coins(sdk_version):
         sdk_version = sdk_version,
     )
 
-def data_dependencies_upgrade(old_sdk_version, new_sdk_version):
-    """Build the coin-upgrade package using the new SDK version.
+def data_dependencies_upgrade_test(old_sdk_version, new_sdk_version):
+    """Build and validate the coin-upgrade package using the new SDK version.
 
     The package will have data-dependencies on the coin1 and coin2 package
     built with the old SDK version.
     """
+    daml_new = "@daml-sdk-{sdk_version}//:daml".format(
+        sdk_version = new_sdk_version,
+    )
+    dar_name = "data-dependencies-upgrade-old-{old_sdk_version}-new-{new_sdk_version}".format(
+        old_sdk_version = old_sdk_version,
+        new_sdk_version = new_sdk_version,
+    )
     _build_dar(
-        name = "data-dependencies-upgrade-old-{old_sdk_version}-new-{new_sdk_version}".format(
-            old_sdk_version = old_sdk_version,
-            new_sdk_version = new_sdk_version,
-        ),
+        name = dar_name,
         package_name = "data-dependencies-upgrade",
         srcs = ["//bazel_tools/data_dependencies:example/UpgradeFromCoinV1.daml"],
         data_dependencies = [
@@ -101,4 +105,17 @@ def data_dependencies_upgrade(old_sdk_version, new_sdk_version):
             ),
         ],
         sdk_version = new_sdk_version,
+    )
+    native.sh_test(
+        name = "data-dependencies-test-old-{old_sdk_version}-new-{new_sdk_version}".format(
+            old_sdk_version = old_sdk_version,
+            new_sdk_version = new_sdk_version,
+        ),
+        srcs = ["//bazel_tools/data_dependencies:validate_dar.sh"],
+        args = [
+            "$(rootpath %s)" % daml_new,
+            "$(rootpath %s)" % dar_name,
+        ],
+        data = [daml_new, dar_name],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
     )
