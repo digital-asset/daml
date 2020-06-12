@@ -364,15 +364,18 @@ object Value extends CidContainer1[Value] {
     }
 
     object V1 {
-      val maxSuffixLength = 94
+      // For more details, please refer to  V1 Contract ID allocation scheme
+      // daml-lf/spec/contract-id.rst
+
+      private[lf] val MaxSuffixLength = 94
 
       def apply(discriminator: Hash): V1 = new V1(discriminator, Bytes.Empty)
 
       def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
         Either.cond(
-          suffix.length <= maxSuffixLength,
+          suffix.length <= MaxSuffixLength,
           new V1(discriminator, suffix),
-          s"the suffix is too long, expected at most ${maxSuffixLength} bytes, but got ${suffix.length}"
+          s"the suffix is too long, expected at most $MaxSuffixLength bytes, but got ${suffix.length}"
         )
 
       def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =
