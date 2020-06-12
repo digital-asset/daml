@@ -37,7 +37,7 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
 
   private lazy val tlsEnabledConfig = LedgerClientConfiguration(
     "appId",
-    LedgerIdRequirement("", enabled = false),
+    LedgerIdRequirement.none,
     CommandClientConfiguration.default,
     TlsConfiguration(
       enabled = true,

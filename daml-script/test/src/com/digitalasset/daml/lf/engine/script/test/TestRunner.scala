@@ -76,7 +76,7 @@ class TestRunner(
 
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+    ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     sslContext = rootCa.flatMap(file =>
       TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)).client),

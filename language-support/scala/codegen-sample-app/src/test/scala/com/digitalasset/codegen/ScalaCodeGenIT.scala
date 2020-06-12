@@ -86,7 +86,7 @@ class ScalaCodeGenIT
 
   private val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId,
-    ledgerIdRequirement = LedgerIdRequirement(ledgerId, enabled = true),
+    ledgerIdRequirement = LedgerIdRequirement.matching(ledgerId),
     commandClient = CommandClientConfiguration.default,
     sslContext = None
   )

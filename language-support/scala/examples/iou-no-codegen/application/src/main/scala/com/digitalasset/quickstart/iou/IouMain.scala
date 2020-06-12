@@ -57,7 +57,7 @@ object IouMain extends App with StrictLogging {
 
   private val clientConfig = LedgerClientConfiguration(
     applicationId = ApplicationId.unwrap(applicationId),
-    ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+    ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     sslContext = None
   )
