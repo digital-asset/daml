@@ -77,7 +77,7 @@ List the DARS running on behalf of a given party. Alice can check on her running
    $curl --user 'alice:secret' \
        -X GET localhost:8088/v1/list \
        -H "Content-type: application/json" -H "Accept: application/json"
-   {"result":{"triggerIds":["4d539e9c-b962-4762-be71-40a5c97a47a6"]}
+   {"result":{"triggerIds":["4d539e9c-b962-4762-be71-40a5c97a47a6"],"status":200}
 
 ``status``
 **********
