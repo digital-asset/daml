@@ -10,7 +10,7 @@ The `DAML triggers <../triggers/index.html#running-a-daml-trigger>`_ documentati
 
 Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process per trigger model becomes unwieldy. The Trigger Service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
 
-The trigger-service is a ledger client that acts as an end-user agent. The trigger service intermediates between the ledger and end-users by running triggers on their behalf. The trigger-service is an HTTP REST service. All requests and responses use JSON to encode data.
+The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP REST service. All requests and responses use JSON to encode data.
 
 Starting the Trigger Service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
