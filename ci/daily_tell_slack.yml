@@ -11,7 +11,7 @@ steps:
     COMMIT_TITLE=$(git log --pretty=format:%s -n1)
     COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
     if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
-        MESSAGE=":fire: :fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:"
+        MESSAGE="\":fire: :fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:\""
     else
         MESSAGE="${{ parameters['success-message'] }}"
     fi
