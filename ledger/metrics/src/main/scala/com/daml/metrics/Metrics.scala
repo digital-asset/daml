@@ -14,16 +14,16 @@ class Metrics(val registry: MetricRegistry) {
   }
 
   object test {
-    val Prefix: MetricName = MetricName("test")
+    private val Prefix: MetricName = MetricName("test")
 
     val db: DatabaseMetrics = new DatabaseMetrics(registry, Prefix, "db")
   }
 
   object daml {
-    val Prefix: MetricName = MetricName.DAML
+    private val Prefix: MetricName = MetricName.DAML
 
     object commands {
-      val Prefix: MetricName = daml.Prefix :+ "commands"
+      private val Prefix: MetricName = daml.Prefix :+ "commands"
 
       val validation: Timer = registry.timer(Prefix :+ "validation")
       val submissions: Timer = registry.timer(Prefix :+ "submissions")
@@ -39,7 +39,7 @@ class Metrics(val registry: MetricRegistry) {
     }
 
     object execution {
-      val Prefix: MetricName = daml.Prefix :+ "execution"
+      private val Prefix: MetricName = daml.Prefix :+ "execution"
 
       val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
       val lookupActiveContractPerExecution: Timer =
@@ -57,10 +57,10 @@ class Metrics(val registry: MetricRegistry) {
     }
 
     object kvutils {
-      val Prefix: MetricName = daml.Prefix :+ "kvutils"
+      private val Prefix: MetricName = daml.Prefix :+ "kvutils"
 
       object committer {
-        val Prefix: MetricName = kvutils.Prefix :+ "committer"
+        private val Prefix: MetricName = kvutils.Prefix :+ "committer"
 
         // Timer (and count) of how fast submissions have been processed.
         val runTimer: Timer = registry.timer(Prefix :+ "run_timer")
@@ -77,7 +77,7 @@ class Metrics(val registry: MetricRegistry) {
           registry.timer(Prefix :+ committerName :+ "step_timers" :+ stepName)
 
         object last {
-          val Prefix: MetricName = committer.Prefix :+ "last"
+          private val Prefix: MetricName = committer.Prefix :+ "last"
 
           val lastRecordTimeGauge = new VarGauge[String]("<none>")
           registry.register(Prefix :+ "record_time", lastRecordTimeGauge)
@@ -93,14 +93,14 @@ class Metrics(val registry: MetricRegistry) {
         }
 
         object config {
-          val Prefix: MetricName = committer.Prefix :+ "config"
+          private val Prefix: MetricName = committer.Prefix :+ "config"
 
           val accepts: Counter = registry.counter(Prefix :+ "accepts")
           val rejections: Counter = registry.counter(Prefix :+ "rejections")
         }
 
         object packageUpload {
-          val Prefix: MetricName = committer.Prefix :+ "package_upload"
+          private val Prefix: MetricName = committer.Prefix :+ "package_upload"
 
           val preloadTimer: Timer = registry.timer(Prefix :+ "preload_timer")
           val decodeTimer: Timer = registry.timer(Prefix :+ "decode_timer")
@@ -112,14 +112,14 @@ class Metrics(val registry: MetricRegistry) {
         }
 
         object partyAllocation {
-          val Prefix: MetricName = committer.Prefix :+ "party_allocation"
+          private val Prefix: MetricName = committer.Prefix :+ "party_allocation"
 
           val accepts: Counter = registry.counter(Prefix :+ "accepts")
           val rejections: Counter = registry.counter(Prefix :+ "rejections")
         }
 
         object transaction {
-          val Prefix: MetricName = committer.Prefix :+ "transaction"
+          private val Prefix: MetricName = committer.Prefix :+ "transaction"
 
           val runTimer: Timer = registry.timer(Prefix :+ "run_timer")
           val interpretTimer: Timer = registry.timer(Prefix :+ "interpret_timer")
@@ -131,17 +131,17 @@ class Metrics(val registry: MetricRegistry) {
       }
 
       object reader {
-        val Prefix: MetricName = kvutils.Prefix :+ "reader"
+        private val Prefix: MetricName = kvutils.Prefix :+ "reader"
 
         val openEnvelope: Timer = registry.timer(Prefix :+ "open_envelope")
         val parseUpdates: Timer = registry.timer(Prefix :+ "parse_updates")
       }
 
       object submission {
-        val Prefix: MetricName = kvutils.Prefix :+ "submission"
+        private val Prefix: MetricName = kvutils.Prefix :+ "submission"
 
         object conversion {
-          val Prefix: MetricName = submission.Prefix :+ "conversion"
+          private val Prefix: MetricName = submission.Prefix :+ "conversion"
 
           val transactionOutputs: Timer =
             registry.timer(Prefix :+ "transaction_outputs")
@@ -191,7 +191,7 @@ class Metrics(val registry: MetricRegistry) {
       }
 
       object writer {
-        val Prefix: MetricName = kvutils.Prefix :+ "writer"
+        private val Prefix: MetricName = kvutils.Prefix :+ "writer"
 
         val commit: Timer = registry.timer(Prefix :+ "commit")
       }
@@ -217,19 +217,19 @@ class Metrics(val registry: MetricRegistry) {
     }
 
     object lapi {
-      val Prefix: MetricName = daml.Prefix :+ "lapi"
+      private val Prefix: MetricName = daml.Prefix :+ "lapi"
 
       def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
     }
 
     object ledger {
-      val Prefix: MetricName = daml.Prefix :+ "ledger"
+      private val Prefix: MetricName = daml.Prefix :+ "ledger"
 
       object database {
-        val Prefix: MetricName = ledger.Prefix :+ "database"
+        private val Prefix: MetricName = ledger.Prefix :+ "database"
 
         object queries {
-          val Prefix: MetricName = database.Prefix :+ "queries"
+          private val Prefix: MetricName = database.Prefix :+ "queries"
 
           val selectLatestLogEntryId: Timer = registry.timer(Prefix :+ "select_latest_log_entry_id")
           val selectFromLog: Timer = registry.timer(Prefix :+ "select_from_log")
@@ -243,7 +243,7 @@ class Metrics(val registry: MetricRegistry) {
         }
 
         object transactions {
-          val Prefix: MetricName = database.Prefix :+ "transactions"
+          private val Prefix: MetricName = database.Prefix :+ "transactions"
 
           def acquireConnection(name: String): Timer =
             registry.timer(Prefix :+ name :+ "acquire_connection")
@@ -253,14 +253,14 @@ class Metrics(val registry: MetricRegistry) {
       }
 
       object log {
-        val Prefix: MetricName = ledger.Prefix :+ "log"
+        private val Prefix: MetricName = ledger.Prefix :+ "log"
 
         val append: Timer = registry.timer(Prefix :+ "append")
         val read: Timer = registry.timer(Prefix :+ "read")
       }
 
       object state {
-        val Prefix: MetricName = ledger.Prefix :+ "state"
+        private val Prefix: MetricName = ledger.Prefix :+ "state"
 
         val read: Timer = registry.timer(Prefix :+ "read")
         val write: Timer = registry.timer(Prefix :+ "write")
@@ -296,7 +296,7 @@ class Metrics(val registry: MetricRegistry) {
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
-        val Prefix: MetricName = index.Prefix :+ "db"
+        private val Prefix: MetricName = index.Prefix :+ "db"
 
         val storePartyEntry: Timer = registry.timer(Prefix :+ "store_party_entry")
         val storeInitialState: Timer = registry.timer(Prefix :+ "store_initial_state")
@@ -397,14 +397,14 @@ class Metrics(val registry: MetricRegistry) {
         val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
 
         object translation {
-          val Prefix: MetricName = db.Prefix :+ "translation"
+          private val Prefix: MetricName = db.Prefix :+ "translation"
           val cache = new CacheMetrics(registry, Prefix :+ "cache")
         }
       }
     }
 
     object indexer {
-      val Prefix: MetricName = daml.Prefix :+ "indexer"
+      private val Prefix: MetricName = daml.Prefix :+ "indexer"
 
       val lastReceivedRecordTime = new VarGauge[Long](0)
       registry.register(Prefix :+ "last_received_record_time", lastReceivedRecordTime)
@@ -419,10 +419,10 @@ class Metrics(val registry: MetricRegistry) {
     }
 
     object services {
-      val Prefix: MetricName = daml.Prefix :+ "services"
+      private val Prefix: MetricName = daml.Prefix :+ "services"
 
       object indexService {
-        val Prefix: MetricName = services.Prefix :+ "index"
+        private val Prefix: MetricName = services.Prefix :+ "index"
 
         val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
         val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
@@ -451,7 +451,7 @@ class Metrics(val registry: MetricRegistry) {
       }
 
       object read {
-        val Prefix: MetricName = services.Prefix :+ "read"
+        private val Prefix: MetricName = services.Prefix :+ "read"
 
         val getLedgerInitialConditions: Timer =
           registry.timer(Prefix :+ "get_ledger_initial_conditions")
@@ -459,7 +459,7 @@ class Metrics(val registry: MetricRegistry) {
       }
 
       object write {
-        val Prefix: MetricName = services.Prefix :+ "write"
+        private val Prefix: MetricName = services.Prefix :+ "write"
 
         val submitTransaction: Timer = registry.timer(Prefix :+ "submit_transaction")
         val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
