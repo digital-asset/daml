@@ -54,7 +54,6 @@ class Metrics(val registry: MetricRegistry) {
       val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
       val retry: Meter = registry.meter(Prefix :+ "retry")
       val total: Timer = registry.timer(Prefix :+ "total")
-
     }
 
     object kvutils {
@@ -137,6 +136,7 @@ class Metrics(val registry: MetricRegistry) {
         val openEnvelope: Timer = registry.timer(Prefix :+ "open_envelope")
         val parseUpdates: Timer = registry.timer(Prefix :+ "parse_updates")
       }
+
       object submission {
         val Prefix: MetricName = kvutils.Prefix :+ "submission"
 
@@ -220,15 +220,17 @@ class Metrics(val registry: MetricRegistry) {
       val Prefix: MetricName = daml.Prefix :+ "lapi"
 
       def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
-
     }
 
     object ledger {
       val Prefix: MetricName = daml.Prefix :+ "ledger"
+
       object database {
         val Prefix: MetricName = ledger.Prefix :+ "database"
+
         object queries {
           val Prefix: MetricName = database.Prefix :+ "queries"
+
           val selectLatestLogEntryId: Timer = registry.timer(Prefix :+ "select_latest_log_entry_id")
           val selectFromLog: Timer = registry.timer(Prefix :+ "select_from_log")
           val selectStateValuesByKeys: Timer =
@@ -239,6 +241,7 @@ class Metrics(val registry: MetricRegistry) {
           val updateState: Timer = registry.timer(Prefix :+ "update_state")
           val truncate: Timer = registry.timer(Prefix :+ "truncate")
         }
+
         object transactions {
           val Prefix: MetricName = database.Prefix :+ "transactions"
 
@@ -248,12 +251,14 @@ class Metrics(val registry: MetricRegistry) {
             registry.timer(Prefix :+ name :+ "run")
         }
       }
+
       object log {
         val Prefix: MetricName = ledger.Prefix :+ "log"
 
         val append: Timer = registry.timer(Prefix :+ "append")
         val read: Timer = registry.timer(Prefix :+ "read")
       }
+
       object state {
         val Prefix: MetricName = ledger.Prefix :+ "state"
 
@@ -291,7 +296,6 @@ class Metrics(val registry: MetricRegistry) {
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
-
         val Prefix: MetricName = index.Prefix :+ "db"
 
         val storePartyEntry: Timer = registry.timer(Prefix :+ "store_party_entry")
@@ -340,6 +344,7 @@ class Metrics(val registry: MetricRegistry) {
         val storePartyEntryDbMetrics
           : DatabaseMetrics = createDbMetrics("store_party_entry") // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
+
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
           // outside of SQL transaction
@@ -395,9 +400,9 @@ class Metrics(val registry: MetricRegistry) {
           val Prefix: MetricName = db.Prefix :+ "translation"
           val cache = new CacheMetrics(registry, Prefix :+ "cache")
         }
-
       }
     }
+
     object indexer {
       val Prefix: MetricName = daml.Prefix :+ "indexer"
 
@@ -412,6 +417,7 @@ class Metrics(val registry: MetricRegistry) {
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
     }
+
     object services {
       val Prefix: MetricName = daml.Prefix :+ "services"
 
