@@ -1,8 +1,12 @@
 # private configuration
 .envrc.private
 
-# Log files
+# Artifacts
+dist
+.interfaces
 *.log
+target
+*.tgz
 
 # DAML
 .daml/
@@ -62,12 +66,4 @@ out
 
 # Visual Studio Code
 .vscode
-
-### Artifacts ###
-
-# Artifacts
-*.tgz
-target
-dist
-.interfaces
 
