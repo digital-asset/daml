@@ -1,8 +1,12 @@
 # private configuration
 .envrc.private
 
-# Log files
+# Artifacts
+dist
+.interfaces
 *.log
+target
+*.tgz
 
 # DAML
 .daml/
@@ -11,7 +15,7 @@
 /dev-env/var/
 
 # Bazel
-/.bazel-cache/
+.bazel-cache
 /bazel-*
 /compatibility/bazel-*
 /compatibility/.bazelrc
@@ -49,7 +53,7 @@ node_modules/
 
 # IntelliJ IDEA
 .idea
-.ijwb # Bazel
+.ijwb
 *.iml
 *.ipr
 *.iws
@@ -62,3 +66,4 @@ out
 
 # Visual Studio Code
 .vscode
+
