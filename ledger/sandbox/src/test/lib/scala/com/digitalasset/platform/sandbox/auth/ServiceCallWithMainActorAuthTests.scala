@@ -46,6 +46,8 @@ trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
     Option(toHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomParticipantId =
     Option(toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+  protected val canReadAsMainActorActualApplicationId =
+    Option(toHeader(forApplicationId(serviceCallName, readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomApplicationId =
     Option(toHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
 
@@ -58,6 +60,8 @@ trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
     Option(toHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
   protected val canActAsMainActorRandomParticipantId =
     Option(toHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+  protected val canActAsMainActorActualApplicationId =
+    Option(toHeader(forApplicationId(serviceCallName, readWriteToken(mainActor))))
   protected val canActAsMainActorRandomApplicationId =
     Option(toHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor))))
 

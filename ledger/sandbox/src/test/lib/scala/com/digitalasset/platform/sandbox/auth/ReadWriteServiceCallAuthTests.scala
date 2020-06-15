@@ -34,6 +34,9 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   it should "deny calls with a random participant ID" in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomParticipantId))
   }
+  it should "allow calls with the correct application ID" in {
+    expectSuccess(serviceCallWithToken(canActAsMainActorActualApplicationId))
+  }
   it should "deny calls with a random application ID" in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomApplicationId))
   }
