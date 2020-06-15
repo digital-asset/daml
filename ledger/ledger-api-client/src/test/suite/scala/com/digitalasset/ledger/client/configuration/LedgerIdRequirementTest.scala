@@ -3,24 +3,65 @@
 
 package com.daml.ledger.client.configuration
 
+import com.github.ghik.silencer.silent
 import org.scalatest.{Matchers, WordSpec}
 
+@silent("deprecated")
 class LedgerIdRequirementTest extends WordSpec with Matchers {
 
-  "LedgerIdRequirement" should {
+  "LedgerIdRequirement" when {
+    "matching a specific value" should {
+      "accept a matching ledger ID" in {
+        val expected = "ledger-a"
+        val requirement = LedgerIdRequirement.matching(expected)
+        requirement.isAccepted(expected) shouldBe true
+      }
 
-    "allow accept matching ledger" in {
-      val expected = "ledger-a"
-      LedgerIdRequirement.matching(expected).isAccepted(expected) shouldBe true
+      "reject any other ledger ID" in {
+        val requirement = LedgerIdRequirement.matching("ledger-b")
+        requirement.isAccepted("not-b") shouldBe false
+      }
+
+      "construct, matching the deprecated constructor" in {
+        val requirement = LedgerIdRequirement("ledger-c", enabled = true)
+        requirement shouldBe LedgerIdRequirement.matching("ledger-c")
+      }
+
+      "copy as usual" in {
+        val requirement = LedgerIdRequirement.matching("ledger-d")
+        val copied = requirement.copy(ledgerId = Some("ledger-e"))
+        copied shouldBe LedgerIdRequirement.matching("ledger-e")
+      }
+
+      "copy, matching the deprecated constructor" in {
+        val requirement = LedgerIdRequirement.matching("ledger-f")
+        val copied = requirement.copy(ledgerId = "ledger-g")
+        copied shouldBe LedgerIdRequirement.matching("ledger-g")
+      }
     }
 
-    "allow not accept non-matching ledger" in {
-      LedgerIdRequirement.matching("ledger-b").isAccepted("not-b") shouldBe false
-    }
+    "none" should {
+      "allow any ledger ID" in {
+        val requirement = LedgerIdRequirement.none
+        requirement.isAccepted("any-ledger") shouldBe true
+      }
 
-    "empty constructor should allow any ledger" in {
-      LedgerIdRequirement.none.isAccepted("any-ledger") shouldBe true
-    }
+      "construct, matching the deprecated constructor" in {
+        val requirement = LedgerIdRequirement("ledger-1", enabled = false)
+        requirement shouldBe LedgerIdRequirement.none
+      }
 
+      "copy as usual" in {
+        val requirement = LedgerIdRequirement.matching("ledger-2")
+        val copied = requirement.copy(ledgerId = Some("ledger-3"))
+        copied shouldBe LedgerIdRequirement.matching("ledger-3")
+      }
+
+      "copy, matching the deprecated constructor" in {
+        val requirement = LedgerIdRequirement.none
+        val copied = requirement.copy(ledgerId = "ledger-4")
+        copied shouldBe LedgerIdRequirement.none
+      }
+    }
   }
 }
