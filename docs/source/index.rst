@@ -19,6 +19,8 @@ DAML SDK documentation
 
    Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
+   getting-started/app-architecture
+   getting-started/first-feature
    getting-started/testing
    Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
