@@ -19,8 +19,9 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.lf.archive.DarReader
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -30,7 +31,6 @@ import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
-import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -672,7 +672,7 @@ object ParticipantStateIntegrationSpecBase {
   private val IdleTimeout: FiniteDuration = 5.seconds
 
   private val emptyTransaction: SubmittedTransaction =
-    Tx.SubmittedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
+    Tx.SubmittedTransaction(TransactionBuilder.Empty)
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")

@@ -26,8 +26,9 @@ import com.daml.ledger.api.testing.utils.{
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
@@ -35,7 +36,6 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
 
-import scala.collection.immutable.HashMap
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -95,8 +95,7 @@ class TransactionTimeModelComplianceIT
   }
 
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
-    val dummyTransaction =
-      Tx.SubmittedTransaction(GenTransaction(HashMap.empty[Tx.NodeId, Tx.Node], ImmArray.empty))
+    val dummyTransaction = Tx.SubmittedTransaction(TransactionBuilder.Empty)
 
     val submitterInfo = SubmitterInfo(
       submitter = Ref.Party.assertFromString("submitter"),

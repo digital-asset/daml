@@ -15,8 +15,9 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
@@ -24,7 +25,6 @@ import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
-import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
 class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
@@ -96,7 +96,7 @@ object KeyValueParticipantStateWriterSpec {
   private val aParty = Ref.Party.assertFromString("aParty")
 
   private val anEmptyTransaction: Tx.SubmittedTransaction =
-    Tx.SubmittedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
+    Tx.SubmittedTransaction(TransactionBuilder.Empty)
 
   private val aSubmissionId: SubmissionId =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
