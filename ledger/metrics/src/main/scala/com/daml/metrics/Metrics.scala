@@ -156,12 +156,12 @@ class Metrics(val registry: MetricRegistry) {
         }
 
         object validator {
-          private val Prefix: MetricName = submission.prefix :+ "validator"
+          private val prefix: MetricName = submission.prefix :+ "validator"
 
           val openEnvelope: Timer = registry.timer(prefix :+ "open_envelope")
-          val fetchInputs: Timer = registry.timer(Prefix :+ "fetch_inputs")
-          val validate: Timer = registry.timer(Prefix :+ "validate")
-          val commit: Timer = registry.timer(Prefix :+ "commit")
+          val fetchInputs: Timer = registry.timer(prefix :+ "fetch_inputs")
+          val validate: Timer = registry.timer(prefix :+ "validate")
+          val commit: Timer = registry.timer(prefix :+ "commit")
           val transformSubmission: Timer = registry.timer(prefix :+ "transform_submission")
 
           val acquireTransactionLock: Timer = registry.timer(prefix :+ "acquire_transaction_lock")
@@ -173,20 +173,20 @@ class Metrics(val registry: MetricRegistry) {
 
           // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
-          val batchSizes: Histogram = registry.histogram(Prefix :+ "batch_sizes")
+          val batchSizes: Histogram = registry.histogram(prefix :+ "batch_sizes")
           val receivedBatchSubmissionBytes: Histogram =
-            registry.histogram(Prefix :+ "received_batch_submission_bytes")
+            registry.histogram(prefix :+ "received_batch_submission_bytes")
           val receivedSubmissionBytes: Histogram =
-            registry.histogram(Prefix :+ "received_submission_bytes")
+            registry.histogram(prefix :+ "received_submission_bytes")
 
-          val validateAndCommit: Timer = registry.timer(Prefix :+ "validate_and_commit")
-          val decode: Timer = registry.timer(Prefix :+ "decode")
-          val detectConflicts: Timer = registry.timer(Prefix :+ "detect_conflicts")
+          val validateAndCommit: Timer = registry.timer(prefix :+ "validate_and_commit")
+          val decode: Timer = registry.timer(prefix :+ "decode")
+          val detectConflicts: Timer = registry.timer(prefix :+ "detect_conflicts")
 
-          val decodeRunning: Counter = registry.counter(Prefix :+ "decode_running")
-          val fetchInputsRunning: Counter = registry.counter(Prefix :+ "fetch_inputs_running")
-          val validateRunning: Counter = registry.counter(Prefix :+ "validate_running")
-          val commitRunning: Counter = registry.counter(Prefix :+ "commit_running")
+          val decodeRunning: Counter = registry.counter(prefix :+ "decode_running")
+          val fetchInputsRunning: Counter = registry.counter(prefix :+ "fetch_inputs_running")
+          val validateRunning: Counter = registry.counter(prefix :+ "validate_running")
+          val commitRunning: Counter = registry.counter(prefix :+ "commit_running")
         }
       }
 
