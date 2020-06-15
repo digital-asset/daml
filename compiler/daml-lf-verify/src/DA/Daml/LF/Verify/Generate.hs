@@ -141,9 +141,10 @@ genChoice pac tem (this',this) temFs TemplateChoice{..} = do
   extVarEnv self
   extVarEnv arg
   argFs <- recTypFields (snd chcArgBinder)
+  let subst = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   extRecEnv arg argFs
   expOut <- genExpr True
-    $ substituteTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)])
+    $ substituteTm subst
     $ instPRSelf pac chcUpdate
   let out = if chcConsuming
         then addArchiveUpd tem fields expOut
