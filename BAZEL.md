@@ -147,9 +147,8 @@ plugin referencing [ij.bazel.build][intellij_plugin].
 
 If the correct plugin does not exist in the list, then your IntelliJ version
 might be too recent, and the Bazel plugin might not have been upgraded to
-support it, yet. Check for version compatibility on the [Jetbrains plugin
-page][intellij_plugin_jetbrains]. At the time of writing the Bazel plugin
-version 2020.04.13.0.0 has been tested on IDEA Community 2019.3.5.
+support it, yet. Check for version compatibility on the [JetBrains plugin
+page][intellij_plugin_jetbrains].
 
 [intellij_plugin]: https://ij.bazel.build/
 [intellij_plugin_install]: https://ij.bazel.build/docs/bazel-plugin.html#getting-started
