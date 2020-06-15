@@ -51,14 +51,18 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
       )
     )
 
-  // Doesn't go through caching, for now caching is limited to events
-  def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter =
+  def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter = {
+    cache.contracts.put(
+      key = LfValueTranslation.ContractCache.Key(contractId),
+      value = LfValueTranslation.ContractCache.Value(createArgument),
+    )
     ("create_argument", serializeCreateArgOrThrow(contractId, createArgument))
+  }
 
   def serialize(eventId: EventId, create: Create): Vector[NamedParameter] = {
-    cache.put(
-      key = LfValueTranslation.Cache.Key(eventId),
-      value = LfValueTranslation.Cache.Value.Create(create.coinst.arg, create.key.map(_.key)),
+    cache.events.put(
+      key = LfValueTranslation.EventCache.Key(eventId),
+      value = LfValueTranslation.EventCache.Value.Create(create.coinst.arg, create.key.map(_.key)),
     )
     Vector[NamedParameter](
       "create_argument" -> serializeCreateArgOrThrow(create),
@@ -67,9 +71,10 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   }
 
   def serialize(eventId: EventId, exercise: Exercise): Vector[NamedParameter] = {
-    cache.put(
-      key = LfValueTranslation.Cache.Key(eventId),
-      value = LfValueTranslation.Cache.Value.Exercise(exercise.chosenValue, exercise.exerciseResult),
+    cache.events.put(
+      key = LfValueTranslation.EventCache.Key(eventId),
+      value =
+        LfValueTranslation.EventCache.Value.Exercise(exercise.chosenValue, exercise.exerciseResult),
     )
     Vector[NamedParameter](
       "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
@@ -105,14 +110,14 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
         ),
     )
 
-  private def key(s: String) = LfValueTranslation.Cache.Key(EventId.assertFromString(s))
+  private def eventKey(s: String) = LfValueTranslation.EventCache.Key(EventId.assertFromString(s))
 
   def deserialize[E](raw: Raw.Created[E], verbose: Boolean): CreatedEvent = {
     val create =
-      cache
-        .getIfPresent(key(raw.partial.eventId))
+      cache.events
+        .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
-          LfValueTranslation.Cache.Value.Create(
+          LfValueTranslation.EventCache.Value.Create(
             argument = ValueSerializer.deserializeValue(raw.createArgument),
             key = raw.createKeyValue.map(ValueSerializer.deserializeValue)
           )
@@ -139,10 +144,10 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
   def deserialize(raw: Raw.TreeEvent.Exercised, verbose: Boolean): ExercisedEvent = {
     val exercise =
-      cache
-        .getIfPresent(key(raw.partial.eventId))
+      cache.events
+        .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
-          LfValueTranslation.Cache.Value.Exercise(
+          LfValueTranslation.EventCache.Value.Exercise(
             argument = ValueSerializer.deserializeValue(raw.exerciseArgument),
             result = raw.exerciseResult.map(ValueSerializer.deserializeValue)
           )
@@ -171,9 +176,33 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
 object LfValueTranslation {
 
-  type Cache = caching.Cache[Cache.Key, Cache.Value]
+  final case class Cache(events: EventCache, contracts: ContractCache)
+  type EventCache = caching.Cache[EventCache.Key, EventCache.Value]
+  type ContractCache = caching.Cache[ContractCache.Key, ContractCache.Value]
 
   object Cache {
+
+    def none: Cache = Cache(caching.Cache.none, caching.Cache.none)
+
+    def newInstance(
+        eventConfiguration: caching.Configuration,
+        contractConfiguration: caching.Configuration): Cache =
+      Cache(
+        events = EventCache.newInstance(eventConfiguration),
+        contracts = ContractCache.newInstance(contractConfiguration),
+      )
+
+    def newInstrumentedInstance(
+        eventConfiguration: caching.Configuration,
+        contractConfiguration: caching.Configuration,
+        metrics: Metrics): Cache =
+      Cache(
+        events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
+        contracts = ContractCache.newInstrumentedInstance(contractConfiguration, metrics),
+      )
+  }
+
+  object EventCache {
 
     private implicit object `Key Weight` extends caching.Weight[Key] {
       override def weigh(value: Key): caching.Cache.Size =
@@ -185,10 +214,12 @@ object LfValueTranslation {
         1 // TODO replace this with something to avoid weights entirely
     }
 
-    def newInstance(configuration: caching.Configuration): Cache =
+    def newInstance(configuration: caching.Configuration): EventCache =
       caching.Cache.from(configuration)
 
-    def newInstrumentedInstance(configuration: caching.Configuration, metrics: Metrics): Cache =
+    def newInstrumentedInstance(
+        configuration: caching.Configuration,
+        metrics: Metrics): EventCache =
       caching.Cache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
@@ -217,4 +248,31 @@ object LfValueTranslation {
 
   }
 
+  object ContractCache {
+
+    private implicit object `Key Weight` extends caching.Weight[Key] {
+      override def weigh(value: Key): caching.Cache.Size =
+        0 // make sure that only the value is counted
+    }
+
+    private implicit object `Value Weight` extends caching.Weight[Value] {
+      override def weigh(value: Value): caching.Cache.Size =
+        1 // TODO replace this with something to avoid weights entirely
+    }
+
+    def newInstance(configuration: caching.Configuration): ContractCache =
+      caching.Cache.from(configuration)
+
+    def newInstrumentedInstance(
+        configuration: caching.Configuration,
+        metrics: Metrics): ContractCache =
+      caching.Cache.from(
+        configuration = configuration,
+        metrics = metrics.daml.index.db.translation.cache,
+      )
+
+    final case class Key(contractId: ContractId)
+
+    final case class Value(argument: LfValue)
+  }
 }

@@ -378,6 +378,8 @@ class Metrics(val registry: MetricRegistry) {
         val truncateAllTables: DatabaseMetrics = createDbMetrics("truncate_all_tables")
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_active_contract") // FIXME Base name conflicts with lookupActiveContract
+        val lookupActiveContractWithCachedArgumentDbMetrics: DatabaseMetrics = createDbMetrics(
+          "lookup_active_contract_with_cached_argument")
         val lookupContractByKey: DatabaseMetrics = createDbMetrics("lookup_contract_by_key")
         val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_maximum_ledger_time") // FIXME Base name conflicts with lookupActiveContract

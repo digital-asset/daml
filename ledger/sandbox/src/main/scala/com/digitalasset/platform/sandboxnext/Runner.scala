@@ -123,7 +123,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   config.metricsReportingInterval,
                 )
                 lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
-                  configuration = config.lfValueTranslationCacheConfiguration,
+                  eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
+                  contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
                   metrics = metrics,
                 )
                 timeServiceBackend = timeProviderType match {

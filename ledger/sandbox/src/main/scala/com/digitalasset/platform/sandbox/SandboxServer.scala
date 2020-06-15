@@ -244,7 +244,8 @@ final class SandboxServer(
 
     val lfValueTranslationCache =
       LfValueTranslation.Cache.newInstrumentedInstance(
-        configuration = config.lfValueTranslationCacheConfiguration,
+        eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
+        contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
         metrics = metrics,
       )
 

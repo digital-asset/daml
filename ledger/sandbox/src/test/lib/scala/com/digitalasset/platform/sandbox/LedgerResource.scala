@@ -6,7 +6,6 @@ package com.daml.platform.sandbox
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
-import com.daml.caching.Cache
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -22,6 +21,7 @@ import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.ResourceOwner
 import com.daml.testing.postgresql.PostgresResource
 
@@ -78,7 +78,7 @@ object LedgerResource {
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),
-          lfValueTranslationCache = Cache.none,
+          lfValueTranslationCache = LfValueTranslation.Cache.none,
         )
       } yield ledger
     )

@@ -288,8 +288,12 @@ object Cli {
         .action(
           (maximumLfValueTranslationCacheEntries, config) =>
             config.copy(
-              lfValueTranslationCacheConfiguration = config.lfValueTranslationCacheConfiguration
-                .copy(maximumWeight = maximumLfValueTranslationCacheEntries)
+              lfValueTranslationEventCacheConfiguration =
+                config.lfValueTranslationEventCacheConfiguration
+                  .copy(maximumWeight = maximumLfValueTranslationCacheEntries),
+              lfValueTranslationContractCacheConfiguration =
+                config.lfValueTranslationContractCacheConfiguration
+                  .copy(maximumWeight = maximumLfValueTranslationCacheEntries)
           )
         )
 

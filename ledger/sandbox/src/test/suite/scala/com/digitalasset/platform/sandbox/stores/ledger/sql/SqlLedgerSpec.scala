@@ -8,7 +8,6 @@ import java.time.Instant
 
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.caching.Cache
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.Healthy
@@ -26,6 +25,7 @@ import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.Resource
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
@@ -192,7 +192,7 @@ class SqlLedgerSpec
           startMode = SqlStartMode.ContinueIfExists,
           eventsPageSize = 100,
           metrics = new Metrics(metrics),
-          lfValueTranslationCache = Cache.none,
+          lfValueTranslationCache = LfValueTranslation.Cache.none,
         )
         .acquire()(system.dispatcher)
     }

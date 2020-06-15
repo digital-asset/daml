@@ -26,7 +26,8 @@ final case class Config[Extra](
     maxInboundMessageSize: Int,
     eventsPageSize: Int,
     stateValueCache: caching.Configuration,
-    lfValueTranslationCache: caching.Configuration,
+    lfValueTranslationEventCache: caching.Configuration,
+    lfValueTranslationContractCache: caching.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -65,7 +66,8 @@ object Config {
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       stateValueCache = caching.Configuration.none,
-      lfValueTranslationCache = caching.Configuration.none,
+      lfValueTranslationEventCache = caching.Configuration.none,
+      lfValueTranslationContractCache = caching.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -172,8 +174,12 @@ object Config {
         .text(
           s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
         .action((maximumLfValueTranslationCacheEntries, config) =>
-          config.copy(lfValueTranslationCache = config.lfValueTranslationCache.copy(
-            maximumWeight = maximumLfValueTranslationCacheEntries)))
+          config.copy(
+            lfValueTranslationEventCache = config.lfValueTranslationEventCache.copy(
+              maximumWeight = maximumLfValueTranslationCacheEntries),
+            lfValueTranslationContractCache = config.lfValueTranslationContractCache.copy(
+              maximumWeight = maximumLfValueTranslationCacheEntries),
+        ))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

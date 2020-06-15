@@ -60,7 +60,8 @@ final class Runner[T <: ReadWriteService, Extra](
             metrics.registry.registerAll(new JvmMetricSet)
             val lfValueTranslationCache =
               LfValueTranslation.Cache.newInstrumentedInstance(
-                configuration = config.lfValueTranslationCache,
+                eventConfiguration = config.lfValueTranslationEventCache,
+                contractConfiguration = config.lfValueTranslationContractCache,
                 metrics = metrics,
               )
             for {
