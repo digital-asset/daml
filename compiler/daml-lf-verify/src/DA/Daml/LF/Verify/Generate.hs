@@ -141,9 +141,16 @@ genChoice pac tem (this',this) temFs TemplateChoice{..} = do
   extVarEnv self
   extVarEnv arg
   argFs <- recTypFields (snd chcArgBinder)
+  -- Replace the argument and template fields with their record projection form.
+  let argFieldSubst = foldl concatExprSubst emptyExprSubst
+        (map (\f -> singleExprSubst (fieldName2VarName f) (EStructProj f (EVar arg))) argFs)
+      thisFieldSubst = foldl concatExprSubst emptyExprSubst
+        (map (\f -> singleExprSubst (fieldName2VarName f) (EStructProj f (EVar this))) temFs)
+      substVar = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
+      subst = substVar `concatExprSubst` thisFieldSubst `concatExprSubst` argFieldSubst
   extRecEnv arg argFs
   expOut <- genExpr True
-    $ substituteTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)])
+    $ substituteTm subst
     $ instPRSelf pac chcUpdate
   let out = if chcConsuming
         then addArchiveUpd tem fields expOut
