@@ -6,7 +6,7 @@ package com.daml.metrics
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics.{Counter, Gauge, MetricRegistry, Timer}
 
-final class CacheMetrics private[metrics] (
+final class CacheMetrics(
     registry: MetricRegistry,
     prefix: MetricName,
 ) {
