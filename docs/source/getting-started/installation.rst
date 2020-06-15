@@ -15,9 +15,17 @@ You need to install:
 2. JDK 8 or greater.
 
    You can get the JDK from `Zulu 8 JDK <https://www.azul.com/downloads/zulu/>`_ or `Oracle 8 JDK <http://www.oracle.com/technetwork/java/javase/downloads/index.html>`_ (requires you to accept Oracle's license).
+   As part of the installation process you might need to set up the ``JAVA_HOME`` variable. You can find here the instructions on how to do it on `Windows, Mac OS, and Linux <https://www.baeldung.com/java-home-on-windows-7-8-10-mac-os-x-linux>`_.
 
 2. Install the SDK
 *******************
+
+In order to install the DAML SDK you will first need to
+
+1. download it and
+2. **add** ``~/.daml/bin`` **to your** ``PATH`` **variable settings if necessary**.
+   You need to do this in order to be able to call :doc:`daml assistant's commands </tools/assistant>` system wide.
+   This will allow you easier workflow when developing your DAML application.
 
 Mac and Linux
 =============
@@ -27,14 +35,14 @@ To install the SDK on Mac or Linux:
 1. Run::
 
      curl -sSL https://get.daml.com/ | sh
-2. If prompted, add ``~/.daml/bin`` to your PATH.
 
-   If you don't know how to do this, try following `these instructions for MacOS <https://hathaway.cc/2008/06/how-to-edit-your-path-environment-variables-on-mac/>`_ or `these instructions for Windows <https://www.java.com/en/download/help/path.xml>`_.
+2. Add ``~/.daml/bin`` to your PATH. You can find the instructions here on how to do it on `MacOS <https://hathaway.cc/2008/06/how-to-edit-your-path-environment-variables-on-mac/>`_ and `Linux <https://stackabuse.com/how-to-permanently-set-path-in-linux/>`_.
 
 Windows
 =======
 
-We support running the SDK on Windows 10. To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
+1. We support running the SDK on Windows 10. To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`__.
+2. If you need to add ``~/.daml/bin`` to your ``PATH`` you can find the instruction on how to do it on Windows `here <https://www.java.com/en/download/help/path.xml>`_.
 
 Next steps
 **********
