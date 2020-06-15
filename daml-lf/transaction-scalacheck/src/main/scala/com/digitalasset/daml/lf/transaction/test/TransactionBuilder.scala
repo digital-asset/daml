@@ -13,15 +13,14 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import scala.collection.immutable.HashMap
 import scala.util.control.NonFatal
 
-// For test purpose only
 final class TransactionBuilder {
 
   import TransactionBuilder._
 
   private[this] val newHash: () => crypto.Hash = {
-    val a = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
-    scala.util.Random.nextBytes(a)
-    crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(a))
+    val bytes = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
+    scala.util.Random.nextBytes(bytes)
+    crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(bytes))
   }
 
   private val ids = Iterator.from(0).map(NodeId(_))
