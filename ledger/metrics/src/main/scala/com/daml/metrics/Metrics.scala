@@ -348,20 +348,20 @@ class Metrics(val registry: MetricRegistry) {
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
           // outside of SQL transaction
-          val prepareBatches = registry.timer(dbPrefix :+ "prepare_batches")
+          val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
 
           // in order within SQL transaction
-          val commitValidation = registry.timer(dbPrefix :+ "commit_validation")
-          val eventsBatch = registry.timer(dbPrefix :+ "events_batch")
-          val deleteContractWitnessesBatch =
+          val commitValidation: Timer = registry.timer(dbPrefix :+ "commit_validation")
+          val eventsBatch: Timer = registry.timer(dbPrefix :+ "events_batch")
+          val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
-          val deleteContractsBatch = registry.timer(dbPrefix :+ "delete_contracts_batch")
-          val insertContractsBatch = registry.timer(dbPrefix :+ "insert_contracts_batch")
-          val insertContractWitnessesBatch =
+          val deleteContractsBatch: Timer = registry.timer(dbPrefix :+ "delete_contracts_batch")
+          val insertContractsBatch: Timer = registry.timer(dbPrefix :+ "insert_contracts_batch")
+          val insertContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
 
-          val insertCompletion = registry.timer(dbPrefix :+ "insert_completion")
-          val updateLedgerEnd = registry.timer(dbPrefix :+ "update_ledger_end")
+          val insertCompletion: Timer = registry.timer(dbPrefix :+ "insert_completion")
+          val updateLedgerEnd: Timer = registry.timer(dbPrefix :+ "update_ledger_end")
         }
         val storeRejectionDbMetrics
           : DatabaseMetrics = createDbMetrics("store_rejection") // FIXME Base name conflicts with storeRejection
