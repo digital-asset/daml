@@ -14,7 +14,7 @@ Running the DAML codegen
 
 The basic command to run the DAML codegen is::
 
-  $ daml codegen [java|scala] [options]
+  $ daml codegen [java|scala|js] [options]
 
 There are two modes:
 
@@ -25,19 +25,11 @@ There are two modes:
 Command line configuration
 --------------------------
 
-Help for **DAML to Java** codegen::
+Help for each specific codegen::
 
-  $ daml codegen java --help
+  $ daml codegen [java|scala|js] --help
 
-Help for **DAML to Scala** codegen::
-
-  $ daml codegen scala --help
-
-Both **DAML to Java** and **DAML to Scala** take the same set of configuration settings::
-
-    Usage: codegen [options] <DAR-file[=package-prefix]>...
-
-    Code generator for the DAML ledger bindings.
+**Java** and **Scala** take the same set of configuration settings::
 
       <DAR-file[=package-prefix]>...
                                DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources.
@@ -48,6 +40,14 @@ Both **DAML to Java** and **DAML to Scala** take the same set of configuration s
       -V, --verbosity <value>  Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0
       -r, --root <value>       Regular expression for fully-qualified names of templates to generate -- defaults to .*
       --help                   This help text
+
+**JavaScript** takes a different set of configuration settings::
+
+      DAR-FILES                DAR files to generate TypeScript bindings for
+      -o DIR                   Output directory for the generated packages
+      -s SCOPE                 The NPM scope name for the generated packages;
+                              defaults to daml.js
+      -h,--help                Show this help text
 
 Project file configuration
 --------------------------
@@ -79,13 +79,9 @@ The above settings can be configured in the ``codegen`` element of the DAML proj
         output-directory: scala-codegen/src/main/scala
         verbosity: 2
 
-You can run the above configuration to generate **Java** code::
+You can run the above configuration to generate your **Java** or **Scala** code::
 
-    $ daml codegen java
-
-and to generate **Scala** code::
-
-    $ daml codegen scala
+    $ daml codegen [java|scala]
 
 The equivalent **DAML to Java** command line configuration::
 
