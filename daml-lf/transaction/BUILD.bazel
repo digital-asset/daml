@@ -94,7 +94,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/language",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "//libs-scala/scalatest-utils",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",

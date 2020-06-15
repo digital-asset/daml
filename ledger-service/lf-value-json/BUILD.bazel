@@ -46,7 +46,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "//ledger-service/utils",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:io_spray_spray_json_2_12",
