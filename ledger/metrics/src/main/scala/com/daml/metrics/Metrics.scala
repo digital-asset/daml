@@ -162,14 +162,14 @@ class Metrics(val registry: MetricRegistry) {
           val fetchInputs: Timer = registry.timer(Prefix :+ "fetch_inputs")
           val validate: Timer = registry.timer(Prefix :+ "validate")
           val commit: Timer = registry.timer(Prefix :+ "commit")
-          val transformSubmission: Timer = registry.timer(prefix :+ "transform_submission")
+          val transformSubmission: Timer = registry.timer(Prefix :+ "transform_submission")
 
-          val acquireTransactionLock: Timer = registry.timer(prefix :+ "acquire_transaction_lock")
+          val acquireTransactionLock: Timer = registry.timer(Prefix :+ "acquire_transaction_lock")
           val failedToAcquireTransaction: Timer =
-            registry.timer(prefix :+ "failed_to_acquire_transaction")
-          val releaseTransactionLock: Timer = registry.timer(prefix :+ "release_transaction_lock")
+            registry.timer(Prefix :+ "failed_to_acquire_transaction")
+          val releaseTransactionLock: Timer = registry.timer(Prefix :+ "release_transaction_lock")
 
-          val stateValueCache = new CacheMetrics(registry, prefix :+ "state_value_cache")
+          val stateValueCache = new CacheMetrics(registry, Prefix :+ "state_value_cache")
 
           // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
