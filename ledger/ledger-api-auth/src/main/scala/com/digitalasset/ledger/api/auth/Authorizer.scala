@@ -49,8 +49,8 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
     authorize(call) { claims =>
       valid(claims) &&
-      parties.forall(p => claims.canReadAs(p)) &&
-      applicationId.forall(id => claims.applicationId.forall(_ == id))
+      parties.forall(claims.canReadAs) &&
+      applicationId.forall(claims.validForApplication)
     }
 
   /** Wraps a single call to verify whether some Claims authorize to read as all parties
@@ -61,7 +61,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       call: Req => Future[Res]): Req => Future[Res] =
     authorize(call) { claims =>
       valid(claims) &&
-      parties.forall(p => claims.canReadAs(p))
+      parties.forall(claims.canReadAs)
     }
 
   /** Checks whether the current Claims authorize to act as the given party, if any.
@@ -73,8 +73,8 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       call: Req => Future[Res]): Req => Future[Res] =
     authorize(call) { claims =>
       valid(claims) &&
-      party.forall(p => claims.canActAs(p)) &&
-      applicationId.forall(id => claims.applicationId.forall(_ == id))
+      party.forall(claims.canActAs) &&
+      applicationId.forall(claims.validForApplication)
     }
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
