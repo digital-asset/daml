@@ -158,7 +158,7 @@ class Metrics(val registry: MetricRegistry) {
         object validator {
           private val Prefix: MetricName = submission.prefix :+ "validator"
 
-          val openEnvelope: Timer = registry.timer(prefix :+ "open_envelope")
+          val openEnvelope: Timer = registry.timer(Prefix :+ "open_envelope")
           val fetchInputs: Timer = registry.timer(Prefix :+ "fetch_inputs")
           val validate: Timer = registry.timer(Prefix :+ "validate")
           val commit: Timer = registry.timer(Prefix :+ "commit")
