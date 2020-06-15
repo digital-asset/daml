@@ -62,6 +62,10 @@ private[validation] object ExprTraversable {
         f(body)
       case EFromAny(ty @ _, body) =>
         f(body)
+      case ELazy(typ @ _, body) =>
+        f(body)
+      case EForce(typ @ _, body) =>
+        f(body)
     }
     ()
   }

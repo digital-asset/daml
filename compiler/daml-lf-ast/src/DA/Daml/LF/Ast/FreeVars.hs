@@ -97,6 +97,8 @@ freeVarsStep = \case
     EToAnyF t e -> freeVarsInType t <> e
     EFromAnyF t e -> freeVarsInType t <> e
     ETypeRepF t -> freeVarsInType t
+    ELazyF t e -> freeVarsInType t <> e
+    EForceF t e -> freeVarsInType t <> e
 
   where
 

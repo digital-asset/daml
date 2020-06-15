@@ -13,7 +13,7 @@ import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy.{Machine, SpeedyHungry}
+import com.daml.lf.speedy.Speedy.{Machine, SpeedyHungry, KUpdateThunk}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
@@ -1224,6 +1224,29 @@ object SBuiltin {
         case SAny(actualTy, v) =>
           SOptional(if (actualTy == expectedTy) Some(v) else None)
         case v => crash(s"FromAny applied to non-Any: $v")
+      }
+    }
+  }
+
+  // Unstable laziness primitives.
+
+  /** $force :: a -> Lazy a */
+  final case object SBForce extends SBuiltin(1) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      args.get(0) match {
+        case v: SLazy => v.cell match {
+          // TODO(MH): Add profiling support.
+          case LThunk(label @ _, expr, frame) =>
+            machine.pushKont(KUpdateThunk(v, machine.frame, machine.actuals, machine.env.size))
+            machine.frame = frame
+            machine.ctrl = expr
+          // TODO(MH): Throw a better error message.
+          case LEvaluating => throw SErrorCrash("Re-entrant thunk")
+          case LValue(v) =>
+            machine.returnValue = v
+        }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBForce, expected Text got $x")
       }
     }
   }

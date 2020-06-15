@@ -536,6 +536,9 @@ object Pretty {
             intercalate(space, (index to n + index - 1).map((v: Int) => str(v))) &
             text("-> ")
           prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
+        case SELazy(body) =>
+          intercalate(comma + lineOrSpace, Array(prettySExpr(index)(body)))
+            .tightBracketBy(text("lazy("), char(')'))
 
         case SECatch(body, handler, fin) =>
           text("$catch") + char('(') + prettySExpr(index)(body) + text(", ") +
@@ -551,6 +554,11 @@ object Pretty {
             intercalate(space, (index to n + index - 1).map((v: Int) => str(v))) &
             text("-> ")
           prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
+        case SELazyClo(fvs, body) =>
+          val prefix = char('[') +
+            intercalate(space, fvs.map(prettySELoc)) + char(']') + text("(lazy(")
+          intercalate(comma + lineOrSpace, Array(prettySExpr(index)(body)))
+            .tightBracketBy(prefix, text("))"))
 
         case loc: SELoc => prettySELoc(loc)
 

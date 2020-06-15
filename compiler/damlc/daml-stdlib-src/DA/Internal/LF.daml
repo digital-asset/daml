@@ -45,6 +45,12 @@ module DA.Internal.LF
   -- If this is not supported by the target LF version, we compile it to ().
   , Any
   , TypeRep
+
+#ifdef DAML_UNSTABLE
+  , Lazy
+  , lazy
+  , force
+#endif
   ) where
 
 import GHC.Types (Opaque, Symbol, primitive, magic)
@@ -243,4 +249,14 @@ data TypeRep = TypeRep Opaque
 #ifdef DAML_TYPE_REP
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
+#endif
+
+#ifdef DAML_UNSTABLE
+data Lazy a = Lazy Opaque
+
+lazy: a -> Lazy a
+lazy = magic @"lazy"
+
+force: Lazy a -> a
+force = magic @"force"
 #endif

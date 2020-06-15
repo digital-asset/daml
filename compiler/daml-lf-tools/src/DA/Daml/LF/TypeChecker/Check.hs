@@ -104,27 +104,30 @@ checkType typ kind = do
 kindOfDataType :: DefDataType -> Kind
 kindOfDataType = foldr (KArrow . snd) KStar . dataParams
 
-kindOfBuiltin :: BuiltinType -> Kind
+kindOfBuiltin :: MonadGamma m => BuiltinType -> m Kind
 kindOfBuiltin = \case
-  BTInt64 -> KStar
-  BTDecimal -> KStar
-  BTNumeric -> KNat `KArrow` KStar
-  BTText -> KStar
-  BTTimestamp -> KStar
-  BTParty -> KStar
-  BTUnit -> KStar
-  BTBool -> KStar
-  BTDate -> KStar
-  BTList -> KStar `KArrow` KStar
-  BTUpdate -> KStar `KArrow` KStar
-  BTScenario -> KStar `KArrow` KStar
-  BTContractId -> KStar `KArrow` KStar
-  BTOptional -> KStar `KArrow` KStar
-  BTTextMap -> KStar `KArrow` KStar
-  BTGenMap -> KStar `KArrow` KStar `KArrow` KStar
-  BTArrow -> KStar `KArrow` KStar `KArrow` KStar
-  BTAny -> KStar
-  BTTypeRep -> KStar
+  BTInt64 -> pure KStar
+  BTDecimal -> pure KStar
+  BTNumeric -> pure $ KNat `KArrow` KStar
+  BTText -> pure KStar
+  BTTimestamp -> pure KStar
+  BTParty -> pure KStar
+  BTUnit -> pure KStar
+  BTBool -> pure KStar
+  BTDate -> pure KStar
+  BTList -> pure $ KStar `KArrow` KStar
+  BTUpdate -> pure $ KStar `KArrow` KStar
+  BTScenario -> pure $ KStar `KArrow` KStar
+  BTContractId -> pure $ KStar `KArrow` KStar
+  BTOptional -> pure $ KStar `KArrow` KStar
+  BTTextMap -> pure $ KStar `KArrow` KStar
+  BTGenMap -> pure $ KStar `KArrow` KStar `KArrow` KStar
+  BTArrow -> pure $ KStar `KArrow` KStar `KArrow` KStar
+  BTAny -> pure KStar
+  BTTypeRep -> pure KStar
+  BTLazy -> do
+    checkFeature featureUnstable
+    pure (KStar `KArrow` KStar)
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -145,7 +148,7 @@ kindOf = \case
     (argKind, resKind) <- match _KArrow (EExpectedHigherKind kind) kind
     checkType targ argKind
     pure resKind
-  TBuiltin btype -> pure (kindOfBuiltin btype)
+  TBuiltin btype -> kindOfBuiltin btype
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
@@ -575,6 +578,16 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
+  ELazy ty ex -> do
+    checkFeature featureUnstable
+    checkType ty KStar
+    checkExpr ex ty
+    pure (TLazy ty)
+  EForce ty ex -> do
+    checkFeature featureUnstable
+    checkType ty KStar
+    checkExpr ex (TLazy ty)
+    pure ty
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -664,8 +677,8 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   where
     withPart p = withContext (ContextTemplate m t p)
 
-_checkFeature :: MonadGamma m => Feature -> m ()
-_checkFeature feature = do
+checkFeature :: MonadGamma m => Feature -> m ()
+checkFeature feature = do
     version <- getLfVersion
     unless (version `supports` feature) $
         throwWithContext $ EUnsupportedFeature feature

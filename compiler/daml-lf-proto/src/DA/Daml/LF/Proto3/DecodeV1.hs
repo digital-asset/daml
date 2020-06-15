@@ -568,6 +568,14 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
+  LF1.ExprSumLazy (LF1.Expr_Lazy mbType mbExpr) -> do
+    type' <- mayDecode "expr_LazyType" mbType decodeType
+    expr <- mayDecode "expr_LazyExpr" mbExpr decodeExpr
+    return (ELazy type' expr)
+  LF1.ExprSumForce (LF1.Expr_Force mbType mbExpr) -> do
+    type' <- mayDecode "expr_ForceType" mbType decodeType
+    expr <- mayDecode "expr_ForceExpr" mbExpr decodeExpr
+    return (EForce type' expr)
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -737,6 +745,7 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
+  LF1.PrimTypeLAZY -> BTLazy
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

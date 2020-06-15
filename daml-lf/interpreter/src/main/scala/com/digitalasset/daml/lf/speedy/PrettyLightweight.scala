@@ -39,6 +39,7 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case _: KBuiltin => "KBuiltin"
     case _: KPap => "KPap"
     case _: KPushTo => "KPushTo"
+    case _: KUpdateThunk => "KUpdateThunk"
     case _: KCacheVal => "KCacheVal"
     case _: KLocation => "KLocation"
     case _: KMatch => "KMatch"
@@ -65,6 +66,7 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case SEAppAtomicFun(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
     case SEAppSaturatedBuiltinFun(builtin, args) => s"@B($builtin,${commas(args.map(pp))})"
     case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(pp))}]\\$arity.${pp(body)}"
+    case SELazyClo(fvs, body) => s"[${commas(fvs.map(pp))}](lazy,${pp(body)})"
     case SEBuiltin(b) => s"(BUILTIN)$b"
     case SEVal(ref) => s"(DEF)${pp(ref)}"
     case SELocation(_, exp) => s"LOC(${pp(exp)})"
@@ -73,6 +75,7 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
     case SEBuiltinRecursiveDefinition(_) => "<SEBuiltinRecursiveDefinition...>"
     case SECatch(_, _, _) => "<SECatch...>" //not seen one yet
     case SEAbs(_, _) => "<SEAbs...>" // will never get these on a running machine
+    case SELazy(_) => "<SELazy...>" // will never get these on a running machine
     case SELabelClosure(_, _) => "<SELabelClosure...>"
     case SEImportValue(_) => "<SEImportValue...>"
     case SEWronglyTypeContractId(_, _, _) => "<SEWronglyTypeContractId...>"

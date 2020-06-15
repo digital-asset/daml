@@ -696,7 +696,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep", "Lazy"]
 
 consumingTypes :: UniqSet FastString
 consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
@@ -707,7 +707,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "getFieldPrim"
         , "setFieldPrim"
         ])
-    , ("DA.Internal.LF", "unpackPair" : map ("$W" <>) (nonDetEltsUniqSet internalTypes))
+    , ("DA.Internal.LF", "unpackPair" : "lazy" : "force" : map ("$W" <>) (nonDetEltsUniqSet internalTypes))
     , ("GHC.Base",
         [ "getTag"
         ])
@@ -854,6 +854,10 @@ convertExpr env0 e = do
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
     go env (VarIn DA_Action "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
+    go env (VarIn DA_Internal_LF "lazy") (LType t : LExpr e : args)
+        = fmap (, args) $ ELazy <$> convertType env t <*> convertExpr env e
+    go env (VarIn DA_Internal_LF "force") (LType t : LExpr e : args)
+        = fmap (, args) $ EForce <$> convertType env t <*> convertExpr env e
     go env submit@(VarIn DA_Internal_LF "submit") (LType m : LType cmds : LExpr dict : LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
          m' <- convertType env m
          typ' <- convertType env typ
@@ -1531,6 +1535,7 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
+            "Lazy" -> pure (TBuiltin BTLazy)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon
