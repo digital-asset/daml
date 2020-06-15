@@ -25,7 +25,7 @@ final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
       val requirement = ledgerIdRequirement
       require(
         requirement.isAccepted(ledgerId),
-        s"Required Ledger ID ${requirement.ledgerId} does not match received Ledger ID $ledgerId"
+        s"Required Ledger ID ${requirement.optionalLedgerId.get} does not match received Ledger ID $ledgerId"
       )
       LedgerId(ledgerId)
     }

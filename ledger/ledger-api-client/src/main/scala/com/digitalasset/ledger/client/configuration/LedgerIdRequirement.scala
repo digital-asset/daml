@@ -4,20 +4,26 @@
 package com.daml.ledger.client.configuration
 
 /**
-  * @param ledgerId The ID of the target ledger. If defined, the client will only communicate with ledgers that have the
-  *                 expected LedgerId. Note that this setting only affects the binding process, when the ledger ID
-  *                 on the server is checked.
+  * @param optionalLedgerId The ID of the target ledger. If defined, the client will only
+  *                         communicate with ledgers that have the expected LedgerId.
+  *                         Note that this setting only affects the binding process, when the ledger
+  *                         ID on the server is checked.
   */
-final case class LedgerIdRequirement(ledgerId: Option[String]) {
+final case class LedgerIdRequirement(optionalLedgerId: Option[String]) {
+  @deprecated("This function will return `Option[String]` in a future release.", "1.3.0")
+  def ledgerId: String = optionalLedgerId.get
+
+  def enabled: Boolean = optionalLedgerId.isDefined
+
   def isAccepted(checkedLedgerId: String): Boolean =
-    ledgerId.fold(true)(checkedLedgerId.equals)
+    optionalLedgerId.fold(true)(checkedLedgerId.equals)
 
   def copy(ledgerId: Option[String]): LedgerIdRequirement =
-    LedgerIdRequirement(ledgerId = ledgerId)
+    LedgerIdRequirement(optionalLedgerId = ledgerId)
 
   @deprecated("Use Option-based copy", "1.3.0")
   def copy(ledgerId: String): LedgerIdRequirement =
-    LedgerIdRequirement(this.ledgerId.map(_ => ledgerId))
+    LedgerIdRequirement(this.optionalLedgerId.map(_ => ledgerId))
 }
 
 object LedgerIdRequirement {
