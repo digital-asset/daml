@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Migration.KeyTransfer (test) where
 
 import Control.Monad
@@ -22,7 +23,7 @@ symDiff left right = (left \\ right) ++ (right \\ left)
 equivalent :: Eq a => [a] -> [a] -> Bool
 equivalent xs = null . symDiff xs
 
-test :: FilePath -> FilePath -> Test ([Tuple2 (ContractId Asset) Asset], [Transaction]) Result
+test :: FilePath -> FilePath -> Test ([Tuple2 ContractId Asset], [Transaction]) Result
 test step modelDar = Test {..}
   where
     initialState = ([], [])
@@ -81,6 +82,12 @@ test step modelDar = Test {..}
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.
 
+pattern CreatedAsset :: ContractId -> Asset -> Event
+pattern CreatedAsset cid asset <- Created cid (TemplateId "KeyTransfer" "Asset") (A.fromJSON -> A.Success asset)
+
+pattern ArchivedAsset :: ContractId -> Event
+pattern ArchivedAsset cid = Archived cid (TemplateId "KeyTransfer" "Asset")
+
 data Asset = Asset
   { owner :: Party
   , name :: String
@@ -88,37 +95,9 @@ data Asset = Asset
 
 instance A.FromJSON Asset
 
-data Event
-  = CreatedAsset (ContractId Asset) Asset
-  | ArchivedAsset (ContractId Asset)
-  deriving (Eq, Show)
-
-instance A.FromJSON Event where
-    parseJSON = A.withObject "Event" $ \o -> do
-        ty <- o A..: "type"
-        moduleName <- o A..: "moduleName"
-        entityName <- o A..: "entityName"
-        case moduleName of
-            "KeyTransfer" -> case ty of
-                "created" -> case entityName of
-                    "Asset" -> CreatedAsset <$> o A..: "contractId" <*> o A..: "argument"
-                    _ -> fail ("Invalid entity: " <> entityName)
-                "archived" -> case entityName of
-                    "Asset" -> ArchivedAsset <$> o A..: "contractId"
-                    _ -> fail ("Invalid entity: " <> entityName)
-                _ -> fail ("Invalid event type: " <> ty)
-            _ -> fail ("Invalid module: " <> moduleName)
-
-data Transaction = Transaction
-  { transactionId :: T.Text
-  , events :: [Event]
-  } deriving (Generic, Eq, Show)
-
-instance A.FromJSON Transaction
-
 data Result = Result
-  { oldAssets :: [Tuple2 (ContractId Asset) Asset]
-  , newAssets :: [Tuple2 (ContractId Asset) Asset]
+  { oldAssets :: [Tuple2 ContractId Asset]
+  , newAssets :: [Tuple2 ContractId Asset]
   , oldTransactions :: [Transaction]
   , newTransactions :: [Transaction]
   } deriving Generic

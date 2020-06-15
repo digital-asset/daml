@@ -1,6 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DerivingStrategies #-}
 module Migration.Types
   ( Test(..)
@@ -8,6 +9,9 @@ module Migration.Types
   , ContractId(..)
   , Party(..)
   , Tuple2(..)
+  , TemplateId(..)
+  , Event(..)
+  , Transaction(..)
   ) where
 
 import qualified Data.Aeson as A
@@ -30,7 +34,7 @@ newtype SdkVersion = SdkVersion { getSdkVersion :: String }
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.
 
-newtype ContractId t = ContractId T.Text
+newtype ContractId = ContractId T.Text
   deriving newtype A.FromJSON
   deriving stock (Eq, Show)
 newtype Party = Party { getParty :: T.Text }
@@ -43,3 +47,32 @@ data Tuple2 a b = Tuple2
   } deriving (Eq, Generic, Show)
 
 instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
+
+data TemplateId = TemplateId
+  { moduleName :: !String
+  , entityName :: !String
+  } deriving (Eq, Show)
+
+data Event
+  = Created !ContractId !TemplateId !A.Value
+  | Archived !ContractId !TemplateId
+  deriving (Eq, Show)
+
+instance A.FromJSON Event where
+    parseJSON = A.withObject "Event" $ \o -> do
+        ty :: String <- o A..: "type"
+        tplId <- TemplateId
+            <$> o A..: "moduleName"
+            <*> o A..: "entityName"
+        cid <- o A..: "contractId"
+        case ty of
+            "created" -> Created cid tplId <$> o A..: "argument"
+            "archived" -> pure (Archived cid tplId)
+            _ -> fail $ "Unsupported type: " <> show ty
+
+data Transaction = Transaction
+  { transactionId :: T.Text
+  , events :: [Event]
+  } deriving (Generic, Eq, Show)
+
+instance A.FromJSON Transaction
