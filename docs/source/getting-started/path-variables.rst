@@ -23,25 +23,19 @@ If you have downloaded and installed the DAML SDK using our `Windows installer <
 
 Mac OS
 ******
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``bash`` console.
-If yu are using ``zsh`` all of the instructions are quite similar, except that you will be doing all of the changes
-in the ``.zshrc`` file.
+We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``zsh`` console.
+If you are using ``bash`` all of the instructions are quite similar, except that you will be doing all of the changes
+in the ``.bash_profile`` file.
 
 Setting the JAVA_HOME variable
 ==============================
-Open the ``~/.bash_profile`` in any text editor. The file should be located in your ``Home`` folder.
-In ``Finder`` click on Go --> Home and then click ``Cmd+SHIFT+.`` to see the hidden files. Locate the ``~/.bash_profile``
-and double click on it to open it. Add the folloiwing line as a new line at the end of the file::
+Run the following command in your terminal::
 
-        export JAVA_HOME=$(/usr/libexec/java_home)
+        export "JAVA_HOME=$(/usr/libexec/java_home)" >> ~/.zprofile
 
-Save the file before closing.
-
-Next open the terminal and run the source command to apply the changes::
-
-        source ~/.bash_profile
-
-Check the ``JAVA_HOME`` variable and make sure that the changes have been applied::
+In order for the changes to take effect you will need to restart your computer. Note that if you will be setting up the
+``PATH`` variable as well you can restart your computer after you're done with all the changes. Upon restarting check that
+the ``JAVA_HOME`` variable is set::
 
         echo $JAVA_HOME
 
@@ -51,43 +45,32 @@ The result should be the path to the JDK installation, something like this::
 
 Setting the PATH variable
 =========================
-Open the ``~/.bash_profile`` in any text editor. Add the following line as a new line at the
-end of the file::
+Run the following command in your terminal::
 
-        export PATH="~/.daml/bin:$PATH"
+        echo 'export PATH="~/.daml/bin:$PATH"' >> ~/.zprofile
 
-Save the file before closing.
+Restart the terminal for the changes to take effect. Upon restarting check the ``PATH`` variable and make sure that
+the changes have been applied::
 
-Next open the terminal and run the source command to apply the changes::
+        echo $PATH
 
-        source ~/.bash_profile
-
-To check if DAML has been added to your ``PATH`` variable run::
-
-        daml version
-
-which should list out all installed DAML SDK version as well as the project default one. You should see a line stating::
-
-        (default SDK version for new projects)
+You should see ``~/.daml/bin`` in the output.
 
 Linux
 *****
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for ``bash``terminal.
+We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for the ``bash`` terminal.
 
 Setting the JAVA_HOME variable
 ==============================
 
-Open ~/.bashrc in any text editor and add the path to your JDK. Typically it should be something like ``/usr/lib/jvm/java-version``::
+Java should be installed typically in a folder like ``/usr/lib/jvm/java-version``. Before running the following command
+make sure to change the ``java-version`` with the actual folder found on your computer::
 
-        export JAVA_HOME=/usr/lib/jvm/java-version
+        echo "export JAVA_HOME=/usr/lib/jvm/java-version" >> ~/.bash_profile
 
-Save and close the file.
-
-Load the new settings by runngin::
-
-        source ~/.bashrc
-
-Check the value of the JAVA_HOME variable by running::
+In order for the changes to take effect you will need to restart your computer. Note that if you will be setting up the
+``PATH`` variable as well you can restart your computer after you're done with all the changes. Upon restarting check that
+the ``JAVA_HOME`` variable is set::
 
         echo $JAVA_HOME
 
@@ -98,21 +81,15 @@ The result should be the path to the JDK installation::
 Setting the PATH variable
 =========================
 
-Open the ``~/.bash_profile`` in any text editor. Add the following line as a new line at the
-end of the file::
+Run the following command::
 
-        export PATH="~/.daml/bin:$PATH"
+        echo 'export PATH="~/.daml/bin:$PATH"' >> ~/.bash_profile
 
 Save the file before closing.
 
-Next open the terminal and run the source command to apply the changes::
+Restart the terminal for the changes to take effect. Upon restarting check the ``PATH`` variable and make sure that
+the changes have been applied::
 
-        source ~/.bash_profile
+        echo $PATH
 
-To check if DAML has been added to your ``PATH`` variable run::
-
-        daml version
-
-which should list out all installed DAML SDK version as well as the project default one. You should see a line stating::
-
-        (default SDK version for new projects)
+You should see ``~/.daml/bin`` in the output.
