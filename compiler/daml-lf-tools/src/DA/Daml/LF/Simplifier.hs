@@ -26,7 +26,6 @@ import DA.Daml.LF.Ast.FreeVars
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.TypeChecker.Check
 import DA.Daml.LF.TypeChecker.Env
-import DA.Daml.LF.Ast.Optics
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
