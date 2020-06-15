@@ -442,6 +442,38 @@ damlc_compile_test(
     stack_limit = "100K" if is_windows else "70K",
 )
 
+da_haskell_binary(
+    name = "generate-package-pattern-match",
+    srcs = ["src/DA/Test/GeneratePackagePatternMatch.hs"],
+    hackage_deps = [
+        "base",
+        "directory",
+        "filepath",
+    ],
+    main_function = "DA.Test.GeneratePackagePatternMatch.main",
+    src_strip_prefix = "src",
+)
+
+# This is an SH test since damlc_compile_test does not support packages so far.
+sh_test(
+    name = "package-pattern-match-perf",
+    srcs = ["src/package-pattern-match-perf.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        "$(location :generate-package-pattern-match)",
+    ],
+    data = [
+        ":generate-package-pattern-match",
+        "//compiler/damlc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 filegroup(
     name = "daml-test-files",
     srcs = glob(["daml-test-files/**"]),
