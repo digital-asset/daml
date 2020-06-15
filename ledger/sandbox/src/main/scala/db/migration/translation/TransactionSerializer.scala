@@ -43,12 +43,11 @@ object TransactionSerializer extends TransactionSerializer {
       trId: LedgerString,
       stream: InputStream): Either[DecodeError, Tx.CommittedTransaction] =
     TransactionCoder
-      .decodeVersionedTransaction(
+      .decodeTransaction(
         TransactionCoder.EventIdDecoder(trId),
         ValueCoder.CidDecoder,
         TransactionOuterClass.Transaction.parseFrom(
           Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
       )
-      .map(versionedTx => Tx.CommittedTransaction(versionedTx.transaction))
-
+      .map(Tx.CommittedTransaction(_))
 }

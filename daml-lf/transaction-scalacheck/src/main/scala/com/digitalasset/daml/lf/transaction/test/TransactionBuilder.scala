@@ -52,7 +52,7 @@ final class TransactionBuilder {
   }
 
   def build(): Tx.Transaction = ids.synchronized {
-    GenTransaction(nodes.result(), roots.result())
+    TransactionVersions.assertAsVersionedTransaction(GenTransaction(nodes.result(), roots.result()))
   }
 
   def newCid: ContractId = ContractId.V1(newHash())
@@ -186,6 +186,10 @@ object TransactionBuilder {
 
   // not a valid transaction.
   val Empty: Tx.Transaction =
-    Tx.CommittedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
+    Tx.CommittedTransaction(
+      TransactionVersions.assertAsVersionedTransaction(
+        GenTransaction(HashMap.empty, ImmArray.empty)
+      )
+    )
 
 }

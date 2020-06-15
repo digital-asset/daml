@@ -493,12 +493,12 @@ object TransactionCoder {
   def encodeTransaction[Nid, Cid <: ContractId](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],
-      tx: GenTransaction[Nid, Cid, VersionedValue[Cid]],
+      tx: VersionedTransaction[Nid, Cid],
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,
       encodeCid,
-      VersionedTransaction(TransactionVersions.assignVersion(tx), tx),
+      tx,
     )
 
   /**
@@ -561,7 +561,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return  decoded transaction
     */
-  def decodeVersionedTransaction[Nid, Cid](
+  def decodeTransaction[Nid, Cid](
       decodeNid: DecodeNid[Nid],
       decodeCid: ValueCoder.DecodeCid[Cid],
       protoTx: TransactionOuterClass.Transaction,
@@ -579,7 +579,7 @@ object TransactionCoder {
   /**
     * Reads a [[GenTransaction[Nid, Cid]]] from protobuf. Does not check if
     * [[TransactionVersion]] passed in the protobuf is currently supported, if you need this check use
-    * [[TransactionCoder.decodeVersionedTransaction]].
+    * [[TransactionCoder.decodeTransaction]].
     *
     * @param protoTx protobuf encoded transaction
     * @param decodeNid node id decoding function

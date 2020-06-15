@@ -168,12 +168,12 @@ private[state] object Conversions {
     assertDecode(
       "Transaction",
       TransactionCoder
-        .decodeVersionedTransaction(
+        .decodeTransaction(
           TransactionCoder.NidDecoder,
           ValueCoder.CidDecoder,
           tx
         ),
-    ).transaction
+    )
 
   def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue[ContractId] =
     assertDecode(

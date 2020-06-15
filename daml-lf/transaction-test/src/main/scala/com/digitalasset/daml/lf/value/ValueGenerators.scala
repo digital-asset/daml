@@ -8,13 +8,8 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
 import com.daml.lf.transaction.VersionTimeline.Implicits._
-import com.daml.lf.transaction.{
-  BlindingInfo,
-  GenTransaction,
-  TransactionVersion,
-  TransactionVersions,
-  Transaction => Tx
-}
+import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction._
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
@@ -307,7 +302,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
-        .map(_.map(Tx.NodeId(_)))
+        .map(_.map(Transaction.NodeId(_)))
         .map(ImmArray(_))
       exerciseResultValue <- versionedValueGen
       key <- versionedValueGen
@@ -360,10 +355,10 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction.WithTxValue[NodeId, ContractId]] = {
+  val malformedGenTransaction: Gen[Tx.Transaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
-      roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
+      roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(Tx.NodeId(_)))
     } yield GenTransaction(HashMap(nodes: _*), ImmArray(roots))
   }
 
@@ -378,7 +373,7 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction.WithTxValue[NodeId, ContractId]] = {
+  val noDanglingRefGenTransaction: Gen[Tx.Transaction] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -395,7 +390,7 @@ object ValueGenerators {
             2 -> fetchNodeGen
           )
           nodeWithChildren <- node match {
-            case node: NodeExercises.WithTxValue[NodeId, Value.ContractId] =>
+            case node: NodeExercises.WithTxValue[Tx.NodeId, Value.ContractId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
@@ -416,7 +411,7 @@ object ValueGenerators {
         if (size <= 0)
           Gen.const(nodeIds.toImmArray -> nodes)
         else
-          nodeGen(NodeId(parentNodeId.index * 10 + size)).flatMap {
+          nodeGen(Tx.NodeId(parentNodeId.index * 10 + size)).flatMap {
             case (nodeId, children) =>
               nodesGen(parentNodeId, size - 1, nodeIds :+ nodeId, nodes ++ children)
           }
@@ -424,7 +419,7 @@ object ValueGenerators {
       Gen.choose(0, 6).flatMap(nodesGen(nodeId, _))
     }
 
-    nonDanglingRefNodeGen(3, NodeId(0)).map {
+    nonDanglingRefNodeGen(3, Tx.NodeId(0)).map {
       case (nodeIds, nodes) =>
         GenTransaction(nodes, nodeIds)
     }
