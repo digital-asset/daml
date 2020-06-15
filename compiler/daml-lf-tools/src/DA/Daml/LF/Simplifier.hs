@@ -396,6 +396,15 @@ simplifyExpr' d e = fmap fst (cata go' e)
         es <- sequence ms
         world <- gets sWorldExtended
         let v' = freeVarsStep (fmap (freeVars . snd) es)
+
+        -- We decide here whether it's worth performing constant lifting
+        -- for closed terms immediately under the current term. We want
+        -- to avoid creating unnecessary bindings, so we only perform
+        -- constant lifting when a closed term would become non-closed,
+        -- thereby grouping all the closed subterms together into a single
+        -- lift. If possible, we also want to lift above a lambda, even
+        -- though the result would remain closed, so we have the additional
+        -- 'alwaysLiftUnder' check.
         if freeVarsNull v' && not (alwaysLiftUnder es)
           then pure (go world es)
           else do -- constant lifting
@@ -497,6 +506,10 @@ simplifyExpr' d e = fmap fst (cata go' e)
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
+-- | If we have a closed term under a lambda, we want to lift it up to the top level,
+-- even though the result of the lambda is also a closed term. Similarly, if there
+-- are branches of a case pattern that are closed, we choose to lift them to the top
+-- level.
 alwaysLiftUnder :: ExprF t -> Bool
 alwaysLiftUnder = \case
     ETyLamF _ _ -> True
@@ -504,6 +517,8 @@ alwaysLiftUnder = \case
     ECaseF _ _ -> True
     _ -> False
 
+-- | Some terms are not worth lifting to the top level, because they don't
+-- require any computation. By not lifting them, we avoid computing a hash.
 isWorthLifting :: Expr -> Bool
 isWorthLifting = \case
     EVar _ -> False
