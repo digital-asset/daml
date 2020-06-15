@@ -2,14 +2,14 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Setting JAVA_HOME and PATH variables
-##################
+####################################
 
 Windows
-***************************
+*******
 We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Windows.
 
 Setting the JAVA_HOME variable
-=============
+==============================
 
 1. Open ``Search`` and type "advanced system settings" and hit ``Enter``.
 2. Find the ``Advanced`` tab and click on the ``Environment Variables``.
@@ -18,17 +18,17 @@ Setting the JAVA_HOME variable
 5. Click OK and click Apply to apply the changes.
 
 Setting the PATH variable
-=============
+=========================
 If you have downloaded and installed the DAML SDK using our `Windows installer <https://github.com/digital-asset/daml/releases/latest>`_ your ``PATH`` variable is already set up.
 
 Mac OS
-***************************
+******
 We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``bash`` console.
 If yu are using ``zsh`` all of the instructions are quite similar, except that you will be doing all of the changes
 in the ``.zshrc`` file.
 
 Setting the JAVA_HOME variable
-=============
+==============================
 Open the ``~/.bash_profile`` in any text editor. The file should be located in your ``Home`` folder.
 In ``Finder`` click on Go --> Home and then click ``Cmd+SHIFT+.`` to see the hidden files. Locate the ``~/.bash_profile``
 and double click on it to open it. Add the folloiwing line as a new line at the end of the file::
@@ -50,7 +50,7 @@ The result should be the path to the JDK installation, something like this::
         /Library/Java/JavaVirtualMachines/jdk_version_number/Contents/Home
 
 Setting the PATH variable
-=============
+=========================
 Open the ``~/.bash_profile`` in any text editor. Add the following line as a new line at the
 end of the file::
 
@@ -71,11 +71,12 @@ which should list out all installed DAML SDK version as well as the project defa
         (default SDK version for new projects)
 
 Linux
-***************************
+*****
 We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for ``bash``terminal.
 
 Setting the JAVA_HOME variable
-=============
+==============================
+
 Open ~/.bashrc in any text editor and add the path to your JDK. Typically it should be something like ``/usr/lib/jvm/java-version``::
 
         export JAVA_HOME=/usr/lib/jvm/java-version
@@ -95,7 +96,8 @@ The result should be the path to the JDK installation::
         /usr/lib/jvm/java-version
 
 Setting the PATH variable
-=============
+=========================
+
 Open the ``~/.bash_profile`` in any text editor. Add the following line as a new line at the
 end of the file::
 
