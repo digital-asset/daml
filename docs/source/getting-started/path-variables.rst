@@ -83,7 +83,7 @@ Open ~/.bashrc in any text editor and add the path to your JDK. Typically it sho
 
 Save and close the file.
 
-Load the new settings by runngin::
+Load the new settings by running::
 
         source ~/.bashrc
 
