@@ -27,9 +27,11 @@ final class CommandCompletionServiceAuthorization(
   override def completionStream(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse]): Unit =
-    authorizer.requireReadClaimsForAllPartiesOnStream(request.parties, service.completionStream)(
-      request,
-      responseObserver)
+    authorizer.requireReadClaimsForAllPartiesOnStream(
+      parties = request.parties,
+      applicationId = Some(request.applicationId),
+      call = service.completionStream,
+    )(request, responseObserver)
 
   override def bindService(): ServerServiceDefinition =
     CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)

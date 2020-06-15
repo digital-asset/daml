@@ -28,4 +28,17 @@ final class CompletionStreamAuthIT
       observer =>
         stub(CommandCompletionServiceGrpc.stub(channel), token).completionStream(request, observer)
 
+  // The completion stream is the one read-only endpoint where the application
+  // identifier is part of the request. Hence, we didn't put this test in a shared
+  // trait to no have to have to override the result for the transaction service
+  // authorization tests.
+
+  it should "allow calls with the correct application ID" in {
+    expectSuccess(serviceCallWithToken(canReadAsMainActorActualApplicationId))
+  }
+
+  it should "deny calls with a random application ID" in {
+    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomApplicationId))
+  }
+
 }
