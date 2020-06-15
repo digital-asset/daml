@@ -25,7 +25,7 @@ Mac OS
 ******
 We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``bash`` console.
 If yu are using ``zsh`` all of the instructions are quite similar, except that you will be doing all of the changes
-in the ``.zshrc`` file.
+in the ``.zprofile`` file.
 
 Setting the JAVA_HOME variable
 ==============================
