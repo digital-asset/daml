@@ -7,6 +7,8 @@ module DA.Daml.LF.Verify.Subst
   , singleExprSubst
   , singleTypeSubst
   , createExprSubst
+  , emptyExprSubst
+  , concatExprSubst
   , SubstTm(..)
   , SubstTy(..)
   , InstPR(..)
@@ -19,6 +21,14 @@ import DA.Daml.LF.Ast.Type
 
 -- | Substitution of expressions for expression variables.
 type ExprSubst = Map.Map ExprVarName Expr
+
+-- | Constructs an empty substition.
+emptyExprSubst :: ExprSubst
+emptyExprSubst = Map.empty
+
+-- | Combine two substitions.
+concatExprSubst :: ExprSubst -> ExprSubst -> ExprSubst
+concatExprSubst = Map.union
 
 -- | Create an expression substitution from a single variable and expression.
 singleExprSubst :: ExprVarName
@@ -42,11 +52,13 @@ createExprSubst :: [(ExprVarName,Expr)]
   -> ExprSubst
 createExprSubst = Map.fromList
 
--- | Get the domain from an expression substitution.
-substDom :: ExprSubst
-  -- ^ The substitution to analyse.
-  -> [ExprVarName]
-substDom = Map.keys
+-- | Remove a variable from the substitution
+removeSubst :: ExprSubst
+  -- ^ The substitution to remove from.
+  -> ExprVarName
+  -- ^ The variable to remove from the substitution.
+  -> ExprSubst
+removeSubst = flip Map.delete
 
 -- | A class covering the data types to which an expression substitution can be applied.
 class SubstTm a where
@@ -82,14 +94,13 @@ instance SubstTm Expr where
     EStructUpd f e1 e2 -> EStructUpd f (substituteTm s e1) (substituteTm s e2)
     ETmApp e1 e2 -> ETmApp (substituteTm s e1) (substituteTm s e2)
     ETyApp e t -> ETyApp (substituteTm s e) t
-    ETmLam (x,t) e -> if x `elem` substDom s
-      then ETmLam (x,t) e
-      else ETmLam (x,t) (substituteTm s e)
+    ETmLam (x,t) e -> let s' = removeSubst s x
+      in ETmLam (x,t) (substituteTm s' e)
     ETyLam (a,k) e -> ETyLam (a,k) (substituteTm s e)
     ECase e cs -> ECase (substituteTm s e)
       $ map (\CaseAlternative{..} -> CaseAlternative altPattern (substituteTm s altExpr)) cs
-    ELet Binding{..} e -> ELet (Binding bindingBinder $ substituteTm s bindingBound)
-      (substituteTm s e)
+    ELet (Binding (var,ty) e1) e2 -> let s' = removeSubst s var
+      in ELet (Binding (var,ty) (substituteTm s e1)) (substituteTm s' e2)
     ECons t e1 e2 -> ECons t (substituteTm s e1) (substituteTm s e2)
     ESome t e -> ESome t (substituteTm s e)
     EToAny t e -> EToAny t (substituteTm s e)
