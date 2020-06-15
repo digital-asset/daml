@@ -179,6 +179,7 @@ data BuiltinType
   | BTArrow
   | BTAny
   | BTTypeRep
+  | BTLazy
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -500,6 +501,8 @@ data Expr
     , fromAnyBody :: !Expr
     }
   | ETypeRep !Type
+  | ELazy !Type !Expr
+  | EForce !Type !Expr
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

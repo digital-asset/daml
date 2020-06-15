@@ -32,6 +32,7 @@ exprRefs modName = cata go
       EValF qref
         | Right ref <- matching (_PRSelfModule modName) qref -> HS.singleton ref
       ETmLamF{} -> HS.empty
+      ELazyF{} -> HS.empty
       e -> HS.unions (toList e)
 
 -- | Collect all references to values defined in a given moule in the current

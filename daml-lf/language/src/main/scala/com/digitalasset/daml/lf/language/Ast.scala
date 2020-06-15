@@ -140,6 +140,10 @@ object Ast {
   /** Unique textual representation of template Id **/
   final case class ETypeRep(typ: Type) extends Expr
 
+  final case class ELazy(typ: Type, body: Expr) extends Expr
+
+  final case class EForce(typ: Type, body: Expr) extends Expr
+
   //
   // Kinds
   //
@@ -292,6 +296,7 @@ object Ast {
   case object BTArrow extends BuiltinType
   case object BTAny extends BuiltinType
   case object BTTypeRep extends BuiltinType
+  case object BTLazy extends BuiltinType
 
   //
   // Primitive literals

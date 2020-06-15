@@ -27,7 +27,7 @@ private[validation] object Typing {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
-    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
+    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap | BTLazy =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
@@ -896,6 +896,14 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkGroundType(typ)
         TTypeRep
+      case ELazy(typ, body) =>
+        checkType(typ, KStar)
+        val _ = checkExpr(body, typ)
+        TLazy(typ)
+      case EForce(typ, body) =>
+        checkType(typ, KStar)
+        val _ = checkExpr(body, TLazy(typ))
+        typ
     }
 
     def checkExpr(expr: Expr, typ0: Type): Type = {

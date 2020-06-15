@@ -21,6 +21,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var eappA: Int = 0,
       var eappB: Int = 0,
       var eclose: Int = 0,
+      var elazy: Int = 0,
       var ebuiltin: Int = 0,
       var eval: Int = 0,
       var elocation: Int = 0,
@@ -37,6 +38,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var kbuiltin: Int = 0,
       var kpap: Int = 0,
       var kpushto: Int = 0,
+      var kupdatethunk: Int = 0,
       var kcacheval: Int = 0,
       var klocation: Int = 0,
       var kmatch: Int = 0,
@@ -54,6 +56,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- eappA", eappA),
         ("- eappB", eappB),
         ("- eclose", eclose),
+        ("- elazy", elazy),
         ("- ebuiltin", ebuiltin),
         ("- eval", eval),
         ("- elocation", elocation),
@@ -69,6 +72,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- kbuiltin", kbuiltin),
         ("- kpap", kpap),
         ("- kpushto", kpushto),
+        ("- kupdatethunk", kupdatethunk),
         ("- kcacheval", kcacheval),
         ("- klocation", klocation),
         ("- kmatch", kmatch),
@@ -93,6 +97,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
     exp match {
       case _: SEVar => //not expected at runtime
       case _: SEAbs => //not expected at runtime
+      case _: SELazy => // not expected at runtime
       case _: SEValue => counts.evalue += 1
       case _: SELocS => counts.evarS += 1
       case _: SELocA => counts.evarA += 1
@@ -101,6 +106,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case _: SEAppAtomicFun => counts.eappA += 1
       case _: SEAppSaturatedBuiltinFun => counts.eappB += 1
       case _: SEMakeClo => counts.eclose += 1
+      case _: SELazyClo => counts.elazy += 1
       case _: SEBuiltin => counts.ebuiltin += 1
       case _: SEVal => counts.eval += 1
       case _: SELocation => counts.elocation += 1
@@ -122,6 +128,7 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case _: KBuiltin => counts.kbuiltin += 1
       case _: KPap => counts.kpap += 1
       case _: KPushTo => counts.kpushto += 1
+      case _: KUpdateThunk => counts.kupdatethunk += 1
       case _: KCacheVal => counts.kcacheval += 1
       case _: KLocation => counts.klocation += 1
       case _: KMatch => counts.kmatch += 1

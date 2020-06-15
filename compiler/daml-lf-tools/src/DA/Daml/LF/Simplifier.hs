@@ -203,6 +203,8 @@ safetyStep = \case
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   ETypeRepF _ -> Safe 0
+  ELazyF _ _ -> Safe 0
+  EForceF _ _ -> Unsafe
 
 
 isTypeClassDictionary :: DefValue -> Bool
