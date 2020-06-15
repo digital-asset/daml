@@ -228,14 +228,7 @@ Next Steps
 ==========
 
 We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
-Have a think about how you might further improve or extend this app.
-For example, you might have noticed that your list of messages can get out of order.
-You could add a timestamp to the ``Message`` template and sort messages in the ``MessageList`` component so your most recent are at the top.
-Of course there are many more features you could imagine (just think of your favourite social media app).
-
-Another direction to explore is how to rigorously test your app.
-The :doc:`testing` guide shows how to simulate browser interactions to produce an end-to-end test suite.
-
-Hopefully this guide gave you a sense of the power and ease of building DAML apps.
-Explore the documentation to learn more, and keep shipping DAML apps.
-Have fun!
+As the next step we encourage you to really dig into the fundamentals of DAML and understand its core concepts such as parties, signatories, observers, and controllers.
+You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/learn/fundamental-concepts>`_.
+After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.
+Last but not least learn how to deploy your application to a ledger hosted on `project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_.
