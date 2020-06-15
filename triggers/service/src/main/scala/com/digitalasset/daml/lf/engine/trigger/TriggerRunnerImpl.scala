@@ -25,7 +25,6 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.daml.jwt.domain.Jwt
 import java.util.UUID
 import java.time.Duration
 
@@ -34,7 +33,9 @@ object TriggerRunnerImpl {
       server: ActorRef[Server.Message],
       triggerInstance: UUID,
       triggerName: Identifier,
-      jwt: Jwt,
+      credentials: UserCredentials,
+      // TODO(SF, 2020-06-09): Add access token field here in the
+      // presence of authentication.
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
@@ -64,16 +65,19 @@ object TriggerRunnerImpl {
       implicit val ec: ExecutionContext = ctx.executionContext
       // Report to the server that this trigger is starting.
       val runningTrigger =
-        RunningTrigger(config.triggerInstance, config.triggerName, config.jwt, parent)
+        RunningTrigger(config.triggerInstance, config.triggerName, config.credentials, parent)
       config.server ! TriggerStarting(runningTrigger)
       ctx.log.info(s"Trigger ${name} is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
-        ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+        ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
+        // TODO(SF, 2020-06-09): In the presence of an authorization
+        // service, get an access token and pass it through here!
+        token = None
       )
 
       // Waiting for the ACS query to finish so we can build the

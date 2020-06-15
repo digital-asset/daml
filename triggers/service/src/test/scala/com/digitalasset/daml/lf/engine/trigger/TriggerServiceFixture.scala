@@ -15,7 +15,6 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
@@ -38,6 +37,7 @@ import scala.concurrent.duration._
 import scala.sys.process.Process
 import java.net.{InetAddress, ServerSocket, Socket}
 
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
@@ -98,11 +98,13 @@ object TriggerServiceFixture {
       client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
     } yield client
 
-    val triggerDao: Option[TriggerDao] =
+    // Construct a database DAO for initialization and clean up if provided a JDBC config.
+    // Fail the test immediately if database initialization fails.
+    val dbTriggerDao: Option[DbTriggerDao] =
       jdbcConfig.map(c => {
-        val dao = TriggerDao(c)
-        ServiceMain.initDatabase(dao) match {
-          case Left(err) => fail("Failed to initialize database: " ++ err.toString)
+        val dao = DbTriggerDao(c)
+        dao.initialize match {
+          case Left(err) => fail(err)
           case Right(()) => dao
         }
       })
@@ -123,7 +125,8 @@ object TriggerServiceFixture {
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,
         dar,
-        jdbcConfig
+        jdbcConfig,
+        noSecretKey = true // That's ok, use the default.
       )
     } yield service
 
@@ -143,10 +146,11 @@ object TriggerServiceFixture {
     fa.onComplete { _ =>
       serviceF.foreach({ case (_, system) => system ! Server.Stop })
       ledgerF.foreach(_._1.close())
-      toxiProxyProc.destroy()
-      triggerDao.map(dao =>
-        ServiceMain.destroyDatabase(dao).getOrElse { err: String =>
-          fail("Failed to remove database objects: " ++ err.toString)
+      toxiProxyProc.destroy
+      dbTriggerDao.foreach(dao =>
+        dao.destroy match {
+          case Left(err) => fail(err)
+          case Right(()) =>
       })
     }
 
@@ -156,15 +160,14 @@ object TriggerServiceFixture {
   private def ledgerConfig(
       ledgerPort: Port,
       dars: List[File],
-      ledgerId: LedgerId,
-      authService: Option[AuthService] = None
+      ledgerId: LedgerId
   ): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = None
     )
 
   private def clientConfig[A](
@@ -172,7 +175,7 @@ object TriggerServiceFixture {
       token: Option[String] = None): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = None,
       token = token

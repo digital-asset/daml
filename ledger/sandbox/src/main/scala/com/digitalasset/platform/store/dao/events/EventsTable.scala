@@ -132,21 +132,19 @@ private[events] object EventsTable
     private def transactionTree(
         events: Vector[Entry[TreeEvent]],
     ): Option[ApiTransactionTree] =
-      events.headOption.map(
-        first => {
-          val (eventsById, rootEventIds) = treeOf(events)
-          ApiTransactionTree(
-            transactionId = first.transactionId,
-            commandId = first.commandId,
-            workflowId = first.workflowId,
-            effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
-            offset = ApiOffset.toApiString(first.eventOffset),
-            eventsById = eventsById,
-            rootEventIds = rootEventIds,
-            traceContext = None,
-          )
-        }
-      )
+      events.headOption.map { first =>
+        val (eventsById, rootEventIds) = treeOf(events)
+        ApiTransactionTree(
+          transactionId = first.transactionId,
+          commandId = first.commandId,
+          workflowId = first.workflowId,
+          effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+          offset = ApiOffset.toApiString(first.eventOffset),
+          eventsById = eventsById,
+          rootEventIds = rootEventIds,
+          traceContext = None,
+        )
+      }
 
     def toGetTransactionTreesResponse(
         events: Vector[Entry[TreeEvent]],

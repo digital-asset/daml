@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.transaction
+package com.daml.lf
+package transaction
 
 import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
@@ -42,17 +43,27 @@ object TransactionCoder {
         .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(Value.NodeId(idx)))
   }
 
-  val EventIdEncoder: EncodeNid[Ref.LedgerString] = new EncodeNid[Ref.LedgerString] {
-    override def asString(id: Ref.LedgerString): String = id
-  }
+  def EventIdEncoder(trId: Ref.LedgerString): EncodeNid[Value.NodeId] =
+    new EncodeNid[Value.NodeId] {
+      override def asString(id: Value.NodeId): String = ledger.EventId(trId, id).toLedgerString
+    }
 
-  val EventIdDecoder: DecodeNid[Ref.LedgerString] = new DecodeNid[Ref.LedgerString] {
-    override def fromString(s: String): Either[DecodeError, Ref.LedgerString] =
-      Ref.LedgerString
-        .fromString(s)
-        .left
-        .map(_ => DecodeError(s"cannot decode noid: $s"))
-  }
+  def EventIdDecoder(trId: Ref.LedgerString): DecodeNid[Value.NodeId] =
+    new DecodeNid[Value.NodeId] {
+      override def fromString(s: String): Either[DecodeError, Value.NodeId] =
+        ledger.EventId
+          .fromString(s)
+          .fold(
+            _ => Left(DecodeError(s"cannot decode noid: $s")),
+            eventId =>
+              Either.cond(
+                eventId.transactionId == trId,
+                eventId.nodeId,
+                DecodeError(
+                  s"eventId with unexpected transaction ID, expected $trId but found ${eventId.transactionId}"),
+            )
+          )
+    }
 
   def encodeValue[Cid](
       cidEncoder: ValueCoder.EncodeCid[Cid],

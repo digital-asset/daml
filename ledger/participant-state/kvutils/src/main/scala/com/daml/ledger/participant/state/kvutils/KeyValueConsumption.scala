@@ -231,7 +231,7 @@ object KeyValueConsumption {
           .filter(_.nonEmpty)
           .map(parseLedgerString("WorkflowId")),
         submissionTime = parseTimestamp(txEntry.getSubmissionTime),
-        submissionSeed = parseOptHash(txEntry.getSubmissionSeed),
+        submissionSeed = parseHash(txEntry.getSubmissionSeed),
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,

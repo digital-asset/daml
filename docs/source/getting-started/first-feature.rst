@@ -115,11 +115,10 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
   :start-after: // MESSAGELIST_BEGIN
   :end-before: // MESSAGELIST_END
 
-First we get the ``username`` of the current user with the ``useParty`` hook.
-Then ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
+In the component body, ``messagesResult`` gets the stream of all ``Message`` contracts visible to the current user.
 The streaming aspect means that we don't need to reload the page when new messages come in.
-We extract the *payload* of every ``Message`` contract (the data as opposed to metadata like the contract ID) in ``messages``.
-The rest of the component simply constructs a React ``List`` element with an item for each message.
+For each contract in the stream, we destructure the *payload* (the data as opposed to metadata like the contract ID) into the ``{sender, receiver, content}`` object pattern.
+Then we construct a ``ListItem`` UI element with the details of the message.
 
 There is one important point about privacy here.
 No matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the DAML model.
@@ -146,12 +145,13 @@ You can see this ``followers`` field bound at the start of the ``MessageEdit`` c
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
 The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
-The call to ``ledger.exerciseByKey`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
-The ``sendMessage`` wrapper reports potential errors to the user, and ``submitMessage`` additionally uses the ``isSubmitting`` state to ensure message requests are processed one at a time.
+The call to ``ledger.exerciseByKey`` in ``submitMessage`` looks up the ``User`` contract with the receiver's username and exercises the ``SendMessage`` choice with the appropriate arguments.
+If the choice fails, the ``catch`` block reports the error in a dialog box.
+Additionally, ``submitMessage`` sets the ``isSubmitting`` state so that the *Send* button is disabled while the request is processed.
 The result of a successful call to ``submitMessage`` is a new ``Message`` contract created on the ledger.
 
 The return value of this component is the React ``Form`` element.
-This contains a dropdown menu to select a receiver from the ``following``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
+This contains a dropdown menu to select a receiver from the ``followers``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
 
 There is again an important point here, in this case about how *authorization* is enforced.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).

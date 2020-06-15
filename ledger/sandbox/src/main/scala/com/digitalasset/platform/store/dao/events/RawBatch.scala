@@ -9,7 +9,6 @@ import anorm.NamedParameter
 import com.daml.ledger.EventId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
-import com.daml.platform.events.TransactionIdWithIndex
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.RawBatch.PartialParameters
 
@@ -68,7 +67,7 @@ private[events] object RawBatch {
       treeWitnesses: Set[Party],
       specific: Specific,
   ) extends PartialParameters {
-    private[this] val eventId = TransactionIdWithIndex(transactionId, nodeId).toLedgerString
+    private[this] val eventId = EventId(transactionId, nodeId)
     private[this] val base: Vector[NamedParameter] =
       Vector[NamedParameter](
         "event_id" -> eventId,
@@ -135,7 +134,7 @@ private[events] object RawBatch {
           lfValueTranslation: LfValueTranslation,
       ): Vector[NamedParameter] =
         (partial :+ ("exercise_child_event_ids" -> exercise.children
-          .map(TransactionIdWithIndex(transactionId, _).toLedgerString)
+          .map(EventId(transactionId, _).toLedgerString)
           .toArray[String]: NamedParameter)) ++ lfValueTranslation.serialize(eventId, exercise)
     }
 

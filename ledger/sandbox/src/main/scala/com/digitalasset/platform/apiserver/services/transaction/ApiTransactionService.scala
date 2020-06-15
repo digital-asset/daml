@@ -23,7 +23,7 @@ import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.events.TransactionIdWithIndex
+import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -102,10 +102,10 @@ final class ApiTransactionService private (
       logging.parties(request.requestingParties),
     ) { implicit logCtx =>
       logger.debug(s"Received $request")
-      TransactionIdWithIndex
+      ledger.EventId
         .fromString(request.eventId.unwrap)
         .map {
-          case TransactionIdWithIndex(transactionId, _) =>
+          case ledger.EventId(transactionId, _) =>
             lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
         }
         .getOrElse(
@@ -133,7 +133,7 @@ final class ApiTransactionService private (
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit logCtx =>
-      TransactionIdWithIndex
+      ledger.EventId
         .fromString(request.eventId.unwrap)
         .fold(
           err =>

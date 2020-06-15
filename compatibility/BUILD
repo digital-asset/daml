@@ -13,6 +13,11 @@ load(
     "daml_trigger_dar",
     "daml_trigger_test",
 )
+load(
+    "//bazel_tools/data_dependencies:data_dependencies.bzl",
+    "data_dependencies_coins",
+    "data_dependencies_upgrade_test",
+)
 load("//bazel_tools:versions.bzl", "versions")
 load("//sandbox-migration:util.bzl", "migration_test")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
@@ -110,8 +115,39 @@ migration_test(
 ) if not is_windows else None
 
 migration_test(
+    name = "meta-migration-test",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    versions = [
+        "1.0.0",
+        "0.0.0",
+    ],
+)
+
+migration_test(
     name = "migration-all",
     # Exclusive due to hardcoded postgres ports.
     tags = ["exclusive"],
     versions = platform_versions,
 ) if not is_windows else None
+
+[
+    data_dependencies_coins(
+        sdk_version = sdk_version,
+    )
+    for sdk_version in sdk_versions
+]
+
+[
+    data_dependencies_upgrade_test(
+        new_sdk_version = new_sdk_version,
+        old_sdk_version = old_sdk_version,
+    )
+    for old_sdk_version in sdk_versions
+    for new_sdk_version in sdk_versions
+    # Tests that we can build a package with a newer SDK version that has
+    # data-dependencies on packages built with an older SDK version.
+    if versions.is_at_least(old_sdk_version, new_sdk_version)
+]

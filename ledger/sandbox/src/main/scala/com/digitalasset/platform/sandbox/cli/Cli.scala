@@ -15,6 +15,7 @@ import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifie
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.configuration.Readers._
@@ -297,6 +298,17 @@ object Cli {
         .optional()
         .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
         .text("Enable profiling and write the profiles into the given directory.")
+
+      opt[Long]("max-ledger-time-skew")
+        .optional()
+        .action((value, config) => {
+          val timeModel = config.ledgerConfig.initialConfiguration.timeModel
+            .copy(minSkew = Duration.ofSeconds(value), maxSkew = Duration.ofSeconds(value))
+          val ledgerConfig = config.ledgerConfig.initialConfiguration.copy(timeModel = timeModel)
+          config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
+        })
+        .text(
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
       help("help").text("Print the usage text")
 

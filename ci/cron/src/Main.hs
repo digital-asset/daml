@@ -222,7 +222,14 @@ build_docs_folder path versions current = do
                 shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
                 build_helper version path
             else do
-                build_helper version path
+                -- The release-triggering commit does not have a tag, so we
+                -- need to find it by walking through the git history of the
+                -- LATEST file.
+                sha <- find_commit_for_version version
+                Control.Exception.bracket_
+                    (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
+                    (shell_ "git reset --hard")
+                    (build_helper version path)
         build_helper version path = do
             robustly_download_nix_packages version
             shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
@@ -240,6 +247,25 @@ build_docs_folder path versions current = do
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
             writeFile path versions_json
+
+find_commit_for_version :: String -> IO String
+find_commit_for_version version = do
+    ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
+    let expected = ver_sha <> " " <> version
+    -- git log -G 'regex' returns all the commits for which 'regex' appears in
+    -- the diff. To find out the commit that "released" the version. The commit
+    -- we want is a commit that added a single line, which matches the version
+    -- we are checking for.
+    matching_commits <- lines <$> (shell $ "git log --format=%H --all -G '" <> ver_sha <> "' -- LATEST")
+    matching <- Maybe.catMaybes <$> Traversable.for matching_commits (\sha -> do
+        after <- Set.fromList . lines <$> (shell $ "git show " <> sha <> ":LATEST")
+        before <- Set.fromList . lines <$> (shell $ "git show " <> sha <> "~:LATEST")
+        return $ case Set.toList(after `Set.difference` before) of
+                     [line] | line == expected -> Just sha
+                     _ -> Nothing)
+    case matching of
+      [sha] -> return sha
+      _ -> fail $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
 
 fetch_s3_versions :: IO (Set.Set Version, Set.Set Version)
 fetch_s3_versions = do
@@ -297,7 +323,7 @@ fetch_gh_paginated url = do
               in
               case typed_regex of
                 (_, _, _, [url, rel]) -> (rel, url)
-                _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
+                _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
 fetch_gh_versions :: IO ([GitHubVersion], GitHubVersion)
 fetch_gh_versions = do

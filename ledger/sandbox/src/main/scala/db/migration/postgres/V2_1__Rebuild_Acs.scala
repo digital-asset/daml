@@ -18,13 +18,12 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.Transaction
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.platform.events.TransactionIdWithIndex
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
@@ -429,18 +428,18 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
-          .serializeTransaction(tx.transaction)
+          .serializeTransaction(tx.transactionId, tx.transaction)
           .getOrElse(sys.error(s"failed to serialize transaction! trId: ${tx.transactionId}"))
       )
       .execute()
 
     val disclosureParams = tx.explicitDisclosure.flatMap {
-      case (eventId, parties) =>
+      case (nodeId, parties) =>
         parties.map(
           p =>
             Seq[NamedParameter](
               "transaction_id" -> tx.transactionId,
-              "event_id" -> eventId,
+              "event_id" -> EventId(tx.transactionId, nodeId),
               "party" -> p
           ))
     }
@@ -500,7 +499,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "ledger_offset"
     )
 
-  private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
+  private val DisclosureParser = (eventId("event_id") ~ party("party") map (flatten))
 
   private def toLedgerEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): (Long, LedgerEntry) = parsedEntry match {
@@ -532,9 +531,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         effectiveAt.toInstant,
         recordedAt.toInstant,
         transactionSerializer
-          .deserializeTransaction(transactionStream)
+          .deserializeTransaction(transactionId, transactionStream)
           .getOrElse(sys.error(s"failed to deserialize transaction! trId: $transactionId")),
-        disclosure
+        Relation.mapKeys(disclosure)(_.nodeId)
       )
     case ParsedEntry(
         "rejection",
@@ -666,11 +665,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         lookupLedgerEntry(offset)
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
-            val unmappedTx: Transaction.Transaction = tx.transaction
-              .mapNodeId(TransactionIdWithIndex.assertFromString(_).nodeId)
-
-            val blindingInfo = Blinding.blind(unmappedTx)
-
+            val blindingInfo = Blinding.blind(tx.transaction)
             updateActiveContractSet(offset, tx, blindingInfo.globalDivulgence)
           })
       }

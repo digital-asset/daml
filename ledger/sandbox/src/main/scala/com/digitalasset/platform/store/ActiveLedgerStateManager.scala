@@ -8,11 +8,11 @@ import java.time.Instant
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{Disputed, Inconsistent, InvalidLedgerTime}
 import com.daml.ledger.participant.state.v1.ContractInst
-import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.{GenTransaction, Node => N}
+import com.daml.lf.transaction.{Transaction => Tx, Node => N}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
@@ -63,8 +63,8 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
-      transaction: GenTransaction.WithTxValue[EventId, ContractId],
-      disclosure: Relation[EventId, Party],
+      transaction: Tx.CommittedTransaction,
+      disclosure: Relation[Tx.NodeId, Party],
       globalDivulgence: Relation[ContractId, Party],
       divulgedContracts: List[(Value.ContractId, ContractInst)])
     : Either[Set[RejectionReason], ALS] = {
@@ -126,7 +126,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   id = nc.coid,
                   let = let,
                   transactionId = transactionId,
-                  eventId = nodeId,
+                  nodeId = nodeId,
                   workflowId = workflowId,
                   contract = nc.coinst,
                   witnesses = disclosure(nodeId),
@@ -159,7 +159,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                       )
                     }
                 }
-              case ne: N.NodeExercises.WithTxValue[EventId, ContractId] =>
+              case ne: N.NodeExercises.WithTxValue[_, ContractId] =>
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)

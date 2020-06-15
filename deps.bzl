@@ -32,8 +32,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d"
 
-rules_haskell_version = "98e3fb73dca350c12892ec6476a3bb80a04d87b4"
-rules_haskell_sha256 = "2e39f897cee3fef02b7d941126ca808f3a74c702d9a9f1fb2810bfd7da9946d4"
+rules_haskell_version = "4e0bd68f305006804d21a9ed29e03b9af704a8d0"
+rules_haskell_sha256 = "0a0ff7ceebbe6db48a7723c9e6fa6f0d60c2a0b92d177d8be89876ae6dc0fef5"
 rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
 rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
 buildifier_version = "0.26.0"
@@ -78,8 +78,9 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # Remove once merged upstream.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-profiling.patch",
+                # Remove this once it is merged upstream.
+                # https://github.com/tweag/rules_haskell/pull/1362
+                "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-import-dirs.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

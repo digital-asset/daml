@@ -22,7 +22,6 @@ import Sandbox
     ( createSandbox
     , defaultSandboxConf
     , destroySandbox
-    , nullDevice
     , sandboxPort
     , SandboxConfig(..)
     )
@@ -34,6 +33,7 @@ import WithPostgres (withPostgres)
 import qualified Bazel.Runfiles
 
 import qualified Migration.ProposeAccept as ProposeAccept
+import qualified Migration.KeyTransfer as KeyTransfer
 import Migration.Types
 
 data Options = Options
@@ -57,6 +57,11 @@ main = do
     let step = Bazel.Runfiles.rlocation
             runfiles
             ("compatibility" </> "sandbox-migration" </> "migration-step")
+    runTest "propose-accept" modelDar platformAssistants (ProposeAccept.test step modelDar)
+    runTest "key-transfer" modelDar platformAssistants (KeyTransfer.test step modelDar)
+
+runTest :: forall s r. String -> FilePath -> [FilePath] -> Test s r -> IO ()
+runTest testName modelDar platformAssistants Test{..} =
     withPostgres $ \jdbcUrl -> do
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
@@ -67,27 +72,23 @@ main = do
                 , "--host=localhost", "--port=" <> show p
                 ]
         hPutStrLn stderr "<-- Uploaded model DAR"
-        runTest jdbcUrl platformAssistants (ProposeAccept.test step modelDar)
-
-runTest :: forall s r. T.Text -> [FilePath] -> Test s r -> IO ()
-runTest jdbcUrl platformAssistants Test{..} = foldM_ step initialState platformAssistants
-  where step :: s -> FilePath -> IO s
-        step state assistant = do
-            let version = takeFileName (takeDirectory assistant)
-            hPutStrLn stderr ("--> Testing " <> version)
-            r <- withSandbox assistant jdbcUrl $ \port ->
-              executeStep (SdkVersion version) "localhost" port state
-            case validateStep (SdkVersion version) state r of
-                Left err -> fail err
-                Right state' -> do
-                    hPutStrLn stderr ("<-- Tested " <> version)
-                    pure state'
+        foldM_ (step jdbcUrl) initialState platformAssistants
+            where step :: T.Text -> s -> FilePath -> IO s
+                  step jdbcUrl state assistant = do
+                      let version = takeFileName (takeDirectory assistant)
+                      hPutStrLn stderr ("--> Testing: " <> testName <> "; SDK version: " <> version)
+                      r <- withSandbox assistant jdbcUrl $ \port ->
+                           executeStep (SdkVersion version) "localhost" port state
+                      case validateStep (SdkVersion version) state r of
+                          Left err -> fail err
+                          Right state' -> do
+                              hPutStrLn stderr ("<-- Tested: " <> testName <> "; SDK version: " <> version)
+                              pure state'
 
 withSandbox :: FilePath -> T.Text -> (Int -> IO a) -> IO a
 withSandbox assistant jdbcUrl f =
-    withBinaryFile nullDevice ReadWriteMode $ \handle ->
     withTempFile $ \portFile ->
-    bracket (createSandbox portFile handle sandboxConfig) destroySandbox $ \resource ->
+    bracket (createSandbox portFile stderr sandboxConfig) destroySandbox $ \resource ->
       f (sandboxPort resource)
   where
     sandboxConfig = defaultSandboxConf

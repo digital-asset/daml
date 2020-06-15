@@ -3,6 +3,8 @@
 
 package com.daml
 
+import java.nio.file.{Files, Path}
+
 import com.daml.ledger.api.v1.value.Record
 import com.daml.ledger.api.validation.ValueValidator
 import com.daml.lf.value.json.ApiCodecCompressed
@@ -10,12 +12,16 @@ import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
 
+  private def cannotReadDamlLf(): RuntimeException =
+    new UnsupportedOperationException("Reading JSON-encoded DAML-LF value is not supported")
+
   implicit object RecordJsonFormat extends JsonFormat[Record] {
     override def read(json: JsValue): Record =
-      throw new UnsupportedOperationException("Reading JSON-encoded DAML-LF value is not supported")
+      throw cannotReadDamlLf()
     override def write(record: Record): JsValue =
       ApiCodecCompressed.apiValueToJsValue(
-        ValueValidator.validateRecord(record).right.get.mapContractId(_.coid))
+        ValueValidator.validateRecord(record).right.get.mapContractId(_.coid)
+      )
   }
 
   private implicit class JsObjectWith(val jsObject: JsObject) extends AnyVal {
@@ -23,32 +29,34 @@ object JsonProtocol extends DefaultJsonProtocol {
       jsObject.copy(fields = jsObject.fields + pair)
   }
 
-  import ProposeAccept._
-  implicit val ProposeAcceptCreatedResult: RootJsonFormat[CreatedResult] =
+  import Application._
+  implicit val createdFormat: RootJsonFormat[CreatedResult] =
     jsonFormat4(CreatedResult.apply)
-  implicit val ProposeAcceptArchivedResult: RootJsonFormat[ArchivedResult] =
+  implicit val archivedFormat: RootJsonFormat[ArchivedResult] =
     jsonFormat3(ArchivedResult.apply)
-  implicit val ProposeAcceptEventResult: RootJsonFormat[EventResult] =
+  implicit val eventFormat: RootJsonFormat[EventResult] =
     new RootJsonFormat[EventResult] {
-      override def read(json: JsValue): EventResult =
-        throw new UnsupportedOperationException(
-          "Reading JSON-encoded DAML-LF value is not supported")
+      override def read(json: JsValue): Application.EventResult =
+        throw cannotReadDamlLf()
       override def write(eventResult: EventResult): JsValue =
         eventResult match {
           case create: CreatedResult =>
-            ProposeAcceptCreatedResult
+            createdFormat
               .write(create)
               .asJsObject + ("type" -> JsString("created"))
           case archive: ArchivedResult =>
-            ProposeAcceptArchivedResult
+            archivedFormat
               .write(archive)
               .asJsObject + ("type" -> JsString("archived"))
         }
     }
-  implicit val ProposeAcceptContractResult: RootJsonFormat[ContractResult] =
-    jsonFormat2(ContractResult.apply)
-  implicit val ProposeAcceptTransactionResult: RootJsonFormat[TransactionResult] = jsonFormat2(
-    TransactionResult.apply)
-  implicit val ProposeAcceptResult: RootJsonFormat[Result] = jsonFormat6(Result.apply)
+  implicit val contractFormat: RootJsonFormat[ContractResult] =
+    jsonFormat2(Application.ContractResult.apply)
+  implicit val transactionFormat: RootJsonFormat[TransactionResult] =
+    jsonFormat2(Application.TransactionResult.apply)
+
+  def saveAsJson[A: JsonWriter](outputFile: Path, a: A): Unit = {
+    val _ = Files.write(outputFile, a.toJson.prettyPrint.getBytes())
+  }
 
 }

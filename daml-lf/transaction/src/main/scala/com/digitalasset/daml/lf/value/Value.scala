@@ -22,7 +22,7 @@ import scalaz.syntax.std.option._
 sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
   import Value._
 
-  final override protected val self: this.type = this
+  final override protected def self: this.type = this
 
   final def mapContractId[Cid2](f: Cid => Cid2): Value[Cid2] =
     map1(f)
@@ -134,7 +134,7 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
   }
 
   def foreach1(f: Cid => Unit) =
-    Value.foreach1(f)(self)
+    Value.foreach1(f)(this)
 
   def cids[Cid2 >: Cid] = {
     val cids = Set.newBuilder[Cid2]
@@ -213,7 +213,7 @@ object Value extends CidContainer1[Value] {
   final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
       extends CidContainer[VersionedValue[Cid]] {
 
-    override protected val self: this.type = this
+    override protected def self: this.type = this
 
     @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCidd", since = "0.13.52")
     def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
@@ -223,7 +223,7 @@ object Value extends CidContainer1[Value] {
       VersionedValue.map1(f)(this)
 
     def foreach1(f: Cid => Unit) =
-      VersionedValue.foreach1(f)(self)
+      VersionedValue.foreach1(f)(this)
 
     def cids[Cid2 >: Cid]: Set[Cid2] = value.cids
   }
@@ -306,7 +306,7 @@ object Value extends CidContainer1[Value] {
   final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
       extends value.CidContainer[ContractInst[Val]] {
 
-    override protected val self: ContractInst[Val] = this
+    override protected def self: this.type = this
 
     @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapValue[Val2](f: Val => Val2): ContractInst[Val2] =
@@ -364,15 +364,18 @@ object Value extends CidContainer1[Value] {
     }
 
     object V1 {
-      val maxSuffixLength = 94
+      // For more details, please refer to  V1 Contract ID allocation scheme
+      // daml-lf/spec/contract-id.rst
+
+      private[lf] val MaxSuffixLength = 94
 
       def apply(discriminator: Hash): V1 = new V1(discriminator, Bytes.Empty)
 
       def build(discriminator: crypto.Hash, suffix: Bytes): Either[String, V1] =
         Either.cond(
-          suffix.length <= maxSuffixLength,
+          suffix.length <= MaxSuffixLength,
           new V1(discriminator, suffix),
-          s"the suffix is too long, expected at most ${maxSuffixLength} bytes, but got ${suffix.length}"
+          s"the suffix is too long, expected at most $MaxSuffixLength bytes, but got ${suffix.length}"
         )
 
       def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =

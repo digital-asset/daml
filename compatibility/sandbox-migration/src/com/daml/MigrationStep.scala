@@ -3,47 +3,43 @@
 
 package com.daml
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.lf.archive.DarReader
 import scalaz.syntax.traverse._
-import spray.json._
-import JsonProtocol._
 
-import scala.collection.JavaConverters.asJavaIterableConverter
-import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContext, Future}
+import akka.stream.Materializer
+
+import scala.util.control.NonFatal
 
 object MigrationStep {
+
+  trait Test {
+    def execute(packageId: String, config: Config.Test)(
+        implicit ec: ExecutionContext,
+        esf: ExecutionSequencerFactory,
+        mat: Materializer,
+    ): Future[Unit]
+  }
 
   private def readPackageId(path: Path): String =
     DarReader().readArchiveFromFile(path.toFile).get.map(_._1.toString).main
 
-  private val MigrationStep = "migration-step"
   def main(args: Array[String]): Unit = {
-    val config =
-      Config.parser.parse(args, Config.default).getOrElse(sys.exit(1))
+    val config = Config.parser.parse(args, Config.default).getOrElse(sys.exit(1))
     val packageId = readPackageId(config.dar)
 
-    implicit val system: ActorSystem = ActorSystem(MigrationStep)
+    implicit val system: ActorSystem = ActorSystem(packageId)
     implicit val sequencer: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool(MigrationStep)(system)
+      new AkkaExecutionSequencerPool(packageId)(system)
     implicit val ec: ExecutionContext = system.dispatcher
 
-    val proposeAccept =
-      new ProposeAccept(config.host, config.port, "propose-accept", packageId)
+    val result = config.test.execute(packageId, config)
 
-    proposeAccept
-      .run(config.proposer, config.accepter, config.note)
-      .onComplete {
-        case Success(result) =>
-          Files.write(config.outputFile, Seq(result.toJson.prettyPrint).asJava)
-          system.terminate()
-        case Failure(e) =>
-          System.err.println(e)
-          system.terminate()
-      }
+    result.failed.foreach { case NonFatal(e) => e.printStackTrace(System.err) }
+    result.onComplete(_ => system.terminate())
   }
 }

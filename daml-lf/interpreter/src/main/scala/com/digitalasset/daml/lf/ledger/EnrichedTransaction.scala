@@ -5,12 +5,9 @@ package com.daml.lf.ledger
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
-
-import scala.collection.immutable
 
 object EnrichedTransaction {
 
@@ -267,13 +264,13 @@ object EnrichedTransaction {
     * consuming them.
     *
     * @param authorization the authorization mode
-    * @param tr            transaction resulting from executing the update
+    * @param tx            transaction resulting from executing the update
     *                      expression at the given effective time.
     */
-  def apply(
+  def apply[Transaction <: Tx.Transaction](
       authorization: Authorization,
-      tr: Tx.Transaction,
-  ): EnrichedTransaction = {
+      tx: Transaction,
+  ): EnrichedTransaction[Transaction] = {
 
     // Before we traversed through an exercise node the exercise witnesses
     // contain only the initial authorizers.
@@ -290,7 +287,7 @@ object EnrichedTransaction {
         nodeId: Tx.NodeId,
     ): EnrichState = {
       val node =
-        tr.nodes
+        tx.nodes
           .getOrElse(
             nodeId,
             throw new IllegalArgumentException(
@@ -385,13 +382,12 @@ object EnrichedTransaction {
     }
 
     val finalState =
-      tr.roots.foldLeft(EnrichState.Empty) { (s, nodeId) =>
+      tx.roots.foldLeft(EnrichState.Empty) { (s, nodeId) =>
         enrichNode(s, initialParentExerciseWitnesses, authorization, nodeId)
       }
 
     new EnrichedTransaction(
-      roots = tr.roots,
-      nodes = tr.nodes,
+      tx,
       explicitDisclosure = finalState.disclosures,
       localImplicitDisclosure = finalState.localDivulgences,
       globalImplicitDisclosure = finalState.globalDivulgences,
@@ -401,11 +397,8 @@ object EnrichedTransaction {
 
 }
 
-final case class EnrichedTransaction(
-    // The transaction root nodes.
-    roots: ImmArray[Tx.NodeId],
-    // All nodes of this transaction.
-    nodes: immutable.HashMap[Tx.NodeId, Tx.Node],
+final case class EnrichedTransaction[Transaction <: Tx.Transaction](
+    tx: Transaction,
     // A relation between a node id and the parties to which this node gets explicitly disclosed.
     explicitDisclosure: Relation[Tx.NodeId, Party],
     // A relation between a node id and the parties to which this node get implictly disclosed

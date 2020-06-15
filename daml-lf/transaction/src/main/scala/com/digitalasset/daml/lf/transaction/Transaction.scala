@@ -15,10 +15,12 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import scala.language.higherKinds
 
-case class VersionedTransaction[Nid, Cid](
+final case class VersionedTransaction[Nid, +Cid](
     version: TransactionVersion,
     transaction: GenTransaction.WithTxValue[Nid, Cid],
-) {
+) extends value.CidContainer[VersionedTransaction[Nid, Cid]] {
+
+  override protected def self: this.type = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
@@ -51,6 +53,24 @@ case class VersionedTransaction[Nid, Cid](
   }
 }
 
+object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
+  override private[lf] def map2[A1, B1, C1, A2, B2, C2](
+      f1: A1 => A2,
+      f2: B1 => B2,
+  ): VersionedTransaction[A1, B1] => VersionedTransaction[A2, B2] = {
+    case VersionedTransaction(version, transaction) =>
+      VersionedTransaction(version, transaction.map3(f1, f2, Value.VersionedValue.map1(f2)))
+  }
+
+  override private[lf] def foreach2[A, B](
+      f1: A => Unit,
+      f2: B => Unit,
+  ): VersionedTransaction[A, B] => Unit = {
+    case VersionedTransaction(_, transaction) =>
+      transaction.foreach3(f1, f2, Value.VersionedValue.foreach1(f2))
+  }
+}
+
 /** General transaction type
   *
   * Abstracts over NodeId type and ContractId type
@@ -69,7 +89,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
   import GenTransaction._
 
-  override protected val self: this.type = this
+  override protected def self: this.type = this
 
   private[lf] def map3[Nid2, Cid2, Val2](
       f: Nid => Nid2,
@@ -111,7 +131,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
   }
 
   /**
-    * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
+    * Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
@@ -327,7 +347,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     }
 
   def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit): Unit =
-    GenTransaction.foreach3(fNid, fCid, fVal)(self)
+    GenTransaction.foreach3(fNid, fCid, fVal)(this)
 
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.

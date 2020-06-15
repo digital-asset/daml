@@ -4,6 +4,7 @@
 package db.migration.postgres.v29_fix_participant_events
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.EventId
 import com.daml.platform.store.Conversions._
 
 // Copied here to make it safe against future refactoring
@@ -21,7 +22,7 @@ private[v29_fix_participant_events] sealed abstract class V29WitnessesTable(
   private val insert =
     s"insert into $tableName($idColumn, $witnessColumn) values ({$idColumn}, {$witnessColumn})"
 
-  final def prepareBatchInsert(witnesses: WitnessRelation[LedgerString]): Option[BatchSql] = {
+  final def prepareBatchInsert(witnesses: WitnessRelation[EventId]): Option[BatchSql] = {
     val flattenedWitnesses = Relation.flatten(witnesses)
     if (flattenedWitnesses.nonEmpty) {
       val ws = flattenedWitnesses.map {

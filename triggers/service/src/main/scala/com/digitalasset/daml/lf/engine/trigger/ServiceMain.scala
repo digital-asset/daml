@@ -18,8 +18,6 @@ import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.{ByteString, Timeout}
-
-import scala.util.Try
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -38,8 +36,6 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import scalaz.syntax.traverse._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -52,6 +48,8 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.lf.engine.trigger.dao._
+
 case class LedgerConfig(
     host: String,
     port: Int,
@@ -59,17 +57,20 @@ case class LedgerConfig(
     commandTtl: Duration,
 )
 
+final case class SecretKey(value: String)
+final case class UserCredentials(token: EncryptedToken)
+
 final case class RunningTrigger(
     triggerInstance: UUID,
     triggerName: Identifier,
-    jwt: Jwt,
+    credentials: UserCredentials,
+    // TODO(SF, 2020-0610): Add access token field here in the
+    // presence of authentication.
     runner: ActorRef[TriggerRunner.Message]
 )
 
-class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerDao]) {
+class Server(dar: Option[Dar[(PackageId, Package)]]) {
 
-  private var triggers: Map[UUID, RunningTrigger] = Map.empty;
-  private var triggersByToken: Map[Jwt, Set[UUID]] = Map.empty;
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
@@ -94,56 +95,6 @@ class Server(dar: Option[Dar[(PackageId, Package)]], triggerDao: Option[TriggerD
 
         go(compiledPackages.addPackage(pkgId, pkg))
     }
-  }
-
-  private def addRunningTrigger(t: RunningTrigger): Either[String, Unit] = {
-    triggerDao match {
-      case None =>
-        triggers += t.triggerInstance -> t
-        triggersByToken += t.jwt -> (triggersByToken.getOrElse(t.jwt, Set()) + t.triggerInstance)
-        Right(())
-      case Some(dao) =>
-        val insert = dao.transact(TriggerDao.addRunningTrigger(t))
-        Try(insert.unsafeRunSync()) match {
-          case Failure(err) => Left(err.toString)
-          case Success(()) => Right(())
-        }
-    }
-  }
-
-  private def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] = {
-    triggerDao match {
-      case None =>
-        triggers.get(triggerInstance) match {
-          case None => Right(false)
-          case Some(t) =>
-            triggers -= t.triggerInstance
-            triggersByToken += t.jwt -> (triggersByToken(t.jwt) - t.triggerInstance)
-            Right(true)
-        }
-      case Some(dao) =>
-        val delete = dao.transact(TriggerDao.removeRunningTrigger(triggerInstance))
-        Try(delete.unsafeRunSync) match {
-          case Failure(err) => Left(err.toString)
-          case Success(deleted) => Right(deleted)
-        }
-    }
-  }
-
-  private def listRunningTriggers(jwt: Jwt): Either[String, Vector[UUID]] = {
-    val triggerInstances = triggerDao match {
-      case None =>
-        Right(triggersByToken.getOrElse(jwt, Set()).toVector)
-      case Some(dao) =>
-        val select = dao.transact(TriggerDao.getTriggersForParty(jwt))
-        Try(select.unsafeRunSync()) match {
-          case Failure(err) => Left(err.toString)
-          case Success(triggerInstances) => Right(triggerInstances)
-        }
-    }
-    // Note(RJR): We sort UUIDs here using Java's comparison of UUIDs.
-    // We do not rely on the Postgres ordering which is different.
-    triggerInstances.map(_.sorted)
   }
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
@@ -189,9 +140,29 @@ object Server {
       failureRetryTimeRange: Duration,
       dar: Option[Dar[(PackageId, Package)]],
       jdbcConfig: Option[JdbcConfig],
+      noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
-    val triggerDao = jdbcConfig.map(TriggerDao(_)(ctx.system.executionContext))
-    val server = new Server(dar, triggerDao)
+    val triggerDao: RunningTriggerDao =
+      jdbcConfig match {
+        case None => InMemoryTriggerDao()
+        case Some(c) => DbTriggerDao(c)(ctx.system.executionContext)
+      }
+
+    val key: SecretKey =
+      sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
+        case Some(key) => SecretKey(key)
+        case None => {
+          ctx.log.warn(
+            "The environment variable 'TRIGGER_SERVICE_SECRET_KEY' is not defined. It is highly recommended that a non-empty value for this variable be set. If the service startup parameters do not include the '--no-secret-key' option, the service will now terminate.")
+          if (noSecretKey) {
+            SecretKey("secret key") // Provided for testing.
+          } else {
+            sys.exit(1)
+          }
+        }
+      }
+
+    val server = new Server(dar)
 
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -207,12 +178,12 @@ object Server {
         .child(triggerRunnerName(triggerInstance))
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
-    def startTrigger(token: (Jwt, JwtPayload), triggerName: Identifier): Either[String, JsValue] = {
+    def startTrigger(
+        credentials: UserCredentials,
+        triggerName: Identifier): Either[String, JsValue] = {
       for {
-        trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName).right
-        jwt = token._1
-        jwtPayload = token._2
-        party = Party(jwtPayload.party);
+        trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName)
+        party = TokenManagement.decodeCredentials(key, credentials)._1
         triggerInstance = UUID.randomUUID
         _ = ctx.spawn(
           TriggerRunner(
@@ -220,7 +191,7 @@ object Server {
               ctx.self,
               triggerInstance,
               triggerName,
-              jwt,
+              credentials,
               server.compiledPackages,
               trigger,
               ledgerConfig,
@@ -236,12 +207,12 @@ object Server {
       } yield JsObject(("triggerId", triggerInstance.toString.toJson))
     }
 
-    def stopTrigger(uuid: UUID, token: (Jwt, JwtPayload)): Either[String, Option[JsValue]] = {
+    def stopTrigger(uuid: UUID, credentials: UserCredentials): Either[String, Option[JsValue]] = {
       //TODO(SF, 2020-05-20): At least check that the provided token
       //is the same as the one used to start the trigger and fail with
       //'Unauthorized' if not (expect we'll be able to do better than
       //this).
-      server.removeRunningTrigger(uuid) map {
+      triggerDao.removeRunningTrigger(uuid) map {
         case false => None
         case true =>
           getRunner(uuid) foreach { runner =>
@@ -254,12 +225,10 @@ object Server {
       }
     }
 
-    def listTriggers(jwt: Jwt): Either[String, JsValue] = {
-      server
-        .listRunningTriggers(jwt)
-        .map(
-          triggerInstances => JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
-        )
+    def listTriggers(credentials: UserCredentials): Either[String, JsValue] = {
+      triggerDao.listRunningTriggers(credentials) map { triggerInstances =>
+        JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
+      }
     }
 
     val route = concat(
@@ -274,15 +243,11 @@ object Server {
                 entity(as[StartParams]) {
                   params =>
                     TokenManagement
-                      .findJwt(request)
-                      .flatMap { jwt =>
-                        TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                      }
+                      .findCredentials(key, request)
                       .fold(
-                        unauthorized =>
-                          complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
-                        token =>
-                          startTrigger(token, params.triggerName) match {
+                        message => complete(errorResponse(StatusCodes.Unauthorized, message)),
+                        credentials =>
+                          startTrigger(credentials, params.triggerName) match {
                             case Left(err) =>
                               complete(errorResponse(StatusCodes.UnprocessableEntity, err))
                             case Right(triggerInstance) =>
@@ -335,15 +300,11 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findJwt(request)
-                  .flatMap { jwt =>
-                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                  }
+                  .findCredentials(key, request)
                   .fold(
-                    unauthorized =>
-                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
-                    token =>
-                      listTriggers(token._1) match {
+                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
+                    credentials =>
+                      listTriggers(credentials) match {
                         case Left(err) =>
                           complete(errorResponse(StatusCodes.InternalServerError, err))
                         case Right(triggerInstances) => complete(successResponse(triggerInstances))
@@ -364,15 +325,11 @@ object Server {
             extractRequest {
               request =>
                 TokenManagement
-                  .findJwt(request)
-                  .flatMap { jwt =>
-                    TokenManagement.decodeAndParsePayload(jwt, TokenManagement.decodeJwt)
-                  }
+                  .findCredentials(key, request)
                   .fold(
-                    unauthorized =>
-                      complete(errorResponse(StatusCodes.Unauthorized, unauthorized.message)),
-                    token =>
-                      stopTrigger(uuid, token) match {
+                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
+                    credentials =>
+                      stopTrigger(uuid, credentials) match {
                         case Left(err) =>
                           complete(errorResponse(StatusCodes.InternalServerError, err))
                         case Right(None) =>
@@ -406,7 +363,7 @@ object Server {
             // The trigger has successfully started. Update the
             // running triggers tables.
             server.logTriggerStatus(runningTrigger.triggerInstance, "running")
-            server.addRunningTrigger(runningTrigger) match {
+            triggerDao.addRunningTrigger(runningTrigger) match {
               case Left(err) =>
                 // The trigger has just advised it's in the running
                 // state but updating the running trigger table has
@@ -434,7 +391,7 @@ object Server {
             server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
             // Ignore the result of the deletion as we don't have a sensible way
             // to handle a failure here at the moment.
-            val _ = server.removeRunningTrigger(runningTrigger.triggerInstance)
+            val _ = triggerDao.removeRunningTrigger(runningTrigger.triggerInstance)
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
@@ -501,7 +458,9 @@ object ServiceMain {
       maxFailureNumberOfRetries: Int,
       failureRetryTimeRange: Duration,
       dar: Option[Dar[(PackageId, Package)]],
-      jdbcConfig: Option[JdbcConfig]): Future[(ServerBinding, ActorSystem[Server.Message])] = {
+      jdbcConfig: Option[JdbcConfig],
+      noSecretKey: Boolean,
+  ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
       ActorSystem(
         Server(
@@ -512,7 +471,9 @@ object ServiceMain {
           maxFailureNumberOfRetries,
           failureRetryTimeRange,
           dar,
-          jdbcConfig),
+          jdbcConfig,
+          noSecretKey,
+        ),
         "TriggerService")
     // timeout chosen at random, change freely if you see issues
     implicit val timeout: Timeout = 15.seconds
@@ -520,22 +481,6 @@ object ServiceMain {
     implicit val ec: ExecutionContext = system.executionContext
     val bindingFuture = system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
     bindingFuture.map(server => (server, system))
-  }
-
-  def initDatabase(dao: TriggerDao): Either[String, Unit] = {
-    val transaction = dao.transact(TriggerDao.initialize(dao.logHandler))
-    Try(transaction.unsafeRunSync()) match {
-      case Failure(err) => Left(err.toString)
-      case Success(()) => Right(())
-    }
-  }
-
-  def destroyDatabase(dao: TriggerDao): Either[String, Unit] = {
-    val transaction = dao.transact(TriggerDao.destroy)
-    Try(transaction.unsafeRunSync()) match {
-      case Failure(err) => Left(err.toString)
-      case Success(()) => Right(())
-    }
   }
 
   def main(args: Array[String]): Unit = {
@@ -569,7 +514,8 @@ object ServiceMain {
               config.maxFailureNumberOfRetries,
               config.failureRetryTimeRange,
               dar,
-              config.jdbcConfig
+              config.jdbcConfig,
+              config.noSecretKey
             ),
             "TriggerService"
           )
@@ -583,13 +529,12 @@ object ServiceMain {
             system.log.error("No JDBC configuration for database initialization.")
             sys.exit(1)
           case (true, Some(jdbcConfig)) =>
-            val dao = TriggerDao(jdbcConfig)(ec)
-            initDatabase(dao) match {
+            DbTriggerDao(jdbcConfig).initialize match {
               case Left(err) =>
                 system.log.error(err)
                 sys.exit(1)
               case Right(()) =>
-                system.log.info("Initialized database.")
+                system.log.info("Successfully initialized database.")
                 sys.exit(0)
             }
           case _ =>
