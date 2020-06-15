@@ -26,6 +26,7 @@ import DA.Daml.LF.Ast.FreeVars
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.TypeChecker.Check
 import DA.Daml.LF.TypeChecker.Env
+import DA.Daml.LF.Ast.Optics
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -468,7 +469,7 @@ simplifyExpr' d e = fmap fst (cata go' e)
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
       EStructProjF f (ELet (Binding (x, t) e1) e2, s0) ->
-        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
+          go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ EStructProjF f (e2, s2))
         where
           (s1, s2) = infoUnstepELet x s0
 
@@ -483,14 +484,14 @@ simplifyExpr' d e = fmap fst (cata go' e)
       -- NOTE(MH): This also works when `x` is free in `e2` since let-bindings
       -- are _not_ recursive.
       ETmAppF (ETmLam (x, t) e1, s0) (e2, s2) ->
-        go $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
+        go world $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
         where
           s1 = infoUnstepETmapp x s0
 
       -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
       ETmAppF (ELet (Binding (x, t) e1) e2, s0) e3
         | not (isFreeExprVar x (freeVars (snd e3))) ->
-          go $ ELetF (BindingF (x, t) (e1, s1)) (go $ ETmAppF (e2, s2) e3)
+          go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ ETmAppF (e2, s2) e3)
           where
             (s1, s2) = infoUnstepELet x s0
 
@@ -572,12 +573,17 @@ topoSortDefValues m =
         sccs = G.stronglyConnComp . map dvalNode . NM.toList $ moduleValues m
     in concatMap toList sccs
 
+simplifyTemplate :: Template -> Simplifier Template
+simplifyTemplate = templateExpr simplifyExpr
+
 simplifyModule :: World -> Version -> Module -> Module
 simplifyModule world version m = runSimplifier world version m $ do
     forM_ (topoSortDefValues m) $ \ dval -> do
         body' <- simplifyExpr (dvalBody dval)
         addDefValue dval { dvalBody = body' }
-    gets sModule
+    t' <- NM.traverse simplifyTemplate (moduleTemplates m)
+    m' <- gets sModule
+    pure m' { moduleTemplates = t' }
 
 runSimplifier :: World -> Version -> Module -> Simplifier t -> t
 runSimplifier sWorld sVersion m x =
