@@ -43,7 +43,7 @@ private[dao] sealed abstract class ContractsReader(
   protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
 
   /** Lookup of a contract in the case the contract value is not already known */
-  private def lookupActiveContractWithArgument(
+  private def lookupActiveContractAndLoadArgument(
       submitter: Party,
       contractId: ContractId,
   ): Future[Option[Contract]] =
@@ -64,13 +64,13 @@ private[dao] sealed abstract class ContractsReader(
       })
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
-  private def lookupActiveContractWithoutArgument(
+  private def lookupActiveContractWithCachedArgument(
       submitter: Party,
       contractId: ContractId,
       createArgument: Value,
   ): Future[Option[Contract]] =
     dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractWithoutArgumentDbMetrics) {
+      .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
         implicit connection =>
           SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
             .as(contractWithoutValueRowParser.singleOpt)
@@ -79,7 +79,6 @@ private[dao] sealed abstract class ContractsReader(
         _.map(
           templateId =>
             toContract(
-              contractId = contractId,
               templateId = templateId,
               createArgument = createArgument,
           )))
@@ -92,9 +91,9 @@ private[dao] sealed abstract class ContractsReader(
     translation.cache.contracts
       .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
       case Some(createArgument) =>
-        lookupActiveContractWithoutArgument(submitter, contractId, createArgument.argument)
+        lookupActiveContractWithCachedArgument(submitter, contractId, createArgument.argument)
       case None =>
-        lookupActiveContractWithArgument(submitter, contractId)
+        lookupActiveContractAndLoadArgument(submitter, contractId)
 
     }
 
@@ -182,7 +181,6 @@ object ContractsReader {
     )
 
   private def toContract(
-      contractId: ContractId,
       templateId: String,
       createArgument: Value,
   ): Contract =
