@@ -44,7 +44,7 @@ final class CommandServiceAuthorization(
     authorizer.requireActClaimsForParty(
       party = request.commands.map(_.party),
       applicationId = request.commands.map(_.applicationId),
-      call = submitAndWaitForTransactionId,
+      call = service.submitAndWaitForTransactionId,
     )(request)
 
   override def submitAndWaitForTransactionTree(
