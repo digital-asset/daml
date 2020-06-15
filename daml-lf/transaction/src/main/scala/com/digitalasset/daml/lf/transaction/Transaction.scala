@@ -10,6 +10,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.VersionedValue
 import scalaz.Equal
 
 import scala.annotation.tailrec
@@ -29,7 +30,7 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
     VersionedTransaction(
       version,
-      transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
+      transaction = GenTransaction.map3(identity[Nid], f, VersionedValue.map1(f))(transaction)
     )
 
   /** Increase the `version` if appropriate for `languageVersions`.
@@ -118,13 +119,6 @@ final private[lf] case class GenTransaction[Nid, +Cid, +Val](
       h: Val => Val2
   ): GenTransaction[Nid2, Cid2, Val2] =
     GenTransaction.map3(f, g, h)(this)
-
-  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-  def mapContractIdAndValue[Cid2, Val2](
-      f: Cid => Cid2,
-      g: Val => Val2,
-  ): GenTransaction[Nid, Cid2, Val2] =
-    map3(identity, f, g)
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
