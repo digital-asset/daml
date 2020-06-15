@@ -74,6 +74,12 @@ private[validation] object TypeTraversable {
       case ESome(typ, body) =>
         f(typ)
         foreach(body, f)
+      case ELazy(typ, body) =>
+        f(typ)
+        foreach(body, f)
+      case EForce(typ, body) =>
+        f(typ)
+        foreach(body, f)
       case EUpdate(u) =>
         foreach(u, f)
       case EScenario(s) =>

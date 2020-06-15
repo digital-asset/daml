@@ -182,6 +182,12 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     ETypeRep t -> ETypeRep
         (applySubstInType subst t)
+    ELazy t e -> ELazy
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
+    EForce t e -> EForce
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
     EScenario s -> EScenario

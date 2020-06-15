@@ -3,7 +3,8 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-} -- setField doesn't mention x, because we pass it as a type application
-
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | MOVE DA.Record
 module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) where
@@ -11,6 +12,9 @@ module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) wher
 import GHC.Types
 import GHC.Tuple() -- reqired for Tuple's themselves
 import GHC.Integer.Type() -- required for Integer primitives
+#ifdef DAML_UNSTABLE
+import DA.Internal.LF (Lazy, lazy, force)
+#endif
 
 class HasField (x : Symbol) r a | x r -> a where
     getField : r -> a
@@ -81,3 +85,9 @@ instance HasField "_4" (a,b,c,d,e) d where
 instance HasField "_5" (a,b,c,d,e) e where
     getField (_,_,_,_,e) = e
     setField e (a,b,c,d,_) = (a,b,c,d,e)
+
+#ifdef DAML_UNSTABLE
+instance HasField f r a => HasField f (Lazy r) a where
+  getField r = getField @f (force r)
+  setField x r = lazy (setField @f x (force r))
+#endif

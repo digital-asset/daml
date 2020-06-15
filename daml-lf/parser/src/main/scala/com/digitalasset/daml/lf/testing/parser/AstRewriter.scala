@@ -129,6 +129,10 @@ private[daml] class AstRewriter(
           EToAny(ty, apply(body))
         case EFromAny(ty, body) =>
           EFromAny(ty, apply(body))
+        case ELazy(ty, body) =>
+          ELazy(ty, apply(body))
+        case EForce(ty, body) =>
+          EForce(ty, apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

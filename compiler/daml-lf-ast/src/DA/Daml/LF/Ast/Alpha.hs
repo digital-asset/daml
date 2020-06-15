@@ -203,6 +203,14 @@ alphaExpr' env = \case
     ETypeRep t1 -> \case
         ETypeRep t2 -> alphaType' env t1 t2
         _ -> False
+    ELazy t1 e1 -> \case
+        ELazy t2 e2 -> alphaType' env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
+    EForce t1 e1 -> \case
+        EForce t2 e2 -> alphaType' env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> False

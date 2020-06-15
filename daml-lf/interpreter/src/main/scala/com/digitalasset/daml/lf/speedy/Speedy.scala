@@ -840,7 +840,7 @@ object Speedy {
           }
         case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
             STimestamp(_) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) |
-            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SToken =>
+            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SLazy(_) | SToken =>
           crash("Match on non-matchable value")
       }
 
@@ -868,6 +868,20 @@ object Speedy {
       machine.restoreEnv(frame, actuals, envSize)
       to.add(v)
       machine.ctrl = next
+    }
+  }
+
+  final case class KUpdateThunk(
+      thunk: SLazy,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int,
+    ) extends Kont
+      with SomeArrayEquals {
+    def execute(v: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
+      thunk.cell = LValue(v)
+      machine.returnValue = v
     }
   }
 
@@ -915,6 +929,8 @@ object Speedy {
       v match {
         case SPAP(PClosure(_, expr, closure), args, arity) =>
           machine.returnValue = SPAP(PClosure(label, expr, closure), args, arity)
+        case SLazy(LThunk(_, expr, frame)) =>
+          machine.returnValue = SLazy(LThunk(label, expr, frame))
         case _ =>
           machine.returnValue = v
       }

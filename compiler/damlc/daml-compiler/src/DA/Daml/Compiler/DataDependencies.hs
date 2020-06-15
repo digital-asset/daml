@@ -715,6 +715,7 @@ convBuiltInTy env =
         LF.BTNumeric -> mkGhcType env "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
+        LF.BTLazy -> mkLfInternalType env "Lazy"
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =

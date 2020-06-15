@@ -140,6 +140,7 @@ instance Pretty BuiltinType where
     BTArrow -> "(->)"
     BTAny -> "Any"
     BTTypeRep -> "TypeRep"
+    BTLazy -> "Lazy"
 
 prettyRecord :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
@@ -478,6 +479,8 @@ instance Pretty Expr where
     EToAny ty body -> prettyAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> prettyAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> prettyAppKeyword lvl prec "type_rep" [TyArg ty]
+    ELazy ty body -> prettyAppKeyword lvl prec "lazy" [TyArg ty, TmArg body]
+    EForce ty body -> prettyAppKeyword lvl prec "force" [TyArg ty, TmArg body]
 
 instance Pretty DefTypeSyn where
   pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =

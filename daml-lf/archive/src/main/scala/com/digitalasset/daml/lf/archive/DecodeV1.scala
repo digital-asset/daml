@@ -936,6 +936,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
+        case PLF.Expr.SumCase.LAZY =>
+          assertSince(LV.Features.unstable, "Expr.Lazy")
+          ELazy(
+            decodeType(lfExpr.getLazy.getType),
+            decodeExpr(lfExpr.getLazy.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.FORCE =>
+          assertSince(LV.Features.unstable, "Expr.Lazy")
+          EForce(
+            decodeType(lfExpr.getForce.getType),
+            decodeExpr(lfExpr.getForce.getExpr, definition),
+          )
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
       }
@@ -1312,7 +1326,8 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
-      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep)
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
+      BuiltinTypeInfo(LAZY, BTLazy, minVersion = unstable),
     )
   }
 
