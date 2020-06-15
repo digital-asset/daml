@@ -7,7 +7,9 @@ DAML codegen
 Introduction
 ============
 
-You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates. These classes incorporate all boilerplate code for constructing corresponding ledger :ref:`com.daml.ledger.api.v1.CreateCommand` and :ref:`com.daml.ledger.api.v1.ExerciseCommand`.
+You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates.
+These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``
+and ``com.daml.ledger.api.v1.ExerciseCommand``.
 
 Running the DAML codegen
 ========================
@@ -18,9 +20,9 @@ The basic command to run the DAML codegen is::
 
 There are two modes:
 
-- command line configuration, specifying **all** settings in the command line
+- Command line configuration, specifying **all** settings in the command line (all codegens supported)
 
-- project file configuration, specifying **all** settings in the ``daml.yaml``
+- Project file configuration, specifying **all** settings in the ``daml.yaml`` (currently **Java** and **Scala** only)
 
 Command line configuration
 --------------------------
@@ -49,12 +51,15 @@ Help for each specific codegen::
                               defaults to daml.js
       -h,--help                Show this help text
 
-Project file configuration
---------------------------
+Project file configuration (Java and Scala)
+-------------------------------------------
 
-The above settings can be configured in the ``codegen`` element of the DAML project file ``daml.yaml``. Here is an example::
+For **Java** and **Scala** the above settings can be configured in the ``codegen`` element of the DAML project file ``daml.yaml``.
+At present the **Javascript** ``codegen`` does not support this. See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on this feature.
 
-    sdk-version: 0.0.0
+Here is an example::
+
+    sdk-version: 1.2.0
     name: quickstart
     source: daml
     scenario: Main:setup
@@ -79,25 +84,22 @@ The above settings can be configured in the ``codegen`` element of the DAML proj
         output-directory: scala-codegen/src/main/scala
         verbosity: 2
 
-You can run the above configuration to generate your **Java** or **Scala** code::
+You can then run the above configuration to generate your **Java** or **Scala** code::
 
     $ daml codegen [java|scala]
 
-The equivalent **DAML to Java** command line configuration::
+The equivalent **Java** or **Scala** command line configuration would be::
 
-    $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
+    $ daml codegen [java|scala| ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
 
-and **DAML to Scala** command line configuration::
+In order to compile the resulting **Java** or **Scala** classes, you need to
+add the corresponding dependencies to your build tools. 
 
-    $ daml codegen scala ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=scala-codegen/src/main/scala --verbosity=2
-
-In order to compile the resulting **Scala** or **Java** classes, you need to
-add the corresponding dependencies to your build tools. For **Scala**, you can
-depend on::
+For **Scala**, you can depend on::
 
     "com.daml" %% "bindings-scala" % 1.0.1
 
-and for **Java**, add the following **Maven** dependency::
+For **Java**, add the following **Maven** dependency::
 
     <dependency>
       <groupId>com.daml</groupId>
