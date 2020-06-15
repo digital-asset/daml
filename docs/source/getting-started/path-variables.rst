@@ -72,7 +72,7 @@ which should list out all installed DAML SDK version as well as the project defa
 
 Linux
 *****
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for ``bash``terminal.
+We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for ``bash``.
 
 Setting the JAVA_HOME variable
 ==============================
