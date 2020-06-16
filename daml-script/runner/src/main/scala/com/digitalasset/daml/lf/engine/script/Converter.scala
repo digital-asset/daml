@@ -26,6 +26,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
+import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Time
 
@@ -423,6 +424,16 @@ object Converter {
         scriptIds.damlScript("SubmitFailure"),
         ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
         ("description", SText(status.getDescription))
+      ))
+  }
+
+  def fromPartyDetails(scriptIds: ScriptIds, details: PartyDetails): Either[String, SValue] = {
+    Right(
+      record(
+        scriptIds.damlScript("PartyDetails"),
+        ("party", SParty(details.party)),
+        ("displayName", SOptional(details.displayName.map(SText))),
+        ("isLocal", SBool(details.isLocal))
       ))
   }
 

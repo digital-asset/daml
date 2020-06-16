@@ -9,6 +9,7 @@ import scalaz.syntax.traverse._
 import com.daml.lf.archive.Dar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.archive.Decode
+import com.daml.lf.data.{FrontStack, FrontStackCons}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.{Party => LedgerParty}
 import com.daml.lf.language.Ast._
@@ -53,6 +54,45 @@ case class MultiPartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunn
               vals.get(1),
               SParty(LedgerParty.assertFromString("bob")),
               "Accept party id hint on participant two")
+          } yield ()
+      }
+    )
+  }
+}
+
+case class MultiListKnownPartiesTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"))
+  def runTests() = {
+    runner.genericTest(
+      "listKnownPartiesTest",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 =>
+          for {
+            newPartyDetails1 <- vals.get(0) match {
+              case SList(
+                  FrontStackCons(
+                    SRecord(_, _, x),
+                    FrontStackCons(SRecord(_, _, y), FrontStack()))) =>
+                Right(Seq(x, y))
+              case v => Left(s"Exppected list with one element but got $v")
+            }
+            newPartyDetails2 <- vals.get(0) match {
+              case SList(
+                  FrontStackCons(
+                    SRecord(_, _, x),
+                    FrontStackCons(SRecord(_, _, y), FrontStack()))) =>
+                Right(Seq(x, y))
+              case v => Left(s"Exppected list with one element but got $v")
+            }
+            // Note that at this point ledger-on-memory will return both parties on both
+            // participants with is_local = true so we cannot do the check you
+            // might expect here.
+            _ <- TestRunner.assertEqual(newPartyDetails1.length, 2, "partyDetails1 length")
+            _ <- TestRunner.assertEqual(newPartyDetails2.length, 2, "partyDetails2 length")
+            _ <- TestRunner
+              .assertEqual(newPartyDetails1, newPartyDetails2, "partyDetails are equal")
           } yield ()
       }
     )
@@ -107,6 +147,7 @@ object MultiParticipant {
         val runner = new TestRunner(participantParams, dar, config.wallclockTime, None, None)
         MultiTest(dar, runner).runTests()
         MultiPartyIdHintTest(dar, runner).runTests()
+        MultiListKnownPartiesTest(dar, runner).runTests()
     }
   }
 }

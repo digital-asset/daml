@@ -9,10 +9,13 @@ module Daml.Script
   , query
   , PartyIdHint (..)
   , ParticipantName (..)
+  , PartyDetails(..)
   , allocateParty
   , allocatePartyWithHint
   , allocatePartyOn
   , allocatePartyWithHintOn
+  , listKnownParties
+  , listKnownPartiesOn
   , Commands
   , createCmd
   , exerciseCmd
@@ -78,6 +81,7 @@ data ScriptF a
   = Submit (SubmitCmd a)
   | Query (QueryACS a)
   | AllocParty (AllocateParty a)
+  | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
   | Sleep (SleepRec a)
   deriving Functor
@@ -98,6 +102,11 @@ data AllocateParty a = AllocateParty
   , idHint : Text
   , participant : Optional Text
   , continue : Party -> a
+  } deriving Functor
+
+data ListKnownPartiesPayload a = ListKnownPartiesPayload
+  { participant : Optional Text
+  , continue : [PartyDetails] -> a
   } deriving Functor
 
 data SleepRec a = SleepRec
@@ -150,6 +159,30 @@ allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName partic
   , participant = Some participant
   , continue = pure
   }
+
+-- | List the parties known to the default participant.
+listKnownParties : Script [PartyDetails]
+listKnownParties =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
+    { participant = None
+    , continue = pure
+    }
+
+-- | List the parties known to the given participant.
+listKnownPartiesOn : ParticipantName -> Script [PartyDetails]
+listKnownPartiesOn (ParticipantName participant) =
+  lift $ Free $ ListKnownParties $ ListKnownPartiesPayload
+    { participant = Some participant
+    , continue = pure
+    }
+
+-- | The party details returned by the party management service.
+data PartyDetails = PartyDetails
+  with
+    party : Party -- ^ Party id
+    displayName : Optional Text -- ^ Optional display name
+    isLocal : Bool -- ^ True if party is hosted by the backing participant.
+  deriving (Eq, Ord, Show)
 
 -- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
 instance HasTime Script where

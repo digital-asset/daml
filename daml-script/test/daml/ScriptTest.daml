@@ -8,6 +8,7 @@ module ScriptTest where
 import DA.Action
 import DA.Assert
 import DA.Foldable hiding (length)
+import DA.List
 import DA.Time
 import Daml.Script
 
@@ -170,6 +171,15 @@ partyIdHintTest = do
   carol <- allocatePartyWithHint "carol" (PartyIdHint "carol")
   dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
   pure (carol, dan)
+
+listKnownPartiesTest : Script ([PartyDetails], Party)
+listKnownPartiesTest = do
+  before <- listKnownParties
+  p <- allocateParty "myparty"
+  after <- listKnownParties
+  let new = after \\ before
+  new === [PartyDetails p (Some "myparty") True]
+  pure (new, p)
 
 auth : (Party, Party) -> Script ()
 auth (alice, bob) = do

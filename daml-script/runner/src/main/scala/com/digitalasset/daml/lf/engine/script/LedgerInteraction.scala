@@ -33,6 +33,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.jwt.domain.Jwt
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -98,6 +99,10 @@ trait ScriptLedgerClient {
   def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SParty]
+
+  def listKnownParties()(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[List[PartyDetails]]
 
 }
 
@@ -176,6 +181,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
     grpcClient.partyManagementClient
       .allocateParty(Some(partyIdHint), Some(displayName))
       .map(r => SParty(r.party))
+  }
+
+  override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
+    grpcClient.partyManagementClient
+      .listKnownParties()
   }
 
   private def toCommand(command: ScriptLedgerClient.Command): Either[String, Command] =
@@ -347,6 +357,12 @@ class JsonLedgerClient(
     } yield {
       SParty(response.identifier)
     }
+  }
+
+  override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
+    Future.failed(
+      new RuntimeException(
+        s"listKnownParties is not supported when running DAML Script over the JSON API"))
   }
 
   // Check that the party in the token matches the given party.
