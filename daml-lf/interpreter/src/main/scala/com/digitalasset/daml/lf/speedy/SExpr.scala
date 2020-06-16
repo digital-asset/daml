@@ -149,7 +149,7 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
-      machine.pushKont(KBuiltin(builtin, actuals))
+      machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
       evaluateArguments(machine, actuals, args, args.length);
     }
   }
