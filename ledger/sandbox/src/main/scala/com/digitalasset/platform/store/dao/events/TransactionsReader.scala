@@ -98,6 +98,9 @@ private[dao] final class TransactionsReader(
   private def getOffset[E](a: EventsTable.Entry[E]): (Offset, Option[Int]) =
     (a.eventOffset, Some(a.nodeIndex))
 
+  private def getEventsRange[E](endRowId: Long)(a: EventsTable.Entry[E]): EventsRange[Long] =
+    EventsRange(startExclusive = a.rowId, endInclusive = endRowId)
+
   def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
@@ -126,31 +129,39 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
-      PaginatingAsyncStream.streamFrom((startExclusive, Option.empty[Int]), getOffset[TreeEvent]) {
-        case (prevOffset, prevNodeIndex) =>
-          val query =
-            EventsTable
-              .preparePagedGetTransactionTrees(sqlFunctions)(
-                startExclusive = prevOffset,
-                endInclusive = endInclusive,
-                requestingParties = requestingParties,
-                pageSize = pageSize,
-                previousEventNodeIndex = prevNodeIndex
-              )
-              .withFetchSize(Some(pageSize))
-          val rawEvents =
-            dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
-              query.asVectorOf(EventsTable.rawTreeEventParser)
-            }
-          rawEvents.flatMap(
-            es =>
-              Timed.future(
-                future = Future.traverse(es)(deserializeEntry(verbose)),
-                timer = dbMetrics.getTransactionTrees.translationTimer,
+
+    val eventsRangeF: Future[EventsRange[Long]] = dispatcher.executeSql(dbMetrics.getRowIdRange) {
+      connection =>
+        EventsRange.eventsRange(EventsRange(startExclusive, endInclusive))(connection)
+    }
+
+    def getEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[TreeEvent], NotUsed] =
+      PaginatingAsyncStream.streamFrom(
+        eventsRange0,
+        getEventsRange[TreeEvent](eventsRange0.endInclusive)) { eventsRange1 =>
+        val query =
+          EventsTable
+            .preparePagedGetTransactionTrees(sqlFunctions)(
+              eventsRange = eventsRange1,
+              requestingParties = requestingParties,
+              pageSize = pageSize,
             )
+            .withFetchSize(Some(pageSize))
+        val rawEvents =
+          dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
+            query.asVectorOf(EventsTable.rawTreeEventParser)
+          }
+        rawEvents.flatMap(
+          es =>
+            Timed.future(
+              future = Future.traverse(es)(deserializeEntry(verbose)),
+              timer = dbMetrics.getTransactionTrees.translationTimer,
           )
+        )
       }
+
+    val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
+      Source.future(eventsRangeF).flatMapConcat(r => getEvents(r))
 
     groupContiguous(events)(by = _.transactionId)
       .flatMapConcat { events =>
