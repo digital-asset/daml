@@ -10,7 +10,11 @@ import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
-import com.daml.ledger.api.v1.command_completion_service.{CompletionEndRequest, CompletionEndResponse, CompletionStreamRequest}
+import com.daml.ledger.api.v1.command_completion_service.{
+  CompletionEndRequest,
+  CompletionEndResponse,
+  CompletionStreamRequest
+}
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
@@ -46,7 +50,7 @@ final class CommandClient(
     applicationId: String,
     config: CommandClientConfiguration,
     timeProviderO: Option[TimeProvider] = None,
-    logger: Logger =  LoggerFactory.getLogger(getClass))(implicit esf: ExecutionSequencerFactory) {
+    logger: Logger = LoggerFactory.getLogger(getClass))(implicit esf: ExecutionSequencerFactory) {
 
   /**
     * Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
@@ -55,10 +59,12 @@ final class CommandClient(
   def submitSingleCommand(
       submitRequest: SubmitRequest,
       token: Option[String] = None): Future[Empty] =
-      submit(token)(submitRequest)
+    submit(token)(submitRequest)
 
   private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
-    logger.debug("Invoking grpc-submission on commandId={}", submitRequest.commands.map(_.commandId).getOrElse("no-command-id"))
+    logger.debug(
+      "Invoking grpc-submission on commandId={}",
+      submitRequest.commands.map(_.commandId).getOrElse("no-command-id"))
     LedgerClient
       .stub(commandSubmissionService, token)
       .submit(submitRequest)
@@ -110,9 +116,7 @@ final class CommandClient(
       partyFilter(parties.toSet)
         .via(commandUpdaterFlow[Context])
         .viaMat(CommandTrackerFlow[Context, NotUsed](
-          CommandSubmissionFlow[(Context, String)](
-            submit(token),
-            config.maxParallelSubmissions),
+          CommandSubmissionFlow[(Context, String)](submit(token), config.maxParallelSubmissions),
           offset => completionSource(parties, offset, token),
           ledgerEnd.getOffset,
           () => config.defaultDeduplicationTime,
@@ -160,10 +164,7 @@ final class CommandClient(
     : Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, SubmitRequest]]
       .via(commandUpdaterFlow)
-      .via(
-        CommandSubmissionFlow[Context](
-          submit(token),
-          config.maxParallelSubmissions))
+      .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
   }
 
   def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =
