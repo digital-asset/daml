@@ -31,7 +31,11 @@ tests damlcPath = testGroup "doctest integration tests"
                   , "add : Int -> Int -> Int"
                   , "add x y = 0"
                   ]
-              (exit, stdout, stderr) <- readProcessWithExitCode damlcPath ["doctest", f] ""
+              -- NOTE (MK) We need to change the working directory
+              -- since the generated files end up in .daml/generated which
+              -- is otherwise identical between the two tests.
+              (exit, stdout, stderr) <-
+                  readCreateProcessWithExitCode (docTestProc tmpDir f) ""
               assertBool ("error in: " <> stderr) ("expected 0 == 2" `isInfixOf` stderr)
               stdout @?= ""
               assertEqual "exit code" (ExitFailure 1) exit
@@ -47,8 +51,10 @@ tests damlcPath = testGroup "doctest integration tests"
                   , "add : Int -> Int -> Int"
                   , "add x y = x + y"
                   ]
-              (exit, stdout, stderr) <- readProcessWithExitCode damlcPath ["doctest", f] ""
+              (exit, stdout, stderr) <-
+                  readCreateProcessWithExitCode (docTestProc tmpDir f) ""
               stdout @?= ""
               stderr @?= ""
               assertEqual "exit code" ExitSuccess exit
     ]
+  where docTestProc dir f = (proc damlcPath ["doctest", f]) { cwd = Just dir }
