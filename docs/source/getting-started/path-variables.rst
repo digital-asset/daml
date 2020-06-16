@@ -23,7 +23,7 @@ If you have downloaded and installed the DAML SDK using our `Windows installer <
 
 Mac OS
 ******
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``zsh`` console.
+We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``zsh`` shell.
 If you are using ``bash`` all of the instructions are quite similar, except that you will be doing all of the changes
 in the ``.bash_profile`` file.
 
@@ -58,7 +58,7 @@ You should see ``~/.daml/bin`` in the output.
 
 Linux
 *****
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for the ``bash`` terminal.
+We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Linux for ``bash``.
 
 Setting the JAVA_HOME variable
 ==============================
