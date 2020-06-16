@@ -168,7 +168,7 @@ object Profile {
   }
 
   type Label = LabelModule.Module.T
-  val LabelUnset: Label = LabelModule.Unset
+  val LabelUnset: Label = LabelModule.Module(null)
 
   /** We avoid any conversions into a common label format at runtime
     * since this might skew the profile. Instead, we convert the labels to strings
@@ -176,7 +176,7 @@ object Profile {
     */
   sealed abstract class LabelModule {
     type T <: AnyRef
-    private[LabelModule] def apply(t: AnyRef): T
+    private[Profile] def apply(t: AnyRef): T
   }
 
   object LabelModule {
@@ -184,10 +184,8 @@ object Profile {
     // [[AnyRef]] for the labels.
     val Module: LabelModule = new LabelModule {
       type T = AnyRef
-      override private[LabelModule] def apply(t: T) = t
+      override def apply(t: AnyRef) = t
     }
-
-    private[Profile] def Unset: Label = Module(null)
 
     import scala.language.implicitConversions, annotation.implicitNotFound
 
