@@ -518,7 +518,7 @@ alwaysLiftUnder = \case
     _ -> False
 
 -- | Some terms are not worth lifting to the top level, because they don't
--- require any computation. By not lifting them, we avoid computing a hash.
+-- require any computation.
 isWorthLifting :: Expr -> Bool
 isWorthLifting = \case
     EVar _ -> False
@@ -536,6 +536,7 @@ data SimplifierState = SimplifierState
     , sModule :: Module
     , sReserved :: Set.Set ExprValName
     , sCache :: Map.Map Expr ExprValName
+    , sFreshNamePrefix :: T.Text -- Prefix for fresh variable names.
     }
 
 sWorldExtended :: SimplifierState -> World
@@ -556,10 +557,14 @@ freshExprVarNameFor e = do
     modify $ \s -> s { sCache = Map.insert e name (sCache s) }
     pure name
 
+setFreshNamePrefix :: T.Text -> Simplifier ()
+setFreshNamePrefix x = modify (\s -> s { sFreshNamePrefix = x })
+
 freshExprVarName :: Simplifier ExprValName
 freshExprVarName = do
     reserved <- gets sReserved
-    let candidates = [ExprValName (T.pack ("$sc" ++ show i)) | i <- [1 :: Int ..]]
+    prefix <- gets sFreshNamePrefix
+    let candidates = [ExprValName (prefix <> T.pack (show i)) | i <- [1 :: Int ..]]
         name = Safe.findJust (`Set.notMember` reserved) candidates
     modify (\s -> s { sReserved = Set.insert name reserved })
     pure name
@@ -588,11 +593,14 @@ topoSortDefValues m =
     in concatMap toList sccs
 
 simplifyTemplate :: Template -> Simplifier Template
-simplifyTemplate = templateExpr simplifyExpr
+simplifyTemplate t = do
+    setFreshNamePrefix ("$sc_" <> T.intercalate "_" (unTypeConName (tplTypeCon t)) <> "_")
+    templateExpr simplifyExpr t
 
 simplifyModule :: World -> Version -> Module -> Module
 simplifyModule world version m = runSimplifier world version m $ do
     forM_ (topoSortDefValues m) $ \ dval -> do
+        setFreshNamePrefix ("$sc_" <> unExprValName (fst (dvalBinder dval)) <> "_")
         body' <- simplifyExpr (dvalBody dval)
         addDefValue dval { dvalBody = body' }
     t' <- NM.traverse simplifyTemplate (moduleTemplates m)
@@ -604,4 +612,5 @@ runSimplifier sWorld sVersion m x =
     let sModule = m { moduleValues = NM.empty }
         sReserved = Set.fromList (NM.names (moduleValues m))
         sCache = Map.empty
+        sFreshNamePrefix = "$sc"
     in evalState x SimplifierState {..}
