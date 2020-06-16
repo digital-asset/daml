@@ -329,7 +329,8 @@ case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
 
 case class TraceOrder(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:traceOrder"))
-  def traceMsg(msg: String) = s"""[DA.Internal.Prelude:540]: "$msg""""
+  def traceMsg1(msg: String) = s"""[DA.Internal.Prelude:540]: "$msg""""
+  def traceMsg2(msg: String) = s"""[ScriptTest:540]: "$msg""""
   def runTests(): Unit = {
     runner.genericTest(
       "traceOrder",
@@ -338,7 +339,7 @@ case class TraceOrder(dar: Dar[(PackageId, Package)], runner: TestRunner) {
         case SUnit => Right(())
         case v => Left(s"Expected SUnit but got $v")
       },
-      Some(Seq(traceMsg("abc"), traceMsg("def"), traceMsg("abc"), traceMsg("def")))
+      Some(Seq(traceMsg1("abc"), traceMsg2("def"), traceMsg1("abc"), traceMsg2("def")))
     )
   }
 }
