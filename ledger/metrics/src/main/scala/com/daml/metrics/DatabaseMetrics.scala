@@ -10,7 +10,7 @@ class DatabaseMetrics private[metrics] (
     prefix: MetricName,
     val name: String,
 ) {
-  val dbPrefix = prefix :+ name
+  protected val dbPrefix: MetricName = prefix :+ name
 
   val waitTimer: Timer = registry.timer(dbPrefix :+ "wait")
   val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
