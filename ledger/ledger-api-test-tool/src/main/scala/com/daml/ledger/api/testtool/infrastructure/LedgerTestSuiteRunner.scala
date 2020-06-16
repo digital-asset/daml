@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Random, Try}
 
 object LedgerTestSuiteRunner {
   private val DefaultTimeout = 30.seconds
@@ -128,7 +128,7 @@ final class LedgerTestSuiteRunner(
     val tests = suites
       .flatMap(suite => suite.tests.map(suite -> _))
       .zipWithIndex
-    Source(tests)
+    Source(Random.shuffle(tests))
       .mapAsyncUnordered(concurrentTestRuns) {
         case ((suite, test), index) =>
           run(test, suite.session).map(testResult => (suite, test, testResult) -> index)
