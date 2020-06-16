@@ -57,11 +57,6 @@ main = do
     let step = Bazel.Runfiles.rlocation
             runfiles
             ("compatibility" </> "sandbox-migration" </> "migration-step")
-    runTest "propose-accept" modelDar platformAssistants (ProposeAccept.test step modelDar)
-    runTest "key-transfer" modelDar platformAssistants (KeyTransfer.test step modelDar)
-
-runTest :: forall s r. String -> FilePath -> [FilePath] -> Test s r -> IO ()
-runTest testName modelDar platformAssistants Test{..} =
     withPostgres $ \jdbcUrl -> do
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
@@ -71,18 +66,23 @@ runTest testName modelDar platformAssistants Test{..} =
                 , "upload-dar", modelDar
                 , "--host=localhost", "--port=" <> show p
                 ]
+        runTest jdbcUrl platformAssistants
+            (ProposeAccept.test step modelDar `interleave` KeyTransfer.test step modelDar)
+
+runTest :: forall s r. T.Text -> [FilePath] -> Test s r -> IO ()
+runTest jdbcUrl platformAssistants Test{..} = do
         hPutStrLn stderr "<-- Uploaded model DAR"
         foldM_ (step jdbcUrl) initialState platformAssistants
             where step :: T.Text -> s -> FilePath -> IO s
                   step jdbcUrl state assistant = do
                       let version = takeFileName (takeDirectory assistant)
-                      hPutStrLn stderr ("--> Testing: " <> testName <> "; SDK version: " <> version)
+                      hPutStrLn stderr ("--> Testing: " <> "SDK version: " <> version)
                       r <- withSandbox assistant jdbcUrl $ \port ->
                            executeStep (SdkVersion version) "localhost" port state
                       case validateStep (SdkVersion version) state r of
                           Left err -> fail err
                           Right state' -> do
-                              hPutStrLn stderr ("<-- Tested: " <> testName <> "; SDK version: " <> version)
+                              hPutStrLn stderr ("<-- Tested: SDK version: " <> version)
                               pure state'
 
 withSandbox :: FilePath -> T.Text -> (Int -> IO a) -> IO a
