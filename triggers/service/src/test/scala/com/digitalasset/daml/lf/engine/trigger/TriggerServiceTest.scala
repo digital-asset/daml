@@ -34,6 +34,7 @@ import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.testing.postgresql.PostgresAroundAll
 import eu.rekawek.toxiproxy._
 
@@ -499,10 +500,30 @@ class TriggerServiceTestInMem extends AbstractTriggerServiceTest {
 }
 
 // Tests for database mode only go here
-class TriggerServiceTestWithDb extends AbstractTriggerServiceTest with PostgresAroundAll {
+class TriggerServiceTestWithDb
+    extends AbstractTriggerServiceTest
+    with BeforeAndAfterEach
+    with PostgresAroundAll {
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
+  private lazy val triggerDao = DbTriggerDao(jdbcConfig_)
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    triggerDao.initialize match {
+      case Left(err) => fail(err)
+      case Right(()) =>
+    }
+  }
+
+  override protected def afterEach(): Unit = {
+    triggerDao.destroy match {
+      case Left(err) => fail(err)
+      case Right(()) =>
+    }
+    super.afterEach()
+  }
 }

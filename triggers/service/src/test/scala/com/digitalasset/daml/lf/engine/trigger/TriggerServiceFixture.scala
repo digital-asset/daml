@@ -30,14 +30,12 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.timer.RetryStrategy
-import org.scalatest.Assertions._
 
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
 import java.net.{InetAddress, ServerSocket, Socket}
 
-import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
@@ -73,7 +71,7 @@ object TriggerServiceFixture {
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
         channel <- Future(new Socket(host, toxiProxyPort.value))
-      } yield (channel.close())
+      } yield channel.close()
     }
     val toxiProxyClient = new ToxiproxyClient(host.getHostName, toxiProxyPort.value);
 
@@ -97,17 +95,6 @@ object TriggerServiceFixture {
       (_, ledgerPort, _, _) <- ledgerF
       client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
     } yield client
-
-    // Construct a database DAO for initialization and clean up if provided a JDBC config.
-    // Fail the test immediately if database initialization fails.
-    val dbTriggerDao: Option[DbTriggerDao] =
-      jdbcConfig.map(c => {
-        val dao = DbTriggerDao(c)
-        dao.initialize match {
-          case Left(err) => fail(err)
-          case Right(()) => dao
-        }
-      })
 
     // Configure the service with the ledger's *proxy* port.
     val serviceF: Future[(ServerBinding, TypedActorSystem[Server.Message])] = for {
@@ -147,11 +134,6 @@ object TriggerServiceFixture {
       serviceF.foreach({ case (_, system) => system ! Server.Stop })
       ledgerF.foreach(_._1.close())
       toxiProxyProc.destroy
-      dbTriggerDao.foreach(dao =>
-        dao.destroy match {
-          case Left(err) => fail(err)
-          case Right(()) =>
-      })
     }
 
     fa
