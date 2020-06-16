@@ -14,8 +14,8 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.SEImportValue
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
 import com.daml.lf.value.Value
-import com.daml.lf.value.TypedValueGenerators.genAddend
-import com.daml.lf.value.ValueGenerators.{cidV0Gen, comparableCoidsGen}
+import com.daml.lf.value.test.TypedValueGenerators.genAddend
+import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{
@@ -327,7 +327,7 @@ class OrderingSpec
   )
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
-    import com.daml.lf.value.TypedValueGenerators.{ValueAddend => VA}
+    import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
     implicit val ordNo
       : Order[Nothing] = Order order [Nothing]((_: Any, _: Any) => sys.error("impossible"))
     def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =

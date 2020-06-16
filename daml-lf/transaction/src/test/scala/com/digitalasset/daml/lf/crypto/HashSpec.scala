@@ -5,7 +5,7 @@ package com.daml.lf
 package crypto
 
 import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
-import com.daml.lf.value.TypedValueGenerators.{RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
 import org.scalatest.{Matchers, WordSpec}

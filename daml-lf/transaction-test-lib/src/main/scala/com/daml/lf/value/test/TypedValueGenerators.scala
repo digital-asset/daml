@@ -4,6 +4,7 @@
 package com.daml
 package lf
 package value
+package test
 
 import scala.language.higherKinds
 import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}

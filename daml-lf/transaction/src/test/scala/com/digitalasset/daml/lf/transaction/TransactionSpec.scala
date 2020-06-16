@@ -14,7 +14,7 @@ import com.daml.lf.transaction.GenTransaction.{
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.ValueGenerators.danglingRefGenNode
+import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}

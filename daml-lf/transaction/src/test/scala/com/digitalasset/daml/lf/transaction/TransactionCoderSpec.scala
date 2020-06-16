@@ -27,7 +27,7 @@ class TransactionCoderSpec
     with EitherAssertions
     with PropertyChecks {
 
-  import com.daml.lf.value.ValueGenerators._
+  import com.daml.lf.value.test.ValueGenerators._
 
   private[this] val defaultTransactionVersion = TransactionVersions.acceptedVersions.lastOption getOrElse sys
     .error("there are no allowed versions! impossible! but could it be?")

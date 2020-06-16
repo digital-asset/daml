@@ -3,6 +3,7 @@
 
 package com.daml.lf
 package value
+package test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._

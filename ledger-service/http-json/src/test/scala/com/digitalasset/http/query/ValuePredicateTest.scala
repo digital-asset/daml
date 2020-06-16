@@ -9,7 +9,7 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time
 import ImmArray.ImmArraySeq
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
