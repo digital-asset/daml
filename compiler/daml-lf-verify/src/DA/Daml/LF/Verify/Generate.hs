@@ -96,7 +96,9 @@ instance GenPhase 'ValueGathering where
 instance GenPhase 'ChoiceGathering where
   genModule pac mod =
     mapM_ (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
-  genForVal w = lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
+  genForVal w = lookupVal w >>= \case
+    Just (expr, upds) -> return (Output expr upds)
+    Nothing -> throwError (UnknownValue w)
 
 instance GenPhase 'Solving where
   genModule _pac _mod =
@@ -362,6 +364,7 @@ genForRecProj updFlag tc f body = do
     expr -> do
       recExpFields expr >>= \case
         Just fs -> case lookup f fs of
+          -- TODO: Include the bodyOut updates.
           Just expr -> genExpr updFlag expr
           Nothing -> throwError $ UnknownRecField f
         Nothing -> return $ updateOutExpr (ERecProj tc f expr) bodyOut
@@ -387,6 +390,7 @@ genForStructProj updFlag f body = do
     expr -> do
       recExpFields expr >>= \case
         Just fs -> case lookup f fs of
+          -- TODO: Include the bodyOut updates.
           Just expr -> genExpr updFlag expr
           Nothing -> throwError $ UnknownRecField f
         Nothing -> return $ updateOutExpr (EStructProj f expr) bodyOut
@@ -432,19 +436,12 @@ genForCreate :: (GenPhase ph, MonadEnv m ph)
 genForCreate tem arg = do
   arout <- genExpr True arg
   recExpFields (_oExpr arout) >>= \case
-    Just fs -> do
-      fsEval <- mapM partial_eval_field fs
-      return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fsEval)
-             , TCon tem
-             , Just $ EStructCon fsEval )
+    Just fs -> return (
+                 Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
+               , TCon tem
+               , Just $ EStructCon fs )
+  -- TODO: We could potentially filter here to only store the interesting fields?
     Nothing -> throwError ExpectRecord
-  where
-    partial_eval_field :: (GenPhase ph, MonadEnv m ph)
-      => (FieldName, Expr)
-      -> m (FieldName, Expr)
-    partial_eval_field (f,e) = do
-      e' <- genExpr False e
-      return (f,_oExpr e')
 
 -- | Analyse an exercise update expression.
 -- Returns both the generator output and the return type of the choice.
@@ -538,35 +535,43 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -- ^ The field values for any created contracts, if available.
   -> m ExprSubst
 -- TODO: combine these two cases.
-bindCids b (TContractId (TCon tc)) cid (EVar this) fsExp = do
+bindCids b (TContractId (TCon tc)) cid (EVar this) fsExpM = do
   fs <- recTypConFields (qualObject tc) >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   extRecEnv this (map fst fs)
-  -- cidOut <- genExpr True cid
-  -- subst <- extCidEnv b (_oExpr cidOut) this
   subst <- extCidEnv b cid this
-  creFs <- maybe (pure []) recExpFields $ substituteTm subst fsExp
-  extCtrRec this creFs
-  return subst
-bindCids b (TCon tc) cid (EVar this) fsExp = do
+  case fsExpM of
+    Just fsExp -> do
+      fsOut <- genExpr False $ substituteTm subst fsExp
+      recExpFields (_oExpr fsOut) >>= \case
+        Just fields -> do
+          extCtrRec this fields
+          return subst
+        Nothing -> throwError ExpectRecord
+    Nothing -> return subst
+bindCids b (TCon tc) cid (EVar this) fsExpM = do
   fs <- recTypConFields (qualObject tc) >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   extRecEnv this (map fst fs)
-  -- cidOut <- genExpr True cid
-  -- subst <- extCidEnv b (_oExpr cidOut) this
   subst <- extCidEnv b cid this
-  creFs <- maybe (pure []) recExpFields $ substituteTm subst fsExp
-  extCtrRec this creFs
-  return subst
-bindCids b (TApp (TApp (TCon con) t1) t2) cid var fsExp =
+  case fsExpM of
+    Just fsExp -> do
+      fsOut <- genExpr False $ substituteTm subst fsExp
+      recExpFields (_oExpr fsOut) >>= \case
+        Just fields -> do
+          extCtrRec this fields
+          return subst
+        Nothing -> throwError ExpectRecord
+    Nothing -> return subst
+bindCids b (TApp (TApp (TCon con) t1) t2) cid var fsExpM =
   case head $ unTypeConName $ qualObject con of
     "Tuple2" -> do
       -- TODO: Test this part more extensively.
       -- cidOut <- genExpr True cid
-      subst1 <- bindCids b t1 (EStructProj (FieldName "_1") cid) var fsExp
-      subst2 <- bindCids b t2 (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExp
+      subst1 <- bindCids b t1 (EStructProj (FieldName "_1") cid) var fsExpM
+      subst2 <- bindCids b t2 (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExpM
       return (subst1 `concatExprSubst` subst2)
     con' -> error ("Binding contract id's for this constructor has not been implemented yet: " ++ show con')
 bindCids _ (TBuiltin BTUnit) _ _ _ = return emptyExprSubst

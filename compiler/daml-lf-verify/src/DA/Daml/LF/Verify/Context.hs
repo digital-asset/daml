@@ -730,12 +730,10 @@ lookupRec x f = do
 lookupVal :: (IsPhase ph, MonadEnv m ph)
   => Qualified ExprValName
   -- ^ The value name to lookup.
-  -> m (Expr, UpdateSet ph)
+  -> m (Maybe (Expr, UpdateSet ph))
 lookupVal val = do
   vals <- envVals <$> getEnv
-  case HM.lookup val vals of
-    Just res -> return res
-    Nothing -> throwError (UnknownValue val)
+  return $ HM.lookup val vals
 
 -- | Lookup a choice name in the environment. Returns a function which, once
 -- self, this and args have been instantiated, returns the set of updates it
@@ -1010,7 +1008,7 @@ recExpFields (ERecProj _ f e) = do
       Just e' -> recExpFields e'
       Nothing -> throwError $ UnknownRecField f
     Nothing -> return Nothing
-recExpFields (EStructProj f e) = do
+recExpFields (EStructProj f e) = trace "Exp F" $ do
   recExpFields e >>= \case
     Just fields -> case lookup f fields of
       Just e' -> recExpFields e'
