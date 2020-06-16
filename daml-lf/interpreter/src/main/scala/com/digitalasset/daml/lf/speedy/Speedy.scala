@@ -701,11 +701,11 @@ object Speedy {
           prim match {
             case closure: PClosure =>
               // Push a continuation to execute the function body when the arguments have been evaluated
-              machine.pushKont(KFun(closure, actuals))
+              machine.pushKont(KFun(closure, actuals, machine.env.size))
 
             case PBuiltin(builtin) =>
               // Push a continuation to execute the builtin when the arguments have been evaluated
-              machine.pushKont(KBuiltin(builtin, actuals))
+              machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
           }
         }
         evaluateArguments(machine, actuals, newArgs, newArgsLimit)
@@ -726,14 +726,13 @@ object Speedy {
   }
 
   /** The function-closure and arguments have been evaluated. Now execute the body. */
-  final case class KFun(closure: PClosure, actuals: util.ArrayList[SValue])
+  final case class KFun(closure: PClosure, actuals: util.ArrayList[SValue], envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
-      machine.frame = closure.frame
-      machine.actuals = actuals
+      machine.restoreEnv(closure.frame, actuals, envSize)
       // Maybe push a continuation for the profiler
       val label = closure.label
       if (label != null) {
@@ -746,11 +745,12 @@ object Speedy {
   }
 
   /** The builtin arguments have been evaluated. Now execute the builtin. */
-  final case class KBuiltin(builtin: SBuiltin, actuals: util.ArrayList[SValue]) extends Kont {
+  final case class KBuiltin(builtin: SBuiltin, actuals: util.ArrayList[SValue], envSize: Int)
+      extends Kont {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
-      // A builtin has no free-vars, so we dont have to set the frame.
-      machine.actuals = actuals
+      // A builtin has no free-vars, so we set the frame to null.
+      machine.restoreEnv(null, actuals, envSize)
       try {
         builtin.execute(actuals, machine)
       } catch {
