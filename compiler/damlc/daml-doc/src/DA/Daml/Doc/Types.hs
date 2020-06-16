@@ -80,7 +80,7 @@ data Reference = Reference
 
 -- | Anchors are URL-safe (and RST-safe!) ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, IsString, Hashable)
+    deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, FromJSONKey, IsString, Hashable)
 
 ------------------------------------------------------------
 -- | Documentation data for a module
