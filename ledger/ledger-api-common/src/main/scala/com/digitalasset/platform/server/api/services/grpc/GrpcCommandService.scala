@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.dec.DirectExecutionContext
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
@@ -33,28 +34,36 @@ class GrpcCommandService(
   private[this] val validator =
     new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
+    ThreadLogger.traceThread("GprcCommandService.submitAndWait")
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWait(request))
+  }
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
+    ThreadLogger.traceThread("GprcCommandService.submitAndWaitForTransactionId")
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransactionId(request))
+  }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+    ThreadLogger.traceThread("GprcCommandService.submitAndWaitForTransaction")
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransaction(request))
+  }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+    ThreadLogger.traceThread("GprcCommandService.submitAndWaitForTransactionTree")
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransactionTree(request))
+  }
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, DirectExecutionContext)

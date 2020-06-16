@@ -17,7 +17,7 @@ import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
@@ -32,14 +32,15 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
     logCtx: LoggingContext)
     extends CommandCompletionService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
-
   private val subscriptionIdCounter = new AtomicLong()
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] =
     withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
       implicit logCtx =>
+        ThreadLogger.traceThread("ApiCommandCompletionService.completionSource")
         val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
         logger.debug(s"Received request for completion subscription $subscriptionId: $request")
 

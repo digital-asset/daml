@@ -13,7 +13,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service._
 import com.daml.ledger.api.validation.TransactionFilterValidator
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -34,6 +34,7 @@ final class ApiActiveContractsService private (
 
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] = {
+    ThreadLogger.traceThread("ApiActiveContractsService.getActiveContractsSource")
     logger.trace("Serving an Active Contracts request...")
 
     TransactionFilterValidator

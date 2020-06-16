@@ -29,7 +29,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
@@ -116,6 +116,7 @@ final class ApiSubmissionService private (
       seed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration)(implicit logCtx: LoggingContext): Future[Unit] = {
+    ThreadLogger.traceThread("ApiSubmissionService.deduplicateAndRecordOnLedger")
     val submittedAt = commands.submittedAt
     val deduplicateUntil = commands.deduplicateUntil
 
@@ -140,7 +141,8 @@ final class ApiSubmissionService private (
       }
   }
 
-  override def submit(request: SubmitRequest): Future[Unit] =
+  override def submit(request: SubmitRequest): Future[Unit] = {
+    ThreadLogger.traceThread("ApiSubmissionService.submit")
     withEnrichedLoggingContext(
       logging.commandId(request.commands.commandId),
       logging.party(request.commands.submitter)) { implicit logCtx =>
@@ -155,6 +157,7 @@ final class ApiSubmissionService private (
           deduplicateAndRecordOnLedger(seedService.nextSeed(), commands, ledgerConfig)
             .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext))
     }
+  }
 
   private def mapSubmissionResult(result: Try[SubmissionResult])(
       implicit logCtx: LoggingContext): Try[Unit] = result match {
@@ -183,7 +186,8 @@ final class ApiSubmissionService private (
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration,
-  )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
+  )(implicit logCtx: LoggingContext): Future[SubmissionResult] = {
+    ThreadLogger.traceThread("ApiSubmissionService.recordOnLedger")
     for {
       res <- commandExecutor.execute(commands, submissionSeed)
       transactionInfo <- res.fold(error => {
@@ -193,10 +197,12 @@ final class ApiSubmissionService private (
       partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
       submissionResult <- submitTransaction(transactionInfo, partyAllocationResults, ledgerConfig)
     } yield submissionResult
+  }
 
   private def allocateMissingInformees(
       transaction: Tx.SubmittedTransaction,
-  ): Future[Seq[SubmissionResult]] =
+  ): Future[Seq[SubmissionResult]] = {
+    ThreadLogger.traceThread("ApiSubmissionService.allocateMissingInformees")
     if (configuration.implicitPartyAllocation) {
       val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode).toSet
       partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
@@ -220,12 +226,14 @@ final class ApiSubmissionService private (
     } else {
       Future.successful(Seq.empty)
     }
+  }
 
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,
       partyAllocationResults: Seq[SubmissionResult],
       ledgerConfig: Configuration,
-  ): Future[SubmissionResult] =
+  ): Future[SubmissionResult] = {
+    ThreadLogger.traceThread("ApiSubmissionService.submitTransaction")
     partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
       case Some(result) =>
         Future.successful(result)
@@ -250,10 +258,12 @@ final class ApiSubmissionService private (
             submitTransaction(transactionInfo)
         }
     }
+  }
 
   private def submitTransaction(
       result: CommandExecutionResult,
   ): Future[SubmissionResult] = {
+    ThreadLogger.traceThread("ApiSubmissionService.submitTransaction (2)")
     metrics.daml.commands.validSubmissions.mark()
     writeService
       .submitTransaction(result.submitterInfo, result.transactionMeta, result.transaction)

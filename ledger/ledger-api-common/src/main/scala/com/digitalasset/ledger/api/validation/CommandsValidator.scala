@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
@@ -35,7 +36,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration]): Either[StatusRuntimeException, domain.Commands] =
+      maxDeduplicationTime: Option[Duration]): Either[StatusRuntimeException, domain.Commands] = {
+    ThreadLogger.traceThread("CommandsValidator.validateCommands")
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
@@ -74,6 +76,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           commandsReference = workflowId.fold("")(_.unwrap)
         ),
       )
+  }
 
   private def validateLedgerTime(
       currentTime: Instant,

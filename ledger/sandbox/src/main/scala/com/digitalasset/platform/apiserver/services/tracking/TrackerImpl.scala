@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
@@ -32,6 +33,7 @@ final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput]) 
 
   override def track(request: SubmitAndWaitRequest)(
       implicit ec: ExecutionContext): Future[Completion] = {
+    ThreadLogger.traceThread("Tracker.track")
     logger.trace(
       s"tracking command for party: ${request.getCommands.party}, commandId: ${request.getCommands.commandId}")
     val promise = Promise[Completion]
@@ -77,7 +79,9 @@ object TrackerImpl {
   )(implicit materializer: Materializer): TrackerImpl = {
     val ((queue, mat), foreachMat) = Source
       .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew)
+      .map(ThreadLogger.traceStreamElement("TrackerImpl.apply (stream before tracker)"))
       .viaMat(tracker)(Keep.both)
+      .map(ThreadLogger.traceStreamElement("TrackerImpl.apply (stream after tracker)"))
       .toMat(Sink.foreach {
         case Ctx(promise, result) =>
           result match {

@@ -23,7 +23,7 @@ import com.daml.lf.engine.{
   Error => DamlLfError
 }
 import com.daml.lf.language.Ast.Package
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
@@ -39,13 +39,16 @@ final class StoreBackedCommandExecutor(
     metrics: Metrics,
 ) extends CommandExecutor {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   override def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] =
+  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    ThreadLogger.traceThread("StoreBackedCommandExecutor.execute")
     consume(commands.submitter, engine.submit(commands.commands, participant, submissionSeed))
       .map { submission =>
         (for {
@@ -74,6 +77,7 @@ final class StoreBackedCommandExecutor(
             dependsOnLedgerTime = meta.dependsOnTime,
           )).left.map(ErrorCause.DamlLf)
       }
+  }
 
   // Concurrent map of promises to request each package only once.
   private val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
@@ -82,6 +86,7 @@ final class StoreBackedCommandExecutor(
   private def consume[A](submitter: Ref.Party, result: Result[A])(
       implicit ec: ExecutionContext
   ): Future[Either[DamlLfError, A]] = {
+    ThreadLogger.traceThread("StoreBackedCommandExecutor.consume")
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)

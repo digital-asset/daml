@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.logging.ThreadLogger
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.DbType
 
@@ -137,6 +138,7 @@ private[dao] final class TransactionsWriter(
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
   ): TransactionsWriter.PreparedInsert = {
+    ThreadLogger.traceThread("TransactionWriter.prepare")
 
     val blinding = Blinding.blind(transaction)
 

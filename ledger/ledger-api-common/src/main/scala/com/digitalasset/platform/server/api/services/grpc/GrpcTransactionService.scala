@@ -16,6 +16,7 @@ import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
 import com.daml.ledger.api.v1.transaction_service._
 import com.daml.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.daml.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
+import com.daml.logging.ThreadLogger
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
@@ -44,6 +45,7 @@ class GrpcTransactionService(
 
   override protected def getTransactionsSource(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
+    ThreadLogger.traceThread("GrpcTransactionService.getTransactionsSource")
     logger.debug("Received new transaction request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validate(request, ledgerEnd, service.offsetOrdering)
@@ -62,6 +64,7 @@ class GrpcTransactionService(
 
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest): Source[GetTransactionTreesResponse, NotUsed] = {
+    ThreadLogger.traceThread("GrpcTransactionService.getTransactionTreesSource")
     logger.debug("Received new transaction tree request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validateTree(request, ledgerEnd, service.offsetOrdering)

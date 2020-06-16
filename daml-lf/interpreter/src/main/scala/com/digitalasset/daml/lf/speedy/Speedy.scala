@@ -14,6 +14,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.{Value => V}
+import com.daml.logging.ThreadLogger
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -276,6 +277,7 @@ object Speedy {
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
+      ThreadLogger.traceThread("Speedy.run")
       // Note: We have an outer and inner while loop.
       // An exception handler is wrapped around the inner-loop, but inside the outer-loop.
       // Most iterations are performed by the inner-loop, thus avoiding the work of to

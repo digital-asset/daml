@@ -16,6 +16,8 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.{Path, Paths}
 
+import com.daml.logging.{ContextualizedLogger, ThreadLogger}
+
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -51,6 +53,8 @@ final class Engine {
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
 
+  protected val logger = ContextualizedLogger.get(this.getClass)
+
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
     * <ul>
@@ -83,6 +87,7 @@ final class Engine {
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+    ThreadLogger.traceThread("Engine.submit")
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
@@ -133,7 +138,8 @@ final class Engine {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+    ThreadLogger.traceThread("Engine.reinterpret")
     for {
       commandWithCids <- preprocessor.translateNode(node)
       (command, globalCids) = commandWithCids
@@ -149,6 +155,7 @@ final class Engine {
       )
       (tx, meta) = result
     } yield (tx, meta)
+  }
 
   /**
     * Check if the given transaction is a valid result of some single-submitter command.
@@ -288,6 +295,7 @@ final class Engine {
       machine: Machine,
       time: Time.Timestamp
   ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+    ThreadLogger.traceThread("Engine.interpretLoop")
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {

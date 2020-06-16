@@ -15,6 +15,7 @@ import com.daml.ledger.api.messages.command.completion.{
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 
 import scala.concurrent.Future
@@ -44,6 +45,7 @@ class GrpcCommandCompletionService(
 
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] = {
+    ThreadLogger.traceThread("GrpcCommandCompletionService.completionStreamSource")
     validator
       .validateCompletionStreamRequest(request)
       .fold(
@@ -52,7 +54,8 @@ class GrpcCommandCompletionService(
       )
   }
 
-  override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
+  override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] = {
+    ThreadLogger.traceThread("GrpcCommandCompletionService.completionEnd")
     validator
       .validateCompletionEndRequest(request)
       .fold(
@@ -64,5 +67,6 @@ class GrpcCommandCompletionService(
               CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))(
               DirectExecutionContext)
       )
+  }
 
 }

@@ -12,6 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
+import com.daml.logging.ThreadLogger
 import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
 import com.daml.platform.store.Conversions._
 import io.grpc.Status.Code
@@ -46,16 +47,20 @@ object CommandCompletionsTable {
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): SimpleSql[Row] =
+      parties: Set[Ref.Party]): SimpleSql[Row] = {
+    ThreadLogger.traceThread("CommandCompletionsTable.prepareGet")
     SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and submitting_party in ($parties) order by completion_offset asc"
+  }
 
   def prepareCompletionInsert(
       submitterInfo: SubmitterInfo,
       offset: Offset,
       transactionId: TransactionId,
       recordTime: Instant,
-  ): SimpleSql[Row] =
+  ): SimpleSql[Row] = {
+    ThreadLogger.traceThread("CommandCompletionsTable.prepareCompletionInsert")
     SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $transactionId)"
+  }
 
   def prepareRejectionInsert(
       submitterInfo: SubmitterInfo,
@@ -63,6 +68,7 @@ object CommandCompletionsTable {
       recordTime: Instant,
       reason: RejectionReason,
   ): SimpleSql[Row] = {
+    ThreadLogger.traceThread("CommandCompletionsTable.prepareRejectionInsert")
     val (code, message) = toStatus(reason)
     SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $code, $message)"
   }

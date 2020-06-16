@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.ErrorCause
 
@@ -35,8 +35,10 @@ final class LedgerTimeAwareCommandExecutor(
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] =
+  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    ThreadLogger.traceThread("LedgerTimeAwareCommandExecutor.execute")
     loop(commands, submissionSeed, maxRetries)
+  }
 
   private[this] def loop(
       commands: Commands,

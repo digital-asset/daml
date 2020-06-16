@@ -9,6 +9,7 @@ import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeL
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
+import com.daml.logging.ThreadLogger
 
 import scala.annotation.tailrec
 
@@ -75,19 +76,23 @@ object Blinding {
   def checkAuthorizationAndBlind(
       tx: Transaction.Transaction,
       initialAuthorizers: Set[Party],
-  ): Either[AuthorizationError, BlindingInfo] =
+  ): Either[AuthorizationError, BlindingInfo] = {
+    ThreadLogger.traceThread("Blinding.checkAuthorizationAndBlind")
     maybeAuthorizeAndBlind(tx, Authorize(initialAuthorizers))
+  }
 
   /**
     * Like checkAuthorizationAndBlind, but does not authorize the transaction, just blinds it.
     */
-  def blind(tx: Transaction.Transaction): BlindingInfo =
+  def blind(tx: Transaction.Transaction): BlindingInfo = {
+    ThreadLogger.traceThread("Blinding.blind")
     maybeAuthorizeAndBlind(tx, DontAuthorize) match {
       case Left(err) =>
         throw new RuntimeException(
           s"Impossible: got authorization exception even if we're not authorizing: $err")
       case Right(x) => x
     }
+  }
 
   /** Returns the part of the transaction which has to be divulged to the given party.
     *
@@ -107,6 +112,7 @@ object Blinding {
       divulgences: Relation[Nid, Party],
       party: Party,
       tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {
+    ThreadLogger.traceThread("Blinding.divulgedTransaction")
     val partyDivulgences = Relation.invert(divulgences)(party)
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants

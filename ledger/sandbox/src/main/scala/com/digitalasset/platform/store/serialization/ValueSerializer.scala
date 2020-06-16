@@ -8,16 +8,19 @@ import java.io.InputStream
 import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.daml.logging.ThreadLogger
 
 object ValueSerializer {
 
   def serializeValue(
       value: VersionedValue[ContractId],
       errorContext: => String,
-  ): Array[Byte] =
+  ): Array[Byte] = {
+    ThreadLogger.traceThread("ValueSerializer.serializeValue")
     ValueCoder
       .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
+  }
 
   private def deserializeValueHelper(
       stream: InputStream,
@@ -36,13 +39,17 @@ object ValueSerializer {
 
   def deserializeValue(
       stream: InputStream,
-  ): VersionedValue[ContractId] =
+  ): VersionedValue[ContractId] = {
+    ThreadLogger.traceThread("ValueSerializer.deserializeValue")
     deserializeValueHelper(stream, None)
+  }
 
   def deserializeValue(
       stream: InputStream,
       errorContext: => String,
-  ): VersionedValue[ContractId] =
+  ): VersionedValue[ContractId] = {
+    ThreadLogger.traceThread("ValueSerializer.deserializeValue (2)")
     deserializeValueHelper(stream, Some(errorContext))
+  }
 
 }

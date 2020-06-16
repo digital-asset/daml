@@ -8,7 +8,7 @@ import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.Timer
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner
@@ -40,6 +40,7 @@ final class DbDispatcher private (
   def executeSql[T](databaseMetrics: DatabaseMetrics, extraLog: => Option[String] = None)(
       sql: Connection => T
   ): Future[T] = {
+    ThreadLogger.traceThread("DbDispatcher.executeSql")
     lazy val extraLogMemoized = extraLog
     val startWait = System.nanoTime()
     Future {

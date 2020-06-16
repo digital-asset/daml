@@ -39,6 +39,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.ReadOnlyLedger
@@ -61,9 +62,13 @@ abstract class LedgerBackedIndexService(
       filter: TransactionFilter,
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.getActiveContracts")
     val (acs, ledgerEnd) = ledger
       .activeContracts(convertFilter(filter), verbose)
-    acs.concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
+    acs
+      .concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
+      .map(ThreadLogger.traceStreamElement(
+        "LedgerBackedIndexService.getActiveContracts (stream element)"))
   }
 
   override def transactionTrees(
@@ -71,7 +76,8 @@ abstract class LedgerBackedIndexService(
       endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  ): Source[GetTransactionTreesResponse, NotUsed] =
+  ): Source[GetTransactionTreesResponse, NotUsed] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.transactionTrees")
     between(startExclusive, endInclusive)(
       (from, to) =>
         ledger
@@ -82,14 +88,18 @@ abstract class LedgerBackedIndexService(
             verbose = verbose,
           )
           .map(_._2)
+          .map(ThreadLogger.traceStreamElement(
+            "LedgerBackedIndexService.transactionTrees (stream element)"))
     )
+  }
 
   override def transactions(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  ): Source[GetTransactionsResponse, NotUsed] =
+  ): Source[GetTransactionsResponse, NotUsed] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.transactions")
     between(startExclusive, endInclusive)(
       (from, to) =>
         ledger
@@ -100,7 +110,10 @@ abstract class LedgerBackedIndexService(
             verbose = verbose,
           )
           .map(_._2)
+          .map(ThreadLogger.traceStreamElement(
+            "LedgerBackedIndexService.transactions (stream element)"))
     )
+  }
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
@@ -143,20 +156,26 @@ abstract class LedgerBackedIndexService(
         party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
     }
 
-  override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
+  override def currentLedgerEnd(): Future[LedgerOffset.Absolute] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.currentLedgerEnd")
     Future.successful(toAbsolute(ledger.ledgerEnd))
+  }
 
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
-  ): Future[Option[GetFlatTransactionResponse]] =
+  ): Future[Option[GetFlatTransactionResponse]] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.lookupFlatTransactionById")
     ledger.lookupFlatTransactionById(transactionId.unwrap, requestingParties)
+  }
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
-  ): Future[Option[GetTransactionResponse]] =
+  ): Future[Option[GetTransactionResponse]] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.lookupTransactionTreeById")
     ledger.lookupTransactionTreeById(transactionId.unwrap, requestingParties)
+  }
 
   def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
@@ -165,10 +184,15 @@ abstract class LedgerBackedIndexService(
       startExclusive: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
-  ): Source[CompletionStreamResponse, NotUsed] =
-    convertOffset(startExclusive).flatMapConcat { beginOpt =>
-      ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
-    }
+  ): Source[CompletionStreamResponse, NotUsed] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.getCompletions")
+    convertOffset(startExclusive)
+      .flatMapConcat { beginOpt =>
+        ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
+      }
+      .map(
+        ThreadLogger.traceStreamElement("LedgerBackedIndexService.getCompletions (stream element)"))
+  }
 
   // IndexPackagesService
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
@@ -183,17 +207,23 @@ abstract class LedgerBackedIndexService(
   override def lookupActiveContract(
       submitter: Ref.Party,
       contractId: ContractId,
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.lookupActiveContract")
     ledger.lookupContract(contractId, submitter)
+  }
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.lookupMaximumLedgerTime")
     ledger.lookupMaximumLedgerTime(ids)
+  }
 
   override def lookupContractKey(
       submitter: Party,
       key: GlobalKey,
-  ): Future[Option[ContractId]] =
+  ): Future[Option[ContractId]] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.lookupContractKey")
     ledger.lookupKey(key, submitter)
+  }
 
   // PartyManagementService
   override def getParticipantId(): Future[ParticipantId] =
@@ -228,14 +258,17 @@ abstract class LedgerBackedIndexService(
     * to subscribe to further configuration changes.
     * The offset is internal and not exposed over Ledger API.
     */
-  override def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+  override def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.lookupConfiguration")
     ledger
       .lookupLedgerConfiguration()
       .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
+  }
 
   /** Retrieve configuration entries. */
   override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
-    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
+    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.configurationEntries")
     Source
       .future(
         startExclusive
@@ -244,18 +277,25 @@ abstract class LedgerBackedIndexService(
       .flatMapConcat(ledger.configurationEntries(_).map {
         case (offset, config) => toAbsolute(offset) -> config.toDomain
       })
+      .map(ThreadLogger.traceStreamElement(
+        "LedgerBackedIndexService.configurationEntries (stream element)"))
+  }
 
   /** Deduplicate commands */
   override def deduplicateCommand(
       commandId: CommandId,
       submitter: Ref.Party,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.deduplicateCommand")
     ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
+  }
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
       submitter: Ref.Party,
-  ): Future[Unit] =
+  ): Future[Unit] = {
+    ThreadLogger.traceThread("LedgerBackedIndexService.stopDeduplicatingCommand")
     ledger.stopDeduplicatingCommand(commandId, submitter)
+  }
 }
