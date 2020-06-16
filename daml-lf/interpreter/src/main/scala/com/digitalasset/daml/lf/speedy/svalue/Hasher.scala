@@ -40,6 +40,8 @@ private[speedy] object Hasher {
             v match {
               case _: SPAP =>
                 throw NonHashableSValue("function are not hashable")
+              case SLazy(_) =>
+                throw NonHashableSValue("lazy values are not hashable")
               case SToken =>
                 throw NonHashableSValue("Token are not hashable")
               case STNat(_) =>

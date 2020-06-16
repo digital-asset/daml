@@ -174,7 +174,7 @@ pattern TArrow      = TBuiltin BTArrow
 pattern TAny        = TBuiltin BTAny
 pattern TTypeRep    = TBuiltin BTTypeRep
 
-pattern TList, TOptional, TTextMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
+pattern TList, TOptional, TTextMap, TUpdate, TScenario, TContractId, TNumeric, TLazy :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
 pattern TOptional typ = TApp (TBuiltin BTOptional) typ
 pattern TTextMap typ = TApp (TBuiltin BTTextMap) typ
@@ -182,6 +182,7 @@ pattern TUpdate typ = TApp (TBuiltin BTUpdate) typ
 pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
 pattern TNumeric n = TApp (TBuiltin BTNumeric) n
+pattern TLazy typ = TApp (TBuiltin BTLazy) typ
 
 pattern TGenMap :: Type -> Type -> Type
 pattern TGenMap t1 t2 = TApp (TApp (TBuiltin BTGenMap) t1) t2

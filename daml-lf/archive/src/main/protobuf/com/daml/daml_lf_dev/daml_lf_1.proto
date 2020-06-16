@@ -44,6 +44,7 @@
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
+//        2020-06-15: Add laziness primitives.
 
 syntax = "proto3";
 package daml_lf_1;
@@ -302,9 +303,13 @@ enum PrimType {
   // *Available in versions >= 1.7*
   TYPE_REP = 19;
 
-  // Builtin type 'TGenMap`
+  // Builtin type 'GenMap`
   // *Available in versions >= 1.dev*
   GENMAP = 20;
+
+  // Builtin type 'Lazy'.
+  // *Available in versions >= 1.dev*
+  LAZY = 21;
 }
 
 // Types
@@ -847,6 +852,24 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Turn the given expression into a lazily evaluated thunk.
+  // *Available in versions >= 1.dev*
+  message Lazy {
+    // Type of the expression.
+    Type type = 1;
+    // Expression to turn into a thunk.
+    Expr expr = 2;
+  }
+
+  // Force a lazily evaluated thunk.
+  // *Available in versions >= 1.dev*
+  message Force {
+    // Type of the forced value.
+    Type type = 1;
+    // Thunk to force.
+    Expr expr = 2;
+  }
+
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -944,6 +967,14 @@ message Expr {
     // A type representation
     // *Available in versions >= 1.7*
     Type type_rep = 32;
+
+    // Turn the given expression into a lazily evaluated thunk ('ELazy').
+    // *Available in versions >= 1.dev*
+    Lazy lazy = 33;
+
+    // Force a lazily evaluated thunk ('EForce').
+    // *Available in versions >= 1.dev*
+    Force force = 34;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

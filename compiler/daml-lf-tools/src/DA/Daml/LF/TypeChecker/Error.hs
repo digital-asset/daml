@@ -69,6 +69,7 @@ data UnserializabilityReason
   | URAny -- ^ It contains a value of type Any.
   | URTypeRep -- ^ It contains a value of type TypeRep.
   | URTypeSyn  -- ^ It contains a type synonym.
+  | URLazy -- ^ It contains a value of type Lazy.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -184,6 +185,7 @@ instance Pretty UnserializabilityReason where
     URAny -> "Any"
     URTypeRep -> "TypeRep"
     URTypeSyn -> "type synonym"
+    URLazy -> "Lazy"
 
 instance Pretty Error where
   pPrint = \case

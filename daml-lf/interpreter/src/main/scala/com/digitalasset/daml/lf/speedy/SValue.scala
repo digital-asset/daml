@@ -72,6 +72,8 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected STNat")
       case _: SPAP =>
         throw SErrorCrash("SValue.toValue: unexpected SPAP")
+      case SLazy(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected SLazy")
       case SToken =>
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
@@ -88,6 +90,14 @@ sealed trait SValue {
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
         SPAP(prim2, args2, arity)
+      case SLazy(cell) =>
+        val cell2: LazyCell = cell match {
+          case LThunk(label, expr, frame) =>
+            LThunk(label, expr, frame.map(_.mapContractId(f)))
+          case LEvaluating => LEvaluating
+          case LValue(v) => LValue(v.mapContractId(f))
+        }
+        SLazy(cell2)
       case SRecord(tycon, fields, values) =>
         SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
       case SStruct(fields, values) =>
@@ -188,6 +198,15 @@ object SValue {
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
+
+  sealed trait LazyCell
+  final case class LThunk(label: AnyRef, expr: SExpr, frame: Array[SValue])
+      extends LazyCell
+      with SomeArrayEquals
+  final case object LEvaluating extends LazyCell
+  final case class LValue(value: SValue) extends LazyCell
+
+  final case class SLazy(var cell: LazyCell) extends SValue
 
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the

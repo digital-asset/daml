@@ -287,6 +287,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
     BTTypeRep -> P.PrimTypeTYPE_REP
+    BTLazy -> P.PrimTypeLAZY
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
@@ -619,6 +620,14 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
+    ELazy ty ex -> do
+      expr_LazyType <- encodeType ty
+      expr_LazyExpr <- encodeExpr ex
+      pureExpr $ P.ExprSumLazy P.Expr_Lazy{..}
+    EForce ty ex -> do
+      expr_ForceType <- encodeType ty
+      expr_ForceExpr <- encodeExpr ex
+      pureExpr $ P.ExprSumForce P.Expr_Force{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr

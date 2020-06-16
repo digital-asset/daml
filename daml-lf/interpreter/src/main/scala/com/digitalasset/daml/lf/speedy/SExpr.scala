@@ -214,6 +214,28 @@ object SExpr {
     }
   }
 
+  /** Constructor for a lazy cell _before_ closure conversion. */
+  final case class SELazy(body: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit =
+      crash("unexpected SELazy, expected SELazyClo")
+  }
+
+  /** Constructor for a lazy cell _after_ closure conversion. */
+  final case class SELazyClo(fvs: Array[SELoc], body: SExpr)
+      extends SExpr
+      with SomeArrayEquals {
+    def execute(machine: Machine): Unit = {
+      // TODO(MH): Add a `makeFrame` method to `Machine`.
+      val frame = Array.ofDim[SValue](fvs.length)
+      var i = 0
+      while (i < fvs.length) {
+        frame(i) = fvs(i).lookup(machine)
+        i += 1
+      }
+      machine.returnValue = SLazy(LThunk(null, body, frame))
+    }
+  }
+
   /** SELoc -- Reference to the runtime location of a variable.
 
     This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:

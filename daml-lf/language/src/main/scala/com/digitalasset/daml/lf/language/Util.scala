@@ -69,6 +69,7 @@ object Util {
   val TUpdate = new ParametricType1(BTUpdate)
   val TScenario = new ParametricType1(BTScenario)
   val TContractId = new ParametricType1(BTContractId)
+  val TLazy = new ParametricType1(BTLazy)
 
   val TParties = TList(TParty)
   val TDecimalScale = TNat(Decimal.scale)

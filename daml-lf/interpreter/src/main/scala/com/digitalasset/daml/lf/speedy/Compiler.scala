@@ -650,6 +650,12 @@ private[lf] final case class Compiler(
 
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
+
+      case ELazy(ty @ _, e @ _) =>
+        SELazy(translate(e))
+
+      case EForce(ty @ _, e) =>
+        SEApp(SEBuiltin(SBForce), Array(translate(e)))
     }
 
   @tailrec
@@ -1039,11 +1045,22 @@ private[lf] final case class Compiler(
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
         SEMakeClo(fvs.map(remap).toArray, arity, newBody)
 
+      case SELazy(body) =>
+        val fvs = freeVars(body, 0).toList.sorted
+        val newRemapsF: Map[Int, SELoc] = fvs.zipWithIndex.map {
+          case (orig, i) => orig -> SELocF(i)
+        }.toMap
+        val newBody = closureConvert(newRemapsF, body)
+        SELazyClo(fvs.map(remap).toArray, newBody)
+
       case x: SELoc =>
         throw CompilationError(s"closureConvert: unexpected SELoc: $x")
 
       case x: SEMakeClo =>
         throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
+
+      case x: SELazyClo =>
+        throw CompilationError(s"closureConvert: unexpected SELazyClo: $x")
 
       case SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
@@ -1149,10 +1166,14 @@ private[lf] final case class Compiler(
           bound += n
           go(body)
           bound -= n
+        case SELazy(body) =>
+          go(body)
         case x: SELoc =>
           throw CompilationError(s"freeVars: unexpected SELoc: $x")
         case x: SEMakeClo =>
           throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
+        case x: SELazyClo =>
+          throw CompilationError(s"freeVars: unexpected SELazyClo: $x")
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1203,7 +1224,7 @@ private[lf] final case class Compiler(
         case SVariant(_, _, _, value) => goV(value)
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
-        case _: SPAP | SToken | SStruct(_, _) =>
+        case _: SPAP | SLazy(_) | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }
     }
@@ -1240,9 +1261,14 @@ private[lf] final case class Compiler(
           throw CompilationError(s"validate: SEVar encountered: $x")
         case abs: SEAbs =>
           throw CompilationError(s"validate: SEAbs encountered: $abs")
+        case abs: SELazy =>
+          throw CompilationError(s"validate: SELazy encountered: $abs")
         case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
+        case SELazyClo(fvs, body) =>
+          fvs.foreach(goLoc)
+          goBody(0, 0, fvs.length)(body)
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
