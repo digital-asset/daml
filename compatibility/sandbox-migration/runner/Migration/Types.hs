@@ -48,6 +48,7 @@ data Tuple2 a b = Tuple2
 
 instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
 
+-- | Since this is only for testing, we omit the package id for convenience.
 data TemplateId = TemplateId
   { moduleName :: !String
   , entityName :: !String
