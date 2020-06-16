@@ -30,6 +30,7 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
+import System.Environment
 import System.FilePath hiding ((<.>))
 import System.Process
 import System.Exit
@@ -119,8 +120,8 @@ mergePackageMap ps = foldM merge Map.empty ps
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
-main = do
-    opts@Options{..} <- execParser optionsParserInfo
+main = withProgName "daml codegen js" $ do
+    opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
     sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
     sdkVersion <- case sdkVersionOrErr of
           Left _ -> fail "Invalid SDK version"
