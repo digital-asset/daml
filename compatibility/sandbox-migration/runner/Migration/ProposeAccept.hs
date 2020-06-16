@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Migration.ProposeAccept (test) where
 
 import Control.Monad
@@ -15,7 +16,7 @@ import System.Process
 
 import Migration.Types
 
-test :: FilePath -> FilePath -> Test ([Tuple2 (ContractId Deal) Deal], [Transaction]) Result
+test :: FilePath -> FilePath -> Test ([Tuple2 ContractId Deal], [Transaction]) Result
 test step modelDar = Test {..}
   where
     initialState = ([], [])
@@ -104,46 +105,26 @@ data ProposeDeal = ProposeDeal
 
 instance A.FromJSON ProposeDeal
 
-data Event
-  = CreatedDeal (ContractId Deal) Deal
-  | ArchivedDeal (ContractId Deal)
-  | CreatedProposeDeal (ContractId ProposeDeal) ProposeDeal
-  | ArchivedProposeDeal (ContractId ProposeDeal)
-  deriving (Eq, Show)
-
-instance A.FromJSON Event where
-    parseJSON = A.withObject "Event" $ \o -> do
-        ty <- o A..: "type"
-        moduleName <- o A..: "moduleName"
-        entityName <- o A..: "entityName"
-        case moduleName of
-            "ProposeAccept" -> case ty of
-                "created" -> case entityName of
-                    "Deal" -> CreatedDeal <$> o A..: "contractId" <*> o A..: "argument"
-                    "ProposeDeal" -> CreatedProposeDeal <$> o A..: "contractId" <*> o A..: "argument"
-                    _ -> fail ("Invalid entity: " <> entityName)
-                "archived" -> case entityName of
-                    "Deal" -> ArchivedDeal <$> o A..: "contractId"
-                    "ProposeDeal" -> ArchivedProposeDeal <$> o A..: "contractId"
-                    _ -> fail ("Invalid entity: " <> entityName)
-                _ -> fail ("Invalid event type: " <> ty)
-            _ -> fail ("Invalid module: " <> moduleName)
-
-data Transaction = Transaction
-  { transactionId :: T.Text
-  , events :: [Event]
-  } deriving (Generic, Eq, Show)
-
-instance A.FromJSON Transaction
-
 data Result = Result
-  { oldProposeDeals :: [Tuple2 (ContractId ProposeDeal) ProposeDeal]
-  , newProposeDeals :: [Tuple2 (ContractId ProposeDeal) ProposeDeal]
-  , oldDeals :: [Tuple2 (ContractId Deal) Deal]
-  , newDeals :: [Tuple2 (ContractId Deal) Deal]
+  { oldProposeDeals :: [Tuple2 ContractId ProposeDeal]
+  , newProposeDeals :: [Tuple2 ContractId ProposeDeal]
+  , oldDeals :: [Tuple2 ContractId Deal]
+  , newDeals :: [Tuple2 ContractId Deal]
   , oldTransactions :: [Transaction]
   , newTransactions :: [Transaction]
   } deriving Generic
 
 instance A.FromJSON Result
 
+
+pattern CreatedProposeDeal :: ContractId -> ProposeDeal -> Event
+pattern CreatedProposeDeal cid asset <- Created cid (TemplateId "ProposeAccept" "ProposeDeal") (A.fromJSON -> A.Success asset)
+
+pattern ArchivedProposeDeal :: ContractId -> Event
+pattern ArchivedProposeDeal cid = Archived cid (TemplateId "ProposeAccept" "ProposeDeal")
+
+pattern CreatedDeal :: ContractId -> ProposeDeal -> Event
+pattern CreatedDeal cid asset <- Created cid (TemplateId "ProposeAccept" "Deal") (A.fromJSON -> A.Success asset)
+
+pattern ArchivedDeal :: ContractId -> Event
+pattern ArchivedDeal cid <- Archived cid (TemplateId "ProposeAccept" "Deal")
