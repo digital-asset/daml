@@ -187,13 +187,12 @@ object Profile {
       override def apply(t: AnyRef) = t
     }
 
-    import scala.language.implicitConversions, annotation.implicitNotFound
+    import scala.language.implicitConversions
 
     // assumes -Xsource:2.13 in clients, which we should just do always,
     // this is in scope wherever the expected type is `Label`
     implicit def fromAllowed[T: Allowed](t: T with AnyRef): Label = Module(t)
 
-    @implicitNotFound(msg = "Values of type ${T} are not known, renderable Labels")
     final class Allowed[-T] private ()
     object Allowed {
       import com.daml.lf.speedy.SExpr._
