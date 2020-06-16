@@ -266,13 +266,13 @@ private[lf] final case class Compiler(
         bf match {
           case BFoldl =>
             val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BFoldr =>
             val ref = SEBuiltinRecursiveDefinition.FoldR
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BEqualList =>
             val ref = SEBuiltinRecursiveDefinition.EqualList
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BCoerceContractId => SEAbs.identity
           // Numeric Comparisons
           case BLessNumeric => SBLessNumeric
