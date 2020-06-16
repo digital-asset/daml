@@ -395,6 +395,7 @@ class Metrics(val registry: MetricRegistry) {
         val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
           "lookup_transaction_tree_by_id")
         val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
+        val getRowIdRange: DatabaseMetrics = createDbMetrics("get_row_id_range")
 
         object translation {
           private val Prefix: MetricName = db.Prefix :+ "translation"

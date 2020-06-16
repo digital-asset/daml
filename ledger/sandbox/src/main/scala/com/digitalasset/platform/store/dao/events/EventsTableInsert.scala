@@ -27,6 +27,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     "ledger_effective_time" -> "{ledger_effective_time}",
     "template_id" -> "{template_id}",
     "node_index" -> "{node_index}",
+    "row_id" -> "{row_id}",
     "command_id" -> "{command_id}",
     "application_id" -> "{application_id}",
     "submitter" -> "{submitter}",
