@@ -911,7 +911,7 @@ object Speedy {
     * used during profiling. Its purpose is to attach a label to closures such
     * that entering the closure can write an "open event" with that label.
     */
-  final case class KLabelClosure(label: AnyRef) extends Kont {
+  final case class KLabelClosure(label: Profile.Label) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       v match {
         case SPAP(PClosure(_, expr, closure), args, arity) =>
@@ -925,7 +925,7 @@ object Speedy {
   /** Continuation marking the exit of a closure. This is only used during
     * profiling.
     */
-  final case class KLeaveClosure(label: AnyRef) extends Kont {
+  final case class KLeaveClosure(label: Profile.Label) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v

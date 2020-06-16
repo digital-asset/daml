@@ -122,10 +122,8 @@ object SValue {
     * During profiling, whenever a closure whose [[label]] has been set is
     * entered, we write an "open event" with the label and when the closure is
     * left, we write a "close event" with the same label.
-    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
-    * [[AnyRef]] for the label.
     */
-  final case class PClosure(label: AnyRef, expr: SExpr, frame: Array[SValue])
+  final case class PClosure(label: Profile.Label, expr: SExpr, frame: Array[SValue])
       extends Prim
       with SomeArrayEquals {
     override def toString: String = s"PClosure($expr, ${frame.mkString("[", ",", "]")})"
