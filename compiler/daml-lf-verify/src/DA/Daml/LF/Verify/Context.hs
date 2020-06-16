@@ -820,7 +820,7 @@ recTypFields _ = throwError ExpectRecord
 recExpFields :: MonadEnv m ph
   => Expr
   -- ^ The expression to lookup.
-  -> m [(FieldName, Expr)]
+  -> m (Maybe [(FieldName, Expr)])
 recExpFields (EVar x) = do
   skols <- getEnv >>= \case
     EnvVG{..} -> return _envvgskol
@@ -829,25 +829,29 @@ recExpFields (EVar x) = do
   let fss = [ fs | SkolRec y fs <- skols, x == y ]
   if not (null fss)
     -- TODO: I would prefer `this.amount` here
-    then return $ zip (head fss) (map (EVar . fieldName2VarName) $ head fss)
+    then return $ Just $ zip (head fss) (map (EVar . fieldName2VarName) $ head fss)
     else throwError $ UnboundVar x
-recExpFields (ERecCon _ fs) = return fs
-recExpFields (EStructCon fs) = return fs
+recExpFields (ERecCon _ fs) = return $ Just fs
+recExpFields (EStructCon fs) = return $ Just fs
 recExpFields (ERecUpd _ f recExp fExp) = do
-  fs <- recExpFields recExp
-  unless (isJust $ find (\(n, _) -> n == f) fs) (throwError $ UnknownRecField f)
-  return $ (f, fExp) : [(n, e) | (n, e) <- fs, n /= f]
+  recExpFields recExp >>= \case
+    Just fs -> do
+      unless (isJust $ find (\(n, _) -> n == f) fs) (throwError $ UnknownRecField f)
+      return $ Just $ (f, fExp) : [(n, e) | (n, e) <- fs, n /= f]
+    Nothing -> return Nothing
 recExpFields (ERecProj _ f e) = do
-  fields <- recExpFields e
-  case lookup f fields of
-    Just e' -> recExpFields e'
-    Nothing -> throwError $ UnknownRecField f
+  recExpFields e >>= \case
+    Just fields -> case lookup f fields of
+      Just e' -> recExpFields e'
+      Nothing -> throwError $ UnknownRecField f
+    Nothing -> return Nothing
 recExpFields (EStructProj f e) = do
-  fields <- recExpFields e
-  case lookup f fields of
-    Just e' -> recExpFields e'
-    Nothing -> throwError $ UnknownRecField f
-recExpFields _ = throwError ExpectRecord
+  recExpFields e >>= \case
+    Just fields -> case lookup f fields of
+      Just e' -> recExpFields e'
+      Nothing -> throwError $ UnknownRecField f
+    Nothing -> return Nothing
+recExpFields _ = return Nothing
 
 instance SubstTm BoolExpr where
   substituteTm s (BExpr e) = BExpr (substituteTm s e)

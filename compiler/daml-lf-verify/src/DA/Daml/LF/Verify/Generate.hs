@@ -322,10 +322,11 @@ genForRecProj updFlag tc f body = do
         then return $ updateOutExpr (ERecProj tc f (EVar x)) bodyOut
         else error ("Impossible: expected skolem record: " ++ show x ++ "." ++ show f)
     expr -> do
-      fs <- recExpFields expr
-      case lookup f fs of
-        Just expr -> genExpr updFlag expr
-        Nothing -> throwError $ UnknownRecField f
+      recExpFields expr >>= \case
+        Just fs -> case lookup f fs of
+          Just expr -> genExpr updFlag expr
+          Nothing -> throwError $ UnknownRecField f
+        Nothing -> return $ updateOutExpr (ERecProj tc f expr) bodyOut
 
 -- | Analyse a struct projection expression.
 genForStructProj :: (GenPhase ph, MonadEnv m ph)
@@ -346,10 +347,11 @@ genForStructProj updFlag f body = do
         then return $ updateOutExpr (EStructProj f (EVar x)) bodyOut
         else error ("Impossible: expected skolem record: " ++ show x ++ "." ++ show f)
     expr -> do
-      fs <- recExpFields expr
-      case lookup f fs of
-        Just expr -> genExpr updFlag expr
-        Nothing -> throwError $ UnknownRecField f
+      recExpFields expr >>= \case
+        Just fs -> case lookup f fs of
+          Just expr -> genExpr updFlag expr
+          Nothing -> throwError $ UnknownRecField f
+        Nothing -> return $ updateOutExpr (EStructProj f expr) bodyOut
 
 -- | Analyse a case expression.
 -- TODO: Atm only boolean cases are supported
@@ -391,10 +393,12 @@ genForCreate :: (GenPhase ph, MonadEnv m ph)
   -> m (Output ph, Type, Maybe Expr)
 genForCreate tem arg = do
   arout <- genExpr True arg
-  fs <- recExpFields (_oExpr arout)
-  return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
+  recExpFields (_oExpr arout) >>= \case
+    Just fs -> return (
+           Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
          , TCon tem
          , Just $ EStructCon fs )
+    Nothing -> throwError ExpectRecord
   -- TODO: We could potentially filter here to only store the interesting fields?
 
 -- | Analyse an exercise update expression.
@@ -467,20 +471,26 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -> Maybe Expr
   -- ^ The field values for any created contracts, if available.
   -> m ()
-bindCids (TContractId (TCon tc)) cid (EVar this) fsExp = do
+bindCids (TContractId (TCon tc)) cid (EVar this) fsExpM = do
   fs <- recTypConFields $ qualObject tc
   extRecEnv this (map fst fs)
   cidOut <- genExpr True cid
   extCidEnv (_oExpr cidOut) this
-  creFs <- maybe (pure []) recExpFields fsExp
-  extCtrRec this creFs
-bindCids (TCon tc) cid (EVar this) fsExp = do
+  case fsExpM of
+    Just fsExp -> recExpFields fsExp >>= \case
+      Just fields -> extCtrRec this fields
+      Nothing -> return ()
+    Nothing -> return ()
+bindCids (TCon tc) cid (EVar this) fsExpM = do
   fs <- recTypConFields $ qualObject tc
   extRecEnv this (map fst fs)
   cidOut <- genExpr True cid
   extCidEnv (_oExpr cidOut) this
-  creFs <- maybe (pure []) recExpFields fsExp
-  extCtrRec this creFs
+  case fsExpM of
+    Just fsExp -> recExpFields fsExp >>= \case
+      Just fields -> extCtrRec this fields
+      Nothing -> return ()
+    Nothing -> return ()
 bindCids (TBuiltin BTUnit) _ _ _ = return ()
 bindCids (TBuiltin BTTimestamp) _ _ _ = return ()
 -- TODO: Extend additional cases, like tuples.
