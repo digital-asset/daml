@@ -23,21 +23,15 @@ If you have downloaded and installed the DAML SDK using our `Windows installer <
 
 Mac OS
 ******
-<<<<<<< HEAD
 We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``zsh`` console.
 If you are using ``bash`` all of the instructions are quite similar, except that you will be doing all of the changes
 in the ``.bash_profile`` file.
-=======
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``bash`` console.
-If yu are using ``zsh`` all of the instructions are quite similar, except that you will be doing all of the changes
-in the ``.zprofile`` file.
->>>>>>> 4a7a9730f94430ac3985c8d9a0e1d8eb89ae877c
 
 Setting the JAVA_HOME variable
 ==============================
 Run the following command in your terminal::
 
-        export "JAVA_HOME=$(/usr/libexec/java_home)" >> ~/.zprofile
+        echo "export JAVA_HOME=$(/usr/libexec/java_home)" >> ~/.zprofile
 
 In order for the changes to take effect you will need to restart your computer. Note that if you will be setting up the
 ``PATH`` variable as well you can restart your computer after you're done with all the changes. Upon restarting check that
