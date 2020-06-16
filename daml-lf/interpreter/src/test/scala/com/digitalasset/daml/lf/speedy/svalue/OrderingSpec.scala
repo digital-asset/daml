@@ -502,13 +502,14 @@ class OrderingSpec
     new util.ArrayList[X](as.asJava)
 
   private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-  private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
-    sexpr = expr,
+  private def initMachine(expr: SExpr) = Speedy.Machine(
     compiledPackages =
       PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile),
     submissionTime = Time.Timestamp.now(),
-    seeding = InitialSeeding.TransactionSeed(txSeed),
+    initialSeeding = InitialSeeding.TransactionSeed(txSeed),
+    expr = expr,
     globalCids = Set.empty,
+    committers = Set.empty
   )
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {

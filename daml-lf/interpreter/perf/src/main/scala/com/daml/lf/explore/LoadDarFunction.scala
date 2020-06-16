@@ -38,15 +38,15 @@ object LoadDarFunction extends App {
         val arg = SEValue(SInt64(argValue))
         SEApp(func, Array(arg))
       }
-      val machine: Machine = {
-        Machine.fromSExpr(
-          expr,
-          compiledPackages,
-          Time.Timestamp.now(),
-          InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("KEY")),
-          Set.empty,
-        )
-      }
+      val machine = Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.now(),
+        initialSeeding = seeding,
+        expr = expr,
+        globalCids = Set.empty,
+        committers = Set.empty
+      )
+
       machine.run() match {
         case SResultFinalValue(SInt64(result)) => result
         case res => throw new RuntimeException(s"Unexpected result from machine $res")
@@ -55,5 +55,7 @@ object LoadDarFunction extends App {
 
     function
   }
+
+  private[this] val seeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("KEY"))
 
 }

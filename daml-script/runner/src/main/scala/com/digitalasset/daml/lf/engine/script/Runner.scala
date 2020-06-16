@@ -304,12 +304,13 @@ class Runner(
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
     val machine =
-      Speedy.Machine.fromSExpr(
-        sexpr = script.expr,
+      Speedy.Machine(
         compiledPackages = extendedCompiledPackages,
         submissionTime = Timestamp.now(),
-        seeding = InitialSeeding.NoSeed,
-        Set.empty,
+        initialSeeding = InitialSeeding.NoSeed,
+        expr = script.expr,
+        globalCids = Set.empty,
+        committers = Set.empty,
       )
 
     def stepToValue(): Either[RuntimeException, SValue] =

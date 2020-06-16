@@ -14,7 +14,7 @@ import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.SExpr.LfDefRef
+import com.daml.lf.speedy.SExpr.{LfDefRef, SEApp, SEValue}
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.LanguageVersion
@@ -172,16 +172,15 @@ object Repl {
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
       profiling: Compiler.ProfilingMode) {
-    private val build = Speedy.Machine
-      .newBuilder(
-        PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get,
-        Time.Timestamp.MinValue,
-        nextSeed())
-      .fold(err => sys.error(err.toString), identity)
+    val compiledPackages =
+      PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
+    private val seed = nextSeed()
+
     def run(expr: Expr): (
         Speedy.Machine,
         Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
-      val machine = build(expr)
+      val machine =
+        Speedy.Machine.buildForScenario(compiledPackages, seed, expr)
       (machine, ScenarioRunner(machine).run())
     }
   }
@@ -419,13 +418,15 @@ object Repl {
           case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
+            val compiledPackages = PureCompiledPackages(state.packages).right.get
             val machine =
-              Speedy.Machine.fromExpr(
-                expr = expr,
-                compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false,
+              Speedy.Machine(
+                compiledPackages = compiledPackages,
                 submissionTime = Time.Timestamp.now(),
                 initialSeeding = InitialSeeding.NoSeed,
+                expr = SEApp(compiledPackages.compiler.unsafeCompile(expr), Array(SEValue.Token)),
+                globalCids = Set.empty,
+                committers = Set.empty
               )
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {

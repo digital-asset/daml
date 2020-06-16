@@ -5,12 +5,14 @@ package com.daml.lf.speedy
 
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SExpr.{LfDefRef, SEVal, SEValue}
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue.{SInt64, SList}
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -22,13 +24,16 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
+  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).right.get
+
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = PureCompiledPackages(Map.empty).right.get,
-      scenario = false,
+    val machine = Speedy.Machine(
+      compiledPackages = noPackages,
       submissionTime = Time.Timestamp.now(),
       initialSeeding = InitialSeeding.NoSeed,
+      noPackages.compiler.unsafeCompile(e),
+      Set.empty,
+      Set.empty
     )
     machine.run() match {
       case SResultFinalValue(v) => v
@@ -127,21 +132,21 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   }
 
   "large lists" should {
-    val t_int64 = TBuiltin(BTInt64)
-    val t_int64List = TApp(TBuiltin(BTList), t_int64)
-    val list = ECons(
-      t_int64List,
-      ImmArray((1 to 100000).map(i => EPrimLit(PLInt64(i.toLong)))),
-      ENil(t_int64List),
-    )
+    val list =
+      SEValue(
+        SList(
+          FrontStack(ImmArray((1 to 100000).map(i => SInt64(i.toLong)))),
+        )
+      )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine.fromExpr(
-        expr = list,
-        compiledPackages = PureCompiledPackages(Map.empty).right.get,
-        scenario = false,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding = InitialSeeding.NoSeed,
+      machine = Speedy.Machine(
+        noPackages,
+        Time.Timestamp.now(),
+        InitialSeeding.NoSeed,
+        list,
+        Set.empty,
+        Set.empty
       )
     }
     "interpret" in {
@@ -194,7 +199,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     val dummyPkg = PackageId.assertFromString("dummy")
     val ref = Identifier(dummyPkg, QualifiedName.assertFromString("Foo:bar"))
     val modName = DottedName.assertFromString("Foo")
-    val pkgs1 = PureCompiledPackages(Map.empty).right.get
+    val pkgs1 = noPackages
     val pkgs2 =
       PureCompiledPackages(
         Map(
@@ -235,12 +240,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     ).right.get
 
     "succeeds" in {
-      val machine = Speedy.Machine.fromExpr(
-        expr = EVal(ref),
+      val machine = Speedy.Machine(
         compiledPackages = pkgs1,
-        scenario = false,
         submissionTime = Time.Timestamp.now(),
         initialSeeding = InitialSeeding.NoSeed,
+        expr = SEVal(LfDefRef(ref)),
+        globalCids = Set.empty,
+        committers = Set.empty
       )
       val result = machine.run()
       result match {
@@ -256,12 +262,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
 
     "crashes without definition" in {
-      val machine = Speedy.Machine.fromExpr(
-        expr = EVal(ref),
+      val machine = Speedy.Machine(
         compiledPackages = pkgs1,
-        scenario = false,
         submissionTime = Time.Timestamp.now(),
         initialSeeding = InitialSeeding.NoSeed,
+        expr = SEVal(LfDefRef(ref)),
+        globalCids = Set.empty,
+        committers = Set.empty
       )
       val result = machine.run()
       result match {

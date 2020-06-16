@@ -62,17 +62,18 @@ object PlaySpeedy {
     Config(names)
   }
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SpeedyExplore")
+  private val seeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("SpeedyExplore"))
 
   def makeMachine(sexpr: SExpr): Machine = {
     val compiledPackages: CompiledPackages =
       PureCompiledPackages(Map.empty, Compiler.NoStackTrace, Compiler.NoProfile).right.get
-    Machine.fromSExpr(
-      sexpr,
-      compiledPackages,
-      Time.Timestamp.now(),
-      InitialSeeding.TransactionSeed(txSeed),
-      Set.empty,
+    Machine(
+      compiledPackages = compiledPackages,
+      submissionTime = Time.Timestamp.now(),
+      initialSeeding = seeding,
+      expr = sexpr,
+      globalCids = Set.empty,
+      committers = Set.empty
     )
   }
 

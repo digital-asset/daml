@@ -57,12 +57,13 @@ class CollectAuthorityState {
     // This is the expression which we insert into the machine each time we run()
     the_sexpr = SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
 
-    machine = Machine.fromSExpr(
-      sexpr = the_sexpr,
+    machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
-      seeding = InitialSeeding.TransactionSeed(seeding()),
-      globalCids = Set.empty
+      initialSeeding = InitialSeeding.TransactionSeed(seeding()),
+      expr = the_sexpr,
+      globalCids = Set.empty,
+      committers = Set.empty
     )
 
     // fill the caches!

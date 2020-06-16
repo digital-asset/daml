@@ -91,9 +91,13 @@ object Speedy {
   type Actuals = util.ArrayList[SValue]
 
   /** The speedy CEK machine. */
-  final case class Machine(
+  final class Machine(
       /* Value versions that the machine can output */
-      supportedValueVersions: VersionRange[value.ValueVersion],
+      val supportedValueVersions: VersionRange[value.ValueVersion],
+      /* Whether the current submission is validating the transaction, or interpreting
+       * it. If this is false, the committers must be a singleton set.
+       */
+      val validating: Boolean,
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
@@ -120,12 +124,8 @@ object Speedy {
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
-      /* Whether the current submission is validating the transaction, or interpreting
-       * it. If this is false, the committers must be a singleton set.
-       */
-      var validating: Boolean,
       /* The trace log. */
-      traceLog: TraceLog,
+      val traceLog: TraceLog,
       /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Flag to trace usage of get_time builtins */
@@ -139,8 +139,8 @@ object Speedy {
       /* Used when enableInstrumentation is true */
       var track: Instrumentation,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
-      var profile: Profile
-  ) extends SomeArrayEquals {
+      var profile: Profile,
+  ) {
 
     /* kont manipulation... */
 
@@ -515,15 +515,21 @@ object Speedy {
 
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
 
-    private def initial(
+    def apply(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
-        globalCids: Set[V.ContractId]
-    ) =
-      Machine(
-        supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
-        ctrl = null,
+        expr: SExpr,
+        globalCids: Set[V.ContractId],
+        committers: Set[Party],
+        supportedValueVersions: VersionRange[value.ValueVersion] =
+          value.ValueVersions.DefaultSupportedVersions,
+        validating: Boolean = false,
+    ): Machine =
+      new Machine(
+        supportedValueVersions = supportedValueVersions,
+        validating = validating,
+        ctrl = expr,
         returnValue = null,
         frame = null,
         actuals = null,
@@ -531,11 +537,10 @@ object Speedy {
         kontStack = initialKontStack(),
         lastLocation = None,
         ptx = PartialTransaction.initial(submissionTime, initialSeeding),
-        committers = Set.empty,
+        committers = committers,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
-        validating = false,
         dependsOnTime = false,
         localContracts = Map.empty,
         globalDiscriminators = globalCids.collect {
@@ -546,73 +551,29 @@ object Speedy {
         profile = new Profile(),
       )
 
-    def newBuilder(
+    def buildForScenario(
         compiledPackages: CompiledPackages,
-        submissionTime: Time.Timestamp,
-        submissionSeed: crypto.Hash,
-    ): Either[SError, Expr => Machine] = {
-      val compiler = compiledPackages.compiler
-      Right(
-        (expr: Expr) =>
-          fromSExpr(
-            SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
-            compiledPackages,
-            submissionTime,
-            InitialSeeding.TransactionSeed(submissionSeed),
-            Set.empty
-        ))
-    }
+        seed: crypto.Hash,
+        expr: SExpr,
+    ): Machine = Machine(
+      compiledPackages,
+      Time.Timestamp.MinValue,
+      InitialSeeding.TransactionSeed(seed),
+      SEApp(expr, Array(SEValue.Token)),
+      Set.empty,
+      Set.empty,
+    )
 
-    def build(
-        sexpr: SExpr,
+    def buildForScenario(
         compiledPackages: CompiledPackages,
-        submissionTime: Time.Timestamp,
-        seeds: InitialSeeding,
-        globalCids: Set[V.ContractId],
-    ): Machine =
-      fromSExpr(
-        SEApp(sexpr, Array(SEValue.Token)),
-        compiledPackages,
-        submissionTime,
-        seeds,
-        globalCids
-      )
-
-    // Used from repl.
-    def fromExpr(
+        seed: crypto.Hash,
         expr: Expr,
-        compiledPackages: CompiledPackages,
-        scenario: Boolean,
-        submissionTime: Time.Timestamp,
-        initialSeeding: InitialSeeding,
-    ): Machine = {
-      val compiler = compiledPackages.compiler
-      val sexpr =
-        if (scenario)
-          SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
-        else
-          compiler.unsafeCompile(expr)
-
-      fromSExpr(
-        sexpr,
-        compiledPackages,
-        submissionTime,
-        initialSeeding,
-        Set.empty,
-      )
-    }
-
-    // Construct a machine from an SExpr. This is useful when you don’t have
-    // an update expression and build’s behavior of applying the expression to
-    // a token is not appropriate.
-    def fromSExpr(
-        sexpr: SExpr,
-        compiledPackages: CompiledPackages,
-        submissionTime: Time.Timestamp,
-        seeding: InitialSeeding,
-        globalCids: Set[V.ContractId],
     ): Machine =
-      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = sexpr)
+      buildForScenario(
+        compiledPackages,
+        seed,
+        compiledPackages.compiler.unsafeCompile(expr)
+      )
   }
 
   // Environment

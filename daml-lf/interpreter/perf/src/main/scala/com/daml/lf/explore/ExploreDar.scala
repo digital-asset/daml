@@ -90,12 +90,13 @@ object PlaySpeedy {
         val arg = SEValue(SInt64(config.argValue))
         SEApp(func, Array(arg))
       }
-      Machine.fromSExpr(
-        expr,
-        compiledPackages,
-        Time.Timestamp.now(),
-        InitialSeeding.TransactionSeed(txSeed),
-        Set.empty,
+      Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.now(),
+        initialSeeding = seeding,
+        expr = expr,
+        globalCids = Set.empty,
+        committers = Set.empty,
       )
     }
 
@@ -110,7 +111,7 @@ object PlaySpeedy {
     println(s"Final-value: $result")
   }
 
-  private val txSeed = crypto.Hash.hashPrivateKey("ExploreDar")
+  private val seeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("ExploreDar"))
 
   final case class MachineProblem(s: String) extends RuntimeException(s, null, false, false)
 

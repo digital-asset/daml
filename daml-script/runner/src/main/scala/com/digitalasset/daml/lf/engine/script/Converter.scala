@@ -217,12 +217,13 @@ object Converter {
         Array(SELocA(0), SELocA(1))),
     )
     val machine =
-      Speedy.Machine.fromSExpr(
-        sexpr = SEApp(SEValue(fun), Array(extractStruct)),
+      Speedy.Machine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.now(),
-        seeding = InitialSeeding.NoSeed,
-        Set.empty,
+        initialSeeding = InitialSeeding.NoSeed,
+        expr = SEApp(SEValue(fun), Array(extractStruct)),
+        globalCids = Set.empty,
+        committers = Set.empty,
       )
     machine.run() match {
       case SResultFinalValue(v) =>
