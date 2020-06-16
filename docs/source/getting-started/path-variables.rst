@@ -49,7 +49,7 @@ Run the following command in your terminal::
 
         echo 'export PATH="~/.daml/bin:$PATH"' >> ~/.zprofile
 
-Restart the terminal for the changes to take effect. Upon restarting check the ``PATH`` variable and make sure that
+In order for the changes to take effect you will need to restart your computer. Upon restarting check the ``PATH`` variable and make sure that
 the changes have been applied::
 
         echo $PATH
@@ -87,7 +87,7 @@ Run the following command::
 
 Save the file before closing.
 
-Restart the terminal for the changes to take effect. Upon restarting check the ``PATH`` variable and make sure that
+In order for the changes to take effect you will need to restart your computer. Upon restarting check the ``PATH`` variable and make sure that
 the changes have been applied::
 
         echo $PATH
