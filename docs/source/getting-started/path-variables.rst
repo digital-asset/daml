@@ -31,7 +31,7 @@ Setting the JAVA_HOME variable
 ==============================
 Run the following command in your terminal::
 
-        echo "export JAVA_HOME=$(/usr/libexec/java_home)" >> ~/.zprofile
+        echo 'export JAVA_HOME="$(/usr/libexec/java_home)"' >> ~/.zprofile
 
 In order for the changes to take effect you will need to restart your computer. Note that if you will be setting up the
 ``PATH`` variable as well you can restart your computer after you're done with all the changes. Upon restarting check that
