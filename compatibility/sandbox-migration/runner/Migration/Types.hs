@@ -5,6 +5,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 module Migration.Types
   ( Test(..)
+  , interleave
   , SdkVersion(..)
   , ContractId(..)
   , Party(..)
@@ -28,6 +29,17 @@ data Test s r = Test
   , initialState :: s
   -- ^ The initial state to start with.
   }
+
+interleave :: Test s r -> Test s' r' -> Test (s, s') (r, r')
+interleave t t' = Test
+    { executeStep = \ver host port (s, s') -> (,)
+        <$> executeStep t ver host port s
+        <*> executeStep t' ver host port s'
+    , validateStep = \ver (s, s') (r, r') -> (,)
+        <$> validateStep t ver s r
+        <*> validateStep t' ver s' r'
+    , initialState = (initialState t, initialState t')
+    }
 
 newtype SdkVersion = SdkVersion { getSdkVersion :: String }
 
