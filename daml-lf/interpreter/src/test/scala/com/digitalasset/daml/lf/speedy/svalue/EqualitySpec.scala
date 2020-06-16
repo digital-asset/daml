@@ -7,6 +7,7 @@ import java.util
 
 import com.daml.lf.data.{FrontStack, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.Profile.LabelUnset
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
 import com.daml.lf.value.Value.ContractId
@@ -173,7 +174,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(null, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(LabelUnset, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {
