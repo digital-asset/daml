@@ -46,7 +46,7 @@ To install the SDK on Mac or Linux:
 Windows
 =======
 
-1. We support running the SDK on Windows 10. To install the SDK on Windows, download and run the installer from `github.com/digital-asset/daml/releases/latest <https://github.com/digital-asset/daml/releases/latest>`_.
+1. We support running the SDK on Windows 10. To install the SDK on Windows, download and run the installer from https://github.com/digital-asset/daml/releases/latest.
 2. Your ``PATH`` variable is already set up correctly by the installer.
 
 Next steps
