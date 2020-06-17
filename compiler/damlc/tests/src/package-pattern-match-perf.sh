@@ -28,4 +28,4 @@ $DAMLC build --project-root $DIR/dep
 # does not come with larger memomry or stack usage.  However, the slow
 # down is so big that this times out the 300s Bazel timeout whereas
 # the fixed version runs in about 30s.
-$DAMLC build --project-root $DIR/main +RTS -s -M100M -K1M -N1
+$DAMLC build --project-root $DIR/main +RTS -s -M120M -K1M -N1
