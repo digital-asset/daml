@@ -57,7 +57,7 @@ test step modelDar = Test {..}
 data Asset = Asset
   { owner :: Party
   , tag :: String
-  } deriving (Eq, Generic, Show)
+  } deriving (Eq, Generic, Show, Ord)
 
 instance A.FromJSON Asset
 

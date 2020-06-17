@@ -48,15 +48,15 @@ newtype SdkVersion = SdkVersion { getSdkVersion :: String }
 
 newtype ContractId = ContractId T.Text
   deriving newtype A.FromJSON
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Ord)
 newtype Party = Party { getParty :: T.Text }
   deriving newtype (A.FromJSON, A.ToJSON)
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Ord)
 
 data Tuple2 a b = Tuple2
   { _1 :: a
   , _2 :: b
-  } deriving (Eq, Generic, Show)
+  } deriving (Eq, Generic, Show, Ord)
 
 instance (A.FromJSON a, A.FromJSON b) => A.FromJSON (Tuple2 a b)
 

@@ -8,5 +8,5 @@ import Data.List
 symDiff :: Eq a => [a] -> [a] -> [a]
 symDiff left right = (left \\ right) ++ (right \\ left)
 
-equivalent :: Eq a => [a] -> [a] -> Bool
-equivalent xs = null . symDiff xs
+equivalent :: Ord a => [a] -> [a] -> Bool
+equivalent left right = sort left == sort right

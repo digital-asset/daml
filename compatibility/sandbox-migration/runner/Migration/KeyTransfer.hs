@@ -85,7 +85,7 @@ pattern ArchivedAsset cid = Archived cid (TemplateId "KeyTransfer" "Asset")
 data Asset = Asset
   { owner :: Party
   , name :: String
-  } deriving (Eq, Generic, Show)
+  } deriving (Eq, Generic, Show, Ord)
 
 instance A.FromJSON Asset
 
