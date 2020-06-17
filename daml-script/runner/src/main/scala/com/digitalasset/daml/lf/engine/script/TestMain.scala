@@ -126,7 +126,9 @@ object TestMain extends StrictLogging {
               case (name, defn) => {
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
                 Script.fromIdentifier(compiledPackages, id) match {
-                  case Right(script: Script.Action) => Some((id, script))
+                  // We exclude generated identifiers starting with `$`.
+                  case Right(script: Script.Action) if name.toString.headOption != Some('$') =>
+                    Some((id, script))
                   case _ => None
                 }
               }
