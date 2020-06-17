@@ -52,7 +52,7 @@ We have migration tests that work as follows:
       records results.
 
    3. Validates the results. This includes verifying that the
-      transaction streams are the same after the migration and the the
+      transaction streams are the same after the migration and that the
       ACS is the same + additional test-specific checks.
 
 We have two tests here: One that includes snapshot versions and one
