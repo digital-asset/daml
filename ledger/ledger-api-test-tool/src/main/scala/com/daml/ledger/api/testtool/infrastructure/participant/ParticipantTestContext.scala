@@ -201,9 +201,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(_.partyDetails)
 
   def listKnownParties(): Future[Set[Party]] =
+    listKnownPartyDetails().map(_.map(partyDetails => Party(partyDetails.party)).toSet)
+
+  def listKnownPartyDetails(): Future[Seq[PartyDetails]] =
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
-      .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
+      .map(_.partyDetails)
 
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
