@@ -305,18 +305,8 @@ class SpeedyTest extends WordSpec with Matchers {
 
 object SpeedyTest {
 
-  private[this] def build(e: Expr, packages: PureCompiledPackages) =
-    Speedy.Machine(
-      compiledPackages = packages,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = InitialSeeding.NoSeed,
-      expr = packages.compiler.unsafeCompile(e),
-      globalCids = Set.empty,
-      committers = Set.empty
-    )
-
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = build(e, packages)
+    val machine = Speedy.Machine.fromExpr(packages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {
@@ -332,7 +322,7 @@ object SpeedyTest {
 
   private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
     val packages = PureCompiledPackages(Map.empty, profiling = Compiler.FullProfile).right.get
-    val machine = build(e, packages)
+    val machine = Speedy.Machine.fromExpr(packages, e)
     machine.run()
     machine.profile.events
   }
