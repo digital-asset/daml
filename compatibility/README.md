@@ -31,7 +31,7 @@ We test that the `ledger-api-test-tool` of a given version passes
 against Sandbox next of another version. We test all possible version
 combinations here to ensure forwards and backwards compatibility. The
 `ledger-api-test-tool` includes a DAR built using a compiler from
-the same SDK version so this also ensures that we can load a DAR from
+the same SDK version so this also ensures that sandbox can load a DAR from
 a different SDK version.
 
 Since all our JVM ledger clients use the same client libraries we
