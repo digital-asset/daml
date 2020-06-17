@@ -37,7 +37,7 @@ object Config {
     verbose = false,
     timeoutScaleFactor = 1.0,
     loadScaleFactor = 1.0,
-    concurrentTestRuns = Runtime.getRuntime.availableProcessors(),
+    concurrentTestRuns = 1,
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,

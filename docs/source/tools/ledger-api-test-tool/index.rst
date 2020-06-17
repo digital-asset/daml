@@ -153,6 +153,9 @@ Use the command line option ``--verbose`` to print full stack traces on failures
 Concurrent test runs
 ====================
 
-To minimize parallelized runs of tests, ``--concurrent-test-runs`` can be set to 1 or 2.
-The default value is the number of processors available.
+To parallelize test runs, ``--concurrent-test-runs`` can be set. The default
+value is 1. Note that in general the rate at which tests can be processed
+depends more on the ledger than on this number, and the API Test Tool does not
+currently handle backpressure. In other words, if the test tool is going faster
+than the ledger, the test tool will fail.
 

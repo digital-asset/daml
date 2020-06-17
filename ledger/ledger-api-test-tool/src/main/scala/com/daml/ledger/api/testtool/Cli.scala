@@ -104,8 +104,10 @@ object Cli {
     opt[Int](name = "concurrent-test-runs")
       .optional()
       .action((v, c) => c.copy(concurrentTestRuns = v))
-      .text("""Number of tests to run concurrently. Defaults to the number of available
-              |processors.""".stripMargin)
+      .text("""Number of tests to run concurrently. Defaults to 1. Note that,
+              |in general, the bottleneck is the ledger, not the test suite,
+              |and if the ledger cannot keep up, the test tool will fail.
+              |""".stripMargin)
 
     opt[Unit]("verbose")
       .abbr("v")
