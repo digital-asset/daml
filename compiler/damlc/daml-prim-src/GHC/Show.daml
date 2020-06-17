@@ -82,7 +82,7 @@ showList__ _     []     s = "[]" ++ s
 showList__ showx (x::xs) s = "[" ++ showx x (showl showx xs s)
 
 showl : (a -> ShowS) -> [a] -> ShowS
-showl showx []      s = "]" ++ s
+showl _ []      s = "]" ++ s
 showl showx (y::ys) s = "," ++ showx y (showl showx ys s)
 
 

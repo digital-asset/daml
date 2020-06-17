@@ -59,8 +59,8 @@ testMerge = scenario do
   let m1 = fromList [(3, "aa"), (1, "bb"), (4, "cc"), (2, "dd"), (6, "ee")]
   let m2 = fromList [(1, "a"), (3, "b"), (2, "c"), (5, "d"), (0, "e")]
 
-  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> Some v) M.empty (M.empty : Map Int Text))
-  [] === toList (merge (\k v -> Some v) (\k v -> Some v) (\k v w -> None) m1 m1)
-  [(1, "bb"), (3, "aa")] === toList (merge (\k v -> if v <= "bb" then Some v else None) (\k v -> Some v) (\k v w -> None) m1 M.empty)
-  [(1, "a"), (3, "b")] === toList (merge (\k v -> Some v) (\k v -> if v <= "bb" then Some v else None) (\k v w -> None) M.empty m2)
-  [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\k v -> None) (\k v -> None) (\k v w -> Some v) m1 m2)
+  [] === toList (merge (\_ v -> Some v) (\_ v -> Some v) (\_ v _ -> Some v) M.empty (M.empty : Map Int Text))
+  [] === toList (merge (\_ v -> Some v) (\_ v -> Some v) (\_ _ _ -> None) m1 m1)
+  [(1, "bb"), (3, "aa")] === toList (merge (\_ v -> if v <= "bb" then Some v else None) (\_ v -> Some v) (\_ _ _ -> None) m1 M.empty)
+  [(1, "a"), (3, "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) M.empty m2)
+  [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)

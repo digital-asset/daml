@@ -124,7 +124,7 @@ identity x = x
 
 instance Functor ((,) a) where
   fmap f (x, y) = (x, f y)
-  v <$ (x, y) = (x, v)
+  v <$ (x, _) = (x, v)
 
 instance Functor [] where
     fmap = map
@@ -172,7 +172,7 @@ foldl = primitive @"BEFoldl"
 -- predicate `p` is true. There might not be such an element, which
 -- is why this function returns an `Optional a`.
 find : (a -> Bool) -> [a] -> Optional a
-find p [] = None
+find _ [] = None
 find p (x::xs) = if p x then Some x else find p xs
 
 -- | Gives the length of the list.
@@ -294,17 +294,17 @@ optional _ f (Some x) = f x
 
 
 instance Functor (Either e) where
-  fmap f (Left e) = Left e
+  fmap _ (Left e) = Left e
   fmap f (Right a) = Right (f a)
 
 instance Applicative (Either e) where
   pure = Right
 
-  Left e <*> a = Left e
+  Left e <*> _ = Left e
   Right f <*> a = fmap f a
 
 instance Action (Either e) where
-  Left e >>= f = Left e
+  Left e >>= _ = Left e
   Right a >>= f = f a
 
 instance ActionFail (Either Text) where
@@ -329,8 +329,8 @@ instance ActionFail (Either Text) where
 -- ```
 --
 either : (a -> c) -> (b -> c) -> Either a b -> c
-either f g (Left x) = f x
-either f g (Right x) = g x
+either f _ (Left x) = f x
+either _ g (Right x) = g x
 
 infixr 6 <>
 -- | The class of semigroups (types with an associative binary operation).
