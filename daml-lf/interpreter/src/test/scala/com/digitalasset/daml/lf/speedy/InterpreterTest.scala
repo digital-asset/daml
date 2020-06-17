@@ -5,14 +5,12 @@ package com.daml.lf.speedy
 
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref}
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SExpr.{LfDefRef, SEVal, SEValue}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue.{SInt64, SList}
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -125,12 +123,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   }
 
   "large lists" should {
-    val list =
-      SEValue(
-        SList(
-          FrontStack(ImmArray((1 to 100000).map(i => SInt64(i.toLong)))),
-        )
-      )
+    val t_int64 = TBuiltin(BTInt64)
+    val t_int64List = TApp(TBuiltin(BTList), t_int64)
+    val list = ECons(
+      t_int64List,
+      ImmArray((1 to 100000).map(i => EPrimLit(PLInt64(i.toLong)))),
+      ENil(t_int64List),
+    )
     var machine: Speedy.Machine = null
     "compile" in {
       machine = Speedy.Machine.fromExpr(noPackages, list)
@@ -226,7 +225,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     ).right.get
 
     "succeeds" in {
-      val machine = Speedy.Machine.fromExpr(pkgs1, SEVal(LfDefRef(ref)))
+      val machine = Speedy.Machine.fromExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
@@ -241,7 +240,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
 
     "crashes without definition" in {
-      val machine = Speedy.Machine.fromExpr(pkgs1, SEVal(LfDefRef(ref)))
+      val machine = Speedy.Machine.fromExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>

@@ -48,6 +48,4 @@ object LoadDarFunction extends App {
     function
   }
 
-  private[this] val seeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("KEY"))
-
 }

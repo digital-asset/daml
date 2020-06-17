@@ -580,7 +580,7 @@ object Speedy {
         scenario = compiledPackages.compiler.unsafeCompile(scenario)
       )
 
-    // Construct a machine from evaluating an expression that is neither an update nor a scenario expression.
+    // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
@@ -596,7 +596,7 @@ object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine from evaluating an expression that is neither an update nor a scenario expression.
+    // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,

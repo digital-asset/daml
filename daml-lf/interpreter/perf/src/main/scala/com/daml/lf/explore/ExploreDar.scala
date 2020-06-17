@@ -103,8 +103,6 @@ object PlaySpeedy {
     println(s"Final-value: $result")
   }
 
-  private val seeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("ExploreDar"))
-
   final case class MachineProblem(s: String) extends RuntimeException(s, null, false, false)
 
 }
