@@ -38,10 +38,10 @@ test step modelDar = Test {..}
             throwError ("The old private assets do not match those returned by the previous run: " <> show oldAssets)
         unless (equivalent oldDivulgedAssets prevDivulgedAssets) $
             throwError ("The old divulged assets do not match those returned by the previous run: " <> show oldDivulgedAssets)
-        let assetsDiff = (map _2 newAssets) \\ (map _2 oldAssets)
+        let assetsDiff = map _2 newAssets \\ map _2 oldAssets
         unless (equivalent assetsDiff [Asset testOwner ("private-" <> suffix), Asset testOwner ("divulging-" <> suffix)]) $
             throwError ("Expected one private and one divulged contract, got " <> show assetsDiff)
-        let divulgedAssetDiff = (map _2 newDivulgedAssets) \\ (map _2 oldDivulgedAssets)
+        let divulgedAssetDiff = map _2 newDivulgedAssets \\ map _2 oldDivulgedAssets
         unless (divulgedAssetDiff == [Asset testOwner ("divulging-" <> suffix)]) $
             throwError ("Expected one divulged contract, got " <> show divulgedAssetDiff)
         pure (newAssets, newDivulgedAssets)
