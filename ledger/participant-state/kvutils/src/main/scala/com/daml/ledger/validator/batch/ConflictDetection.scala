@@ -94,7 +94,8 @@ class ConflictDetection(val damlMetrics: Metrics) {
   // Attempt to produce a useful message by collecting the first conflicting
   // contract id or contract key.
   private def explainConflict(conflictingKeys: Iterable[DamlStateKey]): String =
-    conflictingKeys
+    conflictingKeys.toSeq
+      .sortBy(_.toByteString.asReadOnlyByteBuffer())
       .collectFirst {
         case key if key.hasContractKey =>
           // NOTE(JM): We show the template id as the other piece of data we have is the contract key
