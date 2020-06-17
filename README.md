@@ -17,8 +17,8 @@ This repository hosts all code for the [DAML smart contract language and SDK](ht
 To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
 Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
-If you have questions about how to use DAML or how to build DAML-based solutions, please ask them 
-on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
+If you have questions about how to use DAML or how to build DAML-based solutions, please ask them on 
+[StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
 ## Contributing to DAML
 
