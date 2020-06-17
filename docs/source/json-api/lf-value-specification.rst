@@ -142,7 +142,7 @@ Input
 Timestamps are represented as ISO 8601 strings, rendered using the
 format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
 
-    1990-11-09T04:30:23.1234569Z
+    1990-11-09T04:30:23.123456Z
     1990-11-09T04:30:23Z
     1990-11-09T04:30:23.123Z
     0001-01-01T00:00:00Z
