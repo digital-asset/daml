@@ -209,27 +209,11 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                     from participant_events
                     where
                       participant_events.row_id >= $startingRow
-                      and participant_events.row_id < ${startingRow + pageSize}
                       and event_offset <= $endInclusive and #$witnessesWhereClause
-                    order by (participant_events.row_id)"""
+                    order by (participant_events.row_id) limit $pageSize"""
                 .withFetchSize(Some(pageSize)),
               rawTreeEventParser
-            )
-            .flatMap { boundSelection =>
-              if (boundSelection.isEmpty)
-                SqlSequence(
-                  SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                               case when submitter = $requestingParty then command_id else '' end as command_id
-                        from participant_events
-                        where
-                          participant_events.row_id >= ${startingRow + pageSize}
-                          and event_offset <= $endInclusive and #$witnessesWhereClause
-                        order by (participant_events.row_id) limit 1"""
-                    .withFetchSize(Some(1)),
-                  rawTreeEventParser.singleOpt map (_.toList.toVector)
-                )
-              else SqlSequence point boundSelection
-          },
+          ),
         none = SqlSequence point Vector.empty
       )
     } yield bestEffortNonEmpty
