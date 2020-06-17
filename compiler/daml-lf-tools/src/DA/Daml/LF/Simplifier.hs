@@ -15,7 +15,6 @@ import qualified Data.Graph as G
 import qualified Data.Text as T
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
-import qualified Data.HashMap.Strict as HM
 import qualified Data.NameMap as NM
 import qualified Safe
 import qualified Safe.Exact as Safe
@@ -329,7 +328,7 @@ calcPartyLiterals e = HasNoPartyLiterals (cata go e)
 liftClosedExpr :: Expr -> Simplifier Expr
 liftClosedExpr e = do
     cache <- gets sCache
-    case HM.lookup e cache of
+    case Map.lookup e cache of
         Just name -> do
             EVal <$> selfQualify name
 
@@ -502,7 +501,7 @@ data SimplifierState = SimplifierState
     , sVersion :: Version
     , sModule :: Module
     , sReserved :: Set.Set ExprValName
-    , sCache :: HM.HashMap Expr ExprValName
+    , sCache :: Map.Map Expr ExprValName
     , sFreshNamePrefix :: T.Text -- Prefix for fresh variable names.
     }
 
@@ -515,13 +514,13 @@ addDefValue :: DefValue -> Simplifier ()
 addDefValue dval = modify $ \s@SimplifierState{..} -> s
     { sModule = sModule { moduleValues = NM.insert dval (moduleValues sModule) }
     , sReserved = Set.insert (fst (dvalBinder dval)) sReserved
-    , sCache = HM.insert (dvalBody dval) (fst (dvalBinder dval)) sCache
+    , sCache = Map.insert (dvalBody dval) (fst (dvalBinder dval)) sCache
     }
 
 freshExprVarNameFor :: Expr -> Simplifier ExprValName
 freshExprVarNameFor e = do
     name <- freshExprVarName
-    modify $ \s -> s { sCache = HM.insert e name (sCache s) }
+    modify $ \s -> s { sCache = Map.insert e name (sCache s) }
     pure name
 
 setFreshNamePrefix :: T.Text -> Simplifier ()
@@ -578,6 +577,6 @@ runSimplifier :: World -> Version -> Module -> Simplifier t -> t
 runSimplifier sWorld sVersion m x =
     let sModule = m { moduleValues = NM.empty }
         sReserved = Set.fromList (NM.names (moduleValues m))
-        sCache = HM.empty
+        sCache = Map.empty
         sFreshNamePrefix = "$sc"
     in evalState x SimplifierState {..}
