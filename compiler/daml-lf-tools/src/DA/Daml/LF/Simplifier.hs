@@ -315,46 +315,6 @@ getTypeClassDictionary world = \case
     _ ->
         Nothing
 
--- | Go inside a closed expression and try to inline and beta reduce
--- types and arguments, to try monomorphizing.
-inlineClosedExpr :: Int -> World -> Expr -> Simplifier Expr
-inlineClosedExpr d world e = do
-    e' <- go e
-    if e == e'
-        then pure e
-        else simplifyExpr' (d-1) e'
-  where
-    go = \case
-        e@(EVal x) -> do
-            case lookupValue x world of
-                Left _ -> pure e
-                Right dval -> pure (dvalBody dval)
-
-        ETmApp e1 e2 -> do
-            e1' <- go e1
-            case stripLoc e1' of
-                ETmLam (x,_) b -> do
-                    pure (applySubstInExpr (exprSubst x e2) b)
-                _ ->
-                    pure (ETmApp e1' e2)
-
-        ETyApp e t -> do
-            e' <- go e
-            case stripLoc e' of
-                ETyLam (x,_) b -> do
-                    pure (applySubstInExpr (typeSubst x t) b)
-                _ ->
-                    pure (ETyApp e' t)
-
-        ELocation l e -> ELocation l <$> go e
-
-        e -> pure e
-
-stripLoc :: Expr -> Expr
-stripLoc = \case
-    ELocation _ e -> stripLoc e
-    e -> e
-
 calcPartyLiterals :: Expr -> HasNoPartyLiterals
 calcPartyLiterals e = HasNoPartyLiterals (cata go e)
   where
@@ -365,8 +325,8 @@ calcPartyLiterals e = HasNoPartyLiterals (cata go e)
 -- | Attempt to lift a closed expression to the top level. Returns either
 -- a variable expression that references the lifted expression, or
 -- returns the original expression.
-liftClosedExpr :: Int -> Expr -> Simplifier Expr
-liftClosedExpr d e = do
+liftClosedExpr :: Expr -> Simplifier Expr
+liftClosedExpr e = do
     cache <- gets sCache
     case Map.lookup e cache of
         Just name -> do
@@ -378,12 +338,11 @@ liftClosedExpr d e = do
             case runGamma world version (typeOf' e) of
                 Right ty -> do
                     name <- freshExprVarNameFor e
-                    e' <- inlineClosedExpr d world e
                     addDefValue DefValue
                         { dvalBinder = (name, ty)
-                        , dvalBody = e'
+                        , dvalBody = e
                         , dvalLocation = Nothing
-                        , dvalNoPartyLiterals = calcPartyLiterals e'
+                        , dvalNoPartyLiterals = calcPartyLiterals e
                         , dvalIsTest = IsTest False
                         }
                     EVal <$> selfQualify name
@@ -392,11 +351,7 @@ liftClosedExpr d e = do
                     pure e
 
 simplifyExpr :: Expr -> Simplifier Expr
-simplifyExpr = simplifyExpr' 3
-
-simplifyExpr' :: Int -> Expr -> Simplifier Expr
-simplifyExpr' d e | d < 0 = pure e
-simplifyExpr' d e = fmap fst (cata go' e)
+simplifyExpr = fmap fst . cata go'
   where
     go' :: ExprF (Simplifier (Expr, Info)) -> Simplifier (Expr, Info)
     go' ms = do
@@ -420,7 +375,7 @@ simplifyExpr' d e = fmap fst (cata go' e)
                 | freeVarsNull (freeVars i)
                 , isWorthLifting e
                 -> do
-                    e' <- liftClosedExpr d e
+                    e' <- liftClosedExpr e
                     pure (e',i)
 
                 | otherwise
