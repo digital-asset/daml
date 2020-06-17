@@ -5,6 +5,9 @@ package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
 
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.{RunningTrigger, UserCredentials}
 
 class InMemoryTriggerDao extends RunningTriggerDao {
@@ -30,6 +33,9 @@ class InMemoryTriggerDao extends RunningTriggerDao {
   override def listRunningTriggers(credentials: UserCredentials): Either[String, Vector[UUID]] = {
     Right(triggersByParty.getOrElse(credentials, Set()).toVector.sorted)
   }
+
+  override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] =
+    Right(())
 }
 
 object InMemoryTriggerDao {

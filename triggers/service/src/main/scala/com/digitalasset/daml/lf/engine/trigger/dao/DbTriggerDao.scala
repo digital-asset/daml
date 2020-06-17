@@ -8,6 +8,9 @@ import java.util.UUID
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -17,6 +20,8 @@ import doobie.{LogHandler, Transactor, _}
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
+//import scalaz.std.list._
+//import scalaz.syntax.traverse._
 
 object Connection {
 
@@ -97,6 +102,13 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     select.query[UUID].to[Vector]
   }
 
+  private def insertDalf(packageId: PackageId, pkg: DamlLf.ArchivePayload): ConnectionIO[Unit] = {
+    val insert: Fragment = sql"""
+      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray})
+    """
+    insert.update.run.void
+  }
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -123,6 +135,17 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
     run(selectRunningTriggers(credentials.token)).map(_.sorted)
+  }
+
+  override def persistPackages(
+      dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
+    // FIXME(RJR): Missing implicit Applicative[ConnectionIO] instance for traverse
+    // val insertAll: ConnectionIO[Unit] = dar.all traverse_ {
+    //   case (pkgId, pkg) => insertDalf(pkgId, pkg)
+    // }
+    // Just insert main package for draft until above is fixed.
+    val insertMain = (insertDalf _).tupled(dar.main)
+    run(insertMain)
   }
 
   def initialize: Either[String, Unit] =
