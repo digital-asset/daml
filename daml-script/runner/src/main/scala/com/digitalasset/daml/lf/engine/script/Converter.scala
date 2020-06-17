@@ -20,14 +20,13 @@ import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.v1.value
-import com.daml.lf.data.Time
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -217,14 +216,7 @@ object Converter {
         Array(SELocA(0), SELocA(1))),
     )
     val machine =
-      Speedy.Machine(
-        compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding = InitialSeeding.NoSeed,
-        expr = SEApp(SEValue(fun), Array(extractStruct)),
-        globalCids = Set.empty,
-        committers = Set.empty,
-      )
+      Speedy.Machine.fromExpr(compiledPackages, SEApp(SEValue(fun), Array(extractStruct)))
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {

@@ -7,7 +7,6 @@ package explore
 
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.data.Time
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -38,14 +37,7 @@ object LoadDarFunction extends App {
         val arg = SEValue(SInt64(argValue))
         SEApp(func, Array(arg))
       }
-      val machine = Machine(
-        compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding = seeding,
-        expr = expr,
-        globalCids = Set.empty,
-        committers = Set.empty
-      )
+      val machine = Machine.fromExpr(compiledPackages, expr)
 
       machine.run() match {
         case SResultFinalValue(SInt64(result)) => result

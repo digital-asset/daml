@@ -9,6 +9,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -551,29 +552,64 @@ object Speedy {
         profile = new Profile(),
       )
 
+    // Construct a machine for running scenario.
     def buildForScenario(
         compiledPackages: CompiledPackages,
         seed: crypto.Hash,
-        expr: SExpr,
+        scenario: SExpr,
     ): Machine = Machine(
-      compiledPackages,
-      Time.Timestamp.MinValue,
-      InitialSeeding.TransactionSeed(seed),
-      SEApp(expr, Array(SEValue.Token)),
-      Set.empty,
-      Set.empty,
+      compiledPackages = compiledPackages,
+      submissionTime = Time.Timestamp.MinValue,
+      initialSeeding = InitialSeeding.TransactionSeed(seed),
+      expr = SEApp(scenario, Array(SEValue.Token)),
+      globalCids = Set.empty,
+      committers = Set.empty,
     )
 
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Construct a machine for running scenario.
     def buildForScenario(
         compiledPackages: CompiledPackages,
         seed: crypto.Hash,
-        expr: Expr,
+        scenario: Expr,
     ): Machine =
       buildForScenario(
-        compiledPackages,
-        seed,
-        compiledPackages.compiler.unsafeCompile(expr)
+        compiledPackages = compiledPackages,
+        seed = seed,
+        scenario = compiledPackages.compiler.unsafeCompile(scenario)
       )
+
+    // Construct a machine from evaluating an expression that is neither an update nor a scenario expression.
+    def fromExpr(
+        compiledPackages: CompiledPackages,
+        expr: SExpr,
+    ) =
+      Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.MinValue,
+        initialSeeding = InitialSeeding.NoSeed,
+        expr = expr,
+        globalCids = Set.empty,
+        committers = Set.empty,
+      )
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Construct a machine from evaluating an expression that is neither an update nor a scenario expression.
+    def fromExpr(
+        compiledPackages: CompiledPackages,
+        expr: Expr,
+    ) =
+      Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.MinValue,
+        initialSeeding = InitialSeeding.NoSeed,
+        expr = compiledPackages.compiler.unsafeCompile(expr),
+        globalCids = Set.empty,
+        committers = Set.empty,
+      )
+
   }
 
   // Environment

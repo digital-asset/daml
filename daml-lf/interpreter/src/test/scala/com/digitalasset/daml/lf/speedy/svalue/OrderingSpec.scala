@@ -6,13 +6,12 @@ package svalue
 
 import java.util
 
-import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.SEImportValue
-import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.TypedValueGenerators.genAddend
 import com.daml.lf.value.ValueGenerators.{cidV0Gen, comparableCoidsGen}
@@ -501,19 +500,11 @@ class OrderingSpec
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-  private def initMachine(expr: SExpr) = Speedy.Machine(
-    compiledPackages =
-      PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile),
-    submissionTime = Time.Timestamp.now(),
-    initialSeeding = InitialSeeding.TransactionSeed(txSeed),
-    expr = expr,
-    globalCids = Set.empty,
-    committers = Set.empty
-  )
+  private val noPackages =
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {
-    val machine = initMachine(SEImportValue(v))
+    val machine = Speedy.Machine.fromExpr(noPackages, SEImportValue(v))
     machine.run() match {
       case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")

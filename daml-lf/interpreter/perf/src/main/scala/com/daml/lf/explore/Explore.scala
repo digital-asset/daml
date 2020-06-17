@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 package explore
 
-import com.daml.lf.data._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
@@ -32,7 +31,7 @@ object PlaySpeedy {
     names.foreach { name =>
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
-      val machine = makeMachine(converted)
+      val machine = Speedy.Machine.fromExpr(noPackages, converted)
       runMachine(name, machine, expected)
     }
   }
@@ -62,20 +61,8 @@ object PlaySpeedy {
     Config(names)
   }
 
-  private val seeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("SpeedyExplore"))
-
-  def makeMachine(sexpr: SExpr): Machine = {
-    val compiledPackages: CompiledPackages =
-      PureCompiledPackages(Map.empty, Compiler.NoStackTrace, Compiler.NoProfile).right.get
-    Machine(
-      compiledPackages = compiledPackages,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = seeding,
-      expr = sexpr,
-      globalCids = Set.empty,
-      committers = Set.empty
-    )
-  }
+  private val noPackages =
+    data.assertRight(PureCompiledPackages(Map.empty, Compiler.NoStackTrace, Compiler.NoProfile))
 
   def runMachine(name: String, machine: Machine, expected: Int): Unit = {
 

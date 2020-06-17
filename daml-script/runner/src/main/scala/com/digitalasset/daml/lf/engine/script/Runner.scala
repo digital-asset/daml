@@ -26,7 +26,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -303,15 +303,7 @@ class Runner(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
-    val machine =
-      Speedy.Machine(
-        compiledPackages = extendedCompiledPackages,
-        submissionTime = Timestamp.now(),
-        initialSeeding = InitialSeeding.NoSeed,
-        expr = script.expr,
-        globalCids = Set.empty,
-        committers = Set.empty,
-      )
+    val machine = Speedy.Machine.fromExpr(extendedCompiledPackages, script.expr)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {

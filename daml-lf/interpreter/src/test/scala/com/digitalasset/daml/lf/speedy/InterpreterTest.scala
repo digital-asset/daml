@@ -5,7 +5,7 @@ package com.daml.lf.speedy
 
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
@@ -27,14 +27,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).right.get
 
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine(
-      compiledPackages = noPackages,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = InitialSeeding.NoSeed,
-      noPackages.compiler.unsafeCompile(e),
-      Set.empty,
-      Set.empty
-    )
+    val machine = Speedy.Machine.fromExpr(noPackages, e)
     machine.run() match {
       case SResultFinalValue(v) => v
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
@@ -140,14 +133,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine(
-        noPackages,
-        Time.Timestamp.now(),
-        InitialSeeding.NoSeed,
-        list,
-        Set.empty,
-        Set.empty
-      )
+      machine = Speedy.Machine.fromExpr(noPackages, list)
     }
     "interpret" in {
       val value = machine.run() match {
@@ -240,14 +226,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     ).right.get
 
     "succeeds" in {
-      val machine = Speedy.Machine(
-        compiledPackages = pkgs1,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding = InitialSeeding.NoSeed,
-        expr = SEVal(LfDefRef(ref)),
-        globalCids = Set.empty,
-        committers = Set.empty
-      )
+      val machine = Speedy.Machine.fromExpr(pkgs1, SEVal(LfDefRef(ref)))
       val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
@@ -262,14 +241,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
 
     "crashes without definition" in {
-      val machine = Speedy.Machine(
-        compiledPackages = pkgs1,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding = InitialSeeding.NoSeed,
-        expr = SEVal(LfDefRef(ref)),
-        globalCids = Set.empty,
-        committers = Set.empty
-      )
+      val machine = Speedy.Machine.fromExpr(pkgs1, SEVal(LfDefRef(ref)))
       val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>

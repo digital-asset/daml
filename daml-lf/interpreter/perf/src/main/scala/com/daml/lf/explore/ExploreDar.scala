@@ -8,7 +8,6 @@ package explore
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.data.Time
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -90,14 +89,7 @@ object PlaySpeedy {
         val arg = SEValue(SInt64(config.argValue))
         SEApp(func, Array(arg))
       }
-      Machine(
-        compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.now(),
-        initialSeeding = seeding,
-        expr = expr,
-        globalCids = Set.empty,
-        committers = Set.empty,
-      )
+      Machine.fromExpr(compiledPackages, expr)
     }
 
     val result: SValue = {

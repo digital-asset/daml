@@ -14,7 +14,7 @@ import com.daml.lf.speedy.Pretty._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.SExpr.{LfDefRef, SEApp, SEValue}
+import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.LanguageVersion
@@ -419,15 +419,7 @@ object Repl {
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
             val compiledPackages = PureCompiledPackages(state.packages).right.get
-            val machine =
-              Speedy.Machine(
-                compiledPackages = compiledPackages,
-                submissionTime = Time.Timestamp.now(),
-                initialSeeding = InitialSeeding.NoSeed,
-                expr = SEApp(compiledPackages.compiler.unsafeCompile(expr), Array(SEValue.Token)),
-                globalCids = Set.empty,
-                committers = Set.empty
-              )
+            val machine = Speedy.Machine.fromExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {
               case SResultError(err) =>

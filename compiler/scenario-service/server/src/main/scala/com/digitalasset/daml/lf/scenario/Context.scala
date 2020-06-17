@@ -139,19 +139,15 @@ class Context(val contextId: Context.ContextId) {
   }
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val txSeeding =
-    crypto.Hash.hashPrivateKey(s"scenario-service")
+  private val txSeeding = crypto.Hash.hashPrivateKey(s"scenario-service")
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
+    val compiledPackages =
+      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield
-      Speedy.Machine.buildForScenario(
-        PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile),
-        txSeeding,
-        defn,
-      )
+    } yield Speedy.Machine.buildForScenario(compiledPackages, txSeeding, defn)
   }
 
   def interpretScenario(

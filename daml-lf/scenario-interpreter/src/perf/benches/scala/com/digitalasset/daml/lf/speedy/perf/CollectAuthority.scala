@@ -14,7 +14,6 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.Transaction.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -51,20 +50,9 @@ class CollectAuthorityState {
     // NOTE(MH): We use a static seed to get reproducible runs.
     val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
     val compiledPackages = PureCompiledPackages(packagesMap, stacktracing).right.get
-    val compiler = compiledPackages.compiler
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
-    // This is the expression which we insert into the machine each time we run()
-    the_sexpr = SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
-
-    machine = Machine(
-      compiledPackages = compiledPackages,
-      submissionTime = Time.Timestamp.MinValue,
-      initialSeeding = InitialSeeding.TransactionSeed(seeding()),
-      expr = the_sexpr,
-      globalCids = Set.empty,
-      committers = Set.empty
-    )
+    machine = Machine.buildForScenario(compiledPackages, seeding(), expr)
 
     // fill the caches!
     setup()
