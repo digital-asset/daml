@@ -53,8 +53,6 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel clean --expunge
-
 bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown
