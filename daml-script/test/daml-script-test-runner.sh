@@ -37,10 +37,12 @@ if [[ $TEST_RESULT = 0 ]]; then
 fi
 
 EXPECTED="$($SORT <<'EOF'
+MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
 ScriptExample:test SUCCESS
 ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS

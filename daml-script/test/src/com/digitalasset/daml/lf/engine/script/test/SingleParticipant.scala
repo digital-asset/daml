@@ -258,6 +258,30 @@ case class PartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class ListKnownParties(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"))
+  def runTests() = {
+    runner.genericTest(
+      "ListKnownParties",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 =>
+          for {
+            newPartyDetails <- vals.get(0) match {
+              case SList(FrontStackCons(SRecord(_, _, x), FrontStack())) => Right(x)
+              case v => Left(s"Exppected list with one element but got $v")
+            }
+            _ <- TestRunner.assertEqual(newPartyDetails.get(0), vals.get(1), "new party")
+            _ <- TestRunner
+              .assertEqual(newPartyDetails.get(1), SOptional(Some(SText("myparty"))), "displayName")
+            _ <- TestRunner.assertEqual(newPartyDetails.get(2), SBool(true), "isLocal")
+          } yield ()
+      }
+    )
+  }
+}
+
 case class TestStack(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId =
     Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testStack"))
@@ -399,6 +423,7 @@ object SingleParticipant {
             Time(dar, runner).runTests()
             Sleep(dar, runner).runTests()
             PartyIdHintTest(dar, runner).runTests()
+            ListKnownParties(dar, runner).runTests()
             TestStack(dar, runner).runTests()
             TestMaxInboundMessageSize(dar, runner).runTests()
             ScriptExample(dar, runner).runTests()

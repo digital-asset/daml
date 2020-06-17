@@ -38,6 +38,18 @@ import scala.util.{Failure, Success}
 
 object TestMain extends StrictLogging {
 
+  // We run tests sequentially for now. While tests that
+  // only access per-party state and access only state of freshly allocated parties
+  // can in principal be run in parallel that runs into resource limits at some point
+  // and doesn’t work for tests that access things like listKnownParties.
+  // Once we have a mechanism to mark tests as exclusive and control the concurrency
+  // limit we can think about running tests in parallel again.
+  def sequentialTraverse[A, B](seq: Seq[A])(f: A => Future[B])(
+      implicit ec: ExecutionContext): Future[Seq[B]] =
+    seq.foldLeft(Future.successful(Seq.empty[B])) {
+      case (acc, nxt) => acc.flatMap(bs => f(nxt).map(b => bs :+ b))
+    }
+
   def main(args: Array[String]): Unit = {
 
     TestConfig.parse(args) match {
@@ -131,26 +143,25 @@ object TestMain extends StrictLogging {
                 .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
           }
           success = new AtomicBoolean(true)
-          _ <- Future.sequence {
-            testScripts.map {
-              case (id, script) => {
-                val runner =
-                  new Runner(compiledPackages, script, applicationId, timeProvider)
-                val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
-                // Print test result and remember failure.
-                testRun.onComplete {
-                  case Failure(exception) =>
-                    success.set(false)
-                    println(s"${id.qualifiedName} FAILURE ($exception)")
-                  case Success(_) =>
-                    println(s"${id.qualifiedName} SUCCESS")
-                }
-                // Do not abort in case of failure, but complete all test runs.
-                testRun.recover {
-                  case _ => ()
-                }
+          _ <- sequentialTraverse(testScripts.toList) {
+            case (id, script) => {
+              val runner =
+                new Runner(compiledPackages, script, applicationId, timeProvider)
+              val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
+              // Print test result and remember failure.
+              testRun.onComplete {
+                case Failure(exception) =>
+                  success.set(false)
+                  println(s"${id.qualifiedName} FAILURE ($exception)")
+                case Success(_) =>
+                  println(s"${id.qualifiedName} SUCCESS")
+              }
+              // Do not abort in case of failure, but complete all test runs.
+              testRun.recover {
+                case _ => ()
               }
             }
+
           }
         } yield success.get()
 

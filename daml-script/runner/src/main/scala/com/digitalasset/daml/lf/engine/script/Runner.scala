@@ -15,6 +15,7 @@ import io.grpc.netty.NettyChannelBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.\/-
 import scalaz.std.either._
+import scalaz.std.list._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
@@ -454,6 +455,38 @@ class Runner(
                                   party.value) -> participant))
                         }
                         run(SEApp(SEValue(continue), Array(SEValue(party))))
+                      }
+                    } yield v
+                  }
+                  case _ =>
+                    Future.failed(
+                      new ConverterException(s"Expected record with 2 fields but got $v"))
+                }
+              }
+              case SVariant(_, "ListKnownParties", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 => {
+                    val continue = vals.get(1)
+                    for {
+                      participantName <- vals.get(0) match {
+                        case SOptional(Some(SText(t))) => Future.successful(Some(Participant(t)))
+                        case SOptional(None) => Future.successful(None)
+                        case v =>
+                          Future.failed(
+                            new ConverterException(s"Expected SOptional(SText) but got $v"))
+                      }
+                      client <- clients.getParticipant(participantName) match {
+                        case Right(client) => Future.successful(client)
+                        case Left(err) => Future.failed(new RuntimeException(err))
+                      }
+                      partyDetails <- client.listKnownParties()
+                      partyDetails_ <- Converter.toFuture(partyDetails.traverseU(details =>
+                        Converter.fromPartyDetails(script.scriptIds, details)))
+                      v <- {
+                        run(
+                          SEApp(
+                            SEValue(continue),
+                            Array(SEValue(SList(FrontStack(partyDetails_))))))
                       }
                     } yield v
                   }
