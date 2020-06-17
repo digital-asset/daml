@@ -48,8 +48,9 @@ We have migration tests that work as follows:
 
    1. Start sandbox of that SDK version.
 
-   2. Run a custom Scala binary that interacts with the ledger and
-      records results.
+   2. Run a custom Scala binary that interacts with the ledger to
+      create contracts, exercise choices and query the ACS and the
+      transaction service.
 
    3. Validates the results. This includes verifying that the
       transaction streams are the same after the migration and that the
