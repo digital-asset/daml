@@ -115,6 +115,12 @@ jobs:
           is_release: variables.is_release
       - bash: |
           set -euo pipefail
+          eval "$(dev-env/bin/dade-assist)"
+          bazel test -t- --runs_per_test=50 //ledger/sandbox:conformance-test-static-time-h2database
+          sed -i 's/concurrentTestRuns = 1,/concurrentTestRuns = Runtime.getRuntime.availableProcessors(),/' ledger/ledger-api-test-tool/src/main/scala/com/daml/ledger/api/testtool/Config.scala
+          bazel test -t- --runs_per_test=50 //ledger/sandbox:conformance-test-static-time-h2database
+      - bash: |
+          set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
           bazel build //release:release
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
@@ -150,6 +156,12 @@ jobs:
           release_tag: $(release_tag)
           name: macos
           is_release: variables.is_release
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade-assist)"
+          bazel test -t- --runs_per_test=50 //ledger/sandbox:conformance-test-static-time-h2database
+          sed -i 's/concurrentTestRuns = 1,/concurrentTestRuns = Runtime.getRuntime.availableProcessors(),/' ledger/ledger-api-test-tool/src/main/scala/com/daml/ledger/api/testtool/Config.scala
+          bazel test -t- --runs_per_test=50 //ledger/sandbox:conformance-test-static-time-h2database
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
