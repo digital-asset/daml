@@ -355,6 +355,13 @@ stripLoc = \case
     ELocation _ e -> stripLoc e
     e -> e
 
+calcPartyLiterals :: Expr -> HasNoPartyLiterals
+calcPartyLiterals e = HasNoPartyLiterals (cata go e)
+  where
+    go = \case
+        EBuiltinF (BEParty _) -> False
+        f -> and f
+
 -- | Attempt to lift a closed expression to the top level. Returns either
 -- a variable expression that references the lifted expression, or
 -- returns the original expression.
@@ -372,11 +379,11 @@ liftClosedExpr d e = do
                 Right ty -> do
                     name <- freshExprVarNameFor e
                     e' <- inlineClosedExpr d world e
-                    addDefValue DefValue -- todo cacheing??
+                    addDefValue DefValue
                         { dvalBinder = (name, ty)
                         , dvalBody = e'
                         , dvalLocation = Nothing
-                        , dvalNoPartyLiterals = HasNoPartyLiterals True -- FIXME
+                        , dvalNoPartyLiterals = calcPartyLiterals e'
                         , dvalIsTest = IsTest False
                         }
                     EVal <$> selfQualify name
