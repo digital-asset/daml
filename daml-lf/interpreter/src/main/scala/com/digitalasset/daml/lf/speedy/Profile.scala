@@ -35,7 +35,7 @@ final class Profile {
 
 object Profile {
   private[lf] final case class Event(val open: Boolean, val rawLabel: Label, val time: Long) {
-    def label: String = LabelModule.Allowed renderLabel rawLabel
+    def label: String = LabelModule.Allowed.renderLabel(rawLabel)
   }
 
   private def unmangleLenient(str: String): String = {
