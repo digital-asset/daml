@@ -79,7 +79,7 @@ da_scala_test_suite(
         ":codegen",
         "//daml-lf/data",
         "//daml-lf/interface",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

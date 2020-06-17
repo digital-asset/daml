@@ -39,7 +39,7 @@
   type: jar-proto
 - target: //daml-lf/transaction:value_java_proto
   type: jar-proto
-- target: //daml-lf/transaction-scalacheck:transaction-scalacheck
+- target: //daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala
 - target: //daml-lf/validation:validation
   type: jar-scala

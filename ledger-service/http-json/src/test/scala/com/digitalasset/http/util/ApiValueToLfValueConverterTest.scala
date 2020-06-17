@@ -5,7 +5,7 @@ package com.daml.http
 package util
 
 import com.daml.lf.data.{Numeric => LfNumeric}
-import com.daml.lf.value.TypedValueGenerators.genAddend
+import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.{Value => V}
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.{Arbitrary, Gen}

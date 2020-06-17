@@ -7,8 +7,8 @@ package value
 import data.{Bytes, FrontStack, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
-import ValueGenerators.{coidGen, idGen, nameGen}
-import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
+import test.ValueGenerators.{coidGen, idGen, nameGen}
+import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 import com.daml.scalatest.Unnatural
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
@@ -102,7 +102,7 @@ class ValueSpec
   }
 
   "Equal" - {
-    import com.daml.lf.value.ValueGenerators._
+    import com.daml.lf.value.test.ValueGenerators._
     import org.scalacheck.Arbitrary
     type T = VersionedValue[Unnatural[ContractId]]
     implicit val arbT: Arbitrary[T] =

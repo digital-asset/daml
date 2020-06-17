@@ -52,8 +52,8 @@ Components
   Both have associated Protobuf definitions, also contained in this
   package, and are used in `interpreter` and `engine` respectively.
 
-- `transaction-scalacheck` supplies Scalacheck `Gen`s for the value and
-  transaction ADTs provided by the `transaction` library.
+- `transaction-lib-test` supplies tools to generate transaction and
+  the value and transaction ADTs provided by the `transaction` library.
 
 - `data` contains utility datatypes used in the engine, and functions
   designed around specified LF semantics.  For example, if you want
