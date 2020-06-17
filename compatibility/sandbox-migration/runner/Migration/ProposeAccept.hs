@@ -93,7 +93,7 @@ data Deal = Deal
   { proposer :: Party
   , accepter :: Party
   , note :: String
-  } deriving (Eq, Generic, Show)
+  } deriving (Eq, Generic, Show, Ord)
 
 instance A.FromJSON Deal
 
