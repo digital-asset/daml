@@ -32,19 +32,19 @@ test step modelDar = Test {..}
             , "--test=divulgence," <> T.unpack (getParty testOwner) <> "," <> T.unpack (getParty testDivulgee) <> "," <> suffix
             ]
         either fail pure =<< A.eitherDecodeFileStrict' outputFile
-    validateStep sdkVersion (prevPrivateAssets, prevDivulgedAssets) Result {..} = do
+    validateStep sdkVersion (prevAssets, prevDivulgedAssets) Result {..} = do
         let suffix = getSdkVersion sdkVersion
-        unless (equivalent oldPrivateAssets prevPrivateAssets) $
-            throwError ("The old private assets do not match those returned by the previous run: " <> show oldPrivateAssets)
+        unless (equivalent oldAssets prevAssets) $
+            throwError ("The old private assets do not match those returned by the previous run: " <> show oldAssets)
         unless (equivalent oldDivulgedAssets prevDivulgedAssets) $
             throwError ("The old divulged assets do not match those returned by the previous run: " <> show oldDivulgedAssets)
-        let privateAssetDiff = (map _2 newPrivateAssets) \\ (map _2 oldPrivateAssets)
-        unless (equivalent privateAssetDiff [Asset testOwner ("private-" <> suffix), Asset testOwner ("divulging-" <> suffix)]) $
-            throwError ("Expected one private and one divulged contract, got " <> show privateAssetDiff)
+        let assetsDiff = (map _2 newAssets) \\ (map _2 oldAssets)
+        unless (equivalent assetsDiff [Asset testOwner ("private-" <> suffix), Asset testOwner ("divulging-" <> suffix)]) $
+            throwError ("Expected one private and one divulged contract, got " <> show assetsDiff)
         let divulgedAssetDiff = (map _2 newDivulgedAssets) \\ (map _2 oldDivulgedAssets)
         unless (divulgedAssetDiff == [Asset testOwner ("divulging-" <> suffix)]) $
             throwError ("Expected one divulged contract, got " <> show divulgedAssetDiff)
-        pure (newPrivateAssets, newDivulgedAssets)
+        pure (newAssets, newDivulgedAssets)
 
     testOwner :: Party
     testOwner = Party "owner"
@@ -62,8 +62,8 @@ data Asset = Asset
 instance A.FromJSON Asset
 
 data Result = Result
-  { oldPrivateAssets :: [Tuple2 ContractId Asset]
-  , newPrivateAssets :: [Tuple2 ContractId Asset]
+  { oldAssets :: [Tuple2 ContractId Asset]
+  , newAssets :: [Tuple2 ContractId Asset]
   , oldDivulgedAssets :: [Tuple2 ContractId Asset]
   , newDivulgedAssets :: [Tuple2 ContractId Asset]
   } deriving Generic

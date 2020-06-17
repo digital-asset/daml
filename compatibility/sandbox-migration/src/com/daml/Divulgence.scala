@@ -22,8 +22,8 @@ import scala.concurrent.{ExecutionContext, Future}
 object Divulgence {
 
   private final case class Result(
-      oldPrivateAssets: Seq[Application.ContractResult],
-      newPrivateAssets: Seq[Application.ContractResult],
+      oldAssets: Seq[Application.ContractResult],
+      newAssets: Seq[Application.ContractResult],
       oldDivulgedAssets: Seq[Application.ContractResult],
       newDivulgedAssets: Seq[Application.ContractResult],
   )
