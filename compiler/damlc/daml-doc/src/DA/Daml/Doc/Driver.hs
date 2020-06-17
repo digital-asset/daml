@@ -35,7 +35,6 @@ import System.Directory
 import System.FilePath
 
 import qualified Data.HashMap.Strict as HMS
-import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString as BS
@@ -99,17 +98,26 @@ inputDocData DamldocOptions{..} = do
         InputDaml -> onErrorExit . runMaybeT $
             extractDocs do_extractOptions do_diagsLogger do_compileOptions do_inputFiles
 
--- | Load a database of external anchors from a file.
-loadExternalAnchors :: Maybe FilePath -> IO (Either String (Map.Map Anchor String))
-loadExternalAnchors = \case
-    Just path -> runExceptT $ do
-        bytes <- ExceptT $ first readErr <$> try @IOError (LBS.fromStrict <$> BS.readFile path)
-        json <- ExceptT $ pure (first decodeErr (AE.eitherDecode @(HMS.HashMap Anchor T.Text) bytes))
-        pure $ Map.fromList (map (second T.unpack) (HMS.toList json))
-        where
-            readErr = const $ "Failed to read anchor table '" ++ path ++ "'"
-            decodeErr err = unlines ["Failed to decode anchor table '" ++ path ++ "':", err]
-    Nothing -> pure . Right $ Map.empty
+-- | Load a database of external anchors from a file. Will abnormally
+-- terminate the program if there's an IOError or json decoding
+-- failure.
+loadExternalAnchors :: Maybe FilePath -> IO AnchorMap
+loadExternalAnchors path = do
+    let printAndExit err = do
+            hPutStr stderr err
+            exitFailure
+    anchors <- tryLoadAnchors path
+    either printAndExit pure anchors
+    where
+        tryLoadAnchors = \case
+            Just path -> runExceptT $ do
+              bytes <- ExceptT $ first readErr <$> try @IOError (LBS.fromStrict <$> BS.readFile path)
+              anchors <- ExceptT $ pure (first decodeErr (AE.eitherDecode @AnchorMap bytes))
+              pure $ anchors
+              where
+                  readErr = const $ "Failed to read anchor table '" ++ path ++ "'"
+                  decodeErr err = unlines ["Failed to decode anchor table '" ++ path ++ "':", err]
+            Nothing -> pure . Right $ AnchorMap HMS.empty
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
@@ -129,24 +137,19 @@ renderDocData DamldocOptions{..} docData = do
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
             OutputDocs format -> do
                 externalAnchors <- loadExternalAnchors do_externalAnchorPath
-                case externalAnchors of
-                  Left err -> do
-                      hPutStr stderr err
-                      exitFailure
-                  Right externalAnchors -> do
-                      let renderOptions = RenderOptions
-                            { ro_mode =
-                              if do_combine
-                                then RenderToFile do_outputPath
-                                else RenderToFolder do_outputPath
-                            , ro_format = format
-                            , ro_title = do_docTitle
-                            , ro_template = templateM
-                            , ro_indexTemplate = indexTemplateM
-                            , ro_hoogleTemplate = hoogleTemplateM
-                            , ro_baseURL = do_baseURL
-                            , ro_hooglePath = do_hooglePath
-                            , ro_anchorPath = do_anchorPath
-                            , ro_externalAnchors = externalAnchors
-                            }
-                      renderDocs renderOptions docData
+                let renderOptions = RenderOptions
+                        { ro_mode =
+                          if do_combine
+                            then RenderToFile do_outputPath
+                            else RenderToFolder do_outputPath
+                        , ro_format = format
+                        , ro_title = do_docTitle
+                        , ro_template = templateM
+                        , ro_indexTemplate = indexTemplateM
+                        , ro_hoogleTemplate = hoogleTemplateM
+                        , ro_baseURL = do_baseURL
+                        , ro_hooglePath = do_hooglePath
+                        , ro_anchorPath = do_anchorPath
+                        , ro_externalAnchors = externalAnchors
+                        }
+                renderDocs renderOptions docData

@@ -76,7 +76,7 @@ data RenderEnv = RenderEnv
         -- ^ anchors defined in the same file
     , re_globalAnchors :: Map.Map Anchor FilePath
         -- ^ anchors defined in the same folder
-    , re_externalAnchors :: Map.Map Anchor String
+    , re_externalAnchors :: AnchorMap
         -- ^ anchors defined externally
     }
 
@@ -108,7 +108,7 @@ lookupReference ::
 lookupReference RenderEnv{..} ref = asum
     [ SameFile <$ guard (Set.member (referenceAnchor ref) re_localAnchors)
     , SameFolder <$> Map.lookup (referenceAnchor ref) re_globalAnchors
-    , External <$> (URI.parseURI =<< Map.lookup (referenceAnchor ref) re_externalAnchors)
+    , External <$> (URI.parseURI =<< HMS.lookup (referenceAnchor ref) (unAnchorMap re_externalAnchors))
     ]
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
@@ -126,7 +126,7 @@ getRenderAnchors = \case
     RenderDocs _ -> Set.empty
     RenderIndex _ -> Set.empty
 
-renderPage :: RenderFormatter -> Map.Map Anchor String -> RenderOut -> T.Text
+renderPage :: RenderFormatter -> AnchorMap -> RenderOut -> T.Text
 renderPage formatter externalAnchors output =
     T.unlines (formatter renderEnv output)
     where
@@ -140,7 +140,7 @@ renderPage formatter externalAnchors output =
 -- | Render a folder of modules.
 renderFolder ::
     RenderFormatter
-    -> Map.Map Anchor String
+    -> AnchorMap
     -> Map.Map Modulename RenderOut
     -> (T.Text, Map.Map Modulename T.Text)
 renderFolder formatter externalAnchors fileMap =

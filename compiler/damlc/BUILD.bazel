@@ -79,6 +79,7 @@ package_app(
     name = "damlc-dist",
     binary = ":damlc",
     resources = [
+        ":daml-base-anchors.json",
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",

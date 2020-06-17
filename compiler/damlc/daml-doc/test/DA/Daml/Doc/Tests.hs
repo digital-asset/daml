@@ -6,8 +6,8 @@
 module DA.Daml.Doc.Tests(mkTestTree)
   where
 
-import           DA.Bazel.Runfiles
-import           DA.Daml.Options.Types
+import DA.Bazel.Runfiles
+import DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
@@ -28,7 +28,6 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
-import qualified Data.Map.Strict as Map
 import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
@@ -37,7 +36,7 @@ import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
 
-mkTestTree :: Map.Map Anchor String -> IO Tasty.TestTree
+mkTestTree :: AnchorMap -> IO Tasty.TestTree
 mkTestTree externalAnchors = do
 
   testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
@@ -286,7 +285,7 @@ runDamldoc testfile importPathM = do
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
 -- for all files found.
-fileTest :: Map.Map Anchor FilePath -> FilePath -> IO [Tasty.TestTree]
+fileTest :: AnchorMap -> FilePath -> IO [Tasty.TestTree]
 fileTest externalAnchors damlFile = do
 
   damlFileAbs <- makeAbsolute damlFile
