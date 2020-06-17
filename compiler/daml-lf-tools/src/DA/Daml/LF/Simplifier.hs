@@ -347,6 +347,9 @@ liftClosedExpr e = do
                         }
                     EVal <$> selfQualify name
 
+                -- This happens when the information in the World is incomplete, preventing
+                -- full typechecking. That happens when compiling with --incremental=yes,
+                -- or when simplifying mutually recursive functions.
                 Left _ ->
                     pure e
 
@@ -364,9 +367,10 @@ simplifyExpr = fmap fst . cata go'
         -- to avoid creating unnecessary bindings, so we only perform
         -- constant lifting when a closed term would become non-closed,
         -- thereby grouping all the closed subterms together into a single
-        -- lift. If possible, we also want to lift above a lambda, even
-        -- though the result would remain closed, so we have the additional
-        -- 'alwaysLiftUnder' check.
+        -- lift. If possible, we also want to lift constants from below
+        -- lambdas and other binders (to make them memoizable),
+        -- even if the resulting expression would remain closed,
+        -- so we have the additional 'alwaysLiftUnder' check.
         if freeVarsNull v' && not (alwaysLiftUnder es)
           then pure (go world es)
           else do -- constant lifting
