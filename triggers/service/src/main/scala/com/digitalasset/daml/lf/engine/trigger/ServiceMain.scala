@@ -142,6 +142,7 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
+
     val triggerDao: RunningTriggerDao =
       jdbcConfig match {
         case None => InMemoryTriggerDao()
@@ -151,7 +152,7 @@ object Server {
     val key: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
         case Some(key) => SecretKey(key)
-        case None => {
+        case None =>
           ctx.log.warn(
             "The environment variable 'TRIGGER_SERVICE_SECRET_KEY' is not defined. It is highly recommended that a non-empty value for this variable be set. If the service startup parameters do not include the '--no-secret-key' option, the service will now terminate.")
           if (noSecretKey) {
@@ -159,7 +160,6 @@ object Server {
           } else {
             sys.exit(1)
           }
-        }
       }
 
     val server = new Server(dar)
