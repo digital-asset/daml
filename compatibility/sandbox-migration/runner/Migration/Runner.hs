@@ -32,8 +32,9 @@ import System.Process
 import WithPostgres (withPostgres)
 import qualified Bazel.Runfiles
 
-import qualified Migration.ProposeAccept as ProposeAccept
+import qualified Migration.Divulgence as Divulgence
 import qualified Migration.KeyTransfer as KeyTransfer
+import qualified Migration.ProposeAccept as ProposeAccept
 import Migration.Types
 
 data Options = Options
@@ -67,7 +68,7 @@ main = do
                 , "--host=localhost", "--port=" <> show p
                 ]
         runTest jdbcUrl platformAssistants
-            (ProposeAccept.test step modelDar `interleave` KeyTransfer.test step modelDar)
+            (ProposeAccept.test step modelDar `interleave` KeyTransfer.test step modelDar `interleave` Divulgence.test step modelDar)
 
 runTest :: forall s r. T.Text -> [FilePath] -> Test s r -> IO ()
 runTest jdbcUrl platformAssistants Test{..} = do

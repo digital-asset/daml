@@ -14,10 +14,12 @@ object Config {
   private implicit val readTest: Read[MigrationStep.Test] =
     Read.stringRead.map(s =>
       s.split(",", -1) match {
-        case Array(ProposeAccept.ApplicationId, proposer, accepter, note) =>
-          new ProposeAccept(proposer, accepter, note)
+        case Array(Divulgence.ApplicationId, owner, divulgee, suffix) =>
+          new Divulgence(owner, divulgee, suffix)
         case Array(KeyTransfer.ApplicationId, owner, receiver, suffix) =>
           new KeyTransfer(owner, receiver, suffix)
+        case Array(ProposeAccept.ApplicationId, proposer, accepter, note) =>
+          new ProposeAccept(proposer, accepter, note)
         case _ =>
           throw new IllegalArgumentException(s"Illegal test name or parameters '$s'")
     })
