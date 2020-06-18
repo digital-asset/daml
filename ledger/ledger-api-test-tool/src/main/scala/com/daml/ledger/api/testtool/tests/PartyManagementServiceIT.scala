@@ -193,9 +193,11 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       for {
+        // Running a dummy transaction seems to be required by the test framework to make parties visible via getParties
         _ <- alpha.create(alice, Dummy(alice))
-        alphaParties <- alpha.getParties(Seq(alice, bob))
         _ <- beta.create(bob, Dummy(bob))
+
+        alphaParties <- alpha.getParties(Seq(alice, bob))
         betaParties <- beta.getParties(Seq(alice, bob))
       } yield {
         assert(

@@ -4,18 +4,15 @@
 ---------------------------------------------------------------------------------------------------
 -- V34: Add is_local column to parties table.
 --
--- This allows parties to be marked as to whether they were added locally as determined by whether
--- the specified participant_id matched the local participant_id.
+-- This marks parties as to whether they are local.
 --
--- To initialize parties.is_local properly, rely on the existence of party_entries.is_local
--- default to parties.is_local = true only if party_entries were somehow manually deleted.
+-- To initialize parties.is_local, rely on party_entries.is_local.
 ---------------------------------------------------------------------------------------------------
 
 ALTER TABLE parties ADD COLUMN is_local bool;
 
-UPDATE parties SET is_local = false
-WHERE party IN (SELECT party FROM party_entries WHERE is_local = false);
-
-UPDATE parties SET is_local = true WHERE is_local IS NULL;
+UPDATE parties SET is_local = (
+SELECT party_entries.is_local
+FROM party_entries where party_entries.party = parties.party);
 
 ALTER TABLE parties ALTER COLUMN is_local SET NOT NULL;

@@ -4,18 +4,10 @@
 ---------------------------------------------------------------------------------------------------
 -- V34: Add is_local column to parties table.
 --
--- This allows parties to be marked as to whether they were added locally as determined by whether
--- the specified participant_id matched the local participant_id.
+-- This marks parties as to whether they are local.
 --
--- To initialize parties.is_local properly, rely on the existence of party_entries.is_local
--- default to parties.is_local = true only if party_entries were somehow manually deleted.
+-- Initializes parties.is_local to true as migrations are not supported for h2database.
 ---------------------------------------------------------------------------------------------------
 
-ALTER TABLE parties ADD COLUMN is_local bool;
-
-UPDATE parties SET is_local = false
-WHERE party IN (SELECT party FROM party_entries WHERE is_local = false);
-
-UPDATE parties SET is_local = true WHERE is_local IS NULL;
-
-ALTER TABLE parties ALTER COLUMN is_local SET NOT NULL;
+ALTER TABLE parties ADD COLUMN is_local bool NOT NULL DEFAULT true;
+ALTER TABLE parties ALTER COLUMN is_local DROP DEFAULT;
