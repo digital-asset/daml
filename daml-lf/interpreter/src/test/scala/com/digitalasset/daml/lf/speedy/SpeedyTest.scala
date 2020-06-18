@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data.{FrontStack, Ref, Time}
+import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SError
@@ -306,13 +306,7 @@ class SpeedyTest extends WordSpec with Matchers {
 object SpeedyTest {
 
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = packages,
-      scenario = false,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = InitialSeeding.NoSeed,
-    )
+    val machine = Speedy.Machine.fromExpr(packages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {
@@ -328,13 +322,7 @@ object SpeedyTest {
 
   private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
     val packages = PureCompiledPackages(Map.empty, profiling = Compiler.FullProfile).right.get
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = packages,
-      scenario = false,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = InitialSeeding.NoSeed,
-    )
+    val machine = Speedy.Machine.fromExpr(packages, e)
     machine.run()
     machine.profile.events
   }

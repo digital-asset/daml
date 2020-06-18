@@ -147,7 +147,7 @@ private[lf] final case class Compiler(
   /** Environment mapping names into stack positions */
   private var env = Env()
 
-  private val withLabel: (AnyRef, SExpr) => SExpr =
+  private val withLabel: (Profile.Label, SExpr) => SExpr =
     profiling match {
       case NoProfile => { (_, expr) =>
         expr
@@ -160,7 +160,9 @@ private[lf] final case class Compiler(
       }
     }
 
-  private def withOptLabel(optLabel: Option[AnyRef], expr: SExpr): SExpr =
+  private def withOptLabel[L: Profile.LabelModule.Allowed](
+      optLabel: Option[L with AnyRef],
+      expr: SExpr): SExpr =
     optLabel match {
       case Some(label) => withLabel(label, expr)
       case None => expr
@@ -264,13 +266,13 @@ private[lf] final case class Compiler(
         bf match {
           case BFoldl =>
             val ref = SEBuiltinRecursiveDefinition.FoldL
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BFoldr =>
             val ref = SEBuiltinRecursiveDefinition.FoldR
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BEqualList =>
             val ref = SEBuiltinRecursiveDefinition.EqualList
-            withLabel(ref, ref)
+            withLabel(ref.ref, ref)
           case BCoerceContractId => SEAbs.identity
           // Numeric Comparisons
           case BLessNumeric => SBLessNumeric

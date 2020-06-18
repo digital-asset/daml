@@ -125,7 +125,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings-akka",
         "//ledger-service/db-backend",
         "//ledger-service/lf-value-json",

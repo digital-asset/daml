@@ -208,7 +208,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-scalacheck",
+        "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

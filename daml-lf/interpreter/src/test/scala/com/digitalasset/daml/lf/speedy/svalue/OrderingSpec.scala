@@ -6,16 +6,15 @@ package svalue
 
 import java.util
 
-import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.SEImportValue
-import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
-import com.daml.lf.value.TypedValueGenerators.genAddend
-import com.daml.lf.value.ValueGenerators.{cidV0Gen, comparableCoidsGen}
+import com.daml.lf.value.test.TypedValueGenerators.genAddend
+import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{
@@ -327,7 +326,7 @@ class OrderingSpec
   )
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
-    import com.daml.lf.value.TypedValueGenerators.{ValueAddend => VA}
+    import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
     implicit val ordNo
       : Order[Nothing] = Order order [Nothing]((_: Any, _: Any) => sys.error("impossible"))
     def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
@@ -351,7 +350,7 @@ class OrderingSpec
 
   private val funs = List(
     lfFunction,
-    SPAP(PClosure(null, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
+    SPAP(PClosure(Profile.LabelUnset, SExpr.SEVar(2), Array()), ArrayList(SValue.SValue.Unit), 2),
   )
 
   private def nonEquatableLists(atLeast2InEquatableValues: List[SValue]) = {
@@ -501,18 +500,11 @@ class OrderingSpec
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
-  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-  private def initMachine(expr: SExpr) = Speedy.Machine fromSExpr (
-    sexpr = expr,
-    compiledPackages =
-      PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile),
-    submissionTime = Time.Timestamp.now(),
-    seeding = InitialSeeding.TransactionSeed(txSeed),
-    globalCids = Set.empty,
-  )
+  private val noPackages =
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {
-    val machine = initMachine(SEImportValue(v))
+    val machine = Speedy.Machine.fromExpr(noPackages, SEImportValue(v))
     machine.run() match {
       case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")

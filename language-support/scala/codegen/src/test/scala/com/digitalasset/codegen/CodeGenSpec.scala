@@ -7,7 +7,7 @@ package codegen
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.iface._
-import com.daml.lf.value.ValueGenerators.idGen
+import com.daml.lf.value.test.ValueGenerators.idGen
 
 import org.scalatest.{WordSpec, Matchers}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks

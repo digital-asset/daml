@@ -7,7 +7,6 @@ package explore
 
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.data.Time
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -38,15 +37,8 @@ object LoadDarFunction extends App {
         val arg = SEValue(SInt64(argValue))
         SEApp(func, Array(arg))
       }
-      val machine: Machine = {
-        Machine.fromSExpr(
-          expr,
-          compiledPackages,
-          Time.Timestamp.now(),
-          InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("KEY")),
-          Set.empty,
-        )
-      }
+      val machine = Machine.fromExpr(compiledPackages, expr)
+
       machine.run() match {
         case SResultFinalValue(SInt64(result)) => result
         case res => throw new RuntimeException(s"Unexpected result from machine $res")

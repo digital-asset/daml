@@ -15,7 +15,7 @@ import org.scalatest.{Assertion, Matchers, WordSpec}
 
 class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with PropertyChecks {
 
-  import ValueGenerators._
+  import test.ValueGenerators._
 
   implicit val noStringShrink: Shrink[String] = Shrink.shrinkAny[String]
 
@@ -69,7 +69,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do Numeric" in {
-      import ValueGenerators.Implicits._
+      import test.ValueGenerators.Implicits._
 
       forAll("Numeric scale", "Decimal (BigDecimal) invariant") {
         (s: Numeric.Scale, d: BigDecimal) =>

@@ -13,7 +13,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Inside, Matchers}
 
 class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with MockitoSugar {
-  "conflictDetectAndRecover" should {
+  "detectConflictsAndRecover" should {
     "return output keys as invalidated and unchanged input in case of no conflicts" in {
       val aliceKey = DamlStateKey.newBuilder.setParty("Alice").build
       val logEntry = aPartyLogEntry("Alice")

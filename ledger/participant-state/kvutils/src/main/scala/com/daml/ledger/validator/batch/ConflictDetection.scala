@@ -87,14 +87,15 @@ class ConflictDetection(val damlMetrics: Metrics) {
         None
 
       case PAYLOAD_NOT_SET =>
-        sys.error("conflictDetectAndRecover: PAYLOAD_NOT_SET")
+        sys.error("detectConflictsAndRecover: PAYLOAD_NOT_SET")
     }
   }
 
   // Attempt to produce a useful message by collecting the first conflicting
   // contract id or contract key.
   private def explainConflict(conflictingKeys: Iterable[DamlStateKey]): String =
-    conflictingKeys
+    conflictingKeys.toStream
+      .sortBy(_.toByteString.asReadOnlyByteBuffer())
       .collectFirst {
         case key if key.hasContractKey =>
           // NOTE(JM): We show the template id as the other piece of data we have is the contract key

@@ -20,8 +20,9 @@ version: 1.0.0
 dependencies: [daml-stdlib, daml-prim]
 EOF
 
-cp $(location :daml/ProposeAccept.daml) $$TMP/ProposeAccept.daml
+cp $(location :daml/Divulgence.daml) $$TMP/Divulgence.daml
 cp $(location :daml/KeyTransfer.daml) $$TMP/KeyTransfer.daml
+cp $(location :daml/ProposeAccept.daml) $$TMP/ProposeAccept.daml
 $$DAML build --project-root $$TMP -o $$PWD/$(location :migration-model.dar)
 """,
     tools = ["@daml-sdk-1.0.0//:daml"],

@@ -9,19 +9,13 @@ module Migration.KeyTransfer (test) where
 import Control.Monad
 import Control.Monad.Except
 import qualified Data.Aeson as A
-import Data.List
 import qualified Data.Text as T
 import GHC.Generics (Generic)
 import System.IO.Extra
 import System.Process
 
 import Migration.Types
-
-symDiff :: Eq a => [a] -> [a] -> [a]
-symDiff left right = (left \\ right) ++ (right \\ left)
-
-equivalent :: Eq a => [a] -> [a] -> Bool
-equivalent xs = null . symDiff xs
+import Migration.Util
 
 test :: FilePath -> FilePath -> Test ([Tuple2 ContractId Asset], [Transaction]) Result
 test step modelDar = Test {..}
@@ -91,7 +85,7 @@ pattern ArchivedAsset cid = Archived cid (TemplateId "KeyTransfer" "Asset")
 data Asset = Asset
   { owner :: Party
   , name :: String
-  } deriving (Eq, Generic, Show)
+  } deriving (Eq, Generic, Show, Ord)
 
 instance A.FromJSON Asset
 

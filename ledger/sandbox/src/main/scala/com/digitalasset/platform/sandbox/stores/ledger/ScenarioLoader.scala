@@ -54,10 +54,10 @@ object ScenarioLoader {
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String,
-      submissionSeed: crypto.Hash,
+      transactionSeed: crypto.Hash,
   ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
     val (scenarioLedger, scenarioRef) =
-      buildScenarioLedger(packages, compiledPackages, scenario, submissionSeed)
+      buildScenarioLedger(packages, compiledPackages, scenario, transactionSeed)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
@@ -113,13 +113,13 @@ object ScenarioLoader {
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String,
-      submissionSeed: crypto.Hash,
+      transactionSeed: crypto.Hash,
   ): (ScenarioLedger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages, submissionSeed)
+    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages, transactionSeed)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
   }
@@ -137,12 +137,9 @@ object ScenarioLoader {
   private def getSpeedyMachine(
       scenarioExpr: Ast.Expr,
       compiledPackages: CompiledPackages,
-      submissionSeed: crypto.Hash,
+      transactionSeed: crypto.Hash,
   ): Speedy.Machine =
-    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), submissionSeed) match {
-      case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
-      case Right(build) => build(scenarioExpr)
-    }
+    Speedy.Machine.buildForScenario(compiledPackages, transactionSeed, scenarioExpr)
 
   private def getScenarioExpr(
       scenarioRef: Ref.DefinitionRef,
