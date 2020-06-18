@@ -1,6 +1,6 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExport.WriteSet
+import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.WriteSet
 import com.daml.ledger.validator.LedgerStateOperations
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 

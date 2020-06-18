@@ -10,7 +10,10 @@ import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.participant.state.kvutils.export.LedgerDataExport.{SubmissionInfo, WriteSet}
+import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.{
+  SubmissionInfo,
+  WriteSet
+}
 import com.daml.ledger.participant.state.kvutils.export.Serialization
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.StateKeySerializationStrategy

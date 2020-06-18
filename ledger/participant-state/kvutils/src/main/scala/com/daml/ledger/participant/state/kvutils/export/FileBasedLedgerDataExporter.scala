@@ -16,7 +16,7 @@ import scala.collection.mutable.ListBuffer
   * If ledger dumps are not enabled doesn't do anything.
   * This class is thread-safe.
   */
-object LedgerDataExport {
+object FileBasedLedgerDataExporter extends LedgerDataExporter {
   case class SubmissionInfo(
       submissionEnvelope: ByteString,
       correlationId: String,
