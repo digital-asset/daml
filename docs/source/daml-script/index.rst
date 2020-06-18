@@ -293,3 +293,6 @@ To run DAML script against the JSON API you have to pass the ``--json-api`` para
 #. Since DAML Script only accepts a single token and the party is
    inferred from the token, this means that you can only use a single
    party within a DAML script when running against the JSON API.
+#. ``getTime`` will always return the Unix epoch in static time mode
+   since the time service is not exposed via the JSON API.
+#. ``setTime`` is not supported and will throw a runtime error.

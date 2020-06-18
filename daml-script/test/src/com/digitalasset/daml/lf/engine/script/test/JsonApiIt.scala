@@ -15,12 +15,17 @@ import scalaz.{-\/, \/-}
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.DarReader
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptLedgerClient}
+import com.daml.lf.engine.script.{
+  ApiParameters,
+  Participants,
+  Runner,
+  ScriptLedgerClient,
+  ScriptTimeMode
+}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.speedy.SError._
@@ -170,7 +175,7 @@ final class JsonApiIt
       inputValue,
       clients,
       ApplicationId(MockMessages.applicationId),
-      TimeProvider.UTC)
+      ScriptTimeMode.WallClock)
   }
 
   "DAML Script over JSON API" can {
