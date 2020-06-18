@@ -136,7 +136,7 @@ log "Created /nix partition."
 su -l vsts <<'END'
 set -euo pipefail
 export PATH="/usr/local/bin:/usr/sbin:$PATH"
-bash <(curl -sSfL https://nixos.org/nix/install)
+bash <(curl https://nixos.org/nix/install)
 echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
 END
 
