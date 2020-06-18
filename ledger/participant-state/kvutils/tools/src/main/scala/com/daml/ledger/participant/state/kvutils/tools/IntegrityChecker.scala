@@ -8,7 +8,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
@@ -19,12 +19,16 @@ import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExpor
 }
 import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
   BatchedSubmissionValidatorParameters,
   ConflictDetection
+}
+import com.daml.ledger.validator.{
+  CommitStrategy,
+  DamlLedgerStateReader,
+  StateKeySerializationStrategy
 }
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
@@ -66,6 +70,22 @@ class IntegrityChecker {
         writeRecordingLedgerStateOperations,
         stateKeySerializationStrategy,
         NoopLedgerDataExporter)
+    processSubmissions(
+      input,
+      submissionValidator,
+      reader,
+      commitStrategy,
+      writeRecordingLedgerStateOperations)
+    reportDetailedMetrics(metricRegistry)
+  }
+
+  private def processSubmissions(
+      input: DataInputStream,
+      submissionValidator: BatchedSubmissionValidator[Index],
+      reader: DamlLedgerStateReader,
+      commitStrategy: CommitStrategy[Index],
+      writeRecordingLedgerStateOperations: WriteRecordingLedgerStateOperations[Index]): Unit = {
+    var counter = 0
     while (input.available() > 0) {
       val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
       val validationFuture = submissionValidator.validateAndCommit(
@@ -77,10 +97,12 @@ class IntegrityChecker {
         commitStrategy
       )
       Await.ready(validationFuture, Duration(10, TimeUnit.SECONDS))
+      counter += 1
       val actualWriteSet = writeRecordingLedgerStateOperations.getAndClearRecordedWriteSet()
       val sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
       compareWriteSets(expectedWriteSet, sortedActualWriteSet)
     }
+    println(s"Processed $counter submissions")
   }
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
@@ -135,5 +157,14 @@ class IntegrityChecker {
       s"Read submission correlationId=${submissionInfo.correlationId} submissionEnvelopeSize=${submissionInfo.submissionEnvelope
         .size()} writeSetSize=${writeSet.size}")
     (submissionInfo, writeSet)
+  }
+
+  private def reportDetailedMetrics(metricRegistry: MetricRegistry): Unit = {
+    val reporter = ConsoleReporter
+      .forRegistry(metricRegistry)
+      .convertRatesTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
+      .build
+    reporter.report()
   }
 }
