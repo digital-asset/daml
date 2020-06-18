@@ -28,7 +28,7 @@ final class TransactionBuilder {
 
   // not thread safe
   private[this] def newNode(node: Node): NodeId = {
-    val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
+    lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
     nodes += (nodeId -> version(node))
     nodeId
   }
