@@ -5,9 +5,9 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.client.binding.Primitive.{ContractId, Party}
@@ -15,7 +15,7 @@ import com.daml.ledger.test_stable.Test.WithObservers
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LotsOfPartiesIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class LotsOfPartiesIT extends LedgerTestSuite {
   type Parties = Set[Party]
   type PartyMap[T] = Map[Party, T]
 

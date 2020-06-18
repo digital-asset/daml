@@ -5,10 +5,10 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import io.grpc.health.v1.health.HealthCheckResponse
 
-class HealthServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+class HealthServiceIT extends LedgerTestSuite {
   test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties))(
     implicit ec => {
       case Participants(Participant(ledger)) =>

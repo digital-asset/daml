@@ -10,12 +10,12 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   allocate
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.SemanticTests.{Amount, Iou}
 import io.grpc.Status
 
-class ClosedWorldIT(session: LedgerSession) extends LedgerTestSuite(session) {
+class ClosedWorldIT extends LedgerTestSuite {
 
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
 

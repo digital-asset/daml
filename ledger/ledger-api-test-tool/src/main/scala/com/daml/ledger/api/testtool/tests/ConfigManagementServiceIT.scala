@@ -5,12 +5,12 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
-final class ConfigManagementServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class ConfigManagementServiceIT extends LedgerTestSuite {
   test(
     "CMSetAndGetTimeModel",
     "It should be able to get, set and restore the time model",
