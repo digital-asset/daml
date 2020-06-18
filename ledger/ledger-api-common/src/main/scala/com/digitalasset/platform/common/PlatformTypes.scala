@@ -4,7 +4,6 @@
 package com.daml.platform.common
 
 import com.daml.lf.transaction.{Node => N}
-import com.daml.lf.value.{ValueVersions, Value => V}
 import com.daml.lf.{transaction => T}
 import com.daml.lf.{engine => E}
 import com.daml.lf.data.Ref
