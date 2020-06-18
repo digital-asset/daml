@@ -26,7 +26,7 @@ import com.daml.lf.value.Value.{
   ValueUnit,
   VersionedValue
 }
-import com.daml.lf.value.ValueVersions
+import com.daml.lf.value.{Value, ValueVersions}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -46,6 +46,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     () =>
       Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
   }
+
+  private[this] def version(v: Value[ContractId]) = ValueVersions.assertAsVersionedValue(v)
 
   protected final implicit class OffsetToLong(offset: Offset) {
     def toLong: Long = BigInt(offset.toByteArray).toLong
@@ -78,9 +80,11 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     VersionedValue(ValueVersions.acceptedVersions.head, someValueText)
   protected final val someContractInstance = ContractInst(
     someTemplateId,
-    VersionedValue(ValueVersions.acceptedVersions.head, someValueRecord),
+    someValueRecord,
     someAgreement
   )
+  protected final val someVersionedContractInstance =
+    TransactionBuilder.version(someContractInstance)
 
   protected final val defaultConfig = v1.Configuration(
     generation = 0,
@@ -105,7 +109,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   private def create(
       absCid: ContractId,
-  ): NodeCreate.WithTxValue[ContractId] =
+  ): NodeCreate[ContractId, Value[ContractId]] =
     NodeCreate(
       coid = absCid,
       coinst = someContractInstance,
@@ -117,7 +121,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   private def exercise(
       targetCid: ContractId,
-  ): NodeExercises.WithTxValue[Tx.NodeId, ContractId] =
+  ): NodeExercises[Tx.NodeId, ContractId, Value[ContractId]] =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -125,13 +129,11 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       optLocation = None,
       consuming = true,
       actingParties = Set(alice),
-      chosenValue =
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
+      chosenValue = ValueText("some choice value"),
       stakeholders = Set(alice, bob),
       signatories = Set(alice, bob),
       children = ImmArray.empty,
-      exerciseResult = Some(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some exercise result"))),
+      exerciseResult = Some(ValueText("some exercise result")),
       key = None
     )
 
@@ -182,11 +184,11 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         optLocation = None,
         consuming = false,
         actingParties = Set(alice),
-        chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
+        chosenValue = ValueUnit,
         stakeholders = divulgees,
         signatories = divulgees,
         children = ImmArray.empty,
-        exerciseResult = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
+        exerciseResult = Some(ValueUnit),
         key = None,
       )
     )
@@ -434,10 +436,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(
-          KeyWithMaintainers(
-            VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
-            Set(party)))
+        key = Some(KeyWithMaintainers(ValueText(key), Set(party)))
       ))
     nextOffset() ->
       LedgerEntry.Transaction(
@@ -469,19 +468,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         optLocation = None,
         consuming = true,
         actingParties = Set(party),
-        chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
+        chosenValue = ValueUnit,
         stakeholders = Set(party),
         signatories = Set(party),
         controllersDifferFromActors = false,
         children = ImmArray.empty,
-        exerciseResult = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
-        key = maybeKey.map(
-          k =>
-            KeyWithMaintainers(
-              VersionedValue(ValueVersions.acceptedVersions.head, ValueText(k)),
-              Set(party),
-          )
-        )
+        exerciseResult = Some(ValueUnit),
+        key = maybeKey.map(k => KeyWithMaintainers(ValueText(k), Set(party)))
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
@@ -508,9 +501,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       NodeLookupByKey(
         someTemplateId,
         None,
-        KeyWithMaintainers(
-          VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
-          Set(party)),
+        KeyWithMaintainers(ValueText(key), Set(party)),
         result,
       ))
     nextOffset() -> LedgerEntry.Transaction(

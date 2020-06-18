@@ -4,7 +4,6 @@
 package com.daml.platform.common
 
 import com.daml.lf.transaction.{Node => N}
-import com.daml.lf.value.{ValueVersions, Value => V}
 import com.daml.lf.{transaction => T}
 import com.daml.lf.{engine => E}
 import com.daml.lf.data.Ref
@@ -36,16 +35,6 @@ object PlatformTypes {
 
   type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, T.Transaction.Value[Cid]]
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
-
-  def asVersionedValue[Cid <: V.ContractId](
-      v: V[Cid]): scala.Either[String, V.VersionedValue[Cid]] =
-    ValueVersions.asVersionedValue(v)
-
-  def asVersionedValueOrThrow[Cid <: V.ContractId](v: V[Cid]): V.VersionedValue[Cid] = {
-    asVersionedValue(v).fold(
-      s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
-      identity)
-  }
 
   def packageId(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 

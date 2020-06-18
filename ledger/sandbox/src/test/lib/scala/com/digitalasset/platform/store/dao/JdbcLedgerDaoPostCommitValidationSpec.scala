@@ -6,7 +6,6 @@ package com.daml.platform.store.dao
 import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -126,7 +125,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     val divulgedContractId =
       ContractId.assertFromString(s"#${UUID.randomUUID}")
     val divulgedContracts =
-      Map((divulgedContractId, someContractInstance: ContractInst) -> Set(alice))
+      Map((divulgedContractId, someVersionedContractInstance) -> Set(alice))
 
     for {
       from <- ledgerDao.lookupLedgerEnd()
