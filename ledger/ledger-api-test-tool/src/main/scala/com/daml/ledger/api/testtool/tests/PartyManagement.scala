@@ -193,7 +193,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       for {
         alphaParties <- alpha.getParties(Seq(alice, bob))
-        betaParties <- alpha.getParties(Seq(alice, bob))
+        betaParties <- beta.getParties(Seq(alice, bob))
       } yield {
         assert(
           alphaParties.exists(p => p.party == alice.unwrap && p.isLocal),
@@ -208,13 +208,13 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         // either publish parties across participants as non-local or bar that from happening entirely
         if (alpha.endpointId != beta.endpointId) {
           assert(
-            alphaParties.exists(p => p.party == alice.unwrap && !p.isLocal) || !alphaParties.exists(
-              _.party == alice.unwrap),
+            alphaParties.exists(p => p.party == bob.unwrap && !p.isLocal) || !alphaParties.exists(
+              _.party == bob.unwrap),
             "Unexpected remote party marked as local found on first participant",
           )
           assert(
-            betaParties.exists(p => p.party == bob.unwrap && !p.isLocal) || !betaParties.exists(
-              _.party == bob.unwrap),
+            betaParties.exists(p => p.party == alice.unwrap && !p.isLocal) || !betaParties.exists(
+              _.party == alice.unwrap),
             "Unexpected remote party marked as local found on second participant",
           )
         }
