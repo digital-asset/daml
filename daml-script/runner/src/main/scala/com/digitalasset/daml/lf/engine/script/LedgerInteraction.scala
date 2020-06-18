@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import io.grpc.{Status, StatusRuntimeException}
+import java.time.{Clock, Instant}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Failure}
@@ -23,8 +24,12 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
+import com.daml.api.util.TimestampConversion
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue._
@@ -37,6 +42,8 @@ import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.validation.ValueValidator
@@ -45,6 +52,15 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier
+}
+
+// We have our own type for time modes since TimeProviderType
+// allows for more stuff that doesn’t make sense in DAML Script.
+sealed trait ScriptTimeMode
+
+object ScriptTimeMode {
+  final case object Static extends ScriptTimeMode
+  final case object WallClock extends ScriptTimeMode
 }
 
 object ScriptLedgerClient {
@@ -104,6 +120,15 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[List[PartyDetails]]
 
+  def getStaticTime()(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Time.Timestamp]
+
+  def setStaticTime(time: Time.Timestamp)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Unit]
 }
 
 class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient {
@@ -186,6 +211,37 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
     grpcClient.partyManagementClient
       .listKnownParties()
+  }
+
+  private val utcClock = Clock.systemUTC()
+
+  override def getStaticTime()(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Time.Timestamp] = {
+    val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
+    for {
+      resp <- ClientAdapter
+        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
+        .runWith(Sink.head)
+    } yield Time.Timestamp.assertFromInstant(TimestampConversion.toInstant(resp.getCurrentTime))
+  }
+
+  override def setStaticTime(time: Time.Timestamp)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Unit] = {
+    val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
+    for {
+      oldTime <- ClientAdapter
+        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
+        .runWith(Sink.head)
+      _ <- timeService.setTime(
+        SetTimeRequest(
+          grpcClient.ledgerId.unwrap,
+          oldTime.currentTime,
+          Some(TimestampConversion.fromInstant(time.toInstant))))
+    } yield ()
   }
 
   private def toCommand(command: ScriptLedgerClient.Command): Either[String, Command] =
@@ -363,6 +419,23 @@ class JsonLedgerClient(
     Future.failed(
       new RuntimeException(
         s"listKnownParties is not supported when running DAML Script over the JSON API"))
+  }
+
+  override def getStaticTime()(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Time.Timestamp] = {
+    // There is no time service in the JSON API so we default to the Unix epoch.
+    Future { Time.Timestamp.assertFromInstant(Instant.EPOCH) }
+  }
+
+  override def setStaticTime(time: Time.Timestamp)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Unit] = {
+    // No time service in the JSON API
+    Future.failed(
+      new RuntimeException("setTime is not supported when running DAML Script over the JSON API."))
   }
 
   // Check that the party in the token matches the given party.

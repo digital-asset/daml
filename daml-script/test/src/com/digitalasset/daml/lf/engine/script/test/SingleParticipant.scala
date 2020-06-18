@@ -14,6 +14,7 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Ref.{Party => LedgerParty}
 import com.daml.lf.language.Ast._
@@ -182,11 +183,11 @@ case class TestCreateAndExercise(dar: Dar[(PackageId, Package)], runner: TestRun
   }
 }
 
-case class Time(dar: Dar[(PackageId, Package)], runner: TestRunner) {
-  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:time"))
+case class GetTime(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testGetTime"))
   def runTests() = {
     runner.genericTest(
-      "Time",
+      "getTime",
       scriptId,
       None,
       result =>
@@ -200,6 +201,30 @@ case class Time(dar: Dar[(PackageId, Package)], runner: TestRunner) {
               else Right(())
             } yield r
           case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
+case class SetTime(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testSetTime"))
+  def runTests() = {
+    runner.genericTest(
+      "tTime",
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SRecord(_, _, vals) if vals.size == 2 =>
+            for {
+              t0 <- TestRunner.assertSTimestamp(vals.get(0))
+              t1 <- TestRunner.assertSTimestamp(vals.get(1))
+              _ <- TestRunner
+                .assertEqual(t0, Timestamp.assertFromString("1970-01-01T00:00:00Z"), "t0")
+              _ <- TestRunner
+                .assertEqual(t1, Timestamp.assertFromString("2000-02-02T00:01:02Z"), "t1")
+            } yield ()
+          case v => Left(s"Expected Tuple2 but got $v")
       }
     )
   }
@@ -420,13 +445,17 @@ object SingleParticipant {
             Test4(dar, runner).runTests()
             TestKey(dar, runner).runTests()
             TestCreateAndExercise(dar, runner).runTests()
-            Time(dar, runner).runTests()
+            GetTime(dar, runner).runTests()
             Sleep(dar, runner).runTests()
             PartyIdHintTest(dar, runner).runTests()
             ListKnownParties(dar, runner).runTests()
             TestStack(dar, runner).runTests()
             TestMaxInboundMessageSize(dar, runner).runTests()
             ScriptExample(dar, runner).runTests()
+            // Keep this at the end since it changes the time and we cannot go backwards.
+            if (!config.wallclockTime) {
+              SetTime(dar, runner).runTests()
+            }
           case Some(_) =>
             // We can’t test much with auth since most of our tests rely on party allocation and being
             // able to act as the corresponding party.

@@ -5,7 +5,6 @@ package com.daml.lf.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
-import com.daml.api.util.TimeProvider
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.Decode
@@ -153,7 +152,7 @@ object ReplServiceMain extends App {
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-      .addService(new ReplService(clients, ec, materializer))
+      .addService(new ReplService(clients, ec, sequencer, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build
   server.start()
@@ -168,12 +167,14 @@ object ReplServiceMain extends App {
 class ReplService(
     val clients: Participants[ScriptLedgerClient],
     ec: ExecutionContext,
+    esf: ExecutionSequencerFactory,
     mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
+  implicit val esf_ = esf
   implicit val mat_ = mat
 
   private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
@@ -234,7 +235,7 @@ class ReplService(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
-      TimeProvider.UTC)
+      ScriptTimeMode.WallClock)
     runner.runWithClients(clients).onComplete {
       case Failure(e: SError.SError) =>
         // The error here is already printed by the logger in stepToValue.

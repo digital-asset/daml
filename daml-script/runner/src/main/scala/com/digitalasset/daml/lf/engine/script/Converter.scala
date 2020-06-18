@@ -13,6 +13,7 @@ import scala.concurrent.Future
 import scalaz.{-\/, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -371,6 +372,12 @@ object Converter {
     v match {
       case p @ SParty(_) => Right(p)
       case _ => Left(s"Expected SParty but got $v")
+    }
+
+  def toTimestamp(v: SValue): Either[String, Time.Timestamp] =
+    v match {
+      case STimestamp(t) => Right(t)
+      case _ => Left(s"Expected STimestamp but got $v")
     }
 
   // Helper to construct a record

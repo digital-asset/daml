@@ -8,7 +8,6 @@ import akka.stream._
 import ch.qos.logback.core.AppenderBase
 import ch.qos.logback.classic.spi.ILoggingEvent
 import java.io.File
-import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -16,7 +15,6 @@ import scala.util.{Success, Failure}
 import scalaz.syntax.tag._
 import spray.json._
 
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -83,8 +81,8 @@ class TestRunner(
     token = token,
   )
   val ttl = java.time.Duration.ofSeconds(30)
-  val timeProvider: TimeProvider =
-    if (wallclockTime) TimeProvider.UTC else TimeProvider.Constant(Instant.EPOCH)
+  val timeMode: ScriptTimeMode =
+    if (wallclockTime) ScriptTimeMode.WallClock else ScriptTimeMode.Static
 
   def genericTest[A](
       // test name
@@ -112,7 +110,7 @@ class TestRunner(
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF
-      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
+      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
       _ <- expectedLog match {
         case None => Future.unit
         case Some(expectedLogs) =>

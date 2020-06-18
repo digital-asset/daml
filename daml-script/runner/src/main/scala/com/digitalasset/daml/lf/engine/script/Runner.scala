@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
+import java.time.Clock
 import java.util.UUID
 
 import io.grpc.netty.NettyChannelBuilder
@@ -19,7 +20,6 @@ import scalaz.std.list._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-import com.daml.api.util.TimeProvider
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
@@ -204,8 +204,9 @@ object Runner {
       inputValue: Option[JsValue],
       initialClients: Participants[ScriptLedgerClient],
       applicationId: ApplicationId,
-      timeProvider: TimeProvider)(
+      timeMode: ScriptTimeMode)(
       implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages(darMap).right.get
@@ -232,7 +233,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner =
-      new Runner(compiledPackages, scriptAction, applicationId, timeProvider)
+      new Runner(compiledPackages, scriptAction, applicationId, timeMode)
     runner.runWithClients(initialClients)
   }
 }
@@ -241,8 +242,10 @@ class Runner(
     compiledPackages: CompiledPackages,
     script: Script.Action,
     applicationId: ApplicationId,
-    timeProvider: TimeProvider)
+    timeMode: ScriptTimeMode)
     extends StrictLogging {
+
+  private val utcClock = Clock.systemUTC()
 
   private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
@@ -302,6 +305,7 @@ class Runner(
 
   def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
     val machine = Speedy.Machine.fromExpr(extendedCompiledPackages, script.expr)
@@ -489,8 +493,50 @@ class Runner(
                 }
               }
               case SVariant(_, "GetTime", _, continue) => {
-                val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
-                run(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
+                for {
+                  time <- timeMode match {
+                    case ScriptTimeMode.Static => {
+                      // We don’t parametrize this by participant since this
+                      // is only useful in static time mode and using the time
+                      // service with multiple participants is very dodgy.
+                      for {
+                        client <- Converter.toFuture(clients.getParticipant(None))
+                        t <- client.getStaticTime()
+                      } yield t
+                    }
+                    case ScriptTimeMode.WallClock =>
+                      Future {
+                        Timestamp.assertFromInstant(utcClock.instant())
+                      }
+                  }
+                  v <- run(SEApp(SEValue(continue), Array(SEValue(STimestamp(time)))))
+
+                } yield v
+
+              }
+              case SVariant(_, "SetTime", _, v) => {
+                v match {
+                  case SRecord(_, _, vals) if vals.size == 2 =>
+                    timeMode match {
+                      case ScriptTimeMode.Static =>
+                        val continue = vals.get(1)
+                        for {
+                          // We don’t parametrize this by participant since this
+                          // is only useful in static time mode and using the time
+                          // service with multiple participants is very dodgy.
+                          client <- Converter.toFuture(clients.getParticipant(None))
+                          t <- Converter.toFuture(Converter.toTimestamp(vals.get(0)))
+                          _ <- client.setStaticTime(t)
+                          v <- run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                        } yield v
+                      case ScriptTimeMode.WallClock =>
+                        Future.failed(
+                          new RuntimeException("setTime is not supported in wallclock mode"))
+
+                    }
+                  case _ =>
+                    Future.failed(new ConverterException(s"Expected SetTimePayload but got $v"))
+                }
               }
               case SVariant(_, "Sleep", _, v) => {
                 v match {

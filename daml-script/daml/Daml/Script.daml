@@ -22,6 +22,7 @@ module Daml.Script
   , exerciseByKeyCmd
   , createAndExerciseCmd
   , getTime
+  , setTime
   , sleep
   ) where
 
@@ -83,6 +84,7 @@ data ScriptF a
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
   | GetTime (Time -> a)
+  | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
   deriving Functor
 
@@ -96,6 +98,22 @@ data QueryACS a = QueryACS
 -- that are visible to the given party.
 query : forall t. Template t => Party -> Script [(ContractId t, t)]
 query p = lift $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
+
+data SetTimePayload a = SetTimePayload
+  with
+    time : Time
+    continue : () -> a
+  deriving Functor
+
+-- | Set the time via the time service.
+--
+-- This is only supported in static time mode when running over the gRPC API.
+--
+-- Note that the time service does not support going backwards in time.
+setTime : Time -> Script ()
+setTime time = lift $ Free $ SetTime $ SetTimePayload with
+  time
+  continue = pure
 
 data AllocateParty a = AllocateParty
   { displayName : Text
@@ -184,7 +202,10 @@ data PartyDetails = PartyDetails
     isLocal : Bool -- ^ True if party is hosted by the backing participant.
   deriving (Eq, Ord, Show)
 
--- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
+-- | In wallclock mode, this is UTC time. In static time mode, this will
+-- query the ledger time service for the current time when running over
+-- gRPC. When running over the JSON API, it will always
+-- return the Unix epoch.
 instance HasTime Script where
   getTime = lift $ Free (GetTime pure)
 

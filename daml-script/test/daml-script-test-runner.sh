@@ -49,7 +49,8 @@ ScriptTest:test3 SUCCESS
 ScriptTest:test4 SUCCESS
 ScriptTest:testCreateAndExercise SUCCESS
 ScriptTest:testKey SUCCESS
-ScriptTest:time SUCCESS
+ScriptTest:testGetTime SUCCESS
+ScriptTest:testSetTime SUCCESS
 ScriptTest:traceOrder SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
