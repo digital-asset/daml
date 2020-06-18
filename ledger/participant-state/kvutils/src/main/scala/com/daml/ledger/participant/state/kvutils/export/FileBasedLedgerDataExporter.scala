@@ -15,13 +15,13 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Enables exporting ledger data to a file.
+  * Enables exporting ledger data to an output stream.
   * This class is thread-safe.
   */
 class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataExporter {
   import FileBasedLedgerDataExporter._
 
-  private val fileLock = new StampedLock
+  private val outputLock = new StampedLock
 
   private val correlationIdMapping = mutable.Map.empty[String, String]
   private val inProgressSubmissions = mutable.Map.empty[String, SubmissionInfo]
@@ -81,11 +81,14 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
   private def writeSubmissionData(
       submissionInfo: SubmissionInfo,
       writeSet: ListBuffer[(Key, Value)]): Unit = {
-    val lock = fileLock.writeLock()
-    Serialization.serializeSubmissionInfo(submissionInfo, output)
-    Serialization.serializeWriteSet(writeSet, output)
-    output.flush()
-    fileLock.unlock(lock)
+    val stamp = outputLock.writeLock()
+    try {
+      Serialization.serializeSubmissionInfo(submissionInfo, output)
+      Serialization.serializeWriteSet(writeSet, output)
+      output.flush()
+    } finally {
+      outputLock.unlock(stamp)
+    }
   }
 }
 
