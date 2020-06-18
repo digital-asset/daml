@@ -185,58 +185,64 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "PMListKnowPartiesIsLocal",
-    "Listing parties on multi-node ledgers should reflect whether parties are local",
+    "PMGetPartiesIsLocal",
+    "Getting parties on multi-node ledgers should reflect whether parties are local",
     allocate(NoParties, NoParties),
   )(implicit ec => {
     case Participants(Participant(alpha), Participant(beta)) =>
+      val alphaPartyHintAndDisplayName =
+        "PMGetPartiesIsLocal_" + Random.alphanumeric.take(10).mkString
+      val betaPartyHintAndDisplayName =
+        "PMGetPartiesIsLocal_" + Random.alphanumeric.take(10).mkString
       for {
         alphaLocalParty <- alpha.allocateParty(
-          partyIdHint = Some("PMListKnowPartiesIsLocal_" + Random.alphanumeric.take(10).mkString),
-          displayName = Some("Alice"),
+          partyIdHint = Some(alphaPartyHintAndDisplayName),
+          displayName = Some(alphaPartyHintAndDisplayName),
         )
         betaLocalParty <- beta.allocateParty(
-          partyIdHint = Some("PMListKnowPartiesIsLocal_" + Random.alphanumeric.take(10).mkString),
-          displayName = Some("Bob"),
+          partyIdHint = Some(betaPartyHintAndDisplayName),
+          displayName = Some(betaPartyHintAndDisplayName),
         )
         // only wait for parties on ledgers configured to know about each other's parties
         _ <- alpha.waitForParties(Set(alpha, beta), Set(alphaLocalParty, betaLocalParty))
         _ <- beta.waitForParties(Set(alpha, beta), Set(alphaLocalParty, betaLocalParty))
-        partyDetailsKnowToAlpha <- alpha.listKnownPartyDetails()
-        partyDetailsKnowToBeta <- beta.listKnownPartyDetails()
+        alphaPartyOnAlphaParticipant <- alpha.getParties(Seq(alphaLocalParty))
+        alphaPartyOnBetaParticipant <- beta.getParties(Seq(alphaLocalParty))
+        betaPartyOnAlphaParticipant <- alpha.getParties(Seq(betaLocalParty))
+        betaPartyOnBetaParticipant <- beta.getParties(Seq(betaLocalParty))
       } yield {
-        def lookUp(
-            party: binding.Primitive.Party,
-            details: Seq[PartyDetails]): Option[(String, Boolean)] =
-          details.collectFirst {
-            case PartyDetails(p, displayName, isLocal)
-                if p == binding.Primitive.Party.unwrap(party) =>
-              (displayName, isLocal)
-          }
+        alphaPartyOnAlphaParticipant.headOption match {
+          case None =>
+            Assertions.fail("Expected to find alpha party on alpha participant")
+          case Some(alphaLocal) =>
+            assert(alphaLocal.displayName == alphaPartyHintAndDisplayName && alphaLocal.isLocal)
+        }
 
-        val Some((alice, aliceIsLocal)) = lookUp(alphaLocalParty, partyDetailsKnowToAlpha)
-        assert(alice == "Alice" && aliceIsLocal)
-
-        val Some((bob, bobIsLocal)) = lookUp(betaLocalParty, partyDetailsKnowToBeta)
-        assert(bob == "Bob" && bobIsLocal)
+        betaPartyOnBetaParticipant.headOption match {
+          case None =>
+            Assertions.fail("Expected to find beta party on beta participant")
+          case Some(betaLocal) =>
+            assert(betaLocal.displayName == betaPartyHintAndDisplayName && betaLocal.isLocal)
+        }
 
         // On multi-participant ledgers remote parties should either not be known to each
         // other or should be marked as non-local.
         if (alpha.endpointId != beta.endpointId) {
-          lookUp(betaLocalParty, partyDetailsKnowToAlpha) match {
+          alphaPartyOnBetaParticipant.headOption match {
+            // distributed ledgers may choose not to publish parties across participants (e.g. privacy-enabled P-KVUtils)
             case None =>
-            case Some(("Bob", false)) =>
-            case Some((displayName, isLocal)) =>
-              Assertions.fail(
-                s"Expected party Bob to be marked as non-local or to not exist on alpha, but found ${displayName} and ${isLocal}")
+            // but if they do, remote parties have to be marked non-local
+            case Some(alphaRemote) =>
+              assert(
+                alphaRemote.displayName == alphaPartyHintAndDisplayName && !alphaRemote.isLocal)
           }
 
-          lookUp(alphaLocalParty, partyDetailsKnowToBeta) match {
+          betaPartyOnAlphaParticipant.headOption match {
+            // distributed ledgers may choose not to publish parties across participants (e.g. privacy-enabled P-KVUtils)
             case None =>
-            case Some(("Alice", false)) =>
-            case Some((displayName, isLocal)) =>
-              Assertions.fail(
-                s"Expected party Alice to be marked as non-local or to not exist on alpha, but found ${displayName} and ${isLocal}")
+            // but if they do, remote parties have to be marked non-local
+            case Some(betaRemote) =>
+              assert(betaRemote.displayName == betaPartyHintAndDisplayName && !betaRemote.isLocal)
           }
         }
       }
