@@ -46,7 +46,7 @@ steps:
       --detect.bazel.target=//... \
       --detect.bazel.dependency.type=haskell_cabal_library
     displayName: 'Blackduck Haskell Scan'
-    condition: eq(variables['Build.SourceBranchName'], 'enable-blackduck'),
+    condition: and(eq(variables['Build.SourceBranchName'], 'enable-blackduck'),
                 eq('${{parameters.name}}', 'linux'))
 
     env:
@@ -71,8 +71,8 @@ steps:
       --detect.cleanup.bdio.files=false \
       --detect.report.timeout=360  
     displayName: 'Blackduck Scan'
-    condition: eq(variables['Build.SourceBranchName'], 'enable-blackduck'),
-                eq('${{parameters.name}}', 'linux'))    
+    condition: and(eq(variables['Build.SourceBranchName'], 'enable-blackduck'),
+                eq('${{parameters.name}}', 'linux'))
 
     env:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
