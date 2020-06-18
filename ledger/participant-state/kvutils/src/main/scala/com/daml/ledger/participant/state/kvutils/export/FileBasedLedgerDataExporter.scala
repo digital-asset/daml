@@ -23,9 +23,9 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
 
   private val outputLock = new StampedLock
 
-  private val correlationIdMapping = mutable.Map.empty[String, String]
-  private val inProgressSubmissions = mutable.Map.empty[String, SubmissionInfo]
-  private val bufferedKeyValueDataPerCorrelationId =
+  private[export] val correlationIdMapping = mutable.Map.empty[String, String]
+  private[export] val inProgressSubmissions = mutable.Map.empty[String, SubmissionInfo]
+  private[export] val bufferedKeyValueDataPerCorrelationId =
     mutable.Map.empty[String, mutable.ListBuffer[(Key, Value)]]
 
   def addSubmission(
