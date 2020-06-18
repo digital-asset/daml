@@ -448,7 +448,11 @@ object Server {
 }
 
 object ServiceMain {
-  // This is mainly intended for tests
+
+  // Timeout for serving binding
+  implicit val timeout: Timeout = 30.seconds
+
+  // Used by the test fixture
   def startServer(
       host: String,
       port: Int,
@@ -477,8 +481,6 @@ object ServiceMain {
         "TriggerService"
       )
 
-    // timeout chosen at random, change freely if you see issues
-    implicit val timeout: Timeout = 15.seconds
     implicit val scheduler: Scheduler = system.scheduler
     implicit val ec: ExecutionContext = system.executionContext
 
@@ -519,8 +521,7 @@ object ServiceMain {
             ),
             "TriggerService"
           )
-        // Timeout chosen at random, change freely if you see issues.
-        implicit val timeout: Timeout = 15.seconds
+
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
 
