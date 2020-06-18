@@ -58,6 +58,7 @@ steps:
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.npm.include.dev.dependencies=false \
       --detect.excluded.detector.types=NUGET \
+      --detect.excluded.detector.types=NUGET \
       --detect.yarn.prod.only=true \
       --detect.python.python3=true \
       --detect.tools=DETECTOR,BAZEL,DOCKER \
