@@ -39,17 +39,35 @@ steps:
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
-      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/detect-haskell-snapshot/synopsys-detect) \
       ci-build digitalasset_daml master \
       --logging.level.com.synopsys.integration=DEBUG \
-      --detect.npm.include.dev.dependencies=true \
-      --detect.yarn.prod.only=false \
+      --detect.tools=BAZEL \
+      --detect.bazel.target=//... \
+      --detect.bazel.dependency.type=haskell_cabal_library
+    displayName: 'Blackduck Haskell Scan'
+
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+
+  - bash: |
+      set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/detect-haskell-snapshot/synopsys-detect) \
+      ci-build digitalasset_daml master \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.npm.include.dev.dependencies=false \
+      --detect.excluded.detector.types=NUGET \
+      --detect.yarn.prod.only=true \
       --detect.python.python3=true \
       --detect.tools=DETECTOR,BAZEL,DOCKER \
       --detect.bazel.target=//... \
       --detect.bazel.dependency.type=maven_install \
-      --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts/ \
-      --detect.report.timeout=360
+      --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,/Users/brianhealey/g/daml/language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
+      --detect.cleanup=false \
+      --detect.cleanup.bdio.files=false \
+      --detect.report.timeout=360  
+
     displayName: 'Blackduck Scan'
 
     env:
