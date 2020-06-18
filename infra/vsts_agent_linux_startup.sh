@@ -146,7 +146,7 @@ chown --recursive root:root /home/vsts/agent/{*.sh,bin,externals}
 
 # This needs to run inside of a user with sudo access
 echo "vsts ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/nix_installation
-su --command "sh <(curl -sSfL https://nixos.org/nix/install) --daemon" --login vsts
+su --command "sh <(curl https://nixos.org/nix/install) --daemon" --login vsts
 rm /etc/sudoers.d/nix_installation
 
 # Note: the "hydra.da-int.net" string is now part of the name of the key for
