@@ -29,7 +29,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       ledgerId,
       participantId,
       metrics,
-      engine = Engine(),
+      engine = Engine.DevEngine(),
       jdbcUrl(testId),
       resetOnStartup = false,
       // Using a weak random source to avoid slowdown during tests.

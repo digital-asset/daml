@@ -33,7 +33,7 @@ class BatchedSubmissionValidatorSpec
     with AkkaBeforeAndAfterAll
     with MockitoSugar {
 
-  val engine = new Engine
+  val engine = Engine.DevEngine()
   val metrics = new Metrics(new MetricRegistry)
 
   "validateAndCommit" should {

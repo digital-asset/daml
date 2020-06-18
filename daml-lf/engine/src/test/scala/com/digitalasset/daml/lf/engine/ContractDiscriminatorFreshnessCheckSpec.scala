@@ -133,7 +133,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
       .consume(pcs, pkgs, keys)
 
-  val engine = new Engine()
+  val engine = Engine.DevEngine()
 
   "conflict freshness check" should {
 

@@ -15,7 +15,7 @@ final case class ValueVersion(protoValue: String)
 /**
   * Currently supported versions of the DAML-LF value specification.
   */
-object ValueVersions
+private[lf] object ValueVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[ValueVersion])(
       _.protoValue,
     ) {

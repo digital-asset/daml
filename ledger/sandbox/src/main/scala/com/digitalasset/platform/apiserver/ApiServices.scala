@@ -150,7 +150,7 @@ object ApiServices {
         metrics,
       )
 
-      logger.info(EngineInfo.show)
+      logger.info(engine.info.show)
 
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService)

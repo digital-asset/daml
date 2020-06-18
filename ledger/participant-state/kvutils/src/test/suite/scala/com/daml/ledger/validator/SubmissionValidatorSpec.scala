@@ -127,7 +127,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = SubmissionValidator
-          .processSubmission(new KeyValueCommitting(Engine(), metrics)),
+          .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
         allocateLogEntryId = mockLogEntryIdGenerator,
         checkForMissingInputs = false,
         stateValueCache = Cache.none,

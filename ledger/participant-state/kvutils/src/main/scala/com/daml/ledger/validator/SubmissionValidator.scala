@@ -293,17 +293,22 @@ class SubmissionValidator[LogResult] private[validator] (
 }
 
 object SubmissionValidator {
+
   type RawKeyValuePairs = Seq[(Bytes, Bytes)]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
+
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // This should be made configurable
+  private[this] val engineConfig = Engine.DevConfig
 
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
-      engine: Engine = Engine(),
+      engine: Engine = new Engine(engineConfig),
       metrics: Metrics,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(

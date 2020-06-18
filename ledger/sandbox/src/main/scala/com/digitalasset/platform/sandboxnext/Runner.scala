@@ -62,7 +62,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     case LedgerIdMode.Dynamic =>
       None
   }
-  private val engine = Engine()
+
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // This should be made configurable
+  private[this] val engineConfig = Engine.DevConfig
+
+  private val engine = new Engine(engineConfig)
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,

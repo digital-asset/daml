@@ -18,15 +18,8 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{Node, Transaction => Tx}
-import com.daml.lf.value.Value.{
-  ContractId,
-  ContractInst,
-  ValueRecord,
-  ValueText,
-  ValueUnit,
-  VersionedValue
-}
-import com.daml.lf.value.{Value, ValueVersions}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
+import com.daml.lf.value.Value
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -46,8 +39,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     () =>
       Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
   }
-
-  private[this] def version(v: Value[ContractId]) = ValueVersions.assertAsVersionedValue(v)
 
   protected final implicit class OffsetToLong(offset: Offset) {
     def toLong: Long = BigInt(offset.toByteArray).toLong
@@ -76,8 +67,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final val someValueRecord = ValueRecord(
     Some(someRecordId),
     ImmArray(Some(Ref.Name.assertFromString("field")) -> someValueText))
-  protected final val someContractKey =
-    VersionedValue(ValueVersions.acceptedVersions.head, someValueText)
+  protected final val someContractKey = someValueText
   protected final val someContractInstance = ContractInst(
     someTemplateId,
     someValueRecord,

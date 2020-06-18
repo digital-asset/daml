@@ -243,7 +243,7 @@ object RecoveringIndexerIntegrationSpec {
         BatchingLedgerWriterConfig.reasonableDefault,
         participantId,
         metrics = metrics,
-        engine = Engine()
+        engine = Engine.DevEngine()
       ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }

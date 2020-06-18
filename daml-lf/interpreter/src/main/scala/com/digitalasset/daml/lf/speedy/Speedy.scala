@@ -14,7 +14,8 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.{Value => V}
+import com.daml.lf.transaction.{TransactionVersion, TransactionVersions}
+import com.daml.lf.value.{ValueVersion, ValueVersions, Value => V}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -525,10 +526,8 @@ object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
-        supportedValueVersions: VersionRange[value.ValueVersion] =
-          value.ValueVersions.SupportedDevVersions,
-        supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
-          transaction.TransactionVersions.SupportedDevVersions,
+        supportedValueVersions: VersionRange[value.ValueVersion],
+        supportedTransactionVersions: VersionRange[transaction.TransactionVersion],
         validating: Boolean = false,
     ): Machine =
       new Machine(
@@ -562,10 +561,8 @@ object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: SExpr,
-        supportedValueVersions: VersionRange[value.ValueVersion] =
-          value.ValueVersions.SupportedDevVersions,
-        supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
-          transaction.TransactionVersions.SupportedDevVersions,
+        supportedValueVersions: VersionRange[ValueVersion],
+        supportedTransactionVersions: VersionRange[TransactionVersion],
     ): Machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
@@ -584,10 +581,8 @@ object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: Expr,
-        supportedValueVersions: VersionRange[value.ValueVersion] =
-          value.ValueVersions.SupportedDevVersions,
-        supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
-          transaction.TransactionVersions.SupportedDevVersions,
+        supportedValueVersions: VersionRange[ValueVersion],
+        supportedTransactionVersions: VersionRange[TransactionVersion],
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
@@ -609,6 +604,8 @@ object Speedy {
         expr = expr,
         globalCids = Set.empty,
         committers = Set.empty,
+        supportedValueVersions = ValueVersions.SupportedVersions,
+        supportedTransactionVersions = TransactionVersions.SupportedVersions,
       )
 
     @throws[PackageNotFound]
