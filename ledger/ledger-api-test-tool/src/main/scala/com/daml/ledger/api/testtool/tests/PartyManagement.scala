@@ -8,6 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSui
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
+import com.daml.ledger.test_stable.Test.Dummy
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
@@ -192,7 +193,9 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       for {
+        _ <- alpha.create(alice, Dummy(alice))
         alphaParties <- alpha.getParties(Seq(alice, bob))
+        _ <- beta.create(bob, Dummy(bob))
         betaParties <- beta.getParties(Seq(alice, bob))
       } yield {
         assert(
