@@ -36,14 +36,16 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      engine: Engine)(
+      engine: Engine,
+      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
       engine,
       conflictDetection,
-      metrics
+      metrics,
+      ledgerDataExporter
     )
 
   private[validator] def apply[CommitResult](

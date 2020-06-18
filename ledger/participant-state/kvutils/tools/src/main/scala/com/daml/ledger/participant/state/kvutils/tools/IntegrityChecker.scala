@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExpor
   SubmissionInfo,
   WriteSet
 }
-import com.daml.ledger.participant.state.kvutils.export.Serialization
+import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.batch.{
@@ -49,6 +49,7 @@ class IntegrityChecker {
       new ConflictDetection(metrics),
       metrics,
       engine,
+      NoopLedgerDataExporter
     )
     val inMemoryState = mutable.Map.empty[Key, Value]
     val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
@@ -58,7 +59,9 @@ class IntegrityChecker {
       new WriteRecordingLedgerStateOperations[Index](inMemoryLedgerStateOperations)
     val (reader, commitStrategy) =
       BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
-        writeRecordingLedgerStateOperations)
+        writeRecordingLedgerStateOperations,
+        stateKeySerializationStrategy,
+        NoopLedgerDataExporter)
     while (input.available() > 0) {
       val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
       val validationFuture = submissionValidator.validateAndCommit(
@@ -78,9 +81,9 @@ class IntegrityChecker {
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
-      println("all good")
+      println("OK")
     } else {
-      println("not good")
+      println("failed")
       if (expectedWriteSet.size == actualWriteSet.size) {
         for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
             actualWriteSet)) {
