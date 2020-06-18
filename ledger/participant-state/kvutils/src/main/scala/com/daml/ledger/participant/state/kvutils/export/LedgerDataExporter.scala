@@ -39,7 +39,7 @@ object LedgerDataExporter {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
-    Option(System.getenv("KVUTILS_LEDGER_DUMP"))
+    Option(System.getenv("KVUTILS_LEDGER_EXPORT"))
       .map { filename =>
         logger.info(s"Enabled writing ledger entries to $filename")
         new DataOutputStream(new FileOutputStream(filename))
