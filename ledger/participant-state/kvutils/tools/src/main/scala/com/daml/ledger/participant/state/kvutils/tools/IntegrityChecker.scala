@@ -33,6 +33,7 @@ import com.google.protobuf.ByteString
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
+import scala.io.AnsiColor
 
 class IntegrityChecker {
   private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(
@@ -84,9 +85,9 @@ class IntegrityChecker {
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
-      println("OK")
+      println(s"${AnsiColor.GREEN}OK${AnsiColor.WHITE}")
     } else {
-      println("failed")
+      println(s"${AnsiColor.RED}failed")
       if (expectedWriteSet.size == actualWriteSet.size) {
         for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
             actualWriteSet)) {
@@ -102,6 +103,7 @@ class IntegrityChecker {
       } else {
         println(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
       }
+      println(AnsiColor.WHITE)
       sys.exit()
     }
   }
