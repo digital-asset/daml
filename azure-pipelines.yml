@@ -503,7 +503,7 @@ jobs:
 
           sudo mkdir -p /nix
           sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
+          curl -sSfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
           eval "$(dev-env/bin/dade-assist)"
           GCS_KEY=$(mktemp)
           cleanup () {
