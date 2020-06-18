@@ -95,6 +95,8 @@ object Speedy {
   final class Machine(
       /* Value versions that the machine can output */
       val supportedValueVersions: VersionRange[value.ValueVersion],
+      /* Transaction versions that the machine can output */
+      val supportedTransactionVersions: VersionRange[transaction.TransactionVersion],
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -525,10 +527,13 @@ object Speedy {
         committers: Set[Party],
         supportedValueVersions: VersionRange[value.ValueVersion] =
           value.ValueVersions.DefaultSupportedVersions,
+        supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
+          transaction.TransactionVersions.DefaultSupportedVersions,
         validating: Boolean = false,
     ): Machine =
       new Machine(
         supportedValueVersions = supportedValueVersions,
+        supportedTransactionVersions = supportedTransactionVersions,
         validating = validating,
         ctrl = expr,
         returnValue = null,

@@ -1109,7 +1109,7 @@ object SBuiltin {
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>
-          ptxOld.finish(machine.supportedValueVersions) match {
+          ptxOld.finish(machine.supportedValueVersions, machine.supportedTransactionVersions) match {
             case Left(_) =>
               machine.clearCommit
               machine.returnValue = SV.Unit
@@ -1129,7 +1129,7 @@ object SBuiltin {
     private def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val tx =
         machine.ptx
-          .finish(machine.supportedValueVersions)
+          .finish(machine.supportedValueVersions, machine.supportedTransactionVersions)
           .fold(
             ptx => {
               checkAborted(ptx)
