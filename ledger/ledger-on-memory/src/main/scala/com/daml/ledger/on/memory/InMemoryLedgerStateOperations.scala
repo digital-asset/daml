@@ -12,7 +12,7 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] final class InMemoryLedgerStateOperations(
+private[ledger] final class InMemoryLedgerStateOperations(
     log: InMemoryState.MutableLog,
     state: InMemoryState.MutableState,
 )(implicit executionContext: ExecutionContext)
