@@ -100,14 +100,18 @@ class IntegrityChecker {
       counter += 1
       val actualWriteSet = writeRecordingLedgerStateOperations.getAndClearRecordedWriteSet()
       val sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-      compareWriteSets(expectedWriteSet, sortedActualWriteSet)
+      if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
+        println(AnsiColor.WHITE)
+        sys.exit(1)
+      }
     }
     println(s"Processed $counter submissions")
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
     if (expectedWriteSet == actualWriteSet) {
       println(s"${AnsiColor.GREEN}OK${AnsiColor.WHITE}")
+      true
     } else {
       println(s"${AnsiColor.RED}failed")
       if (expectedWriteSet.size == actualWriteSet.size) {
@@ -125,8 +129,7 @@ class IntegrityChecker {
       } else {
         println(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
       }
-      println(AnsiColor.WHITE)
-      sys.exit(1)
+      false
     }
   }
 
