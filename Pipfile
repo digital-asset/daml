@@ -1,3 +1,5 @@
+# root Pipfile needed to identify that all python projects in this repo should be scanned as 3.7, and to give pypi url to use
+
 [[source]]
 name = "pypi"
 url = "https://pypi.org/simple"
