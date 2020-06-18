@@ -81,6 +81,7 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
     val lock = fileLock.writeLock()
     Serialization.serializeSubmissionInfo(submissionInfo, output)
     Serialization.serializeWriteSet(writeSet, output)
+    output.flush()
     fileLock.unlock(lock)
   }
 }
