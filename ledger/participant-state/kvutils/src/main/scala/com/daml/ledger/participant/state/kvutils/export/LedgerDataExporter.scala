@@ -8,7 +8,6 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
-//TODO(miklos): Add support for storing ACLs too.
 trait LedgerDataExporter {
 
   /**
@@ -23,17 +22,17 @@ trait LedgerDataExporter {
   /**
     * Establishes parent-child relation between two correlation IDs.
     */
-  def addChildTo(parentCorrelationId: String, childCorrelationId: String): Unit
+  def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit
 
   /**
     * Adds given key-value pairs to the write-set belonging to the given correlation ID.
     */
-  def addKeyValuePairs(correlationId: String, data: Iterable[(Key, Value)]): Unit
+  def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit
 
   /**
     * Signals that entries for the given top-level (parent) correlation ID may be persisted.
     */
-  def finishedEntry(correlationId: String): Unit
+  def finishedProcessing(correlationId: String): Unit
 }
 
 object LedgerDataExporter {

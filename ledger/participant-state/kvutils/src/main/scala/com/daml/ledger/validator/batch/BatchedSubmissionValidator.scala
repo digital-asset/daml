@@ -273,7 +273,9 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       .mapAsyncUnordered[Outputs2](params.cpuParallelism) {
         _.mapFuture {
           case (correlatedSubmission, inputState) =>
-            ledgerDataExporter.addChildTo(batchCorrelationId, correlatedSubmission.correlationId)
+            ledgerDataExporter.addParentChild(
+              batchCorrelationId,
+              correlatedSubmission.correlationId)
             validateSubmission(participantId, recordTime, correlatedSubmission, inputState)
         }
       }
@@ -310,7 +312,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             commitStrategy)
       }
       .runWith(Sink.ignore)
-      .map(_ => ledgerDataExporter.finishedEntry(batchCorrelationId))
+      .map(_ => ledgerDataExporter.finishedProcessing(batchCorrelationId))
 
   private def fetchSubmissionInputs(
       correlatedSubmission: CorrelatedSubmission,

@@ -37,13 +37,13 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       ()
     }
 
-  def addChildTo(parentCorrelationId: String, childCorrelationId: String): Unit =
+  def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit =
     this.synchronized {
       correlationIdMapping.put(childCorrelationId, parentCorrelationId)
       ()
     }
 
-  def addKeyValuePairs(correlationId: String, data: Iterable[(Key, Value)]): Unit =
+  def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit =
     this.synchronized {
       correlationIdMapping
         .get(correlationId)
@@ -55,7 +55,7 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
         }
     }
 
-  def finishedEntry(correlationId: String): Unit = {
+  def finishedProcessing(correlationId: String): Unit = {
     val (submissionInfo, bufferedData) = this.synchronized {
       (
         inProgressSubmissions.get(correlationId),

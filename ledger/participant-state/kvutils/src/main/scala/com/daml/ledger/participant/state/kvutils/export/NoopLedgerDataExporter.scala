@@ -13,9 +13,9 @@ object NoopLedgerDataExporter extends LedgerDataExporter {
       recordTimeInstant: Instant,
       participantId: ParticipantId): Unit = ()
 
-  override def addChildTo(parentCorrelationId: String, childCorrelationId: String): Unit = ()
+  override def addParentChild(parentCorrelationId: String, childCorrelationId: String): Unit = ()
 
-  override def addKeyValuePairs(correlationId: String, data: Iterable[(Key, Value)]): Unit = ()
+  override def addToWriteSet(correlationId: String, data: Iterable[(Key, Value)]): Unit = ()
 
-  override def finishedEntry(correlationId: String): Unit = ()
+  override def finishedProcessing(correlationId: String): Unit = ()
 }
