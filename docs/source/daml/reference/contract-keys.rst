@@ -41,7 +41,6 @@ Contract Lookups
 The primary purpose of contract keys is to provide a stable, and possibly meaningful, identifier for contracts that can be used in DAML to fetch contracts. There are two functions to perform such lookups: :ref:`fetchbykey` and :ref:`lookupbykey`. Both types of lookup are performed at interpretation time on the submitting Partipant Node, on a best-effort basis. Currently, that best-effort means lookups only return contracts if the submitting Party is a stakeholder of that contract.
 
 In particular, the above means that if multiple commands are submitted simultaneously, all using contract lookups to find and consume a given contract, there will be contention between these commands, and at most one will succeed.
-ontract Key docs
 
 .. _fetchbykey:
 
@@ -81,7 +80,6 @@ Unlike ``fetchByKey``, the transaction **does not fail** if no contract with the
 - Authorization from at least one maintainer is missing. This check fails at interpretation time.
 - The lookup is incorrect. This can happen either due to contention, or because the submitter didn't know of the contract. This check fails at validation time.
 
-
 To get the data from the contract once you've confirmed it exists, you'll still need to use ``fetch``.
 
 exerciseByKey
@@ -90,3 +88,12 @@ exerciseByKey
 ``exerciseByKey @ContractType contractKey``
 
 Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``). To run ``exerciseByKey`` you need authorization from the controllers of the choice and at least one stakeholder. This is equivalent to the authorization needed to fo a ``fetchByKey`` followed by an ``exercise``.
+
+Example
+*******
+
+A complete example of possible success and failure scenarios of `fetchByKey` and `lookupByKey` is shown below.
+
+
+.. literalinclude:: ../code-snippets/Keys.daml
+   :language: daml
