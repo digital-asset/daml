@@ -1447,13 +1447,7 @@ object SBuiltinTest {
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
   private def eval(e: Expr): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(
-      expr = e,
-      compiledPackages = compiledPackages,
-      scenario = false,
-      submissionTime = Time.Timestamp.now(),
-      initialSeeding = InitialSeeding.NoSeed,
-    )
+    val machine = Speedy.Machine.fromExpr(compiledPackages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {

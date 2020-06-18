@@ -172,16 +172,15 @@ object Repl {
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
       profiling: Compiler.ProfilingMode) {
-    private val build = Speedy.Machine
-      .newBuilder(
-        PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get,
-        Time.Timestamp.MinValue,
-        nextSeed())
-      .fold(err => sys.error(err.toString), identity)
+    val compiledPackages =
+      PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
+    private val seed = nextSeed()
+
     def run(expr: Expr): (
         Speedy.Machine,
         Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
-      val machine = build(expr)
+      val machine =
+        Speedy.Machine.buildForScenario(compiledPackages, seed, expr)
       (machine, ScenarioRunner(machine).run())
     }
   }
@@ -419,14 +418,8 @@ object Repl {
           case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val machine =
-              Speedy.Machine.fromExpr(
-                expr = expr,
-                compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false,
-                submissionTime = Time.Timestamp.now(),
-                initialSeeding = InitialSeeding.NoSeed,
-              )
+            val compiledPackages = PureCompiledPackages(state.packages).right.get
+            val machine = Speedy.Machine.fromExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {
               case SResultError(err) =>

@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{Transaction => Tx}
@@ -270,15 +270,17 @@ final class Engine {
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
-      val machine = Machine
-        .build(
-          sexpr = compiledPackages.compiler.unsafeCompile(commands),
-          compiledPackages = compiledPackages,
-          submissionTime = submissionTime,
-          seeds = seeding,
-          globalCids,
-        )
-        .copy(validating = validating, committers = submitters)
+      val machine = Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = submissionTime,
+        initialSeeding = seeding,
+        expr = SExpr
+          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
+        globalCids = globalCids,
+        committers = submitters,
+        supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
+        validating = validating,
+      )
       interpretLoop(machine, ledgerTime)
     }
 
