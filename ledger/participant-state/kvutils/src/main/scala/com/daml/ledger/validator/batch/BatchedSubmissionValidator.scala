@@ -157,7 +157,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
                 participantId,
                 correlationId,
                 recordTime,
-                batchSubmissionSource(batch, correlationId),
+                batchSubmissionSource(batch),
                 ledgerStateReader,
                 commitStrategy)
 
@@ -189,8 +189,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     Source.single(Indexed(CorrelatedSubmission(correlationId, logEntryId, submission), 0L))
   }
 
-  // TODO(miklos): Remove spurious correlationId parameter.
-  private def batchSubmissionSource(batch: DamlSubmissionBatch, correlationId: CorrelationId)(
+  private def batchSubmissionSource(batch: DamlSubmissionBatch)(
       implicit executionContext: ExecutionContext): Source[Inputs, NotUsed] =
     Source(
       Indexed
