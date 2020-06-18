@@ -1,10 +1,12 @@
 package com.daml.ledger.participant.state.kvutils.export
 
+import java.io.{DataOutputStream, FileOutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
+import org.slf4j.LoggerFactory
 
 //TODO(miklos): Add support for storing ACLs too.
 trait LedgerDataExporter {
@@ -35,5 +37,19 @@ trait LedgerDataExporter {
 }
 
 object LedgerDataExporter {
-  def apply(): LedgerDataExporter = FileBasedLedgerDataExporter
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
+    Option(System.getenv("KVUTILS_LEDGER_DUMP"))
+      .map { filename =>
+        logger.info(s"Enabled writing ledger entries to $filename")
+        new DataOutputStream(new FileOutputStream(filename))
+      }
+  }
+
+  private lazy val instance = optLedgerDumpStream
+    .map(new FileBasedLedgerDataExporter(_))
+    .getOrElse(NoopLedgerDataExporter)
+
+  def apply(): LedgerDataExporter = instance
 }

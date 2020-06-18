@@ -1,40 +1,22 @@
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{DataOutputStream, FileOutputStream}
+import java.io.DataOutputStream
 import java.time.Instant
 import java.util.concurrent.locks.StampedLock
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
-import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
-  * If ledger dumps are not enabled doesn't do anything.
+  * Enables exporting ledger data to a file.
   * This class is thread-safe.
   */
-object FileBasedLedgerDataExporter extends LedgerDataExporter {
-  case class SubmissionInfo(
-      submissionEnvelope: ByteString,
-      correlationId: String,
-      recordTimeInstant: Instant,
-      participantId: ParticipantId)
-
-  type WriteSet = Seq[(Key, Value)]
-
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
-  private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
-    //Option(System.getenv("KVUTILS_LEDGER_DUMP"))
-    Option("/tmp/ledger_dump_new3")
-      .map { filename =>
-        logger.info(s"Enabled writing ledger entries to $filename")
-        new DataOutputStream(new FileOutputStream(filename))
-      }
-  }
+class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataExporter {
+  import FileBasedLedgerDataExporter._
 
   private val fileLock = new StampedLock
 
@@ -48,37 +30,32 @@ object FileBasedLedgerDataExporter extends LedgerDataExporter {
       correlationId: String,
       recordTimeInstant: Instant,
       participantId: ParticipantId): Unit =
-    optLedgerDumpStream.foreach { _ =>
-      this.synchronized {
-        inProgressSubmissions.put(
-          correlationId,
-          SubmissionInfo(submissionEnvelope, correlationId, recordTimeInstant, participantId))
-      }
+    this.synchronized {
+      inProgressSubmissions.put(
+        correlationId,
+        SubmissionInfo(submissionEnvelope, correlationId, recordTimeInstant, participantId))
+      ()
     }
 
   def addChildTo(parentCorrelationId: String, childCorrelationId: String): Unit =
-    optLedgerDumpStream.foreach { _ =>
-      this.synchronized {
-        correlationIdMapping.put(childCorrelationId, parentCorrelationId)
-      }
+    this.synchronized {
+      correlationIdMapping.put(childCorrelationId, parentCorrelationId)
+      ()
     }
 
-  //TODO(miklos): Add support for storing ACLs too.
   def addKeyValuePairs(correlationId: String, data: Iterable[(Key, Value)]): Unit =
-    optLedgerDumpStream.foreach { _ =>
-      this.synchronized {
-        correlationIdMapping
-          .get(correlationId)
-          .map { parentCorrelationId =>
-            val keyValuePairs = bufferedKeyValueDataPerCorrelationId
-              .getOrElseUpdate(parentCorrelationId, ListBuffer.empty)
-            keyValuePairs.appendAll(data)
-            bufferedKeyValueDataPerCorrelationId.put(parentCorrelationId, keyValuePairs)
-          }
-      }
+    this.synchronized {
+      correlationIdMapping
+        .get(correlationId)
+        .foreach { parentCorrelationId =>
+          val keyValuePairs = bufferedKeyValueDataPerCorrelationId
+            .getOrElseUpdate(parentCorrelationId, ListBuffer.empty)
+          keyValuePairs.appendAll(data)
+          bufferedKeyValueDataPerCorrelationId.put(parentCorrelationId, keyValuePairs)
+        }
     }
 
-  def finishedEntry(correlationId: String): Unit = optLedgerDumpStream.foreach { _ =>
+  def finishedEntry(correlationId: String): Unit = {
     val (submissionInfo, bufferedData) = this.synchronized {
       (
         inProgressSubmissions.get(correlationId),
@@ -100,11 +77,20 @@ object FileBasedLedgerDataExporter extends LedgerDataExporter {
 
   private def writeSubmissionData(
       submissionInfo: SubmissionInfo,
-      writeSet: ListBuffer[(Key, Value)]): Unit =
-    optLedgerDumpStream.foreach { out =>
-      val lock = fileLock.writeLock()
-      Serialization.serializeSubmissionInfo(submissionInfo, out)
-      Serialization.serializeWriteSet(writeSet, out)
-      fileLock.unlock(lock)
-    }
+      writeSet: ListBuffer[(Key, Value)]): Unit = {
+    val lock = fileLock.writeLock()
+    Serialization.serializeSubmissionInfo(submissionInfo, output)
+    Serialization.serializeWriteSet(writeSet, output)
+    fileLock.unlock(lock)
+  }
+}
+
+object FileBasedLedgerDataExporter {
+  case class SubmissionInfo(
+      submissionEnvelope: ByteString,
+      correlationId: String,
+      recordTimeInstant: Instant,
+      participantId: ParticipantId)
+
+  type WriteSet = Seq[(Key, Value)]
 }
