@@ -9,7 +9,7 @@ import com.daml.ledger.test_stable.Test.Witnesses._
 import com.daml.ledger.test_stable.Test.{DivulgeWitnesses, Witnesses => WitnessesTemplate}
 import scalaz.Tag
 
-final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
+final class WitnessesIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "RespectDisclosureRules",
     "The ledger should respect disclosure rules",

@@ -22,7 +22,7 @@ import com.daml.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
 
-final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
+final class ContractKeysIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CKFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",

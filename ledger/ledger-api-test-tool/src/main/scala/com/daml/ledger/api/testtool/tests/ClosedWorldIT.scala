@@ -15,7 +15,7 @@ import com.daml.ledger.client.binding
 import com.daml.ledger.test.SemanticTests.{Amount, Iou}
 import io.grpc.Status
 
-class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
+class ClosedWorldIT(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
 
