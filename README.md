@@ -40,7 +40,7 @@ Our builds require various development dependencies (e.g. Java, Bazel, Python), 
 
 On Linux and Mac `dev-env` can be installed with:
 
-1. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
+1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
 2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,

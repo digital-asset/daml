@@ -43,7 +43,7 @@ check_nix_version() {
            [[ $current_major -eq $NIX_MAJOR && $current_minor -eq $NIX_MINOR && $current_patch -lt $NIX_PATCH ]];
         then
             errcho "WARNING: Version ${current_major}.${current_minor}.${current_patch} detected, but ${NIX_MAJOR}.${NIX_MINOR}.${NIX_PATCH} or higher required."
-            errcho "Please run 'nix upgrade-nix' or 'curl https://nixos.org/nix/install | sh' to update Nix."
+            errcho "Please run 'nix upgrade-nix' or 'curl -sSfL https://nixos.org/nix/install | sh' to update Nix."
         fi
     else
       errcho "WARNING: Unexpected output of 'nix-env --version' ($current), dev-env might not work properly. Contact #disc-enterprise-pipe immediately!"
