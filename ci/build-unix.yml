@@ -40,7 +40,7 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/detect-haskell-snapshot/synopsys-detect) \
-      ci-build digitalasset_daml enable-blackduck \
+      ci-build digitalasset_daml $(Build.SourceBranchName) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
@@ -56,7 +56,7 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/detect-haskell-snapshot/synopsys-detect) \
-      ci-build digitalasset_daml enable-blackduck \
+      ci-build digitalasset_daml $(Build.SourceBranchName) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.npm.include.dev.dependencies=false \
       --detect.excluded.detector.types=NUGET \
