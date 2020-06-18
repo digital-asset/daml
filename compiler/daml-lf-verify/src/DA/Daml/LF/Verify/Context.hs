@@ -22,16 +22,15 @@ module DA.Daml.LF.Verify.Context
   , ChoiceData(..)
   , UpdChoice(..)
   , Skolem(..)
-  , getEnv
+  , getEnv, putEnv
   , runEnv
   , genRenamedVar
+  , createCond
   , addUpd
   , extVarEnv, extRecEnv, extRecEnvTCons, extValEnv, extChEnv, extDatsEnv
   , extCidEnv, extPrecond, extCtrRec, extCtr
   , lookupVar, lookupRec, lookupVal, lookupChoice, lookupDataCon, lookupCid
   , conditionalUpdateSet
-  , solveValueReferences
-  , solveChoiceReferences
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
   ) where
@@ -40,7 +39,7 @@ import Control.Monad.Error.Class (MonadError (..), throwError)
 import Control.Monad.State.Lazy
 import Data.Hashable
 import GHC.Generics
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (isJust)
 import Data.List (find)
 import Data.Bifunctor
 import qualified Data.HashMap.Strict as HM
@@ -486,8 +485,9 @@ data ChoiceData (ph :: Phase) = ChoiceData
     -- ^ The variable denoting `this`.
   , _cdArgs :: ExprVarName
     -- ^ The variable denoting `args`.
-  , _cdUpds :: Expr -> Expr -> Expr -> UpdateSet ph
-    -- ^ Function from self, this and args to the updates performed by this choice.
+  , _cdUpds :: UpdateSet ph
+    -- ^ The updates performed by this choice. Note that this update set depends
+    -- on the above variables.
   , _cdType :: Type
     -- ^ The return type of this choice.
   }
@@ -605,9 +605,8 @@ extChEnv :: (IsPhase ph, MonadEnv m ph)
   -- ^ The result type of the new choice.
   -> m ()
 extChEnv tc ch self this arg upd typ = do
-  let substUpd sExp tExp aExp = substituteTm (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
   env <- getEnv
-  putEnv $ setEnvChoices (HM.insert (UpdChoice tc ch) (ChoiceData self this arg substUpd typ) $ envChoices env) env
+  putEnv $ setEnvChoices (HM.insert (UpdChoice tc ch) (ChoiceData self this arg upd typ) $ envChoices env) env
 
 -- | Extend the environment with a list of new data type definitions.
 extDatsEnv :: (IsPhase ph, MonadEnv m ph)
@@ -748,7 +747,11 @@ lookupChoice tem ch = do
   chs <- envChoices <$> getEnv
   case HM.lookup (UpdChoice tem ch) chs of
     Nothing -> throwError (UnknownChoice ch)
-    Just ChoiceData{..} -> return (_cdUpds, _cdType)
+    Just ChoiceData{..} -> do
+      let updFunc (self :: Expr) (this :: Expr) (args :: Expr) =
+            let subst = createExprSubst [(_cdSelf,self),(_cdThis,this),(_cdArgs,args)]
+            in substituteTm subst _cdUpds
+      return (updFunc, _cdType)
 
 -- | Lookup a data type definition in the environment.
 lookupDataCon :: (IsPhase ph, MonadEnv m ph)
@@ -773,192 +776,6 @@ lookupCid exp = do
   case HM.lookup cid cids of
     Nothing -> throwError $ UnknownCid cid
     Just var -> return var
-
--- | Solves the value references by computing the closure of all referenced
--- values, for each value in the environment.
--- It thus empties `_usValue` by collecting all updates made by this closure.
-solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
-solveValueReferences env =
-  let valhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond empty_upds [] hmap ref) (envVals env) (HM.keys $ envVals env)
-  in EnvCG (envSkols env) (convertHMap valhmap) (envDats env) (envCids env) HM.empty (envCtrs env) HM.empty
-  where
-    lookup_ref :: Qualified ExprValName
-      -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
-      -> (Expr, UpdateSet 'ValueGathering)
-    lookup_ref ref hmap = fromMaybe (error "Impossible: Undefined value ref while solving")
-      (HM.lookup ref hmap)
-
-    get_refs :: (Expr, UpdateSet 'ValueGathering)
-      -> ([Cond (Qualified ExprValName)], (Expr, UpdateSet 'ValueGathering))
-    get_refs (e, upds) = (updSetValues upds, (e, setUpdSetValues [] upds))
-
-    ext_upds :: (Expr, UpdateSet 'ValueGathering) -> (Expr, UpdateSet 'ValueGathering)
-      -> (Expr, UpdateSet 'ValueGathering)
-    ext_upds (e, upds1)  (_, upds2) = (e, concatUpdateSet upds1 upds2)
-
-    intro_cond :: Cond (Expr, UpdateSet 'ValueGathering)
-      -> (Expr, UpdateSet 'ValueGathering)
-    -- Note that the expression is not important here, as it will be ignored in
-    -- `ext_upds` later on.
-    intro_cond (Determined x) = x
-    intro_cond (Conditional cond cx cy) =
-      let xs = map intro_cond cx
-          ys = map intro_cond cy
-          e = fst $ head xs
-          updx = foldl concatUpdateSet emptyUpdateSet $ map snd xs
-          updy = foldl concatUpdateSet emptyUpdateSet $ map snd ys
-      in (e, introCond $ createCond cond updx updy)
-
-    empty_upds :: (Expr, UpdateSet 'ValueGathering)
-      -> (Expr, UpdateSet 'ValueGathering)
-    empty_upds (e, _) = (e, emptyUpdateSet)
-
-    convertHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
-      -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering)
-    convertHMap = HM.map (second updateSetVG2CG)
-
-    updateSetVG2CG :: UpdateSet 'ValueGathering -> UpdateSet 'ChoiceGathering
-    updateSetVG2CG (UpdateSetVG upd cho val)= if null val
-      then UpdateSetCG upd cho
-      else error "Impossible: There should be no references remaining after value solving"
-
--- | Solves the choice references by computing the closure of all referenced
--- choices, for each choice in the environment.
--- It thus empties `_usChoice` by collecting all updates made by this closure.
-solveChoiceReferences :: Env 'ChoiceGathering -> Env 'Solving
-solveChoiceReferences env =
-  let chhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond empty_upds [] hmap ref) (envChoices env) (HM.keys $ envChoices env)
-      chshmap = convertChHMap chhmap
-      valhmap = HM.map (inlineChoices chshmap) (envVals env)
-  in EnvS (envSkols env) valhmap (envDats env) (envCids env) (envPreconds env) (envCtrs env) chshmap
-  where
-    lookup_ref :: UpdChoice
-      -> HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
-      -> ChoiceData 'ChoiceGathering
-    lookup_ref upd hmap = fromMaybe (error "Impossible: Undefined choice ref while solving")
-      (HM.lookup upd hmap)
-
-    get_refs :: ChoiceData 'ChoiceGathering
-      -> ([Cond UpdChoice], ChoiceData 'ChoiceGathering)
-    -- TODO: This is gonna result in a ton of substitutions
-    get_refs chdat@ChoiceData{..} =
-      -- TODO: This seems to be a rather common pattern. Abstract to reduce duplication.
-      let chos = updSetChoices $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
-          updfunc1 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            let upds = _cdUpds selfexp thisexp argsexp
-            in setUpdSetChoices [] upds
-      in (chos, chdat{_cdUpds = updfunc1})
-
-    ext_upds :: ChoiceData 'ChoiceGathering
-      -> ChoiceData 'ChoiceGathering
-      -> ChoiceData 'ChoiceGathering
-    ext_upds chdat1 chdat2 =
-      let updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            _cdUpds chdat1 selfexp thisexp argsexp `concatUpdateSet`
-              _cdUpds chdat2 selfexp thisexp argsexp
-      in chdat1{_cdUpds = updfunc}
-
-    intro_cond :: IsPhase ph
-      => Cond (ChoiceData ph)
-      -> ChoiceData ph
-    -- Note that the expression and return type is not important here, as it
-    -- will be ignored in `ext_upds` later on.
-    intro_cond (Determined x) = x
-    intro_cond (Conditional cond cdatxs cdatys) =
-      let datxs = map intro_cond cdatxs
-          datys = map intro_cond cdatys
-          updfunc (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
-            introCond (createCond cond
-              (foldl
-                (\upd dat -> upd `concatUpdateSet` _cdUpds dat selfexp thisexp argsexp)
-                emptyUpdateSet datxs)
-              (foldl
-                (\upd dat -> upd `concatUpdateSet` _cdUpds dat selfexp thisexp argsexp)
-                emptyUpdateSet datys))
-      in (head datxs){_cdUpds = updfunc}
-
-    empty_upds :: ChoiceData 'ChoiceGathering
-      -> ChoiceData 'ChoiceGathering
-    empty_upds dat = dat{_cdUpds = \ _ _ _ -> emptyUpdateSet}
-
-    inlineChoices :: HM.HashMap UpdChoice (ChoiceData 'Solving)
-      -> (Expr, UpdateSet 'ChoiceGathering)
-      -> (Expr, UpdateSet 'Solving)
-    inlineChoices chshmap (exp, upds) =
-      let lookupRes = map
-            (intro_cond . fmap (\ch -> fromMaybe (error "Impossible: missing choice while solving") (HM.lookup ch chshmap)))
-            (updSetChoices upds)
-          chupds = concatMap (\ChoiceData{..} -> updSetUpdates $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)) lookupRes
-      in (exp, UpdateSetS (updSetUpdates upds ++ chupds))
-
-    convertChHMap :: HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
-      -> HM.HashMap UpdChoice (ChoiceData 'Solving)
-    convertChHMap = HM.map (\chdat@ChoiceData{..} ->
-      chdat{_cdUpds = \(selfExp :: Expr) (thisExp :: Expr) (argsExp :: Expr) ->
-        updateSetCG2S $ _cdUpds selfExp thisExp argsExp})
-
-    updateSetCG2S :: UpdateSet 'ChoiceGathering -> UpdateSet 'Solving
-    updateSetCG2S (UpdateSetCG upd cho) = if null cho
-      then UpdateSetS upd
-      else error "Impossible: There should be no references remaining after choice solving"
-
--- | Solves a single reference by recursively inlining the references into updates.
-solveReference :: forall updset ref. (Eq ref, Hashable ref)
-  => (ref -> HM.HashMap ref updset -> updset)
-  -- ^ Function for looking up references in the update set.
-  -> (updset -> ([Cond ref], updset))
-  -- ^ Function popping the references from the update set.
-  -> (updset -> updset -> updset)
-  -- ^ Function for concatinating update sets.
-  -> (Cond updset -> updset)
-  -- ^ Function for moving conditionals inside the update set.
-  -> (updset -> updset)
-  -- ^ Function for emptying a given update set of all updates.
-  -> [ref]
-  -- ^ The references which have already been visited.
-  -> HM.HashMap ref updset
-  -- ^ The hashmap mapping references to update sets.
-  -> ref
-  -- ^ The reference to be solved.
-  -> (updset, HM.HashMap ref updset)
-solveReference lookup getRefs extUpds introCond emptyUpds vis hmap0 ref0 =
-  -- Lookup updates performed by the given reference, and split in new
-  -- references and reference-free updates.
-  let upd0 = lookup ref0 hmap0
-      (refs, upd1) = getRefs upd0
-  -- Check for loops. If the references has already been visited, then the
-  -- reference should be flagged as recursive.
-  in if ref0 `elem` vis
-  -- TODO: Recursion!
-    then trace "Recursion!" (upd1, hmap0) -- TODO: At least remove the references?
-    -- When no recursion has been detected, continue inlining the references.
-    else let (upd2, hmap1) = foldl handle_ref (upd1, hmap0) refs
-      in (upd1, HM.insert ref0 upd2 hmap1)
-  where
-    -- | Extend the closure by computing and adding the reference closure for
-    -- the given reference.
-    handle_ref :: (updset, HM.HashMap ref updset)
-      -- ^ The current closure (update set) and the current map for reference to update.
-      -> Cond ref
-      -- ^ The reference to be computed and added.
-      -> (updset, HM.HashMap ref updset)
-    -- For a simple reference, the closure is computed straightforwardly.
-    handle_ref (upd_i0, hmap_i0) (Determined ref_i) =
-      let (upd_i1, hmap_i1) =
-            solveReference lookup getRefs extUpds introCond emptyUpds (ref0:vis) hmap_i0 ref_i
-      in (extUpds upd_i0 upd_i1, hmap_i1)
-    -- A conditional reference is more involved, as the conditional needs to be
-    -- preserved in the computed closure (update set).
-    handle_ref (upd_i0, hmap_i0) (Conditional cond refs_ia refs_ib) =
-          -- Construct an update set without any updates.
-      let upd_i0_empty = emptyUpds upd_i0
-          -- Compute the closure for the true-case.
-          (upd_ia, hmap_ia) = foldl handle_ref (upd_i0_empty, hmap_i0) refs_ia
-          -- Compute the closure for the false-case.
-          (upd_ib, hmap_ib) = foldl handle_ref (upd_i0_empty, hmap_ia) refs_ib
-          -- Move the conditional inwards, in the update set.
-          upd_i1 = extUpds upd_i0 $ introCond $ createCond cond upd_ia upd_ib
-      in (upd_i1, hmap_ib)
 
 -- TODO: This should work recursively
 -- | Lookup the field names and corresponding types, for a given record type

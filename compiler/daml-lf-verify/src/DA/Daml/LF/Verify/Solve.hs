@@ -299,7 +299,7 @@ constructConstr :: Env 'Solving
 constructConstr env chtem ch ftem f =
   case HM.lookup (UpdChoice chtem ch) (envChoices env) of
     Just ChoiceData{..} ->
-      let upds = updSetUpdates $ _cdUpds (EVar _cdSelf) (EVar _cdThis) (EVar _cdArgs)
+      let upds = updSetUpdates _cdUpds
           vars = concatMap skol2var (envSkols env)
           syns = constructSynonyms $ HM.elems $ envCids env
           ctrs = map (toCExp syns) (envCtrs env)

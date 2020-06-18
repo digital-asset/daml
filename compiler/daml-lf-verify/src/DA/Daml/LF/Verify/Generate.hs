@@ -8,7 +8,10 @@
 -- | Constraint generator for DAML LF static verification
 module DA.Daml.LF.Verify.Generate
   ( genPackages
+  , genExpr
+  , Output(..)
   , Phase(..)
+  , GenPhase
   ) where
 
 import Control.Monad.Error.Class (MonadError (..), throwError)
@@ -436,12 +439,19 @@ genForCreate :: (GenPhase ph, MonadEnv m ph)
 genForCreate tem arg = do
   arout <- genExpr True arg
   recExpFields (_oExpr arout) >>= \case
-    Just fs -> return (
-                 Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
-               , TCon tem
-               , Just $ EStructCon fs )
-  -- TODO: We could potentially filter here to only store the interesting fields?
+    Just fs -> do
+      fsEval <- mapM partial_eval_field fs
+      return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fsEval)
+             , TCon tem
+             , Just $ EStructCon fsEval )
     Nothing -> throwError ExpectRecord
+  where
+    partial_eval_field :: (GenPhase ph, MonadEnv m ph)
+      => (FieldName, Expr)
+      -> m (FieldName, Expr)
+    partial_eval_field (f,e) = do
+      e' <- genExpr False e
+      return (f,_oExpr e')
 
 -- | Analyse an exercise update expression.
 -- Returns both the generator output and the return type of the choice.
@@ -619,7 +629,8 @@ extEnvContract (TCon tem) cid bindM = do
   lookupPreconds (TCon tem) bind >>= \case
     Nothing -> return ()
     Just precond -> do
-      extCtr precond
+      precondOut <- genExpr False precond
+      extCtr (_oExpr precondOut)
 extEnvContract _ _ _ = return ()
 
 -- | Bind any contract id's, together with their constraints, for the fields of

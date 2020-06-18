@@ -23,6 +23,7 @@ import DA.Daml.LF.Verify.Generate
 import DA.Daml.LF.Verify.Solve
 import DA.Daml.LF.Verify.Read
 import DA.Daml.LF.Verify.Context
+import DA.Daml.LF.Verify.ReferenceSolve
 import DA.Bazel.Runfiles
 
 getSolver :: IO FilePath
@@ -81,25 +82,29 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
       -- should be inlined.
       debug "Start value solving"
       let env2 = solveValueReferences env1
-      -- Start reading template definitions. References to choices are just
-      -- stored as references at this point.
-      debug "Start choice gathering"
-      case runEnv (genPackages pkgs) env2 of
-        Left err -> outputError err "Choice phase finished with error: "
+      -- Inline the newly solved references in the boolean constraints.
+      case runEnv inlineReferences env2 of
+        Left err -> outputError err "Value reference solving phase finished with error: "
         Right env3 -> do
-          -- All choice definitions have been handled. Start computing closures
-          -- of the stored choice references. After this phase, all choice
-          -- references should be inlined.
-          debug "Start choice solving"
-          let env4 = solveChoiceReferences env3
-          -- Construct the actual constraints to be solved by the SMT solver.
-          debug "Start constraint solving phase"
-          let cset = constructConstr env4 choiceTmpl choiceName fieldTmpl fieldName
-          debug "\n==========\n"
-          debug $ renderString $ layoutCompact ("Create: " <+> pretty (_cCres cset) <+> "\n")
-          debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset) <+> "\n")
-          -- Pass the constraints to the SMT solver.
-          solveConstr solver debug cset
+          -- Start reading template definitions. References to choices are just
+          -- stored as references at this point.
+          debug "Start choice gathering"
+          case runEnv (genPackages pkgs) env3 of
+            Left err -> outputError err "Choice phase finished with error: "
+            Right env4 -> do
+              -- All choice definitions have been handled. Start computing closures
+              -- of the stored choice references. After this phase, all choice
+              -- references should be inlined.
+              debug "Start choice solving"
+              let env5 = solveChoiceReferences env4
+              -- Construct the actual constraints to be solved by the SMT solver.
+              debug "Start constraint solving phase"
+              let cset = constructConstr env5 choiceTmpl choiceName fieldTmpl fieldName
+              debug "\n==========\n"
+              debug $ renderString $ layoutCompact ("Create: " <+> pretty (_cCres cset) <+> "\n")
+              debug $ renderString $ layoutCompact ("Archive: " <+> pretty (_cArcs cset) <+> "\n")
+              -- Pass the constraints to the SMT solver.
+              solveConstr solver debug cset
   where
     -- | Lookup the first package that defines the given template. This avoids
     -- having to pass in the package reference manually when using the tool.
