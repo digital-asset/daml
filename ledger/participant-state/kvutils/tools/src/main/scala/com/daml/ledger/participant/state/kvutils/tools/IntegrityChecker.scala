@@ -126,7 +126,7 @@ class IntegrityChecker {
         println(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
       }
       println(AnsiColor.WHITE)
-      sys.exit()
+      sys.exit(1)
     }
   }
 
