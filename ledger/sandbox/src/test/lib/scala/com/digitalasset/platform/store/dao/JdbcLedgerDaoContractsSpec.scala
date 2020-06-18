@@ -20,7 +20,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
+      result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
     }
   }
 
@@ -29,13 +29,13 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       (_, tx) <- store(singleCreate)
       create = nonTransient(tx).loneElement
       _ <- store(
-        divulgedContracts = Map((create, someContractInstance) -> Set(charlie)),
+        divulgedContracts = Map((create, someVersionedContractInstance) -> Set(charlie)),
         offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(create, charlie)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
+      result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
     }
   }
 
@@ -76,7 +76,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
     for {
       (_, _) <- store(
         divulgedContracts = Map(
-          (divulgedContractId, someContractInstance) -> Set(charlie)
+          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
         offsetAndTx = emptyTransaction(alice)
       )
@@ -95,7 +95,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
     for {
       (_, _) <- store(
         divulgedContracts = Map(
-          (divulgedContractId, someContractInstance) -> Set(charlie)
+          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
         offsetAndTx = emptyTransaction(alice)
       )
@@ -111,7 +111,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       // This divulges and archives a contract in the same transaction
       (_, _) <- store(
         divulgedContracts = Map(
-          (divulgedContractId, someContractInstance) -> Set(charlie)
+          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
         offsetAndTx = singleExercise(divulgedContractId)
       )
