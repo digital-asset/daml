@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.client.binding.Primitive.{ContractId, Party}
 import com.daml.ledger.test_stable.Test.WithObservers
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(session) {
   type Parties = Set[Party]
@@ -34,7 +34,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "Observers should see transactions in multiple single-party subscriptions",
     allocation,
     timeoutScale,
-  ) {
+  )(implicit ec => {
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
@@ -53,14 +53,14 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
           activeContractsFrom(betaTransactionsByParty),
         )
       }
-  }
+  })
 
   test(
     "LOPseeTransactionsInSingleMultiPartySubscription",
     "Observers should see transactions in a single multi-party subscription",
     allocation,
     timeoutScale,
-  ) {
+  )(implicit ec => {
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
@@ -79,14 +79,14 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
           activeContractsFrom(betaTransactions),
         )
       }
-  }
+  })
 
   test(
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
     "Observers should see active contracts in multiple single-party subscriptions",
     allocation,
     timeoutScale,
-  ) {
+  )(implicit ec => {
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
@@ -105,14 +105,14 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
           betaContractsByParty,
         )
       }
-  }
+  })
 
   test(
     "LOPseeActiveContractsInSingleMultiPartySubscription",
     "Observers should see active contracts in a single multi-party subscription",
     allocation,
     timeoutScale,
-  ) {
+  )(implicit ec => {
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
@@ -123,12 +123,12 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
         assertWitnessesOfAMultiPartySubscription(t.alphaParties.toSet, contractId, alphaContracts)
         assertWitnessesOfAMultiPartySubscription(t.betaParties.toSet, contractId, betaContracts)
       }
-  }
+  })
 
   private def transactionsForEachParty(
       ledger: ParticipantTestContext,
       observers: Vector[Party],
-  ): Future[PartyMap[Vector[Transaction]]] = {
+  )(implicit ec: ExecutionContext): Future[PartyMap[Vector[Transaction]]] = {
     Future
       .sequence(observers.map(observer => ledger.flatTransactions(observer).map(observer -> _)))
       .map(_.toMap)
@@ -137,7 +137,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   private def activeContractsForEachParty(
       ledger: ParticipantTestContext,
       observers: Vector[Party],
-  ): Future[PartyMap[Vector[CreatedEvent]]] = {
+  )(implicit ec: ExecutionContext): Future[PartyMap[Vector[CreatedEvent]]] = {
     Future
       .sequence(observers.map(observer => ledger.activeContracts(observer).map(observer -> _)))
       .map(_.toMap)

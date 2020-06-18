@@ -27,7 +27,7 @@ class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
     "ClosedWorldObserver",
     "Cannot execute a transaction that references unallocated observer parties",
     allocate(SingleParty),
-  ) {
+  )(implicit ec => {
     case Participants(Participant(alpha, payer)) =>
       for {
         failure <- alpha
@@ -36,5 +36,5 @@ class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Party not known on ledger")
       }
-  }
+  })
 }
