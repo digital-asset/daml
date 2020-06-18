@@ -375,7 +375,6 @@ jobs:
           if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
-            mkdir $(Build.StagingDirectory)/bucket
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
@@ -407,12 +406,12 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(daml-on-sql)
-          targetPath: $(Build.StagingDirectory)/bucket
+          targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(json-api)
-          targetPath: $(Build.StagingDirectory)/bucket
+          targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
           set -euo pipefail
@@ -428,10 +427,6 @@ jobs:
           sha256sum $(find . -type f | sort) > sha256sums
           # Note: relies on our release artifacts not having spaces in their
           # names. Creates a ${f}.asc with the signature for each $f.
-          for f in *; do
-              gpg --homedir $GPG_DIR -ab $f
-          done
-          cd ../bucket
           for f in *; do
               gpg --homedir $GPG_DIR -ab $f
           done
@@ -465,13 +460,13 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql) \
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql)
-          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql).asc \
+          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
-          gsutil cp $(Build.StagingDirectory)/bucket/$(json-api) \
+          gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
                     gs://daml-binaries/json-api/$(json-api)
-          gsutil cp $(Build.StagingDirectory)/bucket/$(json-api).asc \
+          gsutil cp $(Build.StagingDirectory)/release/$(json-api).asc \
                     gs://daml-binaries/json-api/$(json-api).asc
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
