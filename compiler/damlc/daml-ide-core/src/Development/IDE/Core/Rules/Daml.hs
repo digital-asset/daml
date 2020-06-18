@@ -260,7 +260,7 @@ generateRawDalfRule =
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                            return ([], Just $ LF.simplifyModule world v)
+                            return ([], Just $ LF.simplifyModule world lfVersion v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -409,7 +409,7 @@ generateSerializedDalfRule options =
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
-                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) rawDalf
+                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion

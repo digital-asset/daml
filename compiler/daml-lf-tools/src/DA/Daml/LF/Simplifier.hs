@@ -6,15 +6,15 @@ module DA.Daml.LF.Simplifier(
     simplifyModule,
     ) where
 
-import Control.Lens (over)
-import Control.Monad (guard)
+import Control.Monad (guard, forM, forM_)
+import Control.Monad.State.Strict (State, evalState, gets, modify)
 import Data.Maybe (mapMaybe)
-import Data.List (foldl')
 import Data.Foldable (fold, toList)
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.Graph as G
 import qualified Data.Text as T
 import qualified Data.Set as Set
+import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Safe
 import qualified Safe.Exact as Safe
@@ -24,6 +24,8 @@ import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.FreeVars
 import DA.Daml.LF.Ast.Optics
+import DA.Daml.LF.TypeChecker.Check
+import DA.Daml.LF.TypeChecker.Env
 
 -- | Models an approximation of the error safety of an expression. 'Unsafe'
 -- means the expression might throw an error. @'Safe' /n/@ means that the
@@ -313,12 +315,81 @@ getTypeClassDictionary world = \case
     _ ->
         Nothing
 
-simplifyExpr :: World -> Expr -> Expr
-simplifyExpr world = fst . cata go
+calcPartyLiterals :: Expr -> HasNoPartyLiterals
+calcPartyLiterals e = HasNoPartyLiterals (cata go e)
   where
-
-    go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
+        EBuiltinF (BEParty _) -> False
+        f -> and f
+
+-- | Attempt to lift a closed expression to the top level. Returns either
+-- a variable expression that references the lifted expression, or
+-- returns the original expression.
+liftClosedExpr :: Expr -> Simplifier Expr
+liftClosedExpr e = do
+    cache <- gets sCache
+    case Map.lookup e cache of
+        Just name -> do
+            EVal <$> selfQualify name
+
+        Nothing -> do
+            world <- gets sWorldExtended
+            version <- gets sVersion
+            case runGamma world version (typeOf' e) of
+                Right ty -> do
+                    name <- freshExprVarNameFor e
+                    addDefValue DefValue
+                        { dvalBinder = (name, ty)
+                        , dvalBody = e
+                        , dvalLocation = Nothing
+                        , dvalNoPartyLiterals = calcPartyLiterals e
+                        , dvalIsTest = IsTest False
+                        }
+                    EVal <$> selfQualify name
+
+                -- This happens when the information in the World is incomplete, preventing
+                -- full typechecking. That happens when compiling with --incremental=yes,
+                -- or when simplifying mutually recursive functions.
+                Left _ ->
+                    pure e
+
+simplifyExpr :: Expr -> Simplifier Expr
+simplifyExpr = fmap fst . cata go'
+  where
+    go' :: ExprF (Simplifier (Expr, Info)) -> Simplifier (Expr, Info)
+    go' ms = do
+        es <- sequence ms
+        world <- gets sWorldExtended
+        let v' = freeVarsStep (fmap (freeVars . snd) es)
+
+        -- We decide here whether it's worth performing constant lifting
+        -- for closed terms immediately under the current term. We want
+        -- to avoid creating unnecessary bindings, so we only perform
+        -- constant lifting when a closed term would become non-closed,
+        -- thereby grouping all the closed subterms together into a single
+        -- lift. If possible, we also want to lift constants from below
+        -- lambdas and other binders (to make them memoizable),
+        -- even if the resulting expression would remain closed,
+        -- so we have the additional 'alwaysLiftUnder' check.
+        if freeVarsNull v' && not (alwaysLiftUnder es)
+          then pure (go world es)
+          else do -- constant lifting
+            es' <- forM es $ \case
+              (e,i)
+                | freeVarsNull (freeVars i)
+                , isWorthLifting e
+                -> do
+                    e' <- liftClosedExpr e
+                    pure (e',i)
+
+                | otherwise
+                -> pure (e,i)
+
+            world' <- gets sWorldExtended
+            pure (go world' es')
+
+    go :: World -> ExprF (Expr, Info) -> (Expr, Info)
+    go world = \case
 
       ETmAppF (_, i1) (_, i2)
           | TCProjection (ETmLam (x,_) e1) <- tcinfo i1
@@ -330,7 +401,7 @@ simplifyExpr world = fst . cata go
                   -- a repeated beta-reduction of a closed expression
                   -- (the dictionary function) applied to subterms of
                   -- the argument whose free variables are tracked in i2.
-          -> cata go e'
+          -> cata (go world) e'
 
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
@@ -360,9 +431,10 @@ simplifyExpr world = fst . cata go
         , and bs ->
             (ERecCon t fes1, s)
         where
-          matchField (f1, _) (f2, e2)
-            | f1 == f2, EStructProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
-            | otherwise = False
+          matchField (f1, _) = \case
+              (f2, EStructProj f3 (EVar x3)) ->
+                  (f1 == f2) && (f1 == f3) && (x1 == x3)
+              _ -> False
 
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
       ELetF (BindingF (x, _) e1) e2
@@ -371,7 +443,7 @@ simplifyExpr world = fst . cata go
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
       EStructProjF f (ELet (Binding (x, t) e1) e2, s0) ->
-        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
+          go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ EStructProjF f (e2, s2))
         where
           (s1, s2) = infoUnstepELet x s0
 
@@ -386,19 +458,88 @@ simplifyExpr world = fst . cata go
       -- NOTE(MH): This also works when `x` is free in `e2` since let-bindings
       -- are _not_ recursive.
       ETmAppF (ETmLam (x, t) e1, s0) (e2, s2) ->
-        go $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
+        go world $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
         where
           s1 = infoUnstepETmapp x s0
 
       -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
       ETmAppF (ELet (Binding (x, t) e1) e2, s0) e3
         | not (isFreeExprVar x (freeVars (snd e3))) ->
-          go $ ELetF (BindingF (x, t) (e1, s1)) (go $ ETmAppF (e2, s2) e3)
+          go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ ETmAppF (e2, s2) e3)
           where
             (s1, s2) = infoUnstepELet x s0
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
+
+-- | If we have a closed term under a lambda, we want to lift it up to the top level,
+-- even though the result of the lambda is also a closed term. Similarly, if there
+-- are branches of a case pattern that are closed, we choose to lift them to the top
+-- level.
+alwaysLiftUnder :: ExprF t -> Bool
+alwaysLiftUnder = \case
+    ETyLamF _ _ -> True
+    ETmLamF _ _ -> True
+    ECaseF _ _ -> True
+    _ -> False
+
+-- | Some terms are not worth lifting to the top level, because they don't
+-- require any computation.
+isWorthLifting :: Expr -> Bool
+isWorthLifting = \case
+    EVar _ -> False
+    EVal _ -> False
+    EBuiltin _ -> False
+    EEnumCon _ _ -> False
+    ENil _ -> False
+    ENone _ -> False
+    ELocation _ e -> isWorthLifting e
+    _ -> True
+
+data SimplifierState = SimplifierState
+    { sWorld :: World
+    , sVersion :: Version
+    , sModule :: Module
+    , sReserved :: Set.Set ExprValName
+    , sCache :: Map.Map Expr ExprValName
+    , sFreshNamePrefix :: T.Text -- Prefix for fresh variable names.
+    }
+
+sWorldExtended :: SimplifierState -> World
+sWorldExtended SimplifierState{..} = extendWorldSelf sModule sWorld
+
+type Simplifier t = State SimplifierState t
+
+addDefValue :: DefValue -> Simplifier ()
+addDefValue dval = modify $ \s@SimplifierState{..} -> s
+    { sModule = sModule { moduleValues = NM.insert dval (moduleValues sModule) }
+    , sReserved = Set.insert (fst (dvalBinder dval)) sReserved
+    , sCache = Map.insert (dvalBody dval) (fst (dvalBinder dval)) sCache
+    }
+
+freshExprVarNameFor :: Expr -> Simplifier ExprValName
+freshExprVarNameFor e = do
+    name <- freshExprVarName
+    modify $ \s -> s { sCache = Map.insert e name (sCache s) }
+    pure name
+
+setFreshNamePrefix :: T.Text -> Simplifier ()
+setFreshNamePrefix x = modify (\s -> s { sFreshNamePrefix = x })
+
+freshExprVarName :: Simplifier ExprValName
+freshExprVarName = do
+    reserved <- gets sReserved
+    prefix <- gets sFreshNamePrefix
+    let candidates = [ExprValName (prefix <> T.pack (show i)) | i <- [1 :: Int ..]]
+        name = Safe.findJust (`Set.notMember` reserved) candidates
+    modify (\s -> s { sReserved = Set.insert name reserved })
+    pure name
+
+selfQualify :: t -> Simplifier (Qualified t)
+selfQualify qualObject = do
+    qualModule <- gets (moduleName . sModule)
+    let qualPackage = PRSelf
+    pure Qualified {..}
 
 exprRefs :: Expr -> Set.Set (Qualified ExprValName)
 exprRefs = cata $ \case
@@ -417,16 +558,25 @@ topoSortDefValues m =
         sccs = G.stronglyConnComp . map dvalNode . NM.toList $ moduleValues m
     in concatMap toList sccs
 
-simplifyDefValue :: World -> DefValue -> DefValue
-simplifyDefValue world dval = dval { dvalBody = simplifyExpr world (dvalBody dval) }
+simplifyTemplate :: Template -> Simplifier Template
+simplifyTemplate t = do
+    setFreshNamePrefix ("$sc_" <> T.intercalate "_" (unTypeConName (tplTypeCon t)) <> "_")
+    templateExpr simplifyExpr t
 
-simplifyModule :: World -> Module -> Module
-simplifyModule world0 mod0 =
-    let step accum dval =
-            let m' = mod0 { moduleValues = accum }
-                w' = extendWorldSelf m' world0
-                d' = simplifyDefValue w' dval
-            in NM.insert d' accum
-        mod1 = mod0 { moduleValues = foldl' step NM.empty (topoSortDefValues mod0) }
-        world1 = extendWorldSelf mod1 world0
-    in mod1 { moduleTemplates = NM.map (over templateExpr (simplifyExpr world1)) (moduleTemplates mod1) }
+simplifyModule :: World -> Version -> Module -> Module
+simplifyModule world version m = runSimplifier world version m $ do
+    forM_ (topoSortDefValues m) $ \ dval -> do
+        setFreshNamePrefix ("$sc_" <> unExprValName (fst (dvalBinder dval)) <> "_")
+        body' <- simplifyExpr (dvalBody dval)
+        addDefValue dval { dvalBody = body' }
+    t' <- NM.traverse simplifyTemplate (moduleTemplates m)
+    m' <- gets sModule
+    pure m' { moduleTemplates = t' }
+
+runSimplifier :: World -> Version -> Module -> Simplifier t -> t
+runSimplifier sWorld sVersion m x =
+    let sModule = m { moduleValues = NM.empty }
+        sReserved = Set.fromList (NM.names (moduleValues m))
+        sCache = Map.empty
+        sFreshNamePrefix = "$sc"
+    in evalState x SimplifierState {..}

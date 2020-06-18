@@ -16,10 +16,11 @@ import DA.Bazel.Runfiles
 
 mainTest :: IO ()
 mainTest = defaultMain $ testGroup "DA.Daml.LF.Verify"
-  [ quickstartTests
-  , conditionalTests
+  [ -- quickstartTests, -- TODO: reinstate
+    conditionalTests
   ]
 
+{-
 quickstartTests :: TestTree
 quickstartTests = testGroup "Quickstart"
   [ testCase "Iou_Split" $ do
@@ -39,6 +40,7 @@ quickstartTests = testGroup "Quickstart"
       assertEqual "Verification failed for Iou_Merge - amount"
         Success result
   ]
+-}
 
 conditionalTests :: TestTree
 conditionalTests = testGroup "Conditionals"
