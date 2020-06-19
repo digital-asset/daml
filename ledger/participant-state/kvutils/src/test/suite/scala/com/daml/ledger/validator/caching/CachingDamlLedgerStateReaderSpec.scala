@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator.caching
 
-import com.daml.caching.{Cache, Configuration}
+import com.daml.caching.WeightedCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.validator.{DamlLedgerStateReader, DefaultStateKeySerializationStrategy}
@@ -81,7 +81,7 @@ class CachingDamlLedgerStateReaderSpec
 
   private def newInstance(damlLedgerStateReader: DamlLedgerStateReader, shouldCache: Boolean)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
-    val cache = Cache.from[DamlStateKey, DamlStateValue](Configuration(1024))
+    val cache = WeightedCache.from[DamlStateKey, DamlStateValue](WeightedCache.Configuration(1024))
     new CachingDamlLedgerStateReader(
       cache,
       _ => shouldCache,

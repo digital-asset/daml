@@ -5,9 +5,9 @@ package com.daml.platform.store.dao.events
 
 import anorm.NamedParameter
 import com.daml.caching
-import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
+import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.metrics.Metrics
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.events.{Value => LfValue}
@@ -185,17 +185,19 @@ object LfValueTranslation {
     def none: Cache = Cache(caching.Cache.none, caching.Cache.none)
 
     def newInstance(
-        eventConfiguration: caching.Configuration,
-        contractConfiguration: caching.Configuration): Cache =
+        eventConfiguration: caching.SizedCache.Configuration,
+        contractConfiguration: caching.SizedCache.Configuration
+    ): Cache =
       Cache(
         events = EventCache.newInstance(eventConfiguration),
         contracts = ContractCache.newInstance(contractConfiguration),
       )
 
     def newInstrumentedInstance(
-        eventConfiguration: caching.Configuration,
-        contractConfiguration: caching.Configuration,
-        metrics: Metrics): Cache =
+        eventConfiguration: caching.SizedCache.Configuration,
+        contractConfiguration: caching.SizedCache.Configuration,
+        metrics: Metrics
+    ): Cache =
       Cache(
         events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
         contracts = ContractCache.newInstrumentedInstance(contractConfiguration, metrics),
@@ -204,23 +206,14 @@ object LfValueTranslation {
 
   object EventCache {
 
-    private implicit object `Key Weight` extends caching.Weight[Key] {
-      override def weigh(value: Key): caching.Cache.Size =
-        0 // make sure that only the value is counted
-    }
-
-    private implicit object `Value Weight` extends caching.Weight[Value] {
-      override def weigh(value: Value): caching.Cache.Size =
-        1 // TODO replace this with something to avoid weights entirely
-    }
-
-    def newInstance(configuration: caching.Configuration): EventCache =
-      caching.Cache.from(configuration)
+    def newInstance(configuration: caching.SizedCache.Configuration): EventCache =
+      caching.SizedCache.from(configuration)
 
     def newInstrumentedInstance(
-        configuration: caching.Configuration,
-        metrics: Metrics): EventCache =
-      caching.Cache.from(
+        configuration: caching.SizedCache.Configuration,
+        metrics: Metrics
+    ): EventCache =
+      caching.SizedCache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
       )
@@ -250,23 +243,14 @@ object LfValueTranslation {
 
   object ContractCache {
 
-    private implicit object `Key Weight` extends caching.Weight[Key] {
-      override def weigh(value: Key): caching.Cache.Size =
-        0 // make sure that only the value is counted
-    }
-
-    private implicit object `Value Weight` extends caching.Weight[Value] {
-      override def weigh(value: Value): caching.Cache.Size =
-        1 // TODO replace this with something to avoid weights entirely
-    }
-
-    def newInstance(configuration: caching.Configuration): ContractCache =
-      caching.Cache.from(configuration)
+    def newInstance(configuration: caching.SizedCache.Configuration): ContractCache =
+      caching.SizedCache.from(configuration)
 
     def newInstrumentedInstance(
-        configuration: caching.Configuration,
-        metrics: Metrics): ContractCache =
-      caching.Cache.from(
+        configuration: caching.SizedCache.Configuration,
+        metrics: Metrics
+    ): ContractCache =
+      caching.SizedCache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
       )
