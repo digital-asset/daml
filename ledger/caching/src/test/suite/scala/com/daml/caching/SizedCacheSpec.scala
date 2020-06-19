@@ -3,24 +3,18 @@
 
 package com.daml.caching
 
-import scala.util.Random
+import org.scalatest.WordSpec
 
-class SizedCacheSpec extends CacheSpecBase("a sized cache") {
+class SizedCacheSpec
+    extends WordSpec
+    with CacheBehaviorSpecBase
+    with CacheCachingSpecBase
+    with CacheEvictionSpecBase {
+  override protected lazy val name: String = "a sized cache"
+
   override protected def newCache(): Cache[Integer, String] =
     SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 16))
 
-  "a sized cache" should {
-    "evict values eventually, once the size limit has been reached" in {
-      val cache =
-        SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 256))
-      val values = Iterator.continually[Integer](Random.nextInt).take(1000).toSet.toVector
-
-      values.foreach { value =>
-        cache.get(value, _.toString)
-      }
-      val cachedValues = values.map(cache.getIfPresent).filter(_.isDefined)
-
-      cachedValues.length should (be > 16 and be < 500)
-    }
-  }
+  override protected def newLargeCache(): Cache[Integer, String] =
+    SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 128))
 }
