@@ -34,6 +34,7 @@ config_setting(
     sh_binary(
         name = "sandbox-with-postgres-{}".format(version),
         srcs = ["@//bazel_tools:sandbox-with-postgres.sh"],
+        args = ["sandbox"],
         data = [
             "@//bazel_tools/client_server/with-postgres:with-postgres-exe",
             "@daml-sdk-{}//:daml".format(version),

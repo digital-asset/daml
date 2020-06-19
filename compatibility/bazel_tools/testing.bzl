@@ -321,6 +321,8 @@ def sdk_platform_test(sdk_version, platform_version):
     # if the CI machine does not have enough entropy.
     sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
 
+    sandbox_classic_args = ["sandbox-classic"]
+
     json_api_args = ["json-api"]
 
     # ledger-api-test-tool test-cases
@@ -349,6 +351,25 @@ def sdk_platform_test(sdk_version, platform_version):
     )
 
     client_server_test(
+        name = name + "-classic",
+        client = ledger_api_test_tool,
+        client_args = [
+            "localhost:6865",
+            "--open-world",
+            "--exclude=ClosedWorldIT",
+        ] + exclusions,
+        data = [dar_files],
+        runner = "@//bazel_tools/client_server:runner",
+        runner_args = ["6865"],
+        server = sandbox,
+        server_args = sandbox_classic_args,
+        server_files = ["$(rootpaths {dar_files})".format(
+            dar_files = dar_files,
+        )],
+        tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+    )
+
+    client_server_test(
         name = name + "-postgresql",
         client = ledger_api_test_tool,
         client_args = [
@@ -360,14 +381,31 @@ def sdk_platform_test(sdk_version, platform_version):
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = ":sandbox-with-postgres-{}".format(platform_version),
-        server_args = [platform_version],
+        server_args = [platform_version] + sandbox_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
     ) if not is_windows else None
-    # We disable the postgres tests on Windows for now since our postgres setup
-    # relies on Nix. This should be fixable by getting postgres from dev-env.
+
+    client_server_test(
+        name = name + "-classic-postgresql",
+        client = ledger_api_test_tool,
+        client_args = [
+            "localhost:6865",
+            "--open-world",
+            "--exclude=ClosedWorldIT",
+        ] + exclusions,
+        data = [dar_files],
+        runner = "@//bazel_tools/client_server:runner",
+        runner_args = ["6865"],
+        server = ":sandbox-with-postgres-{}".format(platform_version),
+        server_args = [platform_version, "sandbox-classic"],
+        server_files = ["$(rootpaths {dar_files})".format(
+            dar_files = dar_files,
+        )],
+        tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+    ) if not is_windows else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(

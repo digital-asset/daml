@@ -28,11 +28,12 @@ release.
 #### Cross-version compatibility between ledger-api-test-tool
 
 We test that the `ledger-api-test-tool` of a given version passes
-against Sandbox next of another version. We test all possible version
-combinations here to ensure forwards and backwards compatibility. The
-`ledger-api-test-tool` includes a DAR built using a compiler from
-the same SDK version so this also ensures that sandbox can load a DAR from
-a different SDK version.
+against Sandbox next and classic of another version. We test all
+possible version combinations here to ensure forwards and backwards
+compatibility. The `ledger-api-test-tool` includes a DAR built using a
+compiler from the same SDK version so this also ensures that sandbox
+can load a DAR from a different SDK version. We test both in-memory
+backends and postgresql backends.
 
 Since all our JVM ledger clients use the same client libraries we
 consider the `ledger-api-test-tool` to be a good proxy and if things
