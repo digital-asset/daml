@@ -34,17 +34,15 @@ class LogAppendingCommitStrategy[Index](
         case (key, value) =>
           (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
       }(breakOut))
-      _ <- Future.successful(
-        ledgerDataExporter.addToWriteSet(correlationId, serializedKeyValuePairs))
+      _ = ledgerDataExporter.addToWriteSet(correlationId, serializedKeyValuePairs)
       _ <- if (serializedKeyValuePairs.nonEmpty) {
         ledgerStateOperations.writeState(serializedKeyValuePairs)
       } else {
         Future.unit
       }
       envelopedLogEntry <- Future.successful(Envelope.enclose(entry))
-      _ <- Future.successful(
-        ledgerDataExporter
-          .addToWriteSet(correlationId, List((entryId.toByteString, envelopedLogEntry))))
+      _ = ledgerDataExporter
+        .addToWriteSet(correlationId, List((entryId.toByteString, envelopedLogEntry)))
       index <- ledgerStateOperations
         .appendToLog(
           entryId.toByteString,

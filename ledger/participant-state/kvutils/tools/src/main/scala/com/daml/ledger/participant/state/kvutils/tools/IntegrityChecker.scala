@@ -90,7 +90,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       println(s"${AnsiColor.GREEN}OK${AnsiColor.WHITE}")
       true
     } else {
-      println(s"${AnsiColor.RED}failed")
+      println(s"${AnsiColor.RED}FAIL")
       if (expectedWriteSet.size == actualWriteSet.size) {
         for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
             actualWriteSet)) {
