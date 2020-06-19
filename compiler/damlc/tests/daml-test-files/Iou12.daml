@@ -140,7 +140,7 @@ main = scenario do
 
   -- some things are broken because we have had to hack signatories
   -- scheduled fix in DAML-LF for next week
-  let broken x = return ()
+  let broken _ = return ()
 
   -- Alice can't create IOUs that are backed by Acme Bank.
   broken $ submitMustFail alice do

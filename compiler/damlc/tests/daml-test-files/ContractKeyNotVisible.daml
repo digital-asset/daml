@@ -12,6 +12,6 @@ template Foo
 aScenario = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
-  bobFooId <- submit bob do create Foo with p = bob
+  _ <- submit bob do create Foo with p = bob
   _ <- submit alice $ fetchByKey @Foo bob
   pure ()
