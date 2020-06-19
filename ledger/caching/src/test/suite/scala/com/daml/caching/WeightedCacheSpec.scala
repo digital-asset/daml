@@ -18,11 +18,8 @@ class WeightedCacheSpec extends CacheSpecBase("a weighted cache") {
         WeightedCache.from[Integer, String](WeightedCache.Configuration(maximumWeight = 256))
       val values = Iterator.continually[Integer](Random.nextInt).take(1000).toSet.toVector
 
-      values.zipWithIndex.foreach {
-        case (value, index) =>
-          (0 to index).foreach { _ =>
-            cache.get(value, _.toString)
-          }
+      values.foreach { value =>
+        cache.get(value, _.toString)
       }
       val cachedValues = values.map(cache.getIfPresent).filter(_.isDefined)
 

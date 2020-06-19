@@ -15,11 +15,8 @@ class SizedCacheSpec extends CacheSpecBase("a sized cache") {
         SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 256))
       val values = Iterator.continually[Integer](Random.nextInt).take(1000).toSet.toVector
 
-      values.zipWithIndex.foreach {
-        case (value, index) =>
-          (0 to index).foreach { _ =>
-            cache.get(value, _.toString)
-          }
+      values.foreach { value =>
+        cache.get(value, _.toString)
       }
       val cachedValues = values.map(cache.getIfPresent).filter(_.isDefined)
 
