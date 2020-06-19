@@ -131,13 +131,13 @@ final class Conversions(
             .build,
         )
 
-      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers) =>
+      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, gk.templateId))
             .setKey(convertValue(gk.key))
             .setCommitter(convertParty(committer))
-            .addAllObservers(observers.map(convertParty).asJava)
+            .addAllStakeholders(stakeholders.map(convertParty).asJava)
             .build,
         )
 

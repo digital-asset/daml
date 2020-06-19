@@ -174,7 +174,7 @@ message ScenarioError {
     ContractRef contract_ref = 1;
     Value key = 2;
     Party committer = 3;
-    repeated Party observers = 4;
+    repeated Party stakeholders = 4;
   }
 
   message ContractNotEffective {

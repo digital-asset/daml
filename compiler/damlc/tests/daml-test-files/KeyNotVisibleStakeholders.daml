@@ -1,0 +1,98 @@
+-- @INFO Reduce duplication
+-- @INFO Reduce duplication
+-- @INFO Reduce duplication
+-- @ERROR Stakeholders: 's'
+-- @ERROR Stakeholders: 's'
+-- @ERROR Stakeholders: 's'
+-- @ERROR Stakeholders: 's'
+
+-- We make this a separate test since it’s annoying to assert
+-- which scenario an error message belongs to
+-- and here we sidestep this by having the same error for all tests.
+module KeyNotVisibleStakeholders where
+
+template Keyed
+  with
+    sig : Party
+  where
+    signatory sig
+
+    key sig : Party
+    maintainer key
+
+template Divulger
+  with
+    divulgee : Party
+    sig : Party
+  where
+    signatory divulgee
+
+    controller sig can
+      nonconsuming DivulgeKeyed
+        : Keyed
+        with
+          keyedCid : ContractId Keyed
+        do
+          fetch keyedCid
+
+template Delegation
+  with
+    sig : Party
+    divulgee : Party
+  where
+    signatory sig
+    observer divulgee
+
+    choice FetchKeyed
+      : (ContractId Keyed, Keyed)
+      controller divulgee
+      do
+        fetchByKey @Keyed sig
+
+    choice LookupKeyed
+      : (ContractId Keyed, Keyed)
+      controller divulgee
+      do
+        fetchByKey @Keyed sig
+
+divulgeeFetch = scenario do
+  sig <- getParty "s" -- Signatory
+  divulgee <- getParty "d" -- Divulgee
+  keyedCid <- submit sig do create Keyed with ..
+  divulgercid <- submit divulgee do create Divulger with ..
+  submit sig do exercise divulgercid DivulgeKeyed with ..
+  submit divulgee do
+    _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
+    pure ()
+
+divulgeeLookup = scenario do
+  sig <- getParty "s" -- Signatory
+  divulgee <- getParty "d" -- Divulgee
+  keyedCid <- submit sig do create Keyed with ..
+  divulgercid <- submit divulgee do create Divulger with ..
+  submit sig do exercise divulgercid DivulgeKeyed with ..
+  submit divulgee do
+    _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
+    pure ()
+
+blindFetch = scenario do
+  sig <- getParty "s" -- Signatory
+  divulgee <- getParty "d" -- Divulgee
+  blind <- getParty "b" -- Blind
+  keyedCid <- submit sig do create Keyed with ..
+  divulgercid <- submit divulgee do create Divulger with ..
+  submit sig do exercise divulgercid DivulgeKeyed with ..
+  submit blind do
+    _ <- createAndExercise (Delegation sig blind) LookupKeyed
+    pure ()
+
+blindLookup = scenario do
+  sig <- getParty "s" -- Signatory
+  divulgee <- getParty "d" -- Divulgee
+  blind <- getParty "b" -- Blind
+  keyedCid <- submit sig do create Keyed with ..
+  divulgercid <- submit divulgee do create Divulger with ..
+  submit sig do exercise divulgercid DivulgeKeyed with ..
+  submit blind do
+    _ <- createAndExercise (Delegation sig blind) LookupKeyed
+    pure ()

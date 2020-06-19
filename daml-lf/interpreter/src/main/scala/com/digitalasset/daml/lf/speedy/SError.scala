@@ -105,7 +105,7 @@ object SError {
       coid: ContractId,
       key: GlobalKey,
       committer: Party,
-      observers: Set[Party],
+      stakeholders: Set[Party],
   ) extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
