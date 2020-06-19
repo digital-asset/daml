@@ -9,13 +9,9 @@ import com.github.benmanes.caffeine.{cache => caffeine}
 
 import scala.compat.java8.OptionConverters._
 
-sealed class CaffeineCache[Key, Value] private[caching] (builder: caffeine.Caffeine[Key, Value])
-    extends Cache[Key, Value] {
-
-  private val cache = init(builder)
-
-  protected def init(builder: caffeine.Caffeine[Key, Value]): caffeine.Cache[Key, Value] =
-    builder.build()
+sealed class CaffeineCache[Key <: AnyRef, Value <: AnyRef] private[caching] (
+    cache: caffeine.Cache[Key, Value]
+) extends Cache[Key, Value] {
 
   override def put(key: Key, value: Value): Unit = cache.put(key, value)
 
@@ -27,19 +23,13 @@ sealed class CaffeineCache[Key, Value] private[caching] (builder: caffeine.Caffe
 
 }
 
-final class InstrumentedCaffeineCache[Key, Value] private[caching] (
-    builder: caffeine.Caffeine[Key, Value],
+final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef] private[caching] (
+    cache: caffeine.Cache[Key, Value],
     metrics: CacheMetrics,
-) extends CaffeineCache[Key, Value](builder) {
+) extends CaffeineCache[Key, Value](cache) {
 
-  override protected def init(
-      builder: caffeine.Caffeine[Key, Value],
-  ): caffeine.Cache[Key, Value] = {
-    val cache = super.init(builder.recordStats(() => new DropwizardStatsCounter(metrics)))
-    metrics.registerSizeGauge(size(cache))
-    metrics.registerWeightGauge(weight(cache))
-    cache
-  }
+  metrics.registerSizeGauge(size(cache))
+  metrics.registerWeightGauge(weight(cache))
 
   private def size(cache: caffeine.Cache[_, _]): Gauge[Long] =
     () => cache.estimatedSize()
@@ -47,4 +37,14 @@ final class InstrumentedCaffeineCache[Key, Value] private[caching] (
   private def weight(cache: caffeine.Cache[_, _]): Gauge[Long] =
     () => cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
 
+}
+
+object CaffeineCache {
+  def apply[Key <: AnyRef, Value <: AnyRef](
+      builder: caffeine.Caffeine[_ >: Key, _ >: Value],
+      metrics: Option[CacheMetrics],
+  ): CaffeineCache[Key, Value] = {
+    val cache = builder.build[Key, Value]
+    metrics.fold(new CaffeineCache(cache))(new InstrumentedCaffeineCache(cache, _))
+  }
 }

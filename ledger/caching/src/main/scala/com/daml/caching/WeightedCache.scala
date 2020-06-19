@@ -32,7 +32,7 @@ object WeightedCache {
             .newBuilder()
             .maximumWeight(maximumWeight)
             .weigher(Weight.weigher[Key, Value])
-        metrics.fold(new CaffeineCache(builder))(new InstrumentedCaffeineCache(builder, _))
+        CaffeineCache(builder, metrics)
     }
 
   final case class Configuration(maximumWeight: Long) extends AnyVal
