@@ -38,26 +38,33 @@ object Assertions extends DiffExtensions {
   /** Match the given exception against a status code and a regex for the expected message.
       Succeeds if the exception is a GrpcException with the expected code and
       the regex matches some part of the message or there is no message and the pattern is
-      empty.
+      None.
     */
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: Pattern): Unit =
-    t match {
-      case GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _) =>
+  def assertGrpcError(t: Throwable, expectedCode: Status.Code, optPattern: Option[Pattern]): Unit =
+    (t, optPattern) match {
+      case (GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _), Some(pattern)) =>
         if (pattern.matcher(msg).find()) {
           ()
         } else {
           fail(s"Error message did not contain [$pattern], but was [$msg].")
         }
-      case GrpcException(GrpcStatus(`expectedCode`, None), _) if pattern.toString.isEmpty =>
+      // None both represents pattern that we do not care about as well as
+      // exceptions that have no message.
+      case (GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _), None) => ()
+      case (GrpcException(GrpcStatus(`expectedCode`, None), _), None) =>
         ()
-      case GrpcException(GrpcStatus(code, _), _) =>
+      case (GrpcException(GrpcStatus(code, _), _), _) =>
         fail(s"Expected code [$expectedCode], but got [$code].")
-      case NonFatal(e) =>
+      case (NonFatal(e), _) =>
         fail("Exception is neither a StatusRuntimeException nor a StatusException", e)
     }
 
   /** non-regex overload for assertGrpcError which just does a substring check.
     */
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit =
-    assertGrpcError(t, expectedCode, Pattern.compile(Pattern.quote(pattern)))
+  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit = {
+    assertGrpcError(
+      t,
+      expectedCode,
+      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))))
+  }
 }

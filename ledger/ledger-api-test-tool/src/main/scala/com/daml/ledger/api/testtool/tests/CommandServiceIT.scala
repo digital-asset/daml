@@ -297,7 +297,8 @@ final class CommandServiceIT extends LedgerTestSuite {
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          Pattern.compile("Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed\\. Details: Last location: \\[[^\\]]*\\], partial transaction: root node"),
+          Some(Pattern.compile(
+            "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed\\. Details: Last location: \\[[^\\]]*\\], partial transaction: root node")),
         )
       }
   })
