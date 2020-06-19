@@ -3,11 +3,9 @@
 
 package com.daml.caching
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Matchers, WordSpecLike}
 
-abstract class CacheBehaviorSpecBase(name: String) extends WordSpec with Matchers {
-  protected def newCache(): Cache[Integer, String]
-
+trait CacheBehaviorSpecBase extends CacheSpecBase with WordSpecLike with Matchers {
   name should {
     "compute the correct results" in {
       val cache = newCache()

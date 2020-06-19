@@ -3,33 +3,18 @@
 
 package com.daml.caching
 
-import org.scalatest.concurrent.Eventually
-import org.scalatest.time.{Second, Span}
+import org.scalatest.WordSpec
 
-import scala.util.Random
-
-class SizedCacheSpec extends CacheSpecBase("a sized cache") with Eventually {
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(scaled(Span(1, Second)))
+class SizedCacheSpec
+    extends WordSpec
+    with CacheBehaviorSpecBase
+    with CacheCachingSpecBase
+    with CacheEvictionSpecBase {
+  override protected lazy val name: String = "a sized cache"
 
   override protected def newCache(): Cache[Integer, String] =
     SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 16))
 
-  "a sized cache" should {
-    "evict values eventually, once the size limit has been reached" in {
-      val cache =
-        SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 128))
-      val values = Iterator.continually[Integer](Random.nextInt).take(1000).toSet.toVector
-
-      values.foreach { value =>
-        cache.get(value, _.toString)
-      }
-
-      // The cache may not evict straight away. We should keep trying.
-      eventually {
-        val cachedValues = values.map(cache.getIfPresent).filter(_.isDefined)
-        // It may evict more than expected, and it might grow past the bounds again before we check.
-        cachedValues.length should (be > 16 and be < 500)
-      }
-    }
-  }
+  override protected def newLargeCache(): Cache[Integer, String] =
+    SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 128))
 }
