@@ -185,17 +185,19 @@ object LfValueTranslation {
     def none: Cache = Cache(caching.Cache.none, caching.Cache.none)
 
     def newInstance(
-        eventConfiguration: caching.Configuration,
-        contractConfiguration: caching.Configuration): Cache =
+        eventConfiguration: caching.WeightedCache.Configuration,
+        contractConfiguration: caching.WeightedCache.Configuration
+    ): Cache =
       Cache(
         events = EventCache.newInstance(eventConfiguration),
         contracts = ContractCache.newInstance(contractConfiguration),
       )
 
     def newInstrumentedInstance(
-        eventConfiguration: caching.Configuration,
-        contractConfiguration: caching.Configuration,
-        metrics: Metrics): Cache =
+        eventConfiguration: caching.WeightedCache.Configuration,
+        contractConfiguration: caching.WeightedCache.Configuration,
+        metrics: Metrics
+    ): Cache =
       Cache(
         events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
         contracts = ContractCache.newInstrumentedInstance(contractConfiguration, metrics),
@@ -214,12 +216,13 @@ object LfValueTranslation {
         1 // TODO replace this with something to avoid weights entirely
     }
 
-    def newInstance(configuration: caching.Configuration): EventCache =
+    def newInstance(configuration: caching.WeightedCache.Configuration): EventCache =
       caching.WeightedCache.from(configuration)
 
     def newInstrumentedInstance(
-        configuration: caching.Configuration,
-        metrics: Metrics): EventCache =
+        configuration: caching.WeightedCache.Configuration,
+        metrics: Metrics
+    ): EventCache =
       caching.WeightedCache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
@@ -260,12 +263,13 @@ object LfValueTranslation {
         1 // TODO replace this with something to avoid weights entirely
     }
 
-    def newInstance(configuration: caching.Configuration): ContractCache =
+    def newInstance(configuration: caching.WeightedCache.Configuration): ContractCache =
       caching.WeightedCache.from(configuration)
 
     def newInstrumentedInstance(
-        configuration: caching.Configuration,
-        metrics: Metrics): ContractCache =
+        configuration: caching.WeightedCache.Configuration,
+        metrics: Metrics
+    ): ContractCache =
       caching.WeightedCache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,

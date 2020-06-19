@@ -35,4 +35,12 @@ object WeightedCache {
         metrics.fold(new CaffeineCache(builder))(new InstrumentedCaffeineCache(builder, _))
     }
 
+  final case class Configuration(maximumWeight: Long) extends AnyVal
+
+  object Configuration {
+
+    val none: Configuration = Configuration(maximumWeight = 0)
+
+  }
+
 }
