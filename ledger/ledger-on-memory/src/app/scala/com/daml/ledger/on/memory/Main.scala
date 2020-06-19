@@ -68,7 +68,7 @@ object Main {
         config.extra.batchingLedgerWriterConfig,
         participantId = participantConfig.participantId,
         metrics = metrics,
-        stateValueCache = caching.Cache.from(
+        stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),

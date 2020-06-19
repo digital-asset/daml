@@ -5,9 +5,9 @@ package com.daml.platform.store.dao.events
 
 import anorm.NamedParameter
 import com.daml.caching
-import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
+import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.metrics.Metrics
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.events.{Value => LfValue}
@@ -215,12 +215,12 @@ object LfValueTranslation {
     }
 
     def newInstance(configuration: caching.Configuration): EventCache =
-      caching.Cache.from(configuration)
+      caching.WeightedCache.from(configuration)
 
     def newInstrumentedInstance(
         configuration: caching.Configuration,
         metrics: Metrics): EventCache =
-      caching.Cache.from(
+      caching.WeightedCache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
       )
@@ -261,12 +261,12 @@ object LfValueTranslation {
     }
 
     def newInstance(configuration: caching.Configuration): ContractCache =
-      caching.Cache.from(configuration)
+      caching.WeightedCache.from(configuration)
 
     def newInstrumentedInstance(
         configuration: caching.Configuration,
         metrics: Metrics): ContractCache =
-      caching.Cache.from(
+      caching.WeightedCache.from(
         configuration = configuration,
         metrics = metrics.daml.index.db.translation.cache,
       )

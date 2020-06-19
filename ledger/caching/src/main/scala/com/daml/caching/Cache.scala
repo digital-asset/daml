@@ -3,9 +3,6 @@
 
 package com.daml.caching
 
-import com.daml.metrics.CacheMetrics
-import com.github.benmanes.caffeine.{cache => caffeine}
-
 abstract class Cache[Key, Value] {
   def put(key: Key, value: Value): Unit
 
@@ -19,32 +16,5 @@ object Cache {
   type Size = Long
 
   def none[Key, Value]: Cache[Key, Value] = new NoCache
-
-  def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-      configuration: Configuration,
-  ): Cache[Key, Value] =
-    from(configuration, None)
-
-  def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-      configuration: Configuration,
-      metrics: CacheMetrics,
-  ): Cache[Key, Value] =
-    from(configuration, Some(metrics))
-
-  private def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-      configuration: Configuration,
-      metrics: Option[CacheMetrics],
-  ): Cache[Key, Value] =
-    configuration match {
-      case Configuration(maximumWeight) if maximumWeight <= 0 =>
-        none
-      case Configuration(maximumWeight) =>
-        val builder =
-          caffeine.Caffeine
-            .newBuilder()
-            .maximumWeight(maximumWeight)
-            .weigher(Weight.weigher[Key, Value])
-        metrics.fold(new CaffeineCache(builder))(new InstrumentedCaffeineCache(builder, _))
-    }
 
 }

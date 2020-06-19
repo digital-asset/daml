@@ -142,7 +142,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   resetOnStartup = isReset,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   seedService = SeedService(seeding),
-                  stateValueCache = caching.Cache.from(
+                  stateValueCache = caching.WeightedCache.from(
                     caching.Configuration(
                       maximumWeight = MaximumStateValueCacheSize,
                     )),
