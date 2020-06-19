@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.io.{ByteArrayOutputStream, DataOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1
@@ -51,6 +51,34 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
       instance.inProgressSubmissions shouldBe empty
       instance.bufferedKeyValueDataPerCorrelationId shouldBe empty
       instance.correlationIdMapping shouldBe empty
+    }
+  }
+
+  "serialized submission" should {
+    "be readable back" in {
+      val baos = new ByteArrayOutputStream()
+      val dataOutputStream = new DataOutputStream(baos)
+      val instance = new FileBasedLedgerDataExporter(dataOutputStream)
+      val expectedRecordTimeInstant = Instant.now()
+      val expectedParticipantId = v1.ParticipantId.assertFromString("id")
+      instance.addSubmission(
+        ByteString.copyFromUtf8("an envelope"),
+        "parent",
+        expectedRecordTimeInstant,
+        v1.ParticipantId.assertFromString("id"))
+      instance.addParentChild("parent", "parent")
+      instance.addToWriteSet("parent", Seq(keyValuePairOf("a", "b")))
+
+      instance.finishedProcessing("parent")
+
+      val dataInputStream = new DataInputStream(new ByteArrayInputStream(baos.toByteArray))
+      val actualSubmissionInfo = Serialization.readSubmissionInfo(dataInputStream)
+      val actualWriteSet = Serialization.readWriteSet(dataInputStream)
+      actualSubmissionInfo.submissionEnvelope should be(ByteString.copyFromUtf8("an envelope"))
+      actualSubmissionInfo.correlationId should be("parent")
+      actualSubmissionInfo.recordTimeInstant should be(expectedRecordTimeInstant)
+      actualSubmissionInfo.participantId should be(expectedParticipantId)
+      actualWriteSet should be(Seq(keyValuePairOf("a", "b")))
     }
   }
 
