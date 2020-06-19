@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import ai.x.diff.DiffShow
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import java.util.regex.Pattern
 import io.grpc.Status
 
 import scala.language.higherKinds
@@ -34,17 +35,29 @@ object Assertions extends DiffExtensions {
       )
   }
 
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit =
+  /** Match the given exception against a status code and a regex for the expected message.
+      Succeeds if the exception is a GrpcException with the expected code and
+      the regex matches some part of the message or there is no message and the pattern is
+      empty.
+    */
+  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: Pattern): Unit =
     t match {
-      case GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _) if msg.contains(pattern) =>
+      case GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _) =>
+        if (pattern.matcher(msg).find()) {
+          ()
+        } else {
+          fail(s"Error message did not contain [$pattern], but was [$msg].")
+        }
+      case GrpcException(GrpcStatus(`expectedCode`, None), _) if pattern.toString.isEmpty =>
         ()
-      case GrpcException(GrpcStatus(`expectedCode`, None), _) if pattern.isEmpty =>
-        ()
-      case GrpcException(GrpcStatus(`expectedCode`, description), _) =>
-        fail(s"Error message did not contain [$pattern], but was [$description].")
       case GrpcException(GrpcStatus(code, _), _) =>
         fail(s"Expected code [$expectedCode], but got [$code].")
       case NonFatal(e) =>
         fail("Exception is neither a StatusRuntimeException nor a StatusException", e)
     }
+
+  /** non-regex overload for assertGrpcError which just does a substring check.
+    */
+  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit =
+    assertGrpcError(t, expectedCode, Pattern.compile(Pattern.quote(pattern)))
 }
