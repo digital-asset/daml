@@ -20,10 +20,6 @@ import doobie.{LogHandler, Transactor, _}
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
-//import doobie.free.connection._
-//import scalaz._, Scalaz._
-//import scalaz.std.list._
-//import scalaz.syntax.traverse._
 
 object Connection {
 
@@ -104,9 +100,13 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     select.query[UUID].to[Vector]
   }
 
-  private def insertDalf(packageId: PackageId, pkg: DamlLf.ArchivePayload): ConnectionIO[Unit] = {
+  // Insert a package to the `dalfs` table. Do nothing if the package already exists.
+  // We specify this in the `insert` since `packageId` is the primary key on the table.
+  private def insertPackage(
+      packageId: PackageId,
+      pkg: DamlLf.ArchivePayload): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
-      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray})
+      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
     """
     insert.update.run.void
   }
@@ -139,12 +139,11 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     run(selectRunningTriggers(credentials.token)).map(_.sorted)
   }
 
+  // Write packages to the `dalfs` table so we can recover state after a shutdown.
   override def persistPackages(
       dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
     import cats.implicits._
-     val insertAll = dar.all.traverse_((insertDalf _).tupled)
-    // Just insert main package for draft until above is fixed.
-    // val insertMain = (insertDalf _).tupled(dar.main)
+    val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
   }
 

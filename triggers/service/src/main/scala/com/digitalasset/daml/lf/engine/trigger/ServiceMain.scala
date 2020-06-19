@@ -77,33 +77,33 @@ class Server(triggerDao: RunningTriggerDao) {
   // after the service shuts down or crashes.
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
 
-  // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
-  // TODO(RJR): Figure out what to do with packages that already exist in `compiledPackages`.
-  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
+  private def addPackagesInMemory(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // Decode the dar for the in-memory store.
     val dar = encodedDar.map((Decode.readArchivePayload _).tupled)
     val darMap = dar.all.toMap
 
-    darMap foreach {
-      case (pkgId, pkg) =>
-        // If packages are not in topological order, we will get back
-        // ResultNeedPackage. The way the code is structured here we
-        // will still call addPackage even if we already fed the
-        // package via the callback but this is harmless and not
-        // expensive.
-        @scala.annotation.tailrec
-        def go(r: Result[Unit]): Unit = r match {
-          case ResultDone(()) => ()
-          case ResultNeedPackage(pkgId, resume) =>
-            go(resume(darMap.get(pkgId)))
-          case _ => throw new RuntimeException(s"Unexpected engine result $r")
-        }
-
-        go(compiledPackages.addPackage(pkgId, pkg))
+    // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.
+    // So we need to use the entire `darMap` to complete each call to `addPackage`.
+    // This will result in repeated calls to `addPackage` for the same package, but
+    // this is harmless and not expensive.
+    @scala.annotation.tailrec
+    def complete(r: Result[Unit]): Unit = r match {
+      case ResultDone(()) => ()
+      case ResultNeedPackage(dep, resume) =>
+        complete(resume(darMap.get(dep)))
+      case _ =>
+        throw new RuntimeException(s"Unexpected engine result $r from attempt to add package.")
     }
 
-    // TODO(RJR): Only attempt to write packages that aren't already uploaded.
-    // Otherwise the transaction will fail due to a primary key conflict.
+    darMap foreach {
+      case (pkgId, pkg) => complete(compiledPackages.addPackage(pkgId, pkg))
+    }
+  }
+
+  // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
+  // Uploads of packages that already exist are considered harmless and are ignored.
+  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
+    addPackagesInMemory(encodedDar)
     triggerDao.persistPackages(encodedDar)
   }
 
