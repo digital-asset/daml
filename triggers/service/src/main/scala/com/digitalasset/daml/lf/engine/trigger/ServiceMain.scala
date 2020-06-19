@@ -78,6 +78,7 @@ class Server(triggerDao: RunningTriggerDao) {
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
 
   // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
+  // TODO(RJR): Figure out what to do with packages that already exist in `compiledPackages`.
   private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
     // Decode the dar for the in-memory store.
     val dar = encodedDar.map((Decode.readArchivePayload _).tupled)
@@ -98,10 +99,11 @@ class Server(triggerDao: RunningTriggerDao) {
           case _ => throw new RuntimeException(s"Unexpected engine result $r")
         }
 
-        // TODO(RJR): Check if the package is already stored and return an error if so.
         go(compiledPackages.addPackage(pkgId, pkg))
     }
 
+    // TODO(RJR): Only attempt to write packages that aren't already uploaded.
+    // Otherwise the transaction will fail due to a primary key conflict.
     triggerDao.persistPackages(encodedDar)
   }
 
@@ -290,9 +292,6 @@ object Server {
                         try {
                           server.addDar(dar) match {
                             case Left(err) =>
-                              // TODO(RJR): We should analyze this error to give the appropriate
-                              // error code and message. For example if `addDar` failed due to the
-                              // dar already existing then the request was to blame.
                               complete(errorResponse(StatusCodes.InternalServerError, err))
                             case Right(()) =>
                               val mainPackageId =
