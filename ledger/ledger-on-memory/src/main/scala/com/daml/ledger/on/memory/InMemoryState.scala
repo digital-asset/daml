@@ -14,7 +14,7 @@ import com.google.protobuf.ByteString
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
-private[ledger] class InMemoryState private (log: MutableLog, state: MutableState) {
+private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new StampedLock()
   @volatile private var lastLogEntryIndex = 0
 

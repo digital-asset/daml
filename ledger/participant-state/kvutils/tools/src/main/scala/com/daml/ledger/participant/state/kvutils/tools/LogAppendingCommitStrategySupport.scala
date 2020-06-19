@@ -5,18 +5,16 @@ package com.daml.ledger.participant.state.kvutils.tools
 
 import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
-import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.export.NoopLedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.tools.IntegrityChecker.bytesAsHexString
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
 import com.daml.ledger.validator.{
   CommitStrategy,
   DamlLedgerStateReader,
   StateKeySerializationStrategy
 }
-import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
 
-import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 object LogAppendingCommitStrategySupport extends CommitStrategySupport[Index] {
@@ -25,10 +23,7 @@ object LogAppendingCommitStrategySupport extends CommitStrategySupport[Index] {
 
   override def createComponents()(implicit executionContext: ExecutionContext)
     : (DamlLedgerStateReader, CommitStrategy[Index], QueryableWriteSet) = {
-    val inMemoryState = mutable.Map.empty[Key, Value]
-    val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
-    val inMemoryLedgerStateOperations =
-      new InMemoryLedgerStateOperations(inMemoryLog, inMemoryState)
+    val inMemoryLedgerStateOperations = InMemoryLedgerStateOperations()
     val writeRecordingLedgerStateOperations =
       new WriteRecordingLedgerStateOperations[Index](inMemoryLedgerStateOperations)
     val (reader, commitStrategy) =
