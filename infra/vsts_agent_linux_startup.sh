@@ -179,12 +179,6 @@ echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 ) || true
 CACHE_WARMUP
 
-# Purge old agents
-su --login vsts <<'PURGE_OLD_AGENTS'
-cd daml && \
-VSTS_ACCOUNT=${vsts_account} VSTS_POOL=${vsts_pool} VSTS_TOKEN=${vsts_token} ./ci/azure-cleanup/purge_old_agents.py || true
-PURGE_OLD_AGENTS
-
 # Remove /home/vsts/daml folder that might be present from cache warmup
 rm -R /home/vsts/daml || true
 
