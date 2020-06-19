@@ -8,6 +8,9 @@ import java.util.UUID
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -97,6 +100,17 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     select.query[UUID].to[Vector]
   }
 
+  // Insert a package to the `dalfs` table. Do nothing if the package already exists.
+  // We specify this in the `insert` since `packageId` is the primary key on the table.
+  private def insertPackage(
+      packageId: PackageId,
+      pkg: DamlLf.ArchivePayload): ConnectionIO[Unit] = {
+    val insert: Fragment = sql"""
+      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
+    """
+    insert.update.run.void
+  }
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -123,6 +137,14 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
     run(selectRunningTriggers(credentials.token)).map(_.sorted)
+  }
+
+  // Write packages to the `dalfs` table so we can recover state after a shutdown.
+  override def persistPackages(
+      dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
+    import cats.implicits._
+    val insertAll = dar.all.traverse_((insertPackage _).tupled)
+    run(insertAll)
   }
 
   def initialize: Either[String, Unit] =

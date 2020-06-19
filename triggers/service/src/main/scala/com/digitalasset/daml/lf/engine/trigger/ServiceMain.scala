@@ -68,35 +68,43 @@ final case class RunningTrigger(
     runner: ActorRef[TriggerRunner.Message]
 )
 
-class Server {
+class Server(triggerDao: RunningTriggerDao) {
 
-  private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
+  private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
 
+  // We keep the compiled packages in memory as it is required to construct a trigger Runner.
+  // When running with a persistent store we also write packages to it so we can recover our state
+  // after the service shuts down or crashes.
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
 
-  // Add dar to compiledPackages and return the main package id
-  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Unit = {
-    val dar = encodedDar.map {
-      case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
-    }
+  private def addPackagesInMemory(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Unit = {
+    // Decode the dar for the in-memory store.
+    val dar = encodedDar.map((Decode.readArchivePayload _).tupled)
     val darMap = dar.all.toMap
-    darMap.foreach {
-      case (pkgId, pkg) =>
-        // If packages are not in topological order, we will get back
-        // ResultNeedPackage.  The way the code is structured here we
-        // will still call addPackage even if we already fed the
-        // package via the callback but this is harmless and not
-        // expensive.
-        @scala.annotation.tailrec
-        def go(r: Result[Unit]): Unit = r match {
-          case ResultDone(()) => ()
-          case ResultNeedPackage(pkgId, resume) =>
-            go(resume(darMap.get(pkgId)))
-          case _ => throw new RuntimeException(s"Unexpected engine result $r")
-        }
 
-        go(compiledPackages.addPackage(pkgId, pkg))
+    // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.
+    // So we need to use the entire `darMap` to complete each call to `addPackage`.
+    // This will result in repeated calls to `addPackage` for the same package, but
+    // this is harmless and not expensive.
+    @scala.annotation.tailrec
+    def complete(r: Result[Unit]): Unit = r match {
+      case ResultDone(()) => ()
+      case ResultNeedPackage(dep, resume) =>
+        complete(resume(darMap.get(dep)))
+      case _ =>
+        throw new RuntimeException(s"Unexpected engine result $r from attempt to add package.")
     }
+
+    darMap foreach {
+      case (pkgId, pkg) => complete(compiledPackages.addPackage(pkgId, pkg))
+    }
+  }
+
+  // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
+  // Uploads of packages that already exist are considered harmless and are ignored.
+  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
+    addPackagesInMemory(encodedDar)
+    triggerDao.persistPackages(encodedDar)
   }
 
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
@@ -163,8 +171,16 @@ object Server {
           }
       }
 
-    val server = new Server
-    initialDar.foreach(server.addDar)
+    val server = new Server(triggerDao)
+
+    initialDar foreach { dar =>
+      server.addDar(dar) match {
+        case Left(err) =>
+          ctx.log.error("Failed to upload provided DAR.\n" ++ err)
+          sys.exit(1)
+        case Right(()) =>
+      }
+    }
 
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -274,9 +290,14 @@ object Server {
                         complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
                       case Success(dar) =>
                         try {
-                          server.addDar(dar)
-                          val mainPackageId = JsObject(("mainPackageId", dar.main._1.name.toJson))
-                          complete(successResponse(mainPackageId))
+                          server.addDar(dar) match {
+                            case Left(err) =>
+                              complete(errorResponse(StatusCodes.InternalServerError, err))
+                            case Right(()) =>
+                              val mainPackageId =
+                                JsObject(("mainPackageId", dar.main._1.name.toJson))
+                              complete(successResponse(mainPackageId))
+                          }
                         } catch {
                           case err: ParseError =>
                             complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
