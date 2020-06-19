@@ -3,11 +3,16 @@
 
 package com.daml.caching
 
+import org.scalatest.concurrent.Eventually
+import org.scalatest.time.{Second, Span}
+
 import scala.util.Random
 
-class WeightedCacheSpec extends CacheSpecBase("a weighted cache") {
-  implicit val `Int Weight`: Weight[Integer] = (_: Integer) => 1
-  implicit val `String Weight`: Weight[String] = _.length.toLong
+class WeightedCacheSpec extends CacheSpecBase("a weighted cache") with Eventually {
+  private implicit val `Int Weight`: Weight[Integer] = (_: Integer) => 1
+  private implicit val `String Weight`: Weight[String] = _.length.toLong
+
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(scaled(Span(1, Second)))
 
   override protected def newCache(): Cache[Integer, String] =
     WeightedCache.from[Integer, String](WeightedCache.Configuration(maximumWeight = 16))
@@ -21,9 +26,13 @@ class WeightedCacheSpec extends CacheSpecBase("a weighted cache") {
       values.foreach { value =>
         cache.get(value, _.toString)
       }
-      val cachedValues = values.map(cache.getIfPresent).filter(_.isDefined)
 
-      cachedValues.length should (be > 16 and be < 500)
+      // The cache may not evict straight away. We should keep trying.
+      eventually {
+        val cachedValues = values.map(cache.getIfPresent).filter(_.isDefined)
+        // It may evict more than expected, and it might grow past the bounds again before we check.
+        cachedValues.length should (be > 16 and be < 500)
+      }
     }
   }
 }
