@@ -192,14 +192,18 @@ final case class ScenarioRunner(
   private def lookupKey(
       gk: GlobalKey,
       committers: Set[Party],
-      cb: SKeyLookupResult => Boolean,
+      canContinue: SKeyLookupResult => Boolean,
   ): Unit = {
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
 
     def missingWith(err: SError) =
-      if (!cb(SKeyLookupResult.NotFound))
+      if (!canContinue(SKeyLookupResult.NotFound))
+        throw SRunnerException(err)
+
+    def notVisibleWith(err: SError) =
+      if (!canContinue(SKeyLookupResult.NotVisible))
         throw SRunnerException(err)
 
     ledger.ledgerData.activeKeys.get(gk) match {
@@ -212,10 +216,11 @@ final case class ScenarioRunner(
           acoid) match {
           case ScenarioLedger.LookupOk(_, _, stakeholders) =>
             if (stakeholders.contains(committer))
-              cb(SKeyLookupResult.Found(acoid))
-            else if (!cb(SKeyLookupResult.NotVisible))
-              missingWith(ScenarioErrorContractKeyNotVisible(acoid, gk, committer, stakeholders))
-            ()
+              // We should always be able to continue with a SKeyLookupResult.Found.
+              // Run to get side effects and assert result.
+              assert(canContinue(SKeyLookupResult.Found(acoid)))
+            else
+              notVisibleWith(ScenarioErrorContractKeyNotVisible(acoid, gk, committer, stakeholders))
           case ScenarioLedger.LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
           case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
@@ -223,8 +228,7 @@ final case class ScenarioRunner(
           case ScenarioLedger.LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
           case ScenarioLedger.LookupContractNotVisible(coid, tid, observers) =>
-            if (!cb(SKeyLookupResult.NotVisible))
-              missingWith(ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers))
+            notVisibleWith(ScenarioErrorContractKeyNotVisible(coid, gk, committer, observers))
         }
     }
   }
