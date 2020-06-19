@@ -22,11 +22,22 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
-    name = "caching-tests",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+da_scala_library(
+    name = "caching-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
     deps = [
         ":caching",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
+da_scala_test_suite(
+    name = "caching-tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    deps = [
+        ":caching",
+        ":caching-test-lib",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],

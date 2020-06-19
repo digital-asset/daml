@@ -5,24 +5,16 @@ package com.daml.caching
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.{Matchers, WordSpec}
+class NoCacheSpec extends CacheBehaviorSpecBase("a non-existent cache") {
+  override protected def newCache(): Cache[Integer, String] =
+    Cache.none
 
-class NoCacheSpec extends WordSpec with Matchers {
   "a non-existent cache" should {
-    "compute the correct results" in {
-      val cache = Cache.none[Int, String]
-
-      cache.get(1, _.toString) should be("1")
-      cache.get(2, _.toString) should be("2")
-      cache.get(3, _.toString) should be("3")
-      cache.get(2, _.toString) should be("2")
-    }
-
     "compute every time" in {
-      val cache = Cache.none[Int, String]
+      val cache = newCache()
       val counter = new AtomicInteger(0)
 
-      def compute(value: Int): String = {
+      def compute(value: Integer): String = {
         counter.incrementAndGet()
         value.toString
       }
@@ -36,7 +28,7 @@ class NoCacheSpec extends WordSpec with Matchers {
     }
 
     "always return `None` on `getIfPresent`" in {
-      val cache = Cache.none[Int, String]
+      val cache = Cache.none[Integer, String]
 
       cache.getIfPresent(7) should be(None)
       cache.get(7, _.toString) should be("7")
@@ -44,14 +36,14 @@ class NoCacheSpec extends WordSpec with Matchers {
     }
 
     "do nothing on `put`" in {
-      val cache = Cache.none[Int, String]
+      val cache = Cache.none[Integer, String]
 
       cache.put(7, "7")
       cache.getIfPresent(7) should be(None)
 
       val counter = new AtomicInteger(0)
 
-      def compute(value: Int): String = {
+      def compute(value: Integer): String = {
         counter.incrementAndGet()
         value.toString
       }
