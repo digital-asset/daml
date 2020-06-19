@@ -64,14 +64,19 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
       *> createPartyIndex.update.run).void
   }
 
+  // NOTE(RJR) Interpolation in `sql` literals:
+  // Doobie provides a `Put` typeclass that allows us to interpolate values of various types in our
+  // SQL query strings. This includes basic types like `String` and `UUID` as well as unary case
+  // classes wrapping these types (e.g. `EncryptedToken`). Doobie also does some formatting of these
+  // values, e.g. single quotes around `String` and `UUID` values. This is NOT the case if you use
+  // `Fragment.const` which will try to use a raw string as a SQL query.
+
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
-    val partyToken: String = t.credentials match {
-      case UserCredentials(EncryptedToken(token)) => token
-    }
-    val fullTriggerName = t.triggerName.toString
-    val insert: Fragment = Fragment.const(
-      s"insert into running_triggers values ('${t.triggerInstance}', '$partyToken', '$fullTriggerName')"
-    )
+    val partyToken: EncryptedToken = t.credentials.token
+    val fullTriggerName: String = t.triggerName.toString
+    val insert: Fragment = sql"""
+        insert into running_triggers values (${t.triggerInstance}, $partyToken, $fullTriggerName)
+      """
     insert.update.run.void
   }
 
@@ -79,21 +84,17 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   // at most one row. Return whether or not it deleted.
   private def deleteRunningTrigger(triggerInstance: UUID): ConnectionIO[Boolean] = {
     val delete = sql"delete from running_triggers where trigger_instance = $triggerInstance"
-    // NOTE(RJR): We do *not* quote the `$triggerInstance` above. The `sql`
-    // string interpolation adds it for UUIDs, unlike the `s` interpolation used
-    // in `Fragment.const`.
     delete.update.run.map(_ == 1)
   }
 
-  private def selectRunningTriggers(credentials: UserCredentials): ConnectionIO[Vector[UUID]] = {
-    val partyToken: String = credentials match {
-      case UserCredentials(EncryptedToken(token)) => token
-    }
-    val select = Fragment.const("select trigger_instance from running_triggers")
-    val where = Fragment.const(s" where party_token = '${partyToken}'")
-    val order = Fragment.const(" order by running_triggers")
-    val list = select ++ where ++ order
-    list.query[UUID].to[Vector]
+  private def selectRunningTriggers(partyToken: EncryptedToken): ConnectionIO[Vector[UUID]] = {
+    val select: Fragment = sql"""
+        select trigger_instance from running_triggers
+        where party_token = $partyToken
+      """
+    // We do not use an `order by` clause because we sort the UUIDs afterwards using Scala's
+    // comparison of UUIDs (which is different to Postgres).
+    select.query[UUID].to[Vector]
   }
 
   // Drop all tables and other objects associated with the database.
@@ -121,7 +122,7 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   override def listRunningTriggers(credentials: UserCredentials): Either[String, Vector[UUID]] = {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
-    run(selectRunningTriggers(credentials)).map(_.sorted)
+    run(selectRunningTriggers(credentials.token)).map(_.sorted)
   }
 
   def initialize: Either[String, Unit] =
