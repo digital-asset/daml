@@ -16,7 +16,7 @@ module "nix_cache" {
   project              = "${local.project}"
   region               = "${local.region}"
   ssl_certificate      = "${local.ssl_certificate}"
-  cache_retention_days = 60
+  cache_retention_days = 360
 }
 
 // allow rw access for CI writer (see writer.tf)
