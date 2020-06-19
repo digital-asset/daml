@@ -192,7 +192,6 @@ in rec {
     grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
-    jo   = pkgs.jo;
     jq   = bazel_dependencies.jq;
     gawk = bazel_dependencies.gawk;
     sed = pkgs.gnused;
