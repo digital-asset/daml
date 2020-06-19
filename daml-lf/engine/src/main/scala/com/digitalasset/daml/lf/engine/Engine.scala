@@ -413,7 +413,7 @@ object Engine {
       outputTransactionVersion: VersionRange[transaction.TransactionVersion],
   ) extends NoCopy
 
-  val DefaultConfig =
+  val StableConfig =
     new Config(
       outputValueVersions = ValueVersions.SupportedStableVersions,
       outputTransactionVersion = transaction.TransactionVersions.SupportedStableVersions
