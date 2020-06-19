@@ -19,7 +19,7 @@ object IntegrityCheckV2 {
 
     val ledgerDumpStream: DataInputStream =
       new DataInputStream(new FileInputStream(filename))
-    new IntegrityChecker().run(ledgerDumpStream)
+    new IntegrityChecker(IntegrityChecker.explainMismatchingLogEntry).run(ledgerDumpStream)
     sys.exit(0)
   }
 }

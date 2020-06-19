@@ -39,7 +39,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 import scala.io.AnsiColor
 
-class IntegrityChecker {
+class IntegrityChecker(explainMismatch: (Key, Value, Value) => String) {
+  import IntegrityChecker._
+
   private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(
     Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
   private implicit val actorSystem: ActorSystem = ActorSystem("integrity-checker")
@@ -140,18 +142,10 @@ class IntegrityChecker {
       .map { expectedStateValue =>
         val stateKey = stateKeySerializationStrategy.deserializeStateKey(key)
         val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
-        s"State key: ${stateKey.toString}\nExpected: ${expectedStateValue.toString}\nvs. actual: ${actualStateValue}"
+        s"State key: $stateKey${System.lineSeparator()}" +
+          s"Expected: $expectedStateValue${System.lineSeparator()}Actual: $actualStateValue"
       }
-      .getOrElse {
-        // FIXME(miklos): This is dependent on the commit strategy.
-        val logEntryId = key
-        val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
-        val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
-        s"Log entry ID: ${bytesAsHexString(logEntryId)}\nExpected: ${expectedLogEntry.toString}\nvs. actual: ${actualLogEntry}"
-      }
-
-  private def bytesAsHexString(bytes: ByteString): String =
-    bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+      .getOrElse(explainMismatch(key, expectedValue, actualValue))
 
   private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
     val (submissionInfo, writeSet) = Serialization.readEntry(input)
@@ -168,5 +162,20 @@ class IntegrityChecker {
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .build
     reporter.report()
+  }
+}
+
+object IntegrityChecker {
+  def bytesAsHexString(bytes: ByteString): String =
+    bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+
+  def explainMismatchingLogEntry(
+      logEntryId: Key,
+      expectedValue: Value,
+      actualValue: Value): String = {
+    val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
+    val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
+    s"Log entry ID: ${bytesAsHexString(logEntryId)}${System.lineSeparator()}" +
+      s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
   }
 }
