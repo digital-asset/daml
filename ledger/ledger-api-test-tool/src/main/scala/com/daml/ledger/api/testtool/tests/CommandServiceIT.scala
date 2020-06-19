@@ -17,6 +17,7 @@ import com.daml.ledger.test_stable.Test.Dummy._
 import com.daml.ledger.test_stable.Test.DummyFactory._
 import com.daml.ledger.test_stable.Test.WithObservers._
 import com.daml.ledger.test_stable.Test.{Dummy, _}
+import java.util.regex.Pattern
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -296,7 +297,8 @@ final class CommandServiceIT extends LedgerTestSuite {
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction: root node",
+          Some(Pattern.compile(
+            "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed\\. Details: Last location: \\[[^\\]]*\\], partial transaction: root node")),
         )
       }
   })
