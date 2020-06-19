@@ -211,6 +211,16 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       Future(succeed)
     }
 
+  it should "allow repeated uploads of the same packages" in
+    withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        resp <- uploadDar(uri, darPath) // same dar as in initialization
+        _ <- parseResult(resp)
+        resp <- uploadDar(uri, darPath) // same dar again
+        _ <- parseResult(resp)
+      } yield succeed
+    }
+
   it should "fail to start non-existent trigger" in withTriggerService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       val expectedError = StatusCodes.UnprocessableEntity
