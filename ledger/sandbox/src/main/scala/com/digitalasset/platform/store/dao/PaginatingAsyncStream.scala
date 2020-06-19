@@ -42,7 +42,7 @@ object PaginatingAsyncStream {
             Some(newQueryOffset -> result)
           }(DirectExecutionContext)
       }
-      .flatMapConcat(Source(_))
+      .mapConcat(identity)
   }
 
   /**
@@ -77,6 +77,6 @@ object PaginatingAsyncStream {
             Some((nextPageOffset, result))
           }(DirectExecutionContext) // run in the same thread as the query, avoid context switch for a cheap operation
       }
-      .flatMapConcat(Source(_))
+      .mapConcat(identity)
   }
 }
