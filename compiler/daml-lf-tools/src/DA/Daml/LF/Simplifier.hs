@@ -492,6 +492,7 @@ isWorthLifting = \case
     ETmLam _ _ -> False
     EUpdate _ -> False
     EScenario _ -> False
+    ETypeRep _ -> False
     ETyApp e _ -> isWorthLifting e
     ETyLam _ e -> isWorthLifting e
     ELocation _ e -> isWorthLifting e
