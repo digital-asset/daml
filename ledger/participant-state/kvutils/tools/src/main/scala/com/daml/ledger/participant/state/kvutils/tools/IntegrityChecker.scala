@@ -39,7 +39,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 import scala.io.AnsiColor
 
-class IntegrityChecker(explainMismatch: (Key, Value, Value) => String) {
+class IntegrityChecker(
+    commitStrategyFactory: () => Unit,
+    explainMismatch: (Key, Value, Value) => String) {
   import IntegrityChecker._
 
   private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(
@@ -122,7 +124,7 @@ class IntegrityChecker(explainMismatch: (Key, Value, Value) => String) {
           if (expectedKey == actualKey && expectedValue != actualValue) {
             println(
               s"expected value: ${bytesAsHexString(expectedValue)} vs. actual value: ${bytesAsHexString(actualValue)}")
-            println(detailDifference(expectedKey, expectedValue, actualValue))
+            println(explainDifference(expectedKey, expectedValue, actualValue))
           } else if (expectedKey != actualKey) {
             println(
               s"expected key: ${bytesAsHexString(expectedKey)} vs. actual key: ${bytesAsHexString(actualKey)}")
@@ -135,7 +137,7 @@ class IntegrityChecker(explainMismatch: (Key, Value, Value) => String) {
     }
   }
 
-  private def detailDifference(key: Key, expectedValue: Value, actualValue: Value): String =
+  private def explainDifference(key: Key, expectedValue: Value, actualValue: Value): String =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
