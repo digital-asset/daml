@@ -26,8 +26,8 @@ final case class Config[Extra](
     maxInboundMessageSize: Int,
     eventsPageSize: Int,
     stateValueCache: caching.WeightedCache.Configuration,
-    lfValueTranslationEventCache: caching.WeightedCache.Configuration,
-    lfValueTranslationContractCache: caching.WeightedCache.Configuration,
+    lfValueTranslationEventCache: caching.SizedCache.Configuration,
+    lfValueTranslationContractCache: caching.SizedCache.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -66,8 +66,8 @@ object Config {
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       stateValueCache = caching.WeightedCache.Configuration.none,
-      lfValueTranslationEventCache = caching.WeightedCache.Configuration.none,
-      lfValueTranslationContractCache = caching.WeightedCache.Configuration.none,
+      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
+      lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -176,9 +176,9 @@ object Config {
         .action((maximumLfValueTranslationCacheEntries, config) =>
           config.copy(
             lfValueTranslationEventCache = config.lfValueTranslationEventCache.copy(
-              maximumWeight = maximumLfValueTranslationCacheEntries),
+              maximumSize = maximumLfValueTranslationCacheEntries),
             lfValueTranslationContractCache = config.lfValueTranslationContractCache.copy(
-              maximumWeight = maximumLfValueTranslationCacheEntries),
+              maximumSize = maximumLfValueTranslationCacheEntries),
         ))
 
       private val seedingMap =
