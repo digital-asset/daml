@@ -5,12 +5,14 @@ package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.{DataInputStream, FileInputStream}
 
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+
 object IntegrityCheckV2 {
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
       println("usage: integrity-check <ledger dump file>")
       println(
-        "You can produce a ledger dump on a kvutils ledger by setting KVUTILS_LEDGER_DUMP=/path/to/file")
+        s"You can produce a ledger dump on a kvutils ledger by setting ${LedgerDataExporter.EnvironmentVariableName}=/path/to/file")
       sys.exit(1)
     }
 

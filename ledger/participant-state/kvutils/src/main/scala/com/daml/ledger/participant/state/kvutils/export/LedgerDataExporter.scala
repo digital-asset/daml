@@ -39,17 +39,19 @@ trait LedgerDataExporter {
 }
 
 object LedgerDataExporter {
+  val EnvironmentVariableName = "KVUTILS_LEDGER_EXPORT"
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private lazy val optLedgerDumpStream: Option[DataOutputStream] = {
-    Option(System.getenv("KVUTILS_LEDGER_EXPORT"))
+  private lazy val outputStreamMaybe: Option[DataOutputStream] = {
+    Option(System.getenv(EnvironmentVariableName))
       .map { filename =>
         logger.info(s"Enabled writing ledger entries to $filename")
         new DataOutputStream(new FileOutputStream(filename))
       }
   }
 
-  private lazy val instance = optLedgerDumpStream
+  private lazy val instance = outputStreamMaybe
     .map(new FileBasedLedgerDataExporter(_))
     .getOrElse(NoopLedgerDataExporter)
 
