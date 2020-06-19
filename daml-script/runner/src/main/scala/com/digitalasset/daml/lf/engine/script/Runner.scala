@@ -308,7 +308,7 @@ class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
-    val machine = Speedy.Machine.fromExpr(extendedCompiledPackages, script.expr)
+    val machine = Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {

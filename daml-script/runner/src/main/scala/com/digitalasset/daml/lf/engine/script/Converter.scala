@@ -218,7 +218,7 @@ object Converter {
         Array(SELocA(0), SELocA(1))),
     )
     val machine =
-      Speedy.Machine.fromExpr(compiledPackages, SEApp(SEValue(fun), Array(extractStruct)))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractStruct)))
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {

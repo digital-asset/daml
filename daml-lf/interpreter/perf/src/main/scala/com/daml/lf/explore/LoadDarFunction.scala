@@ -37,7 +37,7 @@ object LoadDarFunction extends App {
         val arg = SEValue(SInt64(argValue))
         SEApp(func, Array(arg))
       }
-      val machine = Machine.fromExpr(compiledPackages, expr)
+      val machine = Machine.fromPureSExpr(compiledPackages, expr)
 
       machine.run() match {
         case SResultFinalValue(SInt64(result)) => result

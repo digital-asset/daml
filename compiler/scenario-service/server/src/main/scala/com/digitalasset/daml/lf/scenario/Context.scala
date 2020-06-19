@@ -147,7 +147,7 @@ class Context(val contextId: Context.ContextId) {
       PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield Speedy.Machine.buildForScenario(compiledPackages, txSeeding, defn)
+    } yield Speedy.Machine.fromScenarioSExpr(compiledPackages, txSeeding, defn)
   }
 
   def interpretScenario(

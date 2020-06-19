@@ -558,14 +558,14 @@ object Speedy {
       )
 
     // Construct a machine for running scenario.
-    def buildForScenario(
+    def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
-        seed: crypto.Hash,
+        transactionSeed: crypto.Hash,
         scenario: SExpr,
     ): Machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
-      initialSeeding = InitialSeeding.TransactionSeed(seed),
+      initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
@@ -574,22 +574,22 @@ object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running scenario.
-    def buildForScenario(
+    def fromScenarioExpr(
         compiledPackages: CompiledPackages,
-        seed: crypto.Hash,
+        transactionSeed: crypto.Hash,
         scenario: Expr,
     ): Machine =
-      buildForScenario(
+      fromScenarioSExpr(
         compiledPackages = compiledPackages,
-        seed = seed,
+        transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario)
       )
 
     // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
-    def fromExpr(
+    def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
-    ) =
+    ): Machine =
       Machine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
@@ -602,18 +602,11 @@ object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
-    def fromExpr(
+    def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-    ) =
-      Machine(
-        compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.MinValue,
-        initialSeeding = InitialSeeding.NoSeed,
-        expr = compiledPackages.compiler.unsafeCompile(expr),
-        globalCids = Set.empty,
-        committers = Set.empty,
-      )
+    ): Machine =
+      fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
 
   }
 

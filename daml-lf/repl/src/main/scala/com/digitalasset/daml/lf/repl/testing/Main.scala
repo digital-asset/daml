@@ -180,7 +180,7 @@ object Repl {
         Speedy.Machine,
         Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
       val machine =
-        Speedy.Machine.buildForScenario(compiledPackages, seed, expr)
+        Speedy.Machine.fromScenarioExpr(compiledPackages, seed, expr)
       (machine, ScenarioRunner(machine).run())
     }
   }
@@ -419,7 +419,7 @@ object Repl {
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
             val compiledPackages = PureCompiledPackages(state.packages).right.get
-            val machine = Speedy.Machine.fromExpr(compiledPackages, expr)
+            val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
             val valueOpt = machine.run match {
               case SResultError(err) =>

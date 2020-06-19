@@ -89,7 +89,7 @@ object PlaySpeedy {
         val arg = SEValue(SInt64(config.argValue))
         SEApp(func, Array(arg))
       }
-      Machine.fromExpr(compiledPackages, expr)
+      Machine.fromPureSExpr(compiledPackages, expr)
     }
 
     val result: SValue = {
