@@ -30,7 +30,6 @@ import com.daml.lf.engine.{
   ResultDone,
   ResultNeedPackage
 }
-import com.daml.lf.language.Ast._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
@@ -69,14 +68,17 @@ final case class RunningTrigger(
     runner: ActorRef[TriggerRunner.Message]
 )
 
-class Server(dar: Option[Dar[(PackageId, Package)]]) {
+class Server {
 
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty;
 
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
-  dar.foreach(addDar)
 
-  private def addDar(dar: Dar[(PackageId, Package)]): Unit = {
+  // Add dar to compiledPackages and return the main package id
+  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Unit = {
+    val dar = encodedDar.map {
+      case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+    }
     val darMap = dar.all.toMap
     darMap.foreach {
       case (pkgId, pkg) =>
@@ -138,7 +140,7 @@ object Server {
       maxInboundMessageSize: Int,
       maxFailureNumberOfRetries: Int,
       failureRetryTimeRange: Duration,
-      dar: Option[Dar[(PackageId, Package)]],
+      initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
@@ -151,7 +153,7 @@ object Server {
     val key: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
         case Some(key) => SecretKey(key)
-        case None => {
+        case None =>
           ctx.log.warn(
             "The environment variable 'TRIGGER_SERVICE_SECRET_KEY' is not defined. It is highly recommended that a non-empty value for this variable be set. If the service startup parameters do not include the '--no-secret-key' option, the service will now terminate.")
           if (noSecretKey) {
@@ -159,10 +161,10 @@ object Server {
           } else {
             sys.exit(1)
           }
-        }
       }
 
-    val server = new Server(dar)
+    val server = new Server
+    initialDar.foreach(server.addDar)
 
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -270,11 +272,8 @@ object Server {
                       .readArchive("package-upload", new ZipInputStream(inputStream)) match {
                       case Failure(err) =>
                         complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                      case Success(encodedDar) =>
+                      case Success(dar) =>
                         try {
-                          val dar = encodedDar.map {
-                            case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
-                          }
                           server.addDar(dar)
                           val mainPackageId = JsObject(("mainPackageId", dar.main._1.name.toJson))
                           complete(successResponse(mainPackageId))
@@ -449,7 +448,11 @@ object Server {
 }
 
 object ServiceMain {
-  // This is mainly intended for tests
+
+  // Timeout for serving binding
+  implicit val timeout: Timeout = 30.seconds
+
+  // Used by the test fixture
   def startServer(
       host: String,
       port: Int,
@@ -457,10 +460,11 @@ object ServiceMain {
       maxInboundMessageSize: Int,
       maxFailureNumberOfRetries: Int,
       failureRetryTimeRange: Duration,
-      dar: Option[Dar[(PackageId, Package)]],
+      encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
+
     val system: ActorSystem[Server.Message] =
       ActorSystem(
         Server(
@@ -470,15 +474,16 @@ object ServiceMain {
           maxInboundMessageSize,
           maxFailureNumberOfRetries,
           failureRetryTimeRange,
-          dar,
+          encodedDar,
           jdbcConfig,
           noSecretKey,
         ),
-        "TriggerService")
-    // timeout chosen at random, change freely if you see issues
-    implicit val timeout: Timeout = 15.seconds
+        "TriggerService"
+      )
+
     implicit val scheduler: Scheduler = system.scheduler
     implicit val ec: ExecutionContext = system.executionContext
+
     val bindingFuture = system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
     bindingFuture.map(server => (server, system))
   }
@@ -487,16 +492,13 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map { darPath =>
-          val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+        val encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]] =
+          config.darPath.map { darPath =>
             DarReader().readArchiveFromFile(darPath.toFile) match {
               case Failure(err) => sys.error(s"Failed to read archive: $err")
               case Success(dar) => dar
             }
-          encodedDar.map {
-            case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
           }
-        }
         val ledgerConfig =
           LedgerConfig(
             config.ledgerHost,
@@ -513,14 +515,13 @@ object ServiceMain {
               config.maxInboundMessageSize,
               config.maxFailureNumberOfRetries,
               config.failureRetryTimeRange,
-              dar,
+              encodedDar,
               config.jdbcConfig,
               config.noSecretKey
             ),
             "TriggerService"
           )
-        // Timeout chosen at random, change freely if you see issues.
-        implicit val timeout: Timeout = 15.seconds
+
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
 

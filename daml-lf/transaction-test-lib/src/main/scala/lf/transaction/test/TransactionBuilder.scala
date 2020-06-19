@@ -7,11 +7,10 @@ package test
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.{ChoiceName, Name}
+import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-
 import scala.collection.immutable.HashMap
-import scala.util.control.NonFatal
 
 final class TransactionBuilder {
 
@@ -24,30 +23,33 @@ final class TransactionBuilder {
   }
 
   private val ids = Iterator.from(0).map(NodeId(_))
-  private var nodes = HashMap.newBuilder[NodeId, Node]
+  private var nodes = HashMap.newBuilder[NodeId, TxNode]
   private val roots = ImmArray.newBuilder[NodeId]
 
+  // not thread safe
+  private[this] def newNode(node: Node): NodeId = {
+    lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
+    nodes += (nodeId -> version(node))
+    nodeId
+  }
+
   def add(node: Node): NodeId = ids.synchronized {
-    val nodeId = ids.next()
-    nodes += (nodeId -> node)
+    val nodeId = newNode(node)
     roots += nodeId
     nodeId
   }
 
   def add(node: Node, parent: NodeId): NodeId = ids.synchronized {
-    lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
+    lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes = nodes.mapResult { ns =>
-      val exercise = try {
-        ns(parent).asInstanceOf[Exercise]
-      } catch {
-        case NonFatal(e) =>
+      val exercise = ns(parent) match {
+        case exe: TxExercise => exe
+        case _ =>
           throw new IllegalArgumentException(
-            s"Node ${parent.index} either does not exist or is not an exercise",
-            e)
+            s"Node ${parent.index} either does not exist or is not an exercise")
       }
       ns.updated(parent, exercise.copy(children = exercise.children.slowSnoc(nodeId)))
     }
-    nodes += (nodeId -> node)
     nodeId
   }
 
@@ -61,40 +63,52 @@ final class TransactionBuilder {
 
 object TransactionBuilder {
 
-  type Value = value.Value.VersionedValue[ContractId]
+  type Value = value.Value[ContractId]
+  type TxValue = value.Value.VersionedValue[ContractId]
   type NodeId = Tx.NodeId
-  type Node = Node.GenNode.WithTxValue[NodeId, ContractId]
+  type Node = Node.GenNode[NodeId, ContractId, Value]
+  type TxNode = Node.GenNode[NodeId, ContractId, TxValue]
 
-  type Create = Node.NodeCreate.WithTxValue[ContractId]
-  type Exercise = Node.NodeExercises.WithTxValue[NodeId, ContractId]
-  type Fetch = Node.NodeFetch.WithTxValue[ContractId]
-  type LookupByKey = Node.NodeLookupByKey.WithTxValue[ContractId]
+  type Create = Node.NodeCreate[ContractId, Value]
+  type Exercise = Node.NodeExercises[NodeId, ContractId, Value]
+  type Fetch = Node.NodeFetch[ContractId, Value]
+  type LookupByKey = Node.NodeLookupByKey[ContractId, Value]
+  type KeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers[Value]
+
+  type TxExercise = Node.NodeExercises[NodeId, ContractId, TxValue]
+  type TxKeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers[TxValue]
 
   private val ValueVersions = com.daml.lf.value.ValueVersions
   private val LfValue = com.daml.lf.value.Value
-  private val Value = com.daml.lf.value.Value.VersionedValue
 
   private val NodeId = com.daml.lf.transaction.Transaction.NodeId
   private val Create = com.daml.lf.transaction.Node.NodeCreate
   private val Exercise = com.daml.lf.transaction.Node.NodeExercises
   private val Fetch = com.daml.lf.transaction.Node.NodeFetch
   private val LookupByKey = com.daml.lf.transaction.Node.NodeLookupByKey
-  private type KeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers[Value]
+
   private val KeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers
 
-  private val LatestLfValueVersion = ValueVersions.acceptedVersions.last
+  def version(v: Value): TxValue =
+    ValueVersions.assertAsVersionedValue(v)
+
+  def version(contract: ContractInst[Value]): ContractInst[TxValue] =
+    ContractInst.map1[Value, TxValue](version)(contract)
+
+  def version(key: KeyWithMaintainers): TxKeyWithMaintainers =
+    KeyWithMaintainers.map1[Value, TxValue](version)(key)
+
+  def version(node: Node): TxNode =
+    GenNode.map3(identity[NodeId], identity[ContractId], version(_: Value))(node)
 
   def record(fields: (String, String)*): Value =
-    Value(
-      LatestLfValueVersion,
-      LfValue.ValueRecord(
-        tycon = None,
-        fields = ImmArray(
-          fields.map {
-            case (name, value) =>
-              (Some(Name.assertFromString(name)), LfValue.ValueText(value))
-          },
-        )
+    LfValue.ValueRecord(
+      tycon = None,
+      fields = ImmArray(
+        fields.map {
+          case (name, value) =>
+            (Some(Name.assertFromString(name)), LfValue.ValueText(value))
+        },
       )
     )
 

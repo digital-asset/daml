@@ -6,7 +6,13 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
-import com.daml.lf.transaction.{GenTransaction, Node, TransactionVersions, Transaction => Tx}
+import com.daml.lf.transaction.{
+  GenTransaction,
+  Node,
+  TransactionVersion,
+  TransactionVersions,
+  Transaction => Tx
+}
 import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
 
 import scala.collection.immutable.HashMap
@@ -211,24 +217,28 @@ case class PartialTransaction(
     *  aborted.
     */
   def finish(
-      supportedVersions: VersionRange[ValueVersion],
+      supportedValueVersions: VersionRange[ValueVersion],
+      supportedTransactionVersions: VersionRange[TransactionVersion],
   ): Either[PartialTransaction, Tx.SubmittedTransaction] = {
 
     val versionNode: Node => Tx.Node =
       Node.GenNode.map3(
         identity,
         identity,
-        ValueVersions.asVersionedValue(_, supportedVersions).fold(SError.crash, identity)
+        ValueVersions.asVersionedValue(_, supportedValueVersions).fold(SError.crash, identity),
       )
 
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
       Tx.SubmittedTransaction(
-        TransactionVersions.assertAsVersionedTransaction(
-          GenTransaction(
-            nodes = nodes.transform((_, n) => versionNode(n)),
-            roots = context.children.toImmArray)
-        )
+        TransactionVersions
+          .asVersionedTransaction(
+            GenTransaction(
+              nodes = nodes.transform((_, n) => versionNode(n)),
+              roots = context.children.toImmArray),
+            supportedTransactionVersions,
+          )
+          .fold(SError.crash, identity)
       ),
       this
     )

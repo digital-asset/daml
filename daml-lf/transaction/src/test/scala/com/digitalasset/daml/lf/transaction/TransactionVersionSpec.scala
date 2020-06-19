@@ -5,10 +5,8 @@ package com.daml.lf
 package transaction
 
 import data.ImmArray
-import value.Value
+import value.{Value, ValueVersion, ValueVersions}
 import Value.{ContractId, ValueOptional, VersionedValue}
-import value.ValueVersions.asVersionedValue
-import TransactionVersions.assignVersion
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.immutable.HashMap
@@ -18,41 +16,43 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
   import VersionTimeline.maxVersion
 
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // Currently the engine uses `TransactionVersions.minOutputVersion` or latter.
-  // #5164 should provide a more granular way to control the versioning.
-  // Once #5164 is resolved, update those tests with different values for `minOutputVersion`.
-  val minOutputVersion = TransactionVersions.minOutputVersion
+  private[this] val supportedValVersions =
+    ValueVersions.DefaultSupportedVersions.copy(min = ValueVersion("1"))
+  private[this] val supportedTxVersions =
+    TransactionVersions.DefaultSupportedVersions.copy(min = TransactionVersion("1"))
 
   "assignVersion" should {
     "prefer picking an older version" in {
-      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("1"))
+      assignTxVersion(assignValueVersions(dummyCreateTransaction)) shouldBe Right(
+        maxVersion(supportedTxVersions.min, TransactionVersion("1")))
     }
 
     "pick version 2 when confronted with newer data" in {
-      val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.ContractId])
-      assignVersion(assignValueVersions(usingOptional)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("2"))
+      val usingOptional =
+        dummyCreateTransaction map3 (identity, identity, v => ValueOptional(Some(v)))
+      assignTxVersion(assignValueVersions(usingOptional)) shouldBe Right(
+        maxVersion(supportedTxVersions.min, TransactionVersion("2")))
     }
 
     "pick version 7 when confronted with exercise result" in {
-      val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.ContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("7"))
+      val hasExerciseResult =
+        dummyExerciseWithResultTransaction map3 (identity, identity, v => ValueOptional(Some(v)))
+      assignTxVersion(assignValueVersions(hasExerciseResult)) shouldBe Right(
+        maxVersion(supportedTxVersions.min, TransactionVersion("7")))
     }
 
     "pick version 2 when confronted with exercise result" in {
-      val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.ContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("2"))
+      val hasExerciseResult =
+        dummyExerciseTransaction map3 (identity, identity, v => ValueOptional(Some(v)))
+      assignTxVersion(assignValueVersions(hasExerciseResult)) shouldBe Right(
+        maxVersion(supportedTxVersions.min, TransactionVersion("2")))
+    }
+
+    "crash the picked version is more recent that the maximal supported version" in {
+      val supportedVersions = VersionRange(TransactionVersion("1"), TransactionVersion("5"))
+      val hasExerciseResult =
+        dummyExerciseWithResultTransaction map3 (identity, identity, v => ValueOptional(Some(v)))
+      TransactionVersions.assignVersion(assignValueVersions(hasExerciseResult), supportedVersions) shouldBe 'left
     }
 
   }
@@ -60,9 +60,13 @@ class TransactionVersionSpec extends WordSpec with Matchers {
   private[this] def assignValueVersions[Nid, Cid <: ContractId](
       t: GenTransaction[Nid, Cid, Value[Cid]],
   ): GenTransaction[Nid, Cid, VersionedValue[Cid]] =
-    t map3 (identity, identity, v =>
-      asVersionedValue(v) fold (e =>
-        fail(s"We didn't write traverse for GenTransaction: $e"), identity))
+    t map3 (identity, identity, ValueVersions.assertAsVersionedValue(_, supportedValVersions))
+
+  private[this] def assignTxVersion[Nid, Cid <: ContractId](
+      t: GenTransaction[Nid, Cid, VersionedValue[Cid]],
+  ): Either[String, TransactionVersion] =
+    TransactionVersions.assignVersion(t, supportedTxVersions)
+
 }
 
 object TransactionVersionSpec {

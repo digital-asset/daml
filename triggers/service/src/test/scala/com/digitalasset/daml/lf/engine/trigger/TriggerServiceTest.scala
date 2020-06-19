@@ -3,9 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast.Package
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -28,6 +27,7 @@ import scalaz.syntax.traverse._
 import scalaz.syntax.show._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
@@ -47,11 +47,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
 
   private val darPath = requiredResource("triggers/service/test-model.dar")
-  private val encodedDar =
-    DarReader().readArchiveFromFile(darPath).get
-  private val dar = encodedDar.map {
-    case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
-  }
+
+  // Encoded dar used in service initialization
+  private val dar = DarReader().readArchiveFromFile(darPath).get
   private val testPkgId = dar.main._1
 
   private def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
@@ -82,9 +80,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     }
   }
 
-  def withTriggerService[A](dar: Option[Dar[(PackageId, Package)]])
+  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])
     : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), dar, jdbcConfig)
+    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)
 
   def startTrigger(uri: Uri, triggerName: String, party: User): Future[HttpResponse] = {
     val req = HttpRequest(

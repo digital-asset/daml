@@ -4,12 +4,10 @@
 package com.daml.lf.engine.script
 
 import java.io.FileInputStream
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.api.util.TimeProvider
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -68,13 +66,6 @@ object TestMain extends StrictLogging {
           commandClient = CommandClientConfiguration.default,
           sslContext = None
         )
-        val timeProvider: TimeProvider =
-          config.timeProviderType match {
-            case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-            case TimeProviderType.WallClock => TimeProvider.UTC
-            case _ =>
-              throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
-          }
 
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -95,9 +86,13 @@ object TestMain extends StrictLogging {
             (jsVal.convertTo[Participants[ApiParameters]], () => Future.successful(()))
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
+              val timeProviderType = config.timeMode match {
+                case ScriptTimeMode.Static => TimeProviderType.Static
+                case ScriptTimeMode.WallClock => TimeProviderType.WallClock
+              }
               val sandboxConfig = SandboxConfig.default.copy(
                 port = Port.Dynamic,
-                timeProviderType = Some(config.timeProviderType),
+                timeProviderType = Some(timeProviderType),
               )
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
               val sandboxPort =
@@ -126,7 +121,9 @@ object TestMain extends StrictLogging {
               case (name, defn) => {
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
                 Script.fromIdentifier(compiledPackages, id) match {
-                  case Right(script: Script.Action) => Some((id, script))
+                  // We exclude generated identifiers starting with `$`.
+                  case Right(script: Script.Action) if name.toString.headOption != Some('$') =>
+                    Some((id, script))
                   case _ => None
                 }
               }
@@ -146,7 +143,7 @@ object TestMain extends StrictLogging {
           _ <- sequentialTraverse(testScripts.toList) {
             case (id, script) => {
               val runner =
-                new Runner(compiledPackages, script, applicationId, timeProvider)
+                new Runner(compiledPackages, script, applicationId, config.timeMode)
               val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
               // Print test result and remember failure.
               testRun.onComplete {

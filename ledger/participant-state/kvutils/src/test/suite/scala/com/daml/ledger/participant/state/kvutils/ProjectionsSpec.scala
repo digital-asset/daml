@@ -10,8 +10,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value.{ContractId, ContractInst, NodeId, ValueText, VersionedValue}
-import com.daml.lf.value.ValueVersions
+import com.daml.lf.value.Value.{ContractId, ContractInst, NodeId, ValueText}
 import org.scalatest.{Matchers, WordSpec}
 
 class ProjectionsSpec extends WordSpec with Matchers {
@@ -23,7 +22,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
         Identifier(
           PackageId.assertFromString("some-package"),
           QualifiedName.assertFromString("Foo:Bar")),
-        VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+        ValueText("foo"),
         "agreement"
       ),
       optLocation = None,
@@ -47,7 +46,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       optLocation = None,
       consuming = true,
       actingParties = actingParties,
-      chosenValue = VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+      chosenValue = ValueText("foo"),
       stakeholders = stakeholders,
       signatories = signatories,
       children = ImmArray.empty,

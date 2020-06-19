@@ -13,7 +13,6 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -36,6 +35,7 @@ import scala.concurrent.duration._
 import scala.sys.process.Process
 import java.net.{InetAddress, ServerSocket, Socket}
 
+import com.daml.daml_lf_dev.DamlLf
 import eu.rekawek.toxiproxy._
 
 object TriggerServiceFixture {
@@ -55,7 +55,7 @@ object TriggerServiceFixture {
   def withTriggerService[A](
       testName: String,
       dars: List[File],
-      dar: Option[Dar[(PackageId, Package)]],
+      encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit asys: ActorSystem,
@@ -111,7 +111,7 @@ object TriggerServiceFixture {
         ServiceConfig.DefaultMaxInboundMessageSize,
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,
-        dar,
+        encodedDar,
         jdbcConfig,
         noSecretKey = true // That's ok, use the default.
       )

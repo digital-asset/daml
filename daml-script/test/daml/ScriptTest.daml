@@ -7,6 +7,7 @@ module ScriptTest where
 
 import DA.Action
 import DA.Assert
+import DA.Date
 import DA.Foldable hiding (length)
 import DA.List
 import DA.Time
@@ -150,8 +151,8 @@ testStack = do
   results <- submit p $ replicateA 1000 (createCmd (C p 42))
   assert (length results == 1000)
 
-time : Script (Time, Time)
-time = do
+testGetTime : Script (Time, Time)
+testGetTime = do
   t1 <- getTime
   t2 <- getTime
   assert (t1 <= t2)
@@ -250,3 +251,9 @@ testMaxInboundMessageSize : Script () = do
   b <- submit p do createCmd (MessageSize p)
   submit p do exerciseCmd b CreateN with n = 50000
   return ()
+
+testSetTime : Script (Time, Time) = do
+  t0 <- getTime
+  setTime (time (date 2000 Feb 2) 0 1 2)
+  t1 <- getTime
+  pure (t0, t1)

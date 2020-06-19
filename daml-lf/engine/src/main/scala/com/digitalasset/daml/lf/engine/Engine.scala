@@ -352,7 +352,7 @@ final class Engine {
       }
     }
 
-    machine.ptx.finish(machine.supportedValueVersions) match {
+    machine.ptx.finish(machine.supportedValueVersions, machine.supportedTransactionVersions) match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
       case Right(tx) =>
