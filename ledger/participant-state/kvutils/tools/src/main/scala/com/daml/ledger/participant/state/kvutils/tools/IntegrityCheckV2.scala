@@ -16,10 +16,9 @@ object IntegrityCheckV2 {
 
     val filename = args(0)
     println(s"Verifying integrity of $filename...")
-
-    val ledgerDumpStream: DataInputStream =
+    val ledgerDumpStream =
       new DataInputStream(new FileInputStream(filename))
-    new IntegrityChecker(IntegrityChecker.explainMismatchingLogEntry).run(ledgerDumpStream)
+    new IntegrityChecker(LogAppendingCommitStrategySupport).run(ledgerDumpStream)
     sys.exit(0)
   }
 }

@@ -11,7 +11,8 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
 class WriteRecordingLedgerStateOperations[LogResult](delegate: LedgerStateOperations[LogResult])
-    extends LedgerStateOperations[LogResult] {
+    extends LedgerStateOperations[LogResult]
+    with QueryableWriteSet {
   private val recordedWriteSet = ListBuffer.empty[(Key, Value)]
 
   override def readState(key: Key): Future[Option[Value]] = delegate.readState(key)
@@ -33,7 +34,7 @@ class WriteRecordingLedgerStateOperations[LogResult](delegate: LedgerStateOperat
     delegate.appendToLog(key, value)
   }
 
-  def getAndClearRecordedWriteSet(): WriteSet = {
+  override def getAndClearRecordedWriteSet(): WriteSet = {
     this.synchronized {
       val result = Seq(recordedWriteSet: _*)
       recordedWriteSet.clear()
