@@ -20,6 +20,8 @@ import doobie.{LogHandler, Transactor, _}
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
+//import doobie.free.connection._
+//import scalaz._, Scalaz._
 //import scalaz.std.list._
 //import scalaz.syntax.traverse._
 
@@ -139,13 +141,11 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
 
   override def persistPackages(
       dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    // FIXME(RJR): Missing implicit Applicative[ConnectionIO] instance for traverse
-    // val insertAll: ConnectionIO[Unit] = dar.all traverse_ {
-    //   case (pkgId, pkg) => insertDalf(pkgId, pkg)
-    // }
+    import cats.implicits._
+     val insertAll = dar.all.traverse_((insertDalf _).tupled)
     // Just insert main package for draft until above is fixed.
-    val insertMain = (insertDalf _).tupled(dar.main)
-    run(insertMain)
+    // val insertMain = (insertDalf _).tupled(dar.main)
+    run(insertAll)
   }
 
   def initialize: Either[String, Unit] =
