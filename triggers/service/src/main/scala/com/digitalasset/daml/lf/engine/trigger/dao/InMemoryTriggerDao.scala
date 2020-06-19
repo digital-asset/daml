@@ -34,6 +34,7 @@ class InMemoryTriggerDao extends RunningTriggerDao {
     Right(triggersByParty.getOrElse(credentials, Set()).toVector.sorted)
   }
 
+  // This is only possible when running with persistence. For in-memory mode we do nothing.
   override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] =
     Right(())
 }
