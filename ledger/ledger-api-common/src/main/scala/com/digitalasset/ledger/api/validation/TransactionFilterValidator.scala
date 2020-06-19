@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InclusiveFilters
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
@@ -21,6 +22,7 @@ object TransactionFilterValidator {
   def validate(
       txFilter: TransactionFilter,
       fieldName: String): Either[StatusRuntimeException, domain.TransactionFilter] = {
+    ThreadLogger.traceThread("TransactionFilterValidator.validate")
     if (txFilter.filtersByParty.isEmpty) {
       Left(ErrorFactories.invalidArgument("filtersByParty cannot be empty"))
     } else {

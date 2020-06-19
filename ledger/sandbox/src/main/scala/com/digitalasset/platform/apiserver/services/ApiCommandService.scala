@@ -28,7 +28,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
@@ -74,7 +74,8 @@ final class ApiCommandService private (
     submissionTracker.close()
   }
 
-  private def submitAndWaitInternal(request: SubmitAndWaitRequest): Future[Completion] =
+  private def submitAndWaitInternal(request: SubmitAndWaitRequest): Future[Completion] = {
+    ThreadLogger.traceThread("CommandCompletionService.submitAndWaitInternal")
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
       logging.party(request.getCommands.party)) { implicit logCtx =>
@@ -87,10 +88,12 @@ final class ApiCommandService private (
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down.")))
       }.andThen(logger.logErrorsOnCall[Completion])
     }
+  }
 
   private def track(
       request: SubmitAndWaitRequest,
       ledgerConfig: LedgerConfiguration): Future[Completion] = {
+    ThreadLogger.traceThread("CommandCompletionService.track")
     val appId = request.getCommands.applicationId
     val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
     submissionTracker.track(submitter, request) {

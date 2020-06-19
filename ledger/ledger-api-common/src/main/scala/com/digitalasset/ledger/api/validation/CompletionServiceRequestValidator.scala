@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest => GrpcCompletionStreamRequest
 }
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
@@ -22,7 +23,8 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   private val partyValidator = new PartyValidator(partyNameChecker)
 
   def validateCompletionStreamRequest(request: GrpcCompletionStreamRequest)
-    : Either[StatusRuntimeException, CompletionStreamRequest] =
+    : Either[StatusRuntimeException, CompletionStreamRequest] = {
+    ThreadLogger.traceThread("CompletionServiceRequestValidator.validateCompletionStreamRequest")
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       nonEmptyAppId <- requireNonEmptyString(request.applicationId, "application_id")
@@ -40,6 +42,7 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
         knownParties,
         convertedOffset
       )
+  }
 
   def validateCompletionEndRequest(
       req: CompletionEndRequest): Either[StatusRuntimeException, completion.CompletionEndRequest] =

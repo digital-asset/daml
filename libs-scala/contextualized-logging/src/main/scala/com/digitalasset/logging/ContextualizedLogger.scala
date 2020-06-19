@@ -35,7 +35,6 @@ object ContextualizedLogger {
     val name = clazz.getName.stripSuffix("$")
     cache.getOrElseUpdate(name, createFor(name))
   }
-
 }
 
 final class ContextualizedLogger private (val withoutContext: Logger) {

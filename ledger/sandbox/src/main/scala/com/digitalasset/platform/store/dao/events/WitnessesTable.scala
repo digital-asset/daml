@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{BatchSql, NamedParameter, ToStatement}
+import com.daml.logging.ThreadLogger
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 
@@ -19,6 +20,7 @@ private[events] sealed abstract class WitnessesTable[Id: ToStatement](
   protected val insert: String
 
   final def prepareBatchInsert(witnesses: WitnessRelation[Id]): Option[BatchSql] = {
+    ThreadLogger.traceThread("WitnessesTable.prepareBatchInsert")
     val flattenedWitnesses = Relation.flatten(witnesses)
     if (flattenedWitnesses.nonEmpty) {
       val ws = flattenedWitnesses.map {
@@ -33,6 +35,7 @@ private[events] sealed abstract class WitnessesTable[Id: ToStatement](
   protected val delete = s"delete from $tableName where $idColumn = {$idColumn}"
 
   final def prepareBatchDelete(ids: Seq[Id]): Option[BatchSql] = {
+    ThreadLogger.traceThread("WitnessesTable.prepareBatchDelete")
     if (ids.nonEmpty) {
       val parameters = ids.map(id => Vector[NamedParameter](idColumn -> id))
       Some(BatchSql(delete, parameters.head, parameters.tail: _*))

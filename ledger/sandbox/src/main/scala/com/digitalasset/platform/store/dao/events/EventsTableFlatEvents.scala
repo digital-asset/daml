@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
+import com.daml.logging.ThreadLogger
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
@@ -96,11 +97,13 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): SimpleSql[Row] =
+  ): SimpleSql[Row] = {
+    ThreadLogger.traceThread("EventsTableFlatEvents.prepareLookupFlatTransactionById")
     route(requestingParties)(
       single = singlePartyLookup(sqlFunctions)(transactionId, _),
       multi = multiPartyLookup(sqlFunctions)(transactionId, _),
     )
+  }
 
   private def singlePartyLookup(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
@@ -134,13 +137,15 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       filter: FilterRelation,
       pageSize: Int,
       previousEventNodeIndex: Option[Int],
-  ): SimpleSql[Row] =
+  ): SimpleSql[Row] = {
+    ThreadLogger.traceThread("EventsTableFlatEvents.preparePagedGetFlatTransactions")
     getFlatTransactionsQueries(sqlFunctions)(
       (startExclusive, endInclusive),
       filter,
       pageSize,
       previousEventNodeIndex,
     )
+  }
 
   private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
@@ -156,11 +161,13 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       filter: FilterRelation,
       pageSize: Int,
       lastEventNodeIndexFromPrevPage: Option[Int]
-  ): SimpleSql[Row] =
+  ): SimpleSql[Row] = {
+    ThreadLogger.traceThread("EventsTableFlatEvents.preparePagedGetActiveContracts")
     getActiveContractsQueries(sqlFunctions)(
       (lastOffsetFromPrevPage, activeAt),
       filter,
       pageSize,
       lastEventNodeIndexFromPrevPage,
     )
+  }
 }

@@ -8,6 +8,7 @@ import com.daml.caching
 import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
+import com.daml.logging.ThreadLogger
 import com.daml.metrics.Metrics
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.events.{Value => LfValue}
@@ -52,6 +53,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
     )
 
   def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter = {
+    ThreadLogger.traceThread("LFValueTranslation.serialize (contract)")
     cache.contracts.put(
       key = LfValueTranslation.ContractCache.Key(contractId),
       value = LfValueTranslation.ContractCache.Value(createArgument),
@@ -60,6 +62,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   }
 
   def serialize(eventId: EventId, create: Create): Vector[NamedParameter] = {
+    ThreadLogger.traceThread("LFValueTranslation.serialize (create)")
     cache.events.put(
       key = LfValueTranslation.EventCache.Key(eventId),
       value = LfValueTranslation.EventCache.Value.Create(create.coinst.arg, create.key.map(_.key)),
@@ -71,6 +74,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   }
 
   def serialize(eventId: EventId, exercise: Exercise): Vector[NamedParameter] = {
+    ThreadLogger.traceThread("LFValueTranslation.serialize (exercise)")
     cache.events.put(
       key = LfValueTranslation.EventCache.Key(eventId),
       value =
@@ -113,6 +117,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   private def eventKey(s: String) = LfValueTranslation.EventCache.Key(EventId.assertFromString(s))
 
   def deserialize[E](raw: Raw.Created[E], verbose: Boolean): CreatedEvent = {
+    ThreadLogger.traceThread("LFValueTranslation.deserialize (create)")
     val create =
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))
@@ -143,6 +148,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
   }
 
   def deserialize(raw: Raw.TreeEvent.Exercised, verbose: Boolean): ExercisedEvent = {
+    ThreadLogger.traceThread("LFValueTranslation.deserialize (exercise)")
     val exercise =
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))

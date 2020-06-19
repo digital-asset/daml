@@ -10,6 +10,7 @@ import anorm.SqlParser.{binaryStream, str}
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.logging.{ContextualizedLogger, ThreadLogger}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
@@ -29,6 +30,8 @@ private[dao] sealed abstract class ContractsReader(
 )(implicit ec: ExecutionContext)
     extends ContractStore {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   import ContractsReader._
 
   private val contractRowParser: RowParser[(String, InputStream)] =
@@ -46,7 +49,8 @@ private[dao] sealed abstract class ContractsReader(
   private def lookupActiveContractAndLoadArgument(
       submitter: Party,
       contractId: ContractId,
-  ): Future[Option[Contract]] =
+  ): Future[Option[Contract]] = {
+    ThreadLogger.traceThread("ContractsReader.lookupActiveContract")
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
         SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
@@ -62,6 +66,7 @@ private[dao] sealed abstract class ContractsReader(
               metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
           )
       })
+  }
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
   private def lookupActiveContractWithCachedArgument(
@@ -86,7 +91,8 @@ private[dao] sealed abstract class ContractsReader(
   override def lookupActiveContract(
       submitter: Party,
       contractId: ContractId,
-  ): Future[Option[Contract]] =
+  ): Future[Option[Contract]] = {
+    ThreadLogger.traceThread("ContractsReader.lookupActiveContract")
     // Depending on whether the contract argument is cached or not, submit a different query to the database
     translation.cache.contracts
       .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
@@ -96,21 +102,26 @@ private[dao] sealed abstract class ContractsReader(
         lookupActiveContractAndLoadArgument(submitter, contractId)
 
     }
+  }
 
   override def lookupContractKey(
       submitter: Party,
       key: Key,
-  ): Future[Option[ContractId]] =
+  ): Future[Option[ContractId]] = {
+    ThreadLogger.traceThread("ContractsReader.lookupContractKey")
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
       lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
     }
+  }
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
+  override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] = {
+    ThreadLogger.traceThread("ContractsReader.lookupMaximumLedgerTime")
     dispatcher
       .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
         committedContracts.lookupMaximumLedgerTime(ids)
       }
       .map(_.get)
+  }
 
 }
 

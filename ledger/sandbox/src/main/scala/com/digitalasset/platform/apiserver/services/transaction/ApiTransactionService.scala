@@ -21,7 +21,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, ThreadLogger}
 import com.daml.platform.apiserver.services.logging
 import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -64,7 +64,8 @@ final class ApiTransactionService private (
   private val subscriptionIdCounter = new AtomicLong()
 
   override def getTransactions(
-      request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] =
+      request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
+    ThreadLogger.traceThread("ApiTransactionService.getTransactions")
     withEnrichedLoggingContext(
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
@@ -76,9 +77,11 @@ final class ApiTransactionService private (
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.logErrorsOnStream)
     }
+  }
 
   override def getTransactionTrees(
-      request: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed] =
+      request: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed] = {
+    ThreadLogger.traceThread("ApiTransactionService.getTransactionTrees")
     withEnrichedLoggingContext(
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
@@ -94,9 +97,11 @@ final class ApiTransactionService private (
         )
         .via(logger.logErrorsOnStream)
     }
+  }
 
   override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] =
+      request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] = {
+    ThreadLogger.traceThread("ApiTransactionService.getTransactionByEventId")
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
@@ -115,6 +120,7 @@ final class ApiTransactionService private (
               .asRuntimeException()))
         .andThen(logger.logErrorsOnCall[GetTransactionResponse])
     }
+  }
 
   override def getTransactionById(
       request: GetTransactionByIdRequest): Future[GetTransactionResponse] =
@@ -128,7 +134,8 @@ final class ApiTransactionService private (
     }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] =
+      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] = {
+    ThreadLogger.traceThread("ApiTransactionService.getFlatTransactionByEventId")
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
@@ -146,18 +153,23 @@ final class ApiTransactionService private (
         )
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
+  }
 
   override def getFlatTransactionById(
-      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
+      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] = {
+    ThreadLogger.traceThread("ApiTransactionService.getFlatTransactionById")
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties)) { implicit logCtx =>
       lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
+  }
 
-  override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
+  override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] = {
+    ThreadLogger.traceThread("ApiTransactionService.getLedgerEnd")
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
+  }
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by[LedgerOffset.Absolute, String](_.value)

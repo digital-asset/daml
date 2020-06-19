@@ -15,13 +15,13 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.daml.logging.ThreadLogger
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
@@ -36,11 +36,10 @@ class GrpcCommandSubmissionService(
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(ApiCommandSubmissionService.getClass)
-
   private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
-  override def submit(request: ApiSubmitRequest): Future[Empty] =
+  override def submit(request: ApiSubmitRequest): Future[Empty] = {
+    ThreadLogger.traceThread("GrpcCommandSubmissionService.submit")
     Timed.future(
       metrics.daml.commands.submissions,
       Timed
@@ -52,6 +51,7 @@ class GrpcCommandSubmissionService(
           Future.failed,
           service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
     )
+  }
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

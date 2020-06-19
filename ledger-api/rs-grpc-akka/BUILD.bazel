@@ -12,6 +12,7 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/rs-grpc-bridge",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

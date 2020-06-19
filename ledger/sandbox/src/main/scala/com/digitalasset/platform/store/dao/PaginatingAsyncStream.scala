@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.dec.DirectExecutionContext
+import com.daml.logging.ThreadLogger
 
 import scala.concurrent.Future
 
@@ -32,6 +33,7 @@ object PaginatingAsyncStream {
     * @tparam T the type of the items returned in each call
     */
   def apply[T](pageSize: Int)(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] = {
+    ThreadLogger.traceThread("PaginatingAsyncStream.apply")
     Source
       .unfoldAsync(Option(0L)) {
         case None => Future.successful(None)
@@ -43,6 +45,7 @@ object PaginatingAsyncStream {
           }(DirectExecutionContext)
       }
       .flatMapConcat(Source(_))
+      .map(ThreadLogger.traceStreamElement("PaginatingAsyncStream.apply (stream element)"))
   }
 
   /**

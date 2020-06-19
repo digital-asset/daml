@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReason}
+import com.daml.logging.ThreadLogger
 
 /**
   * Performs post-commit validation on transactions for Sandbox Classic.
@@ -58,6 +59,7 @@ private[dao] object PostCommitValidation {
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[RejectionReason] = {
+      ThreadLogger.traceThread("PostCommitValidation.validate")
 
       val causalMonotonicityViolation =
         validateCausalMonotonicity(transaction, transactionLedgerEffectiveTime, divulged)

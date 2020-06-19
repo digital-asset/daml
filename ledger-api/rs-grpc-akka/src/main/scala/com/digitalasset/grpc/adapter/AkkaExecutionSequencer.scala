@@ -13,6 +13,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import com.daml.dec.DirectExecutionContext
+import com.daml.logging.ThreadLogger
 
 /**
   * Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
@@ -21,7 +22,10 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(
     implicit terminationTimeout: Timeout)
     extends ExecutionSequencer {
 
-  override def sequence(runnable: Runnable): Unit = actorRef ! runnable
+  override def sequence(runnable: Runnable): Unit = {
+    ThreadLogger.traceThread("AkkaExecutionSequencer.sequence")
+    actorRef ! runnable
+  }
 
   override def close(): Unit = {
     closeAsync(DirectExecutionContext)
@@ -65,6 +69,7 @@ private[grpc] class RunnableSequencingActor extends Actor with ActorLogging {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override val receive: Receive = {
     case runnable: Runnable =>
+      ThreadLogger.traceThread("RunnableSequencingActor.receive")
       try {
         runnable.run()
       } catch {

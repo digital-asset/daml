@@ -4,6 +4,7 @@
 package com.daml.ledger.api.auth.interceptor
 
 import com.daml.ledger.api.auth.{AuthService, Claims}
+import com.daml.logging.ThreadLogger
 import com.daml.platform.server.api.validation.ErrorFactories.unauthenticated
 import io.grpc.{
   Context,
@@ -37,6 +38,7 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
       call: ServerCall[ReqT, RespT],
       headers: Metadata,
       nextListener: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
+    ThreadLogger.traceThread("AuthorizationInterceptor.interceptCall")
     // Note: Context uses ThreadLocal storage, we need to capture it outside of the async block below.
     // Contexts are immutable and safe to pass around.
     val prevCtx = Context.current
@@ -74,8 +76,10 @@ object AuthorizationInterceptor {
 
   private val contextKeyClaim = Context.key[Claims]("AuthServiceDecodedClaim")
 
-  def extractClaimsFromContext(): Try[Claims] =
+  def extractClaimsFromContext(): Try[Claims] = {
+    ThreadLogger.traceThread("AuthorizationInterceptor.extractClaimsFromContext")
     Option(contextKeyClaim.get()).fold[Try[Claims]](Failure(unauthenticated()))(Success(_))
+  }
 
   def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec)
