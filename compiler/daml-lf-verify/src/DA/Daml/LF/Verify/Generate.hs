@@ -394,12 +394,19 @@ genForCreate :: (GenPhase ph, MonadEnv m ph)
 genForCreate tem arg = do
   arout <- genExpr True arg
   recExpFields (_oExpr arout) >>= \case
-    Just fs -> return (
-           Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fs)
-         , TCon tem
-         , Just $ EStructCon fs )
+    Just fs -> do
+      fsEval <- mapM partial_eval_field fs
+      return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fsEval)
+             , TCon tem
+             , Just $ EStructCon fsEval )
     Nothing -> throwError ExpectRecord
-  -- TODO: We could potentially filter here to only store the interesting fields?
+  where
+    partial_eval_field :: (GenPhase ph, MonadEnv m ph)
+      => (FieldName, Expr)
+      -> m (FieldName, Expr)
+    partial_eval_field (f,e) = do
+      e' <- genExpr False e
+      return (f,_oExpr e')
 
 -- | Analyse an exercise update expression.
 -- Returns both the generator output and the return type of the choice.
