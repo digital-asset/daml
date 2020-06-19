@@ -3,7 +3,6 @@
 
 package com.daml.caching
 
-import com.codahale.metrics.Gauge
 import com.daml.metrics.CacheMetrics
 import com.github.benmanes.caffeine.{cache => caffeine}
 
@@ -26,25 +25,33 @@ sealed class CaffeineCache[Key <: AnyRef, Value <: AnyRef] private[caching] (
 final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef] private[caching] (
     cache: caffeine.Cache[Key, Value],
     metrics: CacheMetrics,
-) extends CaffeineCache[Key, Value](cache) {
+) extends Cache[Key, Value] {
 
-  metrics.registerSizeGauge(size(cache))
-  metrics.registerWeightGauge(weight(cache))
+  metrics.registerSizeGauge(() => cache.estimatedSize())
+  metrics.registerWeightGauge(() =>
+    cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0))
 
-  private def size(cache: caffeine.Cache[_, _]): Gauge[Long] =
-    () => cache.estimatedSize()
+  private val delegate = new CaffeineCache(cache)
 
-  private def weight(cache: caffeine.Cache[_, _]): Gauge[Long] =
-    () => cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
+  override def get(key: Key, acquire: Key => Value): Value =
+    delegate.get(key, acquire)
 
+  override def getIfPresent(key: Key): Option[Value] =
+    delegate.getIfPresent(key)
+
+  override def put(key: Key, value: Value): Unit =
+    delegate.put(key, value)
 }
 
 object CaffeineCache {
   def apply[Key <: AnyRef, Value <: AnyRef](
       builder: caffeine.Caffeine[_ >: Key, _ >: Value],
       metrics: Option[CacheMetrics],
-  ): CaffeineCache[Key, Value] = {
+  ): Cache[Key, Value] = {
     val cache = builder.build[Key, Value]
-    metrics.fold(new CaffeineCache(cache))(new InstrumentedCaffeineCache(cache, _))
+    metrics match {
+      case None => new CaffeineCache(cache)
+      case Some(metrics) => new InstrumentedCaffeineCache(cache, metrics)
+    }
   }
 }
