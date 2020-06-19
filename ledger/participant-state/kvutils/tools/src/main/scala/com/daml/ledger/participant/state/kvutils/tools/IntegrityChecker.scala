@@ -154,8 +154,7 @@ class IntegrityChecker {
     bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
   private def readSubmissionAndOutputs(input: DataInputStream): (SubmissionInfo, WriteSet) = {
-    val submissionInfo = Serialization.readSubmissionInfo(input)
-    val writeSet = Serialization.readWriteSet(input)
+    val (submissionInfo, writeSet) = Serialization.readEntry(input)
     println(
       s"Read submission correlationId=${submissionInfo.correlationId} submissionEnvelopeSize=${submissionInfo.submissionEnvelope
         .size()} writeSetSize=${writeSet.size}")

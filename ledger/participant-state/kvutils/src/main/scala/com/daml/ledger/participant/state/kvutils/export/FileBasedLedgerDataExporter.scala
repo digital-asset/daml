@@ -83,8 +83,7 @@ class FileBasedLedgerDataExporter(output: DataOutputStream) extends LedgerDataEx
       writeSet: ListBuffer[(Key, Value)]): Unit = {
     val stamp = outputLock.writeLock()
     try {
-      Serialization.serializeSubmissionInfo(submissionInfo, output)
-      Serialization.serializeWriteSet(writeSet, output)
+      Serialization.serializeEntry(submissionInfo, writeSet, output)
       output.flush()
     } finally {
       outputLock.unlock(stamp)

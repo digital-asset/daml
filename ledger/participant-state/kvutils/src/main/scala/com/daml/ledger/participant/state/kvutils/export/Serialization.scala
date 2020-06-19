@@ -14,7 +14,23 @@ import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExpor
 import com.google.protobuf.ByteString
 
 object Serialization {
-  def serializeSubmissionInfo(submissionInfo: SubmissionInfo, out: DataOutputStream): Unit = {
+  def serializeEntry(
+      submissionInfo: SubmissionInfo,
+      writeSet: WriteSet,
+      out: DataOutputStream): Unit = {
+    serializeSubmissionInfo(submissionInfo, out)
+    serializeWriteSet(writeSet, out)
+  }
+
+  def readEntry(input: DataInputStream): (SubmissionInfo, WriteSet) = {
+    val submissionInfo = readSubmissionInfo(input)
+    val writeSet = readWriteSet(input)
+    (submissionInfo, writeSet)
+  }
+
+  private def serializeSubmissionInfo(
+      submissionInfo: SubmissionInfo,
+      out: DataOutputStream): Unit = {
     out.writeUTF(submissionInfo.correlationId)
     out.writeInt(submissionInfo.submissionEnvelope.size())
     submissionInfo.submissionEnvelope.writeTo(out)
@@ -22,7 +38,7 @@ object Serialization {
     out.writeUTF(submissionInfo.participantId)
   }
 
-  def readSubmissionInfo(input: DataInputStream): SubmissionInfo = {
+  private def readSubmissionInfo(input: DataInputStream): SubmissionInfo = {
     val correlationId = input.readUTF()
     val submissionEnvelopeSize = input.readInt()
     val submissionEnvelope = new Array[Byte](submissionEnvelopeSize)
@@ -37,7 +53,7 @@ object Serialization {
     )
   }
 
-  def serializeWriteSet(writeSet: WriteSet, out: DataOutputStream): Unit = {
+  private def serializeWriteSet(writeSet: WriteSet, out: DataOutputStream): Unit = {
     out.writeInt(writeSet.size)
     for ((key, value) <- writeSet.sortBy(_._1.asReadOnlyByteBuffer())) {
       out.writeInt(key.size())
@@ -47,7 +63,7 @@ object Serialization {
     }
   }
 
-  def readWriteSet(input: DataInputStream): WriteSet = {
+  private def readWriteSet(input: DataInputStream): WriteSet = {
     val numKeyValuePairs = input.readInt()
     (1 to numKeyValuePairs).map { _ =>
       val keySize = input.readInt()
