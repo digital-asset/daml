@@ -14,8 +14,8 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] final class InMemoryLedgerStateOperations(
-    val log: InMemoryState.MutableLog,
-    val state: InMemoryState.MutableState,
+    log: InMemoryState.MutableLog,
+    state: InMemoryState.MutableState,
 )(implicit executionContext: ExecutionContext)
     extends BatchingLedgerStateOperations[Index] {
   import InMemoryLedgerStateOperations.appendEntry
