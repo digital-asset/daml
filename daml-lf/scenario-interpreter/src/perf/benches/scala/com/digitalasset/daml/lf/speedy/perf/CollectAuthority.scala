@@ -52,7 +52,7 @@ class CollectAuthorityState {
     val compiledPackages = PureCompiledPackages(packagesMap, stacktracing).right.get
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
-    machine = Machine.buildForScenario(compiledPackages, seeding(), expr)
+    machine = Machine.fromScenarioExpr(compiledPackages, seeding(), expr)
 
     // fill the caches!
     setup()

@@ -139,7 +139,7 @@ object ScenarioLoader {
       compiledPackages: CompiledPackages,
       transactionSeed: crypto.Hash,
   ): Speedy.Machine =
-    Speedy.Machine.buildForScenario(compiledPackages, transactionSeed, scenarioExpr)
+    Speedy.Machine.fromScenarioExpr(compiledPackages, transactionSeed, scenarioExpr)
 
   private def getScenarioExpr(
       scenarioRef: Ref.DefinitionRef,

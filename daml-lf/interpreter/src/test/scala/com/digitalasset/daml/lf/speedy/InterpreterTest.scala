@@ -25,7 +25,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).right.get
 
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(noPackages, e)
+    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
     machine.run() match {
       case SResultFinalValue(v) => v
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
@@ -132,7 +132,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine.fromExpr(noPackages, list)
+      machine = Speedy.Machine.fromPureExpr(noPackages, list)
     }
     "interpret" in {
       val value = machine.run() match {
@@ -225,7 +225,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     ).right.get
 
     "succeeds" in {
-      val machine = Speedy.Machine.fromExpr(pkgs1, EVal(ref))
+      val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
@@ -240,7 +240,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
 
     "crashes without definition" in {
-      val machine = Speedy.Machine.fromExpr(pkgs1, EVal(ref))
+      val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>

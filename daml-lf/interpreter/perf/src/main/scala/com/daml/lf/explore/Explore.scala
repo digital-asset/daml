@@ -31,7 +31,7 @@ object PlaySpeedy {
     names.foreach { name =>
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
-      val machine = Speedy.Machine.fromExpr(noPackages, converted)
+      val machine = Speedy.Machine.fromPureSExpr(noPackages, converted)
       runMachine(name, machine, expected)
     }
   }

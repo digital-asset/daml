@@ -504,7 +504,7 @@ class OrderingSpec
     PureCompiledPackages(Map.empty, Map.empty, Compiler.FullStackTrace, Compiler.NoProfile)
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {
-    val machine = Speedy.Machine.fromExpr(noPackages, SEImportValue(v))
+    val machine = Speedy.Machine.fromPureSExpr(noPackages, SEImportValue(v))
     machine.run() match {
       case SResultFinalValue(value) => value
       case _ => throw new Error(s"error while translating value $v")

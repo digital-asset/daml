@@ -137,7 +137,7 @@ object Trigger extends StrictLogging {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    val machine = Speedy.Machine.fromExpr(compiledPackages, heartbeat)
+    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
     Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
@@ -154,7 +154,7 @@ object Trigger extends StrictLogging {
     val registeredTemplates =
       compiler.unsafeCompile(
         ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
-    val machine = Speedy.Machine.fromExpr(compiledPackages, registeredTemplates)
+    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
@@ -334,7 +334,7 @@ class Runner(
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
     // Prepare a speedy machine for evaluting expressions.
-    val machine: Speedy.Machine = Speedy.Machine.fromExpr(compiledPackages, null: SExpr)
+    val machine: Speedy.Machine = Speedy.Machine.fromPureSExpr(compiledPackages, null: SExpr)
     // Convert the ACS to a speedy expression.
     val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
