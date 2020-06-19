@@ -22,7 +22,7 @@ object CaffeineCache {
   }
 
   private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-      cache: caffeine.Cache[Key, Value]
+      cache: caffeine.Cache[Key, Value],
   ) extends Cache[Key, Value] {
     override def put(key: Key, value: Value): Unit = cache.put(key, value)
 
