@@ -202,9 +202,13 @@ data PartyDetails = PartyDetails
     isLocal : Bool -- ^ True if party is hosted by the backing participant.
   deriving (Eq, Ord, Show)
 
--- | In wallclock mode, this is UTC time. In static time mode, this will
+-- | In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.
+--
+-- In static time mode over gRPC, this will
 -- query the ledger time service for the current time when running over
--- gRPC. When running over the JSON API, it will always
+-- gRPC.
+--
+-- In static time mode over the JSON API, it will always
 -- return the Unix epoch.
 instance HasTime Script where
   getTime = lift $ Free (GetTime pure)
