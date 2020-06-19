@@ -176,7 +176,7 @@ object Server {
     initialDar foreach { dar =>
       server.addDar(dar) match {
         case Left(err) =>
-          ctx.log.error("Failed to add provided DAR.\n" ++ err)
+          ctx.log.error("Failed to upload provided DAR.\n" ++ err)
           sys.exit(1)
         case Right(()) =>
       }
