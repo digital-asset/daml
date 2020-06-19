@@ -5,6 +5,7 @@ package com.daml.ledger.validator.batch
 
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
@@ -45,14 +46,18 @@ object BatchedSubmissionValidatorFactory {
 
   def readerAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
-      keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy)(
+      keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
+      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext)
     : (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
     val ledgerStateReader = DamlLedgerStateReader.from(
       new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
       keySerializationStrategy)
     val commitStrategy =
-      new LogAppendingCommitStrategy[LogResult](ledgerStateOperations, keySerializationStrategy)
+      new LogAppendingCommitStrategy[LogResult](
+        ledgerStateOperations,
+        keySerializationStrategy,
+        ledgerDataExporter)
     (ledgerStateReader, commitStrategy)
   }
 
@@ -60,7 +65,8 @@ object BatchedSubmissionValidatorFactory {
       ledgerStateOperations: LedgerStateOperations[LogResult],
       stateCache: Cache[DamlStateKey, DamlStateValue],
       cacheUpdatePolicy: CacheUpdatePolicy,
-      keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy)(
+      keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
+      ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext)
     : (DamlLedgerStateReader with QueryableReadSet, CommitStrategy[LogResult]) = {
     val ledgerStateReader = new CachingDamlLedgerStateReader(
@@ -74,7 +80,11 @@ object BatchedSubmissionValidatorFactory {
     val commitStrategy = new CachingCommitStrategy(
       stateCache,
       cacheUpdatePolicy.shouldCacheOnWrite,
-      new LogAppendingCommitStrategy[LogResult](ledgerStateOperations, keySerializationStrategy))
+      new LogAppendingCommitStrategy[LogResult](
+        ledgerStateOperations,
+        keySerializationStrategy,
+        ledgerDataExporter)
+    )
     (ledgerStateReader, commitStrategy)
   }
 

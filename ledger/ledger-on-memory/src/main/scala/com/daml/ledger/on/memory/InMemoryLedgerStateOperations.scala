@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.BatchingLedgerStateOperations
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] final class InMemoryLedgerStateOperations(
@@ -32,6 +33,12 @@ private[memory] final class InMemoryLedgerStateOperations(
 }
 
 object InMemoryLedgerStateOperations {
+  def apply()(implicit executionContext: ExecutionContext): InMemoryLedgerStateOperations = {
+    val inMemoryState = mutable.Map.empty[Key, Value]
+    val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
+    new InMemoryLedgerStateOperations(inMemoryLog, inMemoryState)
+  }
+
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Index = {
     val entryAtIndex = log.size
     val offset = KVOffset.fromLong(entryAtIndex.toLong)
