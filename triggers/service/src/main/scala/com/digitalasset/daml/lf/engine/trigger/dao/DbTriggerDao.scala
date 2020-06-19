@@ -5,6 +5,7 @@ package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
 
+import cats.data.EitherT
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
@@ -111,6 +112,11 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     insert.update.run.void
   }
 
+  private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
+    val select: Fragment = sql"select * from dalfs"
+    select.query[(String, Array[Byte])].to[List]
+  }
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -145,6 +151,23 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     import cats.implicits._
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
+  }
+
+  def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
+    import cats.implicits._
+    import cats._
+    import cats.syntax.traverse._
+    run(selectPackages) match {
+      case Left(err) => Left(err)
+      case Right(l: List[(String, Array[Byte])]) =>
+        (l map { (t: (String, Array[Byte])) =>
+          for {
+            pkgId <- PackageId.fromString(t._1)
+            payload = DamlLf.ArchivePayload.parseFrom(t._2)
+          } yield (pkgId, payload)
+//          PackageId.fromString(t._1).map((_, DamlLf.ArchivePayload.parseFrom(t._2)))
+        }).sequenceU
+    }
   }
 
   def initialize: Either[String, Unit] =
