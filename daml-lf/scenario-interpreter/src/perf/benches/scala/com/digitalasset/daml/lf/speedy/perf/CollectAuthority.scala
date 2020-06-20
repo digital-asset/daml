@@ -133,6 +133,9 @@ class CollectAuthorityState {
     }
   }
 
-  def crash(reason: String) =
-    throw new RuntimeException(s"CollectAuthority: $reason")
+  def crash(reason: String) = {
+    System.err.println("Benchmark failed: " + reason)
+    System.exit(1)
+  }
+
 }
