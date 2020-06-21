@@ -16,14 +16,13 @@ import qualified Test.Tasty.Extended as Tasty
 import           Test.Tasty.HUnit
 
 
-
-mkTestTree :: IO Tasty.TestTree
-mkTestTree = do
+mkTestTree :: AnchorMap -> IO Tasty.TestTree
+mkTestTree externalAnchors = do
   pure $ Tasty.testGroup "DA.Daml.Doc.Render"
     [ Tasty.testGroup "RST Rendering" $
-      zipWith (renderTest Rst) cases expectRst
+      zipWith (renderTest Rst externalAnchors) cases expectRst
     , Tasty.testGroup "Markdown Rendering" $
-      zipWith (renderTest Markdown) cases expectMarkdown
+      zipWith (renderTest Markdown externalAnchors) cases expectMarkdown
     ]
 
 
@@ -299,13 +298,13 @@ mkExpectMD anchor name descr templates classes adts fcts
       , ""]
   ]
 
-renderTest :: RenderFormat -> (String, ModuleDoc) -> T.Text -> Tasty.TestTree
-renderTest format (name, input) expected =
+renderTest :: RenderFormat -> AnchorMap -> (String, ModuleDoc) -> T.Text -> Tasty.TestTree
+renderTest format externalAnchors (name, input) expected =
   testCase name $ do
   let
     renderer = case format of
-                 Rst -> renderPage renderRst . renderModule
-                 Markdown -> renderPage renderMd . renderModule
+                 Rst -> renderPage renderRst externalAnchors . renderModule
+                 Markdown -> renderPage renderMd externalAnchors . renderModule
                  Html -> error "HTML testing not supported (use Markdown)"
     output = T.strip $ renderer input
     expect = T.strip expected

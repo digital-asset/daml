@@ -119,11 +119,14 @@ da_haskell_test(
     srcs = ["src/DA/Test/DamlDoc.hs"],
     data = [
         ":daml-test-files",
+        "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
     ],
     hackage_deps = [
         "base",
+        "containers",
+        "filepath",
         "tasty-hunit",
         "text",
     ],
@@ -132,7 +135,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
