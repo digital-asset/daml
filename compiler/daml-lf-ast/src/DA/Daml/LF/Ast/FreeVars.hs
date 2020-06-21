@@ -142,6 +142,7 @@ freeVarsStep = \case
         SBindF b e -> goBinding b e
         SCommitF t e1 e2 -> freeVarsInType t <> e1 <> e2
         SMustFailAtF t e1 e2 -> freeVarsInType t <> e1 <> e2
+        SMustFailAtMsgF t e1 e2 -> freeVarsInType t <> e1 <> e2
         SPassF e -> e
         SGetTimeF -> mempty
         SGetPartyF e -> e

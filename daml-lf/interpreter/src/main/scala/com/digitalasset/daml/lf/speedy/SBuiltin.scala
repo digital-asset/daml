@@ -1105,7 +1105,7 @@ object SBuiltin {
           // update expression threw an exception. we're
           // now done.
           machine.clearCommit
-          machine.returnValue = machine.userErrorMessage.map(msg => SText(msg)).getOrElse(SV.Unit)
+          machine.returnValue = machine.userErrorMessage.map(msg => SText(msg)).getOrElse[SValue](SV.Unit)
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>

@@ -44,6 +44,7 @@
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
+//        2020-06-18: Add submitMustFailMsg builtin
 
 syntax = "proto3";
 package daml_lf_1;
@@ -1172,6 +1173,8 @@ message Scenario {
     // case, the `if` will be executed every time the scenario runs --
     // as expected.
     EmbedExpr embed_expr = 8;
+    // *Available in versions >= 1.dev*
+    Commit mustFailAtMsg = 9;
   }
 }
 

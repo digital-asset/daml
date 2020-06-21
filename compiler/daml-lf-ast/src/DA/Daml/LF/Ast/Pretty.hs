@@ -407,9 +407,9 @@ instance Pretty Scenario where
     SCommit typ actor upd ->
       pPrintAppKeyword lvl prec "commit" [TyArg typ, TmArg actor, TmArg upd]
     SMustFailAt typ actor upd ->
-      prettyAppKeyword lvl prec "must_fail_at" [TyArg typ, TmArg actor, TmArg upd]
+      pPrintAppKeyword lvl prec "must_fail_at" [TyArg typ, TmArg actor, TmArg upd]
     SMustFailAtMsg typ actor upd ->
-      prettyAppKeyword lvl prec "must_fail_at_msg" [TyArg typ, TmArg actor, TmArg upd]
+      pPrintAppKeyword lvl prec "must_fail_at_msg" [TyArg typ, TmArg actor, TmArg upd]
     SPass delta ->
       pPrintAppKeyword lvl prec "pass" [TmArg delta]
     SGetTime ->

@@ -10,26 +10,26 @@ import DA.Assert
 template TestHelper
   with
     owner : Party
-    id : Int
+    age : Int
   where
     signatory owner
 
     controller owner can
       TestHelper_AssertMsg : ContractId TestHelper
         with
-          id' : Int
+          age' : Int
         do
-          assertMsg "id must be over 18 triggered by assertMsg" $ id' > 18
-          create this with id = id'
+          assertMsg "age must be over 18 triggered by assertMsg" $ age' > 18
+          create this with age = age'
 
       TestHelper_Abort : ContractId TestHelper
         with
-          id' : Int
+          age' : Int
         do
-          if id' <= 18 then
-            abort "id must be over 18 triggered by abort"
+          if age' <= 18 then
+            abort "age must be over 18 triggered by abort"
           else
-            create this with id = id'
+            create this with age = age'
 
 test = scenario do
   owner <- getParty "Alice"
@@ -37,12 +37,12 @@ test = scenario do
   cid <- submit owner do
     create TestHelper with
       owner
-      id = 100
+      age = 100
 
-  assertEq "id must be over 18 triggered by assertMsg" =<<
+  assertEq "age must be over 18 triggered by assertMsg" =<<
     submitMustFailMsg owner do
-      exercise cid TestHelper_AssertMsg with id' = 18
+      exercise cid TestHelper_AssertMsg with age' = 18
 
-  assertEq "id must be over 18 triggered by abort" =<<
+  assertEq "age must be over 18 triggered by abort" =<<
     submitMustFailMsg owner do
-      exercise cid TestHelper_Abort with id' = 18
+      exercise cid TestHelper_Abort with age' = 18
