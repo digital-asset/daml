@@ -99,8 +99,20 @@ daml_compile(
 )
 
 daml_compile(
+    name = "general",
+    srcs = glob(["daml/general/**/*.daml"]),
+    version = "1.0.0",
+)
+
+daml_compile(
     name = "conditionals",
     srcs = glob(["daml/conditionals/**/*.daml"]),
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "recursion",
+    srcs = glob(["daml/recursion/**/*.daml"]),
     version = "1.0.0",
 )
 
@@ -108,8 +120,10 @@ da_haskell_test(
     name = "verify-tests",
     srcs = glob(["tests/**/*.hs"]),
     data = [
-        ":conditionals.dar",
         ":quickstart.dar",
+        ":general.dar",
+        ":conditionals.dar",
+        ":recursion.dar",
     ] if not is_windows else [],
     hackage_deps = [
         "base",

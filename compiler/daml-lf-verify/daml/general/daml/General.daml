@@ -1,0 +1,63 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module General where
+
+template Gen with
+    owner: Party
+    content: Int
+  where
+    signatory owner
+
+    choice SuccA: ContractId Gen
+      controller owner
+      -- TODO Bug:
+      -- do create this
+      do create this with content
+
+    nonconsuming choice FailA: ContractId Gen
+      with
+        amount: Int
+      controller owner
+      do
+        create Gen with owner; content = amount
+
+    -- Test abstraction over updates.
+
+    nonconsuming choice SuccB: ()
+      controller owner
+      do let _ = archive self
+         pure ()
+
+    nonconsuming choice SuccC: ()
+      controller owner
+      do let _ = create Gen with owner; content = 1
+         pure ()
+
+    nonconsuming choice SuccD: ()
+      controller owner
+      do let x = create Gen with owner; content = 0
+         _ <- x
+         pure ()
+
+    choice SuccE: ()
+      controller owner
+      do let x = create Gen with owner; content = 1
+         _ <- x
+         _ <- x
+         _ <- create this with content = content - 2
+         pure ()
+
+    nonconsuming choice FailB: ()
+      controller owner
+      do let x = create Gen with owner; content = 1
+         _ <- x
+         pure ()
+
+    -- Test exercise.
+
+    choice SuccF: ()
+      controller owner
+      do _ <- exercise self FailA with amount = content
+         pure ()
