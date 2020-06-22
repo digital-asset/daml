@@ -5,14 +5,20 @@ import React, {createContext, useContext, useEffect, useMemo, useState } from 'r
 import { Party, Template } from "@daml/types";
 import Ledger, { CreateEvent, Query } from '@daml/ledger';
 
-export type DamlLedgerState = {
+/**
+ * @internal
+ */
+type DamlLedgerState = {
   reloadToken: unknown;
   triggerReload: () => void;
   party: Party;
   ledger: Ledger;
 }
 
-type Props = {
+/**
+ * React props to initiate a connect to a DAML ledger.
+ */
+export type LedgerProps = {
   token: string;
   httpBaseUrl?: string;
   wsBaseUrl?: string;
@@ -52,7 +58,7 @@ export type FetchResult<T extends object, K, I extends string> = {
  * and hooks necessary to use it.
  */
 export type LedgerContext = {
-  DamlLedger: React.FC<Props>;
+  DamlLedger: React.FC<LedgerProps>;
   useParty: () => Party;
   useLedger: () => Ledger;
   useQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]) => QueryResult<T, K, I>;
@@ -64,7 +70,7 @@ export type LedgerContext = {
 
 /**
  * Create a [[LedgerContext]]. One should use this function, instead of the default [[DamlLedger]],
- * where one needs to be able to nest ledger interaction by different parties or connections within
+ * where one needs to be able to nest ledger interactions, by different parties or connections, within
  * one React application.
  *
  * @param contextName Used to refer to a context in case of errors.
@@ -79,7 +85,7 @@ export default function createLedgerContext(contextName="DamlLedgerContext"): Le
   // not make a new network request although they are required to refresh data.
 
   const ledgerContext = createContext<DamlLedgerState|undefined>(undefined);
-  const DamlLedger: React.FC<Props> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
+  const DamlLedger: React.FC<LedgerProps> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
     const [reloadToken, setReloadToken] = useState(0);
     const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl}), [token, httpBaseUrl, wsBaseUrl]);
     const state: DamlLedgerState = useMemo(() => ({
@@ -108,8 +114,6 @@ export default function createLedgerContext(contextName="DamlLedgerContext"): Le
     return useDamlState().ledger;
   }
 
-  function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
-  function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
   function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
     const state = useDamlState();
     const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: true});
@@ -144,8 +148,6 @@ export default function createLedgerContext(contextName="DamlLedgerContext"): Le
     return result;
   }
 
-  function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
-  function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
   function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
     const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: true});
     const state = useDamlState();
