@@ -184,7 +184,7 @@ final case class ScenarioRunner(
       case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
         missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
 
-      case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, _) =>
+      case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders@_) =>
         missingWith(ScenarioErrorContractNotVisible(coid, tid, committer, observers))
     }
   }
