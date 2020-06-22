@@ -36,7 +36,7 @@ REPL=$(rlocation "$TEST_WORKSPACE/$1")
 DAMLC=$(rlocation "$TEST_WORKSPACE/$2")
 TESTMAIN=$(rlocation "$TEST_WORKSPACE/$3")
 DIFF="$4"
-if [ "$5" == true ] ; then
+if [ "$5" = "true" ] ; then
   DEVFLAG="--dev"
   TARGETFLAG="--target 1.dev"
 else

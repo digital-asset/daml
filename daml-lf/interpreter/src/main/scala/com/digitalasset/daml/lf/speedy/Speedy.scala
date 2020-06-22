@@ -526,9 +526,9 @@ object Speedy {
         globalCids: Set[V.ContractId],
         committers: Set[Party],
         supportedValueVersions: VersionRange[value.ValueVersion] =
-          value.ValueVersions.DefaultSupportedVersions,
+          value.ValueVersions.SupportedDevVersions,
         supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
-          transaction.TransactionVersions.DefaultSupportedVersions,
+          transaction.TransactionVersions.SupportedDevVersions,
         validating: Boolean = false,
     ): Machine =
       new Machine(
@@ -563,9 +563,9 @@ object Speedy {
         transactionSeed: crypto.Hash,
         scenario: SExpr,
         supportedValueVersions: VersionRange[value.ValueVersion] =
-          value.ValueVersions.DefaultSupportedVersions,
+          value.ValueVersions.SupportedDevVersions,
         supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
-          transaction.TransactionVersions.DefaultSupportedVersions,
+          transaction.TransactionVersions.SupportedDevVersions,
     ): Machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
@@ -573,6 +573,8 @@ object Speedy {
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
+      supportedValueVersions,
+      supportedTransactionVersions,
     )
 
     @throws[PackageNotFound]
@@ -583,14 +585,16 @@ object Speedy {
         transactionSeed: crypto.Hash,
         scenario: Expr,
         supportedValueVersions: VersionRange[value.ValueVersion] =
-          value.ValueVersions.DefaultSupportedVersions,
+          value.ValueVersions.SupportedDevVersions,
         supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
-          transaction.TransactionVersions.DefaultSupportedVersions,
+          transaction.TransactionVersions.SupportedDevVersions,
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         transactionSeed = transactionSeed,
-        scenario = compiledPackages.compiler.unsafeCompile(scenario)
+        scenario = compiledPackages.compiler.unsafeCompile(scenario),
+        supportedValueVersions,
+        supportedTransactionVersions,
       )
 
     // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.

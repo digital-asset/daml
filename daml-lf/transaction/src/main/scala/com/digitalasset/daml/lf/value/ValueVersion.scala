@@ -32,11 +32,13 @@ object ValueVersions
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   // We force output of recent version, but keep reading older version as long as
   // Sandbox is alive.
-  val DefaultSupportedVersions = VersionRange(ValueVersion("6"), acceptedVersions.last)
+  val SupportedStableVersions = VersionRange(ValueVersion("6"), ValueVersion("6"))
+
+  val SupportedDevVersions = SupportedStableVersions.copy(max = acceptedVersions.last)
 
   def assignVersion[Cid](
       v0: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[ValueVersion] = SupportedDevVersions,
   ): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
     import VersionTimeline.Implicits._
@@ -96,20 +98,20 @@ object ValueVersions
   @throws[IllegalArgumentException]
   def assertAssignVersion[Cid](
       v0: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[ValueVersion] = SupportedDevVersions,
   ): ValueVersion =
     data.assertRight(assignVersion(v0, supportedVersions))
 
   def asVersionedValue[Cid](
       value: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[ValueVersion] = SupportedDevVersions,
   ): Either[String, VersionedValue[Cid]] =
     assignVersion(value, supportedVersions).map(VersionedValue(_, value))
 
   @throws[IllegalArgumentException]
   def assertAsVersionedValue[Cid](
       value: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[ValueVersion] = SupportedDevVersions,
   ): VersionedValue[Cid] =
     data.assertRight(asVersionedValue(value, supportedVersions))
 }

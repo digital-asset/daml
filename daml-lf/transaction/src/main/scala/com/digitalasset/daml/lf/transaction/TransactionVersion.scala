@@ -30,11 +30,13 @@ object TransactionVersions
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   // We force output of recent version, but keep reading older version as long as
   // Sandbox is alive.
-  val DefaultSupportedVersions = VersionRange(TransactionVersion("10"), acceptedVersions.last)
+  val SupportedStableVersions = VersionRange(TransactionVersion("10"), TransactionVersion("10"))
+
+  val SupportedDevVersions = SupportedStableVersions.copy(max = acceptedVersions.last)
 
   def assignVersion(
       a: GenTransaction.WithTxValue[_, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Either[String, TransactionVersion] = {
     require(a != null)
     import VersionTimeline.Implicits._
@@ -109,7 +111,7 @@ object TransactionVersions
 
   def asVersionedTransaction(
       tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Either[String, Tx.Transaction] =
     for {
       v <- assignVersion(tx, supportedVersions)
@@ -118,7 +120,7 @@ object TransactionVersions
   @throws[IllegalArgumentException]
   def assertAsVersionedTransaction(
       tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
-      supportedVersions: VersionRange[TransactionVersion] = DefaultSupportedVersions,
+      supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Tx.Transaction =
     data.assertRight(asVersionedTransaction(tx, supportedVersions))
 

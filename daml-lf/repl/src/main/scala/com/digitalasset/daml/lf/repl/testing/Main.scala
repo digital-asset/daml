@@ -22,6 +22,8 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
+import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.value.ValueVersions
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -180,7 +182,7 @@ object Repl {
 
     val (valVersions, txVersions) =
       if (devMode)
-        (ValueVersions.SupportedVersions, TransactionVersions.SupportedVersions)
+        (ValueVersions.SupportedDevVersions, TransactionVersions.SupportedDevVersions)
       else
         (ValueVersions.SupportedStableVersions, TransactionVersions.SupportedStableVersions)
 
@@ -188,14 +190,13 @@ object Repl {
         Speedy.Machine,
         Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
       val machine =
-        Speedy.Machine.buildForScenario(
+        Speedy.Machine.fromScenarioExpr(
           compiledPackages,
           seed,
           expr,
           valVersions,
           txVersions,
         )
-      Speedy.Machine.buildForScenario(compiledPackages, seed, expr)
       (machine, ScenarioRunner(machine).run())
     }
   }
