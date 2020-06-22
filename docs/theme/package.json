@@ -24,5 +24,8 @@
     "bower": "bower install",
     "grunt": "grunt 'build'",
     "preview": "npm install && grunt"
+  },
+  "dependencies": {
+    "elliptic": "^6.5.3"
   }
 }

@@ -9,6 +9,7 @@
     "color-convert": "2.0.1",
     "colors": "1.4.0",
     "dockerode": "^2.5.8",
+    "elliptic": "^6.5.3",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
     "grunt": "1.0.4",
