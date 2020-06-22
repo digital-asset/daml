@@ -107,9 +107,6 @@ package_app(
 da_haskell_library(
     name = "damlc-lib",
     srcs = glob(["lib/**/*.hs"]),
-    extra_srcs = [
-        "//compiler/daml-licenses/licenses:licensing.md",
-    ],
     hackage_deps = [
         "data-default",
         "aeson-pretty",
