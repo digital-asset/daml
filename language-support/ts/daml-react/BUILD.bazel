@@ -13,9 +13,8 @@ load("@build_environment//:configuration.bzl", "sdk_version")
 sources = [
     "index.ts",
     "index.test.ts",
-    "context.ts",
-    "hooks.ts",
-    "DamlLedger.ts",
+    "CreateLedgerContext.ts",
+    "DefaultLedgerContext.ts",
 ]
 
 da_ts_library(
