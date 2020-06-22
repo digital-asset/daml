@@ -49,7 +49,7 @@ export type FetchResult<T extends object, K, I extends string> = {
 
 /**
  * A LedgerContext is a React context that stores information about a DAML Ledger
- * and hooks necessary to access it.
+ * and hooks necessary to use it.
  */
 export type LedgerContext = {
   DamlLedger: React.FC<Props>;
