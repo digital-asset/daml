@@ -62,7 +62,14 @@ export type LedgerContext = {
   useReload: () => () => void;
 }
 
-export default function createLedgerContext(): LedgerContext {
+/**
+ * Create a [[LedgerContext]]. One should use this function, instead of the default [[DamlLedger]],
+ * where one needs to be able to nest ledger interaction by different parties or connections within
+ * one React application.
+ *
+ * @param contextName Used to refer to a context in case of errors.
+ */
+export default function createLedgerContext(contextName="DamlLedgerContext"): LedgerContext {
 
   // NOTE(MH, useEffect dependencies): There are various places in this file
   // where we need to maintain the dependencies of the `useEffect` hook manually
@@ -87,7 +94,7 @@ export default function createLedgerContext(): LedgerContext {
   const useDamlState = (): DamlLedgerState => {
     const state = useContext(ledgerContext);
     if (!state) {
-      throw Error("Trying to use DamlLedgerContext before initializing.")
+      throw Error(`Trying to use ${contextName} before initializing.`);
     }
     return state;
   }
