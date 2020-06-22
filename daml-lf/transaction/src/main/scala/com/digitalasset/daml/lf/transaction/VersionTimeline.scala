@@ -165,6 +165,10 @@ object VersionTimeline {
   private[lf] def maxVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
     if (releasePrecedes(ev.inject(left), ev.inject(right))) right else left
 
+  // not antisymmetric, as unknown versions can't be compared
+  private[lf] def minVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
+    if (releasePrecedes(ev.inject(left), ev.inject(right))) left else right
+
   private[lf] def latestWhenAllPresent[A](minimum: A, as: SpecifiedVersion*)(
       implicit A: SubVersion[A]): A = {
     import scalaz.std.anyVal._
