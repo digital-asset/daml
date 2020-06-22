@@ -282,8 +282,8 @@ prettyScenarioErrorError (Just err) =  do
                 (prettyValue' False 0 world)
                 scenarioError_ContractKeyNotVisibleKey
         , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractKeyNotVisibleCommitter
-        , label_ "Disclosed to:"
-            $ prettyParties scenarioError_ContractKeyNotVisibleObservers
+        , label_ "Stakeholders:"
+            $ prettyParties scenarioError_ContractKeyNotVisibleStakeholders
         ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

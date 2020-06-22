@@ -218,6 +218,7 @@ object ScenarioLedger {
       coid: ContractId,
       templateId: Identifier,
       observers: Set[Party],
+      stakeholders: Set[Party],
   ) extends LookupResult
 
   sealed trait CommitError
@@ -608,6 +609,7 @@ case class ScenarioLedger(
                 coid,
                 create.coinst.template,
                 info.observingSince.keys.toSet,
+                create.stakeholders,
               )
             else
               LookupOk(coid, create.coinst, create.stakeholders)
