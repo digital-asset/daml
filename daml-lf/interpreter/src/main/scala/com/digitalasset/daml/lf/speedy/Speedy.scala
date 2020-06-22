@@ -573,8 +573,8 @@ object Speedy {
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
-      supportedValueVersions,
-      supportedTransactionVersions,
+      supportedValueVersions = supportedValueVersions,
+      supportedTransactionVersions = supportedTransactionVersions,
     )
 
     @throws[PackageNotFound]
@@ -593,8 +593,8 @@ object Speedy {
         compiledPackages = compiledPackages,
         transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
-        supportedValueVersions,
-        supportedTransactionVersions,
+        supportedValueVersions = supportedValueVersions,
+        supportedTransactionVersions = supportedTransactionVersions,
       )
 
     // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
