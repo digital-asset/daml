@@ -184,7 +184,7 @@ final case class ScenarioRunner(
       case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
         missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
 
-      case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders@_) =>
+      case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
         missingWith(ScenarioErrorContractNotVisible(coid, tid, committer, observers))
     }
   }
@@ -227,7 +227,7 @@ final case class ScenarioRunner(
             missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
           case ScenarioLedger.LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-          case ScenarioLedger.LookupContractNotVisible(coid, tid, observers@_, stakeholders) =>
+          case ScenarioLedger.LookupContractNotVisible(coid, tid, observers @ _, stakeholders) =>
             notVisibleWith(ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders))
         }
     }
