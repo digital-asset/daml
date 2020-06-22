@@ -17,25 +17,25 @@ object Tests {
     * These tests are safe to be run concurrently and are
     * always run by default, unless otherwise specified.
     */
-  val default: Tests = Map(
-    "ActiveContractsServiceIT" -> new ActiveContractsServiceIT,
-    "CommandServiceIT" -> new CommandServiceIT,
-    "CommandSubmissionCompletionIT" -> new CommandSubmissionCompletionIT,
-    "CommandDeduplicationIT" -> new CommandDeduplicationIT,
-    "ContractKeysIT" -> new ContractKeysIT,
-    "DivulgenceIT" -> new DivulgenceIT,
-    "HealthServiceIT" -> new HealthServiceIT,
-    "IdentityIT" -> new IdentityIT,
-    "LedgerConfigurationServiceIT" -> new LedgerConfigurationServiceIT,
-    "PackageManagementServiceIT" -> new PackageManagementServiceIT,
-    "PackageServiceIT" -> new PackageServiceIT,
-    "PartyManagementServiceIT" -> new PartyManagementServiceIT,
-    "SemanticTests" -> new SemanticTests,
-    "TransactionServiceIT" -> new TransactionServiceIT,
-    "WitnessesIT" -> new WitnessesIT,
-    "WronglyTypedContractIdIT" -> new WronglyTypedContractIdIT,
-    "ClosedWorldIT" -> new ClosedWorldIT,
-  )
+  val default: Tests = Seq(
+    new ActiveContractsServiceIT,
+    new CommandServiceIT,
+    new CommandSubmissionCompletionIT,
+    new CommandDeduplicationIT,
+    new ContractKeysIT,
+    new DivulgenceIT,
+    new HealthServiceIT,
+    new IdentityIT,
+    new LedgerConfigurationServiceIT,
+    new PackageManagementServiceIT,
+    new PackageServiceIT,
+    new PartyManagementServiceIT,
+    new SemanticTests,
+    new TransactionServiceIT,
+    new WitnessesIT,
+    new WronglyTypedContractIdIT,
+    new ClosedWorldIT,
+  ).map(suite => (suite.name, suite)).toMap
 
   /**
     * These tests can:
@@ -44,11 +44,12 @@ object Tests {
     *
     * These are consequently not run unless otherwise specified.
     */
-  def optional(config: Config): Tests = Map(
-    "ConfigManagementServiceIT" -> new ConfigManagementServiceIT,
-    "LotsOfPartiesIT" -> new LotsOfPartiesIT,
-    "TransactionScaleIT" -> new TransactionScaleIT(config.loadScaleFactor),
-  )
+  def optional(config: Config): Tests =
+    Seq(
+      new ConfigManagementServiceIT,
+      new LotsOfPartiesIT,
+      new TransactionScaleIT(config.loadScaleFactor),
+    ).map(suite => (suite.name, suite)).toMap
 
   def all(config: Config): Tests = default ++ optional(config)
 
