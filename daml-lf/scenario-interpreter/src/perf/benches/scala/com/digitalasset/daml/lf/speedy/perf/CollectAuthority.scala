@@ -35,8 +35,8 @@ class CollectAuthorityState {
   @Param(Array("CollectAuthority:test"))
   private var scenario: String = _
 
-  var machine: Machine = _
-  var the_sexpr: SExpr = _
+  var machine: Machine = null
+  var the_sexpr: SExpr = null
 
   @Setup(Level.Trial)
   def init(): Unit = {
@@ -53,6 +53,7 @@ class CollectAuthorityState {
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(compiledPackages, seeding(), expr)
+    the_sexpr = machine.ctrl
 
     // fill the caches!
     setup()
@@ -76,7 +77,7 @@ class CollectAuthorityState {
         case SResultScenarioCommit(_, _, _, callback) => callback(cachedCommit(step))
         case SResultNeedContract(_, _, _, _, callback) => callback(cachedContract(step))
         case SResultFinalValue(v) => finalValue = v
-        case r => crash("bench run: unexpected result from speedy")
+        case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
     }
   }
@@ -128,7 +129,7 @@ class CollectAuthorityState {
         case SResultFinalValue(v) =>
           finalValue = v
         case r =>
-          crash("setup run: unexpected result from speedy")
+          crash(s"setup run: unexpected result from speedy: ${r}")
       }
     }
   }
