@@ -9,8 +9,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
-# Indexed first by test tool version and then a list of ranges
-# of sandbox versions and their corresponding exclusions.
+# Range of test-tool versions version and then a nested list of ranges
+# of platform versions and their corresponding exclusions.
 # Note that at this point the granularity for disabling tests
 # is sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
@@ -20,101 +20,65 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/5608
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
-excluded_test_tool_tests = {
-    "1.0.0": [
-        {
-            "start": "1.0.1-snapshot.20200424.3917.0.16093690",
-            "end": "1.0.1",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-            "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
-        },
-    ],
-    "1.0.1": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-            "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
-        },
-    ],
-    "1.1.1": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
-    "1.2.0": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
-    "1.3.0-snapshot.20200603.4345.0.1386abc0": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
-    "1.3.0-snapshot.20200610.4412.0.0544323d": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
-    "0.0.0": [
-        {
-            "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
-        },
-        {
-            "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
-        },
-    ],
-}
+excluded_test_tool_tests = [
+    {
+        "start": "1.0.0",
+        "end": "1.0.0",
+        "platform_ranges": [
+            {
+                "start": "1.0.1-snapshot.20200424.3917.0.16093690",
+                "end": "1.0.1",
+                "exclusions": ["ContractKeysIT"],
+            },
+            {
+                "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+                "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
+            },
+        ],
+    },
+    {
+        "start": "1.0.1",
+        "end": "1.0.1",
+        "platform_ranges": [
+            {
+                "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+                "exclusions": ["ContractKeysIT"],
+            },
+            {
+                "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
+                "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
+            },
+        ],
+    },
+    {
+        "start": "1.1.1",
+        "platform_ranges": [
+            {
+                "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+                "exclusions": ["ContractKeysIT"],
+            },
+        ],
+    },
+]
+
+def in_range(version, range):
+    start = range.get("start")
+    end = range.get("end")
+    if start and not versions.is_at_least(start, version):
+        # Before start
+        return False
+    if end and not versions.is_at_most(end, version):
+        # After end
+        return False
+    return True
 
 def get_excluded_tests(test_tool_version, sandbox_version):
-    exclusion_ranges = excluded_test_tool_tests.get(test_tool_version, default = [])
     exclusions = []
-    for range in exclusion_ranges:
-        start = range.get("start")
-        end = range.get("end")
-        if start and not versions.is_at_least(start, sandbox_version):
-            continue
-        if end and not versions.is_at_most(end, sandbox_version):
-            continue
-        exclusions += range["exclusions"]
+    for test_tool_range in excluded_test_tool_tests:
+        if in_range(test_tool_version, test_tool_range):
+            for platform_range in test_tool_range["platform_ranges"]:
+                if in_range(sandbox_version, platform_range):
+                    exclusions += platform_range["exclusions"]
     return exclusions
 
 def extra_tags(sdk_version, platform_version):
