@@ -138,12 +138,8 @@ main = scenario do
   submit bank do exercise iouBankCid Archive
   submitMustFail bank do fetch iouBankCid
 
-  -- some things are broken because we have had to hack signatories
-  -- scheduled fix in DAML-LF for next week
-  let broken _ = return ()
-
   -- Alice can't create IOUs that are backed by Acme Bank.
-  broken $ submitMustFail alice do
+  submitMustFail alice do
     create Iou with
       issuer   = bank
       owner    = alice
