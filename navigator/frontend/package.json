@@ -62,7 +62,6 @@
     "babel-standalone": "^6.26.0",
     "color": "1.0.3",
     "deep-equal": "~1.0.1",
-    "elliptic": "^6.5.3",
     "es6-promise": "^4.1.1",
     "lodash": "^4.17.13",
     "modernizr": "^3.6.0",
