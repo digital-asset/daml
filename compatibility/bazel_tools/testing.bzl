@@ -11,8 +11,8 @@ load("//:versions.bzl", "latest_stable_version")
 
 # Range of test-tool versions version and then a nested list of ranges
 # of platform versions and their corresponding exclusions.
-# Note that at this point the granularity for disabling tests
-# is sadly quite coarse. See
+# Note that before 1.3 the granularity for disabling tests
+# was sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
 # for details.
 # PRs that resulted in exclusions:
@@ -52,10 +52,23 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.1.1",
+        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
         "platform_ranges": [
             {
                 "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
                 "exclusions": ["ContractKeysIT"],
+            },
+        ],
+    },
+    {
+        "start": "0.0.0",  # FIXME: change to first snapshot after 4484
+        "platform_ranges": [
+            {
+                "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
+                "exclusions": [
+                    "ContractKeysIT:CKFetchOrLookup",
+                    "ContractKeysIT:CKNoFetchUndisclosed",
+                ],
             },
         ],
     },

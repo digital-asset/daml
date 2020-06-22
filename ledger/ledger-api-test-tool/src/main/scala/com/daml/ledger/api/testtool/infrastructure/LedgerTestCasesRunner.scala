@@ -9,7 +9,7 @@ import java.util.{Timer, TimerTask}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
@@ -18,12 +18,12 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
-object LedgerTestSuiteRunner {
+object LedgerTestCasesRunner {
   private val DefaultTimeout = 30.seconds
 
   private val timer = new Timer("ledger-test-suite-runner-timer", true)
 
-  private val logger = LoggerFactory.getLogger(classOf[LedgerTestSuiteRunner])
+  private val logger = LoggerFactory.getLogger(classOf[LedgerTestCasesRunner])
 
   private[this] val uncaughtExceptionErrorMessage =
     "UNEXPECTED UNCAUGHT EXCEPTION, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
@@ -32,9 +32,9 @@ object LedgerTestSuiteRunner {
       extends RuntimeException(uncaughtExceptionErrorMessage)
 }
 
-final class LedgerTestSuiteRunner(
+final class LedgerTestCasesRunner(
     config: LedgerSessionConfiguration,
-    suites: Vector[LedgerTestSuite],
+    testCases: Vector[LedgerTestCase],
     identifierSuffix: String,
     suiteTimeoutScale: Double,
     concurrentTestRuns: Int,
@@ -103,7 +103,7 @@ final class LedgerTestSuiteRunner(
       result: Either[Result.Failure, Result.Success])(
       implicit ec: ExecutionContext,
   ): LedgerTestSummary =
-    LedgerTestSummary(suite.name, test.description, config, result)
+    LedgerTestSummary(suite.name, test.name, test.description, config, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext,
@@ -111,30 +111,29 @@ final class LedgerTestSuiteRunner(
     result(start(test, session))
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
-    val system: ActorSystem = ActorSystem(classOf[LedgerTestSuiteRunner].getSimpleName)
+    val system: ActorSystem = ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
-    val testCount = suites.map(_.tests.size).sum
+    val testCount = testCases.size
 
     logger.info(s"Running $testCount tests, ${math.min(testCount, concurrentTestRuns)} at a time.")
 
-    val tests = suites
-      .flatMap(suite => suite.tests.map(suite -> _))
-      .zipWithIndex
+    val tests = testCases.zipWithIndex
     Source(tests)
       .mapAsyncUnordered(concurrentTestRuns) {
-        case ((suite, test), index) =>
-          run(test, ledgerSession).map(testResult => (suite, test, testResult) -> index)
+        case (test, index) => {
+          run(test, ledgerSession).map(testResult => (test.suite, test, testResult) -> index)
+        }
       }
       .map {
         case ((suite, test, testResult), index) => summarize(suite, test, testResult) -> index
       }
       .runWith(Sink.seq)
       .map(_.toVector.sortBy(_._2).map(_._1))
-      .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
+      .recover { case NonFatal(e) => throw LedgerTestCasesRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
         materializer.shutdown()
