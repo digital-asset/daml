@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
     name = "canton",
-    main_class = "com.daml.canton.CantonApp",
+    main_class = "com.digitalasset.canton.CantonApp",
     runtime_deps = ["@canton//:lib"],
 )
 
@@ -62,15 +62,19 @@ conformance_test(
     ports = [
         5011,
         5021,
+        5031,
+        5041,
     ],
     runner = "@//bazel_tools/client_server/runner:runner",
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--verbose",
-        "--include=SemanticTests",
+        "--exclude=ContractKeysIT" +  # 3 of the more specialized tests currently fail on Canton
+        ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
+        ",TransactionScaleIT,LotsOfPartiesIT" +  # scale tests need timeout-scale-factor 1.5 and 2.0 respectively on Canton
+        ",ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
     ],
     # temporarily disabling canton tests, because the api server
     # in the canton release still requires old time model fields.
     # Enable the tests again, once canton is upgraded.
-) if False else None
-#) if not is_windows else None
+) if not is_windows else None
