@@ -562,6 +562,10 @@ object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: SExpr,
+        supportedValueVersions: VersionRange[value.ValueVersion] =
+          value.ValueVersions.DefaultSupportedVersions,
+        supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
+          transaction.TransactionVersions.DefaultSupportedVersions,
     ): Machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
@@ -578,6 +582,10 @@ object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: Expr,
+        supportedValueVersions: VersionRange[value.ValueVersion] =
+          value.ValueVersions.DefaultSupportedVersions,
+        supportedTransactionVersions: VersionRange[transaction.TransactionVersion] =
+          transaction.TransactionVersions.DefaultSupportedVersions,
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,

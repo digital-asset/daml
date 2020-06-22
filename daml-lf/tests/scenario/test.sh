@@ -36,13 +36,20 @@ REPL=$(rlocation "$TEST_WORKSPACE/$1")
 DAMLC=$(rlocation "$TEST_WORKSPACE/$2")
 TESTMAIN=$(rlocation "$TEST_WORKSPACE/$3")
 DIFF="$4"
+if [ "$5" == true ] ; then
+  DEVFLAG="--dev"
+  TARGETFLAG="--target 1.dev"
+else
+  DEVFLAG=""
+  TARGETFLAG=""
+fi
 TESTDIR="$(dirname $TESTMAIN)"
 TESTDAR="$TESTDIR/Main.dar"
 
 REGEX_HIDE_HASHES="s,@[a-z0-9]{8},@XXXXXXXX,g"
 
-$DAMLC package --debug $TESTMAIN 'main' -o $TESTDAR
+$DAMLC package $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
 
-$REPL test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
+$REPL $DEVFLAG test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
 $DIFF -u --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger
