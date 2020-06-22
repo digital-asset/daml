@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
     "da_scala_library",
+    "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
 )
@@ -66,4 +67,14 @@ da_scala_benchmark_jmh(
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
+)
+
+da_scala_test(
+    name = "scenario-perf-test",
+    args = [
+        "-f",
+        "0",
+    ],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [":scenario-perf"],
 )
