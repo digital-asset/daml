@@ -67,8 +67,9 @@ steps:
       --detect.bazel.dependency.type=maven_install \
       --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,/Users/brianhealey/g/daml/language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
       --detect.cleanup=false \
-      --detect.cleanup.bdio.files=false \
-      --detect.report.timeout=360  
+      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+      --detect.cleanup.bdio.files=true \
+      --detect.report.timeout=1050
     displayName: 'Blackduck Scan'
     condition: eq('${{parameters.name}}', 'linux')
 
