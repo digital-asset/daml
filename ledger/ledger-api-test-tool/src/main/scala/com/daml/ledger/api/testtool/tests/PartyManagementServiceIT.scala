@@ -7,8 +7,10 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
+import com.daml.ledger.test_stable.Test.Dummy
 import com.daml.lf.data.Ref
 import scalaz.Tag
+import scalaz.syntax.tag.ToTagOps
 
 import scala.util.Random
 
@@ -183,4 +185,45 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
           s"The allocated party IDs $allocatedPartyIds are not a subset of $knownPartyIds.")
       }
   })
+
+  test(
+    "PMGetPartiesIsLocal",
+    "GetParties should correctly report whether parties are local or not",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+      for {
+        // Running a dummy transaction seems to be required by the test framework to make parties visible via getParties
+        _ <- alpha.create(alice, Dummy(alice))
+        _ <- beta.create(bob, Dummy(bob))
+
+        alphaParties <- alpha.getParties(Seq(alice, bob))
+        betaParties <- beta.getParties(Seq(alice, bob))
+      } yield {
+        assert(
+          alphaParties.exists(p => p.party == alice.unwrap && p.isLocal),
+          "Missing expected party from first participant",
+        )
+        assert(
+          betaParties.exists(p => p.party == bob.unwrap && p.isLocal),
+          "Missing expected party from second participant",
+        )
+
+        // The following assertions allow some slack to distributed ledger implementations, as they can
+        // either publish parties across participants as non-local or bar that from happening entirely
+        if (alpha.endpointId != beta.endpointId) {
+          assert(
+            alphaParties.exists(p => p.party == bob.unwrap && !p.isLocal) || !alphaParties.exists(
+              _.party == bob.unwrap),
+            "Unexpected remote party marked as local found on first participant",
+          )
+          assert(
+            betaParties.exists(p => p.party == alice.unwrap && !p.isLocal) || !betaParties.exists(
+              _.party == alice.unwrap),
+            "Unexpected remote party marked as local found on second participant",
+          )
+        }
+      }
+  })
+
 }

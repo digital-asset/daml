@@ -66,7 +66,8 @@ private final case class ParsedPartyData(
     party: String,
     displayName: Option[String],
     ledgerOffset: Offset,
-    explicit: Boolean)
+    explicit: Boolean,
+    isLocal: Boolean)
 
 private final case class ParsedPackageData(
     packageId: String,
@@ -362,6 +363,7 @@ private class JdbcLedgerDao(
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
                 "ledger_offset" -> offset,
+                "is_local" -> partyDetails.isLocal
               )
               .execute()
             PersistenceResponse.Ok
@@ -606,17 +608,18 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
-      "select party, display_name, ledger_offset, explicit from parties where party in ({parties})")
+      "select party, display_name, ledger_offset, explicit, is_local from parties where party in ({parties})")
 
   private val SQL_SELECT_ALL_PARTIES =
-    SQL("select party, display_name, ledger_offset, explicit from parties")
+    SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
 
   private val PartyDataParser: RowParser[ParsedPartyData] =
     Macro.parser[ParsedPartyData](
       "party",
       "display_name",
       "ledger_offset",
-      "explicit"
+      "explicit",
+      "is_local"
     )
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
@@ -640,14 +643,11 @@ private class JdbcLedgerDao(
       .map(_.map(constructPartyDetails))(executionContext)
 
   private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    // TODO: isLocal should be based on equality of participantId reported in an
-    //       update and the id given to participant in a command-line argument
-    //       (See issue #2026)
-    PartyDetails(Party.assertFromString(data.party), data.displayName, isLocal = true)
+    PartyDetails(Party.assertFromString(data.party), data.displayName, data.isLocal)
 
   private val SQL_INSERT_PARTY =
-    SQL("""insert into parties(party, display_name, ledger_offset, explicit)
-        |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
+    SQL("""insert into parties(party, display_name, ledger_offset, explicit, is_local)
+        |values ({party}, {display_name}, {ledger_offset}, 'true', {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES =
     SQL("""select package_id, source_description, known_since, size
@@ -1008,8 +1008,6 @@ object JdbcLedgerDao {
 
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
 
-    protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
-
     protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
     protected[JdbcLedgerDao] def SQL_TRUNCATE_TABLES: String
@@ -1025,11 +1023,6 @@ object JdbcLedgerDao {
         |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
         |from parameters
         |on conflict (package_id) do nothing""".stripMargin
-
-    override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
-      """insert into parties(party, explicit, ledger_offset)
-        |values({name}, {explicit}, {ledger_offset})
-        |on conflict (party) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
       """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
@@ -1063,10 +1056,6 @@ object JdbcLedgerDao {
         |when not matched then insert (package_id, upload_id, source_description, size, known_since, ledger_offset, package)
         |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
         |from parameters""".stripMargin
-
-    override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
-      """merge into parties using dual on party = {name}
-        |when not matched then insert (party, explicit, ledger_offset) values ({name}, {explicit}, {ledger_offset})""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
       """merge into participant_command_submissions pcs
