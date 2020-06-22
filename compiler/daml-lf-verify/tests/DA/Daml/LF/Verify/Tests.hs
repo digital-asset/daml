@@ -19,6 +19,7 @@ mainTest = defaultMain $ testGroup "DA.Daml.LF.Verify"
   [ quickstartTests
   , generalTests
   , conditionalTests
+  , recursionTests
   ]
 
 quickstartPath :: String
@@ -27,8 +28,8 @@ generalPath :: String
 generalPath = "compiler/daml-lf-verify/general.dar"
 conditionalsPath :: String
 conditionalsPath = "compiler/daml-lf-verify/conditionals.dar"
--- recursionPath :: String
--- recursionPath = "compiler/daml-lf-verify/recursion.dar"
+recursionPath :: String
+recursionPath = "compiler/daml-lf-verify/recursion.dar"
 
 quickstartTests :: TestTree
 quickstartTests = testGroup "Quickstart"
@@ -176,6 +177,59 @@ conditionalTests = testGroup "Conditionals"
         [Unknown] -> assertFailure "Verification inconclusive for FailB - content"
         [Fail _] -> return ()
         _ -> assertFailure "Verification produced an incorrect number of outcomes for FailB - content"
+  ]
+
+recursionTests :: TestTree
+recursionTests = testGroup "Recursion"
+  [ testCase "Iou_TestRecA" $ do
+      recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "TestRecA"
+          field = FieldName "amount"
+      result <- verify recDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for Iou_TestRecA - amount"
+        [Success, Success] result
+  , testCase "Iou_TestRecB" $ do
+      recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "TestRecB"
+          field = FieldName "amount"
+      result <- verify recDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for Iou_TestRecB - amount"
+        [Success, Success] result
+  , testCase "Iou_Divide" $ do
+      recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "Iou_Divide"
+          field = FieldName "amount"
+      result <- verify recDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for Iou_Divide - amount"
+        [Success, Success] result
+  -- TODO Bug:
+  -- , testCase "Iou_TestMutA1" $ do
+  --     recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+  --     let tmpl = TypeConName ["Iou"]
+  --         choice = ChoiceName "TestMutA1"
+  --         field = FieldName "amount"
+  --     verify recDar debug tmpl choice tmpl field >>= \case
+  --       [Fail _, Success] -> return ()
+  --       _ -> assertFailure "Verification failed for Iou_TestMutA1 - amount"
+  , testCase "Iou_TestMutB1" $ do
+      recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "TestMutB1"
+          field = FieldName "amount"
+      verify recDar debug tmpl choice tmpl field >>= \case
+        [Fail _, Fail _] -> return ()
+        _ -> assertFailure "Verification failed for Iou_TestMutB1 - amount"
+  , testCase "Iou_Divide_Mut" $ do
+      recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "Iou_Divide_Mut"
+          field = FieldName "amount"
+      result <- verify recDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for Iou_Divide_Mut - amount"
+        [Success, Success] result
   ]
 
 debug :: String -> IO ()

@@ -1,0 +1,131 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Recursion where
+
+type IouCid = ContractId Iou
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+
+    signatory issuer, owner
+
+    observer observers
+
+    controller owner can
+
+      -- Test recursion A
+
+      nonconsuming TestRecA : IouCid
+        do
+          archive self
+          _ <- create this with amount = amount
+          exercise self TestRecA
+
+      -- Test recursion B
+
+      nonconsuming TestRecB : IouCid
+        with 
+          var: Int
+        do
+          if var > 0
+          then do
+            exercise self TestRecB with var = (var - 1)
+          else do
+            archive self
+            create this with amount = amount
+
+      -- Test recursion C
+
+      nonconsuming Iou_Divide : (IouCid, IouCid)
+        with
+          receiverCid: IouCid
+        do
+          receiverIou <- fetch receiverCid
+          if amount <= receiverIou.amount
+          then return (self, receiverCid)
+          else do
+            newSelf <- create this with amount = amount - 1.0
+            newReceiver <- create receiverIou with amount = receiverIou.amount + 1.0
+            archive self
+            archive receiverCid
+            exercise newSelf Iou_Divide with receiverCid = newReceiver
+
+      -- Test mutual recursion A
+
+      nonconsuming TestMutA1 : IouCid
+        do
+          _ <- create this with amount = 1.0
+          exercise self TestMutA2
+
+      nonconsuming TestMutA2 : IouCid
+        do
+          _ <- create this with amount = -1.0
+          res <- exercise self TestMutA1
+          _ <- create this with amount = 1.0
+          return res
+          
+      -- Test mutual recursion B
+
+      nonconsuming TestMutB1 : IouCid
+        do
+          _ <- create this with amount = 1.0
+          exercise self TestMutB2
+          create this with amount = 5.0
+
+      nonconsuming TestMutB2 : IouCid
+        do
+          _ <- create this with amount = 2.0
+          exercise self TestMutB3
+      
+      nonconsuming TestMutB3 : IouCid
+        do
+          _ <- create this with amount = 3.0
+          exercise self TestMutB4
+
+      nonconsuming TestMutB4 : IouCid
+        do
+          _ <- create this with amount = 4.0
+          exercise self TestMutB1
+
+      -- Test mutual recursion C
+
+      nonconsuming Iou_Divide_Mut : (IouCid, IouCid)
+        with
+          receiverCid: IouCid
+        do
+          receiverIou <- fetch receiverCid
+          if amount <= receiverIou.amount
+          then return (self, receiverCid)
+          else do
+            exercise self Iou_Divide_Sub with receiverCid = receiverCid
+
+      Iou_AddOne : IouCid
+        do
+          create this with amount = amount + 1.0
+
+      Iou_SubOne : IouCid
+        do
+          create this with amount = amount - 1.0
+
+      nonconsuming Iou_Divide_Sub : (IouCid, IouCid)
+        with
+          receiverCid: IouCid
+        do
+          newSelf <- exercise self Iou_SubOne
+          exercise newSelf Iou_Divide_Add with receiverCid = receiverCid
+
+      nonconsuming Iou_Divide_Add : (IouCid, IouCid)
+        with
+          receiverCid: IouCid
+        do
+          receiverIou <- fetch receiverCid
+          newReceiver <- exercise receiverCid Iou_AddOne
+          exercise self Iou_Divide_Mut with receiverCid = newReceiver
