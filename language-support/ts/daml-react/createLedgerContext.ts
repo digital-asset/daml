@@ -71,7 +71,7 @@ export default function createLedgerContext(): LedgerContext {
   // make unnecessary network requests. If we forget adding some dependencies, we
   // not make a new network request although they are required to refresh data.
 
-  const ledgerContext = createContext(null as DamlLedgerState | null);
+  const ledgerContext = createContext<DamlLedgerState|undefined>(undefined);
   const DamlLedger: React.FC<Props> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
     const [reloadToken, setReloadToken] = useState(0);
     const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl}), [token, httpBaseUrl, wsBaseUrl]);
