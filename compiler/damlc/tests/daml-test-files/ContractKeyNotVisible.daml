@@ -1,5 +1,9 @@
 -- @ERROR Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR Attempt to fetch, lookup or exercise a key associated with a contract
 module ContractKeyNotVisible where
+
+import DA.Optional
 
 template Foo
   with
@@ -15,3 +19,68 @@ aScenario = scenario do
   _ <- submit bob do create Foo with p = bob
   _ <- submit alice $ fetchByKey @Foo bob
   pure ()
+
+template Keyed
+  with
+    sig : Party
+  where
+    signatory sig
+
+    key sig : Party
+    maintainer key
+
+template Divulger
+  with
+    divulgee : Party
+    sig : Party
+  where
+    signatory divulgee
+
+    controller sig can
+      nonconsuming DivulgeKeyed
+        : Keyed
+        with
+          keyedCid : ContractId Keyed
+        do
+          fetch keyedCid
+
+template Delegation
+  with
+    sig : Party
+    divulgee : Party
+  where
+    signatory sig
+    observer divulgee
+
+    choice LookupKeyed
+      : Optional (ContractId Keyed)
+      controller divulgee
+      do
+        lookupByKey @Keyed sig
+
+divulgeeLookup = scenario do
+  sig <- getParty "s" -- Signatory
+  divulgee <- getParty "d" -- Divulgee
+  keyedCid <- submit sig do create Keyed with ..
+  divulgercid <- submit divulgee do create Divulger with ..
+  submit sig do exercise divulgercid DivulgeKeyed with ..
+  -- Divulgee can't do positive lookup with maintainer authority.
+  -- Note that the lookup returns `None` so the assertion passes.
+  -- If the assertion is changed to `isSome`, the assertion fails,
+  -- which means the error message changes. The reason is that the
+  -- assertion is checked at interpretation time, before the lookup
+  -- is checked at validation time.
+  submit divulgee do
+    mcid <- createAndExercise (Delegation sig divulgee) LookupKeyed
+    assert (isNone mcid)
+    pure ()
+
+blindLookup = scenario do
+  sig <- getParty "s" -- Signatory
+  blind <- getParty "b" -- Blind
+  keyedCid <- submit sig do create Keyed with ..
+  -- Blind party can't do positive lookup with maintainer authority.
+  submit blind do
+    mcid <- createAndExercise (Delegation sig blind) LookupKeyed
+    assert (isNone mcid)
+    pure ()
