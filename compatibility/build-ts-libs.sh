@@ -12,10 +12,8 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
-VERSION=${DAML_SDK_RELEASE_VERSION:-0.0.0}
-
 function cleanup {
-  rm -rf "daml-types-${VERSION}.tgz" "daml-ledger-${VERSION}.tgz" "daml-react-${VERSION}.tgz"
+  rm -rf "daml-types-0.0.0.tar.gz" "daml-ledger-0.0.0.tar.gz" "daml-react-0.0.0.tar.gz"
 }
 
 trap cleanup EXIT
@@ -24,6 +22,4 @@ bazel run //language-support/ts/daml-types:npm_package.pack
 bazel run //language-support/ts/daml-ledger:npm_package.pack
 bazel run //language-support/ts/daml-react:npm_package.pack
 
-
-#cp -f daml-types-0.0.0.tgz daml-react-0.0.0.tgz daml-ledger-0.0.0.tgz "$HEAD_TARGET_DIR"
-cp -f daml-types-${VERSION}.tgz daml-react-${VERSION}.tgz daml-ledger-${VERSION}.tgz "$HEAD_TARGET_DIR"
+cp -f daml-types-0.0.0.tgz daml-react-0.0.0.tgz daml-ledger-0.0.0.tgz "$HEAD_TARGET_DIR"
