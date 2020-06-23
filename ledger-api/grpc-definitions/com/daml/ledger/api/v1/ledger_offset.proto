@@ -28,7 +28,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 message LedgerOffset {
 
   oneof value {
-    // Absolute values are acquired by reading from the TransactionService.
     // The format of this string is specific to the ledger and opaque to the client.
     string absolute = 1;
     LedgerBoundary boundary = 2;
