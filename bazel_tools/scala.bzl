@@ -38,6 +38,8 @@ common_scalacopts = [
     # warn if using deprecated stuff
     "-deprecation",
     "-Xfuture",
+    "-Xsource:2.13",  # fix typechecker bugs
+    "-Ypartial-unification",  # behave more like Scala 2.13
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
