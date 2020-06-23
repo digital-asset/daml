@@ -278,7 +278,7 @@ final class Engine {
           .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        supportedValueVersions = value.ValueVersions.DefaultSupportedVersions,
+        supportedValueVersions = value.ValueVersions.SupportedDevVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)

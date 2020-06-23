@@ -22,6 +22,8 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
+import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.value.ValueVersions
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -64,11 +66,11 @@ object Main extends App {
     System.exit(1)
   } else {
     var replArgs = args.toList
-    var allowDev = false
+    var devMode = false
     replArgs match {
-      case "--decode-lfdev" :: rest =>
+      case "--dev" :: rest =>
         replArgs = rest
-        allowDev = true
+        devMode = true
       case _ => ()
     }
     replArgs match {
@@ -76,13 +78,13 @@ object Main extends App {
       case "--help" :: _ => usage()
       case List("repl", file) => Repl.repl(file)
       case List("testAll", file) =>
-        if (!Repl.testAll(allowDev, file)._1) System.exit(1)
+        if (!Repl.testAll(devMode, file)._1) System.exit(1)
       case List("test", id, file) =>
-        if (!Repl.test(allowDev, id, file)._1) System.exit(1)
+        if (!Repl.test(devMode, id, file)._1) System.exit(1)
       case List("profile", scenarioId, inputFile, outputFile) =>
-        if (!Repl.profile(allowDev, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
+        if (!Repl.profile(devMode, scenarioId, inputFile, Paths.get(outputFile))._1) System.exit(1)
       case List("validate", file) =>
-        if (!Repl.validate(allowDev, file)._1) System.exit(1)
+        if (!Repl.validate(devMode, file)._1) System.exit(1)
       case List(possibleFile) =>
         defaultCommand(possibleFile)
       case _ =>
@@ -130,23 +132,23 @@ object Repl {
       }
   }
 
-  def testAll(allowDev: Boolean, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate fMap cmdTestAll
+  def testAll(devMode: Boolean, file: String): (Boolean, State) =
+    load(file, devMode) fMap cmdValidate fMap cmdTestAll
 
-  def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
+  def test(devMode: Boolean, id: String, file: String): (Boolean, State) =
+    load(file, devMode) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
 
   def profile(
-      allowDev: Boolean,
+      devMode: Boolean,
       scenarioId: String,
       inputFile: String,
       outputFile: Path,
   ): (Boolean, State) =
-    load(inputFile, Compiler.FullProfile) fMap cmdValidate fMap (state =>
+    load(inputFile, devMode, Compiler.FullProfile) fMap cmdValidate fMap (state =>
       cmdProfile(state, scenarioId, outputFile))
 
-  def validate(allowDev: Boolean, file: String): (Boolean, State) =
-    load(file) fMap cmdValidate
+  def validate(devMode: Boolean, file: String): (Boolean, State) =
+    load(file, devMode) fMap cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
     val validationResults = state.packages.keys.map(Validation.checkPackage(state.packages, _))
@@ -171,16 +173,30 @@ object Repl {
 
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
-      profiling: Compiler.ProfilingMode) {
+      devMode: Boolean,
+      profiling: Compiler.ProfilingMode,
+  ) {
     val compiledPackages =
       PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
     private val seed = nextSeed()
+
+    val (valVersions, txVersions) =
+      if (devMode)
+        (ValueVersions.SupportedDevVersions, TransactionVersions.SupportedDevVersions)
+      else
+        (ValueVersions.SupportedStableVersions, TransactionVersions.SupportedStableVersions)
 
     def run(expr: Expr): (
         Speedy.Machine,
         Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
       val machine =
-        Speedy.Machine.fromScenarioExpr(compiledPackages, seed, expr)
+        Speedy.Machine.fromScenarioExpr(
+          compiledPackages,
+          seed,
+          expr,
+          valVersions,
+          txVersions,
+        )
       (machine, ScenarioRunner(machine).run())
     }
   }
@@ -201,6 +217,9 @@ object Repl {
     ":testall" -> Command("run all loaded scenarios.", (s, _) => {
       cmdTestAll(s); s
     }),
+    ":devmode" -> Command(
+      "switch in devMode. This reset the state of REPL.",
+      (_, _) => initialState(devMode = true)),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
   final val commandCompleter = new ArgumentCompleter(new StringsCompleter(commands.keys.asJava))
@@ -220,12 +239,15 @@ object Repl {
     cmpl
   }
 
-  def initialState(profiling: Compiler.ProfilingMode = Compiler.NoProfile): State =
+  def initialState(
+      devMode: Boolean = false,
+      profiling: Compiler.ProfilingMode = Compiler.NoProfile,
+  ): State =
     rebuildReader(
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, profiling),
+        ScenarioRunnerHelper(Map.empty, devMode, profiling),
         reader = null,
         history = new DefaultHistory(),
         quit = false
@@ -351,9 +373,10 @@ object Repl {
   // Load DAML-LF packages from a set of files.
   def load(
       darFile: String,
+      devMode: Boolean = false,
       profiling: Compiler.ProfilingMode = Compiler.NoProfile,
   ): (Boolean, State) = {
-    val state = initialState(profiling)
+    val state = initialState(devMode, profiling)
     try {
       val packages =
         UniversalArchiveReader().readFile(new File(darFile)).get
@@ -370,7 +393,7 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap, profiling)
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, devMode, profiling)
         ))
     } catch {
       case ex: Throwable => {

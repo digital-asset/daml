@@ -17,9 +17,9 @@ class TransactionVersionSpec extends WordSpec with Matchers {
   import VersionTimeline.maxVersion
 
   private[this] val supportedValVersions =
-    ValueVersions.DefaultSupportedVersions.copy(min = ValueVersion("1"))
+    ValueVersions.SupportedDevVersions.copy(min = ValueVersion("1"))
   private[this] val supportedTxVersions =
-    TransactionVersions.DefaultSupportedVersions.copy(min = TransactionVersion("1"))
+    TransactionVersions.SupportedDevVersions.copy(min = TransactionVersion("1"))
 
   "assignVersion" should {
     "prefer picking an older version" in {
