@@ -13,8 +13,8 @@ load("@build_environment//:configuration.bzl", "sdk_version")
 sources = [
     "index.ts",
     "index.test.ts",
-    "CreateLedgerContext.ts",
-    "DefaultLedgerContext.ts",
+    "createLedgerContext.ts",
+    "defaultLedgerContext.ts",
 ]
 
 da_ts_library(
