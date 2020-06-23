@@ -150,12 +150,32 @@ object Server {
       failureRetryTimeRange: Duration,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      dbInit: Boolean,
       noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
+
+    implicit val ec: ExecutionContext = ctx.system.executionContext
+
+    (dbInit, jdbcConfig) match {
+      case (true, None) =>
+        ctx.log.error("No JDBC configuration for database initialization.")
+        sys.exit(1)
+      case (true, Some(jdbcConfig)) =>
+        DbTriggerDao(jdbcConfig).initialize match {
+          case Left(err) =>
+            ctx.log.error(err)
+            sys.exit(1)
+          case Right(()) =>
+            ctx.log.info("Successfully initialized database.")
+            sys.exit(0)
+        }
+      case _ =>
+    }
+
     val triggerDao: RunningTriggerDao =
       jdbcConfig match {
         case None => InMemoryTriggerDao()
-        case Some(c) => DbTriggerDao(c)(ctx.system.executionContext)
+        case Some(c) => DbTriggerDao(c)
       }
 
     val key: SecretKey =
@@ -497,6 +517,7 @@ object ServiceMain {
           failureRetryTimeRange,
           encodedDar,
           jdbcConfig,
+          dbInit = false, // for tests we initialize the database in beforeEach clause
           noSecretKey,
         ),
         "TriggerService"
@@ -538,6 +559,7 @@ object ServiceMain {
               config.failureRetryTimeRange,
               encodedDar,
               config.jdbcConfig,
+              config.init,
               config.noSecretKey
             ),
             "TriggerService"
@@ -545,22 +567,6 @@ object ServiceMain {
 
         implicit val scheduler: Scheduler = system.scheduler
         implicit val ec: ExecutionContext = system.executionContext
-
-        (config.init, config.jdbcConfig) match {
-          case (true, None) =>
-            system.log.error("No JDBC configuration for database initialization.")
-            sys.exit(1)
-          case (true, Some(jdbcConfig)) =>
-            DbTriggerDao(jdbcConfig).initialize match {
-              case Left(err) =>
-                system.log.error(err)
-                sys.exit(1)
-              case Right(()) =>
-                system.log.info("Successfully initialized database.")
-                sys.exit(0)
-            }
-          case _ =>
-        }
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
