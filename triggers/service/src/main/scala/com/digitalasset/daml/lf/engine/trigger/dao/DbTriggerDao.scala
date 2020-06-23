@@ -165,7 +165,7 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
 
   def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
     import cats.implicits._ // needed for traverse
-    run(selectPackages).flatMap(
+    run(selectPackages, "Failed to read packages from database").flatMap(
       _.traverse[({ type E[A] = Either[String, A] })#E, (PackageId, DamlLf.ArchivePayload)](
         (parsePackage _).tupled)
     )

@@ -35,7 +35,6 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.platform.services.time.TimeProviderType
-import scalaz.syntax.traverse._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -73,14 +72,13 @@ class Server(triggerDao: RunningTriggerDao) {
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
-  // When running with a persistent store we also write packages to it so we can recover our state
-  // after the service shuts down or crashes.
+  // When running with a persistent store we also write the encoded packages so we can recover
+  // our state after the service shuts down or crashes.
   val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
 
-  private def addPackagesInMemory(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Unit = {
-    // Decode the dar for the in-memory store.
-    val dar = encodedDar.map((Decode.readArchivePayload _).tupled)
-    val darMap = dar.all.toMap
+  private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
+    // We store decoded packages in memory
+    val pkgMap = pkgs.map((Decode.readArchivePayload _).tupled).toMap
 
     // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.
     // So we need to use the entire `darMap` to complete each call to `addPackage`.
@@ -90,12 +88,12 @@ class Server(triggerDao: RunningTriggerDao) {
     def complete(r: Result[Unit]): Unit = r match {
       case ResultDone(()) => ()
       case ResultNeedPackage(dep, resume) =>
-        complete(resume(darMap.get(dep)))
+        complete(resume(pkgMap.get(dep)))
       case _ =>
         throw new RuntimeException(s"Unexpected engine result $r from attempt to add package.")
     }
 
-    darMap foreach {
+    pkgMap foreach {
       case (pkgId, pkg) => complete(compiledPackages.addPackage(pkgId, pkg))
     }
   }
@@ -103,7 +101,7 @@ class Server(triggerDao: RunningTriggerDao) {
   // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
   // Uploads of packages that already exist are considered harmless and are ignored.
   private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    addPackagesInMemory(encodedDar)
+    addPackagesInMemory(encodedDar.all)
     triggerDao.persistPackages(encodedDar)
   }
 
@@ -153,7 +151,6 @@ object Server {
       initDb: Boolean,
       noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
-
     val key: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
         case Some(key) => SecretKey(key)
@@ -188,10 +185,16 @@ object Server {
           (dao, new Server(dao))
         case (false, Some(c)) =>
           val dao = DbTriggerDao(c)
-          val server = new Server(dao)
-//          server.recover
-//          ctx.log.info("Successfully recovered state from database.")
-          (dao, server)
+          dao.readPackages match {
+            case Left(err) =>
+              ctx.log.error(err)
+              sys.exit(1)
+            case Right(pkgs) =>
+              val server = new Server(dao)
+              server.addPackagesInMemory(pkgs)
+              ctx.log.info("Successfully recovered packages from database.")
+              (dao, server)
+          }
       }
 
     initialDar foreach { dar =>
