@@ -75,7 +75,7 @@ export type LedgerContext = {
  *
  * @param contextName Used to refer to a context in case of errors.
  */
-export default function createLedgerContext(contextName="DamlLedgerContext"): LedgerContext {
+export function createLedgerContext(contextName="DamlLedgerContext"): LedgerContext {
 
   // NOTE(MH, useEffect dependencies): There are various places in this file
   // where we need to maintain the dependencies of the `useEffect` hook manually

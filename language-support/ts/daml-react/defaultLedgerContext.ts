@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import createLedgerContext, { FetchResult, QueryResult, LedgerProps } from "./createLedgerContext";
+import { createLedgerContext, FetchResult, QueryResult, LedgerProps } from "./createLedgerContext";
 import { Party, Template } from '@daml/types';
 import Ledger, { Query } from '@daml/ledger';
 
