@@ -20,6 +20,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:org_scala_lang_modules_scala_parser_combinators_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

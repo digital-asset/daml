@@ -86,6 +86,7 @@ da_scala_test(
         "@maven//:com_squareup_javapoet",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

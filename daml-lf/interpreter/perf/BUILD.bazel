@@ -45,6 +45,7 @@ da_scala_binary(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -70,6 +71,7 @@ da_scala_binary(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -100,5 +102,6 @@ da_scala_binary(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
