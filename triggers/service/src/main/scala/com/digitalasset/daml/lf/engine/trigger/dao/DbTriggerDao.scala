@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
 
-import cats.data.EitherT
 import cats.effect.{ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
@@ -117,6 +116,17 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     select.query[(String, Array[Byte])].to[List]
   }
 
+  private def parsePackage(
+      pkgIdString: String,
+      pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
+    for {
+      pkgId <- PackageId.fromString(pkgIdString)
+      payload <- Try(DamlLf.ArchivePayload.parseFrom(pkgPayload)) match {
+        case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
+        case Success(pkg) => Right(pkg)
+      }
+    } yield (pkgId, payload)
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -154,20 +164,11 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   }
 
   def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
-    import cats.implicits._
-    import cats._
-    import cats.syntax.traverse._
-    run(selectPackages) match {
-      case Left(err) => Left(err)
-      case Right(l: List[(String, Array[Byte])]) =>
-        (l map { (t: (String, Array[Byte])) =>
-          for {
-            pkgId <- PackageId.fromString(t._1)
-            payload = DamlLf.ArchivePayload.parseFrom(t._2)
-          } yield (pkgId, payload)
-//          PackageId.fromString(t._1).map((_, DamlLf.ArchivePayload.parseFrom(t._2)))
-        }).sequenceU
-    }
+    import cats.implicits._ // needed to find traverse
+    run(selectPackages).flatMap(
+      _.traverse[({ type E[A] = Either[String, A] })#E, (PackageId, DamlLf.ArchivePayload)](
+        (parsePackage _).tupled)
+    )
   }
 
   def initialize: Either[String, Unit] =
