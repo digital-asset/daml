@@ -86,6 +86,6 @@
   "resolutions": {
     "**/@types/react": "~16.0.0",
     "**/apollo-client": "~1.4.0",
-    "**/elliptic": "6.5.3"
+    "**/elliptic": "^6.5.3"
   }
 }
