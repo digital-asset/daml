@@ -556,7 +556,7 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC opts
+            setupDamlGHC mbProjectRoot opts
             GHC.getSession
         pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env

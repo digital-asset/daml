@@ -56,6 +56,7 @@ main = do
         , stressTests run runScenarios
         , executeCommandTests run runScenarios
         , regressionTests run runScenarios
+        , includePathTests damlcPath
         , multiPackageTests damlcPath
         , completionTests run runScenarios
         ]
@@ -719,6 +720,47 @@ mkKeywordCompletion :: T.Text -> CompletionItem
 mkKeywordCompletion label =
     defaultCompletion label &
     kind ?~ CiKeyword
+
+includePathTests :: FilePath -> TestTree
+includePathTests damlc = testGroup "include-path"
+    [ testCase "IDE in root directory" $ withTempDir $ \dir -> do
+          createDirectory (dir </> "src1")
+          createDirectory (dir </> "src2")
+          writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: 0.0.1"
+              , "source: src1/Root.daml"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "build-options:"
+              , "- --include=src1/"
+              , "- --include=src2/"
+              ]
+          writeFileUTF8 (dir </> "src1" </> "A.daml") $ unlines
+              [ "module A where"
+              , "data A = A Text"
+              ]
+          writeFileUTF8 (dir </> "src2" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A"
+              , "a = A \"abc\""
+              , "test = scenario $ assert False"
+              ]
+          writeFileUTF8 (dir </> "src1" </> "Root.daml") $ unlines
+              [ "module Root where"
+              , "import A ()"
+              , "import B ()"
+              , "test = scenario $ assert False"
+              ]
+          withCurrentDirectory dir $
+            runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
+              _docB <- openDoc ("src2/B.daml") "daml"
+              -- If we get a scenario result, we managed to build a DALF which
+              -- is what we really want to check here.
+              expectDiagnostics [ ("src2/B.daml", [(DsError, (3,0), "Assertion failed")]) ]
+              _docRoot <- openDoc ("src1/Root.daml") "daml"
+              expectDiagnostics [ ("src1/Root.daml", [(DsError, (3,0), "Assertion failed")]) ]
+    ]
 
 multiPackageTests :: FilePath -> TestTree
 multiPackageTests damlc = testGroup "multi-package"

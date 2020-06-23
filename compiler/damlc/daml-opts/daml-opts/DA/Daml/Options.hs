@@ -393,8 +393,8 @@ locateGhcVersionHeader = GhcVersionHeader <$> locateRunfiles (mainWorkspace </> 
 --     * Sets the import paths to the given list of 'FilePath'.
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std DAML ones)
-setupDamlGHC :: GhcMonad m => Options -> m ()
-setupDamlGHC options@Options{..} = do
+setupDamlGHC :: GhcMonad m => Maybe NormalizedFilePath -> Options -> m ()
+setupDamlGHC mbProjectRoot options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory
   versionHeader <- liftIO locateGhcVersionHeader
   modifyDynFlags $ adjustDynFlags options versionHeader tmpDir
@@ -412,6 +412,16 @@ setupDamlGHC options@Options{..} = do
 
     modifySession $ \h ->
       h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
+  whenJust mbProjectRoot $ \(fromNormalizedFilePath -> projRoot) ->
+    -- Make import paths relative to project root. Otherwise, we
+    -- can end up with the same file being represented multiple times
+    -- with different prefixes or not found at all if our CWD is not the
+    -- project root.
+    -- Note that in the IDE project root is absolute whereas it is
+    -- relative in `daml build`.
+    modifyDynFlags $ \dflags ->
+      dflags { importPaths = map (\p -> normalise (projRoot </> p)) (importPaths dflags) }
+
 
 -- | Check for bad @DynFlags@.
 -- Checks:
