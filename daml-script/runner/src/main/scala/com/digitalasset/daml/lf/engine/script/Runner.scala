@@ -166,13 +166,16 @@ object Runner {
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
       // The standard library is incredibly weird. Option is not Traversable so we have to convert to a list and back.
-      // Map is but it doesn’t return a Map so we have to call toMap afterwards.
       defaultClient <- Future
         .traverse(participantParams.default_participant.toList)(x =>
           connectApiParameters(x, clientConfig, maxInboundMessageSize))
         .map(_.headOption)
+      // XXX SC: remove : Iterable and .map(_.toMap) step in 2.13. Once again,
+      // the poorly-chosen tparams of traverse's sig gets in our way here. We
+      // can't just wrap-fix it like we can with the same mistake in the
+      // Scalatest instances
       participantClients <- Future
-        .traverse(participantParams.participants: Map[Participant, ApiParameters])({
+        .traverse(participantParams.participants: Iterable[(Participant, ApiParameters)])({
           case (k, v) => connectApiParameters(v, clientConfig, maxInboundMessageSize).map((k, _))
         })
         .map(_.toMap)

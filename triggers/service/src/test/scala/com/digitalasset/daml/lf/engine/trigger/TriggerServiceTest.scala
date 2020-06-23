@@ -24,7 +24,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.syntax.show._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.daml_lf_dev.DamlLf
