@@ -22,6 +22,8 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.{
   ApiParameters,
   Participants,
+  Party => ScriptParty,
+  Participant,
   Runner,
   ScriptLedgerClient,
   ScriptTimeMode
@@ -156,10 +158,24 @@ final class JsonApiIt
     }
   }
 
-  private def getClients(parties: List[String] = List(party), admin: Boolean = false) = {
-    val participantParams =
-      Participants(Some(ApiParameters("http://localhost", httpPort)), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, getToken(parties, admin), envIface)
+  private def getClients(
+      parties: List[String] = List(party),
+      defaultParty: Option[String] = None,
+      admin: Boolean = false) = {
+    // We give the default participant some nonsense party so the checks for party mismatch fail
+    // due to the mismatch and not because the token does not allow inferring a party
+    val defaultParticipant =
+      ApiParameters("http://localhost", httpPort, Some(getToken(defaultParty.toList, true)))
+    val partyMap = parties.map(p => (ScriptParty(p), Participant(p))).toMap
+    val participantMap = parties
+      .map(
+        p =>
+          (
+            Participant(p),
+            ApiParameters("http://localhost", httpPort, Some(getToken(List(p), admin)))))
+      .toMap
+    val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
+    Runner.jsonClients(participantParams, envIface)
   }
 
   private val party = "Alice"
@@ -215,7 +231,7 @@ final class JsonApiIt
     }
     "submit with party mismatch fails" in {
       for {
-        clients <- getClients()
+        clients <- getClients(defaultParty = Some("Alice"))
         exception <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
@@ -228,7 +244,7 @@ final class JsonApiIt
     }
     "query with party mismatch fails" in {
       for {
-        clients <- getClients()
+        clients <- getClients(defaultParty = Some("Alice"))
         exception <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
@@ -269,15 +285,24 @@ final class JsonApiIt
     }
     "allocateParty" in {
       for {
-        // TODO (MK) At the moment the JSON API requires a token with a single
-        // party even for allocating a new party.
-        clients <- getClients(parties = List("Alice"), admin = true)
+        clients <- getClients(parties = List(), admin = true)
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonAllocateParty"),
           Some(JsString("Eve")))
       } yield {
         assert(result == SParty(Party.assertFromString("Eve")))
+      }
+    }
+    "multi-party" in {
+      for {
+        clients <- getClients(parties = List("Alice", "Bob"))
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiParty"),
+          Some(JsArray(JsString("Alice"), JsString("Bob"))))
+      } yield {
+        assert(result == SUnit)
       }
     }
   }

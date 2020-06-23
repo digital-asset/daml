@@ -139,12 +139,13 @@ object MultiParticipant {
         val participantParams = Participants(
           None,
           Seq(
-            (Participant("one"), ApiParameters("localhost", config.ledgerPort)),
-            (Participant("two"), ApiParameters("localhost", config.extraParticipantPort))).toMap,
+            (Participant("one"), ApiParameters("localhost", config.ledgerPort, None)),
+            (Participant("two"), ApiParameters("localhost", config.extraParticipantPort, None))
+          ).toMap,
           Map.empty
         )
 
-        val runner = new TestRunner(participantParams, dar, config.wallclockTime, None, None)
+        val runner = new TestRunner(participantParams, dar, config.wallclockTime, None)
         MultiTest(dar, runner).runTests()
         MultiPartyIdHintTest(dar, runner).runTests()
         MultiListKnownPartiesTest(dar, runner).runTests()
