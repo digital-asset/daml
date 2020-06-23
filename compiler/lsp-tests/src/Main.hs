@@ -754,11 +754,11 @@ includePathTests damlc = testGroup "include-path"
               ]
           withCurrentDirectory dir $
             runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
-              _docB <- openDoc ("src2/B.daml") "daml"
+              _docB <- openDoc "src2/B.daml" "daml"
               -- If we get a scenario result, we managed to build a DALF which
               -- is what we really want to check here.
               expectDiagnostics [ ("src2/B.daml", [(DsError, (3,0), "Assertion failed")]) ]
-              _docRoot <- openDoc ("src1/Root.daml") "daml"
+              _docRoot <- openDoc "src1/Root.daml" "daml"
               expectDiagnostics [ ("src1/Root.daml", [(DsError, (3,0), "Assertion failed")]) ]
     ]
 
