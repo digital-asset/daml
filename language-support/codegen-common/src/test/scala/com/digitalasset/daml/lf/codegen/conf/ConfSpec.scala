@@ -7,7 +7,6 @@ import java.nio.file.Paths
 
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ConfSpec extends FlatSpec with Matchers with OptionValues {
 
   behavior of "Conf.parse"
