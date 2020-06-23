@@ -1,13 +1,20 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its
 -- affiliates. All rights reserved.
 
--- @WARN range=12:2-12:3; Defined but not used
+-- @WARN range=19:2-19:3; Defined but not used
 
 {-# OPTIONS_GHC -Wunused-matches #-}
+{-# OPTIONS_GHC -Wunused-foralls #-}
+{-# OPTIONS_GHC -Wunused-imports #-}
+{-# OPTIONS_GHC -Wunused-pattern-binds #-}
+{-# OPTIONS_GHC -Wunused-top-binds #-}
+{-# OPTIONS_GHC -Wunused-type-patterns #-}
+-- We know this will fail and why.
+--   {-# OPTIONS_GHC -Wunused-local-binds #-}
 module UnusedMatchTests where
 
--- It should be OK to enable -Wunused-matches and not get warnings
--- from template desugared code.
+-- It should be OK to enable -Wunused-* and not get warnings from
+-- template desugared code.
 
 f x = 12 -- Defined but not used 'x'; prove unsed match detection.
 

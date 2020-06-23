@@ -78,7 +78,7 @@ divulgeeLookup = scenario do
 blindLookup = scenario do
   sig <- getParty "s" -- Signatory
   blind <- getParty "b" -- Blind
-  keyedCid <- submit sig do create Keyed with ..
+  _ <- submit sig do create Keyed with ..
   -- Blind party can't do positive lookup with maintainer authority.
   submit blind do
     mcid <- createAndExercise (Delegation sig blind) LookupKeyed

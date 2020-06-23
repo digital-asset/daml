@@ -1,5 +1,6 @@
-
-module TyConAppCoercion () where
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its
+-- affiliates. All rights reserved.
+module TyConAppCoercion (X(..)) where
 
 class MyClass a where
   f1 : Optional a -> a
