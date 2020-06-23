@@ -8,7 +8,7 @@ import Ledger, { Query } from '@daml/ledger';
 /**
  * @internal
  */
-const x = createLedgerContext();
+const ledgerContext = createLedgerContext();
 
 /**
  * Within a `DamlLedger` one can use the hooks provided here.
@@ -16,18 +16,18 @@ const x = createLedgerContext();
  * @param props React props and children for this element.
  */
 export function DamlLedger(props: React.PropsWithChildren<LedgerProps>): React.ReactElement|null {
-  return x.DamlLedger(props);
+  return ledgerContext.DamlLedger(props);
 }
 
 /**
  * React hook to get the party currently connected to the ledger.
  */
-export function useParty(): Party { return x.useParty(); }
+export function useParty(): Party { return ledgerContext.useParty(); }
 
 /**
  * React Hook that returns the Ledger instance to interact with the connected DAML ledger.
  */
-export function useLedger(): Ledger { return x.useLedger(); }
+export function useLedger(): Ledger { return ledgerContext.useLedger(); }
 
 /**
  * React Hook for a ``query`` against the ledger.
@@ -45,7 +45,7 @@ export function useLedger(): Ledger { return x.useLedger(); }
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
-  return x.useQuery(template, queryFactory, queryDeps);
+  return ledgerContext.useQuery(template, queryFactory, queryDeps);
 }
 
 /**
@@ -62,7 +62,7 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
  * @return The fetched contract.
  */
 export function useFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
-  return x.useFetchByKey(template, keyFactory, keyDeps);
+  return ledgerContext.useFetchByKey(template, keyFactory, keyDeps);
 }
 
 /**
@@ -81,7 +81,7 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
-  return x.useStreamQuery(template, queryFactory, queryDeps);
+  return ledgerContext.useStreamQuery(template, queryFactory, queryDeps);
 }
 
 /**
@@ -98,12 +98,12 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
  * @return The matching (unique) contract.
  */
 export function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
-  return x.useStreamFetchByKey(template, keyFactory, keyDeps);
+  return ledgerContext.useStreamFetchByKey(template, keyFactory, keyDeps);
 }
 
 /**
  * React Hook to reload all active queries.
  */
 export function useReload(): () => void {
-  return x.useReload();
+  return ledgerContext.useReload();
 }
