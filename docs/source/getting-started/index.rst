@@ -66,7 +66,7 @@ In order to connect the UI code to this DAML, we need to run a code generation s
 Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
 
     cd ui
-    yarn install
+    yarn install --force --frozen-lockfile
 
 This step may take a couple of moments (it's worth it!).
 You should see ``success Saved lockfile.`` in the output if everything worked as expected.
