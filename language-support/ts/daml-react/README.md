@@ -117,6 +117,15 @@ the result.
 const {contract, loading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
+## Advanced Usage
+
+In order to interact as multiple parties or to connect to several ledgers, one needs to create an extra
+`DamlLedger` [contexts](https://reactjs.org/docs/context.html) specific to your requirement.
+
+`createLedgerContext`
+---------------------
+`createLedgerContext` returns another `DamlLedger` context and associated hooks (`useParty`, `useLedger` ... etc)
+that will look up their connection within that returned context.
 
 ## Source
 https://github.com/digital-asset/daml.
