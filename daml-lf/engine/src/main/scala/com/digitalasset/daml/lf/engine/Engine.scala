@@ -151,28 +151,13 @@ class Engine(config: Engine.Config) {
       (tx, meta) = result
     } yield (tx, meta)
 
-  /**
-    * Check if the given transaction is a valid result of some single-submitter command.
-    *
-    * Formally, for all tx, pcs, pkgs, keys:
-    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
-    * where:
-    *   evaluate(result) = result.consume(pcs, pkgs, keys)
-    *
-    * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
-    *
-    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
-    *
-    *  @param tx a complete unblinded Transaction to be validated
-    *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
-    */
-  def validate(
+  def replay(
       tx: Tx.SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[Unit] = {
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
 
@@ -211,6 +196,35 @@ class Engine(config: Engine.Config) {
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
         globalCids,
       )
+
+    } yield result
+  }
+
+  /**
+    * Check if the given transaction is a valid result of some single-submitter command.
+    *
+    * Formally, for all tx, pcs, pkgs, keys:
+    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
+    * where:
+    *   evaluate(result) = result.consume(pcs, pkgs, keys)
+    *
+    * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
+    *
+    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
+    *
+    *  @param tx a complete unblinded Transaction to be validated
+    *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
+    */
+  def validate(
+      tx: Tx.SubmittedTransaction,
+      ledgerEffectiveTime: Time.Timestamp,
+      participantId: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+      submissionSeed: crypto.Hash,
+  ): Result[Unit] = {
+    //reinterpret
+    for {
+      result <- replay(tx, ledgerEffectiveTime, participantId, submissionTime, submissionSeed)
       (rtx, _) = result
       validationResult <- if (tx.transaction isReplayedBy rtx.transaction) {
         ResultDone.Unit
