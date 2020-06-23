@@ -104,4 +104,6 @@ export function useStreamFetchByKey<T extends object, K, I extends string>(templ
 /**
  * React Hook to reload all active queries.
  */
-export function useReload(): (() => void) { return x.useReload(); }
+export function useReload(): () => void {
+  return x.useReload();
+}
