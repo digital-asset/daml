@@ -1,8 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, {createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Party, Template } from "@daml/types";
+import React, {useContext, useEffect, useMemo, useState } from 'react';
+import { Party, Template } from '@daml/types';
 import Ledger, { CreateEvent, Query } from '@daml/ledger';
 
 /**
@@ -84,7 +84,7 @@ export default function createLedgerContext(contextName="DamlLedgerContext"): Le
   // make unnecessary network requests. If we forget adding some dependencies, we
   // not make a new network request although they are required to refresh data.
 
-  const ledgerContext = createContext<DamlLedgerState|undefined>(undefined);
+  const ledgerContext = React.createContext<DamlLedgerState | undefined>(undefined);
   const DamlLedger: React.FC<LedgerProps> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
     const [reloadToken, setReloadToken] = useState(0);
     const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl}), [token, httpBaseUrl, wsBaseUrl]);

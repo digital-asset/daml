@@ -1,6 +1,6 @@
 
 import createLedgerContext, { FetchResult, QueryResult, LedgerProps } from "./createLedgerContext";
-import { Party, Template } from "@daml/types";
+import { Party, Template } from '@daml/types';
 import Ledger, { Query } from '@daml/ledger';
 
 /**
