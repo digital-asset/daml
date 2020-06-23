@@ -158,13 +158,13 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   // Write packages to the `dalfs` table so we can recover state after a shutdown.
   override def persistPackages(
       dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    import cats.implicits._
+    import cats.implicits._ // needed for traverse
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
   }
 
   def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
-    import cats.implicits._ // needed to find traverse
+    import cats.implicits._ // needed for traverse
     run(selectPackages).flatMap(
       _.traverse[({ type E[A] = Either[String, A] })#E, (PackageId, DamlLf.ArchivePayload)](
         (parsePackage _).tupled)
