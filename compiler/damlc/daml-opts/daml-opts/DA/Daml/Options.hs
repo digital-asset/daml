@@ -284,9 +284,21 @@ xFlagsSet options =
 wOptsSet :: [ WarningFlag ]
 wOptsSet =
   [ Opt_WarnUnusedImports
+-- Can enable when we are on GHC >= 8.10 (we should, after all we
+-- upstreamed it :) ).
 --  , Opt_WarnPrepositiveQualifiedModule
   , Opt_WarnOverlappingPatterns
   , Opt_WarnIncompletePatterns
+-- Confirmed that nothing in template desugaring prevents us from
+-- enabling these.
+  -- , Opt_WarnUnusedMatches
+  -- , Opt_WarnUnusedForalls
+  -- , Opt_WarnUnusedPatternBinds
+  -- , Opt_WarnUnusedTopBinds
+  -- , Opt_WarnUnusedTypePatterns
+-- Template desugaring in the presence of local binds will currently
+-- trigger this.
+  -- , Opt_WarnUnusedLocalBinds
   ]
 
 -- | Warning options set for DAML compilation, which become errors.
