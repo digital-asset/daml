@@ -5,7 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure
 
 final case class LedgerTestSummary(
     suite: String,
-    test: String,
+    name: String,
+    description: String,
     configuration: LedgerSessionConfiguration,
     result: Either[Result.Failure, Result.Success],
 )

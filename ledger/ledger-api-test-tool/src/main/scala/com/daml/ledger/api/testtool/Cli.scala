@@ -130,13 +130,13 @@ object Cli {
       .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
       .unbounded()
       .text(
-        """A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""",
+        """A comma-separated list of exclusion prefixes. Tests whose name start with any of the given prefixes will be skipped. Can be specified multiple times, i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`.""",
       )
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))
       .unbounded()
-      .text("""A comma-separated list of tests that should be run.""")
+      .text("""A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.""")
 
     opt[Seq[String]]("perf-tests")
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
@@ -169,6 +169,11 @@ object Cli {
            |Party names must be their hints.""".stripMargin)
 
     opt[Unit]("list")
+      .action((_, c) => c.copy(listTestSuites = true))
+      .text(
+        """Lists all available test suites that can be used in the include and exclude options. Test names always start with their suite name, so using the suite name as a prefix matches all tests in a given suite.""")
+
+    opt[Unit]("list-all")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")
 

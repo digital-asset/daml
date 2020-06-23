@@ -78,10 +78,36 @@ Tests that either change the global state of the ledger (e.g. configuration mana
 
 Use the following command line flags to select which tests to run:
 
-- ``--list``: print all available tests to the console, shows if they are run by default
-- ``--include``: only run the tests provided as argument
-- ``--exclude``: do not run the tests provided as argument
-- ``--all-tests``: run all default and optional tests. This flag can be combined with the ``--exclude`` flag.
+- ``--list``: print all available test suites to the console, shows if they are run by default
+- ``--list-all``: print all available tests to the console, shows if they are run by default
+- ``--include``: only run the tests that match the argument
+- ``--exclude``: do not run the tests that match the argument
+- ``--all-tests``: include all default and optional tests. This flag can be combined with the ``--exclude`` flag.
+- ``--perf-tests``: list performance tests to run; cannot be combined with normal tests
+
+Include and exclude are matched as prefixes, e.g. ``--exclude=SemanticTests``
+will exclude all tests whose name starts with ``SemanticTests``. Test names
+always start with their suite name followed by a colon, so the test suite names shown by ``--list`` can be
+useful for coarse-grained inclusion/exclusion.
+
+Both ``--include`` and ``--exclude`` (and ``--perf-tests``) can be specified
+multiple times and/or provide comma-separated lists, i.e. all of these are
+equivalent:
+
+- ``--include=a,b,c``
+- ``--include=a --include=b --include=c``
+- ``--include=a,b --include=c``
+
+The logic is always to first select included tests, then remove from that the
+excluded ones, i.e. include directives never override a corresponding exclude
+directive.
+
+If no ``--include`` flag is given, all of the default tests are included. If
+``--all-tests`` is given, all of the non-performance tests are included. You
+cannot run performance and non-performance tests in the same invocation.
+``--exclude`` is ignored when running performance tests, and the program will
+stop if it detects that both ``--perf-tests`` and ``--include`` (or
+``--all-tests``) have been specified.
 
 Examples (hitting a single participant at ``localhost:6865``):
 
@@ -155,4 +181,3 @@ Concurrent test runs
 
 To minimize parallelized runs of tests, ``--concurrent-test-runs`` can be set to 1 or 2.
 The default value is the number of processors available.
-
