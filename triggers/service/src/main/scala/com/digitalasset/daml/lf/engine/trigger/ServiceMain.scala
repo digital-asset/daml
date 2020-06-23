@@ -150,33 +150,9 @@ object Server {
       failureRetryTimeRange: Duration,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-      dbInit: Boolean,
+      initDb: Boolean,
       noSecretKey: Boolean,
   ): Behavior[Message] = Behaviors.setup { ctx =>
-
-    implicit val ec: ExecutionContext = ctx.system.executionContext
-
-    (dbInit, jdbcConfig) match {
-      case (true, None) =>
-        ctx.log.error("No JDBC configuration for database initialization.")
-        sys.exit(1)
-      case (true, Some(jdbcConfig)) =>
-        DbTriggerDao(jdbcConfig).initialize match {
-          case Left(err) =>
-            ctx.log.error(err)
-            sys.exit(1)
-          case Right(()) =>
-            ctx.log.info("Successfully initialized database.")
-            sys.exit(0)
-        }
-      case _ =>
-    }
-
-    val triggerDao: RunningTriggerDao =
-      jdbcConfig match {
-        case None => InMemoryTriggerDao()
-        case Some(c) => DbTriggerDao(c)
-      }
 
     val key: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
@@ -191,7 +167,32 @@ object Server {
           }
       }
 
-    val server = new Server(triggerDao)
+    implicit val ec: ExecutionContext = ctx.system.executionContext
+
+    val (triggerDao: RunningTriggerDao, server: Server) =
+      (initDb, jdbcConfig) match {
+        case (true, None) =>
+          ctx.log.error("No JDBC configuration for database initialization.")
+          sys.exit(1)
+        case (true, Some(c)) =>
+          DbTriggerDao(c).initialize match {
+            case Left(err) =>
+              ctx.log.error(err)
+              sys.exit(1)
+            case Right(()) =>
+              ctx.log.info("Successfully initialized database.")
+              sys.exit(0)
+          }
+        case (false, None) =>
+          val dao = InMemoryTriggerDao()
+          (dao, new Server(dao))
+        case (false, Some(c)) =>
+          val dao = DbTriggerDao(c)
+          val server = new Server(dao)
+//          server.recover
+//          ctx.log.info("Successfully recovered state from database.")
+          (dao, server)
+      }
 
     initialDar foreach { dar =>
       server.addDar(dar) match {
@@ -517,7 +518,7 @@ object ServiceMain {
           failureRetryTimeRange,
           encodedDar,
           jdbcConfig,
-          dbInit = false, // for tests we initialize the database in beforeEach clause
+          initDb = false, // for tests we initialize the database in beforeEach clause
           noSecretKey,
         ),
         "TriggerService"
