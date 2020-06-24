@@ -209,23 +209,29 @@ abstract class LedgerBackedIndexService(
     ledger.listKnownParties()
 
   override def partyEntries(startExclusive: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
-    Source
-      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
-      .flatMapConcat(ledger.partyEntries)
-      .map {
-        case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
-          PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
-        case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
-          PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+    ApiOffset
+      .fromString(startExclusive.value)
+      .map { offset =>
+        ledger
+          .partyEntries(offset)
+          .map {
+            case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
+              PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
+            case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
+              PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+          }
       }
+      .fold(error => Source.failed(error), identity)
   }
 
   override def packageEntries(
       startExclusive: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
-    Source
-      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
-      .flatMapConcat(ledger.packageEntries)
-      .map(_._2.toDomain)
+    ApiOffset
+      .fromString(startExclusive.value)
+      .map { offset =>
+        ledger.packageEntries(offset).map(_._2.toDomain)
+      }
+      .fold(error => Source.failed(error), identity)
 
   /** Looks up the current configuration, if set, and the offset from which
     * to subscribe to further configuration changes.
@@ -238,15 +244,21 @@ abstract class LedgerBackedIndexService(
 
   /** Retrieve configuration entries. */
   override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
-    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
-    Source
-      .future(
-        startExclusive
-          .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
-          .getOrElse(Future.successful(None)))
-      .flatMapConcat(ledger.configurationEntries(_).map {
-        case (offset, config) => toAbsolute(offset) -> config.toDomain
-      })
+    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] = {
+    import scalaz.syntax.traverse._
+    import scalaz.std.option._
+
+    val domainOffsetE: Throwable \/ Option[Offset] =
+      startExclusive.traverseU(off => \/.fromEither(ApiOffset.fromString(off.value).toEither))
+
+    domainOffsetE.fold(
+      error => Source.failed(error),
+      offsetO =>
+        ledger.configurationEntries(offsetO).map {
+          case (offset, config) => toAbsolute(offset) -> config.toDomain
+      }
+    )
+  }
 
   /** Deduplicate commands */
   override def deduplicateCommand(

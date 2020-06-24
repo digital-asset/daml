@@ -89,9 +89,9 @@ private[dao] final class TransactionsReader(
       }
 
     groupContiguous(events)(by = _.transactionId)
-      .flatMapConcat { events =>
+      .mapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionsResponse(events)
-        Source(response.map(r => offsetFor(r) -> r))
+        response.map(r => offsetFor(r) -> r)
       }
   }
 
@@ -209,8 +209,8 @@ private[dao] final class TransactionsReader(
       }
 
     groupContiguous(events)(by = _.transactionId)
-      .flatMapConcat { events =>
-        Source(EventsTable.Entry.toGetActiveContractsResponse(events))
+      .mapConcat { events =>
+        EventsTable.Entry.toGetActiveContractsResponse(events)
       }
   }
 

@@ -131,25 +131,23 @@ class InMemoryLedger(
   ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
-      .flatMapConcat {
+      .mapConcat {
         case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
-          Source(
-            TransactionConversion
-              .ledgerEntryToFlatTransaction(
-                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
-                tx,
-                TransactionFilter(filter.map {
-                  case (party, templates) =>
-                    party -> Filters(
-                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
-                }),
-                verbose
-              )
-              .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
-              .toList
-          )
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(
+              LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+              tx,
+              TransactionFilter(filter.map {
+                case (party, templates) =>
+                  party -> Filters(
+                    if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+              }),
+              verbose
+            )
+            .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
+            .toList
         case _ =>
-          Source.empty
+          List.empty
       }
 
   override def transactionTrees(
@@ -160,19 +158,18 @@ class InMemoryLedger(
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
-      .flatMapConcat {
+      .mapConcat {
         case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
-          Source(
-            TransactionConversion
-              .ledgerEntryToTransactionTree(
-                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
-                tx,
-                requestingParties,
-                verbose)
-              .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
-              .toList)
+          TransactionConversion
+            .ledgerEntryToTransactionTree(
+              LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+              tx,
+              requestingParties,
+              verbose)
+            .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
+            .toList
         case _ =>
-          Source.empty
+          List.empty
       }
 
   // mutable state
