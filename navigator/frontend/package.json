@@ -27,9 +27,9 @@
     "@types/color": "1.0.3",
     "@types/deep-equal": "1.0.0",
     "@types/lodash": "4.14.76",
-    "@types/react": "~16.0.5",
+    "@types/react": "^16.9.41",
     "@types/react-autosuggest": "8.0.1",
-    "@types/react-dom": "^15.5.0",
+    "@types/react-dom": "^16.9.8",
     "@types/react-overlays": "0.8.4",
     "@types/react-redux": "^5.0.8 <5.0.13",
     "@types/react-virtualized": "9.7.4",
@@ -67,10 +67,10 @@
     "modernizr": "^3.6.0",
     "moment": "^2.23.0",
     "normalize.css": "^7.0.0",
-    "react": "^15.6.2",
+    "react": "^16.13.1",
     "react-apollo": "^1.4.15",
     "react-autosuggest": "9.3.2",
-    "react-dom": "^15.6.2",
+    "react-dom": "^16.13.1",
     "react-markdown": "2.5.0",
     "react-overlays": "1.0.0-beta.2",
     "react-redux": "^5.0.5",
@@ -84,7 +84,6 @@
     "whatwg-fetch": "^2.0.3"
   },
   "resolutions": {
-    "**/@types/react": "~16.0.0",
     "**/apollo-client": "~1.4.0",
     "**/elliptic": "^6.5.3",
     "**/resize-img": "^2.0.0"
