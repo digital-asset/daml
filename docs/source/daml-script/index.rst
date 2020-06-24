@@ -9,7 +9,7 @@ DAML Script
 
    daml-script-docs
 
-DAML scenarios provide a simple API for testing DAML models
+DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
 in a special process and do not interact with an actual ledger. This
 means that you cannot use scenarios to test other ledger clients,
