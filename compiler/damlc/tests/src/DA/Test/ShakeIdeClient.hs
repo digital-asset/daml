@@ -1206,7 +1206,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
         let vr = VRScenario f "test"
         setOpenVirtualResources [vr]
         -- TODO(MH): Matching on HTML via regular expressions has a high
-        -- chance of becoming a maintenance nightmare.
+        -- chance of becoming a maintenance nightmare. Fina a better way.
         expectVirtualResourceRegex vr $ T.intercalate ".*"
             [ "<h1>TableView:Iou</h1>"
             , "<table"
@@ -1214,7 +1214,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             , "<tr"
             , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
             , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
-            , "<td", "tooltip", ">-<", "tooltiptext", ">Invisible<", "</td>"
+            , "<td", "tooltip", ">-</div></td>"
             , "</tr"
             , "<tr"
             , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"

@@ -14,7 +14,7 @@ module DA.Daml.LF.PrettyScenario
   , ModuleRef
   ) where
 
-import           Control.Monad
+import           Control.Monad.Extra
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import qualified DA.Daml.LF.Ast             as LF
@@ -834,15 +834,15 @@ renderRow world parties NodeInfo{..} =
             , ths
             ]
         viewStatus party =
-            let (label, hint)
-                    | party `S.member` niSignatories = ("S", "Signatory")
-                    | party `S.member` niStakeholders = ("O", "Observer")
-                    | party `S.member` niWitnesses = ("D", "Disclosed/\x200B\&Divulged")  -- The charater after the "/" is a zero-width space.
-                    | otherwise = ("-", "Invisible")
+            let (label, mbHint)
+                    | party `S.member` niSignatories = ("S", Just "Signatory")
+                    | party `S.member` niStakeholders = ("O", Just "Observer")
+                    | party `S.member` niWitnesses = ("D", Just "Disclosed/\x200B\&Divulged")  -- The charater after the "/" is a zero-width space.
+                    | otherwise = ("-", Nothing)
             in
             H.td H.! A.class_ "disclosure" $ H.div H.! A.class_ "tooltip" $ do
                 H.text label
-                H.span H.! A.class_ "tooltiptext" $ H.text hint
+                whenJust mbHint $ \hint -> H.span H.! A.class_ "tooltiptext" $ H.text hint
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
             [ foldMap viewStatus parties
