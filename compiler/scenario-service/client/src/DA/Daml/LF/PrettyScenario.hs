@@ -828,10 +828,10 @@ renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
 renderRow world parties NodeInfo{..} =
     let (ths, tds) = renderValue world [] niValue
         header = H.tr $ mconcat
-            [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
-            , H.th "id"
+            [ H.th "id"
             , H.th "status"
             , ths
+            , foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             ]
         viewStatus party =
             let (label, mbHint)
@@ -845,10 +845,10 @@ renderRow world parties NodeInfo{..} =
                 whenJust mbHint $ \hint -> H.span H.! A.class_ "tooltiptext" $ H.text hint
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
-            [ foldMap viewStatus parties
-            , H.td (H.text $ renderPlain $ prettyNodeId niNodeId)
+            [ H.td (H.text $ renderPlain $ prettyNodeId niNodeId)
             , H.td (H.text active)
             , tds
+            , foldMap viewStatus parties
             ]
     in (header, row)
 
