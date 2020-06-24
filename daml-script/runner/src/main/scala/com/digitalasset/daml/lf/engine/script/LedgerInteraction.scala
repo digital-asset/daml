@@ -579,9 +579,13 @@ class JsonLedgerClient(
         getResponseDataBytes(resp).map(description =>
           Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(description))))
       } else {
-        // A non-500 failure is something like invalid JSON. In that case
-        // the script runner is just broken so fail hard.
-        Future.failed(new RuntimeException(s"Request failed: $resp"))
+        // A non-500 failure is something like invalid JSON or “cannot resolve template ID”.
+        // We don’t want to treat that failures as ones that can be caught
+        // via `submitMustFail` so fail hard.
+        getResponseDataBytes(resp).flatMap(
+          description =>
+            Future.failed(
+              new RuntimeException(s"Request failed: $description, status code: ${resp.status}")))
       }
     }
   }

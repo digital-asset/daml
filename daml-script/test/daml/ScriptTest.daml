@@ -236,6 +236,11 @@ jsonMultiParty (alice, bob) = do
   submit bob (exerciseCmd c Accept)
   pure ()
 
+jsonMissingTemplateId : Party -> Script Int
+jsonMissingTemplateId p = do
+  cid <- submit p (createCmd $ TProposal p p)
+  snd <$> submit p (exerciseCmd cid Accept)
+
 -- maxInboundMessageSize
 
 template MessageSize

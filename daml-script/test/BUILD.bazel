@@ -47,6 +47,39 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+# A variant of script-test that has not been uploaded to the ledger
+# to test missing template ids. We only care that this has a different package id.
+genrule(
+    name = "script-test-no-ledger",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//daml-script/daml:daml-script.dar",
+            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+        ],
+    outs = ["script-test-no-ledger.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test-no-ledger
+source: daml
+version: 0.0.2
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test-no-ledger.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 da_scala_library(
     name = "test-lib",
     srcs = glob(
@@ -95,7 +128,10 @@ da_scala_test_suite(
     srcs = [
         "src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala",
     ],
-    data = [":script-test.dar"],
+    data = [
+        ":script-test.dar",
+        ":script-test-no-ledger.dar",
+    ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [
         ":test-lib",
