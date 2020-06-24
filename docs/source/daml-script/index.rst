@@ -242,7 +242,7 @@ translated to DAML script but there are a few things to keep in mind:
 #. You need to replace calls to ``getParty x`` by
    ``allocatePartyWithHint x (PartyIdHint x)``.
 
-.. daml-script-distributed
+.. _daml-script-distributed:
 
 Using DAML Script in Distributed Topologies
 ===========================================
@@ -268,7 +268,7 @@ want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
 
-.. daml-script-auth
+.. _daml-script-auth:
 
 Running DAML Script against Authenticated Ledgers
 =================================================
@@ -293,7 +293,7 @@ If you specify both ``--access-token-file`` and
 the token from the file will be used for any participant that does not
 have a token specified in the config.
 
-.. daml-script-json-api
+.. _daml-script-json-api:
 
 Running DAML Script against the HTTP JSON API
 =============================================
