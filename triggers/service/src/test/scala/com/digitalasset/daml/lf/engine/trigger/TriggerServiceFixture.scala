@@ -66,8 +66,9 @@ object TriggerServiceFixture {
     // connections.
     val host = InetAddress.getLoopbackAddress
     val toxiProxyExe = BazelRunfiles.rlocation(System.getProperty("com.daml.toxiproxy"))
+    println("toxiProxyExe = " + toxiProxyExe)
     val toxiProxyPort = findFreePort()
-    val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
+    val toxiProxyProc = Process(Seq("foo", "--port", toxiProxyPort.value.toString)).run()
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       for {
         channel <- Future(new Socket(host, toxiProxyPort.value))
