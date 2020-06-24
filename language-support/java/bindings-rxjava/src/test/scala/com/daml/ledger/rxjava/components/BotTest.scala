@@ -29,11 +29,12 @@ import com.google.protobuf.{Empty => JEmpty}
 import com.google.rpc.Status
 import com.google.rpc.code.Code.OK
 import io.grpc.Metadata
+import io.reactivex.disposables.Disposable
 import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -43,10 +44,26 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
-final class BotTest extends FlatSpec with Matchers with Eventually {
+final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAndAfterEach {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
   private def ledgerServices: LedgerServices = new LedgerServices("bot-test")
+
+  private var dispose: Seq[Disposable] = _
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    this.dispose = Vector.empty
+  }
+
+  override def afterEach(): Unit = {
+    dispose.foreach(_.dispose())
+    super.afterEach()
+  }
+
+  private def afterwardsDisposeOf(disposable: Disposable): Unit = {
+    dispose = dispose :+ disposable
+  }
 
   "Bot" should "create a flowable of WorkflowEvents from the ACS" in {
     val acs = new TestFlowable[GetActiveContractsResponse]("acs")
@@ -229,7 +246,8 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
       }
 
     val counter = new AtomicInteger(0)
-    Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
+    val connection = Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
+    afterwardsDisposeOf(connection)
 
     // when the bot is wired-up, no command should have been submitted to the server
     ledgerClient.submitted should have size 0
@@ -311,7 +329,8 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
           )
         }
       }
-    Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
+    val connection = Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
+    afterwardsDisposeOf(connection)
 
     // when the bot is wired-up, no command should have been submitted to the server
     eventually {
@@ -442,26 +461,28 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
        * error to pretty-print it. This try-catch depends on the implementation of `TransactionServiceImpl.getTransactionTree()`
        */
       try {
-        Bot.wireSimple(
-          "appId",
-          client,
-          new FiltersByParty(Collections.emptyMap()),
-          _ => Flowable.empty())
+        Bot
+          .wireSimple(
+            "appId",
+            client,
+            new FiltersByParty(Collections.emptyMap()),
+            _ => Flowable.empty(),
+          )
+          .dispose()
       } catch {
         case GrpcException(GrpcStatus.INVALID_ARGUMENT(), trailers) =>
           /** the tests relies on specific implementation of the [[TransactionsServiceImpl.getTransactions()]]  */
           fail(trailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
       }
 
-      // test is passed, we wait a bit to avoid issues with gRPC and then close the client. If there is an exception,
-      // we just ignore it as there are some problems with gRPC
+      // If there is an exception, we just ignore it as there are some problems with gRPC.
       try {
-        Thread.sleep(100)
         client.close()
       } catch {
-        case NonFatal(e) =>
+        case NonFatal(exception) =>
           logger.warn(
-            s"Closing DamlLedgerClient caused an error, ignoring it because it can happen and it should not be a problem. Error is $e")
+            "Closing DamlLedgerClient caused an error, ignoring it because it can happen and it should not be a problem",
+            exception)
       }
     }
   }
