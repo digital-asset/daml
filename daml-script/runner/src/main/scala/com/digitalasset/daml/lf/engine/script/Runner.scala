@@ -19,6 +19,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.map._
+import scalaz.std.scalaFuture._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scala.language.higherKinds
@@ -196,21 +197,10 @@ object Runner {
       implicit ec: ExecutionContext,
       seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
-      // The standard library is incredibly weird. Option is not Traversable so we have to convert to a list and back.
-      defaultClient <- Future
-        .traverse(participantParams.default_participant.toList)(x =>
-          connectApiParameters(x, applicationId, tlsConfig, maxInboundMessageSize))
-        .map(_.headOption)
-      // XXX SC: remove : Iterable and .map(_.toMap) step in 2.13. Once again,
-      // the poorly-chosen tparams of traverse's sig gets in our way here. We
-      // can't just wrap-fix it like we can with the same mistake in the
-      // Scalatest instances
-      participantClients <- Future
-        .traverse(participantParams.participants: Iterable[(Participant, ApiParameters)])({
-          case (k, v) =>
-            connectApiParameters(v, applicationId, tlsConfig, maxInboundMessageSize).map((k, _))
-        })
-        .map(_.toMap)
+      defaultClient <- participantParams.default_participant.traverse(x =>
+        connectApiParameters(x, applicationId, tlsConfig, maxInboundMessageSize))
+      participantClients <- participantParams.participants.traverse(v =>
+        connectApiParameters(v, applicationId, tlsConfig, maxInboundMessageSize))
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 
@@ -228,14 +218,8 @@ object Runner {
 
     }
     for {
-      // Apparently Future.traverse is too stupid to traverse an
-      // Option so you first have to convert to a list and then convert back.
-      defClient <- Future
-        .traverse(participantParams.default_participant.toList)(client(_))
-        .map(_.headOption)
-      otherClients <- Future
-        .traverse(participantParams.participants)({ case (k, v) => client(v).map(c => (k, c)) })
-        .map(_.toMap)
+      defClient <- participantParams.default_participant.traverse(client(_))
+      otherClients <- participantParams.participants.traverse(client)
     } yield Participants(defClient, otherClients, participantParams.party_participants)
   }
 
