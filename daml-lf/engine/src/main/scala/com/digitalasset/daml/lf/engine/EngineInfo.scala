@@ -19,7 +19,9 @@ class EngineInfo(config: Engine.Config) {
 
   private[this] def formatOutputValueVersions: String =
     format(
-      ValueVersions.acceptedVersions.filter(config.outputValueVersions.contains).map(_.protoValue)
+      ValueVersions.acceptedVersions
+        .filter(config.allowedOutputValueVersions.contains)
+        .map(_.protoValue)
     )
 
   private[this] def formatInputTransactionVersions: String =
@@ -28,7 +30,7 @@ class EngineInfo(config: Engine.Config) {
   private[this] def formatOutputTransactionVersions: String =
     format(
       TransactionVersions.acceptedVersions
-        .filter(config.outputTransactionVersion.contains)
+        .filter(config.allowedOutputTransactionVersions.contains)
         .map(_.protoValue))
 
   private def formatLfVersions: String = {

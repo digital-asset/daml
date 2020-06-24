@@ -40,7 +40,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   private implicit val materializer: Materializer = Materializer(actorSystem)
 
   def run(input: DataInputStream): Unit = {
-    val engine = Engine()
+    val engine = new Engine(Engine.DevConfig)
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
     val submissionValidator = BatchedSubmissionValidator[LogResult](

@@ -604,8 +604,8 @@ object Speedy {
         expr = expr,
         globalCids = Set.empty,
         committers = Set.empty,
-        supportedValueVersions = ValueVersions.SupportedVersions,
-        supportedTransactionVersions = TransactionVersions.SupportedVersions,
+        supportedValueVersions = ValueVersions.SupportedDevVersions,
+        supportedTransactionVersions = TransactionVersions.SupportedDevVersions,
       )
 
     @throws[PackageNotFound]

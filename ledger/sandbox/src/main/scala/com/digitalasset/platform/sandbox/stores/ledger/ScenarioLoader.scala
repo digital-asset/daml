@@ -148,8 +148,8 @@ object ScenarioLoader {
       compiledPackages,
       transactionSeed,
       scenarioExpr,
-      engineConfig.outputValueVersions,
-      engineConfig.outputTransactionVersion,
+      engineConfig.allowedOutputValueVersions,
+      engineConfig.allowedOutputTransactionVersions,
     )
 
   private def getScenarioExpr(

@@ -279,8 +279,8 @@ final class Engine(config: Engine.Config) {
           .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        supportedValueVersions = config.outputValueVersions,
-        supportedTransactionVersions = config.outputTransactionVersion,
+        supportedValueVersions = config.allowedOutputValueVersions,
+        supportedTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
@@ -408,45 +408,46 @@ object Engine {
 
   case class Config private[Engine] (
       // constrains the version of output values
-      outputValueVersions: VersionRange[value.ValueVersion],
+      allowedOutputValueVersions: VersionRange[value.ValueVersion],
       // constrains the version of output transactions
-      outputTransactionVersion: VersionRange[transaction.TransactionVersion],
+      allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
   ) extends NoCopy
 
   val StableConfig =
-    new Config(
-      outputValueVersions = ValueVersions.SupportedStableVersions,
-      outputTransactionVersion = transaction.TransactionVersions.SupportedStableVersions
+    Config.assertBuild(
+      allowedOutputValueVersions = ValueVersions.SupportedStableVersions,
+      allowedOutputTransactionVersions = transaction.TransactionVersions.SupportedStableVersions
     )
 
   val DevConfig =
     new Config(
-      outputValueVersions = ValueVersions.SupportedVersions,
-      outputTransactionVersion = TransactionVersions.SupportedVersions,
+      allowedOutputValueVersions = ValueVersions.SupportedDevVersions,
+      allowedOutputTransactionVersions = TransactionVersions.SupportedDevVersions,
     )
 
   object Config {
 
     def build(
-        allowedValueVersions: VersionRange[value.ValueVersion],
-        allowedTransactionVersions: VersionRange[transaction.TransactionVersion],
+        allowedOutputValueVersions: VersionRange[value.ValueVersion],
+        allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
     ): Either[String, Config] =
       Right(
         new Config(
-          outputValueVersions = allowedValueVersions intersect ValueVersions.SupportedVersions,
-          outputTransactionVersion = allowedTransactionVersions intersect TransactionVersions.SupportedVersions,
+          allowedOutputValueVersions = allowedOutputValueVersions intersect ValueVersions.SupportedDevVersions,
+          allowedOutputTransactionVersions = allowedOutputTransactionVersions intersect TransactionVersions.SupportedDevVersions,
         )
       )
 
     def assertBuild(
-        supportedValueVersions: VersionRange[value.ValueVersion],
-        supportedTransactionVersions: VersionRange[transaction.TransactionVersion],
+        allowedOutputValueVersions: VersionRange[value.ValueVersion],
+        allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
     ): Config =
       data.assertRight(
         build(
-          supportedValueVersions,
-          supportedTransactionVersions,
-        ))
+          allowedOutputValueVersions,
+          allowedOutputTransactionVersions,
+        )
+      )
 
   }
 
