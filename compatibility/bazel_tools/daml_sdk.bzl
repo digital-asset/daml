@@ -128,7 +128,7 @@ sh_binary(
 cc_binary(
   name = "daml",
   srcs = ["daml.cc"],
-  data = [":sdk/bin/daml"],
+  data = [":sdk/bin/daml"] + glob(["sdk/sdk/{version}/**"]),
   deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 # Needed to provide the same set of DARs to the ledger that
@@ -138,7 +138,7 @@ filegroup(
     srcs = glob(["extracted-test-tool/ledger/test-common/**"]),
 )
 exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
-""",
+""".format(version = ctx.attr.version),
     )
     return None
 
