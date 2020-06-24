@@ -111,6 +111,22 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
     insert.update.run.void
   }
 
+  private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
+    val select: Fragment = sql"select * from dalfs"
+    select.query[(String, Array[Byte])].to[List]
+  }
+
+  private def parsePackage(
+      pkgIdString: String,
+      pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
+    for {
+      pkgId <- PackageId.fromString(pkgIdString)
+      payload <- Try(DamlLf.ArchivePayload.parseFrom(pkgPayload)) match {
+        case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
+        case Success(pkg) => Right(pkg)
+      }
+    } yield (pkgId, payload)
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -142,9 +158,17 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   // Write packages to the `dalfs` table so we can recover state after a shutdown.
   override def persistPackages(
       dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    import cats.implicits._
+    import cats.implicits._ // needed for traverse
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
+  }
+
+  def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
+    import cats.implicits._ // needed for traverse
+    run(selectPackages, "Failed to read packages from database").flatMap(
+      _.traverse[({ type E[A] = Either[String, A] })#E, (PackageId, DamlLf.ArchivePayload)](
+        (parsePackage _).tupled)
+    )
   }
 
   def initialize: Either[String, Unit] =
