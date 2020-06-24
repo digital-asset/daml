@@ -270,6 +270,7 @@ cmdRepl numProcessors =
                         long "max-inbound-message-size" <>
                         help "Optional max inbound message size in bytes."
                     )
+            <*> timeModeFlag
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -303,6 +304,19 @@ cmdRepl numProcessors =
                 , clientSSLKeyCertPair = mbClientKeyCertPair
                 , clientMetadataPlugin = Nothing
                 }
+
+    timeModeFlag :: Parser ReplClient.ReplTimeMode
+    timeModeFlag =
+        (flag' ReplClient.ReplWallClock $ mconcat
+            [ short 'w'
+            , long "wall-clock-time"
+            , help "Use wall clock time (UTC)."
+            ])
+        <|> (flag ReplClient.ReplWallClock ReplClient.ReplStatic $ mconcat
+            [ short 's'
+            , long "static-time"
+            , help "Use static time."
+            ])
 
 
 cmdClean :: Mod CommandFields Command
@@ -574,8 +588,9 @@ execRepl
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
+    -> ReplClient.ReplTimeMode
     -> Command
-execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             mainDar <- makeAbsolute mainDar
@@ -586,7 +601,7 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
             let jar = runfilesDir </> "repl-service.jar"
-            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize Inherit) $ \replHandle _stdout _ph ->
+            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle _stdout _ph ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar

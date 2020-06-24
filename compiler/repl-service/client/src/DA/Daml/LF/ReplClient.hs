@@ -7,6 +7,7 @@
 module DA.Daml.LF.ReplClient
   ( Options(..)
   , MaxInboundMessageSize(..)
+  , ReplTimeMode(..)
   , Handle
   , withReplClient
   , loadPackage
@@ -38,6 +39,8 @@ import System.Process
 newtype MaxInboundMessageSize = MaxInboundMessageSize Int
   deriving newtype Read
 
+data ReplTimeMode = ReplWallClock | ReplStatic
+
 data Options = Options
   { optServerJar :: FilePath
   , optLedgerHost :: String
@@ -45,6 +48,7 @@ data Options = Options
   , optMbAuthTokenFile :: Maybe FilePath
   , optMbSslConfig :: Maybe ClientSSLConfig
   , optMaxInboundMessageSize :: Maybe MaxInboundMessageSize
+  , optTimeMode :: ReplTimeMode
   , optStdout :: StdStream
   -- ^ This is intended for testing so we can redirect stdout there.
   }
@@ -89,6 +93,10 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
                            | Just ClientSSLKeyCertPair{..} <- [ clientSSLKeyCertPair tlsConf ]
                            ]
                      ]
+        , [ case optTimeMode of
+                ReplStatic -> "--static-time"
+                ReplWallClock -> "--wall-clock-time"
+          ]
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
       port <- readPortFile maxRetries portFile

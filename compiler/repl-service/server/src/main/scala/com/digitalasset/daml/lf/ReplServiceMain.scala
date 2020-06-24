@@ -36,11 +36,23 @@ object ReplServiceMain extends App {
       accessTokenFile: Option[Path],
       maxInboundMessageSize: Int,
       tlsConfig: Option[TlsConfiguration],
+      // optional so we can detect if both --static-time and --wall-clock-time are passed.
+      timeMode: Option[ScriptTimeMode],
   )
   object Config {
     private def validatePath(path: String, message: String): Either[String, Unit] = {
       val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
       if (readable) Right(()) else Left(message)
+    }
+    private def setTimeMode(
+        config: Config,
+        timeMode: ScriptTimeMode,
+    ): Config = {
+      if (config.timeMode.exists(_ != timeMode)) {
+        throw new IllegalStateException(
+          "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+      }
+      config.copy(timeMode = Some(timeMode))
     }
     private val parser = new scopt.OptionParser[Config]("repl-service") {
       opt[String]("port-file")
@@ -100,6 +112,18 @@ object ReplServiceMain extends App {
         .optional()
         .text(
           s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
+
+      opt[Unit]('w', "wall-clock-time")
+        .action { (_, c) =>
+          setTimeMode(c, ScriptTimeMode.WallClock)
+        }
+        .text("Use wall clock time (UTC).")
+
+      opt[Unit]('s', "static-time")
+        .action { (_, c) =>
+          setTimeMode(c, ScriptTimeMode.Static)
+        }
+        .text("Use static time.")
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
@@ -111,6 +135,7 @@ object ReplServiceMain extends App {
           accessTokenFile = None,
           tlsConfig = None,
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+          timeMode = None,
         )
       )
   }
@@ -140,11 +165,12 @@ object ReplServiceMain extends App {
     Runner
       .connect(participantParams, applicationId, config.tlsConfig, config.maxInboundMessageSize),
     30.seconds)
+  val timeMode = config.timeMode.getOrElse(ScriptTimeMode.WallClock)
 
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-      .addService(new ReplService(clients, ec, sequencer, materializer))
+      .addService(new ReplService(clients, timeMode, ec, sequencer, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build
   server.start()
@@ -158,6 +184,7 @@ object ReplServiceMain extends App {
 
 class ReplService(
     val clients: Participants[ScriptLedgerClient],
+    timeMode: ScriptTimeMode,
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer)
@@ -227,7 +254,7 @@ class ReplService(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
-      ScriptTimeMode.WallClock)
+      timeMode)
     runner.runWithClients(clients).onComplete {
       case Failure(e: SError.SError) =>
         // The error here is already printed by the logger in stepToValue.
