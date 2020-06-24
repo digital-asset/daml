@@ -64,7 +64,7 @@ da_java_proto_library(
 da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
-    scalacopts = lf_scalacopts + ["-Xsource:2.13"],
+    scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [

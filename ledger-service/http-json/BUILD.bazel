@@ -11,8 +11,6 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 hj_scalacopts = [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-    "-Ypartial-unification",
-    "-Xsource:2.13",
 ]
 
 da_scala_library(

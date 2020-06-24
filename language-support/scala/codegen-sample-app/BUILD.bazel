@@ -77,7 +77,6 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app-testing",
     srcs = testing_utils,
     resources = glob(["src/test/resources/**/*"]),
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -95,7 +94,6 @@ da_scala_test(
             "src/test/scala/com/digitalasset/codegen/ScalaCodeGenIT.scala",
         ],
     ),
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         ":daml-lf-codegen-sample-app",
         "//language-support/scala/bindings",
@@ -120,7 +118,6 @@ da_scala_test(
     jvm_flags = [
         "-Dcom.daml.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar",
     ],
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",

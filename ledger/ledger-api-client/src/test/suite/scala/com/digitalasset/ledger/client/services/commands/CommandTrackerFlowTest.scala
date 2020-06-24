@@ -104,6 +104,13 @@ class CommandTrackerFlowTest
 
   }
 
+  // XXX SC remove in Scala 2.13; see notes in ConfSpec
+  import scala.collection.GenTraversable, org.scalatest.enablers.Containing
+  private[this] implicit def `fixed sig containingNatureOfGenTraversable`[
+      E: org.scalactic.Equality,
+      TRAV]: Containing[TRAV with GenTraversable[E]] =
+    Containing.containingNatureOfGenTraversable[E, GenTraversable]
+
   "Command tracking flow" when {
 
     "two commands are submitted with the same ID" should {

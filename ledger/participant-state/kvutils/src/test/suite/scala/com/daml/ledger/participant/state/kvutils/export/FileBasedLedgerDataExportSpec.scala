@@ -12,6 +12,13 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
 class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoSugar {
+  // XXX SC remove in Scala 2.13; see notes in ConfSpec
+  import scala.collection.GenTraversable, org.scalatest.enablers.Containing
+  private[this] implicit def `fixed sig containingNatureOfGenTraversable`[
+      E: org.scalactic.Equality,
+      TRAV]: Containing[TRAV with GenTraversable[E]] =
+    Containing.containingNatureOfGenTraversable[E, GenTraversable]
+
   "addParentChild" should {
     "add entry to correlation ID mapping" in {
       val instance = new FileBasedLedgerDataExporter(mock[DataOutputStream])
