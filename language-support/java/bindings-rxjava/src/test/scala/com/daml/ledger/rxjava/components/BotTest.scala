@@ -49,22 +49,6 @@ final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAn
 
   private def ledgerServices: LedgerServices = new LedgerServices("bot-test")
 
-  private var dispose: Seq[Disposable] = _
-
-  override def beforeEach(): Unit = {
-    super.beforeEach()
-    this.dispose = Vector.empty
-  }
-
-  override def afterEach(): Unit = {
-    dispose.foreach(_.dispose())
-    super.afterEach()
-  }
-
-  private def afterwardsDisposeOf(disposable: Disposable): Unit = {
-    dispose = dispose :+ disposable
-  }
-
   "Bot" should "create a flowable of WorkflowEvents from the ACS" in {
     val acs = new TestFlowable[GetActiveContractsResponse]("acs")
     val transactions = new TestFlowable[Transaction]("transaction")
@@ -246,25 +230,24 @@ final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAn
       }
 
     val counter = new AtomicInteger(0)
-    val connection = Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
-    afterwardsDisposeOf(connection)
+    using(Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)) { _ =>
+      // when the bot is wired-up, no command should have been submitted to the server
+      ledgerClient.submitted should have size 0
+      counter.get shouldBe 0
 
-    // when the bot is wired-up, no command should have been submitted to the server
-    ledgerClient.submitted should have size 0
-    counter.get shouldBe 0
+      // when the bot receives a transaction, a command should be submitted to the server
+      val createdEvent1 = create(party, templateId, id = 1)
+      transactions.emit(transaction(createdEvent1))
 
-    // when the bot receives a transaction, a command should be submitted to the server
-    val createdEvent1 = create(party, templateId, id = 1)
-    transactions.emit(transaction(createdEvent1))
+      eventually {
+        finishedWork.get shouldBe true
+      }
 
-    eventually {
-      finishedWork.get shouldBe true
+      ledgerClient.submitted should have size 3
+      counter.get shouldBe 3
+
+      transactions.complete()
     }
-
-    ledgerClient.submitted should have size 3
-    counter.get shouldBe 3
-
-    transactions.complete()
   }
 
   it should "wire a bot to the ledger-client" in {
@@ -329,62 +312,61 @@ final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAn
           )
         }
       }
-    val connection = Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
-    afterwardsDisposeOf(connection)
+    using(Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)) { _ =>
+      // when the bot is wired-up, no command should have been submitted to the server
+      eventually {
+        ledgerClient.submitted should have size 0
+      }
 
-    // when the bot is wired-up, no command should have been submitted to the server
-    eventually {
-      ledgerClient.submitted should have size 0
-    }
+      // when the bot receives a transaction, a command should be submitted to the server
+      val createdEvent1 = create(party, templateId)
+      transactions.emit(transaction(createdEvent1))
+      eventually {
+        ledgerClient.submitted should have size 1
+      }
 
-    // when the bot receives a transaction, a command should be submitted to the server
-    val createdEvent1 = create(party, templateId)
-    transactions.emit(transaction(createdEvent1))
-    eventually {
-      ledgerClient.submitted should have size 1
-    }
+      val archivedEvent1 = archive(createdEvent1)
+      val createEvent2 = create(party, templateId)
+      val createEvent3 = create(party, templateId)
+      transactions.emit(transaction(archivedEvent1, createEvent2, createEvent3))
+      eventually {
+        ledgerClient.submitted should have size 3
+      }
 
-    val archivedEvent1 = archive(createdEvent1)
-    val createEvent2 = create(party, templateId)
-    val createEvent3 = create(party, templateId)
-    transactions.emit(transaction(archivedEvent1, createEvent2, createEvent3))
-    eventually {
+      // we complete the first command with success and then check that the client hasn't submitted a new command
+      commandCompletions.emit(
+        new CompletionStreamResponse(
+          Optional.of(new Checkpoint(ZeroTimestamp, new LedgerOffset.Absolute(""))),
+          List(
+            scalaAPI.CompletionOuterClass.Completion
+              .newBuilder()
+              .setCommandId("commandId_0")
+              .setStatus(Status.newBuilder().setCode(OK.value).build())
+              .build()).asJava
+        ))
+      Thread.sleep(100)
       ledgerClient.submitted should have size 3
+
+      // WARNING: THE FOLLOWING TEST IS NOT PASSING YET
+      // // we complete the second command with failure and then check that the client has submitted a new command
+      // commandCompletions.emit(
+      //   new CompletionStreamResponse(
+      //     Optional.of(new Checkpoint(ZeroTimestamp, new LedgerOffset.Absolute(""))),
+      //     List(
+      //       CompletionOuterClass.Completion
+      //         .newBuilder()
+      //         .setCommandId("commandId_1")
+      //         .setStatus(Status.newBuilder().setCode(INVALID_ARGUMENT.value))
+      //         .build(),
+      //     ).asJava
+      //   ))
+      // eventually {
+      //   ledgerClient.submitted should have size 4
+      // }
+
+      transactions.complete()
+      commandCompletions.complete()
     }
-
-    // we complete the first command with success and then check that the client hasn't submitted a new command
-    commandCompletions.emit(
-      new CompletionStreamResponse(
-        Optional.of(new Checkpoint(ZeroTimestamp, new LedgerOffset.Absolute(""))),
-        List(
-          scalaAPI.CompletionOuterClass.Completion
-            .newBuilder()
-            .setCommandId("commandId_0")
-            .setStatus(Status.newBuilder().setCode(OK.value).build())
-            .build()).asJava
-      ))
-    Thread.sleep(100)
-    ledgerClient.submitted should have size 3
-
-    // WARNING: THE FOLLOWING TEST IS NOT PASSING YET
-    // // we complete the second command with failure and then check that the client has submitted a new command
-    // commandCompletions.emit(
-    //   new CompletionStreamResponse(
-    //     Optional.of(new Checkpoint(ZeroTimestamp, new LedgerOffset.Absolute(""))),
-    //     List(
-    //       CompletionOuterClass.Completion
-    //         .newBuilder()
-    //         .setCommandId("commandId_1")
-    //         .setStatus(Status.newBuilder().setCode(INVALID_ARGUMENT.value))
-    //         .build(),
-    //     ).asJava
-    //   ))
-    // eventually {
-    //   ledgerClient.submitted should have size 4
-    // }
-
-    transactions.complete()
-    commandCompletions.complete()
   }
 
   it should "query first the ACS and then the LedgerEnd sequentially so that there is not race condition and LedgerEnd >= ACS offset" in {
@@ -575,6 +557,14 @@ object BotTest {
           logger.debug(s"calling onComplete() on subscribed $observer")
           observer.onComplete()
       }
+    }
+  }
+
+  def using[A <: Disposable, B](disposable: A)(f: A => B): B = {
+    try {
+      f(disposable)
+    } finally {
+      disposable.dispose()
     }
   }
 }
