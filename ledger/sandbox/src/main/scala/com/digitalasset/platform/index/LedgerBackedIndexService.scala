@@ -116,10 +116,8 @@ abstract class LedgerBackedIndexService(
       endInclusive: Option[domain.LedgerOffset]): Throwable \/ (Offset, Option[Offset]) = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
-    for {
-      s <- convertOffset(startExclusive)
-      e <- endInclusive.traverseU(convertOffset(_))
-    } yield (s, e)
+    import scalaz.syntax.apply._
+    convertOffset(startExclusive) tuple endInclusive.traverseU(convertOffset(_))
   }
 
   private def between[A](
