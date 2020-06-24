@@ -61,7 +61,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "0.0.0",  # FIXME: change to first snapshot after 4484
+        "start": "1.3.0-snapshot.20200623.4546.0.4f68cfc4",
         "platform_ranges": [
             {
                 "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
