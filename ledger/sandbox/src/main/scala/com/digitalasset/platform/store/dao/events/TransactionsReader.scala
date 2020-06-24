@@ -152,9 +152,9 @@ private[dao] final class TransactionsReader(
       }
 
     groupContiguous(events)(by = _.transactionId)
-      .flatMapConcat { events =>
+      .mapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
-        Source(response.map(r => offsetFor(r) -> r))
+        response.map(r => offsetFor(r) -> r)
       }
   }
 
