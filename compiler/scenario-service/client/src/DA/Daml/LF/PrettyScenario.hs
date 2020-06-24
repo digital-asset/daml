@@ -833,14 +833,19 @@ renderRow world parties NodeInfo{..} =
             , H.th "status"
             , ths
             ]
-        viewStatus party
-            | party `S.member` niSignatories = "S"  -- "S" for signatory.
-            | party `S.member` niStakeholders = "O"  -- "O" for observer.
-            | party `S.member` niWitnesses = "D"  -- "D" for disclosed/divulged.
-            | otherwise = "-"
+        viewStatus party =
+            let (label, hint)
+                    | party `S.member` niSignatories = ("S", "Signatory")
+                    | party `S.member` niStakeholders = ("O", "Observer")
+                    | party `S.member` niWitnesses = ("D", "Disclosed/\x200B\&Divulged")  -- The charater after the "/" is a zero-width space.
+                    | otherwise = ("-", "Invisible")
+            in
+            H.td H.! A.class_ "disclosure" $ H.div H.! A.class_ "tooltip" $ do
+                H.text label
+                H.span H.! A.class_ "tooltiptext" $ H.text hint
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
-            [ foldMap ((H.td H.! A.class_ "disclosure") . H.text . viewStatus) parties
+            [ foldMap viewStatus parties
             , H.td (H.text $ renderPlain $ prettyNodeId niNodeId)
             , H.td (H.text active)
             , tds
