@@ -9,13 +9,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import java.util.{Collections, Optional, function}
 
-import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
-import com.daml.ledger.rxjava.components.BotTest._
-import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
-import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
-import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
-import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
-import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.v1.command_service.{
@@ -24,6 +17,13 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionTreeResponse
 }
 import com.daml.ledger.api.{v1 => scalaAPI}
+import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
+import com.daml.ledger.rxjava.components.BotTest._
+import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
+import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
+import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
+import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.{Empty => JEmpty}
 import com.google.rpc.Status
@@ -34,7 +34,7 @@ import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -44,7 +44,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
-final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAndAfterEach {
+final class BotTest extends FlatSpec with Matchers with Eventually {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
   private def ledgerServices: LedgerServices = new LedgerServices("bot-test")
@@ -230,7 +230,7 @@ final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAn
       }
 
     val counter = new AtomicInteger(0)
-    using(Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)) { _ =>
+    using(Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)) {
       // when the bot is wired-up, no command should have been submitted to the server
       ledgerClient.submitted should have size 0
       counter.get shouldBe 0
@@ -312,7 +312,7 @@ final class BotTest extends FlatSpec with Matchers with Eventually with BeforeAn
           )
         }
       }
-    using(Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)) { _ =>
+    using(Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)) {
       // when the bot is wired-up, no command should have been submitted to the server
       eventually {
         ledgerClient.submitted should have size 0
@@ -560,9 +560,9 @@ object BotTest {
     }
   }
 
-  def using[A <: Disposable, B](disposable: A)(f: A => B): B = {
+  private def using[A <: Disposable, B](disposable: A)(run: => B): B = {
     try {
-      f(disposable)
+      run
     } finally {
       disposable.dispose()
     }
