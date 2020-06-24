@@ -2121,72 +2121,72 @@
                 "sha256": "9b190cdf0736f40551468bfa7e4cb6ad03244eadec526a4c02a3038b9067f657"
             },
             {
-                "coord": "com.sparkjava:spark-core:2.7.2",
-                "file": "v1/https/repo1.maven.org/maven2/com/sparkjava/spark-core/2.7.2/spark-core-2.7.2.jar",
+                "coord": "com.sparkjava:spark-core:2.9.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.1/spark-core-2.9.1.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-webapp:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.8.v20171121",
+                    "org.eclipse.jetty.websocket:websocket-server:9.4.18.v20190429",
                     "org.slf4j:slf4j-api:1.7.26",
-                    "org.eclipse.jetty.websocket:websocket-server:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121"
+                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-webapp:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-webapp:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-security:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-client:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-server:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
                     "org.slf4j:slf4j-api:1.7.26",
-                    "org.eclipse.jetty:jetty-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-server:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-client:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121",
-                    "javax.servlet:javax.servlet-api:3.1.0"
+                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-servlet:9.4.18.v20190429",
+                    "javax.servlet:javax.servlet-api:3.1.0",
+                    "org.eclipse.jetty.websocket:websocket-client:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-webapp:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.7.2/spark-core-2.7.2.jar",
+                "url": "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.1/spark-core-2.9.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.7.2/spark-core-2.7.2.jar"
+                    "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.1/spark-core-2.9.1.jar"
                 ],
-                "sha256": "d655bf54621ce406478b7ee513c469796fb540893b67148661320385639604a7"
+                "sha256": "57e80740b3f88650aeeba16d5334f2875539a842dce6f2b171b843bccd00f374"
             },
             {
-                "coord": "com.sparkjava:spark-core:jar:sources:2.7.2",
-                "file": "v1/https/repo1.maven.org/maven2/com/sparkjava/spark-core/2.7.2/spark-core-2.7.2-sources.jar",
+                "coord": "com.sparkjava:spark-core:jar:sources:2.9.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.1/spark-core-2.9.1-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-webapp:jar:sources:9.4.18.v20190429",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "org.eclipse.jetty.websocket:websocket-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-webapp:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-server:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121",
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-webapp:jar:sources:9.4.18.v20190429",
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.18.v20190429",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-webapp:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-server:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.7.2/spark-core-2.7.2-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.1/spark-core-2.9.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.7.2/spark-core-2.7.2-sources.jar"
+                    "https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.1/spark-core-2.9.1-sources.jar"
                 ],
-                "sha256": "10bcbf3afdb0e68fa90b5ecd6ab0784ca7374e83298cc764692d7c04b3a05194"
+                "sha256": "665116b599af90fd3108757c042a1d699207e27e4e47e5fba304080cfc5e9cdd"
             },
             {
                 "coord": "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
@@ -6064,526 +6064,526 @@
                 "sha256": "21c3bd4c619d257aa283c338a231047cd65bfbe4c8a0922ee08fab8868706317"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.8.v20171121/websocket-api-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.18.v20190429/websocket-api-9.4.18.v20190429.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.8.v20171121/websocket-api-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.18.v20190429/websocket-api-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.8.v20171121/websocket-api-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.18.v20190429/websocket-api-9.4.18.v20190429.jar"
                 ],
-                "sha256": "196a626b68d7a75cd7067b49a6af22599425159354d11ec6fa4ddc80cb075bf3"
+                "sha256": "1489f67ecc4942a2f0d3702f54e42994c2702f992873ceaaa720c6cf79449360"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.8.v20171121/websocket-api-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.18.v20190429/websocket-api-9.4.18.v20190429-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.8.v20171121/websocket-api-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.18.v20190429/websocket-api-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.8.v20171121/websocket-api-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-api/9.4.18.v20190429/websocket-api-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "d554e3da5c4eba923f0372388da132827da9c8f267414fac595de4ebc63f299f"
+                "sha256": "ac63a6c8f23e14185817abce8e2808f6831f4ae6ae5972a85520dae103cbd0e6"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-client:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.8.v20171121/websocket-client-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-client:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.18.v20190429/websocket-client-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-client:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-client:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-client:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.8.v20171121/websocket-client-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.18.v20190429/websocket-client-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.8.v20171121/websocket-client-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.18.v20190429/websocket-client-9.4.18.v20190429.jar"
                 ],
-                "sha256": "87c72fd4878d1beed377b9984748e6c6d8f8bdf5d611279dadfa85c6c7c0a1eb"
+                "sha256": "0697165b11448c799076004f8896211faccb96d7912bb83155f6a5951a828b1f"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.8.v20171121/websocket-client-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.18.v20190429/websocket-client-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.8.v20171121/websocket-client-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.18.v20190429/websocket-client-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.8.v20171121/websocket-client-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-client/9.4.18.v20190429/websocket-client-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "88af1206c04f7dc5215b0205a37abf854a3e804cf28fa0092cdcc7af5244b8d4"
+                "sha256": "96f96b12e3924ab1373978ecc79af2872e8d369d72dd5b20ec6597c4675a956c"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-common:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.8.v20171121/websocket-common-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-common:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.18.v20190429/websocket-common-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121"
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.8.v20171121/websocket-common-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.18.v20190429/websocket-common-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.8.v20171121/websocket-common-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.18.v20190429/websocket-common-9.4.18.v20190429.jar"
                 ],
-                "sha256": "5c56a6f6385172a284056af4906c00bd8edf472d5c9c87ac9b517aa781bfcbdb"
+                "sha256": "6231f0ef1a62325cbfab14463bea4adc1ec55c1e427ce6c457f6555ef71ac1d7"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.8.v20171121/websocket-common-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.18.v20190429/websocket-common-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.8.v20171121/websocket-common-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.18.v20190429/websocket-common-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.8.v20171121/websocket-common-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-common/9.4.18.v20190429/websocket-common-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "ee2ac1df0907cb18457320c480df1949f46bfd79f55c4d4a7388e4545c5fbb83"
+                "sha256": "28b6b96e60a6f9dbe2a4ad1c5e40463af3964ba929c64007152605168e60107b"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-server:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.8.v20171121/websocket-server-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-server:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.18.v20190429/websocket-server-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-client:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-servlet:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-client:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-security:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-client:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-client:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-servlet:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-servlet:9.4.18.v20190429",
+                    "javax.servlet:javax.servlet-api:3.1.0",
+                    "org.eclipse.jetty.websocket:websocket-client:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:9.4.18.v20190429"
+                ],
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.18.v20190429/websocket-server-9.4.18.v20190429.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.18.v20190429/websocket-server-9.4.18.v20190429.jar"
+                ],
+                "sha256": "db9bac749a2873ab8266dca5e9cb878943d7ea818932bd1918fcb8ec6a17cfbf"
+            },
+            {
+                "coord": "org.eclipse.jetty.websocket:websocket-server:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.18.v20190429/websocket-server-9.4.18.v20190429-sources.jar",
+                "directDependencies": [
+                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.18.v20190429"
+                ],
+                "dependencies": [
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429",
+                    "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
+                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.18.v20190429"
+                ],
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.18.v20190429/websocket-server-9.4.18.v20190429-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.18.v20190429/websocket-server-9.4.18.v20190429-sources.jar"
+                ],
+                "sha256": "bd1558c715701bd90fe349cac2bf6c31bb2be74d1bedc219355e196c33989ba1"
+            },
+            {
+                "coord": "org.eclipse.jetty.websocket:websocket-servlet:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.18.v20190429/websocket-servlet-9.4.18.v20190429.jar",
+                "directDependencies": [
+                    "javax.servlet:javax.servlet-api:3.1.0",
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429"
+                ],
+                "dependencies": [
+                    "org.eclipse.jetty.websocket:websocket-api:9.4.18.v20190429",
                     "javax.servlet:javax.servlet-api:3.1.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.8.v20171121/websocket-server-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.18.v20190429/websocket-servlet-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.8.v20171121/websocket-server-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.18.v20190429/websocket-servlet-9.4.18.v20190429.jar"
                 ],
-                "sha256": "8ae84e4d97e902fb4b6e9bd31f8b92db71188a4b1b7a6989b9bb81cc45ee8a6a"
+                "sha256": "3ca878717f15e052b18563f7796581f4e605874e027265054911cc37feb1ddc7"
             },
             {
-                "coord": "org.eclipse.jetty.websocket:websocket-server:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.8.v20171121/websocket-server-9.4.8.v20171121-sources.jar",
-                "directDependencies": [
-                    "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.8.v20171121"
-                ],
-                "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-client:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121",
-                    "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-common:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-client:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.8.v20171121"
-                ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.8.v20171121/websocket-server-9.4.8.v20171121-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-server/9.4.8.v20171121/websocket-server-9.4.8.v20171121-sources.jar"
-                ],
-                "sha256": "63edc290a072d887ff43e07cb3c19812c660b20b19bc72525c2a46a41550912b"
-            },
-            {
-                "coord": "org.eclipse.jetty.websocket:websocket-servlet:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.8.v20171121/websocket-servlet-9.4.8.v20171121.jar",
-                "directDependencies": [
-                    "javax.servlet:javax.servlet-api:3.1.0",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121"
-                ],
-                "dependencies": [
-                    "javax.servlet:javax.servlet-api:3.1.0",
-                    "org.eclipse.jetty.websocket:websocket-api:9.4.8.v20171121"
-                ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.8.v20171121/websocket-servlet-9.4.8.v20171121.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.8.v20171121/websocket-servlet-9.4.8.v20171121.jar"
-                ],
-                "sha256": "4b0b71e3057bb46fe3271986ed189a0fc0dbbb8fe605de1a08b6b806ae9aac87"
-            },
-            {
-                "coord": "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.8.v20171121/websocket-servlet-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty.websocket:websocket-servlet:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.18.v20190429/websocket-servlet-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.8.v20171121",
+                    "org.eclipse.jetty.websocket:websocket-api:jar:sources:9.4.18.v20190429",
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.8.v20171121/websocket-servlet-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.18.v20190429/websocket-servlet-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.8.v20171121/websocket-servlet-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/websocket/websocket-servlet/9.4.18.v20190429/websocket-servlet-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "b67bb8eeb69f8759458ebbb0ae79c307d4d9182237f2dafea6f2c59eba4493eb"
+                "sha256": "0b8d7853e1fc97a2e0462476627f47366e3df3b915799aa51060ee5ac93b4e04"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-client:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.8.v20171121/jetty-client-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-client:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.18.v20190429/jetty-client-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.8.v20171121/jetty-client-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.18.v20190429/jetty-client-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.8.v20171121/jetty-client-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.18.v20190429/jetty-client-9.4.18.v20190429.jar"
                 ],
-                "sha256": "926cedd13ebf5b4e216c64a8fc5ff3d42cc81b721f2954639a2580f62f121093"
+                "sha256": "90fdd51b34bd24cf12cf14866bf37b357ef7a22194872fd37bdba77449c55dfb"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-client:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.8.v20171121/jetty-client-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-client:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.18.v20190429/jetty-client-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.8.v20171121/jetty-client-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.18.v20190429/jetty-client-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.8.v20171121/jetty-client-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-client/9.4.18.v20190429/jetty-client-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "6a82e5b92559243f9bcf5519aceeb4668e6762d11f01bb8e31e00843fc7c5b7c"
+                "sha256": "bac39c72f1c8e940e6293526257f7264dee3b27865ccfbdb0c27b5859e5a868f"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.8.v20171121/jetty-http-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.18.v20190429/jetty-http-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.8.v20171121/jetty-http-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.18.v20190429/jetty-http-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.8.v20171121/jetty-http-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.18.v20190429/jetty-http-9.4.18.v20190429.jar"
                 ],
-                "sha256": "bcb58b9e27a2b361db3003f4d0ab24e7494237247b17131cabb483f46a8c31f9"
+                "sha256": "a2626684486590535bc928a6a40c6915f99ffda96b7a14d4310bdda566b5aa73"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.8.v20171121/jetty-http-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.18.v20190429/jetty-http-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.8.v20171121/jetty-http-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.18.v20190429/jetty-http-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.8.v20171121/jetty-http-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-http/9.4.18.v20190429/jetty-http-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "123f6cd7fc2dbc1e34ad1cdde9bffd0dc19bc90b3d508ccd2301f67fb55f2356"
+                "sha256": "14d8d19eb0795c70b5b62cb85d13677775081d55bafc51e6636d7ddf4fb8e795"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.8.v20171121/jetty-io-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.18.v20190429/jetty-io-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.8.v20171121/jetty-io-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.18.v20190429/jetty-io-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.8.v20171121/jetty-io-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.18.v20190429/jetty-io-9.4.18.v20190429.jar"
                 ],
-                "sha256": "e06fb86653599b463e1516d2ac7682c9e4d9a4ad0e5f6bba6e13661c45d3c293"
+                "sha256": "f953810e6d5349a8c1101710bf99310e0bcd3bc43d819c06858c75f419b4cbd0"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.8.v20171121/jetty-io-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.18.v20190429/jetty-io-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.8.v20171121/jetty-io-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.18.v20190429/jetty-io-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.8.v20171121/jetty-io-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-io/9.4.18.v20190429/jetty-io-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "df3d33834b3497cddf2945436a034ce0cab62ab270467d2a58df865d31eac2e9"
+                "sha256": "a52bb579e3460b9e3a451aebe4473a98f3ab73d5c2fa07878b6545c09041941a"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-security:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.8.v20171121/jetty-security-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-security:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.18.v20190429/jetty-security-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
                     "javax.servlet:javax.servlet-api:3.1.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.8.v20171121/jetty-security-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.18.v20190429/jetty-security-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.8.v20171121/jetty-security-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.18.v20190429/jetty-security-9.4.18.v20190429.jar"
                 ],
-                "sha256": "69963592170bcf14e2dda4370cd2de6c5d646adf89a9bd9d7ec88dc5fef310a9"
+                "sha256": "c307c68eb402979b2b6ae75a587476c9fecafbf5f4a53db22125f9af2324926f"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-security:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.8.v20171121/jetty-security-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-security:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.18.v20190429/jetty-security-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.8.v20171121/jetty-security-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.18.v20190429/jetty-security-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.8.v20171121/jetty-security-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-security/9.4.18.v20190429/jetty-security-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "659164540a65c93e5aa94c125f263d95503be92803f3a30f28332cd6760e35e0"
+                "sha256": "f3aa8d83c5d36b77c5bfcaf16bec3e8a519e2c64871c4abbf5b451982a32915c"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-server:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.8.v20171121/jetty-server-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.18.v20190429/jetty-server-9.4.18.v20190429.jar",
                 "directDependencies": [
                     "javax.servlet:javax.servlet-api:3.1.0",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
                     "javax.servlet:javax.servlet-api:3.1.0",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.8.v20171121/jetty-server-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.18.v20190429/jetty-server-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.8.v20171121/jetty-server-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.18.v20190429/jetty-server-9.4.18.v20190429.jar"
                 ],
-                "sha256": "686b6ffb11705a8afc0dcbc977a6dfca03d96b4720d5f643b6f4598b2dd975e2"
+                "sha256": "2737c60b231e804082cdb68f1118a1aa179c8f92d50345c7444d96391ac005ce"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.8.v20171121/jetty-server-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.18.v20190429/jetty-server-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.8.v20171121/jetty-server-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.18.v20190429/jetty-server-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.8.v20171121/jetty-server-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-server/9.4.18.v20190429/jetty-server-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "cb58ea2bb20e327303877175335386b5a7fab3a7a581872d55c255a9f04249bb"
+                "sha256": "46648b9eb54ade307c869d807e053f63c48ab0d15835fcae0a8197764ae68a67"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-servlet:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.8.v20171121/jetty-servlet-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-servlet:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.18.v20190429/jetty-servlet-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-security:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-security:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-security:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121",
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
                     "javax.servlet:javax.servlet-api:3.1.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.8.v20171121/jetty-servlet-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.18.v20190429/jetty-servlet-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.8.v20171121/jetty-servlet-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.18.v20190429/jetty-servlet-9.4.18.v20190429.jar"
                 ],
-                "sha256": "e573169d2e8bdf319a773596b66636ff134d089f7d7484bcf42f9fd8080a839a"
+                "sha256": "58b778613867b59bdd6587c57010249e62d10104e01113459453343e9c4ecaa4"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.8.v20171121/jetty-servlet-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.18.v20190429/jetty-servlet-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.8.v20171121/jetty-servlet-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.18.v20190429/jetty-servlet-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.8.v20171121/jetty-servlet-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-servlet/9.4.18.v20190429/jetty-servlet-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "1963d42aaa0ffdcbb0a936aa0001f97ca455f76efd6492bcc9079a2d5ad07ed2"
+                "sha256": "b8e08f22e62fb3eda189eaa0f30d092c9651e5a519a8388a6d0a78250677da4b"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.8.v20171121/jetty-util-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.18.v20190429/jetty-util-9.4.18.v20190429.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.8.v20171121/jetty-util-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.18.v20190429/jetty-util-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.8.v20171121/jetty-util-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.18.v20190429/jetty-util-9.4.18.v20190429.jar"
                 ],
-                "sha256": "06dd3d7238b341ada11a6aba94f5b1bcff5d8ce981c88d3de929563ca6fa934f"
+                "sha256": "db2ae97679e4d9dd0b96e0e2e04423d41407977a87edfa0ed1714c44eb5c7aa1"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.8.v20171121/jetty-util-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.18.v20190429/jetty-util-9.4.18.v20190429-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.8.v20171121/jetty-util-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.18.v20190429/jetty-util-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.8.v20171121/jetty-util-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.18.v20190429/jetty-util-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "34f2cb8c438a4137fa3a6675efe1a8a350e66a38c1c06e71f508d0004d0a2419"
+                "sha256": "d971efe83a78677ed3691608c60c17e0d69aeff71fbe345f9410687a89384544"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-webapp:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.8.v20171121/jetty-webapp-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-webapp:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.18.v20190429/jetty-webapp-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-servlet:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-security:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-io:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:9.4.8.v20171121",
-                    "javax.servlet:javax.servlet-api:3.1.0"
+                    "org.eclipse.jetty:jetty-http:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-servlet:9.4.18.v20190429",
+                    "javax.servlet:javax.servlet-api:3.1.0",
+                    "org.eclipse.jetty:jetty-xml:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.8.v20171121/jetty-webapp-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.18.v20190429/jetty-webapp-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.8.v20171121/jetty-webapp-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.18.v20190429/jetty-webapp-9.4.18.v20190429.jar"
                 ],
-                "sha256": "35220283beb6a66774783e1fb1f061f795a7b3326278871b1755e390e120fc82"
+                "sha256": "3e7a715fb8f5ebe79d54b940f630d562629ecf91d1b3fd1403ff9700d0a3e125"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-webapp:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.8.v20171121/jetty-webapp-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-webapp:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.18.v20190429/jetty-webapp-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121",
                     "javax.servlet:javax.servlet-api:jar:sources:3.1.0",
-                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.8.v20171121",
-                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-servlet:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-io:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-security:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-http:jar:sources:9.4.18.v20190429",
+                    "org.eclipse.jetty:jetty-server:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.8.v20171121/jetty-webapp-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.18.v20190429/jetty-webapp-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.8.v20171121/jetty-webapp-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-webapp/9.4.18.v20190429/jetty-webapp-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "c81a6b3580e8913853b9d7b31e2d9d257bb972664c7c324b9abb0490c2e11b23"
+                "sha256": "8e66f85b20aefda3cd5186ce9a99f93c071cdb54a3847ba836ee0ecdabfd9d6c"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-xml:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.8.v20171121/jetty-xml-9.4.8.v20171121.jar",
+                "coord": "org.eclipse.jetty:jetty-xml:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.18.v20190429/jetty-xml-9.4.18.v20190429.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.8.v20171121/jetty-xml-9.4.8.v20171121.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.18.v20190429/jetty-xml-9.4.18.v20190429.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.8.v20171121/jetty-xml-9.4.8.v20171121.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.18.v20190429/jetty-xml-9.4.18.v20190429.jar"
                 ],
-                "sha256": "b8cccf20d966604bc48fbb6009e74e788832a6ff1b352517c4cc9f0beff6b7cf"
+                "sha256": "2189c5316c4ef2721166353a3f6800803b2ffd06cfc4c7b16ebdef9b00108ca6"
             },
             {
-                "coord": "org.eclipse.jetty:jetty-xml:jar:sources:9.4.8.v20171121",
-                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.8.v20171121/jetty-xml-9.4.8.v20171121-sources.jar",
+                "coord": "org.eclipse.jetty:jetty-xml:jar:sources:9.4.18.v20190429",
+                "file": "v1/https/repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.18.v20190429/jetty-xml-9.4.18.v20190429-sources.jar",
                 "directDependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429"
                 ],
                 "dependencies": [
-                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.8.v20171121"
+                    "org.eclipse.jetty:jetty-util:jar:sources:9.4.18.v20190429"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.8.v20171121/jetty-xml-9.4.8.v20171121-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.18.v20190429/jetty-xml-9.4.18.v20190429-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.8.v20171121/jetty-xml-9.4.8.v20171121-sources.jar"
+                    "https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-xml/9.4.18.v20190429/jetty-xml-9.4.18.v20190429-sources.jar"
                 ],
-                "sha256": "d5c170159010067f13053bf619a8f90ba18a6377020ea69f05bb521644ba817e"
+                "sha256": "57e86f0ac7b97d4ceda3f16975f56d1c371baf28d2262b75fae6e3a17cbb332b"
             },
             {
                 "coord": "org.flywaydb:flyway-core:6.2.0",
@@ -14792,6 +14792,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 895735457
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1091799303
     }
 }
