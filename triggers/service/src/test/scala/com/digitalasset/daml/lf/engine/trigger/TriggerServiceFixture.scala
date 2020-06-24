@@ -97,20 +97,23 @@ object TriggerServiceFixture {
     } yield client
 
     // Configure the service with the ledger's *proxy* port.
-    val serviceF: Future[(ServerBinding, TypedActorSystem[Server.Message])] = for {
+    val serviceF: Future[(ServerBinding, TypedActorSystem[Message])] = for {
       (_, _, ledgerProxyPort, _) <- ledgerF
       ledgerConfig = LedgerConfig(
         host.getHostName,
         ledgerProxyPort.value,
         TimeProviderType.Static,
         Duration.ofSeconds(30))
+      runnerConfig = TriggerRunnerConfig(
+        ServiceConfig.DefaultMaxInboundMessageSize,
+        ServiceConfig.DefaultMaxFailureNumberOfRetries,
+        ServiceConfig.DefaultFailureRetryTimeRange,
+      )
       service <- ServiceMain.startServer(
         host.getHostName,
         Port(0).value,
         ledgerConfig,
-        ServiceConfig.DefaultMaxInboundMessageSize,
-        ServiceConfig.DefaultMaxFailureNumberOfRetries,
-        ServiceConfig.DefaultFailureRetryTimeRange,
+        runnerConfig,
         encodedDar,
         jdbcConfig,
         noSecretKey = true // That's ok, use the default.
@@ -131,7 +134,7 @@ object TriggerServiceFixture {
     } yield a
 
     fa.onComplete { _ =>
-      serviceF.foreach({ case (_, system) => system ! Server.Stop })
+      serviceF.foreach({ case (_, system) => system ! Stop })
       ledgerF.foreach(_._1.close())
       toxiProxyProc.destroy
     }
