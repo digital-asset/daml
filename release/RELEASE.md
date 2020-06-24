@@ -26,7 +26,7 @@ patches we backport to the 1.0 release branch).
    out the sha of the reference version (previous stable release in the same
    release branch), say `$PREV_SHA`, and run:
    ```
-   ./unreleased.sh $PREV_SHA $SHA
+   ./unreleased.sh $PREV_SHA..$SHA
    ```
 
 1. **[STABLE]** Go through the checklist at
