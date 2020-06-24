@@ -34,7 +34,9 @@ class UniversalArchiveReader[A](
   /** Reads a DAR from a File. */
   def readFile(file: File): Try[Dar[A]] =
     supportedFileType(file).flatMap {
-      case DarFile => readDarStream(file.getName, new ZipInputStream(new FileInputStream(file)))
+      case DarFile =>
+        bracket(Try(new FileInputStream(file)))(inputStream => Try(inputStream.close()))
+          .flatMap(inputStream => readDarStream(file.getName, new ZipInputStream(inputStream)))
       case DalfFile => readDalfStream(new FileInputStream(file))
     }
 
