@@ -97,10 +97,10 @@ object TestMain extends StrictLogging {
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
               val sandboxPort =
                 Await.result(sandboxResource.asFuture.flatMap(_.portF).map(_.value), Duration.Inf)
-              (ApiParameters("localhost", sandboxPort), () => sandboxResource.release())
+              (ApiParameters("localhost", sandboxPort, None), () => sandboxResource.release())
             } else {
               (
-                ApiParameters(config.ledgerHost.get, config.ledgerPort.get),
+                ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None),
                 () => Future.successful(()),
               )
             }
@@ -132,7 +132,11 @@ object TestMain extends StrictLogging {
         }
 
         val flow: Future[Boolean] = for {
-          clients <- Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
+          clients <- Runner.connect(
+            participantParams,
+            ApplicationId("Script Test"),
+            None,
+            config.maxInboundMessageSize)
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
             case Right(client) =>

@@ -229,6 +229,13 @@ jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd
 jsonAllocateParty : Text -> Script Party
 jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
 
+jsonMultiParty : (Party, Party) -> Script ()
+jsonMultiParty (alice, bob) = do
+  assert (alice /= bob)
+  c <- submit alice $ createCmd (TProposal alice bob)
+  submit bob (exerciseCmd c Accept)
+  pure ()
+
 -- maxInboundMessageSize
 
 template MessageSize
