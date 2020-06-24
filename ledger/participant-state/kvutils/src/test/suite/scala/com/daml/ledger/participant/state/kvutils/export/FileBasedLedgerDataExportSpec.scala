@@ -16,7 +16,7 @@ class FileBasedLedgerDataExportSpec extends WordSpec with Matchers with MockitoS
   import scala.collection.GenTraversable, org.scalatest.enablers.Containing
   private[this] implicit def `fixed sig containingNatureOfGenTraversable`[
       E: org.scalactic.Equality,
-      TRAV <: GenTraversable[E]]: Containing[TRAV with GenTraversable[E]] =
+      TRAV]: Containing[TRAV with GenTraversable[E]] =
     Containing.containingNatureOfGenTraversable[E, GenTraversable]
 
   "addParentChild" should {

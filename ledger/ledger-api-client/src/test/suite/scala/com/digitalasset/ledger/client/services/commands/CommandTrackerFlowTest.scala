@@ -108,7 +108,7 @@ class CommandTrackerFlowTest
   import scala.collection.GenTraversable, org.scalatest.enablers.Containing
   private[this] implicit def `fixed sig containingNatureOfGenTraversable`[
       E: org.scalactic.Equality,
-      TRAV <: GenTraversable[E]]: Containing[TRAV with GenTraversable[E]] =
+      TRAV]: Containing[TRAV with GenTraversable[E]] =
     Containing.containingNatureOfGenTraversable[E, GenTraversable]
 
   "Command tracking flow" when {

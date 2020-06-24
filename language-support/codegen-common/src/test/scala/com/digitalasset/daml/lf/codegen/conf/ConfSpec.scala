@@ -43,7 +43,7 @@ class ConfSpec extends FlatSpec with Matchers with OptionValues {
   import scala.collection.GenTraversable, org.scalatest.enablers.Aggregating
   private[this] implicit def `fixed sig aggregatingNatureOfGenTraversable`[
       E: org.scalactic.Equality,
-      TRAV <: GenTraversable[E]]: Aggregating[TRAV with GenTraversable[E]] =
+      TRAV]: Aggregating[TRAV with GenTraversable[E]] =
     Aggregating.aggregatingNatureOfGenTraversable[E, GenTraversable]
 
   it should "return a Conf with expected single unmapped input and output" in {

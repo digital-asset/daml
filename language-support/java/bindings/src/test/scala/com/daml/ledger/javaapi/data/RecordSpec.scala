@@ -26,7 +26,7 @@ class RecordSpec extends FlatSpec with Matchers {
   import scala.collection.GenTraversable, org.scalatest.enablers.Aggregating
   private[this] implicit def `fixed sig aggregatingNatureOfGenTraversable`[
       E: org.scalactic.Equality,
-      TRAV <: GenTraversable[E]]: Aggregating[TRAV with GenTraversable[E]] =
+      TRAV]: Aggregating[TRAV with GenTraversable[E]] =
     Aggregating.aggregatingNatureOfGenTraversable[E, GenTraversable]
 
   it should "build a record with an empty field map if there are no labels" in {
