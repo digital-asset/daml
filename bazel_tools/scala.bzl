@@ -38,8 +38,12 @@ common_scalacopts = [
     # warn if using deprecated stuff
     "-deprecation",
     "-Xfuture",
-    "-Xsource:2.13",  # fix typechecker bugs
-    "-Ypartial-unification",  # behave more like Scala 2.13
+    # these two flags turn on source-incompatible enhancements that are always
+    # on in Scala 2.13.  Despite the naming, though, the most impactful and
+    # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
+    # some minor, but in one specific case (scala/bug#10283) essential bug fixes
+    "-Xsource:2.13",
+    "-Ypartial-unification",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
