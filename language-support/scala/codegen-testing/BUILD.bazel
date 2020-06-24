@@ -14,7 +14,6 @@ da_scala_library(
         # Plugins have to be specified as JARs.
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalacopts = ["-Xsource:2.13"],
     visibility = [
         "//visibility:public",
     ],
@@ -71,7 +70,6 @@ da_scala_test_suite(
         ],
         exclude = testing_utils,
     ),
-    scalacopts = ["-Xsource:2.13"],
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",

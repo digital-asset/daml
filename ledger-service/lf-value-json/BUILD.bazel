@@ -14,7 +14,6 @@ load(
 da_scala_library(
     name = "lf-value-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = ["-Xsource:2.13"],
     tags = ["maven_coordinates=com.daml:lf-value-json:__VERSION__"],
     visibility = [
         "//visibility:public",

@@ -15,7 +15,6 @@ da_scala_library(
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
     scalacopts = [
-        "-Xsource:2.13",
         "-P:silencer:checkUnused",
     ] + lf_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-db-backend:__VERSION__"],

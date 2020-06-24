@@ -13,9 +13,6 @@ da_scala_library(
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalacopts = [
-        "-Xsource:2.13",
-    ],
     tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -40,9 +37,6 @@ da_scala_test_suite(
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
-    ],
-    scalacopts = [
-        "-Xsource:2.13",
     ],
     deps = [
         ":bindings",
