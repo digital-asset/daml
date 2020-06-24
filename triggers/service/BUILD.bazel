@@ -69,6 +69,19 @@ da_scala_binary(
     ],
 )
 
+# The ref-ledger-authentication binary that we exercise from the
+# service tests.
+java_import(
+    name = "ref-ledger-authentication-jar",
+    jars = ["@ref-ledger-authentication//file:ref-ledger-authentication.jar"],
+)
+
+java_binary(
+    name = "ref-ledger-authentication-binary",
+    main_class = "com.projectdabl.authenticationservice.Main",
+    runtime_deps = [":ref-ledger-authentication-jar"],
+)
+
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
