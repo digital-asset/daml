@@ -1171,6 +1171,59 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             , quote "foo", lineBreak
             , quote "bar"
             ]
+    , testCase' "Table view displays signatory + observer + disclosed/divulged" $ do
+        f <- makeFile "TableView.daml" $ T.unlines
+          [ "module TableView where"
+
+          , "template IouIssuer with"
+          , "    regulator: Party"
+          , "    issuer: Party"
+          , "  where"
+          , "    signatory regulator"
+          , "    observer issuer"
+          , "    nonconsuming choice Issue: ContractId Iou with"
+          , "        owner: Party"
+          , "      controller issuer"
+          , "      do create Iou with issuer; owner"
+
+          , "template Iou with"
+          , "    issuer: Party"
+          , "    owner: Party"
+          , "  where"
+          , "    signatory issuer"
+          , "    observer owner"
+
+          , "test = scenario do"
+          , "  regulator <- getParty \"Regulator\""
+          , "  issuer <- getParty \"Issuer\""
+          , "  owner <- getParty \"Owner\""
+          , "  iouIssuerCid <- submit regulator do create IouIssuer with regulator; issuer"
+          , "  submit issuer do exercise iouIssuerCid Issue with owner"
+          , "  submit issuer do create Iou with issuer; owner"
+          , "  pure ()"
+          ]
+        setFilesOfInterest [f]
+        let vr = VRScenario f "test"
+        setOpenVirtualResources [vr]
+        -- TODO(MH): Matching on HTML via regular expressions has a high
+        -- chance of becoming a maintenance nightmare. Fina a better way.
+        expectVirtualResourceRegex vr $ T.intercalate ".*"
+            [ "<h1>TableView:Iou</h1>"
+            , "<table"
+            , "<tr", "Issuer", "Owner", "Regulator", "</tr>"
+            , "<tr"
+            , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
+            , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
+            , "<td", "tooltip", ">-</div></td>"
+            , "</tr"
+            , "<tr"
+            , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
+            , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
+            , "<td", "tooltip", ">D<", "tooltiptext", ">Disclosed/\x200B\&Divulged<", "</td>"
+            , "</tr>"
+            , "</table>"
+            , "<h1>TableView:IouIssuer</h1>"
+            ]
     ]
     where
         testCase' = testCase mbScenarioService
