@@ -55,7 +55,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
         val pkgId: PackageId = toCompile.head
         toCompile = toCompile.tail
 
-        if (!_packages.contains(pkgId)) {
+        if (!_packages.containsKey(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
             case None => return ResultError(Error(s"Could not find package $pkgId"))
@@ -64,7 +64,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
 
           // Load dependencies of this package and transitively its dependencies.
           for (dependency <- pkg.directDeps) {
-            if (!_packages.contains(dependency) && !state.seenDependencies.contains(dependency)) {
+            if (!_packages.containsKey(dependency) && !state.seenDependencies.contains(dependency)) {
               return ResultNeedPackage(
                 dependency, {
                   case None => ResultError(Error(s"Could not find package $dependency"))
