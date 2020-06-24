@@ -14,7 +14,7 @@ workspace(
 # (though with the caviat that that user needs to repeat the relevant bits of
 #  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 daml_deps()
 
@@ -975,4 +975,11 @@ java_import(
     sha256 = "c1e5aff815c52b57a0c1cac13a5c3523cc1e6a63005b3b788015a96fd058c527",
     strip_prefix = "canton-0.15.0",
     urls = ["https://www.canton.io/releases/canton-0.15.0.tar.gz"],
+)
+
+http_file(
+    name = "ref-ledger-authentication",
+    downloaded_file_path = "ref-ledger-authentication.jar",
+    sha256 = "be98a80f694d9e1c6630a3bbc8e1c1ac802d13179a8f9d522dc933c7c1eff13d",
+    urls = ["https://github.com/digital-asset/ref-ledger-authenticator/releases/download/v0.0.0-snapshot-20200623.5.214b7033/ref-ledger-authenticator-0.0.0-snapshot-20200623.5.214b7033.jar"],
 )
