@@ -45,11 +45,11 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
 
-  private val darPath = requiredResource("triggers/service/test-model.dar")
+  protected val darPath = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
-  private val dar = DarReader().readArchiveFromFile(darPath).get
-  private val testPkgId = dar.main._1
+  protected val dar = DarReader().readArchiveFromFile(darPath).get
+  protected val testPkgId = dar.main._1
 
   private def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -69,9 +69,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
-  private case class User(userName: String, password: String)
-  private val alice = User("Alice", "&alC2l3SDS*V")
-  private val bob = User("Bob", "7GR8G@InIO&v")
+  protected case class User(userName: String, password: String)
+  protected val alice = User("Alice", "&alC2l3SDS*V")
+  protected val bob = User("Bob", "7GR8G@InIO&v")
 
   protected def headersWithAuth(user: User): List[Authorization] = {
     user match {
@@ -533,4 +533,23 @@ class TriggerServiceTestWithDb
     }
     super.afterEach()
   }
+
+  it should "recover packages after shutdown" in (for {
+    _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        resp <- uploadDar(uri, darPath)
+        _ <- parseResult(resp)
+      } yield succeed
+    }
+    // Once service is shutdown, start a new one and try to use the previously uploaded dar
+    _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        // start trigger defined in previously uploaded dar
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+        triggerId <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, alice, _ == Vector(triggerId))
+      } yield succeed
+    }
+  } yield succeed)
+
 }

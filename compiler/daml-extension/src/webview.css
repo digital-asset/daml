@@ -40,4 +40,23 @@ div.observer {
   transform: rotate(180deg);
   white-space: nowrap;
 }
-
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 5em;
+  background-color: var(--vscode-editor-foreground);
+  color: var(--vscode-editor-background);
+  text-align: center;
+  border-radius: 4px;
+  padding: 4px 4px;
+  position: absolute;
+  z-index: 1;
+  top: -4px;
+  left: 105%;
+}
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}

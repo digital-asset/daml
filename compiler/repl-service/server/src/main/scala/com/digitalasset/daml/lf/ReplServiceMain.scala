@@ -17,11 +17,6 @@ import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
@@ -32,7 +27,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success, Try}
-import scalaz.syntax.tag._
 
 object ReplServiceMain extends App {
   case class Config(
@@ -135,18 +129,16 @@ object ReplServiceMain extends App {
   implicit val materializer: Materializer = Materializer(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
+  val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
   val participantParams =
-    Participants(Some(ApiParameters(config.ledgerHost, config.ledgerPort)), Map.empty, Map.empty)
+    Participants(
+      Some(ApiParameters(config.ledgerHost, config.ledgerPort, tokenHolder.flatMap(_.token))),
+      Map.empty,
+      Map.empty)
   val applicationId = ApplicationId("daml repl")
-  val clientConfig = LedgerClientConfiguration(
-    applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    sslContext = config.tlsConfig.flatMap(_.client),
-    token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),
-  )
   val clients = Await.result(
-    Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize),
+    Runner
+      .connect(participantParams, applicationId, config.tlsConfig, config.maxInboundMessageSize),
     30.seconds)
 
   val server =

@@ -476,6 +476,49 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - job: compat_versions_pr
+    dependsOn:
+    - release
+    - check_for_release
+    pool:
+      name: linux-pool
+      demands: assignment -equals default
+    variables:
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - bash: ci/dev-env-install.sh
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+
+        # With `persistCredentials: true`, Azure Pipelines will store the
+        # credentials to interact with GitHub in the url for the origin remote,
+        # using basic auth format:
+        # https://username:password@github.com/:user/:repo.git
+        # This series of pipes extracts the `username:password` part.
+        AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+
+        git checkout origin/master
+        BRANCH=update-compat-versions-for-$(release_tag)
+        git checkout -b $BRANCH
+        cp .bazelrc compatibility/
+        compatibility/update-versions.sh
+        git add compatibility/versions.bzl
+        git -c user.name="Azure Pipelines DAML Build" \
+            -c user.email="support@digitalasset.com" \
+            commit \
+            -m "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n"
+        git push origin $BRANCH:$BRANCH
+        curl -H "Content-Type: application/json" \
+             -u $AUTH \
+             --silent \
+             --include \
+             --location \
+             -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \
+             https://api.github.com/repos/digital-asset/daml/pulls
+
   - job: write_ledger_dump
     dependsOn:
       - check_for_release

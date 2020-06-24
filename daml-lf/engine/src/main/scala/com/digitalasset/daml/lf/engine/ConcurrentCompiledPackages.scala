@@ -10,20 +10,21 @@ import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy
 import scala.collection.JavaConverters._
+import scala.collection.concurrent.{Map => ConcurrentMap}
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
   */
 final class ConcurrentCompiledPackages extends MutableCompiledPackages {
-  private[this] val _packages: ConcurrentHashMap[PackageId, Package] =
-    new ConcurrentHashMap()
+  private[this] val _packages: ConcurrentMap[PackageId, Package] =
+    new ConcurrentHashMap().asScala
   private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
     new ConcurrentHashMap()
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
   private[this] var _profilingMode: speedy.Compiler.ProfilingMode = speedy.Compiler.NoProfile
 
-  def getPackage(pId: PackageId): Option[Package] = Option(_packages.get(pId))
+  def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
   def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
 
@@ -83,27 +84,28 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
           // map using 'computeIfAbsent' which will ensure we only compile the
           // package once. Other concurrent calls to add this package will block
           // waiting for the first one to finish.
-          _packages.computeIfAbsent(
-            pkgId, { _ =>
-              // Compile the speedy definitions for this package.
-              val defns =
-                speedy
-                  .Compiler(packages orElse state.packages, stackTraceMode, profilingMode)
-                  .unsafeCompilePackage(pkgId)
-              defns.foreach {
-                case (defnId, defn) => _defns.put(defnId, defn)
-              }
-              // Compute the transitive dependencies of the new package. Since we are adding
-              // packages in dependency order we can just union the dependencies of the
-              // direct dependencies to get the complete transitive dependencies.
-              val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
-                case (deps, dependency) =>
-                  deps union _packageDeps.get(dependency)
-              }
-              _packageDeps.put(pkgId, deps)
-              pkg
+          if (!_packages.contains(pkgId)) {
+            // Compile the speedy definitions for this package.
+            val defns =
+              speedy
+                .Compiler(packages orElse state.packages, stackTraceMode, profilingMode)
+                .unsafeCompilePackage(pkgId)
+            defns.foreach {
+              case (defnId, defn) => _defns.put(defnId, defn)
             }
-          )
+            // Compute the transitive dependencies of the new package. Since we are adding
+            // packages in dependency order we can just union the dependencies of the
+            // direct dependencies to get the complete transitive dependencies.
+            val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
+              case (deps, dependency) =>
+                deps union _packageDeps.get(dependency)
+            }
+            _packageDeps.put(pkgId, deps)
+            _packages.put(
+              pkgId,
+              pkg
+            )
+          }
         }
       }
 
@@ -117,7 +119,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   }
 
   override def packageIds: Set[PackageId] =
-    _packages.keySet.asScala.toSet
+    _packages.keySet.toSet
 
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
     Option(_packageDeps.get(pkgId))

@@ -9,7 +9,7 @@ DAML Script
 
    daml-script-docs
 
-DAML scenarios provide a simple API for testing DAML models
+DAML scenarios provide a simple way for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
 in a special process and do not interact with an actual ledger. This
 means that you cannot use scenarios to test other ledger clients,
@@ -242,6 +242,8 @@ translated to DAML script but there are a few things to keep in mind:
 #. You need to replace calls to ``getParty x`` by
    ``allocatePartyWithHint x (PartyIdHint x)``.
 
+.. _daml-script-distributed:
+
 Using DAML Script in Distributed Topologies
 ===========================================
 
@@ -266,12 +268,42 @@ want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
 
-.. daml-script-json-api
+.. _daml-script-auth:
+
+Running DAML Script against Authenticated Ledgers
+=================================================
+
+To run DAML Script against an authenticated ledger, you need to
+specify an access token. There are two ways of doing that:
+
+1. Specify a single access token via ``--access-token-file
+   path/to/jwt`` authenticated ledger. This token will then be used
+   for all requests so it must provide claims for all parties that you
+   use in your script.
+2. If you need multiple tokens, e.g., because you only have
+   single-party tokens you can use the ``access_token`` field in the
+   participant config specified via ``--participant-config``. The
+   section on :ref:`using DAML Script in distributed topologies
+   <daml-script-distributed>` contains an example. Note that you can
+   specify the same participant twice if you want different auth
+   tokens.
+
+If you specify both ``--access-token-file`` and
+``--participant-config``, the participant config takes precedence and
+the token from the file will be used for any participant that does not
+have a token specified in the config.
+
+.. _daml-script-json-api:
 
 Running DAML Script against the HTTP JSON API
 =============================================
 
-In some cases, you only have access to the :doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on `project:DABL <https://projectdabl.com>`_. For this usecase, DAML script can be run against the JSON API. Note that if you do have access to the gRPC API, running DAML script against the JSON API does not have any advantages.
+In some cases, you only have access to the :doc:`HTTP JSON API
+</json-api/index>` but not to the gRPC of a ledger, e.g., on
+`project:DABL <https://projectdabl.com>`_. For this usecase, DAML
+script can be run against the JSON API. Note that if you do have
+access to the gRPC API, running DAML script against the JSON API does
+not have any advantages.
 
 To run DAML script against the JSON API you have to pass the ``--json-api`` parameter to ``daml script``. There are a few differences and limitations compared to running DAML Script against the gRPC API:
 
@@ -281,18 +313,17 @@ To run DAML script against the JSON API you have to pass the ``--json-api`` para
 #. The JSON API only supports single-command submissions. This means
    that within a single call to ``submit`` you can only execute one
    ledger API command, e.g., one ``createCmd`` or one ``exerciseCmd``.
-#. The JSON API requires an authentication token even when it is run
-   against an unauthenticated ledger. The authentication token must be
-   a JWT token so the ``--access-token-file`` passed to
-   ``daml script`` should contain the actual JWT token.
-#. The token must contain exactly one party in ``actAs`` and/or
+#. The JSON API requires authentication tokens even when it is run
+   against an unauthenticated ledger. The section on
+   :ref:`authentication <daml-script-auth>` describes how to specify
+   the tokens.
+#. The tokens must contain exactly one party in ``actAs`` and/or
    ``readAs``. This party will be used for ``submit`` and
    ``query``. Passing a party as the argument to ``submit`` and
    ``query`` that is different from the party in the token is an
    error.
-#. Since DAML Script only accepts a single token and the party is
-   inferred from the token, this means that you can only use a single
-   party within a DAML script when running against the JSON API.
+#. If you use multiple parties within your DAML Script, you need to
+   specify one token per party.
 #. ``getTime`` will always return the Unix epoch in static time mode
    since the time service is not exposed via the JSON API.
 #. ``setTime`` is not supported and will throw a runtime error.

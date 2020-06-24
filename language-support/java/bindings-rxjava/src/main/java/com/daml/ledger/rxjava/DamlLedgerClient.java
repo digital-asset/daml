@@ -3,16 +3,15 @@
 
 package com.daml.ledger.rxjava;
 
-import com.daml.ledger.rxjava.grpc.*;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
+import com.daml.ledger.rxjava.grpc.*;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import org.checkerframework.checker.nullness.qual.NonNull;
-
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A {@link LedgerClient} implementation that connects to
@@ -24,13 +23,12 @@ import java.util.concurrent.TimeUnit;
  *     <li>Call the method {@link DamlLedgerClient#connect()} to initialize the clients for that particular ledger</li>
  *     <li>Retrieve one of the clients by using a getter, e.g. {@link DamlLedgerClient#getActiveContractSetClient()}</li>
  * </ol>
- *
+ * <p>
  * Alternatively to {@link DamlLedgerClient#newBuilder(String, int)}, you can use {@link DamlLedgerClient#newBuilder(NettyChannelBuilder)}
  * to make sure you can specify additional properties for the channel you're building, such as the maximum inbound message size.
- *
+ * <p>
  * For information on how to set up an {@link SslContext} object for mutual authentication please refer to
  * the <a href="https://github.com/grpc/grpc-java/blob/master/SECURITY.md">section on security</a> in the grpc-java documentation.
- *
  */
 public final class DamlLedgerClient implements LedgerClient {
 
@@ -73,7 +71,7 @@ public final class DamlLedgerClient implements LedgerClient {
 
     /**
      * Create a new {@link Builder} with the given parameters
-     *
+     * <p>
      * Useful as a shortcut unless you have to customize the {@link NettyChannelBuilder} beyond the builder's capabilities
      */
     public static Builder newBuilder(@NonNull String host, int port) {
@@ -82,7 +80,7 @@ public final class DamlLedgerClient implements LedgerClient {
 
     /**
      * Create a new {@link Builder} with the given parameters
-     *
+     * <p>
      * Useful to customize the {@link NettyChannelBuilder} beyond the builder's capabilities,
      * otherwise {@link DamlLedgerClient#newBuilder(String, int)} is probably more suited for your use case
      */
@@ -94,9 +92,9 @@ public final class DamlLedgerClient implements LedgerClient {
      * Creates a {@link DamlLedgerClient} connected to a Ledger
      * identified by the ip and port.
      *
-     * @param ledgerId The expected ledger-id
-     * @param hostIp The ip of the Ledger
-     * @param hostPort The port of the Ledger
+     * @param ledgerId   The expected ledger-id
+     * @param hostIp     The ip of the Ledger
+     * @param hostPort   The port of the Ledger
      * @param sslContext If present, it will be used to establish a TLS connection. If empty, an unsecured plaintext connection will be used.
      *                   Must be an SslContext created for client applications via {@link GrpcSslContexts#forClient()}.
      * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
@@ -111,6 +109,7 @@ public final class DamlLedgerClient implements LedgerClient {
     /**
      * Like {@link DamlLedgerClient#forLedgerIdAndHost(String, String, int, Optional)} but with the ledger-id
      * automatically discovered instead of provided.
+     *
      * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
      */
     @Deprecated
@@ -142,9 +141,10 @@ public final class DamlLedgerClient implements LedgerClient {
     /**
      * Creates a {@link DamlLedgerClient} with a previously created {@link ManagedChannel}. This is useful in
      * case additional settings need to be configured for the connection to the ledger (e.g. keep alive timeout).
+     *
      * @param expectedLedgerId If the value is present, {@link DamlLedgerClient#connect()} throws an exception
      *                         if the provided ledger id does not match the ledger id provided by the ledger.
-     * @param channel A user provided instance of @{@link ManagedChannel}.
+     * @param channel          A user provided instance of @{@link ManagedChannel}.
      * @deprecated since 0.13.38, please use {@link DamlLedgerClient#newBuilder}
      */
     @Deprecated
@@ -225,13 +225,13 @@ public final class DamlLedgerClient implements LedgerClient {
     }
 
     @Override
-    public TimeClient getTimeClient() { return timeClient; }
+    public TimeClient getTimeClient() {
+        return timeClient;
+    }
 
     public void close() throws Exception {
         channel.shutdownNow();
-        while (!channel.awaitTermination(1, TimeUnit.SECONDS)) {
-
-        }
+        channel.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
         pool.close();
     }
 

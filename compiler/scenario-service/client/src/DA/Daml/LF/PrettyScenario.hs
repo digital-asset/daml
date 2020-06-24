@@ -14,7 +14,7 @@ module DA.Daml.LF.PrettyScenario
   , ModuleRef
   ) where
 
-import           Control.Monad
+import           Control.Monad.Extra
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import qualified DA.Daml.LF.Ast             as LF
@@ -774,7 +774,9 @@ data NodeInfo = NodeInfo
     , niNodeId :: NodeId
     , niValue :: Value
     , niActive :: Bool
-    , niObservers :: S.Set T.Text
+    , niSignatories :: S.Set T.Text
+    , niStakeholders :: S.Set T.Text  -- Is a superset of `niSignatories`.
+    , niWitnesses :: S.Set T.Text  -- Is a superset of `niStakeholders`.
     }
 
 data Table = Table
@@ -790,7 +792,9 @@ nodeInfo Node{..} = do
     niTemplateId <- contractInstanceTemplateId inst
     niValue <- contractInstanceValue inst
     let niActive = isNothing nodeConsumedBy
-    let niObservers = S.fromList $ mapMaybe party $ V.toList nodeObservingSince
+    let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
+    let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
+    let niWitnesses = S.fromList $ mapMaybe party $ V.toList nodeObservingSince
     pure NodeInfo{..}
     where
         party :: PartyAndTransactionId -> Maybe T.Text
@@ -824,18 +828,27 @@ renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
 renderRow world parties NodeInfo{..} =
     let (ths, tds) = renderValue world [] niValue
         header = H.tr $ mconcat
-            [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
-            , H.th "id"
+            [ H.th "id"
             , H.th "status"
             , ths
+            , foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             ]
-        observed party = if party `S.member` niObservers then "X" else "-"
+        viewStatus party =
+            let (label, mbHint)
+                    | party `S.member` niSignatories = ("S", Just "Signatory")
+                    | party `S.member` niStakeholders = ("O", Just "Observer")
+                    | party `S.member` niWitnesses = ("D", Just "Disclosed/\x200B\&Divulged")  -- The charater after the "/" is a zero-width space.
+                    | otherwise = ("-", Nothing)
+            in
+            H.td H.! A.class_ "disclosure" $ H.div H.! A.class_ "tooltip" $ do
+                H.text label
+                whenJust mbHint $ \hint -> H.span H.! A.class_ "tooltiptext" $ H.text hint
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
-            [ foldMap ((H.td H.! A.class_ "disclosure") . H.text . observed) parties
-            , H.td (H.text $ renderPlain $ prettyNodeId niNodeId)
+            [ H.td (H.text $ renderPlain $ prettyNodeId niNodeId)
             , H.td (H.text active)
             , tds
+            , foldMap viewStatus parties
             ]
     in (header, row)
 
@@ -843,7 +856,7 @@ renderRow world parties NodeInfo{..} =
 -- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
-    let parties = S.unions $ map niObservers tRows
+    let parties = S.unions $ map niWitnesses tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
     let (headers, rows) = unzip $ map (renderRow world parties) tRows
     H.table $ head headers <> mconcat rows

@@ -156,8 +156,6 @@ object RunnerConfig {
         failure("Cannot specify both --ledger-host and --participant-config")
       } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
         failure("Must specify either --ledger-host or --participant-config")
-      } else if (c.jsonApi && c.accessTokenFile.isEmpty) {
-        failure("The json-api requires an access token")
       } else {
         success
       }

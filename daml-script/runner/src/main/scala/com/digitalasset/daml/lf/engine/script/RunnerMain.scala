@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream._
 import java.nio.file.Files
-import java.util.stream.Collectors
 import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -68,6 +67,10 @@ object RunnerMain {
 
         val participantParams = config.participantConfig match {
           case Some(file) => {
+            // To avoid a breaking change, we allow specifying
+            // --access-token-file and --participant-config
+            // together and use the token file as the default for all participants
+            // that do not specify an explicit token.
             val source = Source.fromFile(file)
             val fileContent = try {
               source.mkString
@@ -75,25 +78,30 @@ object RunnerMain {
               source.close
             }
             val jsVal = fileContent.parseJson
+            val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
             import ParticipantsJsonProtocol._
-            jsVal.convertTo[Participants[ApiParameters]]
+            jsVal
+              .convertTo[Participants[ApiParameters]]
+              .map(params => params.copy(access_token = params.access_token.orElse(token)))
           }
           case None =>
+            val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
             Participants(
-              default_participant =
-                Some(ApiParameters(config.ledgerHost.get, config.ledgerPort.get)),
+              default_participant = Some(
+                ApiParameters(
+                  config.ledgerHost.get,
+                  config.ledgerPort.get,
+                  tokenHolder.flatMap(_.token))),
               participants = Map.empty,
-              party_participants = Map.empty)
+              party_participants = Map.empty
+            )
         }
         val flow: Future[Unit] = for {
 
           clients <- if (config.jsonApi) {
-            // We fail during config parsing if this does not exist.
-            val tokenFile = config.accessTokenFile.get
-            val token = Files.readAllLines(tokenFile).stream.collect(Collectors.joining("\n"))
             val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
             val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-            Runner.jsonClients(participantParams, token, envIface)
+            Runner.jsonClients(participantParams, envIface)
           } else {
             // Note (MK): For now, we only support using a single-token for everything.
             // We might want to extend this to allow for multiple tokens, e.g., one token per party +
@@ -106,7 +114,11 @@ object RunnerMain {
               sslContext = config.tlsConfig.flatMap(_.client),
               token = tokenHolder.flatMap(_.token),
             )
-            Runner.connect(participantParams, clientConfig, config.maxInboundMessageSize)
+            Runner.connect(
+              participantParams,
+              applicationId,
+              config.tlsConfig,
+              config.maxInboundMessageSize)
           }
           result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeMode)
           _ <- Future {
