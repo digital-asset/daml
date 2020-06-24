@@ -44,6 +44,7 @@ import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
+import scalaz.{\/, \/-}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -104,38 +105,39 @@ abstract class LedgerBackedIndexService(
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset: LedgerOffset => Source[Offset, NotUsed] = {
-    lazy val currentEnd: Offset = ledger.ledgerEnd
-    domainOffset: LedgerOffset =>
-      domainOffset match {
-        case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
-        case LedgerOffset.LedgerEnd => Source.single(currentEnd)
-        case LedgerOffset.Absolute(offset) =>
-          ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
-      }
+  private def convertOffset: LedgerOffset => Throwable \/ Offset = {
+    case LedgerOffset.LedgerBegin => \/-(Offset.beforeBegin)
+    case LedgerOffset.LedgerEnd => \/.fromTryCatchNonFatal(ledger.ledgerEnd)
+    case LedgerOffset.Absolute(offset) => \/.fromEither(ApiOffset.fromString(offset).toEither)
+  }
+
+  private def convertOffsetRange(
+      startExclusive: domain.LedgerOffset,
+      endInclusive: Option[domain.LedgerOffset]): Throwable \/ (Offset, Option[Offset]) = {
+    import scalaz.syntax.traverse._
+    import scalaz.std.option._
+    for {
+      s <- convertOffset(startExclusive)
+      e <- endInclusive.traverseU(convertOffset(_))
+    } yield (s, e)
   }
 
   private def between[A](
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
-  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed]): Source[A, NotUsed] = {
-    val convert = convertOffset
-    convert(startExclusive).flatMapConcat { begin =>
-      endInclusive
-        .map(convert(_).map(Some(_)))
-        .getOrElse(Source.single(None))
-        .flatMapConcat {
-          case Some(`begin`) =>
-            Source.empty
-          case Some(end) if begin > end =>
-            Source.failed(
-              ErrorFactories.invalidArgument(
-                s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
-          case endOpt: Option[Offset] =>
-            f(Some(begin), endOpt)
-        }
-    }
-  }
+  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed]): Source[A, NotUsed] =
+    convertOffsetRange(startExclusive, endInclusive).fold(
+      error => Source.failed(error), {
+        case (begin, Some(end)) if begin == end => Source.empty
+        case (begin, Some(end)) if begin > end => invalidOffsetRange(begin, end)
+        case (begin, endOpt) => f(Some(begin), endOpt)
+      }
+    )
+
+  private def invalidOffsetRange[A](begin: Offset, end: Offset): Source[A, NotUsed] =
+    Source.failed(
+      ErrorFactories.invalidArgument(
+        s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
 
   private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
     filter.filtersByParty.map {
@@ -166,9 +168,10 @@ abstract class LedgerBackedIndexService(
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
   ): Source[CompletionStreamResponse, NotUsed] =
-    convertOffset(startExclusive).flatMapConcat { beginOpt =>
-      ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
-    }
+    convertOffset(startExclusive).fold(
+      error => Source.failed(error),
+      begin => ledger.completions(Some(begin), None, applicationId, parties).map(_._2)
+    )
 
   // IndexPackagesService
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
