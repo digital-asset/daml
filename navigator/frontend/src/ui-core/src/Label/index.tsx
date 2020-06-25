@@ -6,14 +6,14 @@ import styled, { hardcodedStyle } from '../theme';
 import Truncate from '../Truncate';
 
 export const StyledLabel
-  : React.ComponentClass<React.HTMLProps<HTMLLabelElement>>
+  : React.FC<React.HTMLProps<HTMLLabelElement>>
   = styled.label`
   display: block;
   margin: 0 0 15px;
 `;
 
 export const StyledLabelText
-: React.ComponentClass<React.HTMLProps<HTMLSpanElement>>
+: React.FC<React.HTMLProps<HTMLSpanElement>>
 = styled(Truncate)`
   color: ${({ theme }) => theme.colorFaded};
   text-transform: ${hardcodedStyle.labelTextTransform};

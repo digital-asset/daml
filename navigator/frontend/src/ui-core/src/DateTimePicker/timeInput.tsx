@@ -126,7 +126,7 @@ export default class TimeInput extends React.Component<Props, State> {
     return (
       <TimeWrapper>
         <RoundInput
-          innerRef={(e) => {this.input = e}}
+          ref={(e) => {this.input = e}}
           value={displayValue}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             this.setState({value: e.target.value})}
