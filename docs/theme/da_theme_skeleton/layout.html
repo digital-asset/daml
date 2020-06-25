@@ -139,6 +139,7 @@
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MSWJMNX"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
+  {% block extrabody %} {% endblock %}
   <div class="wy-grid-for-nav">
 
     {# SIDE NAV, TOGGLES ON MOBILE #}
@@ -239,8 +240,8 @@
       SphinxRtdTheme.Navigation.enable({{ 'true' if theme_sticky_navigation | tobool else 'false' }});
       });
   </script>
-  {%- block footer %} {% endblock %}
-  {# Do not conflict with RTD insertion of analytics script #}
+
+{# Do not conflict with RTD insertion of analytics script #}
   {% if not READTHEDOCS %}
     {% if theme_analytics_id %}
     <!-- Theme Analytics -->
@@ -258,11 +259,14 @@
 
     {% endif %}
   {% endif %}
+
   {%- if url_root != './' %}
   <div id="inpageContent"></div>
   {% else %}
   <div id="inpageContent" style="display: none;"></div>
   {% endif %}
-{% block extrabody %} {% endblock %}
+
+  {%- block footer %} {% endblock %}
+
 </body>
 </html>
