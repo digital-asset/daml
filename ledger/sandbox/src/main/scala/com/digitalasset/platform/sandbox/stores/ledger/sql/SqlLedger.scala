@@ -101,18 +101,22 @@ object SqlLedger {
         dispatcher <- ResourceOwner
           .forCloseable(() => Dispatcher[Offset]("sql-ledger", Offset.beforeBegin, ledgerEnd))
           .acquire()
-      } yield
-        new SqlLedger(
-          ledgerId,
-          participantId,
-          ledgerConfig.map(_._2),
-          ledgerDao,
-          dispatcher,
-          timeProvider,
-          packages,
-          queueDepth,
-          transactionCommitter,
-        )
+        ledger <- ResourceOwner
+          .forCloseable(
+            () =>
+              new SqlLedger(
+                ledgerId,
+                participantId,
+                ledgerConfig.map(_._2),
+                ledgerDao,
+                dispatcher,
+                timeProvider,
+                packages,
+                queueDepth,
+                transactionCommitter,
+            ))
+          .acquire()
+      } yield ledger
 
     private def initialize(
         initialLedgerId: LedgerIdMode,

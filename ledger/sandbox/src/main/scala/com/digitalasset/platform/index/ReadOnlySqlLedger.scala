@@ -58,7 +58,10 @@ object ReadOnlySqlLedger {
         dispatcher <- ResourceOwner
           .forCloseable(() => Dispatcher[Offset]("sql-ledger", Offset.beforeBegin, ledgerEnd))
           .acquire()
-      } yield new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher)
+        ledger <- ResourceOwner
+          .forCloseable(() => new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher))
+          .acquire()
+      } yield ledger
   }
 
   private def initialize(
