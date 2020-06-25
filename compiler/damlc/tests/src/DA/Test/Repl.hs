@@ -144,11 +144,15 @@ testSetTime
     -> Assertion
 testSetTime damlc scriptDar testDar ledgerPort = do
     out <- readCreateProcess cp $ unlines
-        [ "import DA.Date"
+        [ "import DA.Assert"
+        , "import DA.Date"
         , "import DA.Time"
-        , "setTime (time (date 2000 Feb 2) 0 1 2)"
+        , "expected <- pure (time (date 2000 Feb 2) 0 1 2)"
+        , "setTime expected"
+        , "actual <- getTime"
+        , "assertEq actual expected"
         ]
-    let regexString = "^daml> daml> daml> daml> Goodbye.\n$" :: String
+    let regexString = "^daml> daml> daml> daml> daml> daml> daml> daml> Goodbye.\n$" :: String
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")
