@@ -14,6 +14,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
@@ -54,7 +55,10 @@ object ReadOnlySqlLedger {
           .acquire()
         ledgerId <- Resource.fromFuture(initialize(ledgerDao, initialLedgerId))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
-      } yield new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
+        dispatcher <- ResourceOwner
+          .forCloseable(() => Dispatcher[Offset]("sql-ledger", Offset.beforeBegin, ledgerEnd))
+          .acquire()
+      } yield new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher)
   }
 
   private def initialize(
@@ -76,12 +80,12 @@ object ReadOnlySqlLedger {
 
 }
 
-private class ReadOnlySqlLedger(
+private final class ReadOnlySqlLedger(
     ledgerId: LedgerId,
-    headAtInitialization: Offset,
     ledgerDao: LedgerReadDao,
+    dispatcher: Dispatcher[Offset],
 )(implicit mat: Materializer)
-    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
+    extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
@@ -115,11 +119,12 @@ private class ReadOnlySqlLedger(
 
   override def close(): Unit = {
     // Terminate the dispatcher first so that it doesn't trigger new queries.
-    super.close()
+    dispatcher.close()
+
     deduplicationCleanupKillSwitch.shutdown()
     ledgerEndUpdateKillSwitch.shutdown()
     Await.result(deduplicationCleanupDone, 10.seconds)
     Await.result(ledgerEndUpdateDone, 10.seconds)
-    ()
+    super.close()
   }
 }

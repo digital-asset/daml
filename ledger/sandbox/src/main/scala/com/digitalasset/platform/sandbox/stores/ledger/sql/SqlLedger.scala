@@ -23,6 +23,7 @@ import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
@@ -97,13 +98,16 @@ object SqlLedger {
           ))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         ledgerConfig <- Resource.fromFuture(ledgerDao.lookupLedgerConfiguration())
+        dispatcher <- ResourceOwner
+          .forCloseable(() => Dispatcher[Offset]("sql-ledger", Offset.beforeBegin, ledgerEnd))
+          .acquire()
       } yield
         new SqlLedger(
           ledgerId,
           participantId,
-          ledgerEnd,
           ledgerConfig.map(_._2),
           ledgerDao,
+          dispatcher,
           timeProvider,
           packages,
           queueDepth,
@@ -244,15 +248,15 @@ object SqlLedger {
 private final class SqlLedger(
     ledgerId: LedgerId,
     participantId: ParticipantId,
-    headAtInitialization: Offset,
     configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
+    dispatcher: Dispatcher[Offset],
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
     transactionCommitter: TransactionCommitter,
 )(implicit mat: Materializer, logCtx: LoggingContext)
-    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
+    extends BaseLedger(ledgerId, ledgerDao, dispatcher)
     with Ledger {
 
   import SqlLedger._
@@ -307,8 +311,11 @@ private final class SqlLedger(
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
-    super.close()
+    // Terminate the dispatcher first so that it doesn't trigger new queries.
+    dispatcher.close()
+
     persistenceQueue.complete()
+    super.close()
   }
 
   // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
