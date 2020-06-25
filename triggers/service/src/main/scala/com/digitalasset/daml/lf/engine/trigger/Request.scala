@@ -9,8 +9,8 @@ import spray.json.{JsString, JsValue, JsonFormat, deserializationError}
 
 object Request {
   implicit object IdentifierFormat extends JsonFormat[Identifier] {
-    def read(value: JsValue) = value match {
-      case JsString(s) => {
+    def read(value: JsValue): Identifier = value match {
+      case JsString(s) =>
         val components = s.split(":")
         if (components.length == 3) {
           val parsed = for {
@@ -25,10 +25,9 @@ object Request {
         } else {
           deserializationError(s"Expected trigger identifier of the form pkgid:mod:name but got $s")
         }
-      }
       case _ => deserializationError("Expected trigger identifier of the form pkgid:mod:name")
     }
-    def write(id: Identifier) = JsString(id.toString)
+    def write(id: Identifier): JsValue = JsString(id.toString)
   }
 
   case class StartParams(triggerName: Identifier)
