@@ -46,7 +46,7 @@ steps:
       --detect.bazel.target=//... \
       --detect.bazel.dependency.type=haskell_cabal_library \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
-      --detect.report.timeout=1050
+      --detect.report.timeout=1000
     displayName: 'Blackduck Haskell Scan'
     condition: eq('${{parameters.name}}', 'linux')
 
