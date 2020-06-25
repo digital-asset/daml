@@ -44,7 +44,9 @@ steps:
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
-      --detect.bazel.dependency.type=haskell_cabal_library
+      --detect.bazel.dependency.type=haskell_cabal_library \
+      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+      --detect.report.timeout=1050
     displayName: 'Blackduck Haskell Scan'
     condition: eq('${{parameters.name}}', 'linux')
 
