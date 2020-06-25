@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
+import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, assertSingleton}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
@@ -37,32 +37,39 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
     case Participants(Participant(ledger, party)) =>
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
-      val a = UUID.randomUUID.toString
-      val b = UUID.randomUUID.toString
-      val requestA = ledger
-        .submitRequest(party, Dummy(party).create.command)
+      val requestA1 = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
         .update(
           _.commands.deduplicationTime := deduplicationTime,
-          _.commands.commandId := a,
         )
-      val requestB = ledger
-        .submitAndWaitRequest(party, Dummy(party).create.command)
-        .update(_.commands.commandId := b)
+      val requestA2 = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
+        .update(
+          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.commandId := requestA1.commands.get.commandId,
+        )
 
       for {
         // Submit command A (first deduplication window)
-        _ <- ledger.submit(requestA)
-        failure1 <- ledger.submit(requestA).failed
+        // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
+        // only one submission is therefore sent to the ledger.
+        ledgerEnd1 <- ledger.currentEnd()
+        _ <- ledger.submit(requestA1)
+        failure1 <- ledger.submit(requestA1).failed
+        completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
 
         // Wait until the end of first deduplication window
         _ <- Delayed.by((deduplicationSeconds + 1).seconds)(())
 
         // Submit command A (second deduplication window)
-        _ <- ledger.submit(requestA)
-        failure2 <- ledger.submit(requestA).failed
-
-        // Submit and wait for command B (to get a unique completion for the end of the test)
-        _ <- ledger.submitAndWait(requestB)
+        // Note: the deduplication window is guaranteed to have passed on both
+        // the ledger API server and the ledger itself, since the test waited more than
+        // `deduplicationSeconds` after receiving the first command *completion*.
+        // The first submit() in this block should therefore lead to an accepted transaction.
+        ledgerEnd2 <- ledger.currentEnd()
+        _ <- ledger.submit(requestA2)
+        failure2 <- ledger.submit(requestA2).failed
+        completions2 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd2)(party))
 
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
@@ -70,9 +77,23 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
         assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
 
+        assert(ledgerEnd1 != ledgerEnd2)
+
+        val completionCommandId1 =
+          assertSingleton("Expected only one first completion", completions1.map(_.commandId))
+        val completionCommandId2 =
+          assertSingleton("Expected only one second completion", completions2.map(_.commandId))
+
         assert(
-          activeContracts.size == 3,
-          s"There should be 3 active contracts, but received $activeContracts",
+          completionCommandId1 == requestA1.commands.get.commandId,
+          "The command ID of the first completion does not match the command ID of the submission")
+        assert(
+          completionCommandId2 == requestA2.commands.get.commandId,
+          "The command ID of the second completion does not match the command ID of the submission")
+
+        assert(
+          activeContracts.size == 2,
+          s"There should be 2 active contracts, but received $activeContracts",
         )
       }
   })
@@ -146,12 +167,10 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
     case Participants(Participant(ledger, party)) =>
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
-      val a = UUID.randomUUID.toString
       val requestA = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
         .update(
           _.commands.deduplicationTime := deduplicationTime,
-          _.commands.commandId := a,
         )
 
       for {

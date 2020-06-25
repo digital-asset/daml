@@ -80,6 +80,13 @@ template DummyWithParam
         with paramString: Text
         do return ()
 
+template DummyWithAnnotation
+  with
+    operator : Party
+    annotation : Text
+  where
+    signatory operator
+
 template DummyFactory
   with
     operator: Party
