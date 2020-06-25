@@ -49,6 +49,12 @@ main = do
                   , mbClientAuth = Just None
                   } $ \getSandboxPort ->
                   tlsTests damlc scriptDar testDar getSandboxPort certDir
+            , withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , mbLedgerId = Just testLedgerId
+                  , timeMode = Static
+                  } $ \getSandboxPort ->
+              staticTimeTests damlc scriptDar testDar getSandboxPort
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -121,4 +127,42 @@ testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
                      ]
                    , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [mbTokenFile] ]
                    , [ "--cacrt=" <> cacrt | Just cacrt <- [mbCaCrt] ]
+                   ]
+
+staticTimeTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
+staticTimeTests damlc scriptDar testDar getSandboxPort = testGroup "static-time"
+    [ testCase "setTime" $ do
+        port <- getSandboxPort
+        testSetTime damlc scriptDar testDar port
+    ]
+
+testSetTime
+    :: FilePath
+    -> FilePath
+    -> FilePath
+    -> Int
+    -> Assertion
+testSetTime damlc scriptDar testDar ledgerPort = do
+    out <- readCreateProcess cp $ unlines
+        [ "import DA.Assert"
+        , "import DA.Date"
+        , "import DA.Time"
+        , "expected <- pure (time (date 2000 Feb 2) 0 1 2)"
+        , "setTime expected"
+        , "actual <- getTime"
+        , "assertEq actual expected"
+        ]
+    let regexString = "^daml> daml> daml> daml> daml> daml> daml> daml> Goodbye.\n$" :: String
+    let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+    unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
+    where cp = proc damlc
+                   [ "repl"
+                   , "--static-time"
+                   , "--ledger-host=localhost"
+                   , "--ledger-port"
+                   , show ledgerPort
+                   , "--script-lib"
+                   , scriptDar
+                   , testDar
                    ]
