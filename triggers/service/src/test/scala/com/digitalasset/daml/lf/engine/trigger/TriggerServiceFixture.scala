@@ -62,10 +62,23 @@ object TriggerServiceFixture {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
+    val host = InetAddress.getLoopbackAddress
+    val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
+
+    // TODO (SF, 2020-06-24): Launch a ref-ledger-authentication instance.
+    val refLedgerAuthExe =
+      if (!isWindows)
+        BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary")
+      else
+        BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary.exe")
+
     // Launch a toxiproxy instance. Wait on it to be ready to accept
     // connections.
-    val host = InetAddress.getLoopbackAddress
-    val toxiProxyExe = BazelRunfiles.rlocation(System.getProperty("com.daml.toxiproxy"))
+    val toxiProxyExe =
+      if (!isWindows)
+        BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+      else
+        BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
     val toxiProxyPort = findFreePort()
     val toxiProxyProc = Process(Seq(toxiProxyExe, "--port", toxiProxyPort.value.toString)).run()
     RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>

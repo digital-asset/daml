@@ -85,8 +85,16 @@ java_binary(
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":test-model.dar"] + (["@toxiproxy_dev_env//:bin/toxiproxy-cmd"] if not is_windows else ["@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe"]),
-    jvm_flags = ["-Dcom.daml.toxiproxy=$(rootpath @toxiproxy_dev_env//:bin/toxiproxy-cmd)"] if not is_windows else ["-Dcom.daml.toxiproxy=$(rootpath @toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe)"],
+    data = [
+        ":test-model.dar",
+        "//triggers/service:ref-ledger-authentication-binary",
+    ] + (
+        [
+            "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
+        ] if not is_windows else [
+            "@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe",
+        ]
+    ),
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":trigger-service",
