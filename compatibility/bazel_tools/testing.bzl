@@ -348,7 +348,6 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-            "--implicit-party-allocation=false",
         ] + exclusions,
         data = [dar_files],
         runner = "@//bazel_tools/client_server:runner",
