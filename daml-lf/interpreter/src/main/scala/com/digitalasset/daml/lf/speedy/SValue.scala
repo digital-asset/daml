@@ -64,16 +64,8 @@ sealed trait SValue {
         V.ValueGenMap(ImmArray(values.map { case (k, v) => k.toValue -> v.toValue }))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SAny(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAny")
-      case STypeRep(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STypeRep")
-      case STNat(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STNat")
-      case _: SPAP =>
-        throw SErrorCrash("SValue.toValue: unexpected SPAP")
-      case SToken =>
-        throw SErrorCrash("SValue.toValue: unexpected SToken")
+      case _: SAny | _: STypeRep | _: STNat | _: SPAP | SToken =>
+        throw SErrorCrash(s"SValue.toValue: unexpected $this")
     }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
@@ -113,7 +105,7 @@ object SValue {
 
   /** "Primitives" that can be applied. */
   sealed trait Prim
-  final case class PBuiltin(b: SBuiltin) extends Prim
+  final case class PBuiltin(b: SBuiltinMaybeHungry) extends Prim
 
   /** A closure consisting of an expression together with the values the
     * expression is closing over.

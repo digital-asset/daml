@@ -10,8 +10,11 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
+
+import com.daml.lf.speedy.Pretty.SExpr._
 
 import scala.annotation.tailrec
 
@@ -69,11 +72,11 @@ private[lf] object Compiler {
       stacktracing: StackTraceMode,
       profiling: ProfilingMode,
       validation: Boolean = true,
-  ): Either[String, Map[SDefinitionRef, SExpr]] = {
+  ): Either[String, Map[SDefinitionRef, AExpr]] = {
     val compiler = Compiler(packages, stacktracing, profiling)
     try {
       Right(
-        packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
+        packages.keys.foldLeft(Map.empty[SDefinitionRef, AExpr])(
           _ ++ compiler.unsafeCompilePackage(_, validation))
       )
     } catch {
@@ -170,29 +173,67 @@ private[lf] final case class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(cmds: ImmArray[Command]): SExpr =
-    validate(closureConvert(Map.empty, translateCommands(cmds)))
+  def unsafeCompile(cmds: ImmArray[Command]): AExpr =
+    validate(compilationPipeline(None, translateCommands(cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(expr: Expr): SExpr =
-    validate(closureConvert(Map.empty, translate(expr)))
+  def unsafeCompile(expr: Expr, who: Option[Identifier] = None): AExpr = {
+    validate(compilationPipeline(who, translate(expr)))
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeClosureConvert(sexpr: SExpr): SExpr =
-    validate(closureConvert(Map.empty, sexpr))
+  def unsafeClosureConvert(sexpr: SExpr): AExpr =
+    validate(compilationPipeline(None, sexpr))
+
+  // Run the compilation pipeline phases:
+  // (1) closure conversion
+  // (2) transform to ANF
+  def compilationPipeline(who: Option[Identifier], sexpr: SExpr): AExpr = {
+    //flattenToAnf(closureConvert(Map.empty, sexpr)) // the plain pipeline
+    val tagOpt: Option[String] = who match {
+      case Some(id) =>
+        val q: QualifiedName = id.qualifiedName
+        val pick = false
+        //val pick = (q.module.toString == "Examples") && (q.name.toString == "nfib")
+        if (pick) {
+          Some(q.toString)
+        } else {
+          None
+        }
+      case None =>
+        None
+    }
+    val cc = closureConvert(Map.empty, sexpr)
+    tagOpt match {
+      case Some(tag) =>
+        println(s"--------------------------------------------------[$tag] (cc)")
+        println(prettySExpr(0)(cc).render(80))
+        println(s"--------------------------------------------------[$tag]")
+      case _ =>
+    }
+    val anf = flattenToAnf(cc)
+    tagOpt match {
+      case Some(tag) =>
+        println(s"--------------------------------------------------[$tag] (anf)")
+        println(prettySExpr(0)(anf.wrapped).render(80))
+        println(s"--------------------------------------------------[$tag]")
+      case _ =>
+    }
+    anf
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileDefn(
       identifier: Identifier,
       defn: Definition,
-  ): List[(SDefinitionRef, SExpr)] =
+  ): List[(SDefinitionRef, AExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
         val ref = LfDefRef(identifier)
-        List(ref -> withLabel(ref, unsafeCompile(body)))
+        List(ref -> AExpr(withLabel(ref, unsafeCompile(body, Some(identifier)).wrapped)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
@@ -220,7 +261,7 @@ private[lf] final case class Compiler(
   def unsafeCompilePackage(
       pkgId: PackageId,
       validation: Boolean = true,
-  ): Iterable[(SDefinitionRef, SExpr)] = {
+  ): Iterable[(SDefinitionRef, AExpr)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
@@ -851,7 +892,7 @@ private[lf] final case class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       cname: ChoiceName,
-      choice: TemplateChoice): SExpr =
+      choice: TemplateChoice): AExpr =
     // Compiles a choice into:
     // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choice arg> <token> ->
     //   let targ = fetch <cid>
@@ -860,8 +901,8 @@ private[lf] final case class Compiler(
     //       _ = $endExercise[tmplId]
     //   in result
     validate(
-      closureConvert(
-        Map.empty,
+      compilationPipeline(
+        None,
         withEnv { _ =>
           env = env.incrPos // <byKey flag>
           env = env.incrPos // <actors>
@@ -915,8 +956,8 @@ private[lf] final case class Compiler(
                 SEVar(2)
             }
           )
-        },
-      ),
+        }
+      )
     )
 
   // ELet(a, ELet(b, body)) => ([a, b], body)
@@ -1052,15 +1093,6 @@ private[lf] final case class Compiler(
         val newArgs = args.map(closureConvert(remaps, _))
         SEApp(newFun, newArgs)
 
-      case SEAppAtomicFun(fun, args) =>
-        val newFun = closureConvert(remaps, fun)
-        val newArgs = args.map(closureConvert(remaps, _))
-        SEApp(newFun, newArgs)
-
-      case SEAppSaturatedBuiltinFun(builtin, args) =>
-        val newArgs = args.map(closureConvert(remaps, _))
-        SEAppSaturatedBuiltinFun(builtin, newArgs)
-
       case SECase(scrut, alts) =>
         SECase(
           closureConvert(remaps, scrut),
@@ -1090,11 +1122,15 @@ private[lf] final case class Compiler(
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
-      case x: SEWronglyTypeContractId =>
-        throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+      case x: SEWronglyTypeContractId => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SEImportValue => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SEAppAtomicGeneral => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SEAppAtomicSaturatedBuiltin =>
+        throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SELet1General => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SELet1Builtin => throw CompilationError(s"closureConvert: unexpected: $x")
+      case x: SECaseAtomic => throw CompilationError(s"closureConvert: unexpected: $x")
 
-      case x: SEImportValue =>
-        throw CompilationError(s"unexpected SEImportValue: $x")
     }
   }
 
@@ -1142,19 +1178,10 @@ private[lf] final case class Compiler(
         case SEAppGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
-        case SEAppAtomicFun(fun, args) =>
-          go(fun)
-          args.foreach(go)
-        case SEAppSaturatedBuiltinFun(_, args) =>
-          args.foreach(go)
         case SEAbs(n, body) =>
           bound += n
           go(body)
           bound -= n
-        case x: SELoc =>
-          throw CompilationError(s"freeVars: unexpected SELoc: $x")
-        case x: SEMakeClo =>
-          throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1175,10 +1202,15 @@ private[lf] final case class Compiler(
           go(fin)
         case SELabelClosure(_, expr) =>
           go(expr)
-        case x: SEWronglyTypeContractId =>
-          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
+        case x: SEWronglyTypeContractId => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SEImportValue => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SELoc => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SEMakeClo => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
+        case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
       }
     go(expr)
     free
@@ -1187,7 +1219,7 @@ private[lf] final case class Compiler(
   /** Validate variable references in a speedy expression */
   // valiate that we correctly captured all free-variables, and so reference to them is
   // via the surrounding closure, instead of just finding them higher up on the stack
-  def validate(expr0: SExpr): SExpr = {
+  def validate(anf0: AExpr): AExpr = {
 
     def goV(v: SValue): Unit = {
       v match {
@@ -1211,7 +1243,7 @@ private[lf] final case class Compiler(
     }
 
     def goBody(maxS: Int, maxA: Int, maxF: Int): SExpr => Unit = {
-
+      //println(s"goBody, maxS=$maxS")
       def goLoc(loc: SELoc) = loc match {
         case SELocS(i) =>
           if (i < 1 || i > maxS)
@@ -1230,21 +1262,18 @@ private[lf] final case class Compiler(
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
+        case SEAppAtomicGeneral(fun, args) =>
+          go(fun)
+          args.foreach(go)
+        case SEAppAtomicSaturatedBuiltin(_, args) =>
+          args.foreach(go)
         case SEAppGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
-        case SEAppAtomicFun(fun, args) =>
-          go(fun)
-          args.foreach(go)
-        case SEAppSaturatedBuiltinFun(_, args) =>
-          args.foreach(go)
-        case x: SEVar =>
-          throw CompilationError(s"validate: SEVar encountered: $x")
-        case abs: SEAbs =>
-          throw CompilationError(s"validate: SEAbs encountered: $abs")
         case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
+        case SECaseAtomic(scrut, alts) => go(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1252,6 +1281,9 @@ private[lf] final case class Compiler(
               val n = patternNArgs(pat)
               goBody(maxS + n, maxA, maxF)(body)
           }
+        case SELet1General(rhs, body) => go(SELet(Array(rhs), body))
+        case SELet1Builtin(builtin, args, body) =>
+          go(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
         case SELet(bounds, body) =>
           bounds.zipWithIndex.foreach {
             case (rhs, i) =>
@@ -1266,15 +1298,16 @@ private[lf] final case class Compiler(
           go(body)
         case SELabelClosure(_, expr) =>
           go(expr)
-        case x: SEWronglyTypeContractId =>
-          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
+
+        case x: SEVar => throw CompilationError(s"validate: unexpected: $x")
+        case x: SEAbs => throw CompilationError(s"validate: unexpected: $x")
+        case x: SEWronglyTypeContractId => throw CompilationError(s"validate: unexpected: $x")
+        case x: SEImportValue => throw CompilationError(s"validate: unexpected: $x")
       }
       go
     }
-    goBody(0, 0, 0)(expr0)
-    expr0
+    goBody(0, 0, 0)(anf0.wrapped)
+    anf0
   }
 
   private def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {

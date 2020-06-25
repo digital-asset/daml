@@ -18,14 +18,14 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
 final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   private[this] val _packages: ConcurrentMap[PackageId, Package] =
     new ConcurrentHashMap().asScala
-  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
+  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.AExpr] =
     new ConcurrentHashMap()
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
   private[this] var _profilingMode: speedy.Compiler.ProfilingMode = speedy.Compiler.NoProfile
 
   def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
-  def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
+  def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.AExpr] =
     Option(_defns.get(dref))
 
   def stackTraceMode = speedy.Compiler.FullStackTrace

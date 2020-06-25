@@ -72,6 +72,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
+        "platform_ranges": [
+            {
+                "start": "0.0.0",  # fixme on next release
+                "exclusions": [
+                    "CommandServiceIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
