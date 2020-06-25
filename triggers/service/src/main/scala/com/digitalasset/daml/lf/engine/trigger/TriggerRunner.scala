@@ -64,7 +64,7 @@ class TriggerRunner(
 
   override def onSignal: PartialFunction[Signal, Behavior[Message]] = {
     case PostStop =>
-      logger.info(s"Trigger ${name} stopped")
+      logger.info(s"Trigger $name stopped")
       this
   }
 
