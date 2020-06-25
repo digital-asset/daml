@@ -84,26 +84,26 @@ def install_java_deps():
             # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
             # need to be updated with careful consideration.
             # grpc
-            "io.grpc:grpc-api:1.29.0",
-            "io.grpc:grpc-core:1.29.0",
-            "io.grpc:grpc-netty:1.29.0",
-            "io.grpc:grpc-protobuf:1.29.0",
-            "io.grpc:grpc-services:1.29.0",
-            "io.grpc:grpc-stub:1.29.0",
+            "io.grpc:grpc-api:1.30.2",
+            "io.grpc:grpc-core:1.30.2",
+            "io.grpc:grpc-netty:1.30.2",
+            "io.grpc:grpc-protobuf:1.30.2",
+            "io.grpc:grpc-services:1.30.2",
+            "io.grpc:grpc-stub:1.30.2",
             # netty
-            "io.netty:netty-codec-http2:4.1.48.Final",
-            "io.netty:netty-handler:4.1.48.Final",
-            "io.netty:netty-handler-proxy:4.1.48.Final",
-            "io.netty:netty-resolver:4.1.48.Final",
-            "io.netty:netty-tcnative-boringssl-static:2.0.30.Final",
+            "io.netty:netty-codec-http2:4.1.50.Final",
+            "io.netty:netty-handler:4.1.50.Final",
+            "io.netty:netty-handler-proxy:4.1.50.Final",
+            "io.netty:netty-resolver:4.1.50.Final",
+            "io.netty:netty-tcnative-boringssl-static:2.0.31.Final",
             # protobuf
-            "com.google.protobuf:protobuf-java:3.11.0",
+            "com.google.protobuf:protobuf-java:3.12.2",
             #scalapb
-            "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
-            "com.thesamet.scalapb:lenses_2.12:0.9.0",
-            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
-            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
+            "com.thesamet.scalapb:compilerplugin_2.12:0.9.8",
+            "com.thesamet.scalapb:lenses_2.12:0.9.8",
+            "com.thesamet.scalapb:protoc-bridge_2.12:0.7.14",
+            "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.8",
+            "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.8",
             # ---- end of grpc-protobuf-netty block
             "io.protostuff:protostuff-core:1.5.2",
             "io.reactivex.rxjava2:rxjava:2.2.1",

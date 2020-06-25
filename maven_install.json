@@ -1661,68 +1661,68 @@
                 "sha256": "2cd9022a77151d0b574887635cdfcdf3b78155b602abc89d7f8e62aba55cfb4f"
             },
             {
-                "coord": "com.google.protobuf:protobuf-java-util:3.11.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0.jar",
+                "coord": "com.google.protobuf:protobuf-java-util:3.12.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.12.0/protobuf-java-util-3.12.0.jar",
                 "directDependencies": [
                     "com.google.code.gson:gson:2.8.2",
-                    "com.google.protobuf:protobuf-java:3.11.0"
+                    "com.google.protobuf:protobuf-java:3.12.2"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
-                    "com.google.code.gson:gson:2.8.2"
+                    "com.google.code.gson:gson:2.8.2",
+                    "com.google.protobuf:protobuf-java:3.12.2"
                 ],
                 "exclusions": [
                     "com.google.guava:guava",
                     "com.google.errorprone:error_prone_annotations"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0.jar",
+                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.12.0/protobuf-java-util-3.12.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0.jar"
+                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.12.0/protobuf-java-util-3.12.0.jar"
                 ],
-                "sha256": "54b4cb99ec9196f24d04a47f98416274e34aee16ebb860d5655c6c5a069705e5"
+                "sha256": "14b734d5a36af8bb9fa2c620b75b1fa4c701e7c6f35d5ca94f27ae37b42973a6"
             },
             {
-                "coord": "com.google.protobuf:protobuf-java-util:jar:sources:3.11.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0-sources.jar",
+                "coord": "com.google.protobuf:protobuf-java-util:jar:sources:3.12.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.12.0/protobuf-java-util-3.12.0-sources.jar",
                 "directDependencies": [
                     "com.google.code.gson:gson:jar:sources:2.8.2",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "com.google.code.gson:gson:jar:sources:2.8.2"
                 ],
                 "exclusions": [
                     "com.google.guava:guava",
                     "com.google.errorprone:error_prone_annotations"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.12.0/protobuf-java-util-3.12.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.11.0/protobuf-java-util-3.11.0-sources.jar"
+                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.12.0/protobuf-java-util-3.12.0-sources.jar"
                 ],
-                "sha256": "9bf1911bb1a4e30e1f20451257f6c7063406fa8e9c7ea961411cc1d3a0fcd4c7"
+                "sha256": "326e8ff1ac842125294b2afa8ee5569c7e30e55a47a4cd1e4e1cd0bf18b13bef"
             },
             {
-                "coord": "com.google.protobuf:protobuf-java:3.11.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0.jar",
+                "coord": "com.google.protobuf:protobuf-java:3.12.2",
+                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.12.2/protobuf-java-3.12.2.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0.jar",
+                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.12.2/protobuf-java-3.12.2.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0.jar"
+                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.12.2/protobuf-java-3.12.2.jar"
                 ],
-                "sha256": "123d8b260cfdbb91a208931c2d3ea0988c6942f4f4d9303b008f005ef3a4124c"
+                "sha256": "b385bef93bad20c5e7a6cf3b1c73edde29bdec4bb3bb75688d233b561f0dcaa0"
             },
             {
-                "coord": "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0-sources.jar",
+                "coord": "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
+                "file": "v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.12.2/protobuf-java-3.12.2-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.12.2/protobuf-java-3.12.2-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.11.0/protobuf-java-3.11.0-sources.jar"
+                    "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.12.2/protobuf-java-3.12.2-sources.jar"
                 ],
-                "sha256": "d02e967398a4dda1e88ff156854d11d2430d0e155bc99ecccad977b46937842c"
+                "sha256": "dd1313dc4bf18272b654bff973c76c0aefd1dcb4da710dc70389f63a752eeda3"
             },
             {
                 "coord": "com.h2database:h2:1.4.200",
@@ -2457,216 +2457,246 @@
                 "sha256": "42a02324152cc04c35676887555d032056dfb42d88b8697da94ea0db3e387a84"
             },
             {
-                "coord": "com.thesamet.scalapb:compilerplugin_2.12:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0.jar",
+                "coord": "com.thesamet.scalapb:compilerplugin_2.12:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.8/compilerplugin_2.12-0.9.8.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
-                    "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
+                    "com.google.protobuf:protobuf-java:3.12.2",
+                    "com.thesamet.scalapb:protoc-bridge_2.12:0.7.14",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
+                    "org.scalacheck:scalacheck_2.12:1.14.0",
+                    "com.thesamet.scalapb:protoc-bridge_2.12:0.7.14",
+                    "org.scalatestplus:scalacheck-1-14_2.12:3.1.1.1",
+                    "org.scalactic:scalactic_2.12:3.0.5",
+                    "org.scala-lang:scala-reflect:2.12.11",
                     "org.scala-lang:scala-library:2.12.11",
-                    "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8"
+                    "org.scala-sbt:test-interface:1.0",
+                    "org.scalatest:scalatest_2.12:3.0.5",
+                    "com.google.protobuf:protobuf-java:3.12.2",
+                    "org.scala-lang.modules:scala-xml_2.12:1.0.6"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.8/compilerplugin_2.12-0.9.8.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.8/compilerplugin_2.12-0.9.8.jar"
                 ],
-                "sha256": "dce6277e9c618d0cee1dd5141f5bd4155eccd221588c7f1658eaa915f3eb8d33"
+                "sha256": "3c34e2409e2f3e94c426133f361172fa5d8fcc84bdc320e618b4e6a944813fde"
             },
             {
-                "coord": "com.thesamet.scalapb:compilerplugin_2.12:jar:sources:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0-sources.jar",
+                "coord": "com.thesamet.scalapb:compilerplugin_2.12:jar:sources:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.8/compilerplugin_2.12-0.9.8-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.8",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
+                    "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.14",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.8",
+                    "org.scalacheck:scalacheck_2.12:jar:sources:1.14.0",
+                    "org.scalactic:scalactic_2.12:jar:sources:3.0.5",
+                    "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
+                    "org.scala-lang:scala-reflect:jar:sources:2.12.11",
+                    "org.scala-sbt:test-interface:jar:sources:1.0",
+                    "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.14",
+                    "org.scalatest:scalatest_2.12:jar:sources:3.0.5",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
+                    "org.scalatestplus:scalacheck-1-14_2.12:jar:sources:3.1.1.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.8/compilerplugin_2.12-0.9.8-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.0/compilerplugin_2.12-0.9.0-sources.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/compilerplugin_2.12/0.9.8/compilerplugin_2.12-0.9.8-sources.jar"
                 ],
-                "sha256": "caae59883dca861619ce88b6b53f4d2dac88af32ed27eaec5424c3054f3eca21"
+                "sha256": "930e38c0460a521d3a76508c3fe6011381a0be3206651f41a0c1ced5c43999f8"
             },
             {
-                "coord": "com.thesamet.scalapb:lenses_2.12:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.0/lenses_2.12-0.9.0.jar",
-                "directDependencies": [
-                    "org.scala-lang:scala-library:2.12.11"
-                ],
-                "dependencies": [
-                    "org.scala-lang:scala-library:2.12.11"
-                ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.0/lenses_2.12-0.9.0.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.0/lenses_2.12-0.9.0.jar"
-                ],
-                "sha256": "0a2fff4de17d270cea561618090c21d50bc891d82c6f9dfccdc20568f18d0260"
-            },
-            {
-                "coord": "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.0/lenses_2.12-0.9.0-sources.jar",
-                "directDependencies": [
-                    "org.scala-lang:scala-library:jar:sources:2.12.11"
-                ],
-                "dependencies": [
-                    "org.scala-lang:scala-library:jar:sources:2.12.11"
-                ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.0/lenses_2.12-0.9.0-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.0/lenses_2.12-0.9.0-sources.jar"
-                ],
-                "sha256": "107cb837f35186db75d4a1e343fcd809591daaf08459d6d328f0ad47f4ec968e"
-            },
-            {
-                "coord": "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.8/protoc-bridge_2.12-0.7.8.jar",
+                "coord": "com.thesamet.scalapb:lenses_2.12:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.8/lenses_2.12-0.9.8.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.8/protoc-bridge_2.12-0.7.8.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.8/lenses_2.12-0.9.8.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.8/protoc-bridge_2.12-0.7.8.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.8/lenses_2.12-0.9.8.jar"
                 ],
-                "sha256": "04116b52f76adc9fac1e83e1a18321c79e332e170e6542953199e3933e5ff375"
+                "sha256": "00e59530efd8b736bcf67e093c3d6354aaacc660180e609141813708266e79be"
             },
             {
-                "coord": "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.8",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.8/protoc-bridge_2.12-0.7.8-sources.jar",
+                "coord": "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.8/lenses_2.12-0.9.8-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.8/protoc-bridge_2.12-0.7.8-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.8/lenses_2.12-0.9.8-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.8/protoc-bridge_2.12-0.7.8-sources.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.9.8/lenses_2.12-0.9.8-sources.jar"
                 ],
-                "sha256": "bfa5e40b1bb1e76fc8bbbf7fc2956a70483c20573f76e0380c5f66f55c526b8c"
+                "sha256": "9101c1ac6e49012328a48d7ee12f2dd9d46e2c17639e2340aa2db573c3d87188"
             },
             {
-                "coord": "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.0/scalapb-runtime-grpc_2.12-0.9.0.jar",
+                "coord": "com.thesamet.scalapb:protoc-bridge_2.12:0.7.14",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.14/protoc-bridge_2.12-0.7.14.jar",
                 "directDependencies": [
-                    "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-                    "io.grpc:grpc-protobuf:1.29.0",
-                    "io.grpc:grpc-stub:1.29.0",
+                    "org.scala-lang:scala-library:2.12.11",
+                    "org.scalatestplus:scalacheck-1-14_2.12:3.1.1.1"
+                ],
+                "dependencies": [
+                    "org.scalacheck:scalacheck_2.12:1.14.0",
+                    "org.scalatestplus:scalacheck-1-14_2.12:3.1.1.1",
+                    "org.scalactic:scalactic_2.12:3.0.5",
+                    "org.scala-lang:scala-reflect:2.12.11",
+                    "org.scala-lang:scala-library:2.12.11",
+                    "org.scala-sbt:test-interface:1.0",
+                    "org.scalatest:scalatest_2.12:3.0.5",
+                    "org.scala-lang.modules:scala-xml_2.12:1.0.6"
+                ],
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.14/protoc-bridge_2.12-0.7.14.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.14/protoc-bridge_2.12-0.7.14.jar"
+                ],
+                "sha256": "2b8db0b71be5052768a96ccc41c9bb03f3f19e1e267e810a64963566538b1a2b"
+            },
+            {
+                "coord": "com.thesamet.scalapb:protoc-bridge_2.12:jar:sources:0.7.14",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.14/protoc-bridge_2.12-0.7.14-sources.jar",
+                "directDependencies": [
+                    "org.scala-lang:scala-library:jar:sources:2.12.11",
+                    "org.scalatestplus:scalacheck-1-14_2.12:jar:sources:3.1.1.1"
+                ],
+                "dependencies": [
+                    "org.scalacheck:scalacheck_2.12:jar:sources:1.14.0",
+                    "org.scalactic:scalactic_2.12:jar:sources:3.0.5",
+                    "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
+                    "org.scala-lang:scala-reflect:jar:sources:2.12.11",
+                    "org.scala-sbt:test-interface:jar:sources:1.0",
+                    "org.scalatest:scalatest_2.12:jar:sources:3.0.5",
+                    "org.scalatestplus:scalacheck-1-14_2.12:jar:sources:3.1.1.1",
+                    "org.scala-lang:scala-library:jar:sources:2.12.11"
+                ],
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.14/protoc-bridge_2.12-0.7.14-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/protoc-bridge_2.12/0.7.14/protoc-bridge_2.12-0.7.14-sources.jar"
+                ],
+                "sha256": "f99ca58596447d6781e27e7cfd4e044025a65479e5c97adabed83c507fde39d3"
+            },
+            {
+                "coord": "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.8/scalapb-runtime-grpc_2.12-0.9.8.jar",
+                "directDependencies": [
+                    "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.8",
+                    "io.grpc:grpc-protobuf:1.30.2",
+                    "io.grpc:grpc-stub:1.30.2",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-                    "com.thesamet.scalapb:lenses_2.12:0.9.0",
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "io.grpc:grpc-stub:1.30.2",
+                    "io.grpc:grpc-protobuf:1.30.2",
                     "com.google.api.grpc:proto-google-common-protos:1.17.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-context:1.29.0",
+                    "io.grpc:grpc-api:1.30.2",
+                    "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.8",
                     "org.scala-lang:scala-library:2.12.11",
-                    "io.grpc:grpc-api:1.29.0",
+                    "io.grpc:grpc-context:1.30.2",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "io.grpc:grpc-protobuf-lite:1.29.0",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
+                    "com.thesamet.scalapb:lenses_2.12:0.9.8",
                     "com.google.j2objc:j2objc-annotations:1.1",
-                    "io.grpc:grpc-stub:1.29.0",
-                    "io.grpc:grpc-protobuf:1.29.0",
-                    "com.google.guava:guava:24.0-jre"
+                    "com.google.guava:guava:24.0-jre",
+                    "com.google.protobuf:protobuf-java:3.12.2",
+                    "io.grpc:grpc-protobuf-lite:1.30.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.0/scalapb-runtime-grpc_2.12-0.9.0.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.8/scalapb-runtime-grpc_2.12-0.9.8.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.0/scalapb-runtime-grpc_2.12-0.9.0.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.8/scalapb-runtime-grpc_2.12-0.9.8.jar"
                 ],
-                "sha256": "925d8d86050991da6e024138fc21a1f2ff4f8aa49c1c5f76c71b330dbaec18d1"
+                "sha256": "c668031497831f7e92de381b0e4c53a1bfeb18491c39e0cb04b2144bd58b2e77"
             },
             {
-                "coord": "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:jar:sources:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.0/scalapb-runtime-grpc_2.12-0.9.0-sources.jar",
+                "coord": "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:jar:sources:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.8/scalapb-runtime-grpc_2.12-0.9.8-sources.jar",
                 "directDependencies": [
-                    "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.0",
-                    "io.grpc:grpc-protobuf:jar:sources:1.29.0",
-                    "io.grpc:grpc-stub:jar:sources:1.29.0",
+                    "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.8",
+                    "io.grpc:grpc-protobuf:jar:sources:1.30.2",
+                    "io.grpc:grpc-stub:jar:sources:1.30.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "io.grpc:grpc-protobuf:jar:sources:1.29.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
-                    "io.grpc:grpc-stub:jar:sources:1.29.0",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
+                    "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.8",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
-                    "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.0",
                     "com.google.guava:guava:jar:sources:24.0-jre",
                     "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "io.grpc:grpc-protobuf:jar:sources:1.30.2",
+                    "io.grpc:grpc-stub:jar:sources:1.30.2",
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.grpc:grpc-protobuf-lite:jar:sources:1.30.2",
+                    "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.8",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
-                    "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.0"
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.0/scalapb-runtime-grpc_2.12-0.9.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.8/scalapb-runtime-grpc_2.12-0.9.8-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.0/scalapb-runtime-grpc_2.12-0.9.0-sources.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime-grpc_2.12/0.9.8/scalapb-runtime-grpc_2.12-0.9.8-sources.jar"
                 ],
-                "sha256": "2aeb221edcd64b059587ba8462ff45ca3e45e46f35465bc6015c0f8b1d3b9cb0"
+                "sha256": "041f7ae1f19b81df159f25a337890a9fa28542eb40a2096ddd43c5d06e509f56"
             },
             {
-                "coord": "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0.jar",
+                "coord": "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.8/scalapb-runtime_2.12-0.9.8.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
-                    "com.thesamet.scalapb:lenses_2.12:0.9.0",
+                    "com.thesamet.scalapb:lenses_2.12:0.9.8",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "com.thesamet.scalapb:lenses_2.12:0.9.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
-                    "com.lihaoyi:sourcecode_2.12:0.1.7"
+                    "com.lihaoyi:sourcecode_2.12:0.1.7",
+                    "com.thesamet.scalapb:lenses_2.12:0.9.8",
+                    "com.google.protobuf:protobuf-java:3.12.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.8/scalapb-runtime_2.12-0.9.8.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.8/scalapb-runtime_2.12-0.9.8.jar"
                 ],
-                "sha256": "b905fa66b3fd0fabf3114105cd73ae2bdddbb6e13188a6538a92ae695e7ad6ed"
+                "sha256": "461bd923611e1ff0fdfaa1eb5f50912e4b547d21375e28c83f8b8d45df2913a1"
             },
             {
-                "coord": "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.0",
-                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0-sources.jar",
+                "coord": "com.thesamet.scalapb:scalapb-runtime_2.12:jar:sources:0.9.8",
+                "file": "v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.8/scalapb-runtime_2.12-0.9.8-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.0",
+                    "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.8",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.0",
+                    "com.thesamet.scalapb:lenses_2.12:jar:sources:0.9.8",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.8/scalapb-runtime_2.12-0.9.8-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.0/scalapb-runtime_2.12-0.9.0-sources.jar"
+                    "https://repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.9.8/scalapb-runtime_2.12-0.9.8-sources.jar"
                 ],
-                "sha256": "2e1c8072c7b536e3599afabe6c60cd29ac3918640436c177224b3102e7ba007b"
+                "sha256": "db7a33254b7ddd0c5998ba13718d5c2027b07735b4fd7f68e8287153824c4b82"
             },
             {
                 "coord": "com.thoughtworks.paranamer:paranamer:2.8",
@@ -2724,16 +2754,16 @@
                 "coord": "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
                 "file": "v1/https/repo1.maven.org/maven2/com/trueaccord/scalapb/scalapb-runtime_2.12/0.6.0-pre2/scalapb-runtime_2.12-0.6.0-pre2.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.trueaccord.lenses:lenses_2.12:0.4.10",
                     "org.scala-lang:scala-library:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.trueaccord.lenses:lenses_2.12:0.4.10"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/trueaccord/scalapb/scalapb-runtime_2.12/0.6.0-pre2/scalapb-runtime_2.12-0.6.0-pre2.jar",
@@ -2746,16 +2776,16 @@
                 "coord": "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
                 "file": "v1/https/repo1.maven.org/maven2/com/trueaccord/scalapb/scalapb-runtime_2.12/0.6.0-pre2/scalapb-runtime_2.12-0.6.0-pre2-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "com.trueaccord.lenses:lenses_2.12:jar:sources:0.4.10",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.trueaccord.lenses:lenses_2.12:jar:sources:0.4.10",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/trueaccord/scalapb/scalapb-runtime_2.12/0.6.0-pre2/scalapb-runtime_2.12-0.6.0-pre2-sources.jar",
@@ -3032,10 +3062,10 @@
                 "coord": "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0"
+                    "com.google.protobuf:protobuf-java:3.12.2"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0"
+                    "com.google.protobuf:protobuf-java:3.12.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar",
                 "mirror_urls": [
@@ -3047,10 +3077,10 @@
                 "coord": "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
@@ -3111,7 +3141,6 @@
                 "dependencies": [
                     "com.typesafe.akka:akka-actor_2.12:2.6.1",
                     "com.typesafe.akka:akka-testkit_2.12:2.6.1",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.typesafe.akka:akka-stream_2.12:2.6.1",
                     "com.typesafe:config:1.4.0",
@@ -3119,6 +3148,7 @@
                     "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "org.reactivestreams:reactive-streams:1.0.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1.jar",
@@ -3136,7 +3166,6 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.6.1",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
@@ -3145,6 +3174,7 @@
                     "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
                     "com.typesafe:config:jar:sources:1.4.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
                     "com.typesafe.akka:akka-stream_2.12:jar:sources:2.6.1"
                 ],
@@ -3166,13 +3196,13 @@
                 ],
                 "dependencies": [
                     "com.typesafe.akka:akka-actor_2.12:2.6.1",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.11",
                     "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "org.reactivestreams:reactive-streams:1.0.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1.jar",
@@ -3192,7 +3222,6 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
@@ -3200,6 +3229,7 @@
                     "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
                     "com.typesafe:config:jar:sources:1.4.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1-sources.jar",
@@ -4149,12 +4179,12 @@
                 "sha256": "4ff11981b0c4b0c13243a1d3c36a1f881f4ac9f34e2e670f9df8d365fb91b458"
             },
             {
-                "coord": "io.grpc:grpc-api:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-api/1.29.0/grpc-api-1.29.0.jar",
+                "coord": "io.grpc:grpc-api:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-api/1.30.2/grpc-api-1.30.2.jar",
                 "directDependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-context:1.29.0",
+                    "io.grpc:grpc-context:1.30.2",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
                     "com.google.guava:guava:24.0-jre"
                 ],
@@ -4162,847 +4192,891 @@
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-context:1.29.0",
+                    "io.grpc:grpc-context:1.30.2",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.google.guava:guava:24.0-jre"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.29.0/grpc-api-1.29.0.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.30.2/grpc-api-1.30.2.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.29.0/grpc-api-1.29.0.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.30.2/grpc-api-1.30.2.jar"
                 ],
-                "sha256": "4837824acdd8d576d7d31a862e7391c38a1824cd2224daa68999377fdff9ae3f"
+                "sha256": "b8e37990bc20108bb0c4bd6c4993735ab13aada6a1320c7a1421677cedbff428"
             },
             {
-                "coord": "io.grpc:grpc-api:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-api/1.29.0/grpc-api-1.29.0-sources.jar",
+                "coord": "io.grpc:grpc-api:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-api/1.30.2/grpc-api-1.30.2-sources.jar",
                 "directDependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
-                    "com.google.guava:guava:jar:sources:24.0-jre"
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "io.grpc:grpc-context:jar:sources:1.30.2"
                 ],
                 "dependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
                     "com.google.guava:guava:jar:sources:24.0-jre",
-                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1"
-                ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.29.0/grpc-api-1.29.0-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.29.0/grpc-api-1.29.0-sources.jar"
-                ],
-                "sha256": "f9265d8b37d4b35fa6184be21a5b5975246198ab730beaf4efec459cade14f5b"
-            },
-            {
-                "coord": "io.grpc:grpc-context:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-context/1.29.0/grpc-context-1.29.0.jar",
-                "directDependencies": [],
-                "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.29.0/grpc-context-1.29.0.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.29.0/grpc-context-1.29.0.jar"
-                ],
-                "sha256": "41426f8fa5b5ff6e8cf5d6a7a6e7b1175350bc8c8e11f352e0622e00f99c4a02"
-            },
-            {
-                "coord": "io.grpc:grpc-context:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-context/1.29.0/grpc-context-1.29.0-sources.jar",
-                "directDependencies": [],
-                "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.29.0/grpc-context-1.29.0-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.29.0/grpc-context-1.29.0-sources.jar"
-                ],
-                "sha256": "56552f0eab62fd8fa770908b0e88e1313474f1a0372cd32ec210f45e9fa2079e"
-            },
-            {
-                "coord": "io.grpc:grpc-core:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-core/1.29.0/grpc-core-1.29.0.jar",
-                "directDependencies": [
-                    "com.google.android:annotations:4.1.1.4",
-                    "io.grpc:grpc-api:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "io.perfmark:perfmark-api:0.19.0",
-                    "com.google.code.gson:gson:2.8.2"
-                ],
-                "dependencies": [
-                    "org.checkerframework:checker-compat-qual:2.0.0",
-                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
-                    "com.google.code.findbugs:jsr305:3.0.2",
-                    "com.google.android:annotations:4.1.1.4",
-                    "io.grpc:grpc-context:1.29.0",
-                    "io.grpc:grpc-api:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "com.google.j2objc:j2objc-annotations:1.1",
-                    "com.google.guava:guava:24.0-jre",
-                    "io.perfmark:perfmark-api:0.19.0",
-                    "com.google.code.gson:gson:2.8.2"
-                ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.29.0/grpc-core-1.29.0.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.29.0/grpc-core-1.29.0.jar"
-                ],
-                "sha256": "d45e3ba310cf6a5d8170bcc500507977505614583c341d03c7d91658e49cf028"
-            },
-            {
-                "coord": "io.grpc:grpc-core:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-core/1.29.0/grpc-core-1.29.0-sources.jar",
-                "directDependencies": [
-                    "com.google.android:annotations:jar:sources:4.1.1.4",
-                    "io.perfmark:perfmark-api:jar:sources:0.19.0",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
-                    "com.google.code.gson:gson:jar:sources:2.8.2"
-                ],
-                "dependencies": [
-                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
-                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "com.google.android:annotations:jar:sources:4.1.1.4",
-                    "io.perfmark:perfmark-api:jar:sources:0.19.0",
-                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
-                    "com.google.guava:guava:jar:sources:24.0-jre",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
-                    "com.google.code.gson:gson:jar:sources:2.8.2"
+                    "io.grpc:grpc-context:jar:sources:1.30.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.29.0/grpc-core-1.29.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.30.2/grpc-api-1.30.2-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.29.0/grpc-core-1.29.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.30.2/grpc-api-1.30.2-sources.jar"
                 ],
-                "sha256": "c96e39670a2bc73e572f4af090bd9ff55528b07220363d75761beb999efbd7f8"
+                "sha256": "ed5ba16b58c7c52ba37d09579a27658aeb88bf0fb5b47710601f4eac36d566a2"
             },
             {
-                "coord": "io.grpc:grpc-netty:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-netty/1.29.0/grpc-netty-1.29.0.jar",
-                "directDependencies": [
-                    "io.grpc:grpc-core:1.29.0",
-                    "io.netty:netty-codec-http2:4.1.48.Final",
-                    "io.netty:netty-handler-proxy:4.1.48.Final"
+                "coord": "io.grpc:grpc-context:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-context/1.30.2/grpc-context-1.30.2.jar",
+                "directDependencies": [],
+                "dependencies": [],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.30.2/grpc-context-1.30.2.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.30.2/grpc-context-1.30.2.jar"
                 ],
-                "dependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "org.checkerframework:checker-compat-qual:2.0.0",
+                "sha256": "0ce137485076ec2afab689251d160dc625401e4cc2fab61edec55611a131100d"
+            },
+            {
+                "coord": "io.grpc:grpc-context:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-context/1.30.2/grpc-context-1.30.2-sources.jar",
+                "directDependencies": [],
+                "dependencies": [],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.30.2/grpc-context-1.30.2-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-context/1.30.2/grpc-context-1.30.2-sources.jar"
+                ],
+                "sha256": "96ddbb755f69e7586ee90c246f1588fd94adbf41e822472219e840ceaf3a4441"
+            },
+            {
+                "coord": "io.grpc:grpc-core:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-core/1.30.2/grpc-core-1.30.2.jar",
+                "directDependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
-                    "io.netty:netty-codec-http:4.1.48.Final",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-core:1.29.0",
                     "com.google.android:annotations:4.1.1.4",
-                    "io.grpc:grpc-context:1.29.0",
-                    "io.netty:netty-codec-socks:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-codec-http2:4.1.48.Final",
-                    "io.grpc:grpc-api:1.29.0",
+                    "io.grpc:grpc-api:1.30.2",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-handler:4.1.48.Final",
-                    "com.google.j2objc:j2objc-annotations:1.1",
-                    "io.netty:netty-handler-proxy:4.1.48.Final",
                     "com.google.guava:guava:24.0-jre",
-                    "io.netty:netty-codec:4.1.48.Final",
                     "io.perfmark:perfmark-api:0.19.0",
                     "com.google.code.gson:gson:2.8.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.29.0/grpc-netty-1.29.0.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.29.0/grpc-netty-1.29.0.jar"
+                "dependencies": [
+                    "org.checkerframework:checker-compat-qual:2.0.0",
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "com.google.android:annotations:4.1.1.4",
+                    "io.grpc:grpc-api:1.30.2",
+                    "io.grpc:grpc-context:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.j2objc:j2objc-annotations:1.1",
+                    "com.google.guava:guava:24.0-jre",
+                    "io.perfmark:perfmark-api:0.19.0",
+                    "com.google.code.gson:gson:2.8.2"
                 ],
-                "sha256": "e959abda6b0cde0104a4a9398f867f15eefbad81ba64a2174eca1616767f9063"
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.30.2/grpc-core-1.30.2.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.30.2/grpc-core-1.30.2.jar"
+                ],
+                "sha256": "e8717542c6e2c678be35ba12debabb365e54b60027f142aa330eb31ef709c98e"
             },
             {
-                "coord": "io.grpc:grpc-netty:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-netty/1.29.0/grpc-netty-1.29.0-sources.jar",
+                "coord": "io.grpc:grpc-core:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-core/1.30.2/grpc-core-1.30.2-sources.jar",
                 "directDependencies": [
-                    "io.grpc:grpc-core:jar:sources:1.29.0",
-                    "io.netty:netty-codec-http2:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler-proxy:jar:sources:4.1.48.Final"
-                ],
-                "dependencies": [
-                    "io.netty:netty-codec-http:jar:sources:4.1.48.Final",
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
                     "com.google.android:annotations:jar:sources:4.1.1.4",
-                    "io.grpc:grpc-core:jar:sources:1.29.0",
                     "io.perfmark:perfmark-api:jar:sources:0.19.0",
-                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
                     "com.google.guava:guava:jar:sources:24.0-jre",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
-                    "io.netty:netty-handler-proxy:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
+                    "com.google.code.gson:gson:jar:sources:2.8.2",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
+                ],
+                "dependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "com.google.android:annotations:jar:sources:4.1.1.4",
+                    "io.perfmark:perfmark-api:jar:sources:0.19.0",
+                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
                     "com.google.code.gson:gson:jar:sources:2.8.2",
-                    "io.netty:netty-codec-http2:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec-socks:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.29.0/grpc-netty-1.29.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.30.2/grpc-core-1.30.2-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.29.0/grpc-netty-1.29.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-core/1.30.2/grpc-core-1.30.2-sources.jar"
                 ],
-                "sha256": "4309d556bc9457a17225b65a826873ba846c42fdace3b40f0905f9040fc2aa53"
+                "sha256": "c7a5c710ad7bb92d1d5ed5e6d2dd7b60fd09be36d7b05ee3aff46d1c32259d2f"
             },
             {
-                "coord": "io.grpc:grpc-protobuf-lite:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.29.0/grpc-protobuf-lite-1.29.0.jar",
+                "coord": "io.grpc:grpc-netty:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-netty/1.30.2/grpc-netty-1.30.2.jar",
                 "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-core:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "io.netty:netty-codec-http2:4.1.50.Final",
                     "com.google.guava:guava:24.0-jre",
-                    "io.grpc:grpc-api:1.29.0"
+                    "io.netty:netty-handler-proxy:4.1.50.Final",
+                    "io.perfmark:perfmark-api:0.19.0"
                 ],
                 "dependencies": [
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-context:1.29.0",
-                    "io.grpc:grpc-api:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "com.google.j2objc:j2objc-annotations:1.1",
-                    "com.google.guava:guava:24.0-jre"
-                ],
-                "exclusions": [
-                    "com.google.protobuf:protobuf-javalite"
-                ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.29.0/grpc-protobuf-lite-1.29.0.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.29.0/grpc-protobuf-lite-1.29.0.jar"
-                ],
-                "sha256": "ae4bbcd9bf7ad4856660807d8cba7ef4ff428f0b615bf663ba308d9a76bcab3c"
-            },
-            {
-                "coord": "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.29.0/grpc-protobuf-lite-1.29.0-sources.jar",
-                "directDependencies": [
-                    "com.google.guava:guava:jar:sources:24.0-jre",
-                    "io.grpc:grpc-api:jar:sources:1.29.0"
-                ],
-                "dependencies": [
-                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
-                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
-                    "com.google.guava:guava:jar:sources:24.0-jre",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
-                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1"
-                ],
-                "exclusions": [
-                    "com.google.protobuf:protobuf-javalite"
-                ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.29.0/grpc-protobuf-lite-1.29.0-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.29.0/grpc-protobuf-lite-1.29.0-sources.jar"
-                ],
-                "sha256": "d5cf99972b626478b0b9b6bf767e590c910e399a8dcd47c98aa7f9d67f0ea772"
-            },
-            {
-                "coord": "io.grpc:grpc-protobuf:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0.jar",
-                "directDependencies": [
-                    "com.google.api.grpc:proto-google-common-protos:1.17.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
-                    "io.grpc:grpc-api:1.29.0",
-                    "io.grpc:grpc-protobuf-lite:1.29.0",
-                    "com.google.guava:guava:24.0-jre"
-                ],
-                "dependencies": [
-                    "org.checkerframework:checker-compat-qual:2.0.0",
-                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
-                    "com.google.api.grpc:proto-google-common-protos:1.17.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
-                    "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-context:1.29.0",
-                    "io.grpc:grpc-api:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "io.grpc:grpc-protobuf-lite:1.29.0",
-                    "com.google.j2objc:j2objc-annotations:1.1",
-                    "com.google.guava:guava:24.0-jre"
-                ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0.jar"
-                ],
-                "sha256": "ee8cef64c7e10dd373aabd3a4b2ec4878e6d5b3ba43cbf55f3876ddaa79266ea"
-            },
-            {
-                "coord": "io.grpc:grpc-protobuf:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0-sources.jar",
-                "directDependencies": [
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
-                    "com.google.guava:guava:jar:sources:24.0-jre",
-                    "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
-                    "io.grpc:grpc-api:jar:sources:1.29.0"
-                ],
-                "dependencies": [
-                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
-                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
-                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
-                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
-                    "com.google.guava:guava:jar:sources:24.0-jre",
-                    "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
-                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1"
-                ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.29.0/grpc-protobuf-1.29.0-sources.jar"
-                ],
-                "sha256": "0c1f5e07b28f0deb5d85d87738be0b545407d613affdb0031d6f0839d1eb2ff2"
-            },
-            {
-                "coord": "io.grpc:grpc-services:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-services/1.29.0/grpc-services-1.29.0.jar",
-                "directDependencies": [
-                    "com.google.protobuf:protobuf-java-util:3.11.0",
-                    "io.grpc:grpc-core:1.29.0",
-                    "io.grpc:grpc-protobuf:1.29.0",
-                    "io.grpc:grpc-stub:1.29.0"
-                ],
-                "dependencies": [
-                    "org.checkerframework:checker-compat-qual:2.0.0",
-                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
-                    "com.google.api.grpc:proto-google-common-protos:1.17.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
-                    "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-core:1.29.0",
-                    "com.google.protobuf:protobuf-java-util:3.11.0",
                     "com.google.android:annotations:4.1.1.4",
-                    "io.grpc:grpc-context:1.29.0",
-                    "io.grpc:grpc-api:1.29.0",
+                    "io.grpc:grpc-api:1.30.2",
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.grpc:grpc-core:1.30.2",
+                    "io.netty:netty-handler:4.1.50.Final",
+                    "io.grpc:grpc-context:1.30.2",
+                    "io.netty:netty-common:4.1.50.Final",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
-                    "io.grpc:grpc-protobuf-lite:1.29.0",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-codec-http2:4.1.50.Final",
                     "com.google.j2objc:j2objc-annotations:1.1",
-                    "io.grpc:grpc-stub:1.29.0",
-                    "io.grpc:grpc-protobuf:1.29.0",
                     "com.google.guava:guava:24.0-jre",
+                    "io.netty:netty-handler-proxy:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
                     "io.perfmark:perfmark-api:0.19.0",
-                    "com.google.code.gson:gson:2.8.2"
+                    "com.google.code.gson:gson:2.8.2",
+                    "io.netty:netty-codec-http:4.1.50.Final",
+                    "io.netty:netty-codec-socks:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.29.0/grpc-services-1.29.0.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.30.2/grpc-netty-1.30.2.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.29.0/grpc-services-1.29.0.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.30.2/grpc-netty-1.30.2.jar"
                 ],
-                "sha256": "6bea2f0ec35d3071a12fccc640ca7450f1cd2ce66574456e8deec21f79464681"
+                "sha256": "c9642619bd75a874b5a615f903ee60093c322cc02cc7b307123ba797c2aaf1fa"
             },
             {
-                "coord": "io.grpc:grpc-services:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-services/1.29.0/grpc-services-1.29.0-sources.jar",
+                "coord": "io.grpc:grpc-netty:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-netty/1.30.2/grpc-netty-1.30.2-sources.jar",
                 "directDependencies": [
-                    "com.google.protobuf:protobuf-java-util:jar:sources:3.11.0",
-                    "io.grpc:grpc-core:jar:sources:1.29.0",
-                    "io.grpc:grpc-protobuf:jar:sources:1.29.0",
-                    "io.grpc:grpc-stub:jar:sources:1.29.0"
+                    "io.netty:netty-handler-proxy:jar:sources:4.1.50.Final",
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "io.netty:netty-codec-http2:jar:sources:4.1.50.Final",
+                    "io.perfmark:perfmark-api:jar:sources:0.19.0",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "io.grpc:grpc-core:jar:sources:1.30.2"
+                ],
+                "dependencies": [
+                    "io.netty:netty-handler-proxy:jar:sources:4.1.50.Final",
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "io.netty:netty-codec-http2:jar:sources:4.1.50.Final",
+                    "com.google.android:annotations:jar:sources:4.1.1.4",
+                    "io.perfmark:perfmark-api:jar:sources:0.19.0",
+                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec-http:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "io.grpc:grpc-core:jar:sources:1.30.2",
+                    "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "com.google.code.gson:gson:jar:sources:2.8.2",
+                    "io.netty:netty-codec-socks:jar:sources:4.1.50.Final",
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
+                ],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.30.2/grpc-netty-1.30.2-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-netty/1.30.2/grpc-netty-1.30.2-sources.jar"
+                ],
+                "sha256": "476541b9f91d7366744917d4b58f62a6305ae08c43591193b5b38a217c9348c6"
+            },
+            {
+                "coord": "io.grpc:grpc-protobuf-lite:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.30.2/grpc-protobuf-lite-1.30.2.jar",
+                "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-api:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.guava:guava:24.0-jre"
+                ],
+                "dependencies": [
+                    "org.checkerframework:checker-compat-qual:2.0.0",
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-api:1.30.2",
+                    "io.grpc:grpc-context:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.j2objc:j2objc-annotations:1.1",
+                    "com.google.guava:guava:24.0-jre"
+                ],
+                "exclusions": [
+                    "com.google.protobuf:protobuf-javalite"
+                ],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.30.2/grpc-protobuf-lite-1.30.2.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.30.2/grpc-protobuf-lite-1.30.2.jar"
+                ],
+                "sha256": "c169013f0a9670c785f148d809486b5a4fa8cc1566bd146b179b3080ea2d23f7"
+            },
+            {
+                "coord": "io.grpc:grpc-protobuf-lite:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.30.2/grpc-protobuf-lite-1.30.2-sources.jar",
+                "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
+                ],
+                "dependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
+                ],
+                "exclusions": [
+                    "com.google.protobuf:protobuf-javalite"
+                ],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.30.2/grpc-protobuf-lite-1.30.2-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.30.2/grpc-protobuf-lite-1.30.2-sources.jar"
+                ],
+                "sha256": "65d9ef41d1c2b7a4192418e11ea4de95f2191d0cc5f9364692d957765f6efee5"
+            },
+            {
+                "coord": "io.grpc:grpc-protobuf:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.30.2/grpc-protobuf-1.30.2.jar",
+                "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.api.grpc:proto-google-common-protos:1.17.0",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-api:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.guava:guava:24.0-jre",
+                    "com.google.protobuf:protobuf-java:3.12.2",
+                    "io.grpc:grpc-protobuf-lite:1.30.2"
+                ],
+                "dependencies": [
+                    "org.checkerframework:checker-compat-qual:2.0.0",
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.api.grpc:proto-google-common-protos:1.17.0",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-api:1.30.2",
+                    "io.grpc:grpc-context:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.j2objc:j2objc-annotations:1.1",
+                    "com.google.guava:guava:24.0-jre",
+                    "com.google.protobuf:protobuf-java:3.12.2",
+                    "io.grpc:grpc-protobuf-lite:1.30.2"
+                ],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.30.2/grpc-protobuf-1.30.2.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.30.2/grpc-protobuf-1.30.2.jar"
+                ],
+                "sha256": "33cfd4b4051f12e177a3ddf7f011b0f8d08994334a02f0840369be27d0b2cdb4"
+            },
+            {
+                "coord": "io.grpc:grpc-protobuf:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.30.2/grpc-protobuf-1.30.2-sources.jar",
+                "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
+                    "io.grpc:grpc-protobuf-lite:jar:sources:1.30.2",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
+                ],
+                "dependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
+                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.grpc:grpc-protobuf-lite:jar:sources:1.30.2",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
+                ],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.30.2/grpc-protobuf-1.30.2-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.30.2/grpc-protobuf-1.30.2-sources.jar"
+                ],
+                "sha256": "eba0de48b4e43898151ecb53cb4cc980e828d56d04c2ebdaba6e6178baff4d63"
+            },
+            {
+                "coord": "io.grpc:grpc-services:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-services/1.30.2/grpc-services-1.30.2.jar",
+                "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "io.grpc:grpc-stub:1.30.2",
+                    "io.grpc:grpc-protobuf:1.30.2",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-core:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.guava:guava:24.0-jre",
+                    "com.google.protobuf:protobuf-java-util:3.12.0"
+                ],
+                "dependencies": [
+                    "org.checkerframework:checker-compat-qual:2.0.0",
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "io.grpc:grpc-stub:1.30.2",
+                    "io.grpc:grpc-protobuf:1.30.2",
+                    "com.google.api.grpc:proto-google-common-protos:1.17.0",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "com.google.android:annotations:4.1.1.4",
+                    "io.grpc:grpc-api:1.30.2",
+                    "io.grpc:grpc-core:1.30.2",
+                    "io.grpc:grpc-context:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.j2objc:j2objc-annotations:1.1",
+                    "com.google.guava:guava:24.0-jre",
+                    "com.google.protobuf:protobuf-java:3.12.2",
+                    "io.grpc:grpc-protobuf-lite:1.30.2",
+                    "io.perfmark:perfmark-api:0.19.0",
+                    "com.google.code.gson:gson:2.8.2",
+                    "com.google.protobuf:protobuf-java-util:3.12.0"
+                ],
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.30.2/grpc-services-1.30.2.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.30.2/grpc-services-1.30.2.jar"
+                ],
+                "sha256": "4106b46c35b9173068b1012fa3a6e459b4fadf0ed0d440c036ad78f4aac88339"
+            },
+            {
+                "coord": "io.grpc:grpc-services:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-services/1.30.2/grpc-services-1.30.2-sources.jar",
+                "directDependencies": [
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "io.grpc:grpc-core:jar:sources:1.30.2",
+                    "io.grpc:grpc-protobuf:jar:sources:1.30.2",
+                    "io.grpc:grpc-stub:jar:sources:1.30.2",
+                    "com.google.protobuf:protobuf-java-util:jar:sources:3.12.0"
                 ],
                 "dependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.google.android:annotations:jar:sources:4.1.1.4",
-                    "io.grpc:grpc-protobuf:jar:sources:1.29.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
-                    "io.grpc:grpc-protobuf-lite:jar:sources:1.29.0",
-                    "io.grpc:grpc-core:jar:sources:1.29.0",
-                    "com.google.protobuf:protobuf-java-util:jar:sources:3.11.0",
                     "io.perfmark:perfmark-api:jar:sources:0.19.0",
-                    "io.grpc:grpc-stub:jar:sources:1.29.0",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
                     "com.google.guava:guava:jar:sources:24.0-jre",
                     "com.google.api.grpc:proto-google-common-protos:jar:sources:1.17.0",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
+                    "io.grpc:grpc-core:jar:sources:1.30.2",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
-                    "com.google.code.gson:gson:jar:sources:2.8.2"
+                    "io.grpc:grpc-protobuf:jar:sources:1.30.2",
+                    "com.google.code.gson:gson:jar:sources:2.8.2",
+                    "io.grpc:grpc-stub:jar:sources:1.30.2",
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.grpc:grpc-protobuf-lite:jar:sources:1.30.2",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
+                    "com.google.protobuf:protobuf-java-util:jar:sources:3.12.0",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.29.0/grpc-services-1.29.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.30.2/grpc-services-1.30.2-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.29.0/grpc-services-1.29.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.30.2/grpc-services-1.30.2-sources.jar"
                 ],
-                "sha256": "8b7836bd82a8ca2c5de629256628f1a498a53d1e38f02614c0f74b6cca0434fe"
+                "sha256": "88e984c2c9b3158cde486b210e6fddb3b4f2058017b083330f8719c03bb3a42b"
             },
             {
-                "coord": "io.grpc:grpc-stub:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-stub/1.29.0/grpc-stub-1.29.0.jar",
+                "coord": "io.grpc:grpc-stub:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-stub/1.30.2/grpc-stub-1.30.2.jar",
                 "directDependencies": [
-                    "io.grpc:grpc-api:1.29.0"
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.18",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "io.grpc:grpc-api:1.30.2",
+                    "com.google.errorprone:error_prone_annotations:2.3.4",
+                    "com.google.guava:guava:24.0-jre"
                 ],
                 "dependencies": [
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.18",
                     "com.google.code.findbugs:jsr305:3.0.2",
-                    "io.grpc:grpc-context:1.29.0",
-                    "io.grpc:grpc-api:1.29.0",
+                    "io.grpc:grpc-api:1.30.2",
+                    "io.grpc:grpc-context:1.30.2",
                     "com.google.errorprone:error_prone_annotations:2.3.4",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.google.guava:guava:24.0-jre"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.29.0/grpc-stub-1.29.0.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.30.2/grpc-stub-1.30.2.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.29.0/grpc-stub-1.29.0.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.30.2/grpc-stub-1.30.2.jar"
                 ],
-                "sha256": "65b01e451013d6c9f2de1392abf47190a397cbbd7f5a45e3cc9df509671a0cf8"
+                "sha256": "81daa3aa1d853633d8ffcdb27238fbaa3f471aa2f7afacd9590f8769593f592f"
             },
             {
-                "coord": "io.grpc:grpc-stub:jar:sources:1.29.0",
-                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-stub/1.29.0/grpc-stub-1.29.0-sources.jar",
+                "coord": "io.grpc:grpc-stub:jar:sources:1.30.2",
+                "file": "v1/https/repo1.maven.org/maven2/io/grpc/grpc-stub/1.30.2/grpc-stub-1.30.2-sources.jar",
                 "directDependencies": [
-                    "io.grpc:grpc-api:jar:sources:1.29.0"
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
                 ],
                 "dependencies": [
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.18",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
-                    "io.grpc:grpc-context:jar:sources:1.29.0",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.4",
                     "com.google.guava:guava:jar:sources:24.0-jre",
-                    "io.grpc:grpc-api:jar:sources:1.29.0",
-                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1"
+                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "io.grpc:grpc-context:jar:sources:1.30.2",
+                    "io.grpc:grpc-api:jar:sources:1.30.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.29.0/grpc-stub-1.29.0-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.30.2/grpc-stub-1.30.2-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.29.0/grpc-stub-1.29.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/grpc/grpc-stub/1.30.2/grpc-stub-1.30.2-sources.jar"
                 ],
-                "sha256": "fdb6c4eaa76481c6166901bc2cd324c8027538fae6b36572b331bc629914e2cd"
+                "sha256": "0b60316a8251f2dab019828fcea09c654212e486f97b02c9daa7ddbc09326713"
             },
             {
-                "coord": "io.netty:netty-buffer:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-buffer/4.1.48.Final/netty-buffer-4.1.48.Final.jar",
+                "coord": "io.netty:netty-buffer:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-buffer/4.1.50.Final/netty-buffer-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-common:4.1.48.Final"
+                    "io.netty:netty-common:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:4.1.48.Final"
+                    "io.netty:netty-common:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.48.Final/netty-buffer-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.50.Final/netty-buffer-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.48.Final/netty-buffer-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.50.Final/netty-buffer-4.1.50.Final.jar"
                 ],
-                "sha256": "7efc8f98224c703ef09a409e5ddffbe14f5b4b6f527d3836c1647b4d9eff8cec"
+                "sha256": "c5d663e8a10631012683c97ba3b6a5882859f211787b5dd9c7fd582375dab36c"
             },
             {
-                "coord": "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-buffer/4.1.48.Final/netty-buffer-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-buffer/4.1.50.Final/netty-buffer-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-common:jar:sources:4.1.48.Final"
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:jar:sources:4.1.48.Final"
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.48.Final/netty-buffer-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.50.Final/netty-buffer-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.48.Final/netty-buffer-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.50.Final/netty-buffer-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "433db92fb6e0f8c14228ad7a5e12f69180e17604ad8553d7bce32f685ac0b273"
+                "sha256": "d8076f2f18b4778ff9fd091a3aab116e040287d1bda0ac68aa45243c8c0fb827"
             },
             {
-                "coord": "io.netty:netty-codec-http2:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.48.Final/netty-codec-http2-4.1.48.Final.jar",
+                "coord": "io.netty:netty-codec-http2:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.50.Final/netty-codec-http2-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-codec-http:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-handler:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-handler:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-codec-http:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-codec-http:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-handler:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-handler:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-codec-http:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.48.Final/netty-codec-http2-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.50.Final/netty-codec-http2-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.48.Final/netty-codec-http2-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.50.Final/netty-codec-http2-4.1.50.Final.jar"
                 ],
-                "sha256": "359548f53cf8697ebdfa13a4700f1b9a5585573c64f2d3ed135a3197ebd51579"
+                "sha256": "147f73e4ba735f8a31928022108e78d8dfd600e4d9e1569224b0b7712a8c1ad1"
             },
             {
-                "coord": "io.netty:netty-codec-http2:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.48.Final/netty-codec-http2-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-codec-http2:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.50.Final/netty-codec-http2-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-codec-http:jar:sources:4.1.48.Final",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-codec-http:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-codec-http:jar:sources:4.1.48.Final",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec-http:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.48.Final/netty-codec-http2-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.50.Final/netty-codec-http2-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.48.Final/netty-codec-http2-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.50.Final/netty-codec-http2-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "d5d2034e531dc30b84acaf29453e6e356a88a6f5adb4c10843811e3c7ca02b35"
+                "sha256": "883975966254cd8df05c9cc63e9370a0f6eba2d38e75ea3bcb0d7f8531f6378c"
             },
             {
-                "coord": "io.netty:netty-codec-http:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.48.Final/netty-codec-http-4.1.48.Final.jar",
+                "coord": "io.netty:netty-codec-http:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.50.Final/netty-codec-http-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-handler:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-handler:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-handler:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-handler:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.48.Final/netty-codec-http-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.50.Final/netty-codec-http-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.48.Final/netty-codec-http-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.50.Final/netty-codec-http-4.1.50.Final.jar"
                 ],
-                "sha256": "aa4b18070e7fc105f0c94a077605687bec48091274c8acc121116692c335edd0"
+                "sha256": "1e4bb7113a52b5cbc14ae45bd3d81372ab7b92a96d41bb94557f22e5f5b29b98"
             },
             {
-                "coord": "io.netty:netty-codec-http:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.48.Final/netty-codec-http-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-codec-http:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.50.Final/netty-codec-http-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.48.Final/netty-codec-http-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.50.Final/netty-codec-http-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.48.Final/netty-codec-http-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.50.Final/netty-codec-http-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "90f8e3ef47d20c39cc378210e6f367bcb0ee8f9e7e48483d6643c6fb7c531850"
+                "sha256": "4d594efed9f317b96717f887be277b28264c3836c35f87aae24056c221c710b2"
             },
             {
-                "coord": "io.netty:netty-codec-socks:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.48.Final/netty-codec-socks-4.1.48.Final.jar",
+                "coord": "io.netty:netty-codec-socks:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.50.Final/netty-codec-socks-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-transport:4.1.48.Final"
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.48.Final/netty-codec-socks-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.50.Final/netty-codec-socks-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.48.Final/netty-codec-socks-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.50.Final/netty-codec-socks-4.1.50.Final.jar"
                 ],
-                "sha256": "d0dd35f9ac6892a03bb0d38ea32e683993c4308a02de5756bb5a23ecb929f917"
+                "sha256": "18989b95536a0a0396a4250691675b2880834979713794654304409751754f34"
             },
             {
-                "coord": "io.netty:netty-codec-socks:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.48.Final/netty-codec-socks-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-codec-socks:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.50.Final/netty-codec-socks-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.48.Final/netty-codec-socks-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.50.Final/netty-codec-socks-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.48.Final/netty-codec-socks-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.50.Final/netty-codec-socks-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "e0cadeebcf31e80fd52fbe70c6827b509a85d9270d959ce4858fa179928f58ad"
+                "sha256": "fc6377fc92509461944c10500661b9f87309ffc2868c2994ca36d013027fa7cd"
             },
             {
-                "coord": "io.netty:netty-codec:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec/4.1.48.Final/netty-codec-4.1.48.Final.jar",
+                "coord": "io.netty:netty-codec:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec/4.1.50.Final/netty-codec-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-transport:4.1.48.Final"
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final"
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.48.Final/netty-codec-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.50.Final/netty-codec-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.48.Final/netty-codec-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.50.Final/netty-codec-4.1.50.Final.jar"
                 ],
-                "sha256": "81b4c316163a591b4f74fd2dc23a3ea45359cb817d0a9c4fc7f37dc9edfdbea8"
+                "sha256": "120c01fb606ea669487053103d18275debd21aeb2f27a224cc26afd67f1cf2c0"
             },
             {
-                "coord": "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec/4.1.48.Final/netty-codec-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-codec/4.1.50.Final/netty-codec-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.48.Final/netty-codec-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.50.Final/netty-codec-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.48.Final/netty-codec-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.50.Final/netty-codec-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "c9ce166db31e2c5dce08b902c5ac7fe3427209c2d3fea63ef3532559923577c1"
+                "sha256": "f698004e3c57e813cb2f9532ba429a4f36631867f9805ec105582635f956dc8b"
             },
             {
-                "coord": "io.netty:netty-common:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-common/4.1.48.Final/netty-common-4.1.48.Final.jar",
+                "coord": "io.netty:netty-common:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-common/4.1.50.Final/netty-common-4.1.50.Final.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.48.Final/netty-common-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.50.Final/netty-common-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.48.Final/netty-common-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.50.Final/netty-common-4.1.50.Final.jar"
                 ],
-                "sha256": "e44a2369566fd1fa8a0f30b12e2801de8fb405b9d1fa3894a58b6262065a9916"
+                "sha256": "b2e317be8b23ed9ac289e1b1e815f130da6fc12194764f47145ea2f84ec0b541"
             },
             {
-                "coord": "io.netty:netty-common:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-common/4.1.48.Final/netty-common-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-common:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-common/4.1.50.Final/netty-common-4.1.50.Final-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.48.Final/netty-common-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.50.Final/netty-common-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.48.Final/netty-common-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.50.Final/netty-common-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "6363f44bed7a8157633114665af102de531a15c7fb0ffc2f224ecd45c4ed49d1"
+                "sha256": "ec865ebf74eef42308fc0c23ade43a16c18c1bac9eff0e55cd4946142244532f"
             },
             {
-                "coord": "io.netty:netty-handler-proxy:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.48.Final/netty-handler-proxy-4.1.48.Final.jar",
+                "coord": "io.netty:netty-handler-proxy:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.50.Final/netty-handler-proxy-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-codec-http:4.1.48.Final",
-                    "io.netty:netty-codec-socks:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-codec-http:4.1.50.Final",
+                    "io.netty:netty-codec-socks:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-codec-http:4.1.48.Final",
-                    "io.netty:netty-codec-socks:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-handler:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-handler:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-codec-http:4.1.50.Final",
+                    "io.netty:netty-codec-socks:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.48.Final/netty-handler-proxy-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.50.Final/netty-handler-proxy-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.48.Final/netty-handler-proxy-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.50.Final/netty-handler-proxy-4.1.50.Final.jar"
                 ],
-                "sha256": "f784f331bdb05834390c132d1534724e5371c1a19c7a62217e5f192963a9a92c"
+                "sha256": "0df9ebea5f832ee22163a89b50612b6df19157e3ed63faf0e65cc61ae396d606"
             },
             {
-                "coord": "io.netty:netty-handler-proxy:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.48.Final/netty-handler-proxy-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-handler-proxy:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.50.Final/netty-handler-proxy-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-codec-http:jar:sources:4.1.48.Final",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec-socks:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-codec-http:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec-socks:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-codec-http:jar:sources:4.1.48.Final",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec-socks:jar:sources:4.1.48.Final",
-                    "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec-http:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec-socks:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.48.Final/netty-handler-proxy-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.50.Final/netty-handler-proxy-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.48.Final/netty-handler-proxy-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.50.Final/netty-handler-proxy-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "ca6132fec4a35f26c9ec66d475c55f50977ad72d6237cbce125b6b356bd8ef57"
+                "sha256": "69776f603e9d7a9fe6e27a99ad04020acf16fbed02c41504338c79e936a82e68"
             },
             {
-                "coord": "io.netty:netty-handler:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler/4.1.48.Final/netty-handler-4.1.48.Final.jar",
+                "coord": "io.netty:netty-handler:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler/4.1.50.Final/netty-handler-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-transport:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-codec:4.1.48.Final"
+                    "io.netty:netty-codec:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-transport:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.48.Final/netty-handler-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.50.Final/netty-handler-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.48.Final/netty-handler-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.50.Final/netty-handler-4.1.50.Final.jar"
                 ],
-                "sha256": "757f83c7891ad2ebad209f02d8dbca0121e03f7062c2d4ec9d00eba1a0d403d5"
+                "sha256": "6d86bc8a271beecba2961259cf9dfd368e65fc487c84bf191d7c0878f7f790e7"
             },
             {
-                "coord": "io.netty:netty-handler:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler/4.1.48.Final/netty-handler-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-handler:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-handler/4.1.50.Final/netty-handler-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-codec:jar:sources:4.1.48.Final",
-                    "io.netty:netty-transport:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-codec:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.48.Final/netty-handler-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.50.Final/netty-handler-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.48.Final/netty-handler-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.50.Final/netty-handler-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "2ac4215797f4d661910d2a143223965e0ba956a7ca8a26259e4eab5cfe6a455a"
+                "sha256": "9191128c12966e35b0237039b0f2a1692cc6312824be180def1ea88481f5cd16"
             },
             {
-                "coord": "io.netty:netty-resolver:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-resolver/4.1.48.Final/netty-resolver-4.1.48.Final.jar",
+                "coord": "io.netty:netty-resolver:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-resolver/4.1.50.Final/netty-resolver-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-common:4.1.48.Final"
+                    "io.netty:netty-common:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:4.1.48.Final"
+                    "io.netty:netty-common:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.48.Final/netty-resolver-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.50.Final/netty-resolver-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.48.Final/netty-resolver-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.50.Final/netty-resolver-4.1.50.Final.jar"
                 ],
-                "sha256": "fb125914398ebef821def3dbb1642f9f360f39d182f00149ef3db845ebf06ad2"
+                "sha256": "f1a44fffaa9cb667d08bb42c5566c6d0441e659c696f290681ef634d361d8f2b"
             },
             {
-                "coord": "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-resolver/4.1.48.Final/netty-resolver-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-resolver/4.1.50.Final/netty-resolver-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-common:jar:sources:4.1.48.Final"
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:jar:sources:4.1.48.Final"
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.48.Final/netty-resolver-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.50.Final/netty-resolver-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.48.Final/netty-resolver-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.50.Final/netty-resolver-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "e0fd3b04e6d77b1020ed5ab321fe5747f4239310359d1f96f26e2d98a20cdc26"
+                "sha256": "3b11852f548e22bfae15bd543ed6b9dc32a20f2519bf7aaed6746bca8f6dac42"
             },
             {
-                "coord": "io.netty:netty-tcnative-boringssl-static:2.0.30.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.30.Final/netty-tcnative-boringssl-static-2.0.30.Final.jar",
+                "coord": "io.netty:netty-tcnative-boringssl-static:2.0.31.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.31.Final/netty-tcnative-boringssl-static-2.0.31.Final.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.30.Final/netty-tcnative-boringssl-static-2.0.30.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.31.Final/netty-tcnative-boringssl-static-2.0.31.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.30.Final/netty-tcnative-boringssl-static-2.0.30.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.31.Final/netty-tcnative-boringssl-static-2.0.31.Final.jar"
                 ],
-                "sha256": "61934ca753be47973fe427d1f483a1b2fbcaf56eefc71519bf35fddb036ee111"
+                "sha256": "308e7e1f5faea3ff86bf689f6309b8605090cdd5186586a52e418bf48af93d68"
             },
             {
-                "coord": "io.netty:netty-tcnative-boringssl-static:jar:sources:2.0.30.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.30.Final/netty-tcnative-boringssl-static-2.0.30.Final-sources.jar",
+                "coord": "io.netty:netty-tcnative-boringssl-static:jar:sources:2.0.31.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.31.Final/netty-tcnative-boringssl-static-2.0.31.Final-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.30.Final/netty-tcnative-boringssl-static-2.0.30.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.31.Final/netty-tcnative-boringssl-static-2.0.31.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.30.Final/netty-tcnative-boringssl-static-2.0.30.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-tcnative-boringssl-static/2.0.31.Final/netty-tcnative-boringssl-static-2.0.31.Final-sources.jar"
                 ],
-                "sha256": "92979c2c44db970c68f0e3ac7452429a34cca7d269f648f2443e4984a8c92527"
+                "sha256": "48cd8655aa0add5eba3acc99ed125781721f43959ccb93f245c810b6dd4ee5bf"
             },
             {
-                "coord": "io.netty:netty-transport:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-transport/4.1.48.Final/netty-transport-4.1.48.Final.jar",
+                "coord": "io.netty:netty-transport:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-transport/4.1.50.Final/netty-transport-4.1.50.Final.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:4.1.48.Final",
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final"
+                    "io.netty:netty-buffer:4.1.50.Final",
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:4.1.48.Final",
-                    "io.netty:netty-resolver:4.1.48.Final",
-                    "io.netty:netty-buffer:4.1.48.Final"
+                    "io.netty:netty-common:4.1.50.Final",
+                    "io.netty:netty-resolver:4.1.50.Final",
+                    "io.netty:netty-buffer:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.48.Final/netty-transport-4.1.48.Final.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.50.Final/netty-transport-4.1.50.Final.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.48.Final/netty-transport-4.1.48.Final.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.50.Final/netty-transport-4.1.50.Final.jar"
                 ],
-                "sha256": "6b4ba9e09a8e060bad2540845491b5fa1ca73614d157860e657f4027c91e72fd"
+                "sha256": "535298e8cb5c00e378b62e12f6b2e158d8d36824eae66de23f167d6c2d4f7a63"
             },
             {
-                "coord": "io.netty:netty-transport:jar:sources:4.1.48.Final",
-                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-transport/4.1.48.Final/netty-transport-4.1.48.Final-sources.jar",
+                "coord": "io.netty:netty-transport:jar:sources:4.1.50.Final",
+                "file": "v1/https/repo1.maven.org/maven2/io/netty/netty-transport/4.1.50.Final/netty-transport-4.1.50.Final-sources.jar",
                 "directDependencies": [
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final",
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final"
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final",
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final"
                 ],
                 "dependencies": [
-                    "io.netty:netty-common:jar:sources:4.1.48.Final",
-                    "io.netty:netty-resolver:jar:sources:4.1.48.Final",
-                    "io.netty:netty-buffer:jar:sources:4.1.48.Final"
+                    "io.netty:netty-resolver:jar:sources:4.1.50.Final",
+                    "io.netty:netty-buffer:jar:sources:4.1.50.Final",
+                    "io.netty:netty-common:jar:sources:4.1.50.Final"
                 ],
-                "url": "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.48.Final/netty-transport-4.1.48.Final-sources.jar",
+                "url": "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.50.Final/netty-transport-4.1.50.Final-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.48.Final/netty-transport-4.1.48.Final-sources.jar"
+                    "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.50.Final/netty-transport-4.1.50.Final-sources.jar"
                 ],
-                "sha256": "9d973dfff21f3d41745e1189721fdd2e7d717b8e410d438041d27d2e08df94d1"
+                "sha256": "59735d393dd4933eb6e9bb39dc75ea1b6f1bd553547ce8e5694e848157b5ec57"
             },
             {
                 "coord": "io.perfmark:perfmark-api:0.19.0",
@@ -8679,7 +8753,6 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
@@ -8724,6 +8797,7 @@
                     "org.scala-sbt:test-agent:1.1.4",
                     "org.scala-sbt:collections_2.12:1.1.4",
                     "org.scala-sbt:run_2.12:1.1.4",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "org.scala-sbt:zinc_2.12:1.1.5",
                     "org.reactivestreams:reactive-streams:1.0.2",
                     "org.scala-sbt:zinc-compile-core_2.12:1.1.5",
@@ -8773,7 +8847,6 @@
                     "org.scala-sbt:run_2.12:jar:sources:1.1.4",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:collections_2.12:jar:sources:1.1.4",
@@ -8819,6 +8892,7 @@
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
@@ -9664,7 +9738,6 @@
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
                     "org.scala-sbt:logic_2.12:1.1.4",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
@@ -9719,6 +9792,7 @@
                     "org.scala-sbt:test-agent:1.1.4",
                     "org.scala-sbt:collections_2.12:1.1.4",
                     "org.scala-sbt:run_2.12:1.1.4",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.github.cb372:scalacache-core_2.12:0.20.0",
                     "org.scala-sbt:zinc_2.12:1.1.5",
                     "org.reactivestreams:reactive-streams:1.0.2",
@@ -9777,7 +9851,6 @@
                     "com.github.cb372:scalacache-caffeine_2.12:jar:sources:0.20.0",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:main-settings_2.12:jar:sources:1.1.4",
                     "org.scala-sbt:protocol_2.12:jar:sources:1.1.4",
@@ -9837,6 +9910,7 @@
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:actions_2.12:jar:sources:1.1.4",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
@@ -10053,7 +10127,6 @@
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
                     "org.scala-sbt:logic_2.12:1.1.4",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
@@ -10109,6 +10182,7 @@
                     "org.scala-sbt:test-agent:1.1.4",
                     "org.scala-sbt:collections_2.12:1.1.4",
                     "org.scala-sbt:run_2.12:1.1.4",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.github.cb372:scalacache-core_2.12:0.20.0",
                     "org.scala-sbt:zinc_2.12:1.1.5",
                     "org.reactivestreams:reactive-streams:1.0.2",
@@ -10150,7 +10224,6 @@
                     "com.github.cb372:scalacache-caffeine_2.12:jar:sources:0.20.0",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:main-settings_2.12:jar:sources:1.1.4",
                     "org.scala-sbt:protocol_2.12:jar:sources:1.1.4",
@@ -10211,6 +10284,7 @@
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:actions_2.12:jar:sources:1.1.4",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
@@ -11402,7 +11476,6 @@
                     "org.scala-sbt:util-relation_2.12:1.1.3",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
@@ -11425,6 +11498,7 @@
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
                     "com.swoval:apple-file-events:1.3.0",
                     "org.apache.logging.log4j:log4j-core:2.8.1",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.eed3si9n:sjson-new-scalajson_2.12:0.8.2",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
                     "org.scala-sbt:zinc-classfile_2.12:1.1.5",
@@ -11452,7 +11526,6 @@
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
@@ -11475,6 +11548,7 @@
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.11"
@@ -11502,7 +11576,6 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
@@ -11539,6 +11612,7 @@
                     "com.squareup.okio:okio:1.13.0",
                     "com.swoval:apple-file-events:1.3.0",
                     "org.apache.logging.log4j:log4j-core:2.8.1",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "org.reactivestreams:reactive-streams:1.0.2",
                     "org.scala-sbt:zinc-compile-core_2.12:1.1.5",
                     "com.eed3si9n:sjson-new-scalajson_2.12:0.8.2",
@@ -11573,7 +11647,6 @@
                     "org.scala-sbt:zinc-core_2.12:jar:sources:1.1.5",
                     "com.swoval:apple-file-events:jar:sources:1.3.0",
                     "org.scala-sbt:util-logging_2.12:jar:sources:1.1.3",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scala-sbt:launcher-interface:jar:sources:1.0.4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
@@ -11611,6 +11684,7 @@
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
@@ -11751,7 +11825,6 @@
                 ],
                 "dependencies": [
                     "org.scalameta:transversers_2.12:1.8.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scalameta:dialects_2.12:1.8.0",
                     "org.scalameta:tokens_2.12:1.8.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
@@ -11766,6 +11839,7 @@
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
                     "org.scalameta:trees_2.12:1.8.0",
                     "org.scalameta:quasiquotes_2.12:1.8.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "org.scalameta:inline_2.12:1.8.0",
                     "org.scalameta:semantic_2.12:1.8.0",
                     "com.trueaccord.lenses:lenses_2.12:0.4.10"
@@ -11786,7 +11860,6 @@
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scalameta:common_2.12:jar:sources:1.8.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scalameta:tokens_2.12:jar:sources:1.8.0",
                     "org.scalameta:parsers_2.12:jar:sources:1.8.0",
                     "org.scalameta:inline_2.12:jar:sources:1.8.0",
@@ -11800,6 +11873,7 @@
                     "org.scalameta:inputs_2.12:jar:sources:1.8.0",
                     "org.scalameta:scalameta_2.12:jar:sources:1.8.0",
                     "org.scalameta:semantic_2.12:jar:sources:1.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scalameta:io_2.12:jar:sources:1.8.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
                     "org.scalameta:transversers_2.12:jar:sources:1.8.0"
@@ -12139,7 +12213,6 @@
                 ],
                 "dependencies": [
                     "org.scalameta:transversers_2.12:1.8.0",
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scalameta:dialects_2.12:1.8.0",
                     "org.scalameta:tokens_2.12:1.8.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
@@ -12153,6 +12226,7 @@
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
                     "org.scalameta:trees_2.12:1.8.0",
                     "org.scalameta:quasiquotes_2.12:1.8.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "org.scalameta:inline_2.12:1.8.0",
                     "org.scalameta:semantic_2.12:1.8.0",
                     "com.trueaccord.lenses:lenses_2.12:0.4.10"
@@ -12183,7 +12257,6 @@
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scalameta:common_2.12:jar:sources:1.8.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scalameta:tokens_2.12:jar:sources:1.8.0",
                     "org.scalameta:parsers_2.12:jar:sources:1.8.0",
                     "org.scalameta:inline_2.12:jar:sources:1.8.0",
@@ -12196,6 +12269,7 @@
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "org.scalameta:inputs_2.12:jar:sources:1.8.0",
                     "org.scalameta:semantic_2.12:jar:sources:1.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scalameta:io_2.12:jar:sources:1.8.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.11",
                     "org.scalameta:transversers_2.12:jar:sources:1.8.0"
@@ -12217,7 +12291,6 @@
                     "org.scalameta:trees_2.12:1.8.0"
                 ],
                 "dependencies": [
-                    "com.google.protobuf:protobuf-java:3.11.0",
                     "org.scalameta:dialects_2.12:1.8.0",
                     "org.scalameta:tokens_2.12:1.8.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:0.6.0-pre2",
@@ -12230,6 +12303,7 @@
                     "com.lihaoyi:fastparse_2.12:2.1.3",
                     "com.lihaoyi:sourcecode_2.12:0.1.7",
                     "org.scalameta:trees_2.12:1.8.0",
+                    "com.google.protobuf:protobuf-java:3.12.2",
                     "com.trueaccord.lenses:lenses_2.12:0.4.10"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/scalameta/semantic_2.12/1.8.0/semantic_2.12-1.8.0.jar",
@@ -12251,7 +12325,6 @@
                 "dependencies": [
                     "com.lihaoyi:fastparse_2.12:jar:sources:2.1.3",
                     "org.scalameta:common_2.12:jar:sources:1.8.0",
-                    "com.google.protobuf:protobuf-java:jar:sources:3.11.0",
                     "org.scalameta:tokens_2.12:jar:sources:1.8.0",
                     "org.scalameta:parsers_2.12:jar:sources:1.8.0",
                     "org.scalameta:tokenizers_2.12:jar:sources:1.8.0",
@@ -12261,6 +12334,7 @@
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
                     "org.scalameta:inputs_2.12:jar:sources:1.8.0",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.12.2",
                     "org.scalameta:io_2.12:jar:sources:1.8.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.11"
                 ],
@@ -12519,6 +12593,52 @@
                     "https://repo1.maven.org/maven2/org/scalatest/scalatest_2.12/3.0.5/scalatest_2.12-3.0.5-sources.jar"
                 ],
                 "sha256": "22081ee83810098adc9af4d84d05dd5891d7c0e15f9095bcdaf4ac7a228b92df"
+            },
+            {
+                "coord": "org.scalatestplus:scalacheck-1-14_2.12:3.1.1.1",
+                "file": "v1/https/repo1.maven.org/maven2/org/scalatestplus/scalacheck-1-14_2.12/3.1.1.1/scalacheck-1-14_2.12-3.1.1.1.jar",
+                "directDependencies": [
+                    "org.scala-lang:scala-library:2.12.11",
+                    "org.scalacheck:scalacheck_2.12:1.14.0",
+                    "org.scalatest:scalatest_2.12:3.0.5"
+                ],
+                "dependencies": [
+                    "org.scalacheck:scalacheck_2.12:1.14.0",
+                    "org.scalactic:scalactic_2.12:3.0.5",
+                    "org.scala-lang:scala-reflect:2.12.11",
+                    "org.scala-lang:scala-library:2.12.11",
+                    "org.scala-sbt:test-interface:1.0",
+                    "org.scalatest:scalatest_2.12:3.0.5",
+                    "org.scala-lang.modules:scala-xml_2.12:1.0.6"
+                ],
+                "url": "https://repo1.maven.org/maven2/org/scalatestplus/scalacheck-1-14_2.12/3.1.1.1/scalacheck-1-14_2.12-3.1.1.1.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/org/scalatestplus/scalacheck-1-14_2.12/3.1.1.1/scalacheck-1-14_2.12-3.1.1.1.jar"
+                ],
+                "sha256": "8902ca6f5775d0d2202c7dfb52a567bc229e15f367f75014a0b8c8e1038db726"
+            },
+            {
+                "coord": "org.scalatestplus:scalacheck-1-14_2.12:jar:sources:3.1.1.1",
+                "file": "v1/https/repo1.maven.org/maven2/org/scalatestplus/scalacheck-1-14_2.12/3.1.1.1/scalacheck-1-14_2.12-3.1.1.1-sources.jar",
+                "directDependencies": [
+                    "org.scala-lang:scala-library:jar:sources:2.12.11",
+                    "org.scalacheck:scalacheck_2.12:jar:sources:1.14.0",
+                    "org.scalatest:scalatest_2.12:jar:sources:3.0.5"
+                ],
+                "dependencies": [
+                    "org.scalacheck:scalacheck_2.12:jar:sources:1.14.0",
+                    "org.scalactic:scalactic_2.12:jar:sources:3.0.5",
+                    "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
+                    "org.scala-lang:scala-reflect:jar:sources:2.12.11",
+                    "org.scala-sbt:test-interface:jar:sources:1.0",
+                    "org.scalatest:scalatest_2.12:jar:sources:3.0.5",
+                    "org.scala-lang:scala-library:jar:sources:2.12.11"
+                ],
+                "url": "https://repo1.maven.org/maven2/org/scalatestplus/scalacheck-1-14_2.12/3.1.1.1/scalacheck-1-14_2.12-3.1.1.1-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/org/scalatestplus/scalacheck-1-14_2.12/3.1.1.1/scalacheck-1-14_2.12-3.1.1.1-sources.jar"
+                ],
+                "sha256": "6c5a3a8de06c435feb1a8b35c21245329f3a2cf12e35629f30ca0cddacd7dbbb"
             },
             {
                 "coord": "org.scalaz:scalaz-concurrent_2.12:7.2.24",
@@ -14792,6 +14912,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1091799303
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -554953307
     }
 }
