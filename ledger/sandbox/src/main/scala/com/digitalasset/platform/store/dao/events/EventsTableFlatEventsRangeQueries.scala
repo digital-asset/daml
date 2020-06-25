@@ -136,7 +136,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         range: EventsRange[Long],
         party: Party,
         pageSize: Int,
-        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
+        dummy: Option[Int],
     ): SimpleSql[Row] = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
@@ -148,7 +148,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         party: Party,
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
+        dummy: Option[Int],
     ): SimpleSql[Row] = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
@@ -159,7 +159,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         range: EventsRange[Long],
         parties: Set[Party],
         pageSize: Int,
-        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
+        dummy: Option[Int],
     ): SimpleSql[Row] = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
@@ -173,7 +173,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         parties: Set[Party],
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
+        dummy: Option[Int],
     ): SimpleSql[Row] = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
@@ -186,7 +186,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         range: EventsRange[Long],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
+        dummy: Option[Int],
     ): SimpleSql[Row] = {
       val parties = partiesAndTemplateIds.map(_._1)
       val partiesAndTemplatesCondition =
@@ -204,7 +204,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         wildcardParties: Set[Party],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
+        dummy: Option[Int],
     ): SimpleSql[Row] = {
       val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
       val partiesAndTemplatesCondition =
