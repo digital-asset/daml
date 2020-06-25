@@ -16,7 +16,7 @@ import scalaz.syntax.traverse._
 import spray.json._
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.{
@@ -30,6 +30,7 @@ import com.daml.lf.engine.script.{
 }
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -61,6 +62,7 @@ trait JsonApiFixture
   self: Suite =>
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
+  protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
   protected def server: SandboxServer = suiteResource.value._1
   override protected def serverPort: Port = server.port
   override protected def channel: Channel = suiteResource.value._2
@@ -134,11 +136,17 @@ final class JsonApiIt
     with SuiteResourceManagementAroundAll
     with TryValues {
 
-  private val dar = DarReader().readArchiveFromFile(darFile).get.map {
-    case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
+    val dar = DarReader().readArchiveFromFile(file).get.map {
+      case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+    }
+    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+    (dar, envIface)
   }
-  private val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-  private val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+
+  val (dar, envIface) = readDar(darFile)
+  val (darNoLedger, envIfaceNoLedger) = readDar(darFileNoLedger)
 
   def getToken(parties: List[String], admin: Boolean): String = {
     val payload = AuthServiceJWTPayload(
@@ -161,7 +169,8 @@ final class JsonApiIt
   private def getClients(
       parties: List[String] = List(party),
       defaultParty: Option[String] = None,
-      admin: Boolean = false) = {
+      admin: Boolean = false,
+      envIface: EnvironmentInterface = envIface) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
     val defaultParticipant =
@@ -183,8 +192,9 @@ final class JsonApiIt
   private def run(
       clients: Participants[ScriptLedgerClient],
       name: QualifiedName,
-      inputValue: Option[JsValue] = Some(JsString(party))): Future[SValue] = {
-    val scriptId = Identifier(packageId, name)
+      inputValue: Option[JsValue] = Some(JsString(party)),
+      dar: Dar[(PackageId, Package)] = dar): Future[SValue] = {
+    val scriptId = Identifier(dar.main._1, name)
     Runner.run(
       dar,
       scriptId,
@@ -303,6 +313,19 @@ final class JsonApiIt
           Some(JsArray(JsString("Alice"), JsString("Bob"))))
       } yield {
         assert(result == SUnit)
+      }
+    }
+    "missing template id" in {
+      for {
+        clients <- getClients(envIface = envIfaceNoLedger)
+        ex <- recoverToExceptionIf[RuntimeException](
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonMissingTemplateId"),
+            dar = darNoLedger
+          ))
+      } yield {
+        assert(ex.toString.contains("Cannot resolve template ID"))
       }
     }
   }
