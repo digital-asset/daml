@@ -310,7 +310,7 @@ cmdRepl numProcessors =
         (flag' ReplClient.ReplWallClock $ mconcat
             [ short 'w'
             , long "wall-clock-time"
-            , help "Use wall clock time (UTC)."
+            , help "Use wall clock time (UTC). (this is the default)"
             ])
         <|> (flag ReplClient.ReplWallClock ReplClient.ReplStatic $ mconcat
             [ short 's'
