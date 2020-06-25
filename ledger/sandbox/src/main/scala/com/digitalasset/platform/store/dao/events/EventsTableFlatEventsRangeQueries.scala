@@ -121,7 +121,6 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
       }
     }
   }
-
 }
 
 private[events] object EventsTableFlatEventsRangeQueries {
@@ -131,75 +130,65 @@ private[events] object EventsTableFlatEventsRangeQueries {
       groupByColumns: String,
       orderByColumns: String,
       sqlFunctions: SqlFunctions,
-  ) extends EventsTableFlatEventsRangeQueries[(Offset, Offset)] {
+  ) extends EventsTableFlatEventsRangeQueries[EventsRange[Long]] {
 
     override protected def singleWildcardParty(
-        between: (Offset, Offset),
+        range: EventsRange[Long],
         party: Party,
         pageSize: Int,
-        previousEventNodeIndex: Option[Int],
+        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
     ): SimpleSql[Row] = {
-      val (prevOffset, prevNodeIndex) =
-        previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
-      SQL"""select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesWhereClause order by (#$orderByColumns) limit $pageSize"""
+      SQL"""select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause order by row_id limit $pageSize"""
     }
 
     override protected def singlePartyWithTemplates(
-        between: (Offset, Offset),
+        range: EventsRange[Long],
         party: Party,
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-        previousEventNodeIndex: Option[Int],
+        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
     ): SimpleSql[Row] = {
-      val (prevOffset, prevNodeIndex) =
-        previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
-      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesWhereClause and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause and template_id in ($templateIds) group by (#$groupByColumns) order by row_id limit $pageSize"
     }
 
     protected def onlyWildcardParties(
-        between: (Offset, Offset),
+        range: EventsRange[Long],
         parties: Set[Party],
         pageSize: Int,
-        previousEventNodeIndex: Option[Int],
+        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
     ): SimpleSql[Row] = {
-      val (prevOffset, prevNodeIndex) =
-        previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
-      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesWhereClause group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     protected def sameTemplates(
-        between: (Offset, Offset),
+        range: EventsRange[Long],
         parties: Set[Party],
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-        previousEventNodeIndex: Option[Int],
+        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
     ): SimpleSql[Row] = {
-      val (prevOffset, prevNodeIndex) =
-        previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
-      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$witnessesWhereClause and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause and template_id in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     protected def mixedTemplates(
-        between: (Offset, Offset),
+        range: EventsRange[Long],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-        previousEventNodeIndex: Option[Int],
+        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
     ): SimpleSql[Row] = {
       val parties = partiesAndTemplateIds.map(_._1)
-      val (prevOffset, prevNodeIndex) =
-        previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesAndTemplatesCondition =
         formatPartiesAndTemplatesWhereClause(
           sqlFunctions,
@@ -207,19 +196,17 @@ private[events] object EventsTableFlatEventsRangeQueries {
           partiesAndTemplateIds)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
-      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and #$partiesAndTemplatesCondition group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$partiesAndTemplatesCondition group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
 
     protected def mixedTemplatesWithWildcardParties(
-        between: (Offset, Offset),
+        range: EventsRange[Long],
         wildcardParties: Set[Party],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-        previousEventNodeIndex: Option[Int],
+        dummy: Option[Int], // TODO(Leo) remove this argument when refactoring is complete
     ): SimpleSql[Row] = {
       val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
-      val (prevOffset, prevNodeIndex) =
-        previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val partiesAndTemplatesCondition =
         formatPartiesAndTemplatesWhereClause(
           sqlFunctions,
@@ -229,9 +216,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", wildcardParties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
-      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (#$witnessesWhereClause or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($parties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and (#$witnessesWhereClause or #$partiesAndTemplatesCondition) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
     }
-
   }
 
   final class GetActiveContracts(
@@ -251,7 +237,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
-      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and #$witnessesWhereClause order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and #$witnessesWhereClause order by row_id limit $pageSize"
     }
 
     override protected def singlePartyWithTemplates(
@@ -265,7 +251,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         previousOffsetWhereClauseValues(between, previousEventNodeIndex)
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
-      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and #$witnessesWhereClause and template_id in ($templateIds) order by (#$orderByColumns) limit $pageSize"
+      SQL"select #$selectColumns, array[$party] as event_witnesses, case when submitter = $party then command_id else '' end as command_id from participant_events where create_argument is not null and (event_offset > ${between._1} or (event_offset = $prevOffset and node_index > $prevNodeIndex)) and event_offset <= ${between._2} and (create_consumed_at is null or create_consumed_at > ${between._2}) and #$witnessesWhereClause and template_id in ($templateIds) order by row_id limit $pageSize"
     }
 
     def onlyWildcardParties(

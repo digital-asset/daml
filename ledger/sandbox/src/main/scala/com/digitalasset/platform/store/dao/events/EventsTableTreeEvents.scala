@@ -174,7 +174,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by row_id limit $pageSize"
+    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize"
   }
 
 }
