@@ -111,7 +111,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by #$orderByColumns"
+    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by row_id"
   }
 
   private def multiPartyLookup(sqlFunctions: SqlFunctions)(
@@ -120,7 +120,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by #$orderByColumns"
+    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by row_id"
   }
 
   private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =
@@ -132,17 +132,15 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     )
 
   def preparePagedGetFlatTransactions(sqlFunctions: SqlFunctions)(
-      startExclusive: Offset,
-      endInclusive: Offset,
+      range: EventsRange[Long],
       filter: FilterRelation,
       pageSize: Int,
-      previousEventNodeIndex: Option[Int],
   ): SimpleSql[Row] =
     getFlatTransactionsQueries(sqlFunctions)(
-      (startExclusive, endInclusive),
+      range,
       filter,
       pageSize,
-      previousEventNodeIndex,
+      None // TODO(Leo): remove this argument from the interface when refactoring is complete
     )
 
   private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
