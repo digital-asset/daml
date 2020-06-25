@@ -313,14 +313,12 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-            "--open-world",
-            "--exclude=ClosedWorldIT",
         ] + exclusions,
         data = [dar_files],
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = sandbox,
-        server_args = sandbox_args,
+        server_args = sandbox_args + ["--implicit-party-allocation=false"],
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
@@ -332,7 +330,6 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-            "--open-world",
             "--exclude=ClosedWorldIT",
         ] + exclusions,
         data = [dar_files],
@@ -351,14 +348,13 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-            "--open-world",
-            "--exclude=ClosedWorldIT",
+            "--implicit-party-allocation=false",
         ] + exclusions,
         data = [dar_files],
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = ":sandbox-with-postgres-{}".format(platform_version),
-        server_args = [platform_version] + sandbox_args,
+        server_args = [platform_version] + sandbox_args + ["--implicit-party-allocation=false"],
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
@@ -370,7 +366,6 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-            "--open-world",
             "--exclude=ClosedWorldIT",
         ] + exclusions,
         data = [dar_files],
