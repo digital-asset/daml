@@ -178,7 +178,7 @@ class SqlLedgerSpec
       new SqlLedger.Owner(
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
-        ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+        initialLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         participantId = participantId,
         timeProvider = TimeProvider.UTC,
         acs = InMemoryActiveLedgerState.empty,

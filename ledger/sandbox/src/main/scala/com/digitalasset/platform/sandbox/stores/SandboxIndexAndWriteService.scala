@@ -53,7 +53,7 @@ object SandboxIndexAndWriteService {
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
   def postgres(
-      ledgerId: LedgerIdMode,
+      initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
       initialConfig: ParticipantState.Configuration,
@@ -71,7 +71,7 @@ object SandboxIndexAndWriteService {
     new SqlLedger.Owner(
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
-      ledgerId = ledgerId,
+      initialLedgerId = initialLedgerId,
       participantId = participantId,
       timeProvider = timeProvider,
       acs = acs,
@@ -87,7 +87,7 @@ object SandboxIndexAndWriteService {
       owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
 
   def inMemory(
-      ledgerId: LedgerIdMode,
+      initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       intialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
@@ -99,7 +99,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
-        ledgerId.or(LedgerIdGenerator.generateRandomId()),
+        initialLedgerId.or(LedgerIdGenerator.generateRandomId()),
         participantId,
         timeProvider,
         acs,
