@@ -2343,3 +2343,17 @@ div.pdf-download
 
 .cta-alt
   display: none
+
+#inpageContent
+  display: block
+  position: fixed
+  bottom: 50px
+  right: 20px
+  z-index: 999
+
+  +media($mobile)
+    display: none
+
+#popoutContent
+  +media($mobile)
+    display: none
