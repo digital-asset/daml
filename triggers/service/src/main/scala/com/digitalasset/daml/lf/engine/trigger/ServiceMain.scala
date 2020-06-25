@@ -6,7 +6,7 @@ package com.daml.lf.engine.trigger
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
 import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -54,6 +54,11 @@ case class LedgerConfig(
     timeProvider: TimeProviderType,
     commandTtl: Duration,
 )
+case class TriggerRunnerConfig(
+    maxInboundMessageSize: Int,
+    maxFailureNumberOfRetries: Int,
+    failureRetryTimeRange: Duration
+)
 
 final case class SecretKey(value: String)
 final case class UserCredentials(token: EncryptedToken)
@@ -67,7 +72,30 @@ final case class RunningTrigger(
     runner: ActorRef[TriggerRunner.Message]
 )
 
-class Server(triggerDao: RunningTriggerDao) {
+sealed trait Message
+final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
+case object Stop extends Message
+final case class StartFailed(cause: Throwable) extends Message
+final case class Started(binding: ServerBinding) extends Message
+final case class TriggerStarting(runningTrigger: RunningTrigger) extends Message
+final case class TriggerStarted(runningTrigger: RunningTrigger) extends Message
+final case class TriggerInitializationFailure(
+    runningTrigger: RunningTrigger,
+    cause: String
+) extends Message
+final case class TriggerRuntimeFailure(
+    runningTrigger: RunningTrigger,
+    cause: String
+) extends Message
+
+class Server(
+    ledgerConfig: LedgerConfig,
+    runnerConfig: TriggerRunnerConfig,
+    secretKey: SecretKey,
+    triggerDao: RunningTriggerDao)(
+    implicit ctx: ActorContext[Message],
+    materializer: Materializer,
+    esf: ExecutionSequencerFactory) {
 
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
 
@@ -105,6 +133,67 @@ class Server(triggerDao: RunningTriggerDao) {
     triggerDao.persistPackages(encodedDar)
   }
 
+  private def triggerRunnerName(triggerInstance: UUID): String =
+    triggerInstance.toString ++ "-monitor"
+
+  private def getRunner(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] =
+    ctx
+      .child(triggerRunnerName(triggerInstance))
+      .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+
+  private def startTrigger(
+      credentials: UserCredentials,
+      triggerName: Identifier): Either[String, JsValue] = {
+    for {
+      trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
+      party = TokenManagement.decodeCredentials(secretKey, credentials)._1
+      triggerInstance = UUID.randomUUID
+      _ = ctx.spawn(
+        TriggerRunner(
+          new TriggerRunner.Config(
+            ctx.self,
+            triggerInstance,
+            triggerName,
+            credentials,
+            compiledPackages,
+            trigger,
+            ledgerConfig,
+            runnerConfig,
+            party
+          ),
+          triggerInstance.toString
+        ),
+        triggerRunnerName(triggerInstance)
+      )
+    } yield JsObject(("triggerId", triggerInstance.toString.toJson))
+  }
+
+  private def stopTrigger(
+      uuid: UUID,
+      credentials: UserCredentials): Either[String, Option[JsValue]] = {
+    //TODO(SF, 2020-05-20): At least check that the provided token
+    //is the same as the one used to start the trigger and fail with
+    //'Unauthorized' if not (expect we'll be able to do better than
+    //this).
+    triggerDao.removeRunningTrigger(uuid) map {
+      case false => None
+      case true =>
+        getRunner(uuid) foreach { runner =>
+          runner ! TriggerRunner.Stop
+        }
+        // If we couldn't find the runner then there is nothing to stop anyway,
+        // so pretend everything went normally.
+        logTriggerStatus(uuid, "stopped: by user request")
+        Some(JsObject(("triggerId", uuid.toString.toJson)))
+    }
+  }
+
+  private def listTriggers(credentials: UserCredentials): Either[String, JsValue] = {
+    triggerDao.listRunningTriggers(credentials) map { triggerInstances =>
+      JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
+    }
+  }
+
   private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
     val entry = (LocalDateTime.now, msg)
     triggerLog += triggerInstance -> (getTriggerStatus(triggerInstance) :+ entry)
@@ -113,45 +202,147 @@ class Server(triggerDao: RunningTriggerDao) {
   private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] = {
     triggerLog.getOrElse(uuid, Vector())
   }
+
+  private def route = concat(
+    post {
+      concat(
+        // Start a new trigger given its identifier and the party it
+        // should be running as.  Returns a UUID for the newly
+        // started trigger.
+        path("v1" / "start") {
+          extractRequest {
+            request =>
+              entity(as[StartParams]) {
+                params =>
+                  TokenManagement
+                    .findCredentials(secretKey, request)
+                    .fold(
+                      message => complete(errorResponse(StatusCodes.Unauthorized, message)),
+                      credentials =>
+                        startTrigger(credentials, params.triggerName) match {
+                          case Left(err) =>
+                            complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                          case Right(triggerInstance) =>
+                            complete(successResponse(triggerInstance))
+                      }
+                    )
+              }
+          }
+        },
+        // upload a DAR as a multi-part form request with a single field called
+        // "dar".
+        path("v1" / "upload_dar") {
+          fileUpload("dar") {
+            case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
+              val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+              onSuccess(byteStringF) {
+                byteString =>
+                  val inputStream = new ByteArrayInputStream(byteString.toArray)
+                  DarReader()
+                    .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                    case Failure(err) =>
+                      complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                    case Success(dar) =>
+                      try {
+                        addDar(dar) match {
+                          case Left(err) =>
+                            complete(errorResponse(StatusCodes.InternalServerError, err))
+                          case Right(()) =>
+                            val mainPackageId =
+                              JsObject(("mainPackageId", dar.main._1.name.toJson))
+                            complete(successResponse(mainPackageId))
+                        }
+                      } catch {
+                        case err: ParseError =>
+                          complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                      }
+                  }
+              }
+          }
+        }
+      )
+    },
+    get {
+      // Convenience endpoint for tests (roughly follow
+      // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
+      concat(
+        path("v1" / "health") {
+          complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
+        },
+        // List triggers currently running for the given party.
+        path("v1" / "list") {
+          extractRequest {
+            request =>
+              TokenManagement
+                .findCredentials(secretKey, request)
+                .fold(
+                  message => complete(errorResponse(StatusCodes.Unauthorized, message)),
+                  credentials =>
+                    listTriggers(credentials) match {
+                      case Left(err) =>
+                        complete(errorResponse(StatusCodes.InternalServerError, err))
+                      case Right(triggerInstances) => complete(successResponse(triggerInstances))
+                  }
+                )
+          }
+        },
+        // Produce logs for the given trigger.
+        pathPrefix("v1" / "status" / JavaUUID) { uuid =>
+          implicit val dateTimeFormat: RootJsonFormat[LocalDateTime] = LocalDateTimeJsonFormat
+          complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
+        }
+      )
+    },
+    // Stop a trigger given its UUID
+    delete {
+      pathPrefix("v1" / "stop" / JavaUUID) {
+        uuid =>
+          extractRequest {
+            request =>
+              TokenManagement
+                .findCredentials(secretKey, request)
+                .fold(
+                  message => complete(errorResponse(StatusCodes.Unauthorized, message)),
+                  credentials =>
+                    stopTrigger(uuid, credentials) match {
+                      case Left(err) =>
+                        complete(errorResponse(StatusCodes.InternalServerError, err))
+                      case Right(None) =>
+                        val err = s"No trigger running with id $uuid"
+                        complete(errorResponse(StatusCodes.NotFound, err))
+                      case Right(Some(stoppedTriggerId)) =>
+                        complete(successResponse(stoppedTriggerId))
+                  }
+                )
+          }
+      }
+    },
+  )
 }
 
 object Server {
-
-  sealed trait Message
-
-  final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
-  final case object Stop extends Message
-
-  private final case class StartFailed(cause: Throwable) extends Message
-  private final case class Started(binding: ServerBinding) extends Message
-
-  final case class TriggerStarting(runningTrigger: RunningTrigger) extends Message
-
-  final case class TriggerStarted(runningTrigger: RunningTrigger) extends Message
-
-  final case class TriggerInitializationFailure(
-      runningTrigger: RunningTrigger,
-      cause: String
-  ) extends Message
-
-  final case class TriggerRuntimeFailure(
-      runningTrigger: RunningTrigger,
-      cause: String
-  ) extends Message
 
   def apply(
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      maxInboundMessageSize: Int,
-      maxFailureNumberOfRetries: Int,
-      failureRetryTimeRange: Duration,
+      runnerConfig: TriggerRunnerConfig,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
       noSecretKey: Boolean,
-  ): Behavior[Message] = Behaviors.setup { ctx =>
-    val key: SecretKey =
+  ): Behavior[Message] = Behaviors.setup { implicit ctx =>
+    // Implicit boilerplate.
+    // These are required to execute methods in the Server class and are passed
+    // implicitly to the Server constructor.
+    implicit val ec: ExecutionContext = ctx.system.executionContext
+    // Akka HTTP doesn't know about Akka Typed so provide untyped system.
+    implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
+    implicit val materializer: Materializer = Materializer(untypedSystem)
+    implicit val esf: ExecutionSequencerFactory =
+      new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
+
+    val secretKey: SecretKey =
       sys.env.get("TRIGGER_SERVICE_SECRET_KEY") match {
         case Some(key) => SecretKey(key)
         case None =>
@@ -164,38 +355,39 @@ object Server {
           }
       }
 
-    implicit val ec: ExecutionContext = ctx.system.executionContext
+    if (initDb) jdbcConfig match {
+      case None =>
+        ctx.log.error("No JDBC configuration for database initialization.")
+        sys.exit(1)
+      case Some(c) =>
+        DbTriggerDao(c).initialize match {
+          case Left(err) =>
+            ctx.log.error(err)
+            sys.exit(1)
+          case Right(()) =>
+            ctx.log.info("Successfully initialized database.")
+            sys.exit(0)
+        }
+    }
 
-    val (triggerDao: RunningTriggerDao, server: Server) =
-      (initDb, jdbcConfig) match {
-        case (true, None) =>
-          ctx.log.error("No JDBC configuration for database initialization.")
-          sys.exit(1)
-        case (true, Some(c)) =>
-          DbTriggerDao(c).initialize match {
-            case Left(err) =>
-              ctx.log.error(err)
-              sys.exit(1)
-            case Right(()) =>
-              ctx.log.info("Successfully initialized database.")
-              sys.exit(0)
-          }
-        case (false, None) =>
-          val dao = InMemoryTriggerDao()
-          (dao, new Server(dao))
-        case (false, Some(c)) =>
-          val dao = DbTriggerDao(c)
-          dao.readPackages match {
-            case Left(err) =>
-              ctx.log.error(err)
-              sys.exit(1)
-            case Right(pkgs) =>
-              val server = new Server(dao)
-              server.addPackagesInMemory(pkgs)
-              ctx.log.info("Successfully recovered packages from database.")
-              (dao, server)
-          }
-      }
+    val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
+      case None =>
+        val dao = InMemoryTriggerDao()
+        val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+        (dao, server)
+      case Some(c) =>
+        val dao = DbTriggerDao(c)
+        dao.readPackages match {
+          case Left(err) =>
+            ctx.log.error(err)
+            sys.exit(1)
+          case Right(pkgs) =>
+            val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+            server.addPackagesInMemory(pkgs)
+            ctx.log.info("Successfully recovered packages from database.")
+            (dao, server)
+        }
+    }
 
     initialDar foreach { dar =>
       server.addDar(dar) match {
@@ -204,196 +396,6 @@ object Server {
           sys.exit(1)
         case Right(()) =>
       }
-    }
-
-    // http doesn't know about akka typed so provide untyped system
-    implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
-    implicit val materializer: Materializer = Materializer(untypedSystem)
-    implicit val esf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
-    implicit val dateTimeFormat: RootJsonFormat[LocalDateTime] = LocalDateTimeJsonFormat
-
-    def triggerRunnerName(triggerInstance: UUID): String = triggerInstance.toString ++ "-monitor"
-
-    def getRunner(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] =
-      ctx
-        .child(triggerRunnerName(triggerInstance))
-        .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
-
-    def startTrigger(
-        credentials: UserCredentials,
-        triggerName: Identifier): Either[String, JsValue] = {
-      for {
-        trigger <- Trigger.fromIdentifier(server.compiledPackages, triggerName)
-        party = TokenManagement.decodeCredentials(key, credentials)._1
-        triggerInstance = UUID.randomUUID
-        _ = ctx.spawn(
-          TriggerRunner(
-            new TriggerRunner.Config(
-              ctx.self,
-              triggerInstance,
-              triggerName,
-              credentials,
-              server.compiledPackages,
-              trigger,
-              ledgerConfig,
-              maxInboundMessageSize,
-              maxFailureNumberOfRetries,
-              failureRetryTimeRange,
-              party
-            ),
-            triggerInstance.toString
-          ),
-          triggerRunnerName(triggerInstance)
-        )
-      } yield JsObject(("triggerId", triggerInstance.toString.toJson))
-    }
-
-    def stopTrigger(uuid: UUID, credentials: UserCredentials): Either[String, Option[JsValue]] = {
-      //TODO(SF, 2020-05-20): At least check that the provided token
-      //is the same as the one used to start the trigger and fail with
-      //'Unauthorized' if not (expect we'll be able to do better than
-      //this).
-      triggerDao.removeRunningTrigger(uuid) map {
-        case false => None
-        case true =>
-          getRunner(uuid) foreach { runner =>
-            runner ! TriggerRunner.Stop
-          }
-          // If we couldn't find the runner then there is nothing to stop anyway,
-          // so pretend everything went normally.
-          server.logTriggerStatus(uuid, "stopped: by user request")
-          Some(JsObject(("triggerId", uuid.toString.toJson)))
-      }
-    }
-
-    def listTriggers(credentials: UserCredentials): Either[String, JsValue] = {
-      triggerDao.listRunningTriggers(credentials) map { triggerInstances =>
-        JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
-      }
-    }
-
-    val route = concat(
-      post {
-        concat(
-          // Start a new trigger given its identifier and the party it
-          // should be running as.  Returns a UUID for the newly
-          // started trigger.
-          path("v1" / "start") {
-            extractRequest {
-              request =>
-                entity(as[StartParams]) {
-                  params =>
-                    TokenManagement
-                      .findCredentials(key, request)
-                      .fold(
-                        message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                        credentials =>
-                          startTrigger(credentials, params.triggerName) match {
-                            case Left(err) =>
-                              complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                            case Right(triggerInstance) =>
-                              complete(successResponse(triggerInstance))
-                        }
-                      )
-                }
-            }
-          },
-          // upload a DAR as a multi-part form request with a single field called
-          // "dar".
-          path("v1" / "upload_dar") {
-            fileUpload("dar") {
-              case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
-                val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
-                onSuccess(byteStringF) {
-                  byteString =>
-                    val inputStream = new ByteArrayInputStream(byteString.toArray)
-                    DarReader()
-                      .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                      case Failure(err) =>
-                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                      case Success(dar) =>
-                        try {
-                          server.addDar(dar) match {
-                            case Left(err) =>
-                              complete(errorResponse(StatusCodes.InternalServerError, err))
-                            case Right(()) =>
-                              val mainPackageId =
-                                JsObject(("mainPackageId", dar.main._1.name.toJson))
-                              complete(successResponse(mainPackageId))
-                          }
-                        } catch {
-                          case err: ParseError =>
-                            complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                        }
-                    }
-                }
-            }
-          }
-        )
-      },
-      get {
-        // Convenience endpoint for tests (roughly follow
-        // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
-        concat(
-          path("v1" / "health") {
-            complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
-          },
-          // List triggers currently running for the given party.
-          path("v1" / "list") {
-            extractRequest {
-              request =>
-                TokenManagement
-                  .findCredentials(key, request)
-                  .fold(
-                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                    credentials =>
-                      listTriggers(credentials) match {
-                        case Left(err) =>
-                          complete(errorResponse(StatusCodes.InternalServerError, err))
-                        case Right(triggerInstances) => complete(successResponse(triggerInstances))
-                    }
-                  )
-            }
-          },
-          // Produce logs for the given trigger.
-          pathPrefix("v1" / "status" / JavaUUID) { uuid =>
-            complete(successResponse(JsObject(("logs", server.getTriggerStatus(uuid).toJson))))
-          }
-        )
-      },
-      // Stop a trigger given its UUID
-      delete {
-        pathPrefix("v1" / "stop" / JavaUUID) {
-          uuid =>
-            extractRequest {
-              request =>
-                TokenManagement
-                  .findCredentials(key, request)
-                  .fold(
-                    message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                    credentials =>
-                      stopTrigger(uuid, credentials) match {
-                        case Left(err) =>
-                          complete(errorResponse(StatusCodes.InternalServerError, err))
-                        case Right(None) =>
-                          val err = s"No trigger running with id $uuid"
-                          complete(errorResponse(StatusCodes.NotFound, err))
-                        case Right(Some(stoppedTriggerId)) =>
-                          complete(successResponse(stoppedTriggerId))
-                    }
-                  )
-            }
-        }
-      },
-    )
-
-    // The server binding is a future that on completion will be piped
-    // to a message to this actor.
-    val serverBinding = Http().bindAndHandle(Route.handlerFlow(route), host, port)
-    ctx.pipeToSelf(serverBinding) {
-      case Success(binding) => Started(binding)
-      case Failure(ex) => StartFailed(ex)
     }
 
     // The server running state.
@@ -488,6 +490,14 @@ object Server {
           Behaviors.unhandled
       }
 
+    // The server binding is a future that on completion will be piped
+    // to a message to this actor.
+    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+    ctx.pipeToSelf(serverBinding) {
+      case Success(binding) => Started(binding)
+      case Failure(ex) => StartFailed(ex)
+    }
+
     starting(wasStopped = false, req = None)
   }
 }
@@ -502,23 +512,19 @@ object ServiceMain {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      maxInboundMessageSize: Int,
-      maxFailureNumberOfRetries: Int,
-      failureRetryTimeRange: Duration,
+      runnerConfig: TriggerRunnerConfig,
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
-  ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
+  ): Future[(ServerBinding, ActorSystem[Message])] = {
 
-    val system: ActorSystem[Server.Message] =
+    val system: ActorSystem[Message] =
       ActorSystem(
         Server(
           host,
           port,
           ledgerConfig,
-          maxInboundMessageSize,
-          maxFailureNumberOfRetries,
-          failureRetryTimeRange,
+          runnerConfig,
           encodedDar,
           jdbcConfig,
           initDb = false, // for tests we initialize the database in beforeEach clause
@@ -530,8 +536,9 @@ object ServiceMain {
     implicit val scheduler: Scheduler = system.scheduler
     implicit val ec: ExecutionContext = system.executionContext
 
-    val bindingFuture = system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
-    bindingFuture.map(server => (server, system))
+    val serviceF: Future[ServerBinding] =
+      system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
+    serviceF.map(server => (server, system))
   }
 
   def main(args: Array[String]): Unit = {
@@ -552,15 +559,18 @@ object ServiceMain {
             config.timeProviderType,
             config.commandTtl,
           )
-        val system: ActorSystem[Server.Message] =
+        val runnerConfig = TriggerRunnerConfig(
+          config.maxInboundMessageSize,
+          config.maxFailureNumberOfRetries,
+          config.failureRetryTimeRange,
+        )
+        val system: ActorSystem[Message] =
           ActorSystem(
             Server(
               "localhost",
               config.httpPort,
               ledgerConfig,
-              config.maxInboundMessageSize,
-              config.maxFailureNumberOfRetries,
-              config.failureRetryTimeRange,
+              runnerConfig,
               encodedDar,
               config.jdbcConfig,
               config.init,
@@ -574,9 +584,9 @@ object ServiceMain {
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
-          system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
+          system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
         val _: ShutdownHookThread = sys.addShutdownHook {
-          system ! Server.Stop
+          system ! Stop
           serviceF.onComplete {
             case Success(_) =>
               system.log.info("Server is offline, the system will now terminate")
