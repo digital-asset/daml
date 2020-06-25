@@ -23,8 +23,9 @@ object EventsRange {
       implicit connection: java.sql.Connection): EventsRange[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
 
+    // start is exclusive, that is why -1
     val query =
-      SQL"select min(row_id) as start, max(row_id) as end from participant_events where event_offset > ${range.startExclusive} and event_offset <= ${range.endInclusive}"
+      SQL"select min(row_id) - 1 as start, max(row_id) as end from participant_events where event_offset > ${range.startExclusive} and event_offset <= ${range.endInclusive}"
 
     query.as(parser.single)
   }

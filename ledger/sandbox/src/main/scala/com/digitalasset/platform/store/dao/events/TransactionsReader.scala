@@ -89,7 +89,7 @@ private[dao] final class TransactionsReader(
             Timed.future(
               future = Future.traverse(es)(deserializeEntry(verbose)),
               timer = dbMetrics.getTransactionTrees.translationTimer,
-            )
+          )
         )
       }
 
