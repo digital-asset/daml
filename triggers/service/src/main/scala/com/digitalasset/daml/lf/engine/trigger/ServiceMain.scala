@@ -34,43 +34,17 @@ import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.platform.services.time.TimeProviderType
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 import scala.sys.ShutdownHookThread
 import java.io.ByteArrayInputStream
-import java.time.Duration
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
 import com.daml.lf.engine.trigger.dao._
-
-case class LedgerConfig(
-    host: String,
-    port: Int,
-    timeProvider: TimeProviderType,
-    commandTtl: Duration,
-)
-case class TriggerRunnerConfig(
-    maxInboundMessageSize: Int,
-    maxFailureNumberOfRetries: Int,
-    failureRetryTimeRange: Duration
-)
-
-final case class SecretKey(value: String)
-final case class UserCredentials(token: EncryptedToken)
-
-final case class RunningTrigger(
-    triggerInstance: UUID,
-    triggerName: Identifier,
-    credentials: UserCredentials,
-    // TODO(SF, 2020-0610): Add access token field here in the
-    // presence of authentication.
-    runner: ActorRef[TriggerRunner.Message]
-)
 
 sealed trait Message
 final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
