@@ -10,8 +10,8 @@ export interface StyledProps {
 }
 
 export const StyledTextInput
-  : React.ComponentClass<React.HTMLProps<HTMLInputElement> & StyledProps>
-  = styled.input`
+  : React.FC<React.HTMLProps<HTMLInputElement> & StyledProps>
+  = styled.input<StyledProps>`
   width: 100%;
   display: block;
   outline: none;

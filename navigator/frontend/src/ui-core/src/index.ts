@@ -24,7 +24,6 @@ export {
   defaultTheme,
   ThemeProvider,
   ThemeInterface,
-  withProps as styledWithProps,
 } from './theme';
 export {
   default as ContractTable,

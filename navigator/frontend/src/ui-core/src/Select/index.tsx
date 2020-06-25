@@ -24,7 +24,7 @@ export interface State {
 }
 
 // tslint:disable-next-line:no-any
-const DropdownContainer = styled<{minWidth: string}>('ul' as any)`
+const DropdownContainer = styled('ul')<{minWidth: string}>`
   min-width: ${({ minWidth }) => minWidth};
   padding: 0;
   margin: 0;
