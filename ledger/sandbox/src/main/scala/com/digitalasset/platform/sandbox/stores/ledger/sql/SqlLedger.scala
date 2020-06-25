@@ -35,7 +35,7 @@ import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.ResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,7 +46,7 @@ object SqlLedger {
 
   private type PersistentQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
-  def owner(
+  final class Owner(
       serverRole: ServerRole,
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
@@ -62,29 +62,37 @@ object SqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
-    for {
-      _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
-      ledgerDao <- JdbcLedgerDao.validatingWriteOwner(
-        serverRole,
-        jdbcUrl,
-        eventsPageSize,
-        metrics,
-        lfValueTranslationCache)
-      ledger <- ResourceOwner.forFutureCloseable(
-        () =>
-          new SqlLedgerFactory(ledgerDao).createSqlLedger(
-            ledgerId,
-            participantId,
-            timeProvider,
-            startMode,
-            acs,
-            packages,
-            initialLedgerEntries,
-            queueDepth,
-            transactionCommitter,
-        ))
-    } yield ledger
+  )(implicit mat: Materializer, logCtx: LoggingContext)
+      extends ResourceOwner[Ledger] {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[Ledger] =
+      for {
+        _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
+        ledgerDao <- JdbcLedgerDao
+          .validatingWriteOwner(
+            serverRole,
+            jdbcUrl,
+            eventsPageSize,
+            metrics,
+            lfValueTranslationCache,
+          )
+          .acquire()
+        ledger <- ResourceOwner
+          .forFutureCloseable(
+            () =>
+              new SqlLedgerFactory(ledgerDao).createSqlLedger(
+                ledgerId,
+                participantId,
+                timeProvider,
+                startMode,
+                acs,
+                packages,
+                initialLedgerEntries,
+                queueDepth,
+                transactionCommitter,
+            ))
+          .acquire()
+      } yield ledger
+  }
 }
 
 private final class SqlLedger(

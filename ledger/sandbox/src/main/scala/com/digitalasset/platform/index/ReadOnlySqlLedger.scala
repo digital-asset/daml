@@ -9,7 +9,6 @@ import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
-import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.Offset
@@ -17,71 +16,63 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.ResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def owner(
+  final class Owner(
       serverRole: ServerRole,
       jdbcUrl: String,
-      ledgerId: LedgerId,
+      initialLedgerId: LedgerId,
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
-    for {
-      ledgerReadDao <- JdbcLedgerDao.readOwner(
-        serverRole,
-        jdbcUrl,
-        eventsPageSize,
-        metrics,
-        lfValueTranslationCache,
-      )
-      factory = new Factory(ledgerReadDao)
-      ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
-    } yield ledger
-
-  private class Factory(ledgerDao: LedgerReadDao)(implicit logCtx: LoggingContext) {
-
-    private val logger = ContextualizedLogger.get(this.getClass)
-
-    /**
-      * Creates a DB backed Ledger implementation.
-      *
-      * @return a compliant read-only Ledger implementation
-      */
-    def createReadOnlySqlLedger(initialLedgerId: LedgerId)(
-        implicit mat: Materializer
-    ): Future[ReadOnlySqlLedger] = {
-      implicit val ec: ExecutionContext = DEC
+  )(implicit mat: Materializer, logCtx: LoggingContext)
+      extends ResourceOwner[ReadOnlyLedger] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[ReadOnlyLedger] =
       for {
-        ledgerId <- initialize(initialLedgerId)
-        ledgerEnd <- ledgerDao.lookupLedgerEnd()
+        ledgerDao <- JdbcLedgerDao
+          .readOwner(
+            serverRole,
+            jdbcUrl,
+            eventsPageSize,
+            metrics,
+            lfValueTranslationCache,
+          )
+          .acquire()
+        ledgerId <- Resource.fromFuture(initialize(ledgerDao, initialLedgerId))
+        ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
       } yield new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
-    }
-
-    private def initialize(initialLedgerId: LedgerId): Future[LedgerId] =
-      ledgerDao
-        .lookupLedgerId()
-        .flatMap {
-          case Some(foundLedgerId @ `initialLedgerId`) =>
-            logger.info(s"Found existing ledger with ID: $foundLedgerId")
-            Future.successful(foundLedgerId)
-          case Some(foundLedgerId) =>
-            Future.failed(
-              new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
-          case None =>
-            Future.successful(initialLedgerId)
-        }(DEC)
   }
+
+  private def initialize(
+      ledgerDao: LedgerReadDao,
+      initialLedgerId: LedgerId,
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] =
+    ledgerDao
+      .lookupLedgerId()
+      .flatMap {
+        case Some(foundLedgerId @ `initialLedgerId`) =>
+          logger.info(s"Found existing ledger with ID: $foundLedgerId")
+          Future.successful(foundLedgerId)
+        case Some(foundLedgerId) =>
+          Future.failed(
+            new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
+        case None =>
+          Future.successful(initialLedgerId)
+      }
 
 }
 

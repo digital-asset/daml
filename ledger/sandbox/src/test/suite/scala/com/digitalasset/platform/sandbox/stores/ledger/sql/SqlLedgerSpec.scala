@@ -175,26 +175,24 @@ class SqlLedgerSpec
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger = newLoggingContext { implicit logCtx =>
-      SqlLedger
-        .owner(
-          serverRole = ServerRole.Testing(getClass),
-          jdbcUrl = postgresDatabase.url,
-          ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty
-            .withPackages(Instant.EPOCH, None, packages)
-            .fold(sys.error, identity),
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth = queueDepth,
-          transactionCommitter = LegacyTransactionCommitter,
-          startMode = SqlStartMode.ContinueIfExists,
-          eventsPageSize = 100,
-          metrics = new Metrics(metrics),
-          lfValueTranslationCache = LfValueTranslation.Cache.none,
-        )
-        .acquire()(system.dispatcher)
+      new SqlLedger.Owner(
+        serverRole = ServerRole.Testing(getClass),
+        jdbcUrl = postgresDatabase.url,
+        ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+        participantId = participantId,
+        timeProvider = TimeProvider.UTC,
+        acs = InMemoryActiveLedgerState.empty,
+        packages = InMemoryPackageStore.empty
+          .withPackages(Instant.EPOCH, None, packages)
+          .fold(sys.error, identity),
+        initialLedgerEntries = ImmArray.empty,
+        queueDepth = queueDepth,
+        transactionCommitter = LegacyTransactionCommitter,
+        startMode = SqlStartMode.ContinueIfExists,
+        eventsPageSize = 100,
+        metrics = new Metrics(metrics),
+        lfValueTranslationCache = LfValueTranslation.Cache.none,
+      ).acquire()(system.dispatcher)
     }
     createdLedgers += ledger
     ledger.asFuture
