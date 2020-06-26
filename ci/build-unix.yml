@@ -40,13 +40,14 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/9389c116807f2db7611930a4c9fb5dbf07cce70e/synopsys-detect) \
-      ci-build digitalasset_daml $(System.PullRequest.SourceBranch) \
+      ci-build digital-asset_daml $(System.PullRequest.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.dependency.type=haskell_cabal_library \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
-      --detect.report.timeout=1000
+      --detect.notices.report=true \      
+      --detect.report.timeout=1500
     displayName: 'Blackduck Haskell Scan'
     condition: eq('${{parameters.name}}', 'linux')
 
@@ -57,7 +58,7 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/9389c116807f2db7611930a4c9fb5dbf07cce70e/synopsys-detect) \
-      ci-build digitalasset_daml $(System.PullRequest.SourceBranch) \
+      ci-build digital-asset_daml $(System.PullRequest.SourceBranch) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.npm.include.dev.dependencies=false \
       --detect.excluded.detector.types=NUGET \
@@ -70,8 +71,9 @@ steps:
       --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,/Users/brianhealey/g/daml/language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
       --detect.cleanup=false \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+      --detect.notices.report=true \      
       --detect.cleanup.bdio.files=true \
-      --detect.report.timeout=1500
+      --detect.report.timeout=4500
     displayName: 'Blackduck Scan'
     condition: eq('${{parameters.name}}', 'linux')
 
