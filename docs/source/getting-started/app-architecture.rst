@@ -15,7 +15,7 @@ Overall, the social networking app is following the :ref:`recommended architectu
 
 .. image:: ./images/gsg_architecture.svg
 
-Let's start by looking at the DAML model, which defines the core logic of the application.
+Let's start by looking at the DAML model, which defines the core logic of the application. Have `the DAML cheat-sheet <https://docs.daml.com/cheat-sheet/>`_ open in a separate tab for a quick overview of the most common DAML concepts.
 
 The DAML Model
 ==============
