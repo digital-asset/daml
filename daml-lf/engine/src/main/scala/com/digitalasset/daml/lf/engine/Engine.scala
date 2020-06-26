@@ -402,6 +402,10 @@ final class Engine(config: Engine.Config) {
     this.profileDir = Some(profileDir)
     compiledPackages.profilingMode = speedy.Compiler.FullProfile
   }
+
+  def enableStackTraces(enable: Boolean) = {
+    compiledPackages.stackTraceMode = if (enable) speedy.Compiler.FullStackTrace else speedy.Compiler.NoStackTrace
+  }
 }
 
 object Engine {

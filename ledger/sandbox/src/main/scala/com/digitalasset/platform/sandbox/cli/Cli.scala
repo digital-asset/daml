@@ -303,6 +303,12 @@ object Cli {
         .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
         .text("Enable profiling and write the profiles into the given directory.")
 
+      opt[Boolean]("stack-traces")
+        .hidden()
+        .optional()
+        .action((enabled, config) => config.copy(stackTraces = enabled))
+        .text("Enable stack traces. Default is to enable them.")
+
       opt[Long]("max-ledger-time-skew")
         .optional()
         .action((value, config) => {

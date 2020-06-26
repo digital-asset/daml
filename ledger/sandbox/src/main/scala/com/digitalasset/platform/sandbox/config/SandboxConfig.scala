@@ -44,6 +44,7 @@ final case class SandboxConfig(
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
+    stackTraces: Boolean,
 )
 
 object SandboxConfig {
@@ -83,6 +84,7 @@ object SandboxConfig {
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
+      stackTraces = true,
     )
 
   lazy val default: SandboxConfig =

@@ -138,6 +138,7 @@ final class SandboxServer(
       Files.createDirectories(profileDir)
       engine.startProfiling(profileDir)
   }
+  engine.enableStackTraces(config.stackTraces)
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -342,7 +343,7 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}",
+        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,
@@ -351,6 +352,7 @@ final class SandboxServer(
         ledgerType,
         authService.getClass.getSimpleName,
         config.seeding.fold("no")(_.toString.toLowerCase),
+        if (config.stackTraces) "" else ", stack traces = off",
         config.profileDir match {
           case None => ""
           case Some(profileDir) => s", profile directory = ${profileDir}"
