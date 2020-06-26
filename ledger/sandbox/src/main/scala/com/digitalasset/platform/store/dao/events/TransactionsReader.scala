@@ -68,7 +68,7 @@ private[dao] final class TransactionsReader(
         EventsRange.rowIdRange(EventsRange(startExclusive, endInclusive))(connection)
     }
 
-    def getEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[Event], NotUsed] =
+    def streamEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[Event], NotUsed] =
       PaginatingAsyncStream.streamFrom(
         eventsRange0,
         getEventsRange[Event](eventsRange0.endInclusive)) { eventsRange1 =>
@@ -94,7 +94,7 @@ private[dao] final class TransactionsReader(
       }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source.future(eventsRangeF).flatMapConcat(r => getEvents(r))
+      Source.futureSource(eventsRangeF.map(streamEvents)).mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
@@ -144,7 +144,8 @@ private[dao] final class TransactionsReader(
         EventsRange.rowIdRange(EventsRange(startExclusive, endInclusive))(connection)
     }
 
-    def getEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[TreeEvent], NotUsed] =
+    def streamEvents(
+        eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[TreeEvent], NotUsed] =
       PaginatingAsyncStream.streamFrom(
         eventsRange0,
         getEventsRange[TreeEvent](eventsRange0.endInclusive)) { eventsRange1 =>
@@ -170,7 +171,7 @@ private[dao] final class TransactionsReader(
       }
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
-      Source.future(eventsRangeF).flatMapConcat(r => getEvents(r))
+      Source.futureSource(eventsRangeF.map(streamEvents)).mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
@@ -218,7 +219,7 @@ private[dao] final class TransactionsReader(
           endInclusive = (activeAt, x.endInclusive))
       }
 
-    def getEvents(
+    def streamEvents(
         eventsRange0: EventsRange[(Offset, Long)]): Source[EventsTable.Entry[Event], NotUsed] =
       PaginatingAsyncStream.streamFrom(
         eventsRange0,
@@ -245,7 +246,7 @@ private[dao] final class TransactionsReader(
       }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source.future(eventsRangeF).flatMapConcat(r => getEvents(r))
+      Source.futureSource(eventsRangeF.map(streamEvents)).mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
