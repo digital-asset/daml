@@ -2,8 +2,10 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+set -eou pipefail
 
-SCRIPT_DIR=$(dirname "$0")
+
+SCRIPT_DIR=$PWD/$(dirname "$0")
 cd $SCRIPT_DIR
 BUILD_DIR=$(cd ..; pwd)/build
 
@@ -14,6 +16,7 @@ cleanup()
   echo "Caught Signal ... cleaning up."
   rm -rf $BUILD_DIR
   cd $SCRIPT_DIR
+  rm -rf ../source/getting-started/code
   rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/LICENSE
@@ -35,6 +38,11 @@ tar -zxf ../../bazel-bin/docs/da_theme.tar.gz -C $BUILD_DIR/theme
 cp ../../LICENSE ../source
 cp ../../NOTICES ../source
 
+# GSG source, while this is arguably part of --gen
+# it is quick enough and important enough to always include it.
+bazel build //templates:templates-tarball
+mkdir -p $BUILD_DIR/source/getting-started/code
+tar -zxf ../../bazel-bin/templates/templates-tarball.tar.gz -C $BUILD_DIR/source/getting-started/code/
 
 for arg in "$@"
 do
