@@ -9,7 +9,6 @@
 -- 1. add the column
 alter table participant_events add column row_id bigint auto_increment;
 
-
 -- 2. fix the row_id to be sequential according to the order of (event_offset, transaction_id, node_index)
 -- don't need to migrate H2 datasets
 
@@ -17,7 +16,9 @@ alter table participant_events add column row_id bigint auto_increment;
 drop index participant_events_event_offset_transaction_id_node_index_idx;
 
 -- 4. create a new index involving row_id
-create index on participant_events (row_id);
+create index participant_events_row_id
+    on participant_events (row_id);
 
 -- 5. the second sub-query to find out the row_id needs this extra index to be fast
-create index on participant_events (event_offset);
+create index participant_events_event_offset
+    on participant_events (event_offset);
