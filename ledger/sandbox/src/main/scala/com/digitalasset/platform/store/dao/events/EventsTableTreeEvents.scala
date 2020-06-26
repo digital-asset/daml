@@ -111,9 +111,6 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "exercise_child_event_ids",
   ).mkString(", ")
 
-  private val orderByColumns =
-    Seq("event_offset", "transaction_id", "node_index").mkString(", ")
-
   def prepareLookupTransactionTreeById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
