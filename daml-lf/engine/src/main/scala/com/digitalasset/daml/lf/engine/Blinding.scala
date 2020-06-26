@@ -50,9 +50,12 @@ object Blinding {
     if (enrichedTx.failedAuthorizations.isEmpty) {
       Right(
         BlindingInfo(
-          enrichedTx.explicitDisclosure,
-          enrichedTx.localImplicitDisclosure,
-          enrichedTx.globalImplicitDisclosure))
+          disclosure = enrichedTx.explicitDisclosure,
+          // NOTE(MH): Local divulgences are a thing of the past and are not
+          // produced by the current implementation anymore.
+          localDivulgence = Map.empty,
+          globalDivulgence = enrichedTx.globalImplicitDisclosure,
+        ))
     } else {
       Left(
         AuthorizationError(
