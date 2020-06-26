@@ -475,7 +475,6 @@ object Engine {
     }
   }
 
-  // build an Engine with DevConfig
   def DevEngine() = new Engine(Engine.DevConfig)
 
 }
