@@ -13,13 +13,12 @@ object EnrichedTransaction {
 
   private object EnrichState {
     def Empty =
-      EnrichState(Map.empty, Map.empty, Map.empty, Map.empty)
+      EnrichState(Map.empty, Map.empty, Map.empty)
   }
 
   /** State to use during enriching a transaction with disclosure information. */
   private final case class EnrichState(
       disclosures: Relation[Tx.NodeId, Party],
-      localDivulgences: Relation[Tx.NodeId, Party],
       globalDivulgences: Relation[ContractId, Party],
       failedAuthorizations: Map[Tx.NodeId, FailedAuthorization],
   ) {
@@ -36,11 +35,6 @@ object EnrichedTransaction {
             .updated(nid, witnesses union disclosures.getOrElse(nid, Set.empty)),
         )
     }
-
-    def divulgeContracts(witnesses: Set[Party], coids: Set[ContractId]): EnrichState =
-      coids.foldLeft(this) {
-        case (s, coid) => s.divulgeCoidTo(witnesses, coid)
-      }
 
     def divulgeCoidTo(witnesses: Set[Party], acoid: ContractId): EnrichState = {
       copy(
@@ -389,7 +383,6 @@ object EnrichedTransaction {
     new EnrichedTransaction(
       tx,
       explicitDisclosure = finalState.disclosures,
-      localImplicitDisclosure = finalState.localDivulgences,
       globalImplicitDisclosure = finalState.globalDivulgences,
       failedAuthorizations = finalState.failedAuthorizations,
     )
@@ -401,9 +394,6 @@ final case class EnrichedTransaction[Transaction <: Tx.Transaction](
     tx: Transaction,
     // A relation between a node id and the parties to which this node gets explicitly disclosed.
     explicitDisclosure: Relation[Tx.NodeId, Party],
-    // A relation between a node id and the parties to which this node get implictly disclosed
-    // (aka divulgence)
-    localImplicitDisclosure: Relation[Tx.NodeId, Party],
     // A relation between contract id and the parties to which the contract id gets
     // explicitly disclosed.
     globalImplicitDisclosure: Relation[ContractId, Party],

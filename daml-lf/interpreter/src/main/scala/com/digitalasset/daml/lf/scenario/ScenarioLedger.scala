@@ -80,14 +80,12 @@ object ScenarioLedger {
       transactionId: LedgerString,
       transaction: Tx.CommittedTransaction,
       explicitDisclosure: Relation[Tx.NodeId, Party],
-      localImplicitDisclosure: Relation[Tx.NodeId, Party],
       globalImplicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
   ) {
     def disclosures(coidToEventId: ContractId => EventId): Relation[EventId, Party] =
       Relation.union(
-        Relation.mapKeys(Relation.union(explicitDisclosure, localImplicitDisclosure))(
-          EventId(transactionId, _)),
+        Relation.mapKeys(explicitDisclosure)(EventId(transactionId, _)),
         Relation.mapKeys(globalImplicitDisclosure)(coidToEventId),
       )
   }
@@ -113,7 +111,6 @@ object ScenarioLedger {
         transactionId = transactionId,
         transaction = enrichedTx.tx,
         explicitDisclosure = enrichedTx.explicitDisclosure,
-        localImplicitDisclosure = enrichedTx.localImplicitDisclosure,
         globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
         failedAuthorizations = enrichedTx.failedAuthorizations,
       )
