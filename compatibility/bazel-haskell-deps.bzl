@@ -74,6 +74,7 @@ def daml_haskell_deps():
             "optparse-applicative",
             "unix-compat",
             "unordered-containers",
+            "uuid",
         ] + (["unix"] if not is_windows else ["Win32"]),
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         tools = [
