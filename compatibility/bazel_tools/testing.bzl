@@ -302,6 +302,10 @@ def sdk_platform_test(sdk_version, platform_version):
 
     json_api_args = ["json-api"]
 
+    # --implicit-party-allocation=false only exists in SDK >= 1.2.0 so
+    # for older versions we still have to disable ClosedWorldIT
+    (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
+
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
         sdk_version = version_to_name(sdk_version),
@@ -313,12 +317,12 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-        ] + exclusions,
+        ] + exclusions + extra_sandbox_next_exclusions,
         data = [dar_files],
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = sandbox,
-        server_args = sandbox_args + ["--implicit-party-allocation=false"],
+        server_args = sandbox_args + extra_sandbox_next_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
@@ -348,12 +352,12 @@ def sdk_platform_test(sdk_version, platform_version):
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
-        ] + exclusions,
+        ] + exclusions + extra_sandbox_next_exclusions,
         data = [dar_files],
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = ":sandbox-with-postgres-{}".format(platform_version),
-        server_args = [platform_version] + sandbox_args + ["--implicit-party-allocation=false"],
+        server_args = [platform_version] + sandbox_args + extra_sandbox_next_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
