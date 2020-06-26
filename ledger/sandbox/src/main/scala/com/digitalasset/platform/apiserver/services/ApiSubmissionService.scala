@@ -260,7 +260,7 @@ final class ApiSubmissionService private (
         result.submitterInfo,
         result.transactionMeta,
         result.transaction,
-        result.interpretationTimeMillis)
+        result.interpretationTimeNanos)
       .toScala
   }
 

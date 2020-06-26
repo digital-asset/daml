@@ -48,7 +48,7 @@ final class StoreBackedCommandExecutor(
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
     val submissionResult = engine.submit(commands.commands, participant, submissionSeed)
-    val interpretationTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
+    val interpretationTime = System.nanoTime() - start
     consume(commands.submitter, submissionResult)
       .map { submission =>
         (for {
@@ -75,7 +75,7 @@ final class StoreBackedCommandExecutor(
             ),
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,
-            interpretationTimeMillis = interpretationTime
+            interpretationTimeNanos = interpretationTime
           )).left.map(ErrorCause.DamlLf)
       }
   }

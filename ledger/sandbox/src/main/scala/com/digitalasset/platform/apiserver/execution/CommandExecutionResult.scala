@@ -18,12 +18,12 @@ import com.daml.lf.transaction.{Transaction => Tx}
   *                                 If this value is false, then the ledger time of the resulting
   *                                 transaction ([[TransactionMeta.ledgerEffectiveTime]]) can safely be
   *                                 changed after command interpretation.
-  * @param interpretationTimeMillis Wall-clock time that interpretation took for the engine.
+  * @param interpretationTimeNanos  Wall-clock time that interpretation took for the engine.
   */
 final case class CommandExecutionResult(
     submitterInfo: SubmitterInfo,
     transactionMeta: TransactionMeta,
     transaction: Tx.SubmittedTransaction,
     dependsOnLedgerTime: Boolean,
-    interpretationTimeMillis: Long,
+    interpretationTimeNanos: Long,
 )
