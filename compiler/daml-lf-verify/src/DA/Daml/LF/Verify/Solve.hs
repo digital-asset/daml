@@ -241,7 +241,7 @@ filterUpd :: Qualified TypeConName
   -- ^ The contract name synonyms, along with their current alias.
   -> FieldName
   -- ^ The field name to be verified.
-  -> Upd
+  -> BaseUpd
   -- ^ The update expression to convert and filter.
   -> (Maybe ConstraintExpr, Maybe ConstraintExpr)
 filterUpd tem syns f UpdCreate{..} = if tem == _creTemp
@@ -259,7 +259,7 @@ filterCondUpd :: Qualified TypeConName
   -- ^ The contract name synonyms, along with their current alias.
   -> FieldName
   -- ^ The field name to be verified.
-  -> Cond Upd
+  -> Cond BaseUpd
   -- ^ The conditional update expression to convert and filter.
   -> ([ConstraintExpr], [ConstraintExpr])
 filterCondUpd tem syns f (Determined x) = both maybeToList $ filterUpd tem syns f x
@@ -308,7 +308,7 @@ constructConstr :: Env 'Solving
 constructConstr env chtem ch ftem f =
   case HM.lookup (UpdChoice chtem ch) (envChoices env) of
     Just ChoiceData{..} ->
-      let upds = updSetUpdates _cdUpds
+      let upds = [upd | UpdSBase upd <- _cdUpds]
           vars = concatMap skol2var (envSkols env)
           syns = constructSynonyms $ HM.elems $ envCids env
           ctrs = map (toCExp syns) (envCtrs env)
@@ -322,7 +322,7 @@ constructConstr env chtem ch ftem f =
       -- ^ The additional constraints.
       -> [(ExprVarName, ExprVarName)]
       -- ^ The contract name synonyms, along with their current alias.
-      -> (String, [Cond Upd])
+      -> (String, [Cond BaseUpd])
       -- ^ The updates to analyse.
       -> ConstraintSet
     constructSingleSet vars ctrs syns (info, upds) =

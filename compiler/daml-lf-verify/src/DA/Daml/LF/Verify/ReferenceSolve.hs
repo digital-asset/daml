@@ -71,123 +71,139 @@ inlineReferences :: MonadEnv m 'ChoiceGathering
   => m ()
 inlineReferences = do
   env <- getEnv
+  -- let !_ = trace ("VALS: " ++ concat (map (\(v,e) -> show v ++ " |---> " ++ show e ++ "\n") $ HM.toList $ HM.map fst $ envVals env)) ()
   ctrs <- mapM pevalBoolExpr (envCtrs env)
-  vals <- mapM inline_valmap (HM.toList $ envVals env)
-  putEnv $ setEnvVals (HM.fromList vals) $ setEnvCtrs ctrs env
-  where
-    inline_valmap :: MonadEnv m 'ChoiceGathering
-      => (Qualified ExprValName, (Expr, UpdateSet 'ChoiceGathering))
-      -> m (Qualified ExprValName, (Expr, UpdateSet 'ChoiceGathering))
-    inline_valmap (w, (e, upd)) = do
-      upd' <- inline_updset upd
-      return (w, (e, upd'))
+  -- TODO: Is this always empty? Then it could be dropped!
+  -- let !_ = trace ("CTRS: " ++ show ctrs) ()
+  -- TODO: Can we drop this?
+  -- vals <- mapM inline_valmap (HM.toList $ envVals env)
+  -- putEnv $ setEnvVals (HM.fromList vals) $ setEnvCtrs ctrs env
+  putEnv $ setEnvCtrs ctrs env
+  -- where
+    -- inline_valmap :: MonadEnv m 'ChoiceGathering
+    --   => (Qualified ExprValName, (Expr, UpdateSet 'ChoiceGathering))
+    --   -> m (Qualified ExprValName, (Expr, UpdateSet 'ChoiceGathering))
+    -- inline_valmap (w, (e, upd)) = do
+    --   upd' <- inline_updset upd
+    --   return (w, (e, upd'))
 
-    -- TODO: This whole thing should really just be a monadic fmap.
-    inline_updset :: MonadEnv m 'ChoiceGathering
-      => UpdateSet 'ChoiceGathering
-      -> m (UpdateSet 'ChoiceGathering)
-    inline_updset (UpdateSetCG upds chos) = do
-      upds' <- mapM inline_recupd upds
-      return $ UpdateSetCG upds' chos
+    -- -- TODO: This whole thing should really just be a monadic fmap.
+    -- inline_updset :: MonadEnv m 'ChoiceGathering
+    --   => UpdateSet 'ChoiceGathering
+    --   -> m (UpdateSet 'ChoiceGathering)
+    -- inline_updset (UpdateSetCG upds chos) = do
+    --   upds' <- mapM inline_recupd upds
+    --   return $ UpdateSetCG upds' chos
 
-    inline_recupd :: MonadEnv m 'ChoiceGathering
-      => Rec [Cond Upd]
-      -> m (Rec [Cond Upd])
-    inline_recupd (Simple x) = do
-      x' <- mapM inline_condupd x
-      return $ Simple x'
-    inline_recupd (Rec xs) = do
-      xs' <- mapM (mapM inline_condupd) xs
-      return $ Rec xs'
-    inline_recupd (MutRec xs) = do
-      xs' <- mapM (\(s,ys) -> mapM inline_condupd ys >>= \ys' -> return (s,ys')) xs
-      return $ MutRec xs'
+    -- inline_recupd :: MonadEnv m 'ChoiceGathering
+    --   => Rec [Cond BaseUpd]
+    --   -> m (Rec [Cond BaseUpd])
+    -- inline_recupd (Simple x) = do
+    --   x' <- mapM inline_condupd x
+    --   return $ Simple x'
+    -- inline_recupd (Rec xs) = do
+    --   xs' <- mapM (mapM inline_condupd) xs
+    --   return $ Rec xs'
+    -- inline_recupd (MutRec xs) = do
+    --   xs' <- mapM (\(s,ys) -> mapM inline_condupd ys >>= \ys' -> return (s,ys')) xs
+    --   return $ MutRec xs'
 
-    inline_condupd :: MonadEnv m 'ChoiceGathering
-      => Cond Upd
-      -> m (Cond Upd)
-    inline_condupd (Determined upd) = do
-      upd' <- inline_upd upd
-      return $ Determined upd'
-    inline_condupd (Conditional cond xs ys) = do
-      cond' <- pevalBoolExpr cond
-      xs' <- mapM inline_condupd xs
-      ys' <- mapM inline_condupd ys
-      return $ Conditional cond' xs' ys'
+    -- inline_condupd :: MonadEnv m 'ChoiceGathering
+    --   => Cond BaseUpd
+    --   -> m (Cond BaseUpd)
+    -- inline_condupd (Determined upd) = do
+    --   upd' <- inline_upd upd
+    --   return $ Determined upd'
+    -- inline_condupd (Conditional cond xs ys) = do
+    --   cond' <- pevalBoolExpr cond
+    --   xs' <- mapM inline_condupd xs
+    --   ys' <- mapM inline_condupd ys
+    --   return $ Conditional cond' xs' ys'
 
-    inline_upd :: MonadEnv m 'ChoiceGathering
-      => Upd
-      -> m Upd
-    inline_upd UpdCreate{..} = do
-      fields <- mapM (\(f,e) -> pevalExpr e >>= \e' -> return (f,e')) _creField
-      return $ UpdCreate _creTemp fields
-    inline_upd UpdArchive{..} = do
-      fields <- mapM (\(f,e) -> pevalExpr e >>= \e' -> return (f,e')) _arcField
-      return $ UpdCreate _arcTemp fields
+    -- inline_upd :: MonadEnv m 'ChoiceGathering
+    --   => BaseUpd
+    --   -> m BaseUpd
+    -- inline_upd UpdCreate{..} = do
+    --   fields <- mapM (\(f,e) -> pevalExpr e >>= \e' -> return (f,e')) _creField
+    --   return $ UpdCreate _creTemp fields
+    -- inline_upd UpdArchive{..} = do
+    --   fields <- mapM (\(f,e) -> pevalExpr e >>= \e' -> return (f,e')) _arcField
+    --   return $ UpdCreate _arcTemp fields
 
 -- | Solves the value references by computing the closure of all referenced
 -- values, for each value in the environment.
 -- It thus empties `_usValue` by collecting all updates made by this closure.
 solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
 solveValueReferences env =
-  let (_, valhmap) = foldl (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out get_refs ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (envVals env, HM.empty) (HM.keys $ envVals env)
+  let val_exp_hmap = HM.map fst $ envVals env
+      val_ref_hmap = HM.map snd $ envVals env
+      (_, val_sol_hmap) = foldl (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (val_ref_hmap, HM.empty) (HM.keys $ envVals env)
+      valhmap = HM.intersectionWith (\e u -> (e,u)) val_exp_hmap val_sol_hmap
   in EnvCG (envSkols env) valhmap (envDats env) (envCids env) HM.empty (envCtrs env) HM.empty
   where
     lookup_ref_in :: Qualified ExprValName
-      -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
-      -> Maybe ( (Expr, UpdateSet 'ValueGathering)
-               , HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering) )
+      -> HM.HashMap (Qualified ExprValName) (UpdateSet 'ValueGathering)
+      -> Maybe ( (UpdateSet 'ValueGathering)
+               , HM.HashMap (Qualified ExprValName) (UpdateSet 'ValueGathering) )
     lookup_ref_in ref hmap = (\upd -> (upd, HM.delete ref hmap)) <$> (HM.lookup ref hmap)
 
     lookup_ref_out :: Qualified ExprValName
-      -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering)
-      -> Maybe (Expr, UpdateSet 'ChoiceGathering)
+      -> HM.HashMap (Qualified ExprValName) (UpdateSet 'ChoiceGathering)
+      -> Maybe (UpdateSet 'ChoiceGathering)
     lookup_ref_out ref hmap = HM.lookup ref hmap
 
-    get_refs :: (Expr, UpdateSet 'ValueGathering)
-      -> ([Cond (Qualified ExprValName)], (Expr, UpdateSet 'ChoiceGathering))
-    get_refs (e, UpdateSetVG upds chos vals) =
-      let upds' = [Simple upds]
-      in (vals, (e, UpdateSetCG upds' chos))
+    pop_upds :: (UpdateSet 'ValueGathering)
+      -> Maybe ( Either (Cond (Qualified ExprValName))
+                        (UpdateSet 'ChoiceGathering)
+               , (UpdateSet 'ValueGathering) )
+    pop_upds = \case
+      [] -> Nothing
+      (upd:updset1) ->
+        let upd' = case upd of
+              UpdVGBase base -> Right [UpdCGBase $ Simple base]
+              UpdVGChoice cho -> Right [UpdCGChoice cho]
+              UpdVGVal val -> Left val
+        in Just (upd', updset1)
 
-    ext_upds :: (Expr, UpdateSet 'ChoiceGathering) -> (Expr, UpdateSet 'ChoiceGathering)
-      -> (Expr, UpdateSet 'ChoiceGathering)
-    ext_upds (e, upds1)  (_, upds2) = (e, concatUpdateSet upds1 upds2)
+    ext_upds :: (UpdateSet 'ChoiceGathering) -> (UpdateSet 'ChoiceGathering)
+      -> (UpdateSet 'ChoiceGathering)
+    ext_upds = concatUpdateSet
 
-    make_rec :: (Expr, UpdateSet 'ChoiceGathering) -> (Expr, UpdateSet 'ChoiceGathering)
-    make_rec (e, upds) = (e, setUpdSetUpdates (makeRec (updSetUpdates upds)) upds)
+    make_rec :: UpdateSet 'ChoiceGathering -> UpdateSet 'ChoiceGathering
+    -- make_rec upds = concatMapBaseUpds (\b -> map baseUpd $ makeRec [b]) upds
+    make_rec upds = (map baseUpd $ makeRec [upd | UpdCGBase upd <- upds])
+      ++ [UpdCGChoice cho | UpdCGChoice cho <- upds]
 
-    make_mutrec :: [(Qualified ExprValName, (Expr, UpdateSet 'ChoiceGathering))]
-      -> (Expr, UpdateSet 'ChoiceGathering)
+    make_mutrec :: [(Qualified ExprValName, UpdateSet 'ChoiceGathering)]
+      -> UpdateSet 'ChoiceGathering
     make_mutrec inp =
       let (strs, upds) = unzip inp
           debug = concat $ intersperse " - " $ map (show . unExprValName . qualObject) strs
-          updConcat = foldl concatUpdateSet emptyUpdateSet $ map snd upds
-      in (fst $ head upds, setUpdSetUpdates (makeMutRec (updSetUpdates updConcat) debug) updConcat)
+          updConcat = foldl concatUpdateSet emptyUpdateSet upds
+      -- in concatMapBaseUpds (\b -> map baseUpd $ makeMutRec [b] debug) updConcat
+      in (map baseUpd $ makeMutRec [upd | UpdCGBase upd <- updConcat] debug)
+           ++ [UpdCGChoice cho | UpdCGChoice cho <- updConcat]
 
-    intro_cond :: Cond (Expr, UpdateSet 'ChoiceGathering)
-      -> (Expr, UpdateSet 'ChoiceGathering)
-    -- Note that the expression is not important here, as it will be ignored in
-    -- `ext_upds` later on.
+    intro_cond :: Cond (UpdateSet 'ChoiceGathering)
+      -> (UpdateSet 'ChoiceGathering)
     intro_cond (Determined x) = x
     intro_cond (Conditional cond cx cy) =
       let xs = map intro_cond cx
           ys = map intro_cond cy
-          e = fst $ head xs
-          updx = foldl concatUpdateSet emptyUpdateSet $ map snd xs
-          updy = foldl concatUpdateSet emptyUpdateSet $ map snd ys
-      in (e, introCond $ createCond cond updx updy)
+          updx = foldl concatUpdateSet emptyUpdateSet xs
+          updy = foldl concatUpdateSet emptyUpdateSet ys
+      in (introCond $ createCond cond updx updy)
 
-    empty_upds :: (Expr, UpdateSet 'ChoiceGathering)
-      -> (Expr, UpdateSet 'ChoiceGathering)
-    empty_upds (e, _) = (e, emptyUpdateSet)
+    empty_upds :: (UpdateSet 'ValueGathering)
+      -> (UpdateSet 'ChoiceGathering)
+    empty_upds _ = emptyUpdateSet
 
 -- | Solves the choice references by computing the closure of all referenced
 -- choices, for each choice in the environment.
 -- It thus empties `_usChoice` by collecting all updates made by this closure.
 solveChoiceReferences :: Env 'ChoiceGathering -> Env 'Solving
 solveChoiceReferences env =
-  let (_, chhmap) = foldl (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out get_refs ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (envChoices env, HM.empty) (HM.keys $ envChoices env)
+  let (_, chhmap) = foldl (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (envChoices env, HM.empty) (HM.keys $ envChoices env)
       valhmap = HM.map (inlineChoices chhmap) (envVals env)
   in EnvS (envSkols env) valhmap (envDats env) (envCids env) (envPreconds env) (envCtrs env) chhmap
   where
@@ -202,12 +218,16 @@ solveChoiceReferences env =
       -> Maybe (ChoiceData 'Solving)
     lookup_ref_out ref hmap = HM.lookup ref hmap
 
-    get_refs :: ChoiceData 'ChoiceGathering
-      -> ([Cond UpdChoice], ChoiceData 'Solving)
-    get_refs chdat@ChoiceData{..} =
-      let chos = updSetChoices _cdUpds
-          upds = UpdateSetS $ updSetUpdates _cdUpds
-      in (chos, chdat{_cdUpds = upds})
+    pop_upds :: ChoiceData 'ChoiceGathering
+      -> Maybe ( Either (Cond UpdChoice) (ChoiceData 'Solving)
+               , ChoiceData 'ChoiceGathering )
+    pop_upds chdat@ChoiceData{..} = case _cdUpds of
+      [] -> Nothing
+      (upd:upds) ->
+        let upd' = case upd of
+              UpdCGBase base -> Right chdat{_cdUpds = [UpdSBase base]}
+              UpdCGChoice cho -> Left cho
+        in Just (upd', chdat{_cdUpds = upds})
 
     ext_upds :: ChoiceData 'Solving
       -> ChoiceData 'Solving
@@ -220,7 +240,8 @@ solveChoiceReferences env =
 
     make_rec :: ChoiceData 'Solving -> ChoiceData 'Solving
     make_rec chdat@ChoiceData{..} =
-      let upds = setUpdSetUpdates (makeRec (updSetUpdates _cdUpds)) _cdUpds
+      let upds = map baseUpd $ makeRec [upd | UpdSBase upd <- _cdUpds]
+      -- let upds = concatMapBaseUpds (\b -> map baseUpd $ makeRec [b]) _cdUpds
       in chdat{_cdUpds = upds}
 
     make_mutrec :: [(UpdChoice, ChoiceData 'Solving)] -> ChoiceData 'Solving
@@ -228,7 +249,8 @@ solveChoiceReferences env =
       let (strs, chdats) = unzip inp
           debug = concat $ intersperse " - " $ map (show . unChoiceName . _choName) strs
           chdat = concat_chdats chdats
-          upds = setUpdSetUpdates (makeMutRec (updSetUpdates $ _cdUpds chdat) debug) $ _cdUpds chdat
+          upds = map baseUpd $ makeMutRec [upd | UpdSBase upd <- _cdUpds chdat] debug
+          -- upds = concatMapBaseUpds (\b -> map baseUpd $ makeMutRec [b] debug) $ _cdUpds chdat
       in chdat{_cdUpds = upds}
 
     -- | Internal function for combining choice data's. Note that the return
@@ -259,7 +281,7 @@ solveChoiceReferences env =
                 emptyUpdateSet datys))
       in (head datxs){_cdUpds = newUpds}
 
-    empty_upds :: ChoiceData 'Solving
+    empty_upds :: ChoiceData 'ChoiceGathering
       -> ChoiceData 'Solving
     empty_upds dat = dat{_cdUpds = emptyUpdateSet}
 
@@ -267,11 +289,23 @@ solveChoiceReferences env =
       -> (Expr, UpdateSet 'ChoiceGathering)
       -> (Expr, UpdateSet 'Solving)
     inlineChoices chshmap (exp, upds) =
-      let lookupRes = map
-            (intro_cond . fmap (\ch -> fromMaybe (error "Impossible: missing choice while solving") (HM.lookup ch chshmap)))
-            (updSetChoices upds)
-          chupds = concatMap (\ChoiceData{..} -> updSetUpdates _cdUpds) lookupRes
-      in (exp, UpdateSetS (updSetUpdates upds ++ chupds))
+      (exp, concatMap inline_choice upds)
+      where
+        inline_choice :: Upd 'ChoiceGathering -> UpdateSet 'Solving
+        inline_choice (UpdCGBase upd) = [UpdSBase upd]
+        inline_choice (UpdCGChoice (Determined cho)) =
+          let chdat = fromMaybe (error "Impossible: missing choice while solving") (HM.lookup cho chshmap)
+          in _cdUpds chdat
+        inline_choice (UpdCGChoice (Conditional cond chos_a chos_b)) =
+          let upds_a = map (Determined . inline_choice . UpdCGChoice) chos_a
+              upds_b = map (Determined . inline_choice . UpdCGChoice) chos_b
+          in introCond $ Conditional cond upds_a upds_b
+
+      -- let lookupRes = map
+      --       (intro_cond . fmap (\ch -> fromMaybe (error "Impossible: missing choice while solving") (HM.lookup ch chshmap)))
+      --       (updSetChoices upds)
+      --     chupds = concatMap (\ChoiceData{..} -> updSetUpdates _cdUpds) lookupRes
+      -- in (exp, UpdateSetS (updSetUpdates upds ++ chupds))
 
 -- | Solves a single reference by recursively inlining the references into updates.
 solveReference :: forall ref updset0 updset1. (Eq ref, Hashable ref, Show ref)
@@ -279,8 +313,10 @@ solveReference :: forall ref updset0 updset1. (Eq ref, Hashable ref, Show ref)
   -- ^ Function for looking up and popping a reference from the update set.
   -> (ref -> HM.HashMap ref updset1 -> Maybe updset1)
   -- ^ Function for looking up a reference in the solved update set.
-  -> (updset0 -> ([Cond ref], updset1))
-  -- ^ Function popping the references from the update set.
+  -> (updset0 -> Maybe (Either (Cond ref) updset1 , updset0))
+  -- ^ Function for popping an element from an update set. Returns Nothing if the
+  -- update set is empty. Returns a Left value is the element is a reference, or
+  -- Right if it's an update.
   -> (updset1 -> updset1 -> updset1)
   -- ^ Function for concatinating update sets.
   -> (updset1 -> updset1)
@@ -289,7 +325,7 @@ solveReference :: forall ref updset0 updset1. (Eq ref, Hashable ref, Show ref)
   -- ^ Function for combining and marking a list of update sets as mutually recursive.
   -> (Cond updset1 -> updset1)
   -- ^ Function for moving conditionals inside the update set.
-  -> (updset1 -> updset1)
+  -> (updset0 -> updset1)
   -- ^ Function for emptying a given update set of all updates.
   -> [(ref, updset1)]
   -- TODO: HashMap?
@@ -303,7 +339,7 @@ solveReference :: forall ref updset0 updset1. (Eq ref, Hashable ref, Show ref)
   -> ref
   -- ^ The reference to be solved.
   -> (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
-solveReference lookupRef lookupSol getRefs extUpds makeRec makeMutRec introCond emptyUpds vis (hmapRef0, hmapSol0) ref0 =
+solveReference lookupRef lookupSol popUpd extUpds makeRec makeMutRec introCond emptyUpds vis (hmapRef0, hmapSol0) ref0 =
   -- Check for loops. If the references has already been visited, then the
   -- reference should be flagged as recursive.
   case snd $ break (\(ref,_) -> ref == ref0) vis of
@@ -319,10 +355,13 @@ solveReference lookupRef lookupSol getRefs extUpds makeRec makeMutRec introCond 
         Just upd0 -> (upd0, (hmapRef0, hmapSol0))
       -- The reference has not yet been solved.
       Just (upd0, hmapRef1) ->
-        -- Split the update set in references and reference-free updates.
-        let (refs, upd1) = getRefs upd0
-            (upd2, (hmapRef2, hmapSol2)) = foldl handle_ref (upd1, (hmapRef1, hmapSol0)) refs
-        in (upd2, (hmapRef2, HM.insert ref0 upd2 hmapSol2))
+        -- Resolve the references contained in the update set.
+        let (upd1, (hmapRef2, hmapSol2)) = handle_upds upd0 (emptyUpds upd0) (hmapRef1, hmapSol0)
+        in (upd1, (hmapRef2, HM.insert ref0 upd1 hmapSol2))
+        -- -- Split the update set in references and reference-free updates.
+        -- let (refs, upd1) = getRefs upd0
+        --     (upd2, (hmapRef2, hmapSol2)) = foldl handle_ref (upd1, (hmapRef1, hmapSol0)) refs
+        -- in (upd2, (hmapRef2, HM.insert ref0 upd2 hmapSol2))
 
     -- When recursion has been detected, halt solving and mark the cycle as
     -- recursive.
@@ -334,28 +373,83 @@ solveReference lookupRef lookupSol getRefs extUpds makeRec makeMutRec introCond 
     cycle -> let upd2 = makeMutRec cycle
       in (upd2, (hmapRef0, HM.insert ref0 upd2 hmapSol0))
   where
-    -- | Extend the closure by computing and adding the reference closure for
-    -- the given reference.
-    handle_ref :: (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
-      -- ^ The current closure (update set) and the current map for reference to update.
-      -> Cond ref
-      -- ^ The reference to be computed and added.
+    -- | Extend the closure by computing the closure over all references in the
+    -- given update set.
+    -- Returns the handled update set (no longer contains references), and the
+    -- altered hash maps.
+    handle_upds :: updset0
+      -- ^ The update set for the current reference that still needs to be
+      -- handled. This still contains references to solve.
+      -> updset1
+      -- ^ The update set of the current reference that has already been handled.
+      -> (HM.HashMap ref updset0, HM.HashMap ref updset1)
+      -- ^ The maps containing the yet to be solved references and the
+      -- previously solved references, respectively.
       -> (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
-    -- For a simple reference, the closure is computed straightforwardly.
-    handle_ref (upd_i0, hmaps_i0) (Determined ref_i) =
-      let (upd_i1, hmaps_i1) =
-            solveReference lookupRef lookupSol getRefs extUpds makeRec makeMutRec introCond emptyUpds (vis ++ [(ref0,upd_i0)]) hmaps_i0 ref_i
-      in (extUpds upd_i0 upd_i1, hmaps_i1)
-    -- A conditional reference is more involved, as the conditional needs to be
-    -- preserved in the computed closure (update set).
-    handle_ref (upd_i0, hmaps_i0) (Conditional cond refs_ia refs_ib) =
-          -- Construct an update set without any updates.
-      let upd_i0_empty = emptyUpds upd_i0
-          -- Compute the closure for the true-case.
-          (upd_ia, hmaps_ia) = foldl handle_ref (upd_i0, hmaps_i0) refs_ia
-          -- Compute the closure for the false-case.
-          (upd_ib, hmaps_ib) = foldl handle_ref (upd_i0, hmaps_ia) refs_ib
-          -- Move the conditional inwards, in the update set.
-          upd_i1 = extUpds upd_i0_empty $ introCond $ createCond cond upd_ia upd_ib
-          -- TODO: This has the unfortunate side effect of moving all updates inside the conditional.
-      in (upd_i1, hmaps_ib)
+    handle_upds updset_ref0 updset_sol0 hmaps0 = case popUpd updset_ref0 of
+      -- When the update set to handle is empty, return.
+      Nothing -> (updset_sol0, hmaps0)
+      -- When the update set is non-empty, handle the first entry.
+      Just (entry, updset_ref_rem) -> case entry of
+        -- The update the handle is a reference.
+        Left ref ->
+          let vis' = vis ++ [(ref0,updset_sol0)]
+              (updset_sol1, hmaps1) = handle_ref vis' (updset_sol0, hmaps0) ref
+          in handle_upds updset_ref_rem updset_sol1 hmaps1
+        -- The update to handle is a base update.
+        Right upds -> handle_upds updset_ref_rem (extUpds updset_sol0 upds) hmaps0
+
+    -- | Extend the closure by resolving a single given reference.
+    handle_ref :: [(ref,updset1)]
+      -- ^ The list of previously visited references.
+      -- WIP
+      -- ^ The updates already performed by the current reference.
+      -> (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
+      -- ^ The update set of the current reference that has already been handled,
+      -- along with the maps containing the yet to be solved references and the
+      -- previously solved references, respectively.
+      -> Cond ref
+      -- ^ The reference to be resolved and added.
+      -> (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
+    handle_ref vis (updset0, hmaps0) = \case
+      -- For a simple reference, the closure is computed straightforwardly.
+      Determined ref ->
+        let (upds_ext, hmaps1) = solveReference lookupRef lookupSol popUpd extUpds makeRec makeMutRec introCond emptyUpds vis hmaps0 ref
+        in (extUpds updset0 upds_ext, hmaps1)
+      -- A conditional reference is more involved, as the conditional needs to be
+      -- preserved in the computed closure (update set).
+      Conditional cond refs_a refs_b ->
+            -- Compute the closure for the true-case.
+        let (updset_a, hmaps_a) = foldl (handle_ref vis) (updset0,hmaps0) refs_a
+            -- Compute the closure for the false-case.
+            (updset_b, hmaps_b) = foldl (handle_ref vis) (updset0,hmaps_a) refs_b
+            -- Move the conditional inwards, in the update set.
+            -- TODO: This has the unfortunate side effect of moving all updates inside the conditional.
+            updset1 = introCond $ createCond cond updset_a updset_b
+        in (updset1, hmaps_b)
+
+
+
+    -- handle_ref :: (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
+    --   -- ^ The current closure (update set) and the current map for reference to update.
+    --   -> Cond ref
+    --   -- ^ The reference to be computed and added.
+    --   -> (updset1, (HM.HashMap ref updset0, HM.HashMap ref updset1))
+    -- -- For a simple reference, the closure is computed straightforwardly.
+    -- handle_ref (upd_i0, hmaps_i0) (Determined ref_i) =
+    --   let (upd_i1, hmaps_i1) =
+    --         solveReference lookupRef lookupSol getRefs extUpds makeRec makeMutRec introCond emptyUpds (vis ++ [(ref0,upd_i0)]) hmaps_i0 ref_i
+    --   in (extUpds upd_i0 upd_i1, hmaps_i1)
+    -- -- A conditional reference is more involved, as the conditional needs to be
+    -- -- preserved in the computed closure (update set).
+    -- handle_ref (upd_i0, hmaps_i0) (Conditional cond refs_ia refs_ib) =
+    --       -- Construct an update set without any updates.
+    --   let upd_i0_empty = emptyUpds upd_i0
+    --       -- Compute the closure for the true-case.
+    --       (upd_ia, hmaps_ia) = foldl handle_ref (upd_i0, hmaps_i0) refs_ia
+    --       -- Compute the closure for the false-case.
+    --       (upd_ib, hmaps_ib) = foldl handle_ref (upd_i0, hmaps_ia) refs_ib
+    --       -- Move the conditional inwards, in the update set.
+    --       upd_i1 = extUpds upd_i0_empty $ introCond $ createCond cond upd_ia upd_ib
+    --       -- TODO: This has the unfortunate side effect of moving all updates inside the conditional.
+    --   in (upd_i1, hmaps_ib)

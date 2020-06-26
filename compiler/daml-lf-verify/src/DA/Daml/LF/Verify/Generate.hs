@@ -69,7 +69,7 @@ addArchiveUpd :: Qualified TypeConName
   -- ^ The generator output to be updated.
   -> Output 'ChoiceGathering
 addArchiveUpd temp fs (Output expr upds) =
-  Output expr (addUpd upds $ UpdArchive temp fs)
+  Output expr (addBaseUpd upds $ UpdArchive temp fs)
 
 -- | Class containing the generator methods for different generator phases.
 class IsPhase ph => GenPhase (ph :: Phase) where
@@ -94,7 +94,7 @@ instance GenPhase 'ValueGathering where
   genModule pac mod = do
     extDatsEnv (HM.map (instPRSelf pac) (NM.toHashMap (moduleDataTypes mod)))
     mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
-  genForVal w = return $ Output (EVal w) (setUpdSetValues [Determined w] emptyUpdateSet)
+  genForVal w = return $ Output (EVal w) (extendUpdateSet (valueUpd $ Determined w) emptyUpdateSet)
 
 instance GenPhase 'ChoiceGathering where
   genModule pac mod =
@@ -443,7 +443,7 @@ genForCreate tem arg = do
   recExpFields (_oExpr arout) >>= \case
     Just fs -> do
       fsEval <- mapM partial_eval_field fs
-      return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addUpd emptyUpdateSet (UpdCreate tem fsEval)
+      return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addBaseUpd emptyUpdateSet (UpdCreate tem fsEval)
              , TCon tem
              , Just $ EStructCon fsEval )
     Nothing -> throwError ExpectRecord
@@ -477,18 +477,18 @@ genForExercise tem ch cid par arg = do
       this <- fst <$> lookupCid (_oExpr cidOut)
       let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
       -- TODO: Clean up this duplication.
-      if null (updSetChoices updSet)
+      if containsChoiceRefs updSet
         then do
+          let updSet = addChoice emptyUpdateSet tem ch
+          return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+                 , resType
+                 , Nothing )
+        else do
           -- TODO: Why doesn't this work? The solver should inline this anyway?
           -- let updSet = addChoice emptyUpdateSet tem ch
           return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
                  , resType
                  , Nothing ) -- TODO!
-        else do
-          let updSet = addChoice emptyUpdateSet tem ch
-          return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
-                 , resType
-                 , Nothing )
     Nothing -> do
       let updSet = addChoice emptyUpdateSet tem ch
       return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
@@ -573,7 +573,8 @@ bindCids b (TContractId (TCon tc)) cid (EVar this) fsExpM = do
       fsOut <- genExpr False $ substituteTm subst fsExp
       recExpFields (_oExpr fsOut) >>= \case
         Just fields -> do
-          extCtrRec this fields
+          fields' <- mapM (\(f,e) -> genExpr False e >>= \out -> return (f,_oExpr out)) fields
+          extCtrRec this fields'
           return subst
         Nothing -> throwError ExpectRecord
     Nothing -> return subst
@@ -588,7 +589,8 @@ bindCids b (TCon tc) cid (EVar this) fsExpM = do
       fsOut <- genExpr False $ substituteTm subst fsExp
       recExpFields (_oExpr fsOut) >>= \case
         Just fields -> do
-          extCtrRec this fields
+          fields' <- mapM (\(f,e) -> genExpr False e >>= \out -> return (f,_oExpr out)) fields
+          extCtrRec this fields'
           return subst
         Nothing -> throwError ExpectRecord
     Nothing -> return subst

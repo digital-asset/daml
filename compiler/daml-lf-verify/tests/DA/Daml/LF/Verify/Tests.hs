@@ -205,15 +205,14 @@ recursionTests = testGroup "Recursion"
       result <- verify recDar debug tmpl choice tmpl field
       assertEqual "Verification failed for Iou_Divide - amount"
         [Success, Success] result
-  -- TODO Bug:
-  -- , testCase "Iou_TestMutA1" $ do
-  --     recDar <- locateRunfiles (mainWorkspace </> recursionPath)
-  --     let tmpl = TypeConName ["Iou"]
-  --         choice = ChoiceName "TestMutA1"
-  --         field = FieldName "amount"
-  --     verify recDar debug tmpl choice tmpl field >>= \case
-  --       [Fail _, Success] -> return ()
-  --       _ -> assertFailure "Verification failed for Iou_TestMutA1 - amount"
+  , testCase "Iou_TestMutA1" $ do
+      recDar <- locateRunfiles (mainWorkspace </> recursionPath)
+      let tmpl = TypeConName ["Iou"]
+          choice = ChoiceName "TestMutA1"
+          field = FieldName "amount"
+      verify recDar debug tmpl choice tmpl field >>= \case
+        [Fail _, Success] -> return ()
+        _ -> assertFailure "Verification failed for Iou_TestMutA1 - amount"
   , testCase "Iou_TestMutB1" $ do
       recDar <- locateRunfiles (mainWorkspace </> recursionPath)
       let tmpl = TypeConName ["Iou"]
