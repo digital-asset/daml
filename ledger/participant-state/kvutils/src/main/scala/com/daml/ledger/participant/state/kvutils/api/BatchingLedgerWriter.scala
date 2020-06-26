@@ -72,7 +72,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .addAllSubmissions(submissions.asJava)
         .build
       val envelope = Envelope.enclose(batch)
-      val totalEstimatedInterpretationCost = submissions.map(_.getEstimatedInterpretationCost).sum
+      // We assume parallelization of interpretation hence return max.
+      val totalEstimatedInterpretationCost = submissions.map(_.getEstimatedInterpretationCost).max
       writer
         .commit(correlationId, envelope, SimpleCommitMetadata(totalEstimatedInterpretationCost))
         .map {
