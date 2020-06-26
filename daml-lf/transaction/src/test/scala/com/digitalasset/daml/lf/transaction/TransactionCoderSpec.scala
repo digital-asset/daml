@@ -290,15 +290,6 @@ class TransactionCoderSpec
         }
       }
 
-    "do transaction blinding" in {
-      forAll(genBlindingInfo) { bi: BlindingInfo =>
-        Right(bi) shouldEqual BlindingCoder.decode(
-          BlindingCoder.encode(bi, TransactionCoder.NidEncoder),
-          TransactionCoder.NidDecoder,
-        )
-      }
-    }
-
     "do tx with a lot of root nodes" in {
       val node =
         Node.NodeCreate[Value.ContractId, Value.VersionedValue[Value.ContractId]](

@@ -43,19 +43,6 @@ da_java_proto_library(
     deps = [":transaction_proto"],
 )
 
-proto_library(
-    name = "blindinginfo_proto",
-    srcs = ["src/main/protobuf/com/daml/lf/blindinginfo.proto"],
-    strip_import_prefix = "src/main/protobuf/",
-)
-
-da_java_proto_library(
-    name = "blindinginfo_java_proto",
-    tags = ["maven_coordinates=com.daml:daml-lf-blindinginfo-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [":blindinginfo_proto"],
-)
-
 #
 # Transaction library providing a high-level scala transaction
 # data structure and associated utilities.
@@ -68,7 +55,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":blindinginfo_java_proto",
         ":transaction_java_proto",
         ":value_java_proto",
         "//daml-lf/data",
@@ -87,7 +73,6 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":blindinginfo_java_proto",
         ":transaction",
         ":transaction_java_proto",
         ":value_java_proto",
