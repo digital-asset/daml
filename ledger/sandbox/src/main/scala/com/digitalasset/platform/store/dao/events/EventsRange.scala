@@ -23,10 +23,30 @@ object EventsRange {
       implicit connection: java.sql.Connection): EventsRange[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
 
-    // start is exclusive, that is why -1
-    val query =
-      SQL"select min(row_id) - 1 as start, max(row_id) as end from participant_events where event_offset > ${range.startExclusive} and event_offset <= ${range.endInclusive}"
+    // anorm throws UnexpectedNullableFound if beforeBegin passed
+    if (range.startExclusive == Offset.beforeBegin) {
+      eventsRange(range.endInclusive)
+    } else {
+      // start is exclusive, that is why -1
+      val query =
+        SQL"select min(row_id) - 1 as start, max(row_id) as end from participant_events where event_offset > ${range.startExclusive} and event_offset <= ${range.endInclusive}"
 
-    query.as(parser.single)
+      query.as(parser.single)
+    }
+  }
+
+  def eventsRange(endInclusive: Offset)(
+      implicit connection: java.sql.Connection): EventsRange[Long] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
+    // anorm throws UnexpectedNullableFound if beforeBegin passed
+    if (endInclusive == Offset.beforeBegin) {
+      EventsRange(0, 0)
+    } else {
+      // start is exclusive, that is why -1
+      val query =
+        SQL"select 0 as start, max(row_id) as end from participant_events where event_offset <= ${endInclusive}"
+      query.as(parser.single)
+    }
   }
 }
