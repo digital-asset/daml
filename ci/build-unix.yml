@@ -71,7 +71,7 @@ steps:
       --detect.cleanup=false \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
       --detect.cleanup.bdio.files=true \
-      --detect.report.timeout=1050
+      --detect.report.timeout=1500
     displayName: 'Blackduck Scan'
     condition: eq('${{parameters.name}}', 'linux')
 
