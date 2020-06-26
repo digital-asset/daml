@@ -45,8 +45,11 @@ final class StoreBackedCommandExecutor(
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    consume(commands.submitter, engine.submit(commands.commands, participant, submissionSeed))
+  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    val start = System.nanoTime()
+    val submissionResult = engine.submit(commands.commands, participant, submissionSeed)
+    val interpretationTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
+    consume(commands.submitter, submissionResult)
       .map { submission =>
         (for {
           result <- submission
@@ -72,8 +75,10 @@ final class StoreBackedCommandExecutor(
             ),
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,
+            interpretationTimeMillis = interpretationTime
           )).left.map(ErrorCause.DamlLf)
       }
+  }
 
   // Concurrent map of promises to request each package only once.
   private val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
