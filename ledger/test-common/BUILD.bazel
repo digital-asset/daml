@@ -38,14 +38,14 @@ da_scala_library(
     [
         daml_compile(
             name = "%s-tests" % test_name,
-            srcs = glob(["src/main/daml/%s/*.daml" % test_name.lower()]),
+            srcs = glob(["src/main/daml/%s/*.daml" % test_name]),
             target = target,
             visibility = ["//visibility:public"],
         ),
         dar_to_scala(
             name = "%s-tests.scala-codegen" % test_name,
             srcs = [":%s-tests.dar" % test_name],
-            package_prefix = "com.daml.ledger.test.%s" % test_name.lower(),
+            package_prefix = "com.daml.ledger.test.%s" % test_name,
             srcjar_out = "%s.scala.srcjar" % test_name,
             verbosity = 2,
             visibility = ["//visibility:public"],
