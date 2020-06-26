@@ -25,13 +25,6 @@ object BlindingCoder {
           parties <- toPartySet(n.getPartiesList)
         } yield ni -> parties)
 
-    val implicitLocal =
-      p.getLocalImplicitDisclosureList.asScala.map(n =>
-        for {
-          ni <- nodeIdReader.fromString(n.getNodeId)
-          parties <- toPartySet(n.getPartiesList)
-        } yield ni -> parties)
-
     val globalDisclosure =
       p.getGlobalImplicitDisclosureList.asScala.map(n =>
         for {
@@ -41,9 +34,8 @@ object BlindingCoder {
 
     for {
       explicit <- sequence(explicitDisclosure)
-      local <- sequence(implicitLocal)
       global <- sequence(globalDisclosure)
-    } yield BlindingInfo(explicit.toMap, local.toMap, global.toMap)
+    } yield BlindingInfo(explicit.toMap, global.toMap)
 
   }
 
@@ -52,13 +44,6 @@ object BlindingCoder {
       nodeIdWriter: TransactionCoder.EncodeNid[Transaction.NodeId],
   ): proto.Blindinginfo.BlindingInfo = {
     val builder = proto.Blindinginfo.BlindingInfo.newBuilder()
-
-    val localImplicit = blindingInfo.localDivulgence.map(nodeParties => {
-      val b1 = proto.Blindinginfo.NodeParties.newBuilder()
-      b1.setNodeId(nodeIdWriter.asString(nodeParties._1))
-      b1.addAllParties(nodeParties._2.toSet[String].asJava)
-      b1.build()
-    })
 
     val explicit = blindingInfo.disclosure.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
@@ -76,7 +61,6 @@ object BlindingCoder {
 
     builder.addAllExplicitDisclosure(explicit.asJava)
     builder.addAllGlobalImplicitDisclosure(global.asJava)
-    builder.addAllLocalImplicitDisclosure(localImplicit.asJava)
     builder.build()
   }
 
