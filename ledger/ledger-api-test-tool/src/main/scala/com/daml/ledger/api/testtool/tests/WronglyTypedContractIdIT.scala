@@ -7,9 +7,9 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test_stable.Test.Delegation._
-import com.daml.ledger.test_stable.Test.DummyWithParam._
-import com.daml.ledger.test_stable.Test.{Delegated, Delegation, Dummy, DummyWithParam}
+import com.daml.ledger.test.model.Test.Delegation._
+import com.daml.ledger.test.model.Test.DummyWithParam._
+import com.daml.ledger.test.model.Test.{Delegated, Delegation, Dummy, DummyWithParam}
 import io.grpc.Status.Code
 
 final class WronglyTypedContractIdIT extends LedgerTestSuite {

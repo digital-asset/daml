@@ -96,7 +96,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     Try(DamlLf.Archive.parseFrom(stream))
   }
   private val Success(dar) =
-    reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar")))
+    reader.readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
   private val now = Instant.now()
 
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =

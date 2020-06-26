@@ -8,8 +8,8 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.test_stable.Test.Dummy
-import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.ledger.test.model.Test.Dummy
+import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 

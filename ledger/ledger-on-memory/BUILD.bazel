@@ -43,7 +43,7 @@ da_scala_test(
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
     ],
     resources = glob(["src/test/resources/*"]),
     deps = [

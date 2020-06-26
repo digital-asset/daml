@@ -56,7 +56,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
         "//ledger/sandbox-perf:LargeTransaction.dar",
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
         "@postgresql_dev_env//:all",
     ],
     visibility = ["//visibility:public"],

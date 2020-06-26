@@ -7,7 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.tests.TransactionScaleIT.numberOfCommandsUnit
-import com.daml.ledger.test_stable.Test.{Dummy, TextContainer}
+import com.daml.ledger.test.model.Test.{Dummy, TextContainer}
 
 import scala.concurrent.Future
 

@@ -18,7 +18,8 @@ import scala.concurrent.duration._
 @State(Scope.Benchmark)
 abstract class PerfBenchState extends InfiniteRetries {
 
-  def darFile: File = new File(BazelRunfiles.rlocation("ledger/test-common/Test-stable.dar"))
+  def darFile: File =
+    new File(BazelRunfiles.rlocation("ledger/test-common/model-tests.dar"))
 
   private var akkaState: AkkaState = _
   private var server: Resource[LedgerContext] = _

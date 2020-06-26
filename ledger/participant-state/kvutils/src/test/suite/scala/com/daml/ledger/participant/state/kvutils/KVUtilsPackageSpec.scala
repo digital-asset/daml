@@ -24,7 +24,9 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
 
   private val testStablePackages =
-    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get
+    darReader
+      .readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
+      .get
 
   private val simpleArchive = archiveWithContractData("Party")
 
@@ -53,10 +55,10 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       }
     }
 
-    "be able to submit Test-stable.dar" in KVTest.runTest {
+    "be able to submit Test.dar" in KVTest.runTest {
       for {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
-        logEntry <- submitArchives("test-stable-submission", testStablePackages.all: _*).map(_._2)
+        logEntry <- submitArchives("Test-submission", testStablePackages.all: _*).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry.getPackageUploadEntry.getArchivesCount shouldEqual testStablePackages.all.length

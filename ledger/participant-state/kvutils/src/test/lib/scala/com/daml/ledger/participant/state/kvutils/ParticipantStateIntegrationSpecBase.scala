@@ -679,7 +679,10 @@ object ParticipantStateIntegrationSpecBase {
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
   private val archives =
-    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
+    darReader
+      .readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
+      .get
+      .all
 
   private val alice = Ref.Party.assertFromString("alice")
 

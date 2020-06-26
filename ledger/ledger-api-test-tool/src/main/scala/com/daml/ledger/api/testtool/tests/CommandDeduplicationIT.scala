@@ -8,9 +8,9 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.test_stable.DA.Types.Tuple2
-import com.daml.ledger.test_stable.Test.TextKeyOperations._
-import com.daml.ledger.test_stable.Test._
+import com.daml.ledger.test.model.DA.Types.Tuple2
+import com.daml.ledger.test.model.Test.TextKeyOperations._
+import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status

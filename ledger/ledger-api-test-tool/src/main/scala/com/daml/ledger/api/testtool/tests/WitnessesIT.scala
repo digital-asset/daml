@@ -4,9 +4,9 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.test_stable.Test.DivulgeWitnesses._
-import com.daml.ledger.test_stable.Test.Witnesses._
-import com.daml.ledger.test_stable.Test.{DivulgeWitnesses, Witnesses => WitnessesTemplate}
+import com.daml.ledger.test.model.Test.DivulgeWitnesses._
+import com.daml.ledger.test.model.Test.Witnesses._
+import com.daml.ledger.test.model.Test.{DivulgeWitnesses, Witnesses => WitnessesTemplate}
 import scalaz.Tag
 
 final class WitnessesIT extends LedgerTestSuite {

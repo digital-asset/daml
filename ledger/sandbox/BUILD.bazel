@@ -274,6 +274,7 @@ test_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
+    "//daml-lf/engine",
     "//daml-lf/interpreter",
     "//daml-lf/language",
     "//daml-lf/transaction",
@@ -334,7 +335,7 @@ da_scala_test_suite(
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
     ),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]),
@@ -347,7 +348,7 @@ da_scala_test_suite(
         ["src/test/suite/**/ResetService*IT.scala"],
     ),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
     ],
     flaky = True,

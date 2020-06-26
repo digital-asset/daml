@@ -197,7 +197,7 @@ da_scala_test_suite(
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",
         "//extractor:VeryLargeArchive.dar",
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]),
