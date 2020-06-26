@@ -9,18 +9,6 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 
 import scala.concurrent.Future
 
-// TODO(miklos): Add whether this is a transaction.
-sealed trait CommitMetadata {
-  def estimatedInterpretationCost: Long
-}
-
-object CommitMetadata {
-  val Empty: CommitMetadata = SimpleCommitMetadata(0)
-}
-
-final case class SimpleCommitMetadata(override val estimatedInterpretationCost: Long)
-    extends CommitMetadata
-
 /**
   * Defines how we initiate a commit to the ledger.
   *
