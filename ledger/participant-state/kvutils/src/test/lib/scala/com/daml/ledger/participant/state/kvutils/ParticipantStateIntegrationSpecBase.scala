@@ -9,7 +9,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
@@ -678,8 +678,8 @@ object ParticipantStateIntegrationSpecBase {
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
-  private val archives =
-    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
+  private val darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
+  private val archives = darReader.readArchiveFromFile(darFile).get.all
 
   private val alice = Ref.Party.assertFromString("alice")
 

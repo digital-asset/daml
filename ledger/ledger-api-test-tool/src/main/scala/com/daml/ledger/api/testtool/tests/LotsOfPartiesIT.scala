@@ -11,7 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.client.binding.Primitive.{ContractId, Party}
-import com.daml.ledger.test_stable.Test.WithObservers
+import com.daml.ledger.test.model.Test.WithObservers
 
 import scala.concurrent.{ExecutionContext, Future}
 

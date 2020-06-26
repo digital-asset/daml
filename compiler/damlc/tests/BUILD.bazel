@@ -536,11 +536,11 @@ sh_test(
     args = [
         "$(rootpath //compiler/damlc)",
         "$(rootpath @jq_dev_env//:jq)",
-        "$(rootpath //ledger/test-common:Test-dev.dar)",
+        "$(rootpath //ledger/test-common:model-tests.dar)",
     ],
     data = [
         "//compiler/damlc",
-        "//ledger/test-common:Test-dev.dar",
+        "//ledger/test-common:model-tests.dar",
         "@jq_dev_env//:jq",
     ],
     toolchains = [

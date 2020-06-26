@@ -188,7 +188,7 @@ da_scala_test_suite(
     name = "ledger-on-sql-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:model-tests.dar",
     ],
     resources = glob(["src/test/resources/*"]),
     runtime_deps = all_database_runtime_deps,

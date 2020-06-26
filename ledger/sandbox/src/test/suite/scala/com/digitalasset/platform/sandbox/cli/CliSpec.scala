@@ -18,7 +18,7 @@ import org.scalatest.{Assertion, Matchers, WordSpec}
 
 class CliSpec extends WordSpec with Matchers {
 
-  private val archive = rlocation("ledger/test-common/Test-stable.dar")
+  private val archive = rlocation("ledger/test-common/model-tests.dar")
   private val nonExistingArchive = "whatever.dar"
   private val invalidArchive = createTempFile().getAbsolutePath
   private val defaultConfig = SandboxConfig.default

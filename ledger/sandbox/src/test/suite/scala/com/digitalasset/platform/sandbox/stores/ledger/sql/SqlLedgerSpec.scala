@@ -207,7 +207,7 @@ object SqlLedgerSpec {
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("TheParticipant")
 
-  private val testArchivePath = rlocation(Paths.get("ledger/test-common/Test-stable.dar"))
+  private val testArchivePath = rlocation(Paths.get("ledger/test-common/model-tests.dar"))
   private val darReader = DarReader { (_, stream) =>
     Try(DamlLf.Archive.parseFrom(stream))
   }

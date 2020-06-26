@@ -76,7 +76,8 @@ abstract class ResetServiceITBase
 
   protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, scaled(10.millis))
 
-  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
+  override protected def darFile: File =
+    new File(rlocation("ledger/test-common/model-tests.dar"))
 
   protected def timeIsStatic: Boolean =
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType) == TimeProviderType.Static

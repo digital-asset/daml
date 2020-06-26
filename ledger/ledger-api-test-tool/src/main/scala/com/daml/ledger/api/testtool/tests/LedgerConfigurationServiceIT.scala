@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.test_stable.Test.Dummy
+import com.daml.ledger.test.model.Test.Dummy
 import io.grpc.Status
 
 class LedgerConfigurationServiceIT extends LedgerTestSuite {

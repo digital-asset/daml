@@ -12,13 +12,13 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
-import com.daml.ledger.test_stable.DA.Types.Tuple2
-import com.daml.ledger.test_stable.Test.Delegated._
-import com.daml.ledger.test_stable.Test.Delegation._
-import com.daml.ledger.test_stable.Test.ShowDelegated._
-import com.daml.ledger.test_stable.Test.TextKey._
-import com.daml.ledger.test_stable.Test.TextKeyOperations._
-import com.daml.ledger.test_stable.Test._
+import com.daml.ledger.test.model.DA.Types.Tuple2
+import com.daml.ledger.test.model.Test.Delegated._
+import com.daml.ledger.test.model.Test.Delegation._
+import com.daml.ledger.test.model.Test.ShowDelegated._
+import com.daml.ledger.test.model.Test.TextKey._
+import com.daml.ledger.test.model.Test.TextKeyOperations._
+import com.daml.ledger.test.model.Test._
 import io.grpc.Status
 import scalaz.Tag
 

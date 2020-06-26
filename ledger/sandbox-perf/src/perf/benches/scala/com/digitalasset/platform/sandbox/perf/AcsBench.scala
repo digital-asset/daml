@@ -34,7 +34,8 @@ class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
+  override protected def darFile: File =
+    new File(rlocation("ledger/test-common/model-tests.dar"))
 
   private def generateCommand(
       sequenceNumber: Int,

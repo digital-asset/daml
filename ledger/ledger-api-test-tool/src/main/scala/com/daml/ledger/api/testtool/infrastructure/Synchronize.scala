@@ -5,8 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.test_stable.Test.AgreementFactory
-import com.daml.ledger.test_stable.Test.AgreementFactory._
+import com.daml.ledger.test.model.Test.AgreementFactory
+import com.daml.ledger.test.model.Test.AgreementFactory._
 
 import scala.concurrent.{ExecutionContext, Future}
 
