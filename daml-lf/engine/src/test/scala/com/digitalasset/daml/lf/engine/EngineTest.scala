@@ -14,7 +14,11 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{TransactionVersions, GenTransaction => GenTx, Transaction => Tx}
+import com.daml.lf.transaction.{
+  TransactionVersions => TxVersions,
+  GenTransaction => GenTx,
+  Transaction => Tx
+}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
@@ -122,7 +126,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
-  val engine = Engine()
+  val engine = Engine.DevEngine()
   val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
 
   "valid data variant identifier" should {
@@ -1218,7 +1222,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "succeed with a fresh engine, correctly compiling packages" in {
-      val engine = Engine()
+      val engine = Engine.DevEngine()
 
       val fetchNode = NodeFetch(
         coid = fetchedCid,
@@ -1316,7 +1320,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       lookupNode.result shouldBe Some(lookedUpCid)
 
       val Right((reinterpreted, _)) =
-        Engine()
+        Engine
+          .DevEngine()
           .reinterpret(
             Set.empty,
             lookupNode,
@@ -1345,7 +1350,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       lookupNode.result shouldBe None
 
       val Right((reinterpreted, _)) =
-        Engine()
+        Engine
+          .DevEngine()
           .reinterpret(Set.empty, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
           .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1730,7 +1736,7 @@ object EngineTest {
     iterate.map {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
-          TransactionVersions.assertAsVersionedTransaction(GenTx(nodes, roots.toImmArray)),
+          TxVersions.assertAsVersionedTransaction(GenTx(nodes, roots.toImmArray)),
           Tx.Metadata(
             submissionSeed = None,
             submissionTime = txMeta.submissionTime,

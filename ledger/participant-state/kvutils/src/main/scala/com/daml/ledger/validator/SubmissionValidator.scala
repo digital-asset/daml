@@ -293,6 +293,7 @@ class SubmissionValidator[LogResult] private[validator] (
 }
 
 object SubmissionValidator {
+
   type RawKeyValuePairs = Seq[(Bytes, Bytes)]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
@@ -303,7 +304,7 @@ object SubmissionValidator {
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
-      engine: Engine = Engine(),
+      engine: Engine,
       metrics: Metrics,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(

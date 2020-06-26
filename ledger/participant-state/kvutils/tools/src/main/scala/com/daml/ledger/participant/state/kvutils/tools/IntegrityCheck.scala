@@ -44,7 +44,11 @@ object IntegrityCheck extends App {
   val ledgerDumpStream: DataInputStream =
     new DataInputStream(new FileInputStream(filename))
 
-  val engine = Engine()
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // This Should be made configurable.
+  private val engineConfig = Engine.DevConfig
+
+  val engine = new Engine(engineConfig)
   val defaultConfig = Configuration(
     generation = 0,
     timeModel = TimeModel.reasonableDefault,

@@ -7,6 +7,7 @@ import java.time.Instant
 
 import com.daml.lf.{CompiledPackages, crypto}
 import com.daml.lf.data.{Relation => _, _}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.{ScenarioRunner, Speedy}
@@ -134,12 +135,22 @@ object ScenarioLoader {
       case Right((_, _, l, _)) => l
     }
 
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // This should be made configurable
+  private[this] val engineConfig = Engine.DevConfig
+
   private def getSpeedyMachine(
       scenarioExpr: Ast.Expr,
       compiledPackages: CompiledPackages,
       transactionSeed: crypto.Hash,
   ): Speedy.Machine =
-    Speedy.Machine.fromScenarioExpr(compiledPackages, transactionSeed, scenarioExpr)
+    Speedy.Machine.fromScenarioExpr(
+      compiledPackages,
+      transactionSeed,
+      scenarioExpr,
+      engineConfig.allowedOutputValueVersions,
+      engineConfig.allowedOutputTransactionVersions,
+    )
 
   private def getScenarioExpr(
       scenarioRef: Ref.DefinitionRef,

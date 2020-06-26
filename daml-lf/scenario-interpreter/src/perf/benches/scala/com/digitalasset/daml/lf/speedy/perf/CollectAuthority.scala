@@ -18,6 +18,8 @@ import com.daml.lf.speedy.Speedy.Machine
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.value.ValueVersions
 import org.openjdk.jmh.annotations._
 
 class CollectAuthority {
@@ -52,7 +54,13 @@ class CollectAuthorityState {
     val compiledPackages = PureCompiledPackages(packagesMap, stacktracing).right.get
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
-    machine = Machine.fromScenarioExpr(compiledPackages, seeding(), expr)
+    machine = Machine.fromScenarioExpr(
+      compiledPackages,
+      seeding(),
+      expr,
+      ValueVersions.SupportedDevVersions,
+      TransactionVersions.SupportedDevVersions,
+    )
     the_sexpr = machine.ctrl
 
     // fill the caches!

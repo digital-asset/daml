@@ -13,7 +13,7 @@ final case class TransactionVersion(protoValue: String)
 /**
   * Currently supported versions of the DAML-LF transaction specification.
   */
-object TransactionVersions
+private[lf] object TransactionVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
       _.protoValue,
     ) {

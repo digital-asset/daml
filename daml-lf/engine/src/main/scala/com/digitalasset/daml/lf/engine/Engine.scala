@@ -11,9 +11,9 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{TransactionVersions, Transaction => Tx}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.value.Value
+import com.daml.lf.value.{Value, ValueVersions}
 import java.nio.file.{Path, Paths}
 
 /**
@@ -46,10 +46,11 @@ import java.nio.file.{Path, Paths}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-final class Engine {
+final class Engine(config: Engine.Config) {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
+  def info = new EngineInfo(config)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -278,7 +279,8 @@ final class Engine {
           .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        supportedValueVersions = value.ValueVersions.SupportedDevVersions,
+        supportedValueVersions = config.allowedOutputValueVersions,
+        supportedTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
@@ -403,7 +405,51 @@ final class Engine {
 }
 
 object Engine {
-  def apply(): Engine = new Engine()
+
+  case class Config private[Engine] (
+      // constrains the version of output values
+      allowedOutputValueVersions: VersionRange[value.ValueVersion],
+      // constrains the version of output transactions
+      allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
+  ) extends NoCopy
+
+  val StableConfig =
+    Config.assertBuild(
+      allowedOutputValueVersions = ValueVersions.SupportedStableVersions,
+      allowedOutputTransactionVersions = transaction.TransactionVersions.SupportedStableVersions
+    )
+
+  val DevConfig =
+    new Config(
+      allowedOutputValueVersions = ValueVersions.SupportedDevVersions,
+      allowedOutputTransactionVersions = TransactionVersions.SupportedDevVersions,
+    )
+
+  object Config {
+
+    def build(
+        allowedOutputValueVersions: VersionRange[value.ValueVersion],
+        allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
+    ): Either[String, Config] =
+      Right(
+        new Config(
+          allowedOutputValueVersions = allowedOutputValueVersions intersect ValueVersions.SupportedDevVersions,
+          allowedOutputTransactionVersions = allowedOutputTransactionVersions intersect TransactionVersions.SupportedDevVersions,
+        )
+      )
+
+    def assertBuild(
+        allowedOutputValueVersions: VersionRange[value.ValueVersion],
+        allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
+    ): Config =
+      data.assertRight(
+        build(
+          allowedOutputValueVersions,
+          allowedOutputTransactionVersions,
+        )
+      )
+
+  }
 
   def initialSeeding(
       submissionSeed: crypto.Hash,
@@ -428,4 +474,7 @@ object Engine {
       s"compound:${tx.roots.length}"
     }
   }
+
+  def DevEngine() = new Engine(Engine.DevConfig)
+
 }

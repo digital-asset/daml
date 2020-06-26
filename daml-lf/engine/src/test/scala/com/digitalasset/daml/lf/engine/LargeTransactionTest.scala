@@ -52,13 +52,15 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
+  private val engine: Engine = Engine.DevEngine()
+
   List(5000, 50000, 500000)
     .foreach { txSize =>
       val testName = s"create large transaction with one contract containing $txSize Ints"
       testName in {
         report(
           testName,
-          testLargeTransactionOneContract(InMemoryPrivateLedgerData(), Engine())(txSize))
+          testLargeTransactionOneContract(InMemoryPrivateLedgerData(), engine)(txSize))
       }
     }
 
@@ -68,7 +70,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       testName in {
         report(
           testName,
-          testLargeTransactionManySmallContracts(InMemoryPrivateLedgerData(), Engine())(txSize))
+          testLargeTransactionManySmallContracts(InMemoryPrivateLedgerData(), engine)(txSize))
       }
     }
 
@@ -76,7 +78,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     .foreach { txSize =>
       val testName = s"execute choice with a List of $txSize Ints"
       testName in {
-        report(testName, testLargeChoiceArgument(InMemoryPrivateLedgerData(), Engine())(txSize))
+        report(testName, testLargeChoiceArgument(InMemoryPrivateLedgerData(), engine)(txSize))
       }
     }
 

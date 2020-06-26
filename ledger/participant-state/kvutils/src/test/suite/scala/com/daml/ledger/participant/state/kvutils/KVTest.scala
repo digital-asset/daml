@@ -40,7 +40,7 @@ object KVTest {
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
-  private[this] val engine = Engine()
+  private[this] val engine = Engine.DevEngine()
   private[this] val keyValueCommitting = new KeyValueCommitting(engine, metrics)
   private[this] val keyValueSubmission = new KeyValueSubmission(metrics)
 

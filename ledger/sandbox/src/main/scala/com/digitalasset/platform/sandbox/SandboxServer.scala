@@ -58,9 +58,13 @@ object SandboxServer {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // This should be made configurable
+  private val engineConfig: Engine.Config = Engine.DevConfig
+
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
-  private val engine = Engine()
+  private val engine = new Engine(engineConfig)
 
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {

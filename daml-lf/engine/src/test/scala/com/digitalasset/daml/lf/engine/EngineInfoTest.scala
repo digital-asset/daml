@@ -6,14 +6,20 @@ import org.scalatest.{Matchers, WordSpec}
 
 class EngineInfoTest extends WordSpec with Matchers {
 
-  EngineInfo.getClass.getSimpleName should {
+  "EngineInfo" should {
+    val DevEngineInfo = new EngineInfo(Engine.DevConfig)
+    val DefaultEngineInfo = new EngineInfo(Engine.StableConfig)
     "show supported LF, Transaction and Value versions" in {
-      EngineInfo.show shouldBe
-        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10; Value versions: 1, 2, 3, 4, 5, 6, 7"
+      DevEngineInfo.show shouldBe
+        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10; Output Value versions: 6, 7"
+
+      DefaultEngineInfo.show shouldBe
+        "DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.dev; Input Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10; Input Value versions: 1, 2, 3, 4, 5, 6, 7; Output Transaction versions: 10; Output Value versions: 6"
+
     }
 
     "toString returns the same value as show" in {
-      EngineInfo.toString shouldBe EngineInfo.show
+      DefaultEngineInfo.toString shouldBe DefaultEngineInfo.show
     }
   }
 }
