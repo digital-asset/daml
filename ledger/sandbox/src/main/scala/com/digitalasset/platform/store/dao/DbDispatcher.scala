@@ -55,7 +55,6 @@ final class DbDispatcher private (
         result
       } catch {
         case NonFatal(e) =>
-          e.printStackTrace()
           logger.error(
             s"${databaseMetrics.name}: Got an exception while executing a SQL query. Rolled back the transaction.",
             e)
