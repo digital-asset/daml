@@ -55,7 +55,6 @@ object EventsRange {
     if (endInclusive == Offset.beforeBegin) {
       EmptyRowIdRange
     } else {
-      // start is exclusive, that is why -1
       val query =
         SQL"select max(row_id) as end from participant_events where event_offset <= ${endInclusive}"
       query.as(endParser.single)
