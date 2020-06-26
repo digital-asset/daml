@@ -26,7 +26,7 @@ import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class SemanticsTests extends LedgerTestSuite {
+final class SemanticTests extends LedgerTestSuite {
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
   private[this] val twoPounds = Amount(BigDecimal(2), "GBP")
 

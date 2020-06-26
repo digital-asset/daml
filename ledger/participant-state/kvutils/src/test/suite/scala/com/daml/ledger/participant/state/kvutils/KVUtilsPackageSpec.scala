@@ -23,10 +23,8 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
 
-  private val testStablePackages =
-    darReader
-      .readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
-      .get
+  private def darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
+  private val testStablePackages = darReader.readArchiveFromFile(darFile).get
 
   private val simpleArchive = archiveWithContractData("Party")
 

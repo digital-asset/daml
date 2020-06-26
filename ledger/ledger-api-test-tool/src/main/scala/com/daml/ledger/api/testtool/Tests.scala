@@ -30,7 +30,7 @@ object Tests {
     new PackageManagementServiceIT,
     new PackageServiceIT,
     new PartyManagementServiceIT,
-    new SemanticsTests,
+    new SemanticTests,
     new TransactionServiceIT,
     new WitnessesIT,
     new WronglyTypedContractIdIT,
