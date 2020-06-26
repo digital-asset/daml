@@ -437,11 +437,10 @@ object ValueGenerators {
         .map(NodeId(_))
         .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps))))
     for {
-      disclosed1 <- nodePartiesGen
-      disclosed2 <- nodePartiesGen
+      disclosed <- nodePartiesGen
       divulged <- Gen.mapOf(
         cidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: ContractId) -> ps)))
-    } yield BlindingInfo(disclosed1, disclosed2, divulged)
+    } yield BlindingInfo(disclosed, divulged)
   }
 
   def stringVersionGen: Gen[String] = {

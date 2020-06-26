@@ -361,7 +361,7 @@ private[kvutils] class TransactionCommitter(
         val cs = DamlContractState.newBuilder
         cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
         val localDisclosure =
-          blindingInfo.localDisclosure(cid2nid(decodeContractId(key.getContractId)))
+          blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
         cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
         cs.setContractInstance(
           Conversions.encodeContractInstance(createNode.coinst)
