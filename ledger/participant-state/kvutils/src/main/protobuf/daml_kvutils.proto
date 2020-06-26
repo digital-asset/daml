@@ -71,6 +71,7 @@ message DamlSubmissionBatch {
   message CorrelatedSubmission {
     bytes submission = 1;
     string correlation_id = 2;
+    int64 estimated_interpretation_cost = 3;
   }
 
   repeated CorrelatedSubmission submissions = 2;

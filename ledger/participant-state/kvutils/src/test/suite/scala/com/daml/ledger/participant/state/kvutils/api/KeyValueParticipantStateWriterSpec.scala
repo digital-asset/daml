@@ -43,7 +43,8 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       instance.submitTransaction(
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
-        anEmptyTransaction)
+        anEmptyTransaction,
+        Long.MaxValue)
 
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)

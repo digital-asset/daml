@@ -46,6 +46,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder
           .setCorrelationId(correlationId)
           .setSubmission(envelope)
+          .setEstimatedInterpretationCost(metadata.estimatedInterpretationCost)
           .build)
 
   override def participantId: ParticipantId = writer.participantId
@@ -71,8 +72,9 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .addAllSubmissions(submissions.asJava)
         .build
       val envelope = Envelope.enclose(batch)
+      val totalEstimatedInterpretationCost = submissions.map(_.getEstimatedInterpretationCost).sum
       writer
-        .commit(correlationId, envelope, CommitMetadata.Empty)
+        .commit(correlationId, envelope, SimpleCommitMetadata(totalEstimatedInterpretationCost))
         .map {
           case SubmissionResult.Acknowledged => ()
           case err =>

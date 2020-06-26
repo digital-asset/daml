@@ -256,7 +256,11 @@ final class ApiSubmissionService private (
   ): Future[SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
     writeService
-      .submitTransaction(result.submitterInfo, result.transactionMeta, result.transaction)
+      .submitTransaction(
+        result.submitterInfo,
+        result.transactionMeta,
+        result.transaction,
+        result.interpretationTimeMillis)
       .toScala
   }
 
