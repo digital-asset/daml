@@ -65,7 +65,7 @@ private[dao] final class TransactionsReader(
 
     val eventsRangeF: Future[EventsRange[Long]] = dispatcher.executeSql(dbMetrics.getRowIdRange) {
       connection =>
-        EventsRange.eventsRange(EventsRange(startExclusive, endInclusive))(connection)
+        EventsRange.rowIdRange(EventsRange(startExclusive, endInclusive))(connection)
     }
 
     def getEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[Event], NotUsed] =
@@ -141,7 +141,7 @@ private[dao] final class TransactionsReader(
 
     val eventsRangeF: Future[EventsRange[Long]] = dispatcher.executeSql(dbMetrics.getRowIdRange) {
       connection =>
-        EventsRange.eventsRange(EventsRange(startExclusive, endInclusive))(connection)
+        EventsRange.rowIdRange(EventsRange(startExclusive, endInclusive))(connection)
     }
 
     def getEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[TreeEvent], NotUsed] =
@@ -209,12 +209,12 @@ private[dao] final class TransactionsReader(
 
     // contains offsets and row IDs
     val eventsRangeF: Future[EventsRange[(Offset, Long)]] = dispatcher
-      .executeSql(dbMetrics.getRowIdRange) { connection =>
-        EventsRange.eventsRange(activeAt)(connection)
+      .executeSql(dbMetrics.getAcsRowIdRange) { connection =>
+        EventsRange.rowIdRangeFromStart(activeAt)(connection)
       }
       .map { x =>
         EventsRange(
-          startExclusive = (Offset.fromByteArray(Array(0)), 0),
+          startExclusive = (Offset.beforeBegin, 0),
           endInclusive = (activeAt, x.endInclusive))
       }
 
