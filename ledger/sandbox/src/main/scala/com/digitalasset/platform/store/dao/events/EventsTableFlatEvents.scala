@@ -76,9 +76,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  private val orderByColumns =
-    Seq("event_offset", "transaction_id", "node_index").mkString(", ")
-
   private val groupByColumns =
     Seq(
       "event_offset",
@@ -127,7 +124,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     new EventsTableFlatEventsRangeQueries.GetTransactions(
       selectColumns = selectColumns,
       groupByColumns = groupByColumns,
-      orderByColumns = orderByColumns,
       sqlFunctions = sqlFunctions,
     )
 
@@ -146,7 +142,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
       groupByColumns = groupByColumns,
-      orderByColumns = orderByColumns,
       sqlFunctions = sqlFunctions
     )
 
