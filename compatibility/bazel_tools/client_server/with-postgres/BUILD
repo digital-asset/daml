@@ -15,6 +15,7 @@ da_haskell_library(
         "process",
         "safe-exceptions",
         "text",
+        "uuid",
     ],
     visibility = ["//visibility:public"],
 )

@@ -4,10 +4,13 @@
 module WithPostgres (withPostgres) where
 
 import Control.Exception.Safe
+import qualified Data.UUID as UUID
+import Data.UUID.V4
 import Data.Text (Text)
 import qualified Data.Text as T
 import Network.Socket
 import System.Directory.Extra
+import System.Environment.Blank
 import System.FilePath
 import System.IO.Extra
 import System.Process
@@ -41,9 +44,48 @@ jdbcUrl port =
     T.pack (show port) <>
     "/" <> dbName <> "?user=" <> dbName
 
--- Launch a temporary postgres instance and provide a jdbc url to access that database.
+getSharedConnection :: IO (Maybe (String, String, String))
+getSharedConnection = do
+    mbHost <- getEnv "POSTGRESQL_HOST"
+    mbPort <- getEnv "POSTGRESQL_PORT"
+    mbUser <- getEnv "POSTGRESQL_USERNAME"
+    pure $ (,,) <$> mbHost <*> mbPort <*> mbUser
+
 withPostgres :: (Text -> IO a) -> IO a
-withPostgres f =
+withPostgres f = do
+    mbShared <- getSharedConnection
+    case mbShared of
+        Nothing -> do
+            hPutStrLn stderr "Starting ephemeral postgres instance"
+            withEphemeralPostgres f
+        Just shared -> do
+            hPutStrLn stderr "Connection to shared postgres instance"
+            withSharedPostgres shared f
+
+withSharedPostgres :: (String, String, String) -> (Text -> IO a) -> IO a
+withSharedPostgres (host, port, user) f = do
+    -- I cannot be bothered to figure out how to get postgresql-libpq
+    -- to compile so just shell out to createdb/dropdb instead of
+    -- trying to create it via postgresql-simple.
+    uuid <- UUID.toString <$> nextRandom
+    bracket_ (createdb uuid) (dropdb uuid) $
+      f $ T.pack $ "jdbc:postgresql://" <> host <> ":" <> port <> "/" <>
+          uuid <> "?user=" <> user
+  where connArgs =
+            [ "--host=" <> host
+            , "--port=" <> port
+            , "--user=" <> user
+            ]
+        createdb name = callProcess
+            "external/postgresql_nix/bin/createdb"
+            (name : connArgs)
+        dropdb name = callProcess
+            "external/postgresql_nix/bin/dropdb"
+            (name : connArgs)
+
+-- Launch a temporary postgres instance and provide a jdbc url to access that database.
+withEphemeralPostgres :: (Text -> IO a) -> IO a
+withEphemeralPostgres f = do
     withTempDir $ \tmpDir -> do
     let dataDir = tmpDir </> "data"
     let logFile = tmpDir </> "postgresql.log"
