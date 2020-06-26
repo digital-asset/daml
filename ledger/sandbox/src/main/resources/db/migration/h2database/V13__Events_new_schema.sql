@@ -38,7 +38,8 @@ create table participant_events
 );
 
 -- support ordering by offset and transaction, ready for serving via the Ledger API
-create index on participant_events(event_offset, transaction_id, node_index);
+create index participant_events_event_offset_transaction_id_node_index_idx
+    on participant_events(event_offset, transaction_id, node_index);
 
 -- support looking up a create event by the identifier of the contract it created, so that
 -- consuming exercise events can use it to set the value of create_consumed_at
