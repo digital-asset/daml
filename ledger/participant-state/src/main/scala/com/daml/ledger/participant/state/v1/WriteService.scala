@@ -107,5 +107,5 @@ trait WriteService
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] = ???
 }

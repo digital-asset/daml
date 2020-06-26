@@ -45,7 +45,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
         transactionMeta(recordTime),
         anEmptyTransaction)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
       correlationIdCaptor.getValue should be(expectedCorrelationId)
     }
@@ -57,7 +57,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
     }
 
@@ -68,7 +68,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
     }
 
@@ -79,7 +79,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes]())
+      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
     }
   }
@@ -111,7 +111,8 @@ object KeyValueParticipantStateWriterSpec {
       envelopeCaptor: ArgumentCaptor[Bytes],
       correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(correlationIdCaptor.capture(), envelopeCaptor.capture()))
+    when(
+      writer.commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer

@@ -37,7 +37,10 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   private val logger = ContextualizedLogger.get(getClass)
   private val queueHandle = queue.run(commitBatch)
 
-  override def commit(correlationId: String, envelope: kvutils.Bytes): Future[SubmissionResult] =
+  override def commit(
+      correlationId: String,
+      envelope: kvutils.Bytes,
+      metadata: CommitMetadata): Future[SubmissionResult] =
     queueHandle
       .offer(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder
@@ -69,7 +72,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .build
       val envelope = Envelope.enclose(batch)
       writer
-        .commit(correlationId, envelope)
+        .commit(correlationId, envelope, CommitMetadata.Empty)
         .map {
           case SubmissionResult.Acknowledged => ()
           case err =>

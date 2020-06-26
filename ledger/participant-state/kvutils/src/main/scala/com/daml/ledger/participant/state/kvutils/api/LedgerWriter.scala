@@ -13,6 +13,10 @@ sealed trait CommitMetadata {
   def estimatedInterpretationCost: Long
 }
 
+object CommitMetadata {
+  val Empty: CommitMetadata = SimpleCommitMetadata(Long.MaxValue)
+}
+
 final case class SimpleCommitMetadata(override val estimatedInterpretationCost: Long)
     extends CommitMetadata
 
@@ -47,5 +51,5 @@ trait LedgerWriter extends ReportsHealth {
   def commit(
       correlationId: String,
       envelope: Bytes
-  ): Future[SubmissionResult]
+  ): Future[SubmissionResult] = ???
 }

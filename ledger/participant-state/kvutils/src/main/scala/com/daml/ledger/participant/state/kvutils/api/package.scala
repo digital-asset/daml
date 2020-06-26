@@ -65,7 +65,10 @@ package object api {
 
       override def participantId: ParticipantId = writer.participantId
 
-      override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-        writer.commit(correlationId, envelope)
+      override def commit(
+          correlationId: String,
+          envelope: Bytes,
+          metadata: CommitMetadata): Future[SubmissionResult] =
+        writer.commit(correlationId, envelope, metadata)
     }
 }

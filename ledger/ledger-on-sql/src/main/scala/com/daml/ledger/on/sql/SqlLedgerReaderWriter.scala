@@ -15,7 +15,12 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.api.{
+  CommitMetadata,
+  LedgerReader,
+  LedgerRecord,
+  LedgerWriter
+}
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -90,7 +95,10 @@ final class SqlLedgerReaderWriter(
       )
       .map { case (_, entry) => entry }
 
-  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+  override def commit(
+      correlationId: String,
+      envelope: Bytes,
+      metadata: CommitMetadata): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {

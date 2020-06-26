@@ -40,7 +40,10 @@ final class InMemoryLedgerReaderWriter(
     metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
-  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+  override def commit(
+      correlationId: String,
+      envelope: Bytes,
+      metadata: CommitMetadata): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
         committer

@@ -5,6 +5,7 @@ package com.daml.ledger.on.memory
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.{BatchedValidatingCommitter, LedgerStateOperations}
 import com.daml.lf.data.Ref
@@ -44,10 +45,12 @@ class InMemoryLedgerReaderWriterSpec
         new Metrics(new MetricRegistry)
       )
 
-      instance.commit("correlation ID", ByteString.copyFromUtf8("some bytes")).map { actual =>
-        verify(mockDispatcher, times(0)).signalNewHead(anyInt())
-        actual should be(a[SubmissionResult.InternalError])
-      }
+      instance
+        .commit("correlation ID", ByteString.copyFromUtf8("some bytes"), CommitMetadata.Empty)
+        .map { actual =>
+          verify(mockDispatcher, times(0)).signalNewHead(anyInt())
+          actual should be(a[SubmissionResult.InternalError])
+        }
     }
   }
 }
