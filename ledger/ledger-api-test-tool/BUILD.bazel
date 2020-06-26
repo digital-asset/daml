@@ -88,6 +88,7 @@ da_scala_library_suite(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/test-common",
+        "//ledger/test-common:dev-tests.scala",
         "//ledger/test-common:model-tests.scala",
         "//ledger/test-common:performance-tests.scala",
         "//ledger/test-common:semantic-tests.scala",
@@ -111,6 +112,7 @@ da_scala_binary(
         "src/main/resources/logback.xml",
         ":PackageManagementTest.dar",
         "//ledger/test-common:dar-files",
+        "//ledger/test-common:dev-tests.dar",
     ],
     tags = [
         "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",

@@ -54,6 +54,16 @@ object Tests {
   def all(config: Config): Tests = default ++ optional(config)
 
   /**
+    * These tests test the dev mode of ledger.
+    *
+    * These are consequently not run unless explicit specified evene  with the all
+    */
+  def dev: Tests =
+    Seq(
+      new DevModeIT
+    ).map(suite => (suite.name, suite)).toMap
+
+  /**
     * These are performance envelope tests that also provide benchmarks and are always run
     * sequentially; they also must be specified explicitly with --perf-tests and will exclude
     * all other tests.

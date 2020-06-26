@@ -444,9 +444,19 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
-        "--exclude=ClosedWorldIT",
+        "--include=DevModeIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-dev",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--include=DevModeIT",
     ],
 )
 
@@ -519,6 +529,18 @@ server_conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next_conformance-test-dev",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--include=DevModeIT",
     ],
 )
 

@@ -1,0 +1,12 @@
+module DevTests where
+
+import DA.Map as M
+
+data MyUnit = MyUnit
+
+template TemplateWithMap
+  with
+    owner : Party
+    map: Map Int Text
+  where
+    signatory owner

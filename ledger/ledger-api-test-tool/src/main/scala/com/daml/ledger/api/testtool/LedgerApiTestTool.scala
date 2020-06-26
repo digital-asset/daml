@@ -108,7 +108,7 @@ object LedgerApiTestTool {
     val matches: Iterable[String] => LedgerTestCase => Boolean = prefixes =>
       test => prefixes.exists(prefix => test.name.startsWith(prefix))
 
-    val allTestCaseNames: Set[String] = cases(Tests.all(config)).map(_.name).toSet
+    val allTestCaseNames: Set[String] = cases(Tests.all(config) ++ Tests.dev).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix)))
     if (missingTests.nonEmpty) {
@@ -135,9 +135,12 @@ object LedgerApiTestTool {
       })
 
     val testsToRun: Iterable[LedgerTestCase] =
-      (if (config.allTests) cases(Tests.all(config))
-       else if (config.included.isEmpty) cases(Tests.default)
-       else cases(Tests.all(config)).filter(matches(config.included)))
+      ((
+        if (config.allTests) cases(Tests.all(config))
+        else if (config.included.isEmpty) cases(Tests.default)
+        else cases(Tests.all(config)).filter(matches(config.included))
+      ) ++
+        cases(Tests.dev).filter(matches(config.included)))
         .filterNot(matches(config.excluded))
 
     val runner =
