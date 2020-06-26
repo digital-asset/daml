@@ -140,7 +140,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       range,
       filter,
       pageSize,
-      None // TODO(Leo): remove this argument from the interface when refactoring is complete
     )
 
   private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
@@ -152,16 +151,13 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     )
 
   def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(
-      lastOffsetFromPrevPage: Offset,
-      activeAt: Offset,
+      range: EventsRange[(Offset, Long)],
       filter: FilterRelation,
-      pageSize: Int,
-      lastEventNodeIndexFromPrevPage: Option[Int]
+      pageSize: Int
   ): SimpleSql[Row] =
     getActiveContractsQueries(sqlFunctions)(
-      (lastOffsetFromPrevPage, activeAt),
+      range,
       filter,
-      pageSize,
-      lastEventNodeIndexFromPrevPage,
+      pageSize
     )
 }

@@ -4,10 +4,8 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
-//import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
-//import com.daml.platform.store.dao.events.EventsTableQueries.previousOffsetWhereClauseValues
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
