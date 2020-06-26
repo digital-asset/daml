@@ -9,6 +9,13 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 
 import scala.concurrent.Future
 
+sealed trait CommitMetadata {
+  def estimatedInterpretationCost: Long
+}
+
+final case class SimpleCommitMetadata(override val estimatedInterpretationCost: Long)
+    extends CommitMetadata
+
 /**
   * Defines how we initiate a commit to the ledger.
   *
@@ -27,8 +34,18 @@ trait LedgerWriter extends ReportsHealth {
     *
     * @param correlationId correlation ID to be used for logging purposes
     * @param envelope      opaque submission; may be compressed
+    * @param metadata      metadata associated to this particular commit
     * @return future for sending the submission; for possible results see
     *         [[com.daml.ledger.participant.state.v1.SubmissionResult]]
     */
-  def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult]
+  def commit(
+      correlationId: String,
+      envelope: Bytes,
+      metadata: CommitMetadata): Future[SubmissionResult] = commit(correlationId, envelope)
+
+  // @deprecated("Will be removed in 1.4.0", "1.3.0")
+  def commit(
+      correlationId: String,
+      envelope: Bytes
+  ): Future[SubmissionResult]
 }

@@ -90,11 +90,22 @@ trait WriteService
     *                        suffix those contract-ids in order to guaranteed their global
     *                        uniqueness. See the Contract Id specification for more detail
     *                        daml-lf/spec/contract-id.rst.
+    * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
+    *                                    handling submitted transactions differently.
     * @return an async result of a SubmissionResult
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-  ): CompletionStage[SubmissionResult]
+      estimatedInterpretationCost: Long,
+  ): CompletionStage[SubmissionResult] =
+    submitTransaction(submitterInfo, transactionMeta, transaction)
+
+  // Have to disable deprecation warnings for this package.
+  //@deprecated("Will be removed in 1.4.0", since = "1.3.0")
+  def submitTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
 }
