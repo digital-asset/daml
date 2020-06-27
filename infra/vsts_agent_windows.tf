@@ -15,7 +15,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
   # -5 for the random postfix:
   base_instance_name = "vsts-win"
 
-  region      = "us-east-1"
+  region      = "us-east1"
   target_size = 6
 
   version {

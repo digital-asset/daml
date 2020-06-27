@@ -17,7 +17,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-linux" {
   provider           = "google-beta"
   name               = "vsts-agent-linux"
   base_instance_name = "vsts-agent-linux"
-  region             = "us-east-1"
+  region             = "us-east1"
   target_size        = 10
 
   version {
