@@ -143,7 +143,6 @@ genValue pac mod val = do
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
 -- | Analyse a choice definition and add to the environment.
--- TODO: Handle annotated choices, by returning a set of annotations.
 genChoice :: MonadEnv m 'ChoiceGathering
   => PackageRef
   -- ^ A reference to the package in which this choice is defined.

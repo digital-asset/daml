@@ -428,7 +428,7 @@ declareCtrs sol cvars1 exprs = do
         nubOrd (concatMap (concatMap (\(_,_,_,vars) -> vars)) useful_components)
         \\ useful_nodes
   cvars2 <- declareVars sol required_vars
-  debug <- (concat . (intersperse "\n")) <$> mapM (declare $ cvars1 ++ cvars2) useful_equalities
+  debug <- intercalate "\n" <$> mapM (declare $ cvars1 ++ cvars2) useful_equalities
   return (debug, cvars2)
   where
     -- | Convert the constraint expression into a tuple of a binary operator, a
@@ -558,5 +558,5 @@ solveConstr spath ConstraintSet{..} = do
         ++ (renderString $ layoutCompact ("Archive: " <+> pretty _cArcs <+> "\n"))
         ++ ctr_debug
         ++ "\n~~~~~~~~~~\n\n"
-        ++ (showResult ch f result)
+        ++ showResult ch f result
   return (debug, result)

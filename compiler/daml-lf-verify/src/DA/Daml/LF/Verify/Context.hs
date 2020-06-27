@@ -55,7 +55,6 @@ import Debug.Trace
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Subst
 
--- TODO: Move these data types to a seperate file?
 -- | Data type denoting the phase of the constraint generator.
 data Phase
   = ValueGathering
@@ -119,7 +118,6 @@ createCond :: BoolExpr
   -> Cond a
 createCond cond x y = Conditional cond [Determined x] [Determined y]
 
--- TODO: I don't very much like that this creates empty branches.
 extCond :: Eq a => BoolExpr -> Cond a -> [Cond a]
 extCond bexp cond =
   let cond' = case cond of
@@ -128,7 +126,7 @@ extCond bexp cond =
   in simplifyCond cond'
 
 -- | Perform common simplifications on Conditionals.
--- TODO: Extend with additional cases.
+-- TODO: This can be extended with additional cases in the future.
 simplifyCond :: Eq a => Cond a -> [Cond a]
 simplifyCond (Conditional (BAnd b1 b2) xs ys)
   | b1 == b2 = simplifyCond (Conditional b1 xs ys)
@@ -152,19 +150,17 @@ introCond (Conditional e updx updy) = buildCond e updx updy extCondUpd
       => BoolExpr
       -> [Cond (UpdateSet ph)]
       -> [Cond (UpdateSet ph)]
-      -> (BoolExpr -> (Upd ph) -> UpdateSet ph)
+      -> (BoolExpr -> Upd ph -> UpdateSet ph)
       -> UpdateSet ph
     buildCond bexp cxs cys ext =
       let xs = concatMap introCond cxs
           ys = concatMap introCond cys
-      in (concatMap (ext bexp) xs) ++ (concatMap (ext $ BNot bexp) ys)
+      in concatMap (ext bexp) xs ++ concatMap (ext $ BNot bexp) ys
 
 -- | Data type denoting a potential recursion cycle.
--- TODO: Would it be worth merging the definitions of Rec and Cond?
 data Rec a
   = Simple a
   -- ^ Basic, non-recursive value.
-  -- TODO: We can drop the list here?
   | Rec [a]
   -- ^ (Possibly multiple) recursion cycles.
   | MutRec [(String,a)]
@@ -251,7 +247,6 @@ data UpdChoice = UpdChoice
 class IsPhase (ph :: Phase) where
   -- | The updates which can be performed.
   data Upd ph
-  -- TODO: Could we alternatively just declare the variables that occur in the updates and drop the skolems?
   -- | The environment for the DAML-LF verifier.
   data Env ph
   -- | Construct a base update.
@@ -301,7 +296,6 @@ class IsPhase (ph :: Phase) where
   setEnvChoices :: HM.HashMap UpdChoice (ChoiceData ph) -> Env ph -> Env ph
 
 instance IsPhase 'ValueGathering where
-  -- TODO: We could possibly try to take out the Cond's and make a seperate UpdVGCond constructor?
   data Upd 'ValueGathering
     = UpdVGBase ![Cond BaseUpd]
     -- ^ A base update.
@@ -331,7 +325,7 @@ instance IsPhase 'ValueGathering where
     upd -> upd
   containsChoiceRefs upds = not $ null [x | UpdVGChoice x <- upds]
   extCondUpd bexp = \case
-    (UpdVGBase base) -> map (UpdVGBase . (extCond bexp)) base
+    (UpdVGBase base) -> map (UpdVGBase . extCond bexp) base
     (UpdVGChoice cho) -> map UpdVGChoice $ extCond bexp cho
     (UpdVGVal val) -> map UpdVGVal $ extCond bexp val
   emptyEnv = EnvVG [] HM.empty HM.empty HM.empty []
@@ -389,7 +383,7 @@ instance IsPhase 'ChoiceGathering where
   extCondUpd bexp = \case
     (UpdCGBase base) ->
       let base' = case base of
-            Simple upd -> map (Simple . (extCond bexp)) upd
+            Simple upd -> map (Simple . extCond bexp) upd
             Rec cycles -> [Rec $ map (concatMap (extCond bexp)) cycles]
             MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
       in map UpdCGBase base'
@@ -442,7 +436,7 @@ instance IsPhase 'Solving where
   containsChoiceRefs _ = False
   extCondUpd bexp (UpdSBase base) =
     let base' = case base of
-          Simple upd -> map (Simple . (extCond bexp)) upd
+          Simple upd -> map (Simple . extCond bexp) upd
           Rec cycles -> [Rec $ map (concatMap (extCond bexp)) cycles]
           MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
     in map UpdSBase base'
@@ -500,8 +494,6 @@ conditionalUpdateSet exp upd1 upd2 =
   introCond $ createCond (BExpr exp) upd1 upd2
 
 -- | Refresh a given expression variable by producing a fresh renamed variable.
--- TODO: when a renamed var gets renamed again, it might overlap again.
--- We should have an additional field in VarName to denote its number.
 genRenamedVar :: MonadEnv m ph
   => ExprVarName
   -- ^ The variable to be renamed.
@@ -624,7 +616,6 @@ extRecEnv :: (IsPhase ph, MonadEnv m ph)
 extRecEnv x fs = do
   env <- getEnv
   let skols = envSkols env
-      -- TODO: avoid duplicates
       curFs = [fs' | SkolRec x' fs' <- skols, x == x']
       newFs = if null curFs
         then fs
@@ -647,14 +638,14 @@ extRecEnvTCons = mapM_ step
           extRecEnv (fieldName2VarName f) $ map fst fsRec
 
 -- | Extend the environment with a new skolem variable.
--- TODO: Avoid duplicates.
 extSkolEnv :: (IsPhase ph, MonadEnv m ph)
   => Skolem
   -- ^ The skolem variable to add.
   -> m ()
 extSkolEnv skol = do
   env <- getEnv
-  putEnv $ setEnvSkols (skol : envSkols env) env
+  when (not $ elem skol $ envSkols env)
+       (putEnv $ setEnvSkols (skol : envSkols env) env)
 
 -- | Extend the environment with a new value definition.
 extValEnv :: (IsPhase ph, MonadEnv m ph)
@@ -859,9 +850,10 @@ lookupCid exp = do
     Nothing -> throwError $ UnknownCid cid
     Just var -> return var
 
--- TODO: This should work recursively
 -- | Lookup the field names and corresponding types, for a given record type
 -- constructor name, if possible.
+-- TODO: At the moment, this does not work recursively for nested type
+-- constructors. This might be a useful extension later on.
 recTypConFields :: (IsPhase ph, MonadEnv m ph)
   => TypeConName
   -- ^ The record type constructor name to lookup.
@@ -890,7 +882,6 @@ recExpFields (EVar x) = do
   skols <- envSkols <$> getEnv
   let fss = [ fs | SkolRec y fs <- skols, x == y ]
   if not (null fss)
-    -- TODO: I would prefer `this.amount` here
     then return $ Just $ zip (head fss) (map (EVar . fieldName2VarName) $ head fss)
     else throwError $ UnboundVar x
 recExpFields (ERecCon _ fs) = return $ Just fs
@@ -937,7 +928,7 @@ instance SubstTm a => SubstTm (Rec a) where
     MutRec xs -> MutRec (map (second (substituteTm s)) xs)
 
 instance IsPhase ph => SubstTm (Upd ph) where
-  substituteTm s = mapBaseUpd (baseUpd . (substituteTm s))
+  substituteTm s = mapBaseUpd (baseUpd . substituteTm s)
 
 instance SubstTm BaseUpd where
   substituteTm s UpdCreate{..} = UpdCreate _creTemp

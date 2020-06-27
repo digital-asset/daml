@@ -3,7 +3,6 @@
 
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -16,7 +15,7 @@ module DA.Daml.LF.Verify.ReferenceSolve
 
 import Data.Hashable
 import Data.Maybe (fromMaybe)
-import Data.List (intersperse)
+import Data.List (intercalate)
 import qualified Data.HashMap.Strict as HM
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
@@ -36,19 +35,19 @@ solveValueReferences env =
   where
     lookup_ref_in :: Qualified ExprValName
       -> HM.HashMap (Qualified ExprValName) (UpdateSet 'ValueGathering)
-      -> Maybe ( (UpdateSet 'ValueGathering)
+      -> Maybe ( UpdateSet 'ValueGathering
                , HM.HashMap (Qualified ExprValName) (UpdateSet 'ValueGathering) )
-    lookup_ref_in ref hmap = (\upd -> (upd, HM.delete ref hmap)) <$> (HM.lookup ref hmap)
+    lookup_ref_in ref hmap = (, HM.delete ref hmap) <$> HM.lookup ref hmap
 
     lookup_ref_out :: Qualified ExprValName
       -> HM.HashMap (Qualified ExprValName) (UpdateSet 'ChoiceGathering)
       -> Maybe (UpdateSet 'ChoiceGathering)
     lookup_ref_out ref hmap = HM.lookup ref hmap
 
-    pop_upds :: (UpdateSet 'ValueGathering)
+    pop_upds :: UpdateSet 'ValueGathering
       -> Maybe ( Either (Cond (Qualified ExprValName))
                         (UpdateSet 'ChoiceGathering)
-               , (UpdateSet 'ValueGathering) )
+               , UpdateSet 'ValueGathering )
     pop_upds = \case
       [] -> Nothing
       (upd:updset1) ->
@@ -58,8 +57,8 @@ solveValueReferences env =
               UpdVGVal val -> Left val
         in Just (upd', updset1)
 
-    ext_upds :: (UpdateSet 'ChoiceGathering) -> (UpdateSet 'ChoiceGathering)
-      -> (UpdateSet 'ChoiceGathering)
+    ext_upds :: UpdateSet 'ChoiceGathering -> UpdateSet 'ChoiceGathering
+      -> UpdateSet 'ChoiceGathering
     ext_upds = concatUpdateSet
 
     make_rec :: UpdateSet 'ChoiceGathering -> UpdateSet 'ChoiceGathering
@@ -70,13 +69,13 @@ solveValueReferences env =
       -> UpdateSet 'ChoiceGathering
     make_mutrec inp =
       let (strs, upds) = unzip inp
-          debug = concat $ intersperse " - " $ map (show . unExprValName . qualObject) strs
+          debug = intercalate " - " $ map (show . unExprValName . qualObject) strs
           updConcat = foldl concatUpdateSet emptyUpdateSet upds
       in (map baseUpd $ makeMutRec [upd | UpdCGBase upd <- updConcat] debug)
            ++ [UpdCGChoice cho | UpdCGChoice cho <- updConcat]
 
     intro_cond :: Cond (UpdateSet 'ChoiceGathering)
-      -> (UpdateSet 'ChoiceGathering)
+      -> UpdateSet 'ChoiceGathering
     intro_cond (Determined x) = x
     intro_cond (Conditional cond cx cy) =
       let xs = map intro_cond cx
@@ -85,8 +84,8 @@ solveValueReferences env =
           updy = foldl concatUpdateSet emptyUpdateSet ys
       in (introCond $ createCond cond updx updy)
 
-    empty_upds :: (UpdateSet 'ValueGathering)
-      -> (UpdateSet 'ChoiceGathering)
+    empty_upds :: UpdateSet 'ValueGathering
+      -> UpdateSet 'ChoiceGathering
     empty_upds _ = emptyUpdateSet
 
 -- | Solves the choice references by computing the closure of all referenced
@@ -102,7 +101,7 @@ solveChoiceReferences env =
       -> HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
       -> Maybe ( ChoiceData 'ChoiceGathering
                , HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering) )
-    lookup_ref_in ref hmap = (\upd -> (upd, HM.delete ref hmap)) <$> (HM.lookup ref hmap)
+    lookup_ref_in ref hmap = (, HM.delete ref hmap) <$> HM.lookup ref hmap
 
     lookup_ref_out :: UpdChoice
       -> HM.HashMap UpdChoice (ChoiceData 'Solving)
@@ -137,7 +136,7 @@ solveChoiceReferences env =
     make_mutrec :: [(UpdChoice, ChoiceData 'Solving)] -> ChoiceData 'Solving
     make_mutrec inp =
       let (strs, chdats) = unzip inp
-          debug = concat $ intersperse " - " $ map (show . unChoiceName . _choName) strs
+          debug = intercalate " - " $ map (show . unChoiceName . _choName) strs
           chdat = concat_chdats chdats
           upds = map baseUpd $ makeMutRec [upd | UpdSBase upd <- _cdUpds chdat] debug
       in chdat{_cdUpds = upds}
@@ -223,7 +222,7 @@ solveReference :: forall ref updset0 updset1. (Eq ref, Hashable ref, Show ref)
 solveReference lookupRef lookupSol popUpd extUpds makeRec makeMutRec introCond emptyUpds vis (hmapRef0, hmapSol0) ref0 =
   -- Check for loops. If the references has already been visited, then the
   -- reference should be flagged as recursive.
-  case snd $ break (\(ref,_) -> ref == ref0) vis of
+  case dropWhile (not . (\(ref,_) -> ref == ref0)) vis of
 
     -- When no recursion has been detected, continue inlining the references.
     -- First, lookup the update set for the given reference, and remove it from
