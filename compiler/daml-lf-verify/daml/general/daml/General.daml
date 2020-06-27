@@ -12,9 +12,11 @@ template Gen with
 
     choice SuccA: ContractId Gen
       controller owner
-      -- TODO Bug:
-      -- do create this
       do create this with content
+
+    choice SuccB: ContractId Gen
+      controller owner
+      do create this
 
     nonconsuming choice FailA: ContractId Gen
       with
@@ -25,23 +27,23 @@ template Gen with
 
     -- Test abstraction over updates.
 
-    nonconsuming choice SuccB: ()
+    nonconsuming choice SuccC: ()
       controller owner
       do let _ = archive self
          pure ()
 
-    nonconsuming choice SuccC: ()
+    nonconsuming choice SuccD: ()
       controller owner
       do let _ = create Gen with owner; content = 1
          pure ()
 
-    nonconsuming choice SuccD: ()
+    nonconsuming choice SuccE: ()
       controller owner
       do let x = create Gen with owner; content = 0
          _ <- x
          pure ()
 
-    choice SuccE: ()
+    choice SuccF: ()
       controller owner
       do let x = create Gen with owner; content = 1
          _ <- x
@@ -57,7 +59,7 @@ template Gen with
 
     -- Test exercise.
 
-    choice SuccF: ()
+    choice SuccG: ()
       controller owner
       do _ <- exercise self FailA with amount = content
          pure ()

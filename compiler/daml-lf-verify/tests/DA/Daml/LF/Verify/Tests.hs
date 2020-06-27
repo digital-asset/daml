@@ -101,6 +101,14 @@ generalTests = testGroup "General"
       result <- verify genDar debug tmpl choice tmpl field
       assertEqual "Verification failed for SuccF - content"
         [Success] result
+  , testCase "Success G" $ do
+      genDar <- locateRunfiles (mainWorkspace </> generalPath)
+      let tmpl = TypeConName ["Gen"]
+          choice = ChoiceName "SuccG"
+          field = FieldName "content"
+      result <- verify genDar debug tmpl choice tmpl field
+      assertEqual "Verification failed for SuccG - content"
+        [Success] result
   , testCase "Fail A" $ do
       genDar <- locateRunfiles (mainWorkspace </> generalPath)
       let tmpl = TypeConName ["Gen"]

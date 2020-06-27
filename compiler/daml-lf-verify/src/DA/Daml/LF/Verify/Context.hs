@@ -882,7 +882,7 @@ recExpFields (EVar x) = do
   skols <- envSkols <$> getEnv
   let fss = [ fs | SkolRec y fs <- skols, x == y ]
   if not (null fss)
-    then return $ Just $ zip (head fss) (map (EVar . fieldName2VarName) $ head fss)
+    then return $ Just $ zip (head fss) (map (\f -> EStructProj f (EVar x)) $ head fss)
     else throwError $ UnboundVar x
 recExpFields (ERecCon _ fs) = return $ Just fs
 recExpFields (EStructCon fs) = return $ Just fs
@@ -898,6 +898,7 @@ recExpFields (ERecProj _ f e) = do
       Just e' -> recExpFields e'
       Nothing -> throwError $ UnknownRecField f
     Nothing -> return Nothing
+recExpFields (EStructProj f (EVar _)) = recExpFields (EVar $ fieldName2VarName f)
 recExpFields (EStructProj f e) = do
   recExpFields e >>= \case
     Just fields -> case lookup f fields of

@@ -167,7 +167,6 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   extVarEnv self
   extVarEnv arg
   extVarEnv this
-  -- TODO Bug: `create this`, without a single record assignment throws an error.
   -- Extend the environment with any record fields from the arguments.
   argFs <- recTypFields (snd chcArgBinder) >>= \case
     Nothing -> throwError ExpectRecord
