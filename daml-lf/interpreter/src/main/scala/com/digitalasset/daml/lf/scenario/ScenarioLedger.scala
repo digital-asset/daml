@@ -588,6 +588,12 @@ case class ScenarioLedger(
 
   }
 
+  def query(view: View, effectiveAt: Time.Timestamp): Seq[(ContractId, ContractInst[Tx.Value[ContractId]])] = {
+    ledgerData.activeContracts.toList.map(cid => lookupGlobalContract(view, effectiveAt, cid)).collect {
+      case LookupOk(cid, coinst, _) => (cid, coinst)
+    }
+  }
+
   /** Focusing on a specific view of the ledger, lookup the
     * contract-instance associated to a specific contract-id.
     */

@@ -13,6 +13,8 @@ service ScenarioService {
   // Run a scenario, returning the scenario results or an error.
   rpc RunScenario (RunScenarioRequest) returns (RunScenarioResponse);
 
+  rpc RunScript (RunScenarioRequest) returns (RunScenarioResponse);
+
   // Allocate a new scenario interpretation context.
   // The context essentially defines the state consisting of a set of
   // project's modules and a set of external packages.

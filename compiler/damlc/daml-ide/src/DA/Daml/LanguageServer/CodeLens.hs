@@ -38,8 +38,8 @@ handle ide (CodeLensParams (TextDocumentIdentifier uri) _) = Right <$> do
               Nothing -> pure []
               Just (mod, mapping) ->
                   pure
-                      [ virtualResourceToCodeLens (range, "Scenario: " <> name, vr)
-                      | (valRef, Just loc) <- scenariosInModule mod
+                      [ virtualResourceToCodeLens (range, prefix <> name, vr)
+                      | (prefix, (valRef, Just loc)) <- map ("Scenario: ",) (scenariosInModule mod) ++ map ("Script: ",) (scriptsInModule mod)
                       , let name = LF.unExprValName (LF.qualObject valRef)
                       , let vr = VRScenario filePath name
                       , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]

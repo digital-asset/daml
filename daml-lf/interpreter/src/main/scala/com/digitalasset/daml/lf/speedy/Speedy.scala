@@ -41,15 +41,15 @@ private[lf] object Speedy {
       var maxDepthEnv: Int,
   ) {
     def print(): Unit = {
-      println("--------------------")
-      println(s"#steps: ${classifyCounts.steps}")
-      println(s"#pushEnv: $countPushesEnv")
-      println(s"maxDepthEnv: $maxDepthEnv")
-      println(s"#pushKont: $countPushesKont")
-      println(s"maxDepthKont: $maxDepthKont")
-      println("--------------------")
-      println(s"classify:\n${classifyCounts.pp}")
-      println("--------------------")
+      System.err.println("--------------------")
+      System.err.println(s"#steps: ${classifyCounts.steps}")
+      System.err.println(s"#pushEnv: $countPushesEnv")
+      System.err.println(s"maxDepthEnv: $maxDepthEnv")
+      System.err.println(s"#pushKont: $countPushesKont")
+      System.err.println(s"maxDepthKont: $maxDepthKont")
+      System.err.println("--------------------")
+      System.err.println(s"classify:\n${classifyCounts.pp}")
+      System.err.println("--------------------")
     }
   }
 

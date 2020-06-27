@@ -21,6 +21,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , SkipValidation(..)
   , updateCtx
   , runScenario
+  , runScript
   , SS.ScenarioResult(..)
   , encodeScenarioModule
   , ScenarioServiceException(..)
@@ -323,6 +324,34 @@ runScenario Handle{..} (ContextId ctxId) name = do
   res <-
     performRequest
       (SS.scenarioServiceRunScenario hClient)
+      (optRequestTimeout hOptions)
+      (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
+  pure $ case res of
+    Left err -> Left (BackendError err)
+    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
+    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseResult r))) -> Right r
+    Right _ -> error "IMPOSSIBLE: missing payload in RunScenarioResponse"
+  where
+    toIdentifier :: LF.ValueRef -> SS.Identifier
+    toIdentifier (LF.Qualified pkgId modName defn) =
+      let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
+            LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
+            LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
+          mangledDefn =
+              fromRight (error "Failed to mangle scenario name") $
+              mangleIdentifier (LF.unExprValName defn)
+          mangledModName = mangleModuleName modName
+      in
+        SS.Identifier
+          (Just ssPkgId)
+          (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
+
+runScript :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
+runScript Handle{..} (ContextId ctxId) name = do
+  System.IO.hPutStrLn System.IO.stderr "RUNNING SCRIPT"
+  res <-
+    performRequest
+      (SS.scenarioServiceRunScript hClient)
       (optRequestTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of

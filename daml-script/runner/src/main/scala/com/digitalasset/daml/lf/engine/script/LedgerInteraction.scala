@@ -3,6 +3,9 @@
 
 package com.daml.lf.engine.script
 
+
+import com.daml.lf.engine.preprocessing
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -27,12 +30,24 @@ import spray.json._
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.lf.CompiledPackages
+import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Ref, ImmArray}
+import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, SResult}
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.speedy.Speedy.Machine
+// import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.{AExpr, SValue, SError}
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SResult._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.jwt.domain.Jwt
@@ -72,7 +87,7 @@ object ScriptLedgerClient {
       templateId: Identifier,
       contractId: ContractId,
       choice: String,
-      argument: Value[ContractId])
+      argument: (Value[ContractId], SValue))
       extends Command
   final case class ExerciseByKeyCommand(
       templateId: Identifier,
@@ -250,7 +265,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         for {
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(CreateCommand(Some(toApiIdentifier(templateId)), Some(arg)))
-      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, argument) =>
+      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, (argument, _)) =>
         for {
           arg <- lfValueToApiValue(true, argument)
         } yield
@@ -294,6 +309,182 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
+}
+
+class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
+  var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  val machine = Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+  private val txSeeding = crypto.Hash.hashPrivateKey(s"scenario-service")
+  machine.ptx = PartialTransaction.initial(Time.Timestamp.MinValue, InitialSeeding.TransactionSeed(txSeeding))
+  private val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
+  override def query(party: SParty, templateId: Identifier)(
+      implicit ec: ExecutionContext,
+    mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
+    val acs = ledger.query(view = ScenarioLedger.ParticipantView(party.value), effectiveAt = ledger.currentTime)
+    val filtered = acs.collect {
+      case (cid, Value.ContractInst(tpl, arg, _)) if tpl == templateId => (cid, arg)
+    }
+    Future.successful(filtered.map { case (cid, c) => ScriptLedgerClient.ActiveContract(templateId, cid, c.value) })
+  }
+
+  private def makeApp(func: AExpr, values: Array[SValue]): AExpr = {
+    val args: Array[SExprAtomic] = values.map(SEValue(_))
+    // We can safely introduce a let-expression here to bind the `func` expression,
+    // because there are no stack-references in `args`, since they are pure speedy values.
+    AExpr(SELet1General(func.wrapped, SEAppAtomicGeneral(SELocS(1), args)))
+  }
+
+  private def translateCommand(cmd: ScriptLedgerClient.Command): AExpr = {
+    cmd match {
+      case ScriptLedgerClient.CreateCommand(tplId, arg) =>
+        // Writing creates in SExpr is super annoying so compile it as a function.
+        val sArg = valueTranslator.translateValue(TTyCon(tplId), arg).right.get
+        val fn = compiledPackages.compiler.unsafeCompile(EAbs((Name.assertFromString("arg"), TTyCon(tplId)), EUpdate(UpdateCreate(tplId, EVar(Name.assertFromString("arg")))), None))
+        makeApp(fn, Array(sArg))
+      case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, (_, arg)) =>
+        // Writing creates in SExpr is super annoying so compile it as a function.
+        val argName = Name.assertFromString("arg")
+        val cidName = Name.assertFromString("cid")
+        val fn = compiledPackages.compiler.unsafeCompile(
+          EAbs(
+            (cidName, TContractId(TTyCon(tplId))),
+            EAbs((argName, TTyCon(tplId)),
+              EUpdate(
+                UpdateExercise(
+                  tplId,
+                  ChoiceName.assertFromString(choice),
+                  EVar(cidName),
+                  None,
+                  EVar(argName))),
+              None),
+            None))
+        makeApp(fn, Array(SContractId(cid), arg))
+      case _ => throw new RuntimeException("foobar")
+    }
+  }
+
+  private def translateCommands(p: SParty, commands: List[ScriptLedgerClient.Command]): AExpr = {
+    val cmds = commands.map(translateCommand(_))
+    val pureUnit = compiledPackages.compiler.unsafeCompile(EScenario(ScenarioPure(TUnit, EUnit)))
+    val update = SEMakeClo(Array(), 1,
+
+      cmds.foldRight(SELet1(pureUnit.wrapped, SEAppAtomicGeneral(SELocS(1), Array(SELocA(0)))))
+        {case (cmd, acc) => SELet1(cmd.wrapped, SELet1(SEAppAtomicGeneral(SELocS(1), Array(SELocA(0))), acc))})
+      // SELet(bounds: _*) in SEApp(pureUnit, Array(SELocA(0))))
+
+    val x =
+      EAbs(
+        (Name.assertFromString("party"), TParty),
+        EAbs(
+          (Name.assertFromString("update"), TUpdate(TUnit)),
+          EScenario(ScenarioCommit(EVar(Name.assertFromString("party")),EVar(Name.assertFromString("update")), TUnit)),
+          None),
+        None)
+
+    AExpr(SELet1(update, SELet1(compiledPackages.compiler.unsafeCompile(x).wrapped,  SEAppAtomicGeneral(SELocS(1), Array(SEValue(p), SELocS(2))))))
+  }
+
+  override def submit(
+      applicationId: ApplicationId,
+      party: SParty,
+      commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+        mat: Materializer):Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
+    machine.returnValue = null
+    System.err.println(s"compiling: ${machine.env.size}")
+    var translated = translateCommands(party, commands)
+    machine.setExpressionToEvaluate(AExpr(SELet1(translated.wrapped, SEAppAtomicGeneral(SELocS(1), Array(SEValue.Token)))))
+    System.err.println(s"RUNNING")
+    var r: SResult = SResultFinalValue(SUnit)
+    var result:Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]  = null
+    while (result == null) {
+      machine.run() match {
+        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
+          val committer =committers.head
+          val effectiveAt = ledger.currentTime
+
+          def missingWith(err: SError) =
+            if (!cbMissing(()))
+              throw new RuntimeException(err.toString)
+
+          ledger.lookupGlobalContract(
+            view = ScenarioLedger.ParticipantView(committer),
+            effectiveAt = effectiveAt,
+            coid) match {
+            case ScenarioLedger.LookupOk(_, coinst, _) =>
+              cbPresent(coinst)
+
+            case ScenarioLedger.LookupContractNotFound(coid) =>
+              // This should never happen, hence we don't have a specific
+              // error for this.
+              missingWith(SErrorCrash(s"contract $coid not found"))
+
+            case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
+              missingWith(ScenarioErrorContractNotEffective(coid, tid, effectiveAt))
+
+            case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
+              missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
+
+            case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
+              missingWith(ScenarioErrorContractNotVisible(coid, tid, committer, observers))
+          }
+        case SResultScenarioCommit(value, tx, committers, callback) =>
+          val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
+            tx.nodes(n) match {
+              case create: NodeCreate.WithTxValue[ContractId] =>
+                ScriptLedgerClient.CreateResult(create.coid)
+              case exercise: NodeExercises.WithTxValue[_, ContractId] =>
+                ScriptLedgerClient.ExerciseResult(exercise.templateId, exercise.choiceId.toString, exercise.exerciseResult.get.value)
+              case _ => throw new RuntimeException("foobar")
+            }
+          }
+          val committer = committers.head
+          ScenarioLedger.commitTransaction(
+            committer = committer,
+            effectiveAt = ledger.currentTime,
+            optLocation = machine.commitLocation,
+            tx = tx,
+            l = ledger
+          ) match {
+            case Left(fas) =>
+              throw new RuntimeException("abc")
+            case Right(result) =>
+              ledger = result.newLedger
+              callback(value)
+          }
+          System.err.println(s"commited: $tx")
+          result = Right(results.toSeq)
+        case err =>
+          System.err.println(s"Failed commit: $err")
+          throw new RuntimeException(s"FAILED: $err")
+      }
+    }
+    Future.successful(result)
+  }
+
+  override def allocateParty(partyIdHint: String, displayName: String)(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
+  }
+
+  override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
+    throw new RuntimeException("foobar")
+  }
+
+  override def getStaticTime()(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Time.Timestamp] = {
+    throw new RuntimeException("foobar")
+  }
+
+  override def setStaticTime(time: Time.Timestamp)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): Future[Unit] = {
+    throw new RuntimeException("foobar")
+  }
 }
 
 // Current limitations and issues when running DAML script over the JSON API:
@@ -375,7 +566,7 @@ class JsonLedgerClient(
           command match {
             case ScriptLedgerClient.CreateCommand(tplId, argument) =>
               create(tplId, argument)
-            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
+            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, (argument, _)) =>
               exercise(tplId, cid, choice, argument)
             case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
               exerciseByKey(tplId, key, choice, argument)

@@ -18,6 +18,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , deleteCtx
   , gcCtxs
   , runScenario
+  , runScript
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
@@ -25,6 +26,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , encodeModule
   ) where
 
+import qualified System.IO
 import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception
@@ -223,6 +225,32 @@ runScenario Handle{..} ctxId name = do
       waitQSemN hConcurrencySem 1
       _ <- forkIO $ do
         r <- try $ restore $ LowLevel.runScenario hLowLevelHandle ctxId name
+        case r of
+            Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
+            Right r -> putMVar resVar r
+        signalQSemN hConcurrencySem 1
+      pure ()
+  takeMVar resVar
+
+runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runScript Handle{..} ctxId name = do
+  System.IO.hPutStrLn System.IO.stderr "RUNNING SCRIPT HL"
+  resVar <- newEmptyMVar
+  -- When a scenario execution is aborted, we would like to be able to return
+  -- immediately. However, we cannot cancel the actual execution of the scenario.
+  -- Therefore, we launch run the synchronous execution request in a separate thread
+  -- that takes care of managing the semaphore. This thread keeps running
+  -- even if `runScenario` was aborted (we cannot abort the FFI calls anyway)
+  -- and ensures that we track the actual number of running executions rather
+  -- than the number of calls to `runScenario` that have not been canceled.
+  _ <- mask $ \restore -> do
+      -- Rather than using a bracket in the new thread
+      -- we can be a bit more clever and don’t even
+      -- launch the new thread until we acquire the
+      -- semaphore.
+      waitQSemN hConcurrencySem 1
+      _ <- forkIO $ do
+        r <- try $ restore $ LowLevel.runScript hLowLevelHandle ctxId name
         case r of
             Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
             Right r -> putMVar resVar r

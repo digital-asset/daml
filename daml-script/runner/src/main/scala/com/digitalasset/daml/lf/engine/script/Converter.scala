@@ -164,7 +164,7 @@ object Converter {
             templateId = tplId,
             contractId = cid,
             choice = anyChoice.name,
-            argument = anyChoice.arg.toValue,
+            argument = (anyChoice.arg.toValue, anyChoice.arg),
           )
       }
       case _ => Left(s"Expected Exercise but got $v")

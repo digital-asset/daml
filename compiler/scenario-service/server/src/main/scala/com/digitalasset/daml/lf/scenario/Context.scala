@@ -6,9 +6,11 @@ package scenario
 
 import java.util.concurrent.atomic.AtomicLong
 
+import akka.stream.Materializer
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
-import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.Compiler
@@ -16,13 +18,25 @@ import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
 import com.daml.lf.speedy.AExpr
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{SValue, SExpr}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.ValueVersions
 import com.google.protobuf.ByteString
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
+import com.daml.lf.engine.script.{
+  Runner,
+  Script,
+  ScriptIds,
+  ScriptTimeMode,
+  IdeClient,
+  Participants
+}
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.collection.immutable.HashMap
 
 /**
@@ -162,7 +176,8 @@ class Context(val contextId: Context.ContextId) {
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] =
+  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] = {
+    System.err.println("running scenario")
     buildMachine(
       Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
     ).map { machine =>
@@ -173,5 +188,31 @@ class Context(val contextId: Context.ContextId) {
           (ledger, machine, Left(err))
       }
     }
+  }
 
+  def interpretScript(
+      pkgId: String,
+      name: String,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer)
+      : Future[Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])]] = {
+    System.err.println("running script")
+    val defns = this.defns
+    val compiledPackages =
+      PureCompiledPackages(allPackages, defns, Compiler.FullStackTrace, Compiler.NoProfile)
+    val (scriptPackageId, _) = allPackages.find {
+      case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
+    }.get
+    val scriptExpr = SExpr.SEVal(
+      LfDefRef(Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))))
+    val runner = new Runner(
+      compiledPackages,
+      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
+      ApplicationId("scenario runner"),
+      ScriptTimeMode.Static)
+    val client = new IdeClient(compiledPackages)
+    val participants = Participants(Some(client), Map.empty, Map.empty)
+    runner.runWithClients(participants).map(x =>
+      Some((client.ledger, client.machine, Right(x)))
+    )
+  }
 }
