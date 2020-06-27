@@ -78,24 +78,20 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
       -- the stored value references. After this phase, all value references
       -- should be inlined.
       let env2 = solveValueReferences env1
-      -- Inline the newly solved references in the boolean constraints.
-      case runEnv inlineReferences env2 of
-        Left err -> outputError err "Value reference solving phase finished with error: "
+      -- Start reading template definitions. References to choices are just
+      -- stored as references at this point.
+      debug "Start choice gathering"
+      case runEnv (genPackages pkgs) env2 of
+        Left err -> outputError err "Choice phase finished with error: "
         Right env3 -> do
-          -- Start reading template definitions. References to choices are just
-          -- stored as references at this point.
-          debug "Start choice gathering"
-          case runEnv (genPackages pkgs) env3 of
-            Left err -> outputError err "Choice phase finished with error: "
-            Right env4 -> do
-              -- All choice definitions have been handled. Start computing closures
-              -- of the stored choice references. After this phase, all choice
-              -- references should be inlined.
-              debug "Start choice solving"
-              let env5 = solveChoiceReferences env4
-              -- Construct the actual constraints to be solved by the SMT solver.
-              let csets = constructConstr env5 choiceTmpl choiceName fieldTmpl fieldName
-              mapM (debugAndSolve solver) csets
+          -- All choice definitions have been handled. Start computing closures
+          -- of the stored choice references. After this phase, all choice
+          -- references should be inlined.
+          debug "Start choice solving"
+          let env4 = solveChoiceReferences env3
+          -- Construct the actual constraints to be solved by the SMT solver.
+          let csets = constructConstr env4 choiceTmpl choiceName fieldTmpl fieldName
+          mapM (debugAndSolve solver) csets
   where
     -- | Output some debugging information and solve the given constraints.
     debugAndSolve :: FilePath -> ConstraintSet -> IO Result

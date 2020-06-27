@@ -28,6 +28,7 @@ module DA.Daml.LF.Verify.Context
   , runEnv
   , genRenamedVar
   , createCond
+  , introCond
   , makeRec, makeMutRec
   , addBaseUpd, addChoice
   , emptyUpdateSet, extendUpdateSet, concatUpdateSet
@@ -139,73 +140,24 @@ simplifyCond (Conditional _ xs ys)
   | xs == ys = concatMap simplifyCond xs
 simplifyCond c = [c]
 
--- | Construct a single conditional update set, combining the two input lists
--- and the boolean expression, if the input is non-empty.
--- Helper function for `introCond`.
-buildCond :: IsPhase ph
-  => BoolExpr
-  -> [Cond (UpdateSet ph)]
-  -> [Cond (UpdateSet ph)]
-  -> (BoolExpr -> (Upd ph) -> UpdateSet ph)
-  -> UpdateSet ph
-buildCond bexp cxs cys ext =
-  let xs = concatMap introCond cxs
-      ys = concatMap introCond cys
-  in (concatMap (ext bexp) xs) ++ (concatMap (ext $ BNot bexp) ys)
-
--- | Construct a single conditional, combining the two input lists and the
--- boolean expression, if the input is non-empty.
--- Helper function for `introCond`.
--- buildCond :: (IsPhase ph, Eq a)
---   => BoolExpr
---   -- ^ The condition.
---   -> [Cond (UpdateSet ph)]
---   -- ^ The input for the true case.
---   -> [Cond (UpdateSet ph)]
---   -- ^ The input for the false case.
---   -> (UpdateSet ph -> [Cond a])
---   -- ^ The fetch function.
---   -> [Cond a]
--- buildCond e updx updy get =
---   let xs = flattenCond updx get
---       ys = flattenCond updy get
---   in concatMap simplifyCond [Conditional e xs ys | not (null xs && null ys)]
-
--- | Construct a single recursive conditional, combining the two input lists and
--- the boolean expression, if the input is non-empty.
--- Helper function for `introCond`.
--- buildRecCond :: (IsPhase ph, Eq a)
---   => BoolExpr
---   -- ^ The condition.
---   -> [Cond (UpdateSet ph)]
---   -- ^ The input for the true case.
---   -> [Cond (UpdateSet ph)]
---   -- ^ The input for the false case.
---   -> (UpdateSet ph -> [Rec [Cond a]])
---   -- ^ The fetch function.
---   -> [Rec [Cond a]]
--- buildRecCond e updx updy get =
---   let xs = flattenCond updx get
---       ys = flattenCond updy get
---       (xsimples, xrecs, xmutrecs) = splitRecs xs
---       (ysimples, yrecs, ymutrecs) = splitRecs ys
---   in map (fmap (concatMap simplifyCond))
---       ( [Simple [Conditional e xsimples ysimples] | not (null xsimples && null ysimples)]
---       ++ map (fmap $ map (extCond e)) (xrecs ++ xmutrecs)
---       ++ map (fmap $ map (extCond (BNot e))) (yrecs ++ ymutrecs) )
-
--- | Fetch the conditionals from the conditional update set, and flatten the
--- two layers into one.
--- Helper function for `build(Rec)Cond`.
--- flattenCond :: IsPhase ph
---   => [Cond (UpdateSet ph)]
---   -- ^ The conditional update set to fetch from.
---   -> (UpdateSet ph -> [a])
---   -- ^ The fetch function.
---   -> [a]
--- flattenCond upds get =
---   let upds' = map introCond upds
---   in concatMap get upds'
+-- | Shift the conditional inside of the update set, by extending each update
+-- with the condition.
+introCond :: IsPhase ph => Cond (UpdateSet ph) -> UpdateSet ph
+introCond (Determined upds) = upds
+introCond (Conditional e updx updy) = buildCond e updx updy extCondUpd
+  where
+    -- | Construct a single conditional update set, combining the two input lists
+    -- and the boolean expression, if the input is non-empty.
+    buildCond :: IsPhase ph
+      => BoolExpr
+      -> [Cond (UpdateSet ph)]
+      -> [Cond (UpdateSet ph)]
+      -> (BoolExpr -> (Upd ph) -> UpdateSet ph)
+      -> UpdateSet ph
+    buildCond bexp cxs cys ext =
+      let xs = concatMap introCond cxs
+          ys = concatMap introCond cys
+      in (concatMap (ext bexp) xs) ++ (concatMap (ext $ BNot bexp) ys)
 
 -- | Data type denoting a potential recursion cycle.
 -- TODO: Would it be worth merging the definitions of Rec and Cond?
@@ -220,11 +172,6 @@ data Rec a
   -- Note that this behaves idential to regular recursion, with the addition of
   -- an information field for debugging purposes.
   deriving Functor
-
--- | Take out the value from a Simple Rec value, or fail.
--- fromSimple :: Rec a -> a
--- fromSimple (Simple x) = x
--- fromSimple _ = error "Impossible: Expected a Simple value"
 
 -- | Split a list of Rec values by constructor.
 splitRecs :: [Rec [a]] -> ([a], [Rec [a]], [Rec [a]])
@@ -315,28 +262,10 @@ class IsPhase (ph :: Phase) where
   valueUpd :: Cond (Qualified ExprValName) -> Upd ph
   -- | Map over a single base update.
   mapBaseUpd :: (Rec [Cond BaseUpd] -> Upd ph) -> Upd ph -> Upd ph
-  -- | Map over and concat a single base update.
-  concatMapBaseUpd :: (Rec [Cond BaseUpd] -> [Upd ph]) -> Upd ph -> [Upd ph]
-  -- | Map over and concat base updates.
-  concatMapBaseUpds :: (Rec [Cond BaseUpd] -> [Upd ph]) -> UpdateSet ph -> UpdateSet ph
   -- | Check whether the update set contains any choice references.
   containsChoiceRefs :: UpdateSet ph -> Bool
-  -- | Shift the conditional inside the update set.
-  introCond :: Cond (UpdateSet ph) -> UpdateSet ph
-
-  -- -- | Get the list of updates from an update set.
-  -- updSetUpdates :: UpdateSet ph -> [Rec [Cond BaseUpd]]
-  -- -- | Update the list of updates in an update set.
-  -- setUpdSetUpdates :: [Rec [Cond BaseUpd]] -> UpdateSet ph -> UpdateSet ph
-  -- -- | Get the list of exercised choices from an update set.
-  -- updSetChoices :: UpdateSet ph -> [Cond UpdChoice]
-  -- -- | Update the list of exercised choices in an update set.
-  -- setUpdSetChoices :: [Cond UpdChoice] -> UpdateSet ph -> UpdateSet ph
-  -- -- | Get the list of referenced values from an update set.
-  -- updSetValues :: UpdateSet ph -> [Cond (Qualified ExprValName)]
-  -- -- | Update the list of referenced values from an update set.
-  -- setUpdSetValues :: [Cond (Qualified ExprValName)] -> UpdateSet ph -> UpdateSet ph
-
+  -- | Extend the conditional of an update.
+  extCondUpd :: BoolExpr -> Upd ph -> UpdateSet ph
   -- | Construct an empty environment.
   emptyEnv :: Env ph
   -- | Combine two environments.
@@ -397,36 +326,14 @@ instance IsPhase 'ValueGathering where
     _ -> error "The value gathering phase can't contain recursive updates."
   choiceUpd = UpdVGChoice
   valueUpd = UpdVGVal
-  -- emptyUpdateSet = UpdateSetVG [] [] []
-  -- concatUpdateSet (UpdateSetVG upd1 cho1 val1) (UpdateSetVG upd2 cho2 val2) =
-  --   UpdateSetVG (upd1 ++ upd2) (cho1 ++ cho2) (val1 ++ val2)
   mapBaseUpd f = \case
     UpdVGBase b -> f (Simple b)
     upd -> upd
-  concatMapBaseUpd f = \case
-    UpdVGBase b -> f (Simple b)
-    upd -> [upd]
-  concatMapBaseUpds f = concatMap (concatMapBaseUpd f)
   containsChoiceRefs upds = not $ null [x | UpdVGChoice x <- upds]
-  -- WIP: Merge introCond with buildCond, and add introCondUpd to the class instead
-  introCond (Determined upds) = upds
-  introCond (Conditional e updx updy) = buildCond e updx updy introCondUpd
-    where
-      introCondUpd :: BoolExpr -> Upd 'ValueGathering -> UpdateSet 'ValueGathering
-      -- introCondUpd bexp (UpdVGBase base) = map UpdVGBase $ map (extCond bexp) base
-      introCondUpd bexp (UpdVGBase base) = map (UpdVGBase . (extCond bexp)) base
-      introCondUpd bexp (UpdVGChoice cho) = map UpdVGChoice $ extCond bexp cho
-      introCondUpd bexp (UpdVGVal val) = map UpdVGVal $ extCond bexp val
-  -- UpdateSetVG
-  --   (buildCond e updx updy ((concatMap fromSimple) . updSetUpdates))
-  --   (buildCond e updx updy updSetChoices)
-  --   (buildCond e updx updy updSetValues)
-  -- updSetUpdates (UpdateSetVG upd _ _) = [Simple upd]
-  -- setUpdSetUpdates upd (UpdateSetVG _ cho val) = UpdateSetVG (concatMap fromSimple upd) cho val
-  -- updSetChoices (UpdateSetVG _ cho _) = cho
-  -- setUpdSetChoices cho (UpdateSetVG upd _ val) = UpdateSetVG upd cho val
-  -- updSetValues (UpdateSetVG _ _ val) = val
-  -- setUpdSetValues val (UpdateSetVG upd cho _) = UpdateSetVG upd cho val
+  extCondUpd bexp = \case
+    (UpdVGBase base) -> map (UpdVGBase . (extCond bexp)) base
+    (UpdVGChoice cho) -> map UpdVGChoice $ extCond bexp cho
+    (UpdVGVal val) -> map UpdVGVal $ extCond bexp val
   emptyEnv = EnvVG [] HM.empty HM.empty HM.empty []
   concatEnv (EnvVG vars1 vals1 dats1 cids1 ctrs1) (EnvVG vars2 vals2 dats2 cids2 ctrs2) =
     EnvVG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
@@ -475,37 +382,18 @@ instance IsPhase 'ChoiceGathering where
   baseUpd = UpdCGBase
   choiceUpd = UpdCGChoice
   valueUpd = error "The choice gathering phase no longer contains value references."
-  -- emptyUpdateSet = UpdateSetCG [] []
-  -- concatUpdateSet (UpdateSetCG upd1 cho1) (UpdateSetCG upd2 cho2) =
-  --   UpdateSetCG (upd1 ++ upd2) (cho1 ++ cho2)
   mapBaseUpd f = \case
     UpdCGBase b -> f b
     upd -> upd
-  concatMapBaseUpd f = \case
-    UpdCGBase b -> f b
-    upd -> [upd]
-  concatMapBaseUpds f = concatMap (concatMapBaseUpd f)
   containsChoiceRefs upds = not $ null [x | UpdCGChoice x <- upds]
-  introCond (Determined upds) = upds
-  introCond (Conditional e updx updy) = buildCond e updx updy introCondUpd
-    where
-      introCondUpd :: BoolExpr -> Upd 'ChoiceGathering -> UpdateSet 'ChoiceGathering
-      introCondUpd bexp (UpdCGBase base) =
-        let base' = case base of
-              Simple upd -> map (Simple . (extCond bexp)) upd
-              Rec cycles -> [Rec $ map (concatMap (extCond bexp)) cycles]
-              MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
-        in map UpdCGBase base'
-      introCondUpd bexp (UpdCGChoice cho) = map UpdCGChoice (extCond bexp cho)
-  -- UpdateSetCG
-  --   (buildRecCond e updx updy updSetUpdates)
-  --   (buildCond e updx updy updSetChoices)
-  -- updSetUpdates (UpdateSetCG upd _) = upd
-  -- setUpdSetUpdates upd (UpdateSetCG _ cho) = UpdateSetCG upd cho
-  -- updSetChoices (UpdateSetCG _ cho) = cho
-  -- setUpdSetChoices cho (UpdateSetCG upd _) = UpdateSetCG upd cho
-  -- updSetValues _ = error "A choice gathering update set does not contain value references."
-  -- setUpdSetValues _ _ = error "A choice gathering update set does not contain value references."
+  extCondUpd bexp = \case
+    (UpdCGBase base) ->
+      let base' = case base of
+            Simple upd -> map (Simple . (extCond bexp)) upd
+            Rec cycles -> [Rec $ map (concatMap (extCond bexp)) cycles]
+            MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
+      in map UpdCGBase base'
+    (UpdCGChoice cho) -> map UpdCGChoice (extCond bexp cho)
   emptyEnv = EnvCG [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
   concatEnv (EnvCG vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvCG vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
     EnvCG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
@@ -550,31 +438,14 @@ instance IsPhase 'Solving where
   baseUpd = UpdSBase
   choiceUpd = error "The solving phase no longer contains choice references."
   valueUpd = error "The solving phase no longer contains value references."
-  -- emptyUpdateSet = UpdateSetS []
-  -- concatUpdateSet (UpdateSetS upd1) (UpdateSetS upd2) =
-  --   UpdateSetS (upd1 ++ upd2)
   mapBaseUpd f (UpdSBase b) = f b
-  concatMapBaseUpd f (UpdSBase b) = f b
-  concatMapBaseUpds f = concatMap (concatMapBaseUpd f)
   containsChoiceRefs _ = False
-  introCond (Determined upds) = upds
-  introCond (Conditional e updx updy) = buildCond e updx updy introCondUpd
-    where
-      introCondUpd :: BoolExpr -> Upd 'Solving -> UpdateSet 'Solving
-      introCondUpd bexp (UpdSBase base) =
-        let base' = case base of
-              Simple upd -> map (Simple . (extCond bexp)) upd
-              Rec cycles -> [Rec $ map (concatMap (extCond bexp)) cycles]
-              MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
-        in map UpdSBase base'
-  -- UpdateSetS
-  --   (buildRecCond e updx updy updSetUpdates)
-  -- updSetUpdates (UpdateSetS upd) = upd
-  -- setUpdSetUpdates upd (UpdateSetS _) = UpdateSetS upd
-  -- updSetChoices _ = error "A solving update set does not contain choice references."
-  -- setUpdSetChoices _ _ = error "A solving update set does not contain choice references."
-  -- updSetValues _ = error "A solving update set does not contain value references."
-  -- setUpdSetValues _ _ = error "A solving update set does not contain value references."
+  extCondUpd bexp (UpdSBase base) =
+    let base' = case base of
+          Simple upd -> map (Simple . (extCond bexp)) upd
+          Rec cycles -> [Rec $ map (concatMap (extCond bexp)) cycles]
+          MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
+    in map UpdSBase base'
   emptyEnv = EnvS [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
   concatEnv (EnvS vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvS vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
     EnvS (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
@@ -1067,11 +938,6 @@ instance SubstTm a => SubstTm (Rec a) where
 
 instance IsPhase ph => SubstTm (Upd ph) where
   substituteTm s = mapBaseUpd (baseUpd . (substituteTm s))
-
--- instance IsPhase ph => SubstTm (UpdateSet ph) where
---   substituteTm s upds = setUpdSetUpdates substBaseUpd upds
---     where
---       substBaseUpd = map (substituteTm s) (updSetUpdates upds)
 
 instance SubstTm BaseUpd where
   substituteTm s UpdCreate{..} = UpdCreate _creTemp
