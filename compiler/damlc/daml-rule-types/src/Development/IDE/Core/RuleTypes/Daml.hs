@@ -94,6 +94,8 @@ instance NFData VirtualResource
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
+type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
 -- The hash is used to decide if a module needs to be reloaded in the scenario service.
 type instance RuleResult EncodeModule = (SS.Hash, BS.ByteString)
@@ -201,6 +203,12 @@ data RunScenarios = RunScenarios
 instance Binary   RunScenarios
 instance Hashable RunScenarios
 instance NFData   RunScenarios
+
+data RunScripts = RunScripts
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   RunScripts
+instance Hashable RunScripts
+instance NFData   RunScripts
 
 data EncodeModule = EncodeModule
     deriving (Eq, Show, Typeable, Generic)

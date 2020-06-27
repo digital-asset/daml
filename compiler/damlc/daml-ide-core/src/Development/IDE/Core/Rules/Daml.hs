@@ -228,6 +228,10 @@ getDalfDependencies files = do
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
 
+
+runScripts :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
+runScripts file = use RunScripts file
+
 -- | Get a list of the scenarios in a given file
 getScenarioNames :: NormalizedFilePath -> Action (Maybe [VirtualResource])
 getScenarioNames file = fmap f <$> use GenerateRawDalf file
@@ -799,6 +803,36 @@ runScenariosRule =
       let (diags, results) = unzip scenarioResults
       pure (catMaybes diags, Just results)
 
+runScriptsRule :: Options -> Rules ()
+runScriptsRule opts =
+    define $ \RunScripts file -> do
+      m <- dalfForScenario file
+      world <- worldForFile file
+      let scenarios = map fst $ scriptsInModule (optEnableScripts opts) m
+          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
+          toDiagnostic scenario (Left err) =
+              Just $ (file, ShowDiag,) $ Diagnostic
+              { _range = maybe noRange sourceLocToRange mbLoc
+              , _severity = Just DsError
+              , _source = Just "Script"
+              , _message = Pretty.renderPlain $ formatScenarioError world err
+              , _code = Nothing
+              , _tags = Nothing
+              , _relatedInformation = Nothing
+              }
+            where scenarioName = LF.qualObject scenario
+                  mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
+          toDiagnostic _ (Right _) = Nothing
+      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
+      ctxRoot <- use_ GetScenarioRoot file
+      ctxId <- use_ CreateScenarioContext ctxRoot
+      scenarioResults <-
+          liftIO $ forM scenarios $ \scenario -> do
+              (vr, res) <- runScript scenarioService file ctxId scenario
+              pure (toDiagnostic scenario res, (vr, res))
+      let (diags, results) = unzip scenarioResults
+      pure (catMaybes diags, Just results)
+
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
     case LF.moduleSource m of
@@ -909,12 +943,17 @@ ofInterestRule opts = do
         -- compile and notify any errors
         let runScenarios file = do
                 world <- worldForFile file
-                mbVrs <- use RunScenarios file
-                forM_ (fromMaybe [] mbVrs) $ \(vr, res) -> do
+                mbScenarioVrs <- use RunScenarios file
+                mbScriptVrs <-
+                    if getEnableScripts (optEnableScripts opts)
+                        then use RunScripts file
+                        else pure (Just [])
+                let vrs = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
+                forM_ vrs $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
                     when (vr `HashSet.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
-                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
+                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) vrs
                 forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
                     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
                         sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
@@ -937,7 +976,7 @@ ofInterestRule opts = do
         let files = HashSet.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
         let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
-        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
+        let runScenarioActions = [runScenarios f  | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
@@ -1025,6 +1064,13 @@ formatScenarioResult world errOrRes =
 runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
     res <- SS.runScenario scenarioService ctxId scenario
+    let scenarioName = LF.qualObject scenario
+    let vr = VRScenario file (LF.unExprValName scenarioName)
+    pure (vr, res)
+
+runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScript scenarioService file ctxId scenario = do
+    res <- SS.runScript scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)
@@ -1120,6 +1166,17 @@ scenariosInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
 
+
+scriptsInModule :: EnableScripts -> LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
+scriptsInModule (EnableScripts enable) m
+  | not enable = []
+  | otherwise =
+    [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
+    | val <- NM.toList (LF.moduleValues m)
+    , T.head (LF.unExprValName (LF.dvalName val)) /= '$'
+    , LF.TConApp (LF.Qualified _ (LF.ModuleName ["Daml", "Script"]) (LF.TypeConName ["Script"])) _ <-  [LF.dvalType val]
+    ]
+
 getDamlLfVersion :: Action LF.Version
 getDamlLfVersion = envDamlLfVersion <$> getDamlServiceEnv
 
@@ -1168,6 +1225,7 @@ damlRule opts = do
     generateRawPackageRule opts
     generatePackageDepsRule opts
     runScenariosRule
+    runScriptsRule opts
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
