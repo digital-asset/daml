@@ -184,7 +184,6 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   -- Substitute the renamed variables, and the `Self` package id.
   -- Run the constraint generator on the resulting choice expression.
   let substVar = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
-  -- TODO: Can preconditions perform updates?
   expOut <- genExpr True
     $ substituteTm substVar
     $ instPRSelf pac chcUpdate
@@ -214,7 +213,6 @@ genTemplate pac mod Template{..} = do
   let preCond (this :: Expr) =
         substituteTm (singleExprSubst tplParam this)
         (instPRSelf pac tplPrecondition)
-  -- TODO: This might break in combination with forward references. To be checked.
   extPrecond name preCond
   mapM_ (genChoice pac name tplParam fields)
     (archive : NM.toList tplChoices)
@@ -248,16 +246,7 @@ genExpr updFlag = \case
       (out, _, _) <- genUpdate upd
       return out
     else return $ emptyOut $ EUpdate upd
-  -- TODO: Remove?
-  -- EUpdate (UPure typ expr) -> do
-  --   out <- genExpr updFlag expr
-  --   return $ updateOutExpr (EUpdate $ UPure typ (_oExpr out)) out
-  -- EUpdate (UBind bind expr) -> if updFlag
-  --   then do
-  --     (out, _, _) <- genForBind bind expr
-  --     return out
-  --   else return $ emptyOut $ EUpdate (UBind bind expr)
-  -- TODO: Extend additional cases
+  -- TODO: This can be extended with missing cases later on.
   e -> return $ emptyOut e
 
 -- | Analyse an update expression, and produce both an Output, its return type
@@ -265,17 +254,17 @@ genExpr updFlag = \case
 genUpdate :: (GenPhase ph, MonadEnv m ph)
   => Update
   -- ^ The update expression to be analysed.
-  -> m (Output ph, Type, Maybe Expr)
+  -> m (Output ph, Maybe Type, Maybe Expr)
 genUpdate = \case
   UBind bind expr -> genForBind bind expr
   UPure typ expr -> do
     out <- genExpr True expr
     let out' = updateOutExpr (EUpdate $ UPure typ (_oExpr out)) out
-    return (out', typ, Nothing)
+    return (out', Just typ, Nothing)
   UCreate tem arg -> genForCreate tem arg
   UExercise tem ch cid par arg -> genForExercise tem ch cid par arg
-  UGetTime -> return (emptyOut (EUpdate UGetTime), TBuiltin BTTimestamp, Nothing)
-  -- TODO: Extend additional cases
+  UGetTime -> return (emptyOut (EUpdate UGetTime), Just $ TBuiltin BTTimestamp, Nothing)
+  -- TODO: This can be extended with missing cases later on.
   u -> error ("Update not implemented yet: " ++ show u)
 
 -- | Analyse a term application expression.
@@ -291,7 +280,6 @@ genForTmApp updFlag fun arg = do
   funOut <- genExpr updFlag fun
   arout <- genExpr updFlag arg
   case _oExpr funOut of
-    -- TODO: Should we rename here?
     ETmLam bndr body -> do
       let subst = singleExprSubst (fst bndr) (_oExpr arout)
           resExpr = substituteTm subst body
@@ -358,7 +346,6 @@ genForRecProj :: (GenPhase ph, MonadEnv m ph)
 genForRecProj updFlag tc f body = do
   bodyOut <- genExpr updFlag body
   case _oExpr bodyOut of
-    -- TODO: I think we can reduce duplication a bit more here
     EVar x -> do
       skol <- lookupRec x f
       if skol
@@ -367,8 +354,9 @@ genForRecProj updFlag tc f body = do
     expr -> do
       recExpFields expr >>= \case
         Just fs -> case lookup f fs of
-          -- TODO: Include the bodyOut updates.
-          Just expr -> genExpr updFlag expr
+          Just expr -> do
+            exprOut <- genExpr updFlag expr
+            return $ combineOut exprOut bodyOut
           Nothing -> throwError $ UnknownRecField f
         Nothing -> return $ updateOutExpr (ERecProj tc f expr) bodyOut
 
@@ -384,7 +372,6 @@ genForStructProj :: (GenPhase ph, MonadEnv m ph)
 genForStructProj updFlag f body = do
   bodyOut <- genExpr updFlag body
   case _oExpr bodyOut of
-    -- TODO: I think we can reduce duplication a bit more here
     EVar x -> do
       skol <- lookupRec x f
       if skol
@@ -393,13 +380,15 @@ genForStructProj updFlag f body = do
     expr -> do
       recExpFields expr >>= \case
         Just fs -> case lookup f fs of
-          -- TODO: Include the bodyOut updates.
-          Just expr -> genExpr updFlag expr
+          Just expr -> do
+            exprOut <- genExpr updFlag expr
+            return $ combineOut exprOut bodyOut
           Nothing -> throwError $ UnknownRecField f
         Nothing -> return $ updateOutExpr (EStructProj f expr) bodyOut
 
 -- | Analyse a case expression.
--- TODO: Atm only boolean cases are supported
+-- TODO: This should be extended with general pattern matching, instead of only
+-- supporting boolean cases.
 genForCase :: (GenPhase ph, MonadEnv m ph)
   => Bool
   -- ^ Flag denoting whether to analyse update expressions.
@@ -435,14 +424,14 @@ genForCreate :: (GenPhase ph, MonadEnv m ph)
   -- ^ The template of which a new instance is being created.
   -> Expr
   -- ^ The argument expression.
-  -> m (Output ph, Type, Maybe Expr)
+  -> m (Output ph, Maybe Type, Maybe Expr)
 genForCreate tem arg = do
   arout <- genExpr True arg
   recExpFields (_oExpr arout) >>= \case
     Just fs -> do
       fsEval <- mapM partial_eval_field fs
       return ( Output (EUpdate (UCreate tem $ _oExpr arout)) $ addBaseUpd emptyUpdateSet (UpdCreate tem fsEval)
-             , TCon tem
+             , Just $ TCon tem
              , Just $ EStructCon fsEval )
     Nothing -> throwError ExpectRecord
   where
@@ -466,31 +455,24 @@ genForExercise :: (GenPhase ph, MonadEnv m ph)
   -- ^ The party which exercises the choice.
   -> Expr
   -- ^ The arguments with which the choice is being exercised.
-  -> m (Output ph, Type, Maybe Expr)
+  -> m (Output ph, Maybe Type, Maybe Expr)
 genForExercise tem ch cid par arg = do
   cidOut <- genExpr True cid
   arout <- genExpr True arg
   lookupChoice tem ch >>= \case
     Just (updSubst, resType) -> do
       this <- fst <$> lookupCid (_oExpr cidOut)
-      let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
-      -- TODO: Clean up this duplication.
-      if containsChoiceRefs updSet
-        then do
-          let updSet = addChoice emptyUpdateSet tem ch
-          return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
-                 , resType
-                 , Nothing )
-        else do
-          -- TODO: Why doesn't this work? The solver should inline this anyway?
-          -- let updSet = addChoice emptyUpdateSet tem ch
-          return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
-                 , resType
-                 , Nothing ) -- TODO!
+      let updSet_refs = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
+          updSet = if containsChoiceRefs updSet_refs
+            then addChoice emptyUpdateSet tem ch
+            else updSet_refs
+      return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+             , Just resType
+             , Nothing )
     Nothing -> do
       let updSet = addChoice emptyUpdateSet tem ch
       return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
-             , TBuiltin BTUnit -- TODO: Make the return type a Maybe?
+             , Nothing
              , Nothing )
 
 -- | Analyse a bind update expression.
@@ -500,7 +482,7 @@ genForBind :: (GenPhase ph, MonadEnv m ph)
   -- ^ The binding being bound with this update.
   -> Expr
   -- ^ The expression in which this binding is being made available.
-  -> m (Output ph, Type, Maybe Expr)
+  -> m (Output ph, Maybe Type, Maybe Expr)
 genForBind bind body = do
   bindOut <- genExpr False (bindingBound bind)
   (bindUpd, subst) <- case _oExpr bindOut of
@@ -508,7 +490,7 @@ genForBind bind body = do
       let var0 = fst $ bindingBinder bind
       var1 <- genRenamedVar var0
       let subst = singleExprSubst var0 (EVar var1)
-      _ <- bindCids False (TContractId (TCon tc)) cid (EVar var1) Nothing
+      _ <- bindCids False (Just $ TContractId (TCon tc)) cid (EVar var1) Nothing
       return (emptyUpdateSet, subst)
     EUpdate upd -> do
       (updOut, updTyp, creFs) <- genUpdate upd
@@ -518,30 +500,20 @@ genForBind bind body = do
     _ -> return (emptyUpdateSet, emptyExprSubst)
   extVarEnv (fst $ bindingBinder bind)
   bodyOut <- genExpr False $ substituteTm subst body
-  case _oExpr bodyOut of
-    EUpdate bodyUpd -> do
-      (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
-      return ( Output
-                 (_oExpr bodyUpdOut)
-                 (_oUpdate bindOut
-                   `concatUpdateSet` bindUpd
-                   `concatUpdateSet` _oUpdate bodyOut
-                   `concatUpdateSet` _oUpdate bodyUpdOut)
-             , bodyTyp
-             , creFs )
-    -- TODO: Temporary hack
-    expr -> do
-      let bodyUpd = UPure (TBuiltin BTUnit) expr
-      (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
-      return ( Output
-                 (_oExpr bodyUpdOut)
-                 (_oUpdate bindOut
-                   `concatUpdateSet` bindUpd
-                   `concatUpdateSet` _oUpdate bodyOut
-                   `concatUpdateSet` _oUpdate bodyUpdOut)
-             , bodyTyp
-             , creFs )
-    -- _ -> error "Impossible: The body of a bind should be an update expression"
+  let bodyUpd = case _oExpr bodyOut of
+        EUpdate bodyUpd -> bodyUpd
+        -- Note: This is a bit of a hack, as we're forced to provide some type to
+        -- UPure, but the type itself doesn't really matter.
+        expr -> UPure (TBuiltin BTUnit) expr
+  (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
+  return ( Output
+             (_oExpr bodyUpdOut)
+             (_oUpdate bindOut
+               `concatUpdateSet` bindUpd
+               `concatUpdateSet` _oUpdate bodyOut
+               `concatUpdateSet` _oUpdate bodyUpdOut)
+         , bodyTyp
+         , creFs )
 
 -- | Refresh and bind the fetched contract id to the given variable. Returns a
 -- substitution, mapping the old id to the refreshed one.
@@ -550,7 +522,7 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -- ^ Flag denoting whether the contract id's should be refreshed.
   -- Note that even with the flag on, contract id's are only refreshed on their
   -- first encounter.
-  -> Type
+  -> Maybe Type
   -- ^ The type of the contract id's being bound.
   -> Expr
   -- ^ The contract id's being bound.
@@ -559,8 +531,8 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -> Maybe Expr
   -- ^ The field values for any created contracts, if available.
   -> m ExprSubst
--- TODO: combine these two cases.
-bindCids b (TContractId (TCon tc)) cid (EVar this) fsExpM = do
+bindCids _ Nothing _ _ _ = return emptyExprSubst
+bindCids b (Just (TContractId (TCon tc))) cid (EVar this) fsExpM = do
   fs <- recTypConFields (qualObject tc) >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
@@ -576,7 +548,7 @@ bindCids b (TContractId (TCon tc)) cid (EVar this) fsExpM = do
           return subst
         Nothing -> throwError ExpectRecord
     Nothing -> return subst
-bindCids b (TCon tc) cid (EVar this) fsExpM = do
+bindCids b (Just (TCon tc)) cid (EVar this) fsExpM = do
   fs <- recTypConFields (qualObject tc) >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
@@ -592,23 +564,21 @@ bindCids b (TCon tc) cid (EVar this) fsExpM = do
           return subst
         Nothing -> throwError ExpectRecord
     Nothing -> return subst
-bindCids b (TApp (TApp (TCon con) t1) t2) cid var fsExpM =
+bindCids b (Just (TApp (TApp (TCon con) t1) t2)) cid var fsExpM =
   case head $ unTypeConName $ qualObject con of
     "Tuple2" -> do
-      -- TODO: Test this part more extensively.
-      -- cidOut <- genExpr True cid
-      subst1 <- bindCids b t1 (EStructProj (FieldName "_1") cid) var fsExpM
-      subst2 <- bindCids b t2 (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExpM
+      subst1 <- bindCids b (Just t1) (EStructProj (FieldName "_1") cid) var fsExpM
+      subst2 <- bindCids b (Just t2) (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExpM
       return (subst1 `concatExprSubst` subst2)
     con' -> error ("Binding contract id's for this constructor has not been implemented yet: " ++ show con')
-bindCids _ (TBuiltin BTUnit) _ _ _ = return emptyExprSubst
-bindCids _ (TBuiltin BTTimestamp) _ _ _ = return emptyExprSubst
--- TODO: Extend additional cases, like tuples.
-bindCids _ typ _ _ _ =
+bindCids _ (Just (TBuiltin BTUnit)) _ _ _ = return emptyExprSubst
+bindCids _ (Just (TBuiltin BTTimestamp)) _ _ _ = return emptyExprSubst
+-- TODO: This can be extended with additional cases later on.
+bindCids _ (Just typ) _ _ _ =
   error ("Binding contract id's for this particular type has not been implemented yet: " ++ show typ)
 
--- TODO: It would be much nicer to have these functions in Context.hs, but they
--- require the `GenPhase` monad. Find a nicer way to fix this.
+-- Note: It would be much nicer to have these functions in Context.hs, but they
+-- require the `GenPhase` monad.
 -- | Lookup the preconditions for a given type, and instantiate the `this`
 -- variable.
 lookupPreconds :: (GenPhase ph, MonadEnv m ph)
@@ -629,7 +599,6 @@ lookupPreconds typ this = case typ of
 
 -- | Bind the given contract id, and add any required additional constraints to
 -- the environment.
--- TODO: Combine this with `bindCids`?
 extEnvContract :: (GenPhase ph, MonadEnv m ph)
   => Type
   -- ^ The contract id type to add to the environment.
@@ -642,7 +611,7 @@ extEnvContract (TContractId typ) cid bindM = extEnvContract typ cid bindM
 extEnvContract (TCon tem) cid bindM = do
   bindV <- genRenamedVar (ExprVarName "var")
   let bind = fromMaybe bindV bindM
-  _ <- bindCids False (TCon tem) cid (EVar bind) Nothing
+  _ <- bindCids False (Just $ TCon tem) cid (EVar bind) Nothing
   lookupPreconds (TCon tem) bind >>= \case
     Nothing -> return ()
     Just precond -> do

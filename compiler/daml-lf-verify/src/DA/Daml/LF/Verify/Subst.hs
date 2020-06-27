@@ -16,6 +16,8 @@ module DA.Daml.LF.Verify.Subst
   , InstPR(..)
   ) where
 
+-- TODO: Replace this with the existing substitution library.
+
 import Control.Lens hiding (Context)
 import Data.Bifunctor
 import qualified Data.Map.Strict as Map

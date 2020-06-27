@@ -644,7 +644,7 @@ extSkolEnv :: (IsPhase ph, MonadEnv m ph)
   -> m ()
 extSkolEnv skol = do
   env <- getEnv
-  when (not $ elem skol $ envSkols env)
+  when (notElem skol $ envSkols env)
        (putEnv $ setEnvSkols (skol : envSkols env) env)
 
 -- | Extend the environment with a new value definition.

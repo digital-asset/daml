@@ -27,7 +27,6 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Verify.Context
 
--- TODO: Since S.SExpr is so similar, we could just drop this.
 -- | A simple form of expressions featuring basic arithmetic.
 data ConstraintExpr
   -- | Boolean value.
@@ -46,16 +45,8 @@ data ConstraintExpr
   | CMul !ConstraintExpr !ConstraintExpr
   -- | Division of two expressions.
   | CDiv !ConstraintExpr !ConstraintExpr
-  -- | Equals operator.
-  | CEq !ConstraintExpr !ConstraintExpr
-  -- | Greater than operator.
-  | CGt !ConstraintExpr !ConstraintExpr
-  -- | Greater than or equal operator.
-  | CGtE !ConstraintExpr !ConstraintExpr
-  -- | Less than operator.
-  | CLt !ConstraintExpr !ConstraintExpr
-  -- | Less than or equal operator.
-  | CLtE !ConstraintExpr !ConstraintExpr
+  -- | Boolean operator.
+  | COp !CtrOperator !ConstraintExpr !ConstraintExpr
   -- | Boolean and operator.
   | CAnd !ConstraintExpr !ConstraintExpr
   -- | Boolean not operator.
@@ -64,8 +55,7 @@ data ConstraintExpr
   | CIf !ConstraintExpr !ConstraintExpr !ConstraintExpr
   deriving Show
 
--- TODO: Use in ConstraintExpr
--- | Binary operator for constraint expressions.
+-- | Binary boolean operator for constraint expressions.
 data CtrOperator
   -- | Equals operator.
   = OpEq
@@ -88,11 +78,7 @@ instance Pretty ConstraintExpr where
   pretty (CSub e1 e2) = pretty e1 <+> " - " <+> pretty e2
   pretty (CMul e1 e2) = parens (pretty e1) <+> " * " <+> parens (pretty e2)
   pretty (CDiv e1 e2) = parens (pretty e1) <+> " / " <+> parens (pretty e2)
-  pretty (CEq e1 e2) = pretty e1 <+> " == " <+> pretty e2
-  pretty (CGt e1 e2) = pretty e1 <+> " > " <+> pretty e2
-  pretty (CGtE e1 e2) = pretty e1 <+> " >= " <+> pretty e2
-  pretty (CLt e1 e2) = pretty e1 <+> " < " <+> pretty e2
-  pretty (CLtE e1 e2) = pretty e1 <+> " <= " <+> pretty e2
+  pretty (COp op e1 e2) = pretty e1 <+> pretty op <+> pretty e2
   pretty (CAnd e1 e2) = pretty e1 <+> " and " <+> pretty e2
   pretty (CNot e) = "not " <+> pretty e
   pretty (CIf e1 e2 e3) = "if " <+> pretty e1 <+> " then " <+> pretty e2
@@ -124,11 +110,11 @@ instance ConstrExpr BoolExpr where
   toCExp syns (BExpr e) = toCExp syns e
   toCExp syns (BAnd b1 b2) = CAnd (toCExp syns b1) (toCExp syns b2)
   toCExp syns (BNot b) = CNot (toCExp syns b)
-  toCExp syns (BEq b1 b2) = CEq (toCExp syns b1) (toCExp syns b2)
-  toCExp syns (BGt b1 b2) = CGt (toCExp syns b1) (toCExp syns b2)
-  toCExp syns (BGtE b1 b2) = CGtE (toCExp syns b1) (toCExp syns b2)
-  toCExp syns (BLt b1 b2) = CLt (toCExp syns b1) (toCExp syns b2)
-  toCExp syns (BLtE b1 b2) = CLtE (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BEq b1 b2) = COp OpEq (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BGt b1 b2) = COp OpGt (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BGtE b1 b2) = COp OpGtE (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BLt b1 b2) = COp OpLt (toCExp syns b1) (toCExp syns b2)
+  toCExp syns (BLtE b1 b2) = COp OpLtE (toCExp syns b1) (toCExp syns b2)
 
 instance ConstrExpr Expr where
   toCExp syns (EVar x) = case lookup x syns of
@@ -142,17 +128,17 @@ instance ConstrExpr Expr where
     Nothing -> CVar $ recProj2Var x f
   toCExp syns (ETmApp (ETmApp op e1) e2) = case op of
     -- TODO: Cleanup this code
-    (EBuiltin (BEEqual _)) -> CEq (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BEGreater _)) -> CGt (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BEGreaterEq _)) -> CGtE (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BELess _)) -> CLt (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BELessEq _)) -> CLtE (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BEEqual _)) -> COp OpEq (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BEGreater _)) -> COp OpGt (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BEGreaterEq _)) -> COp OpGtE (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BELess _)) -> COp OpLt (toCExp syns e1) (toCExp syns e2)
+    (EBuiltin (BELessEq _)) -> COp OpLtE (toCExp syns e1) (toCExp syns e2)
     (EBuiltin BEAddInt64) -> CAdd (toCExp syns e1) (toCExp syns e2)
     (EBuiltin BESubInt64) -> CSub (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BEGreaterNumeric) _) -> CGt (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> CGtE (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BELessNumeric) _) -> CLt (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BELessEqNumeric) _) -> CLtE (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BEGreaterNumeric) _) -> COp OpGt (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> COp OpGtE (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BELessNumeric) _) -> COp OpLt (toCExp syns e1) (toCExp syns e2)
+    (ETyApp (EBuiltin BELessEqNumeric) _) -> COp OpLtE (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BEAddNumeric) _) -> CAdd (toCExp syns e1) (toCExp syns e2)
     (ETyApp (EBuiltin BESubNumeric) _) -> CSub (toCExp syns e1) (toCExp syns e2)
     (ETyApp (ETyApp (ETyApp (EBuiltin BEMulNumeric) _) _) _) -> CMul (toCExp syns e1) (toCExp syns e2)
@@ -168,14 +154,13 @@ instance ConstrExpr Expr where
   toCExp _syns (EBuiltin (BEBool b)) = CBool b
   toCExp _syns (EBuiltin (BEInt64 i)) = CInt $ toInteger i
   toCExp _syns (EBuiltin (BENumeric i)) = CReal $ toRational $ numericDecimal i
-  -- TODO: Temporary fix. This should already have been evaluated.
   toCExp syns (ERecProj _ f (ERecCon _ fields)) = toCExp syns $ fromJust $ lookup f fields
   toCExp _syns e = error ("Conversion: " ++ show e)
 
 instance ConstrExpr a => ConstrExpr (Cond a) where
   toCExp syns (Determined x) = toCExp syns x
-  -- TODO: Can we assume this should always be a sum?
-  -- TODO: Simplify when left and right are equal.
+  -- TODO: Simplifications could be added here later on.
+  -- e.g. Remove the conditional when both sides are equal.
   toCExp syns (Conditional b x y) = CIf (toCExp syns b)
     (addMany $ map (toCExp syns) x)
     (addMany $ map (toCExp syns) y)
@@ -192,11 +177,7 @@ gatherFreeVars (CAdd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CSub e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CMul e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CDiv e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
-gatherFreeVars (CEq e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
-gatherFreeVars (CGt e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
-gatherFreeVars (CGtE e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
-gatherFreeVars (CLt e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
-gatherFreeVars (CLtE e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (COp _ e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CAnd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CNot e) = gatherFreeVars e
 gatherFreeVars (CIf e1 e2 e3) = gatherFreeVars e1 `union`
@@ -360,26 +341,16 @@ cexp2sexp vars (CDiv ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
   return $ S.realDiv se1 se2
-cexp2sexp vars (CEq ce1 ce2) = do
+cexp2sexp vars (COp cop ce1 ce2) = do
+  let sop = case cop of
+        OpEq -> S.eq
+        OpGt -> S.gt
+        OpGtE -> S.geq
+        OpLt -> S.lt
+        OpLtE -> S.leq
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
-  return $ S.eq se1 se2
-cexp2sexp vars (CGt ce1 ce2) = do
-  se1 <- cexp2sexp vars ce1
-  se2 <- cexp2sexp vars ce2
-  return $ S.gt se1 se2
-cexp2sexp vars (CGtE ce1 ce2) = do
-  se1 <- cexp2sexp vars ce1
-  se2 <- cexp2sexp vars ce2
-  return $ S.geq se1 se2
-cexp2sexp vars (CLt ce1 ce2) = do
-  se1 <- cexp2sexp vars ce1
-  se2 <- cexp2sexp vars ce2
-  return $ S.lt se1 se2
-cexp2sexp vars (CLtE ce1 ce2) = do
-  se1 <- cexp2sexp vars ce1
-  se2 <- cexp2sexp vars ce2
-  return $ S.leq se1 se2
+  return $ sop se1 se2
 cexp2sexp vars (CAnd ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
@@ -437,11 +408,7 @@ declareCtrs sol cvars1 exprs = do
       -- ^ The expression to convert.
       -> (CtrOperator, ConstraintExpr, ConstraintExpr, [ExprVarName])
     toTuple e = case e of
-      (CEq cexpr1 cexpr2) -> (OpEq, cexpr1, cexpr2, gatherFreeVars e)
-      (CGt cexpr1 cexpr2) -> (OpGt, cexpr1, cexpr2, gatherFreeVars e)
-      (CGtE cexpr1 cexpr2) -> (OpGtE, cexpr1, cexpr2, gatherFreeVars e)
-      (CLt cexpr1 cexpr2) -> (OpLt, cexpr1, cexpr2, gatherFreeVars e)
-      (CLtE cexpr1 cexpr2) -> (OpLtE, cexpr1, cexpr2, gatherFreeVars e)
+      (COp op cexpr1 cexpr2) -> (op, cexpr1, cexpr2, gatherFreeVars e)
       _ -> error ("Invalid constraint expression: " ++ show e)
 
     -- | Compute connected components of the equality constraints graph.

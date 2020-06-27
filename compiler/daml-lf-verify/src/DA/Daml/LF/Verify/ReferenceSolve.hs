@@ -208,8 +208,8 @@ solveReference :: forall ref updset0 updset1. (Eq ref, Hashable ref, Show ref)
   -> (updset0 -> updset1)
   -- ^ Function for emptying a given update set of all updates.
   -> [(ref, updset1)]
-  -- TODO: HashMap?
-  -- ^ The references which have already been visited.
+  -- ^ The references which have already been visited. Note that this a list
+  -- rather than a HashMap, as the ordering is important here.
   -> ( HM.HashMap ref updset0
   -- ^ The hashmap mapping references to update sets and references.
   -- These still need to be solved.
