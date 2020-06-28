@@ -25,11 +25,33 @@ import DA.Daml.LF.Ast
 
 data Options = Options
     { optInputDar :: FilePath
-    , optChoiceTmpl :: String
-    , optChoiceName :: String
-    , optFieldTmpl :: String
-    , optFieldName :: String
+    , optChoice :: (ModuleName, TypeConName, ChoiceName)
+    , optField :: (ModuleName, TypeConName, FieldName)
     }
+
+choiceReader :: String -> Maybe (ModuleName, TypeConName, ChoiceName)
+choiceReader str =
+  let (modStr, remStr) = break (':' ==) str
+  in if null modStr || null remStr
+     then Nothing
+     else let (tmpStr, choStr) = break ('.' ==) (tail remStr)
+          in if null tmpStr || null choStr
+             then Nothing
+             else Just ( ModuleName [T.pack modStr]
+                       , TypeConName [T.pack tmpStr]
+                       , ChoiceName (T.pack $ tail choStr) )
+
+fieldReader :: String -> Maybe (ModuleName, TypeConName, FieldName)
+fieldReader str =
+  let (modStr, remStr) = break (':' ==) str
+  in if null modStr || null remStr
+     then Nothing
+     else let (tmpStr, fldStr) = break ('.' ==) (tail remStr)
+          in if null tmpStr || null fldStr
+             then Nothing
+             else Just ( ModuleName [T.pack modStr]
+                       , TypeConName [T.pack tmpStr]
+                       , FieldName (T.pack $ tail fldStr) )
 
 optionsParser :: Parser Options
 optionsParser = Options
@@ -37,21 +59,17 @@ optionsParser = Options
         (  metavar "DAR-FILE"
         <> help "DAR file to analyse"
         )
-    <*> argument str
-        (  metavar "CHOICE-TEMPLATE"
-        <> help "Template of the choice to analyse"
+    <*> option (maybeReader choiceReader)
+        (  long "choice"
+        <> short 'c'
+        <> metavar "CHOICE"
+        <> help "The choice to analyse"
         )
-    <*> argument str
-        (  metavar "CHOICE-NAME"
-        <> help "Name of the choice to analyse"
-        )
-    <*> argument str
-        (  metavar "FIELD-TEMPLATE"
-        <> help "Template of the field to verify"
-        )
-    <*> argument str
-        (  metavar "FIELD-NAME"
-        <> help "Name of the field to verify"
+    <*> option (maybeReader fieldReader)
+        (  long "field"
+        <> short 'f'
+        <> metavar "Field"
+        <> help "The field to verify"
         )
 
 optionsParserInfo :: ParserInfo Options

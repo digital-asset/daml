@@ -11,7 +11,6 @@ module DA.Daml.LF.Verify
 
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Text as T
 import Options.Applicative
 import System.Exit
 import System.IO
@@ -30,11 +29,9 @@ getSolver = locateRunfiles "z3_nix/bin/z3"
 main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
-  let choiceTmpl = TypeConName [T.pack optChoiceTmpl]
-      choiceName = ChoiceName (T.pack optChoiceName)
-      fieldTmpl = TypeConName [T.pack optFieldTmpl]
-      fieldName = FieldName (T.pack optFieldName)
-  _ <- verify optInputDar putStrLn choiceTmpl choiceName fieldTmpl fieldName
+  let (choiceMod, choiceTmpl, choiceName) = optChoice
+      (fieldMod, fieldTmpl, fieldName) = optField
+  _ <- verify optInputDar putStrLn choiceMod choiceTmpl choiceName fieldMod fieldTmpl fieldName
   putStrLn "\n==========\n"
   putStrLn "Done."
 
@@ -53,22 +50,26 @@ verify :: FilePath
   -- ^ The DAR file to load.
   -> (String -> IO ())
   -- ^ Function for debugging printouts.
+  -> ModuleName
+  -- ^ The module in which the given choice is defined.
   -> TypeConName
   -- ^ The template in which the given choice is defined.
   -> ChoiceName
   -- ^ The choice to be verified.
+  -> ModuleName
+  -- ^ The module in which the given field is defined.
   -> TypeConName
   -- ^ The template in which the given field is defined.
   -> FieldName
   -- ^ The field to be verified.
   -> IO [Result]
-verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
+verify dar debug choiceModName choiceTmplName choiceName fieldModName fieldTmplName fieldName = do
   -- Read the packages to analyse, and initialise the provided solver.
   pkgs <- readPackages [dar]
   solver <- getSolver
   -- Find the given template names in the packages.
-  choiceTmpl <- findTemplate pkgs choiceTmplName
-  fieldTmpl <- findTemplate pkgs fieldTmplName
+  choiceTmpl <- findTemplate pkgs choiceModName choiceTmplName
+  fieldTmpl <- findTemplate pkgs fieldModName fieldTmplName
   -- Start reading data type and value definitions. References to other
   -- values are just stored as references at this point.
   case runEnv (genPackages pkgs) (emptyEnv :: Env 'ValueGathering) of
@@ -105,38 +106,29 @@ verify dar debug choiceTmplName choiceName fieldTmplName fieldName = do
     -- having to pass in the package reference manually when using the tool.
     findTemplate :: [(PackageId, (Package, Maybe PackageName))]
       -- ^ The package from the DAR file.
+      -> ModuleName
+      -- ^ The module name.
       -> TypeConName
       -- ^ The template name.
       -> IO (Qualified TypeConName)
-    findTemplate pkgs tem = maybe
+    findTemplate pkgs mod tem = maybe
       (outputError (UnknownTmpl tem) "Parsing phase finished with error: ")
-      (\(pacid, mod) -> return $ Qualified (PRImport pacid) mod tem)
-      (listToMaybe $ mapMaybe (templateInPackage tem) pkgs)
+      (\pacid -> return $ Qualified (PRImport pacid) mod tem)
+      (listToMaybe $ mapMaybe (templateInPackage mod tem) pkgs)
 
-    -- | Return the package id and the name of the module containing the given
-    -- template, if it exists.
-    templateInPackage :: TypeConName
+    -- | Return the package id of the module containing the given template, if
+    -- it exists.
+    templateInPackage :: ModuleName
+      -- ^ The module to look for.
+      -> TypeConName
       -- ^ The template to look for.
       -> (PackageId, (Package, Maybe PackageName))
       -- ^ The package to look in.
-      -> Maybe (PackageId, ModuleName)
-    templateInPackage tem (id, (pac,_)) =
-      case templateInModules tem $ NM.toList $ packageModules pac of
+      -> Maybe PackageId
+    templateInPackage modName temName (id, (pac,_)) =
+      case NM.lookup modName $ packageModules pac of
         Nothing -> Nothing
-        Just mod -> Just (id, mod)
+        Just mod -> case NM.lookup temName $ moduleTemplates mod of
+          Nothing -> Nothing
+          Just _ -> Just id
 
-    -- | Return the name of the module containing the given template, if it
-    -- exists.
-    templateInModules :: TypeConName
-      -- ^ The template to look for.
-      -> [Module]
-      -- ^ The modules to look in.
-      -> Maybe ModuleName
-    templateInModules tem mods =
-      listToMaybe $
-        mapMaybe ( \Module{..} ->
-          let tmpls = NM.toList moduleTemplates
-          in if not (any (\Template{..} -> tplTypeCon == tem) tmpls)
-            then Nothing
-            else Just moduleName )
-        mods
