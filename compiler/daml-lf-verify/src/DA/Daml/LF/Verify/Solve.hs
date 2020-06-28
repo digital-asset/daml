@@ -139,10 +139,10 @@ instance ConstrExpr Expr where
       builtin_op (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName w))) _) _) = case w of
         "+" -> CAdd
         "-" -> CSub
-        _ -> error ("Unsupported builtin value: " ++ (T.unpack w))
+        _ -> error ("Unsupported builtin value: " ++ T.unpack w)
       builtin_op (EVal (Qualified _ _ (ExprValName w))) = case w of
-        "negate" -> \_ -> CNeg
-        _ -> error ("Unsupported builtin value: " ++ (T.unpack w))
+        "negate" -> const CNeg
+        _ -> error ("Unsupported builtin value: " ++ T.unpack w)
       builtin_op (ETyApp e _) = builtin_op e
       builtin_op (EBuiltin op) = case op of
         BEEqual _ -> COp OpEq

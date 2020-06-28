@@ -9,8 +9,6 @@ module DA.Daml.LF.Verify.Subst
   , singleExprSubst
   , singleTypeSubst
   , createExprSubst
-  , emptyExprSubst
-  , concatExprSubst
   , SubstTm(..)
   , SubstTy(..)
   , InstPR(..)
