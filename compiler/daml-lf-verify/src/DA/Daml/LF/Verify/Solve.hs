@@ -45,6 +45,10 @@ data ConstraintExpr
   | CMul !ConstraintExpr !ConstraintExpr
   -- | Division of two expressions.
   | CDiv !ConstraintExpr !ConstraintExpr
+  -- | Negation of an expression.
+  | CNeg !ConstraintExpr
+  -- | Modulo operation on expressions.
+  | CMod !ConstraintExpr !ConstraintExpr
   -- | Boolean operator.
   | COp !CtrOperator !ConstraintExpr !ConstraintExpr
   -- | Boolean and operator.
@@ -78,6 +82,8 @@ instance Pretty ConstraintExpr where
   pretty (CSub e1 e2) = pretty e1 <+> " - " <+> pretty e2
   pretty (CMul e1 e2) = parens (pretty e1) <+> " * " <+> parens (pretty e2)
   pretty (CDiv e1 e2) = parens (pretty e1) <+> " / " <+> parens (pretty e2)
+  pretty (CNeg e) = " -" <+> parens (pretty e)
+  pretty (CMod e1 e2) = parens (pretty e1) <+> " % " <+> parens (pretty e2)
   pretty (COp op e1 e2) = pretty e1 <+> pretty op <+> pretty e2
   pretty (CAnd e1 e2) = pretty e1 <+> " and " <+> pretty e2
   pretty (CNot e) = "not " <+> pretty e
@@ -126,29 +132,44 @@ instance ConstrExpr Expr where
   toCExp syns (EStructProj f (EVar x)) = case lookup x syns of
     Just y -> CVar $ recProj2Var y f
     Nothing -> CVar $ recProj2Var x f
-  toCExp syns (ETmApp (ETmApp op e1) e2) = case op of
-    -- TODO: Cleanup this code
-    (EBuiltin (BEEqual _)) -> COp OpEq (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BEGreater _)) -> COp OpGt (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BEGreaterEq _)) -> COp OpGtE (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BELess _)) -> COp OpLt (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin (BELessEq _)) -> COp OpLtE (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin BEAddInt64) -> CAdd (toCExp syns e1) (toCExp syns e2)
-    (EBuiltin BESubInt64) -> CSub (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BEGreaterNumeric) _) -> COp OpGt (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> COp OpGtE (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BELessNumeric) _) -> COp OpLt (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BELessEqNumeric) _) -> COp OpLtE (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BEAddNumeric) _) -> CAdd (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (EBuiltin BESubNumeric) _) -> CSub (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (ETyApp (ETyApp (EBuiltin BEMulNumeric) _) _) _) -> CMul (toCExp syns e1) (toCExp syns e2)
-    (ETyApp (ETyApp (ETyApp (EBuiltin BEDivNumeric) _) _) _) -> CDiv (toCExp syns e1) (toCExp syns e2)
-    (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "+"))) _) _) ->
-      CAdd (toCExp syns e1) (toCExp syns e2)
-    (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName "-"))) _) _) ->
-      CSub (toCExp syns e1) (toCExp syns e2)
-    _ -> error ("Builtin: " ++ show op)
-    -- TODO Bug: `negate` seems to be undefined?
+  toCExp syns (ETmApp (ETmApp op e1) e2) =
+    builtin_op op (toCExp syns e1) (toCExp syns e2)
+    where
+      builtin_op :: Expr -> ConstraintExpr -> ConstraintExpr -> ConstraintExpr
+      builtin_op (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName w))) _) _) = case w of
+        "+" -> CAdd
+        "-" -> CSub
+        _ -> error ("Unsupported builtin value: " ++ (T.unpack w))
+      builtin_op (EVal (Qualified _ _ (ExprValName w))) = case w of
+        "negate" -> \_ -> CNeg
+        _ -> error ("Unsupported builtin value: " ++ (T.unpack w))
+      builtin_op (ETyApp e _) = builtin_op e
+      builtin_op (EBuiltin op) = case op of
+        BEEqual _ -> COp OpEq
+        BEEqualNumeric -> COp OpEq
+        BEGreater _ -> COp OpGt
+        BEGreaterNumeric -> COp OpGt
+        BEGreaterEq _ -> COp OpGtE
+        BEGreaterEqNumeric -> COp OpGtE
+        BELess _ -> COp OpLt
+        BELessNumeric -> COp OpLt
+        BELessEq _ -> COp OpLtE
+        BELessEqNumeric -> COp OpLtE
+        BEAddInt64 -> CAdd
+        BEAddNumeric -> CAdd
+        BEAddDecimal -> CAdd
+        BESubInt64 -> CSub
+        BESubNumeric -> CSub
+        BESubDecimal -> CSub
+        BEMulInt64 -> CMul
+        BEMulNumeric -> CMul
+        BEMulDecimal -> CMul
+        BEDivInt64 -> CDiv
+        BEDivNumeric -> CDiv
+        BEDivDecimal -> CDiv
+        BEModInt64 -> CMod
+        _ -> error ("Unsupported builtin operator: " ++ show op)
+      builtin_op e = error ("Unsupported builtin expression: " ++ show e)
   toCExp syns (ETmApp (ETyApp (ETyApp (EBuiltin BECastNumeric) _) _) e) = toCExp syns e
   toCExp syns (ELocation _ e) = toCExp syns e
   toCExp _syns (EBuiltin (BEBool b)) = CBool b
@@ -177,6 +198,8 @@ gatherFreeVars (CAdd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CSub e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CMul e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CDiv e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
+gatherFreeVars (CNeg e) = gatherFreeVars e
+gatherFreeVars (CMod e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (COp _ e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CAnd e1 e2) = gatherFreeVars e1 `union` gatherFreeVars e2
 gatherFreeVars (CNot e) = gatherFreeVars e
@@ -341,6 +364,13 @@ cexp2sexp vars (CDiv ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
   return $ S.realDiv se1 se2
+cexp2sexp vars (CNeg ce) = do
+  se <- cexp2sexp vars ce
+  return $ S.neg se
+cexp2sexp vars (CMod ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.mod se1 se2
 cexp2sexp vars (COp cop ce1 ce2) = do
   let sop = case cop of
         OpEq -> S.eq
