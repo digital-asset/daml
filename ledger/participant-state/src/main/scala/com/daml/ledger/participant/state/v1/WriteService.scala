@@ -80,16 +80,16 @@ trait WriteService
     * time for submitting and validating large transactions before they are
     * timestamped with their record time.
     *
-    * @param submitterInfo   : the information provided by the submitter for
-    *                        correlating this submission with its acceptance or rejection on the
-    *                        associated [[ReadService]].
-    * @param transactionMeta : the meta-data accessible to all consumers of the
+    * @param submitterInfo               the information provided by the submitter for
+    *                                    correlating this submission with its acceptance or rejection on the
+    *                                    associated [[ReadService]].
+    * @param transactionMeta             the meta-data accessible to all consumers of the
     *                        transaction. See [[TransactionMeta]] for more information.
-    * @param transaction     : the submitted transaction. This transaction can contain local
-    *                        contract-ids that need suffixing. The participant state may have to
-    *                        suffix those contract-ids in order to guaranteed their global
+    * @param transaction                 the submitted transaction. This transaction can contain local
+    *                                    contract-ids that need suffixing. The participant state may have to
+    *                                    suffix those contract-ids in order to guaranteed their global
     *                        uniqueness. See the Contract Id specification for more detail
-    *                        daml-lf/spec/contract-id.rst.
+    *                                    daml-lf/spec/contract-id.rst.
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
     * @return an async result of a SubmissionResult
@@ -106,6 +106,7 @@ trait WriteService
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] =
+      transaction: SubmittedTransaction,
+  ): CompletionStage[SubmissionResult] =
     submitTransaction(submitterInfo, transactionMeta, transaction, 0)
 }
