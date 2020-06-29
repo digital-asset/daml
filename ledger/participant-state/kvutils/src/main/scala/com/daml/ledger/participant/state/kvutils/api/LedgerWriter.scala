@@ -40,5 +40,5 @@ trait LedgerWriter extends ReportsHealth {
   def commit(
       correlationId: String,
       envelope: Bytes
-  ): Future[SubmissionResult] = ???
+  ): Future[SubmissionResult] = commit(correlationId, envelope, CommitMetadata.Empty)
 }

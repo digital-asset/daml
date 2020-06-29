@@ -102,10 +102,10 @@ trait WriteService
   ): CompletionStage[SubmissionResult] =
     submitTransaction(submitterInfo, transactionMeta, transaction)
 
-  // Have to disable deprecation warnings for this package.
   //@deprecated("Will be removed in 1.4.0", since = "1.3.0")
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] = ???
+      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] =
+    submitTransaction(submitterInfo, transactionMeta, transaction, 0)
 }
