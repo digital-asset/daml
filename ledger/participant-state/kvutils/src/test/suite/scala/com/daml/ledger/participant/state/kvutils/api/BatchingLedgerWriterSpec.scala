@@ -4,17 +4,17 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.stream.Materializer
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.participant.state.{kvutils, v1}
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
+import org.mockito.{ArgumentCaptor, ArgumentMatchers}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
-import org.mockito.{ArgumentCaptor, ArgumentMatchers}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -54,12 +54,64 @@ class BatchingLedgerWriterSpec
         LoggingContext.newLoggingContext { implicit logCtx =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
-      val expected = createExpectedBatch(aCorrelationId -> aSubmission)
+      val expectedBatch = createExpectedBatch((aCorrelationId, aSubmission, None))
       for {
         submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission, CommitMetadata.Empty)
       } yield {
-        verify(mockWriter).commit(anyString(), ArgumentMatchers.eq(expected), any[CommitMetadata])
+        val expectedCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
+        verify(mockWriter).commit(
+          anyString(),
+          ArgumentMatchers.eq(expectedBatch),
+          ArgumentMatchers.eq(expectedCommitMetadata))
         submissionResult should be(SubmissionResult.Acknowledged)
+      }
+    }
+
+    "calculate max of interpretation costs in a batch" in {
+      val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
+      val mockWriter = createMockWriter(captor = Some(batchCaptor))
+      val batchingWriter =
+        LoggingContext.newLoggingContext { implicit logCtx =>
+          new BatchingLedgerWriter(immediateBatchingQueue(), mockWriter)
+        }
+      val committedSubmissions = Seq(
+        (aCorrelationId, aSubmission, Some(2L)),
+        (aCorrelationId, aSubmission, Some(1L))
+      )
+      val expectedBatch = createExpectedBatch(committedSubmissions: _*)
+      for {
+        _ <- batchingWriter.commitBatch(toCorrelateSubmissionProto(committedSubmissions))
+      } yield {
+        val expectedCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = Some(2))
+        verify(mockWriter).commit(
+          anyString(),
+          any[kvutils.Bytes],
+          ArgumentMatchers.eq(expectedCommitMetadata))
+        batchCaptor.getAllValues should have size 1
+        batchCaptor.getValue should be(expectedBatch)
+      }
+    }
+
+    "take max of available interpretation costs in a batch" in {
+      val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
+      val mockWriter = createMockWriter(captor = Some(batchCaptor))
+      val batchingWriter =
+        LoggingContext.newLoggingContext { implicit logCtx =>
+          new BatchingLedgerWriter(immediateBatchingQueue(), mockWriter)
+        }
+      val committedSubmissions = Seq(
+        (aCorrelationId, aSubmission, None),
+        (aCorrelationId, aSubmission, Some(1L))
+      )
+      for {
+        _ <- batchingWriter.commitBatch(toCorrelateSubmissionProto(committedSubmissions))
+      } yield {
+        val expectedCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = Some(1))
+        verify(mockWriter).commit(
+          anyString(),
+          any[kvutils.Bytes],
+          ArgumentMatchers.eq(expectedCommitMetadata))
+        succeed
       }
     }
 
@@ -122,18 +174,22 @@ object BatchingLedgerWriterSpec {
     writer
   }
 
-  private def createExpectedBatch(correlatedSubmissions: (String, kvutils.Bytes)*): kvutils.Bytes =
+  private def createExpectedBatch(
+      correlatedSubmissions: (String, kvutils.Bytes, Option[Long])*): kvutils.Bytes =
     Envelope
       .enclose(
         DamlSubmissionBatch.newBuilder
-          .addAllSubmissions(
-            correlatedSubmissions.map {
-              case (correlationId, submission) =>
-                DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-                  .setCorrelationId(correlationId)
-                  .setSubmission(submission)
-                  .build
-            }.asJava
-          )
+          .addAllSubmissions(toCorrelateSubmissionProto(correlatedSubmissions).asJava)
           .build)
+
+  private def toCorrelateSubmissionProto(submissions: Seq[(String, kvutils.Bytes, Option[Long])])
+    : Seq[DamlSubmissionBatch.CorrelatedSubmission] =
+    submissions.map {
+      case (correlationId, submission, interpretationCost) =>
+        val builder = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+          .setCorrelationId(correlationId)
+          .setSubmission(submission)
+        interpretationCost.foreach(builder.setEstimatedInterpretationCost)
+        builder.build
+    }
 }

@@ -41,11 +41,12 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
       correlationId: String,
       envelope: kvutils.Bytes,
       metadata: CommitMetadata,
-    ): Future[SubmissionResult] = {
+  ): Future[SubmissionResult] = {
     val correlatedSubmissionBuilder = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
       .setCorrelationId(correlationId)
       .setSubmission(envelope)
-    metadata.estimatedInterpretationCost.foreach(correlatedSubmissionBuilder.setEstimatedInterpretationCost)
+    metadata.estimatedInterpretationCost.foreach(
+      correlatedSubmissionBuilder.setEstimatedInterpretationCost)
     queueHandle
       .offer(correlatedSubmissionBuilder.build)
   }
@@ -58,7 +59,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     else
       HealthStatus.unhealthy
 
-  private def commitBatch(
+  private[api] def commitBatch(
       submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]): Future[Unit] = {
     assert(submissions.nonEmpty) // Empty batches should never happen
 
@@ -74,10 +75,16 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .build
       val envelope = Envelope.enclose(batch)
       // We assume parallelization of interpretation hence return max.
-      val totalEstimatedInterpretationCost = submissions.map(_.getEstimatedInterpretationCost).max
+      val aggregateEstimatedInterpretationCost =
+        submissions.map(_.getEstimatedInterpretationCost).max match {
+          case 0L => None
+          case nonZeroCost => Some(nonZeroCost)
+        }
       writer
-        .commit(correlationId, envelope, SimpleCommitMetadata(estimatedInterpretationCost =
-          Some(totalEstimatedInterpretationCost)))
+        .commit(
+          correlationId,
+          envelope,
+          SimpleCommitMetadata(estimatedInterpretationCost = aggregateEstimatedInterpretationCost))
         .map {
           case SubmissionResult.Acknowledged => ()
           case err =>
