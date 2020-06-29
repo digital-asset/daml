@@ -14,6 +14,8 @@ final case class StartFailed(cause: Throwable) extends Message
 
 final case class Started(binding: ServerBinding) extends Message
 
+case object Stop extends Message
+
 final case class TriggerStarting(runningTrigger: RunningTrigger) extends Message
 
 final case class TriggerStarted(runningTrigger: RunningTrigger) extends Message
@@ -27,5 +29,3 @@ final case class TriggerRuntimeFailure(
     runningTrigger: RunningTrigger,
     cause: String
 ) extends Message
-
-case object Stop extends Message

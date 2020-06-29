@@ -158,7 +158,7 @@ class Server(
     triggerLog.getOrElse(uuid, Vector())
   }
 
-  private def route = concat(
+  private val route = concat(
     post {
       concat(
         // Start a new trigger given its identifier and the party it
