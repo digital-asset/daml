@@ -82,11 +82,8 @@ following output:
 Main flow: 
 
 Create:  [ if  this_6.amount >= arg_5.transferAmount  then  this_6.amount  -  arg_5.transferAmount  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  +  arg_5.transferAmount  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1 ] 
-Archive:  [ if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  else  0 % 1 ] 
+, if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  +  arg_5.transferAmount  else  0 % 1 ] 
+Archive:  [ if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  else  0 % 1 ] 
 Assert: (+ receiver_9.amount arg_5.transferAmount) = this_12.amount
 Assert: (- this_6.amount arg_5.transferAmount) = this_10.amount
 Assert: receiver_9.amount > 0.0
@@ -132,12 +129,8 @@ follows:
 Main flow: 
 
 Create:  [ if  this_6.amount >= arg_5.transferAmount  then  this_6.amount  -  arg_5.transferAmount  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  +  arg_5.transferAmount  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1 ] 
-Archive:  [ if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  0 % 1  else  0 % 1
-, if  this_6.amount >= arg_5.transferAmount  then  this_6.amount  else  0 % 1
+, if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  +  arg_5.transferAmount  else  0 % 1 ] 
+Archive:  [ if  this_6.amount >= arg_5.transferAmount  then  this_6.amount  else  0 % 1
 , if  this_6.amount >= arg_5.transferAmount  then  receiver_9.amount  else  0 % 1 ] 
 Assert: (+ receiver_9.amount arg_5.transferAmount) = this_12.amount
 Assert: (- this_6.amount arg_5.transferAmount) = this_10.amount
@@ -194,22 +187,10 @@ always preserves the field `amount`.
 
 Main flow: 
 
-Create:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  -  1 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  +  1 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  -  1 % 1  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  +  1 % 1  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1 ] 
-Archive:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  else  0 % 1
-, if  not  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  else  0 % 1 ] 
+Create:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  -  1 % 1  else  0 % 1
+, if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  +  1 % 1  else  0 % 1 ] 
+Archive:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  else  0 % 1
+, if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  else  0 % 1 ] 
 Assert: this_18.amount > 0.0
 Assert: receiverAccount_21.amount > 0.0
 Assert: (+ receiver_9.amount arg_5.transferAmount) = this_12.amount
@@ -227,14 +208,10 @@ Success! The choice Account_Divide preserves the field amount.
 
 Recursion cycle: 
 
-Create:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  -  1 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  +  1 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1 ] 
-Archive:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  0 % 1  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  else  0 % 1
-, if  not  this_18.amount <= receiverAccount_21.amount  and  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  else  0 % 1 ] 
+Create:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  -  1 % 1  else  0 % 1
+, if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  +  1 % 1  else  0 % 1 ] 
+Archive:  [ if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  this_18.amount  else  0 % 1
+, if  not  this_18.amount <= receiverAccount_21.amount  and  this_18.amount >= 1 % 1  then  receiver_9.amount  else  0 % 1 ] 
 Assert: this_18.amount > 0.0
 Assert: receiverAccount_21.amount > 0.0
 Assert: (+ receiver_9.amount arg_5.transferAmount) = this_12.amount

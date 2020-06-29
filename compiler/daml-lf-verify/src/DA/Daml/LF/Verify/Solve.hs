@@ -57,7 +57,7 @@ data ConstraintExpr
   | CNot !ConstraintExpr
   -- | If then else expression.
   | CIf !ConstraintExpr !ConstraintExpr !ConstraintExpr
-  deriving Show
+  deriving (Eq, Ord, Show)
 
 -- | Binary boolean operator for constraint expressions.
 data CtrOperator
@@ -71,7 +71,7 @@ data CtrOperator
   | OpLt
   -- | Less than or equal operator.
   | OpLtE
-  deriving Show
+  deriving (Eq, Ord, Show)
 
 instance Pretty ConstraintExpr where
   pretty (CBool b) = pretty b
@@ -394,6 +394,42 @@ cexp2sexp vars (CIf ce1 ce2 ce3) = do
   se3 <- cexp2sexp vars ce3
   return $ S.ite se1 se2 se3
 
+-- | Perform some basic simplifications on constraint expressions.
+simplifyCExpr :: ConstraintExpr -> ConstraintExpr
+simplifyCExpr (CNot e) = case simplifyCExpr e of
+  CNot e' -> e'
+  e' -> CNot e'
+simplifyCExpr (CAnd e1 e2) =
+  let e1' = simplifyCExpr e1
+      e2' = simplifyCExpr e2
+  in if e1' == e2' then e1'
+     else if e1' == CNot e2' || CNot e1' == e2' then CBool False
+     else case e2' of
+       CAnd e3 e4 ->
+         if e3 == e1' || e4 == e1' then e2'
+         else if e3 == CNot e1' || e4 == CNot e1' || CNot e3 == e1' || CNot e4 == e1'
+              then CBool False
+              else CAnd e1' e2'
+       _ -> CAnd e1' e2'
+simplifyCExpr (CIf e1 e2 e3) = case simplifyCExpr e1 of
+  CBool True -> e2
+  CBool False -> e3
+  e1' ->
+    let e2' = simplifyCExpr e2
+        e3' = simplifyCExpr e3
+    in if e2' == e3'
+       then e2'
+       else CIf e1' e2' e3'
+simplifyCExpr (CAdd e1 e2) = CAdd (simplifyCExpr e1) (simplifyCExpr e2)
+simplifyCExpr (CSub e1 e2) = CSub (simplifyCExpr e1) (simplifyCExpr e2)
+simplifyCExpr (CMul e1 e2) = CMul (simplifyCExpr e1) (simplifyCExpr e2)
+simplifyCExpr (CDiv e1 e2) = CDiv (simplifyCExpr e1) (simplifyCExpr e2)
+simplifyCExpr (CNeg e) = CNeg (simplifyCExpr e)
+simplifyCExpr (CMod e1 e2) = CMod (simplifyCExpr e1) (simplifyCExpr e2)
+simplifyCExpr (COp op e1 e2) = COp op (simplifyCExpr e1) (simplifyCExpr e2)
+-- TODO: This could be extended with additional cases later on.
+simplifyCExpr e = e
+
 -- | Declare a list of variables for the SMT solver. Returns a list of the
 -- declared variables, together with their corresponding SMT counterparts.
 declareVars :: S.Solver
@@ -535,12 +571,15 @@ solveConstr spath ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
   vars1 <- declareVars sol $ filterVars _cVars (_cCres ++ _cArcs)
-  (ctr_debug, vars2) <- declareCtrs sol vars1 _cCtrs
+  let ctrs = nubOrd $ map simplifyCExpr _cCtrs
+  (ctr_debug, vars2) <- declareCtrs sol vars1 ctrs
   vars <- if null (vars1 ++ vars2)
     then declareVars sol [ExprVarName "var"]
     else pure (vars1 ++ vars2)
-  cre <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cCres
-  arc <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) _cArcs
+  let cres = renderFilter $ map simplifyCExpr _cCres
+      arcs = renderFilter $ map simplifyCExpr _cArcs
+  cre <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) cres
+  arc <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) arcs
   S.assert sol (S.not (cre `S.eq` arc))
   result <- S.check sol >>= \case
     S.Sat -> do
@@ -551,9 +590,13 @@ solveConstr spath ConstraintSet{..} = do
   let debug (ch :: ChoiceName) (f :: FieldName) =
            "\n==========\n\n"
         ++ _cInfo ++ "\n\n"
-        ++ (renderString $ layoutCompact ("Create: " <+> pretty _cCres <+> "\n"))
-        ++ (renderString $ layoutCompact ("Archive: " <+> pretty _cArcs <+> "\n"))
+        ++ (renderString $ layoutCompact ("Create: " <+> pretty cres <+> "\n"))
+        ++ (renderString $ layoutCompact ("Archive: " <+> pretty arcs <+> "\n"))
         ++ ctr_debug
         ++ "\n~~~~~~~~~~\n\n"
         ++ showResult ch f result
   return (debug, result)
+
+-- | Remove some redundant values from the list, to unclutter the render.
+renderFilter :: [ConstraintExpr] -> [ConstraintExpr]
+renderFilter = filter (\c -> c /= CInt 0 && c /= CReal 0.0)
