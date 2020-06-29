@@ -39,7 +39,7 @@ class TriggerRunner(
   import TriggerRunner.{Message, Stop}
 
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
-  // initalization halted exceptions, retry any initialization or
+  // initialization halted exceptions, retry any initialization or
   // execution failure exceptions.
   private val child =
     ctx.spawn(
