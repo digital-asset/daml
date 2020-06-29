@@ -95,7 +95,7 @@ trait WriteService
     *                                    handling submitted transactions differently.
     * @return an async result of a SubmissionResult
     */
-  @silent
+  @silent("deprecated")
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
