@@ -34,11 +34,13 @@ trait LedgerWriter extends ReportsHealth {
   def commit(
       correlationId: String,
       envelope: Bytes,
-      metadata: CommitMetadata): Future[SubmissionResult] = commit(correlationId, envelope)
+      metadata: CommitMetadata,
+  ): Future[SubmissionResult] =
+    commit(correlationId, envelope)
 
   // @deprecated("Will be removed in 1.4.0", "1.3.0")
   def commit(
       correlationId: String,
-      envelope: Bytes
+      envelope: Bytes,
   ): Future[SubmissionResult] = commit(correlationId, envelope, CommitMetadata.Empty)
 }

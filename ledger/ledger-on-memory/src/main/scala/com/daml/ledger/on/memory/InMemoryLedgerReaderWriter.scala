@@ -43,7 +43,8 @@ final class InMemoryLedgerReaderWriter(
   override def commit(
       correlationId: String,
       envelope: Bytes,
-      metadata: CommitMetadata): Future[SubmissionResult] =
+      metadata: CommitMetadata,
+    ): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
         committer

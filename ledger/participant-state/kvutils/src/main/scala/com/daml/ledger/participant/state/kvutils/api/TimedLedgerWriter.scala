@@ -18,10 +18,12 @@ class TimedLedgerWriter(delegate: LedgerWriter, metrics: Metrics) extends Ledger
   override def commit(
       correlationId: String,
       envelope: Bytes,
-      metadata: CommitMetadata): Future[SubmissionResult] =
+      metadata: CommitMetadata,
+    ): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.kvutils.writer.commit,
-      delegate.commit(correlationId, envelope, metadata))
+      delegate.commit(correlationId, envelope, metadata),
+    )
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
