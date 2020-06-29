@@ -44,7 +44,7 @@ final class InMemoryLedgerReaderWriter(
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-    ): Future[SubmissionResult] =
+  ): Future[SubmissionResult] =
     ledgerStateAccess
       .inTransaction { ledgerStateOperations =>
         committer

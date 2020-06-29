@@ -19,7 +19,7 @@ class TimedLedgerWriter(delegate: LedgerWriter, metrics: Metrics) extends Ledger
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-    ): Future[SubmissionResult] =
+  ): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.kvutils.writer.commit,
       delegate.commit(correlationId, envelope, metadata),
