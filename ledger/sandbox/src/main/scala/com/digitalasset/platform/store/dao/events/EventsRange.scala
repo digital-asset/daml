@@ -29,17 +29,17 @@ object EventsRange {
     * @param connection SQL connection
     * @return Row ID range
     */
-  def rowIdRange(range: EventsRange[Offset])(
-      implicit connection: java.sql.Connection): EventsRange[Long] = {
+  def readRowIdRange(range: EventsRange[Offset])(
+      connection: java.sql.Connection): EventsRange[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
 
     if (range.startExclusive == Offset.beforeBegin) {
-      rowIdRangeFromStart(range.endInclusive)
+      readRowIdRange(range.endInclusive)(connection)
     } else {
       // start is exclusive, that is why -1
       val query =
         SQL"select min(row_id) - 1 as start, max(row_id) as end from participant_events where event_offset > ${range.startExclusive} and event_offset <= ${range.endInclusive}"
-      query.as(rangeParser.single)
+      query.as(rangeParser.single)(connection)
     }
   }
 
@@ -50,8 +50,7 @@ object EventsRange {
     * @param connection SQL connection
     * @return Row ID range
     */
-  def rowIdRangeFromStart(endInclusive: Offset)(
-      implicit connection: java.sql.Connection): EventsRange[Long] = {
+  def readRowIdRange(endInclusive: Offset)(connection: java.sql.Connection): EventsRange[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
 
     if (endInclusive == Offset.beforeBegin) {
@@ -59,7 +58,7 @@ object EventsRange {
     } else {
       val query =
         SQL"select max(row_id) as end from participant_events where event_offset <= ${endInclusive}"
-      query.as(endParser.single)
+      query.as(endParser.single)(connection)
     }
   }
 }
