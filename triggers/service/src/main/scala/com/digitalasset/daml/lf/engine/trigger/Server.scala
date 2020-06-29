@@ -101,8 +101,9 @@ class Server(
       triggerName: Identifier): Either[String, JsValue] = {
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
-      party = TokenManagement.decodeCredentials(secretKey, credentials)._1
       triggerInstance = UUID.randomUUID
+      _ <- triggerDao.addRunningTrigger(RunningTrigger(triggerInstance, triggerName, credentials))
+      party = TokenManagement.decodeCredentials(secretKey, credentials)._1
       _ = ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
