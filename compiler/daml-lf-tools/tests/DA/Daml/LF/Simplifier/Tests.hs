@@ -47,7 +47,7 @@ constantLiftingTests = testGroup "Constant Lifting"
         , dval "foo" (TInt64 :-> TInt64)
             (ETmLam (ExprVarName "x", TInt64) (exprVal "$sc_foo_1"))
         ]
-    , mkTestCase "λxy.y" -- test that we aren't breaking up λxy.y into two lambdas.
+    , mkTestCase "\\xy.y" -- test that we aren't breaking up λxy.y into two lambdas.
         [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
             (ETmLam (ExprVarName "x", TInt64)
                 (ETmLam (ExprVarName "y", TInt64)
@@ -58,7 +58,7 @@ constantLiftingTests = testGroup "Constant Lifting"
                 (ETmLam (ExprVarName "y", TInt64)
                     (EVar (ExprVarName "y"))))
         ]
-    , mkTestCase "λz.(λxy.y)z" -- test that we're lifting closed lambda subexpressions
+    , mkTestCase "\\z.(\\xy.y)z" -- test that we're lifting closed lambda subexpressions
         [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
             (ETmLam (ExprVarName "z", TInt64)
                 (ETmApp
