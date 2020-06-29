@@ -56,7 +56,7 @@ constantLiftingTests = testGroup "Constant Lifting"
                 (ETmLam (ExprVarName "y", TInt64)
                     (EVar (ExprVarName "y"))))
         ]
-    , mkTestCase "λz.(λxy.y)z" -- test that we're lifting the closed subexpression
+    , mkTestCase "λz.(λxy.y)z" -- test that we're lifting closed lambda subexpressions
         [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
             (ETmLam (ExprVarName "z", TInt64)
                 (ETmApp
@@ -114,4 +114,3 @@ constantLiftingTests = testGroup "Constant Lifting"
 
     exprVal :: T.Text -> Expr
     exprVal = EVal . qualify . ExprValName
-
