@@ -6,6 +6,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version (versionDev)
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.Simplifier (simplifyModule)
@@ -20,8 +21,58 @@ constantLiftingTests :: TestTree
 constantLiftingTests = testGroup "Constant Lifting"
     [ mkTestCase "empty module" [] []
     , mkTestCase "closed value"
-        [ dval "foo" (TBuiltin BTInt64) (EBuiltin (BEInt64 10)) ]
-        [ dval "foo" (TBuiltin BTInt64) (EBuiltin (BEInt64 10)) ]
+        [ dval "foo" TInt64 (EBuiltin (BEInt64 10)) ]
+        [ dval "foo" TInt64 (EBuiltin (BEInt64 10)) ]
+    , mkTestCase "nested int"
+        [ dval "foo" (TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64) (EBuiltin (BEInt64 10))) ]
+        [ dval "foo" (TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64) (EBuiltin (BEInt64 10))) ]
+    , mkTestCase "nested arithmetic"
+        [ dval "foo" (TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64)
+                (EBuiltin BEAddInt64
+                    `ETmApp` EBuiltin (BEInt64 10)
+                    `ETmApp` EBuiltin (BEInt64 10)))
+        ]
+        [ dval "$sc_foo_1" TInt64
+            (EBuiltin BEAddInt64
+                `ETmApp` EBuiltin (BEInt64 10)
+                `ETmApp` EBuiltin (BEInt64 10))
+        , dval "foo" (TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64) (exprVal "$sc_foo_1"))
+        ]
+    , mkTestCase "λxy.y" -- test that we aren't breaking up λxy.y into two lambdas.
+        [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64)
+                (ETmLam (ExprVarName "y", TInt64)
+                    (EVar (ExprVarName "y"))))
+        ]
+        [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64)
+                (ETmLam (ExprVarName "y", TInt64)
+                    (EVar (ExprVarName "y"))))
+        ]
+    , mkTestCase "λz.(λxy.y)z" -- test that we're lifting the closed subexpression
+        [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "z", TInt64)
+                (ETmApp
+                    (ETmLam (ExprVarName "x", TInt64)
+                        (ETmLam (ExprVarName "y", TInt64)
+                            (EVar (ExprVarName "y"))))
+                    (EVar (ExprVarName "z"))))
+        ]
+        [ dval "$sc_foo_1" (TInt64 :-> TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "x", TInt64)
+                (ETmLam (ExprVarName "y", TInt64)
+                    (EVar (ExprVarName "y"))))
+        , dval "foo" (TInt64 :-> TInt64 :-> TInt64)
+            (ETmLam (ExprVarName "z", TInt64)
+                (ETmApp
+                    (exprVal "$sc_foo_1")
+                    (EVar (ExprVarName "z"))))
+            -- NOTE: this is a candidate for eta reduction, may be optimized in the future
+        ]
     ]
   where
     mkTestCase :: String -> [DefValue] -> [DefValue] -> TestTree
@@ -50,3 +101,13 @@ constantLiftingTests = testGroup "Constant Lifting"
             }
     version = versionDev
     world = initWorld [] version
+
+    qualify :: t -> Qualified t
+    qualify x = Qualified
+        { qualPackage = PRSelf
+        , qualModule = ModuleName ["M"]
+        , qualObject = x
+        }
+
+    exprVal :: T.Text -> Expr
+    exprVal = EVal . qualify . ExprValName
