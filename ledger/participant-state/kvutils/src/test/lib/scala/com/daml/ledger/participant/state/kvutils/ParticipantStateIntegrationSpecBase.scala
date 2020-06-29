@@ -298,7 +298,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
-            .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction, DefaultInterpretationCost)
+            .submitTransaction(
+              submitterInfo(rt, alice),
+              transactionMeta(rt),
+              emptyTransaction,
+              DefaultInterpretationCost)
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
         } yield {

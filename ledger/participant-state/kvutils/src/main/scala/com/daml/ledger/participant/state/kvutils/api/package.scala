@@ -69,7 +69,7 @@ package object api {
           correlationId: String,
           envelope: Bytes,
           metadata: CommitMetadata,
-        ): Future[SubmissionResult] =
+      ): Future[SubmissionResult] =
         writer.commit(correlationId, envelope, metadata)
     }
 }

@@ -99,7 +99,7 @@ final class SqlLedgerReaderWriter(
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-    ): Future[SubmissionResult] =
+  ): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {

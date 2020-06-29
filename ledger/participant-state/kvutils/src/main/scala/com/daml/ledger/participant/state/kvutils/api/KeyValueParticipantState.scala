@@ -49,7 +49,7 @@ class KeyValueParticipantState(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-    ): CompletionStage[SubmissionResult] =
+  ): CompletionStage[SubmissionResult] =
     writerAdapter.submitTransaction(
       submitterInfo,
       transactionMeta,
