@@ -48,12 +48,14 @@ class KeyValueParticipantState(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-      estimatedInterpretationCost: Long): CompletionStage[SubmissionResult] =
+      estimatedInterpretationCost: Long,
+    ): CompletionStage[SubmissionResult] =
     writerAdapter.submitTransaction(
       submitterInfo,
       transactionMeta,
       transaction,
-      estimatedInterpretationCost)
+      estimatedInterpretationCost,
+    )
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,

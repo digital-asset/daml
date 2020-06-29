@@ -40,7 +40,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   override def commit(
       correlationId: String,
       envelope: kvutils.Bytes,
-      metadata: CommitMetadata): Future[SubmissionResult] =
+      metadata: CommitMetadata,
+    ): Future[SubmissionResult] =
     queueHandle
       .offer(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder

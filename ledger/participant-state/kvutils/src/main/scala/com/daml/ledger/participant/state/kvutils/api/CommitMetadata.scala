@@ -8,7 +8,8 @@ sealed trait CommitMetadata {
 }
 
 object CommitMetadata {
-  val Empty: CommitMetadata = SimpleCommitMetadata(0)
+  val Empty: CommitMetadata =
+    SimpleCommitMetadata(estimatedInterpretationCost = 0)
 }
 
 final case class SimpleCommitMetadata(override val estimatedInterpretationCost: Long)

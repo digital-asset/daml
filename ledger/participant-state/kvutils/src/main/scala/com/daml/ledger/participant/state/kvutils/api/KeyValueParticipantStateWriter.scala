@@ -81,6 +81,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   private def commit(
       correlationId: String,
       submission: DamlSubmission,
-      metadata: CommitMetadata = CommitMetadata.Empty): CompletionStage[SubmissionResult] =
+      metadata: CommitMetadata = CommitMetadata.Empty,
+    ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission), metadata))
 }

@@ -25,7 +25,9 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
         submitterInfo,
         transactionMeta,
         transaction,
-        estimatedInterpretationCost))
+        estimatedInterpretationCost,
+      ),
+    )
 
   override def uploadPackages(
       submissionId: SubmissionId,

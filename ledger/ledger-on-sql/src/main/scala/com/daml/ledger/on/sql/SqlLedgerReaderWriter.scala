@@ -98,7 +98,8 @@ final class SqlLedgerReaderWriter(
   override def commit(
       correlationId: String,
       envelope: Bytes,
-      metadata: CommitMetadata): Future[SubmissionResult] =
+      metadata: CommitMetadata,
+    ): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
