@@ -44,7 +44,7 @@ object Dispatcher {
   def apply[Index: Ordering](
       name: String,
       zeroIndex: Index,
-      headAtInitialization: Index
+      headAtInitialization: Index,
   ): Dispatcher[Index] =
     new DispatcherImpl[Index](name: String, zeroIndex, headAtInitialization)
 
