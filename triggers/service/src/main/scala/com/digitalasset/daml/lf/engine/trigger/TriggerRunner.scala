@@ -46,7 +46,7 @@ class TriggerRunner(
       Behaviors
         .supervise(
           Behaviors
-            .supervise(TriggerRunnerImpl(ctx.self, config))
+            .supervise(TriggerRunnerImpl(config))
             .onFailure[InitializationHalted](stop)
         )
         .onFailure(

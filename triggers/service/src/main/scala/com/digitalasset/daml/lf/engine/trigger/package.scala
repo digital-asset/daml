@@ -6,7 +6,6 @@ package com.daml.lf.engine
 import java.time.Duration
 import java.util.UUID
 
-import akka.actor.typed.ActorRef
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.services.time.TimeProviderType
 
@@ -34,6 +33,5 @@ package object trigger {
       credentials: UserCredentials,
       // TODO(SF, 2020-0610): Add access token field here in the
       // presence of authentication.
-      runner: ActorRef[TriggerRunner.Message]
   )
 }

@@ -47,7 +47,7 @@ object TriggerRunnerImpl {
   final private case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
       extends Message
 
-  def apply(parent: ActorRef[Message], config: Config)(
+  def apply(config: Config)(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Behavior[Message] =
     Behaviors.setup { ctx =>
@@ -55,7 +55,7 @@ object TriggerRunnerImpl {
       implicit val ec: ExecutionContext = ctx.executionContext
       // Report to the server that this trigger is starting.
       val runningTrigger =
-        RunningTrigger(config.triggerInstance, config.triggerName, config.credentials, parent)
+        RunningTrigger(config.triggerInstance, config.triggerName, config.credentials)
       config.server ! TriggerStarting(runningTrigger)
       ctx.log.info(s"Trigger $name is starting")
       val appId = ApplicationId(name)
