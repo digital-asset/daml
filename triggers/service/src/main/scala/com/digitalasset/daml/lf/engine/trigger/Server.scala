@@ -360,42 +360,30 @@ object Server {
           case TriggerStarting(runningTrigger) =>
             server.logTriggerStatus(runningTrigger.triggerInstance, "starting")
             Behaviors.same
+
+          // Running triggers are added to the store optimistically when the user makes a start
+          // request so we don't need to add an entry here.
           case TriggerStarted(runningTrigger) =>
-            // The trigger has successfully started. Update the
-            // running triggers tables.
             server.logTriggerStatus(runningTrigger.triggerInstance, "running")
-            triggerDao.addRunningTrigger(runningTrigger) match {
-              case Left(err) =>
-                // The trigger has just advised it's in the running
-                // state but updating the running trigger table has
-                // failed. This error condition is exogenous to the
-                // runner. We therefore need to tell it explicitly to
-                // stop.
-                server.logTriggerStatus(
-                  runningTrigger.triggerInstance,
-                  "stopped: initialization failure (db write failure)")
-                runningTrigger.runner ! TriggerRunner.Stop
-                Behaviors.same
-              case Right(()) => Behaviors.same
-            }
+            Behaviors.same
+
+          // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
+          // exponential backoff. The trigger is never really "stopped" this way (though it could
+          // fail and restart indefinitely) so in particular we don't need to change the store of
+          // running triggers. Entries are removed from there only when the user explicitly stops
+          // the trigger with a request.
           case TriggerInitializationFailure(runningTrigger, cause) =>
-            // The trigger has failed to start. No need to update the
-            // running triggers tables since this trigger never made
-            // it there.
             server
               .logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
           case TriggerRuntimeFailure(runningTrigger, cause) =>
-            // The trigger has failed. Remove it from the running triggers tables.
             server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
-            // Ignore the result of the deletion as we don't have a sensible way
-            // to handle a failure here at the moment.
-            val _ = triggerDao.removeRunningTrigger(runningTrigger.triggerInstance)
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
+
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same
