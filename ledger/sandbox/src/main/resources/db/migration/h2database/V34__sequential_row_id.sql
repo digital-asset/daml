@@ -13,7 +13,7 @@ alter table participant_events add column row_id bigint auto_increment;
 -- don't need to migrate H2 datasets
 
 -- 3. drop the now unused index
-drop index participant_events_event_offset_transaction_id_node_index_idx;
+drop index INDEX_9;
 
 -- 4. create a new index involving row_id
 create index participant_events_row_id
