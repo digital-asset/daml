@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.LF.Simplifier.Tests where
 
 import Test.Tasty
@@ -111,3 +114,4 @@ constantLiftingTests = testGroup "Constant Lifting"
 
     exprVal :: T.Text -> Expr
     exprVal = EVal . qualify . ExprValName
+
