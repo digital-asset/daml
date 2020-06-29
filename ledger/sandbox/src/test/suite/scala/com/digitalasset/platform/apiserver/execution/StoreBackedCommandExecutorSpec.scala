@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.api.domain.Commands
@@ -41,14 +44,14 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
         mock[IndexPackagesService],
         mock[ContractStore],
         mock[Metrics])
-
       val mockDomainCommands = mock[Commands]
       val mockLfCommands = mock[com.daml.lf.command.Commands]
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())
       when(mockDomainCommands.workflowId).thenReturn(None)
       when(mockDomainCommands.commands).thenReturn(mockLfCommands)
+
       LoggingContext.newLoggingContext { implicit context =>
-        instance.execute(mockDomainCommands, Hash.hashPrivateKey("AABBCC")).map { actual =>
+        instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>
           actual.right.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
           }
