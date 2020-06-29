@@ -349,7 +349,6 @@ private[kvutils] class TransactionCommitter(
       DamlStateValue.newBuilder
         .setCommandDedup(
           DamlCommandDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(commitContext.getRecordTime))
             .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
             .build)
         .build

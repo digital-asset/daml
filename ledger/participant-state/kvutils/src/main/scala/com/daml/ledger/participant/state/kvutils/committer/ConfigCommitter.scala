@@ -158,12 +158,7 @@ private[kvutils] class ConfigCommitter(
 
     ctx.set(
       configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId),
-      DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
-        .build
+      DamlStateValue.newBuilder.build
     )
 
     StepStop(
