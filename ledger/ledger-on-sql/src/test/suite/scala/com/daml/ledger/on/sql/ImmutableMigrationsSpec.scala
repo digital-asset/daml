@@ -13,7 +13,7 @@ import com.daml.ledger.on.sql.ImmutableMigrationsSpec._
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.internal.resource.LoadableResource
-import org.flywaydb.core.internal.scanner.{ResourceNameCache, Scanner}
+import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
 import org.scalatest.Matchers._
 import org.scalatest.WordSpec
 
@@ -54,6 +54,7 @@ object ImmutableMigrationsSpec {
       getClass.getClassLoader,
       configuration.getEncoding,
       new ResourceNameCache,
+      new LocationScannerCache,
     )
 
   private def readExpectedDigest(
