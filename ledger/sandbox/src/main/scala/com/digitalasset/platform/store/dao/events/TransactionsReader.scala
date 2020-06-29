@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.Connection
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
@@ -15,7 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
@@ -63,38 +65,30 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
 
-    val eventsRangeF: Future[EventsRange[Long]] = dispatcher.executeSql(dbMetrics.getRowIdRange) {
-      connection =>
-        EventsRange.rowIdRange(EventsRange(startExclusive, endInclusive))(connection)
-    }
+    val requestedRangeF = getRowIdRange(startExclusive, endInclusive)
 
-    def streamEvents(eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[Event], NotUsed] =
-      PaginatingAsyncStream.streamFrom(
-        eventsRange0,
-        getEventsRange[Event](eventsRange0.endInclusive)) { eventsRange1 =>
-        val query =
-          EventsTable
-            .preparePagedGetFlatTransactions(sqlFunctions)(
-              range = eventsRange1,
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .withFetchSize(Some(pageSize))
-        val rawEvents =
-          dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
-            query.asVectorOf(EventsTable.rawFlatEventParser)
-          }
-        rawEvents.flatMap(
-          es =>
-            Timed.future(
-              future = Future.traverse(es)(deserializeEntry(verbose)),
-              timer = dbMetrics.getTransactionTrees.translationTimer,
+    val query = (range: EventsRange[Long]) =>
+      (connection: Connection) =>
+        EventsTable
+          .preparePagedGetFlatTransactions(sqlFunctions)(
+            range = range,
+            filter = filter,
+            pageSize = pageSize,
           )
-        )
-      }
+          .withFetchSize(Some(pageSize))
+          .asVectorOf(EventsTable.rawFlatEventParser)(connection)
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source.futureSource(eventsRangeF.map(streamEvents)).mapMaterializedValue(_ => NotUsed)
+      Source
+        .futureSource(requestedRangeF.map { requestedRange =>
+          streamEvents(
+            verbose,
+            dbMetrics.getFlatTransactions,
+            query,
+            nextPageRowIdRange[Event](requestedRange.endInclusive)
+          )(requestedRange)
+        })
+        .mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
@@ -102,13 +96,6 @@ private[dao] final class TransactionsReader(
         response.map(r => offsetFor(r) -> r)
       }
   }
-
-  private def getEventsRange[E](endRowId: Long)(a: EventsTable.Entry[E]): EventsRange[Long] =
-    EventsRange(startExclusive = a.rowId, endInclusive = endRowId)
-
-  private def getEventsRangeWithOffset[E](endRowId: (Offset, Long))(
-      a: EventsTable.Entry[E]): EventsRange[(Offset, Long)] =
-    EventsRange(startExclusive = (a.eventOffset, a.rowId), endInclusive = endRowId)
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -139,39 +126,30 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
 
-    val eventsRangeF: Future[EventsRange[Long]] = dispatcher.executeSql(dbMetrics.getRowIdRange) {
-      connection =>
-        EventsRange.rowIdRange(EventsRange(startExclusive, endInclusive))(connection)
-    }
+    val requestedRangeF = getRowIdRange(startExclusive, endInclusive)
 
-    def streamEvents(
-        eventsRange0: EventsRange[Long]): Source[EventsTable.Entry[TreeEvent], NotUsed] =
-      PaginatingAsyncStream.streamFrom(
-        eventsRange0,
-        getEventsRange[TreeEvent](eventsRange0.endInclusive)) { eventsRange1 =>
-        val query =
-          EventsTable
-            .preparePagedGetTransactionTrees(sqlFunctions)(
-              eventsRange = eventsRange1,
-              requestingParties = requestingParties,
-              pageSize = pageSize,
-            )
-            .withFetchSize(Some(pageSize))
-        val rawEvents =
-          dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
-            query.asVectorOf(EventsTable.rawTreeEventParser)
-          }
-        rawEvents.flatMap(
-          es =>
-            Timed.future(
-              future = Future.traverse(es)(deserializeEntry(verbose)),
-              timer = dbMetrics.getTransactionTrees.translationTimer,
+    val query = (range: EventsRange[Long]) =>
+      (connection: Connection) =>
+        EventsTable
+          .preparePagedGetTransactionTrees(sqlFunctions)(
+            eventsRange = range,
+            requestingParties = requestingParties,
+            pageSize = pageSize,
           )
-        )
-      }
+          .withFetchSize(Some(pageSize))
+          .asVectorOf(EventsTable.rawTreeEventParser)(connection)
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
-      Source.futureSource(eventsRangeF.map(streamEvents)).mapMaterializedValue(_ => NotUsed)
+      Source
+        .futureSource(requestedRangeF.map { requestedRange =>
+          streamEvents(
+            verbose,
+            dbMetrics.getTransactionTrees,
+            query,
+            nextPageRowIdRange[TreeEvent](requestedRange.endInclusive)
+          )(requestedRange)
+        })
+        .mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
@@ -190,8 +168,8 @@ private[dao] final class TransactionsReader(
       .executeSql(
         databaseMetrics = dbMetrics.lookupTransactionTreeById,
         extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
-      ) { implicit connection =>
-        query.asVectorOf(EventsTable.rawTreeEventParser)
+      ) { connection =>
+        query.asVectorOf(EventsTable.rawTreeEventParser)(connection)
       }
       .flatMap(
         rawEvents =>
@@ -208,47 +186,72 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
 
-    // contains offsets and row IDs
-    val eventsRangeF: Future[EventsRange[(Offset, Long)]] = dispatcher
-      .executeSql(dbMetrics.getAcsRowIdRange) { connection =>
-        EventsRange.rowIdRangeFromStart(activeAt)(connection)
-      }
+    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsRowIdRange(activeAt)
+
+    val query = (range: EventsRange[(Offset, Long)]) =>
+      (connection: Connection) =>
+        EventsTable
+          .preparePagedGetActiveContracts(sqlFunctions)(
+            range = range,
+            filter = filter,
+            pageSize = pageSize,
+          )
+          .withFetchSize(Some(pageSize))
+          .asVectorOf(EventsTable.rawFlatEventParser)(connection)
+
+    val events: Source[EventsTable.Entry[Event], NotUsed] =
+      Source
+        .futureSource(requestedRangeF.map { requestedRange =>
+          streamEvents(
+            verbose,
+            dbMetrics.getActiveContracts,
+            query,
+            nextPageRowIdRangeWithOffset[Event](requestedRange.endInclusive)
+          )(requestedRange)
+        })
+        .mapMaterializedValue(_ => NotUsed)
+
+    groupContiguous(events)(by = _.transactionId)
+      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
+  }
+
+  private def nextPageRowIdRange[E](endRowId: Long)(a: EventsTable.Entry[E]): EventsRange[Long] =
+    EventsRange(startExclusive = a.rowId, endInclusive = endRowId)
+
+  private def nextPageRowIdRangeWithOffset[E](endRowId: (Offset, Long))(
+      a: EventsTable.Entry[E]): EventsRange[(Offset, Long)] =
+    EventsRange(startExclusive = (a.eventOffset, a.rowId), endInclusive = endRowId)
+
+  private def getAcsRowIdRange(activeAt: Offset): Future[EventsRange[(Offset, Long)]] =
+    dispatcher
+      .executeSql(dbMetrics.getAcsRowIdRange)(EventsRange.readRowIdRange(activeAt))
       .map { x =>
         EventsRange(
           startExclusive = (Offset.beforeBegin, 0),
           endInclusive = (activeAt, x.endInclusive))
       }
 
-    def streamEvents(
-        eventsRange0: EventsRange[(Offset, Long)]): Source[EventsTable.Entry[Event], NotUsed] =
-      PaginatingAsyncStream.streamFrom(
-        eventsRange0,
-        getEventsRangeWithOffset[Event](eventsRange0.endInclusive)) { eventsRange1 =>
-        val query =
-          EventsTable
-            .preparePagedGetActiveContracts(sqlFunctions)(
-              range = eventsRange1,
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .withFetchSize(Some(pageSize))
-        val rawEvents =
-          dispatcher.executeSql(dbMetrics.getActiveContracts) { implicit connection =>
-            query.asVectorOf(EventsTable.rawFlatEventParser)
-          }
-        rawEvents.flatMap(
-          es =>
-            Timed.future(
-              future = Future.traverse(es)(deserializeEntry(verbose)),
-              timer = dbMetrics.getTransactionTrees.translationTimer,
-          )
+  private def getRowIdRange(
+      startExclusive: Offset,
+      endInclusive: Offset): Future[EventsRange[Long]] =
+    dispatcher.executeSql(dbMetrics.getRowIdRange)(
+      EventsRange.readRowIdRange(EventsRange(startExclusive, endInclusive)))
+
+  private def streamEvents[A, E](
+      verbose: Boolean,
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
+      getNextPageRange: EventsTable.Entry[E] => EventsRange[A],
+  )(range: EventsRange[A]): Source[EventsTable.Entry[E], NotUsed] =
+    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
+      val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
+        dispatcher.executeSql(queryMetric)(query(range1))
+      rawEvents.flatMap(
+        es =>
+          Timed.future(
+            future = Future.traverse(es)(deserializeEntry(verbose)),
+            timer = queryMetric.translationTimer,
         )
-      }
-
-    val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source.futureSource(eventsRangeF.map(streamEvents)).mapMaterializedValue(_ => NotUsed)
-
-    groupContiguous(events)(by = _.transactionId)
-      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
-  }
+      )
+    }
 }
