@@ -195,7 +195,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   def assertTriggerStatus(
       uri: Uri,
       triggerInstance: UUID,
-      pred: (Vector[String]) => Boolean): Future[Assertion] = {
+      pred: Vector[String] => Boolean): Future[Assertion] = {
     eventually {
       val actualTriggerStatus = Await.result(for {
         resp <- triggerStatus(uri, triggerInstance)
@@ -323,7 +323,8 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       } yield succeed
   }
 
-  it should "fail to start a trigger if a ledger client can't be obtained" in withTriggerService(
+  // FIXME(RJR): This doesn't make sense with our convention of managing the running trigger store
+  ignore should "fail to start a trigger if a ledger client can't be obtained" in withTriggerService(
     Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
     // Disable the proxy. This means that the service won't be able to
     // get a ledger connection.
@@ -350,28 +351,28 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       // failed to initialize and was stopped).
       case _: TimeoutException => succeed
     } finally {
-      // This isn't strictly neccessary here (since each test gets its
+      // This isn't strictly necessary here (since each test gets its
       // own fixture) but it's jolly decent of us to do it anyway.
       ledgerProxy.enable()
     }
   }
 
-  it should "stop a failing trigger that can't be restarted" in withTriggerService(Some(dar)) {
+  it should "stop a failing trigger on network failure" in withTriggerService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      // Simulate the ledger becoming unrecoverably unavailable due to
-      // network connectivity loss. The stop strategy means the running
-      // trigger will be terminated.
+      // Simulate the ledger becoming unavailable indefinitely due to network connectivity loss.
+      // Our restart strategy means that a previously running trigger will be stopped after a number
+      // of restarts. However the running trigger store is not impacted.
       for {
         // Request a trigger be started for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
         // Proceed when it's confirmed to be running.
         _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
-        // Simulate unrecoverable network connectivity loss.
+        // Simulate network failure.
         _ <- Future { ledgerProxy.disable() }
-        // Confirm that the running trigger ends up stopped and that
-        // its history matches our expectations.
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+        // The running trigger store should be unchanged.
+        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // Confirm that the trigger was eventually stopped.
         _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "stopped: initialization failure")
       } yield succeed
   }
@@ -418,7 +419,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
             triggerStatus.last == "stopped: initialization failure"
           }
         )
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+        // Although the trigger won't be restarted again it's entry in the running trigger store
+        // isn't affected.
+        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
       } yield succeed
   }
 
@@ -436,7 +439,9 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
             triggerStatus.last == "stopped: runtime failure"
           }
         )
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+        // Although the trigger won't be restarted again it's entry in the running trigger store
+        // isn't affected.
+        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
       } yield succeed
   }
 

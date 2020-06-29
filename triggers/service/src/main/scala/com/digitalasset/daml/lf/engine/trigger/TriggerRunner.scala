@@ -7,7 +7,6 @@ import akka.actor.typed.{Behavior, PostStop}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.SupervisorStrategy._
 import akka.actor.typed.Signal
-import akka.actor.typed.PostStop
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.ActorContext
 import akka.stream.Materializer
