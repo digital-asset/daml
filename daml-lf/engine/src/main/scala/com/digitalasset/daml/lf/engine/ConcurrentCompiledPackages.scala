@@ -23,15 +23,19 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
   private[this] var _profilingMode: speedy.Compiler.ProfilingMode = speedy.Compiler.NoProfile
+  private[this] var _stackTraceMode: speedy.Compiler.StackTraceMode = speedy.Compiler.FullStackTrace
 
   def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
   def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
 
-  def stackTraceMode = speedy.Compiler.FullStackTrace
-  def profilingMode = _profilingMode
+  override def profilingMode = _profilingMode
   def profilingMode_=(profilingMode: speedy.Compiler.ProfilingMode) = {
     _profilingMode = profilingMode
+  }
+  override def stackTraceMode = _stackTraceMode
+  def stackTraceMode_=(stackTraceMode: speedy.Compiler.StackTraceMode) = {
+    _stackTraceMode = stackTraceMode
   }
 
   /** Might ask for a package if the package you're trying to add references it.
