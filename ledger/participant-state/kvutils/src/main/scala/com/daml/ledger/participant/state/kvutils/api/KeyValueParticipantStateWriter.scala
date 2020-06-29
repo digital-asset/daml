@@ -32,7 +32,8 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         transactionMeta,
         transaction,
       )
-    val metadata = SimpleCommitMetadata(estimatedInterpretationCost)
+    val metadata = SimpleCommitMetadata(
+      estimatedInterpretationCost = Some(estimatedInterpretationCost))
     commit(correlationId = submitterInfo.commandId, submission = submission, metadata = metadata)
   }
 
@@ -82,6 +83,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       correlationId: String,
       submission: DamlSubmission,
       metadata: CommitMetadata = CommitMetadata.Empty,
-    ): CompletionStage[SubmissionResult] =
+  ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission), metadata))
 }

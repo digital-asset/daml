@@ -41,14 +41,14 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
       correlationId: String,
       envelope: kvutils.Bytes,
       metadata: CommitMetadata,
-    ): Future[SubmissionResult] =
+    ): Future[SubmissionResult] = {
+    val correlatedSubmissionBuilder = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+      .setCorrelationId(correlationId)
+      .setSubmission(envelope)
+    metadata.estimatedInterpretationCost.foreach(correlatedSubmissionBuilder.setEstimatedInterpretationCost)
     queueHandle
-      .offer(
-        DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-          .setCorrelationId(correlationId)
-          .setSubmission(envelope)
-          .setEstimatedInterpretationCost(metadata.estimatedInterpretationCost)
-          .build)
+      .offer(correlatedSubmissionBuilder.build)
+  }
 
   override def participantId: ParticipantId = writer.participantId
 
@@ -76,7 +76,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
       // We assume parallelization of interpretation hence return max.
       val totalEstimatedInterpretationCost = submissions.map(_.getEstimatedInterpretationCost).max
       writer
-        .commit(correlationId, envelope, SimpleCommitMetadata(totalEstimatedInterpretationCost))
+        .commit(correlationId, envelope, SimpleCommitMetadata(estimatedInterpretationCost =
+          Some(totalEstimatedInterpretationCost)))
         .map {
           case SubmissionResult.Acknowledged => ()
           case err =>

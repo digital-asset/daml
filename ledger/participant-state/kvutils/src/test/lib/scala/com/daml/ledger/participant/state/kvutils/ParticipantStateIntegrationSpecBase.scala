@@ -298,7 +298,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
-            .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+            .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction, DefaultInterpretationCost)
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
@@ -317,6 +317,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(rt, alice, commandIds._1),
               transactionMeta(rt),
               emptyTransaction,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
@@ -326,6 +327,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(rt, alice, commandIds._1),
               transactionMeta(rt),
               emptyTransaction,
+              DefaultInterpretationCost,
             )
             .toScala
           result4 <- ps
@@ -333,6 +335,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(rt, alice, commandIds._2),
               transactionMeta(rt),
               emptyTransaction,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
@@ -363,14 +366,16 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             .submitTransaction(
               submitterInfo(rt, alice, "X1"),
               transactionMeta(rt),
-              emptyTransaction)
+              emptyTransaction,
+              DefaultInterpretationCost)
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
             .submitTransaction(
               submitterInfo(rt, alice, "X2"),
               transactionMeta(rt),
-              emptyTransaction)
+              emptyTransaction,
+              DefaultInterpretationCost)
             .toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
@@ -403,6 +408,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(rt, unallocatedParty),
               transactionMeta(rt),
               emptyTransaction,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
@@ -429,6 +435,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(rt, party = newParty),
               transactionMeta(rt),
               emptyTransaction,
+              DefaultInterpretationCost,
             )
             .toScala
           (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
@@ -670,6 +677,7 @@ object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
   private val IdleTimeout: FiniteDuration = 5.seconds
+  private val DefaultInterpretationCost = 0L
 
   private val emptyTransaction: SubmittedTransaction =
     Tx.SubmittedTransaction(TransactionBuilder.Empty)
