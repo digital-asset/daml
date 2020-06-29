@@ -12,11 +12,9 @@ package object memory {
   private[memory] val StartIndex: Index = 0
 
   private[memory] def dispatcherOwner: ResourceOwner[Dispatcher[Index]] =
-    ResourceOwner.forCloseable(
-      () =>
-        Dispatcher(
-          "in-memory-key-value-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-      ))
+    Dispatcher.owner(
+      name = "in-memory-key-value-participant-state",
+      zeroIndex = StartIndex,
+      headAtInitialization = StartIndex,
+    )
 }

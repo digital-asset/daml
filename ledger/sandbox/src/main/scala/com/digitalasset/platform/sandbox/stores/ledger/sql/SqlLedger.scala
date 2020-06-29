@@ -217,12 +217,11 @@ object SqlLedger {
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
-      ResourceOwner.forCloseable(
-        () =>
-          Dispatcher[Offset](
-            name = "sql-ledger",
-            zeroIndex = Offset.beforeBegin,
-            headAtInitialization = ledgerEnd))
+      Dispatcher.owner(
+        name = "sql-ledger",
+        zeroIndex = Offset.beforeBegin,
+        headAtInitialization = ledgerEnd,
+      )
 
     private def sqlLedgerOwner(
         ledgerId: LedgerId,
