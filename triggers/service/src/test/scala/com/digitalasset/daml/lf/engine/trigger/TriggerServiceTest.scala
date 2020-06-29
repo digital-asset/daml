@@ -386,22 +386,19 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         // Request a trigger be started for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
-        // Proceed when it is confirmed to be running.
         _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // Proceed when it is confirmed to be running.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
         // Simulate brief network connectivity loss.
         _ <- Future { ledgerProxy.disable() }
-        _ <- Future { ledgerProxy.enable() }
-        // Check that the trigger survived the outage and that its
-        // history shows it went through a restart.
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // Observe the trigger fail as a result.
         _ <- assertTriggerStatus(
           uri,
           aliceTrigger,
-          triggerStatus => {
-            triggerStatus.count(_ == "stopped: runtime failure") == 1 &&
-            triggerStatus.last == "running"
-          }
-        )
+          log => log.count(_ == "stopped: runtime failure") > 0)
+        _ <- Future { ledgerProxy.enable() }
+        // Check the trigger is restarted after the outage.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
       } yield succeed
   }
 
