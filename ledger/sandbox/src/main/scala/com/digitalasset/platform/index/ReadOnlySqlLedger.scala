@@ -44,42 +44,50 @@ object ReadOnlySqlLedger {
         implicit executionContext: ExecutionContext
     ): Resource[ReadOnlyLedger] =
       for {
-        ledgerDao <- JdbcLedgerDao
-          .readOwner(
-            serverRole,
-            jdbcUrl,
-            eventsPageSize,
-            metrics,
-            lfValueTranslationCache,
-          )
-          .acquire()
-        ledgerId <- Resource.fromFuture(initialize(ledgerDao, initialLedgerId))
+        ledgerDao <- ledgerDaoOwner().acquire()
+        ledgerId <- Resource.fromFuture(verifyOrSetLedgerId(ledgerDao, initialLedgerId))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
-        dispatcher <- ResourceOwner
-          .forCloseable(() => Dispatcher[Offset]("sql-ledger", Offset.beforeBegin, ledgerEnd))
-          .acquire()
+        dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         ledger <- ResourceOwner
           .forCloseable(() => new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher))
           .acquire()
       } yield ledger
-  }
 
-  private def initialize(
-      ledgerDao: LedgerReadDao,
-      initialLedgerId: LedgerId,
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] =
-    ledgerDao
-      .lookupLedgerId()
-      .flatMap {
-        case Some(foundLedgerId @ `initialLedgerId`) =>
-          logger.info(s"Found existing ledger with ID: $foundLedgerId")
-          Future.successful(foundLedgerId)
-        case Some(foundLedgerId) =>
-          Future.failed(
-            new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
-        case None =>
-          Future.successful(initialLedgerId)
-      }
+    private def verifyOrSetLedgerId(
+        ledgerDao: LedgerReadDao,
+        initialLedgerId: LedgerId,
+    )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] =
+      ledgerDao
+        .lookupLedgerId()
+        .flatMap {
+          case Some(`initialLedgerId`) =>
+            logger.info(s"Found existing ledger with ID: $initialLedgerId")
+            Future.successful(initialLedgerId)
+          case Some(foundLedgerId) =>
+            Future.failed(
+              new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
+          case None =>
+            Future.successful(initialLedgerId)
+        }
+
+    private def ledgerDaoOwner(): ResourceOwner[LedgerReadDao] =
+      JdbcLedgerDao.readOwner(
+        serverRole,
+        jdbcUrl,
+        eventsPageSize,
+        metrics,
+        lfValueTranslationCache,
+      )
+
+    private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
+      ResourceOwner.forCloseable(
+        () =>
+          Dispatcher[Offset](
+            name = "sql-ledger",
+            zeroIndex = Offset.beforeBegin,
+            headAtInitialization = ledgerEnd,
+        ))
+  }
 
 }
 
