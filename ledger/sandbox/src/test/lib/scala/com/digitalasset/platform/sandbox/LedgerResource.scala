@@ -64,10 +64,10 @@ object LedgerResource {
     new OwnedResource(
       for {
         database <- PostgresResource.owner()
-        ledger <- SqlLedger.owner(
+        ledger <- new SqlLedger.Owner(
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
-          ledgerId = LedgerIdMode.Static(ledgerId),
+          initialLedgerId = LedgerIdMode.Static(ledgerId),
           participantId = participantId,
           timeProvider = timeProvider,
           acs = InMemoryActiveLedgerState.empty,

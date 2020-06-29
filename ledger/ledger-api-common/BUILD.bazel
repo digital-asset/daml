@@ -32,6 +32,7 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//libs-scala/direct-execution-context",
+        "//libs-scala/resources",
         "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

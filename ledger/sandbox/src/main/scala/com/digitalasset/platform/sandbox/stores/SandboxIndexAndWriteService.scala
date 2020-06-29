@@ -53,7 +53,7 @@ object SandboxIndexAndWriteService {
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
   def postgres(
-      ledgerId: LedgerIdMode,
+      initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
       initialConfig: ParticipantState.Configuration,
@@ -68,28 +68,26 @@ object SandboxIndexAndWriteService {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
-    SqlLedger
-      .owner(
-        serverRole = ServerRole.Sandbox,
-        jdbcUrl = jdbcUrl,
-        ledgerId = ledgerId,
-        participantId = participantId,
-        timeProvider = timeProvider,
-        acs = acs,
-        packages = templateStore,
-        initialLedgerEntries = ledgerEntries,
-        queueDepth = queueDepth,
-        transactionCommitter = transactionCommitter,
-        startMode = startMode,
-        eventsPageSize = eventsPageSize,
-        metrics = metrics,
-        lfValueTranslationCache
-      )
-      .flatMap(ledger =>
-        owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
+    new SqlLedger.Owner(
+      serverRole = ServerRole.Sandbox,
+      jdbcUrl = jdbcUrl,
+      initialLedgerId = initialLedgerId,
+      participantId = participantId,
+      timeProvider = timeProvider,
+      acs = acs,
+      packages = templateStore,
+      initialLedgerEntries = ledgerEntries,
+      queueDepth = queueDepth,
+      transactionCommitter = transactionCommitter,
+      startMode = startMode,
+      eventsPageSize = eventsPageSize,
+      metrics = metrics,
+      lfValueTranslationCache
+    ).flatMap(ledger =>
+      owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
 
   def inMemory(
-      ledgerId: LedgerIdMode,
+      initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       intialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
@@ -101,7 +99,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
     val ledger =
       new InMemoryLedger(
-        ledgerId.or(LedgerIdGenerator.generateRandomId()),
+        initialLedgerId.or(LedgerIdGenerator.generateRandomId()),
         participantId,
         timeProvider,
         acs,

@@ -5,6 +5,7 @@ package com.daml.platform.akkastreams.dispatcher
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.resources.ResourceOwner
 
 /**
   * A fanout signaller, representing a stream of external updates,
@@ -43,6 +44,15 @@ object Dispatcher {
   def apply[Index: Ordering](
       name: String,
       zeroIndex: Index,
-      headAtInitialization: Index): Dispatcher[Index] =
+      headAtInitialization: Index,
+  ): Dispatcher[Index] =
     new DispatcherImpl[Index](name: String, zeroIndex, headAtInitialization)
+
+  def owner[Index: Ordering](
+      name: String,
+      zeroIndex: Index,
+      headAtInitialization: Index,
+  ): ResourceOwner[Dispatcher[Index]] =
+    ResourceOwner.forCloseable(() => apply(name, zeroIndex, headAtInitialization))
+
 }
