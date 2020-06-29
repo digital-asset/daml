@@ -29,11 +29,11 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
 
-  def profilingMode = _profilingMode
+  override def profilingMode = _profilingMode
   def profilingMode_=(profilingMode: speedy.Compiler.ProfilingMode) = {
     _profilingMode = profilingMode
   }
-  def stackTraceMode = _stackTraceMode
+  override def stackTraceMode = _stackTraceMode
   def stackTraceMode_=(stackTraceMode: speedy.Compiler.StackTraceMode) = {
     _stackTraceMode = stackTraceMode
   }
