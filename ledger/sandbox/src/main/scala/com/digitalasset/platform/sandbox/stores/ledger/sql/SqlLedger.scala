@@ -62,7 +62,7 @@ object SqlLedger {
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache
+      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -71,60 +71,21 @@ object SqlLedger {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        ledgerDao <- JdbcLedgerDao
-          .validatingWriteOwner(
-            serverRole,
-            jdbcUrl,
-            eventsPageSize,
-            metrics,
-            lfValueTranslationCache,
-          )
-          .acquire()
+        ledgerDao <- ledgerDaoOwner().acquire()
         _ <- startMode match {
           case SqlStartMode.AlwaysReset =>
             Resource.fromFuture(ledgerDao.reset())
           case SqlStartMode.ContinueIfExists =>
             Resource.unit
         }
-        ledgerId <- Resource.fromFuture(
-          initialize(
-            initialLedgerId,
-            participantId,
-            timeProvider,
-            acs,
-            packages,
-            initialLedgerEntries,
-            ledgerDao,
-          ))
+        ledgerId <- Resource.fromFuture(initialize(ledgerDao))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         ledgerConfig <- Resource.fromFuture(ledgerDao.lookupLedgerConfiguration())
-        dispatcher <- ResourceOwner
-          .forCloseable(() => Dispatcher[Offset]("sql-ledger", Offset.beforeBegin, ledgerEnd))
-          .acquire()
-        ledger <- ResourceOwner
-          .forCloseable(
-            () =>
-              new SqlLedger(
-                ledgerId,
-                participantId,
-                ledgerConfig.map(_._2),
-                ledgerDao,
-                dispatcher,
-                timeProvider,
-                packages,
-                queueDepth,
-                transactionCommitter,
-            ))
-          .acquire()
+        dispatcher <- dispatcherOwner(ledgerEnd).acquire()
+        ledger <- sqlLedgerOwner(ledgerId, ledgerConfig.map(_._2), ledgerDao, dispatcher).acquire()
       } yield ledger
 
     private def initialize(
-        initialLedgerId: LedgerIdMode,
-        participantId: ParticipantId,
-        timeProvider: TimeProvider,
-        acs: InMemoryActiveLedgerState,
-        packages: InMemoryPackageStore,
-        initialLedgerEntries: ImmArray[LedgerEntryOrBump],
         ledgerDao: LedgerDao,
     )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
       // Note that here we only store the ledger entry and we do not update anything else, such as the
@@ -245,6 +206,43 @@ object SqlLedger {
         Future.successful(())
       }
     }
+
+    private def ledgerDaoOwner(): ResourceOwner[LedgerDao] =
+      JdbcLedgerDao.validatingWriteOwner(
+        serverRole,
+        jdbcUrl,
+        eventsPageSize,
+        metrics,
+        lfValueTranslationCache,
+      )
+
+    private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
+      ResourceOwner.forCloseable(
+        () =>
+          Dispatcher[Offset](
+            name = "sql-ledger",
+            zeroIndex = Offset.beforeBegin,
+            headAtInitialization = ledgerEnd))
+
+    private def sqlLedgerOwner(
+        ledgerId: LedgerId,
+        ledgerConfig: Option[Configuration],
+        ledgerDao: LedgerDao,
+        dispatcher: Dispatcher[Offset],
+    ): ResourceOwner[SqlLedger] =
+      ResourceOwner.forCloseable(
+        () =>
+          new SqlLedger(
+            ledgerId,
+            participantId,
+            ledgerConfig,
+            ledgerDao,
+            dispatcher,
+            timeProvider,
+            packages,
+            queueDepth,
+            transactionCommitter,
+        ))
 
   }
 }
