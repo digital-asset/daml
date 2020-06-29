@@ -12,7 +12,7 @@ import org.apache.commons.io.IOUtils
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.migration.JavaMigration
 import org.flywaydb.core.internal.resource.LoadableResource
-import org.flywaydb.core.internal.scanner.{ResourceNameCache, Scanner}
+import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
 import org.scalatest.Matchers._
 import org.scalatest.WordSpec
 
@@ -66,6 +66,7 @@ object FlywayMigrationsSpec {
       getClass.getClassLoader,
       config.getEncoding,
       new ResourceNameCache,
+      new LocationScannerCache,
     )
 
   private def getExpectedDigest(
