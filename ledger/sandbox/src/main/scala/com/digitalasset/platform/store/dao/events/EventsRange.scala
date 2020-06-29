@@ -5,15 +5,11 @@ package com.daml.platform.store.dao.events
 import anorm.SqlParser.get
 import anorm.{RowParser, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
-import scalaz.syntax.std.option._
 
 final case class EventsRange[A](startExclusive: A, endInclusive: A)
 
 object EventsRange {
   private val EmptyRowIdRange = EventsRange(0L, 0L)
-
-  private implicit val `offset to statement converter` =
-    com.daml.platform.store.Conversions.OffsetToStatement
 
   private val rangeParser: RowParser[EventsRange[Long]] =
     (get[Option[Long]]("start") ~ get[Option[Long]]("end")).map { row =>
@@ -23,12 +19,8 @@ object EventsRange {
     }
 
   private val endParser: RowParser[EventsRange[Long]] =
-    get[Option[Long]]("end").map { end =>
-      end.cata(
-        x => EmptyRowIdRange.copy(endInclusive = x),
-        EmptyRowIdRange
-      )
-    }
+    get[Option[Long]]("end")
+      .map(_.fold(EmptyRowIdRange)(x => EmptyRowIdRange.copy(endInclusive = x)))
 
   /**
     * Converts Offset range to Row ID range.
@@ -39,6 +31,7 @@ object EventsRange {
     */
   def rowIdRange(range: EventsRange[Offset])(
       implicit connection: java.sql.Connection): EventsRange[Long] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
 
     if (range.startExclusive == Offset.beforeBegin) {
       rowIdRangeFromStart(range.endInclusive)
@@ -50,8 +43,17 @@ object EventsRange {
     }
   }
 
+  /**
+    * Converts ledger end offset into a Row ID range.
+    *
+    * @param endInclusive ledger end offset
+    * @param connection SQL connection
+    * @return Row ID range
+    */
   def rowIdRangeFromStart(endInclusive: Offset)(
-      implicit connection: java.sql.Connection): EventsRange[Long] =
+      implicit connection: java.sql.Connection): EventsRange[Long] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
     if (endInclusive == Offset.beforeBegin) {
       EmptyRowIdRange
     } else {
@@ -59,4 +61,5 @@ object EventsRange {
         SQL"select max(row_id) as end from participant_events where event_offset <= ${endInclusive}"
       query.as(endParser.single)
     }
+  }
 }
