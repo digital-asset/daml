@@ -307,7 +307,7 @@ object Cli {
         .hidden()
         .optional()
         .action((enabled, config) => config.copy(stackTraces = enabled))
-        .text("Enable stack traces. Default is to enable them.")
+        .text("Enable/disable stack traces. Default is to enable them.")
 
       opt[Long]("max-ledger-time-skew")
         .optional()
