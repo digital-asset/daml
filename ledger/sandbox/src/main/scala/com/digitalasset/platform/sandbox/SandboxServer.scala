@@ -132,12 +132,7 @@ final class SandboxServer(
     this(config, materializer, new Metrics(new MetricRegistry))
 
   // NOTE(MH): We must do this _before_ we load the first package.
-  config.profileDir match {
-    case None => ()
-    case Some(profileDir) =>
-      Files.createDirectories(profileDir)
-      engine.startProfiling(profileDir)
-  }
+  engine.setProfileDir(config.profileDir)
   engine.enableStackTraces(config.stackTraces)
 
   // Name of this participant
