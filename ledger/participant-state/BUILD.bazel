@@ -10,6 +10,9 @@ load(
 da_scala_library(
     name = "participant-state",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     resources = glob(["src/main/resources/**/*"]),
     tags = ["maven_coordinates=com.daml:participant-state:__VERSION__"],
     visibility = [
@@ -26,6 +29,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-health",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

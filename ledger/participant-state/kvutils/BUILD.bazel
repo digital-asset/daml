@@ -20,6 +20,9 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -43,6 +46,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.github.ghik.silencer.silent
 
 import scala.concurrent.Future
 
@@ -31,6 +32,7 @@ trait LedgerWriter extends ReportsHealth {
     * @return future for sending the submission; for possible results see
     *         [[com.daml.ledger.participant.state.v1.SubmissionResult]]
     */
+  @silent
   def commit(
       correlationId: String,
       envelope: Bytes,
@@ -38,7 +40,7 @@ trait LedgerWriter extends ReportsHealth {
   ): Future[SubmissionResult] =
     commit(correlationId, envelope)
 
-  // @deprecated("Will be removed in 1.4.0", "1.3.0")
+  @deprecated("Will be removed in 1.4.0", "1.3.0")
   def commit(
       correlationId: String,
       envelope: Bytes,
