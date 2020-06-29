@@ -30,6 +30,7 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
@@ -45,7 +46,7 @@ import scala.util.{Failure, Success}
 
 object SqlLedger {
 
-  private type PersistentQueue = SourceQueueWithComplete[Offset => Future[Unit]]
+  private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
   final class Owner(
       serverRole: ServerRole,
@@ -82,7 +83,15 @@ object SqlLedger {
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         ledgerConfig <- Resource.fromFuture(ledgerDao.lookupLedgerConfiguration())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
-        ledger <- sqlLedgerOwner(ledgerId, ledgerConfig.map(_._2), ledgerDao, dispatcher).acquire()
+        persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
+        // Close the dispatcher before the persistence queue.
+        _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
+        ledger <- sqlLedgerOwner(
+          ledgerId,
+          ledgerConfig.map(_._2),
+          ledgerDao,
+          dispatcher,
+          persistenceQueue).acquire()
       } yield ledger
 
     private def initialize(
@@ -228,6 +237,7 @@ object SqlLedger {
         ledgerConfig: Option[Configuration],
         ledgerDao: LedgerDao,
         dispatcher: Dispatcher[Offset],
+        persistenceQueue: PersistenceQueue,
     ): ResourceOwner[SqlLedger] =
       ResourceOwner.forCloseable(
         () =>
@@ -239,9 +249,59 @@ object SqlLedger {
             dispatcher,
             timeProvider,
             packages,
-            queueDepth,
+            persistenceQueue,
             transactionCommitter,
         ))
+
+    private final class PersistenceQueueOwner(dispatcher: Dispatcher[Offset])
+        extends ResourceOwner[PersistenceQueue] {
+      override def acquire()(
+          implicit executionContext: ExecutionContext
+      ): Resource[PersistenceQueue] =
+        Resource(Future.successful {
+          val queue =
+            Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
+
+          // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
+          // that this is safe on the read end because the readers rely on the dispatchers to know the
+          // ledger end, and not the database itself. This means that they will not start reading from the new
+          // ledger end until we tell them so, which we do when _all_ the entries have been committed.
+          val persistenceQueue = queue
+            .batch(1, Queue(_))(_.enqueue(_))
+            .mapAsync(1)(persistAll)
+            .toMat(Sink.ignore)(Keep.left[PersistenceQueue, Future[Done]])
+            .run()
+          watchForFailures(persistenceQueue)
+          persistenceQueue
+        })(queue => Future.successful(queue.complete()))
+
+      private def persistAll(queue: Queue[Offset => Future[Unit]]): Future[Unit] = {
+        implicit val ec: ExecutionContext = DEC
+        val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
+        // This will attempt to run the SQL queries concurrently, but there is no parallelism here,
+        // so they will still run sequentially.
+        Future
+          .sequence(queue.toIterator.zipWithIndex.map {
+            case (persist, i) =>
+              val offset = startOffset + i + 1
+              persist(SandboxOffset.toOffset(offset))
+          })
+          .map { _ =>
+            // note that we can have holes in offsets in case of the storing of an entry failed for some reason
+            dispatcher.signalNewHead(
+              SandboxOffset
+                .toOffset(startOffset + queue.length)) // signalling downstream subscriptions
+          }
+      }
+    }
+
+    private def watchForFailures(queue: SourceQueueWithComplete[_]): Unit =
+      queue
+        .watchCompletion()
+        .failed
+        .foreach { throwable =>
+          logger.error("Persistence queue has been closed with a failure.", throwable)
+        }(DEC)
 
   }
 }
@@ -254,70 +314,18 @@ private final class SqlLedger(
     dispatcher: Dispatcher[Offset],
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
-    queueDepth: Int,
+    persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
 )(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, ledgerDao, dispatcher)
     with Ledger {
 
-  import SqlLedger._
-
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
-  // moving ledger-end, the async persistence operation and the dispatcher head notification
-  private val persistenceQueue: PersistentQueue = createQueue()
-
-  watchForFailures(persistenceQueue, "persistence")
-
-  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String): Unit =
-    queue
-      .watchCompletion()
-      .failed
-      .foreach { throwable =>
-        logger.error(s"$name queue has been closed with a failure!", throwable)
-      }(DEC)
-
-  private def createQueue(): PersistentQueue = {
-    implicit val ec: ExecutionContext = DEC
-
-    val persistenceQueue =
-      Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
-
-    // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
-    // that this is safe on the read end because the readers rely on the dispatchers to know the
-    // ledger end, and not the database itself. This means that they will not start reading from the new
-    // ledger end until we tell them so, which we do when _all_ the entries have been committed.
-    persistenceQueue
-      .batch(1, Queue(_))(_.enqueue(_))
-      .mapAsync(1) { queue =>
-        val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
-        // we can only do this because there is no parallelism here!
-        //shooting the SQL queries in parallel
-        Future
-          .sequence(queue.toIterator.zipWithIndex.map {
-            case (persist, i) =>
-              val offset = startOffset + i + 1
-              persist(SandboxOffset.toOffset(offset))
-          })
-          .map { _ =>
-            //note that we can have holes in offsets in case of the storing of an entry failed for some reason
-            dispatcher.signalNewHead(SandboxOffset.toOffset(startOffset + queue.length)) //signalling downstream subscriptions
-          }
-      }
-      .toMat(Sink.ignore)(Keep.left[PersistentQueue, Future[Done]])
-      .run()
-  }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def close(): Unit = {
-    // Terminate the dispatcher first so that it doesn't trigger new queries.
-    dispatcher.close()
-
-    persistenceQueue.complete()
+  override def close(): Unit =
     super.close()
-  }
 
   // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
   // changed entry. Transactions written around the same time as a configuration change entry might not use the correct
