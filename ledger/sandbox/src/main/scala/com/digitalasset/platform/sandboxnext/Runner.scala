@@ -68,6 +68,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   private[this] val engineConfig = Engine.DevConfig
 
   private val engine = new Engine(engineConfig)
+  engine.setProfileDir(config.profileDir)
+  engine.enableStackTraces(config.stackTraces)
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,
@@ -231,7 +233,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               } yield {
                 Banner.show(Console.out)
                 logger.withoutContext.info(
-                  "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
+                  "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
                   BuildInfo.Version,
                   ledgerId,
                   apiServer.port.toString,
@@ -240,6 +242,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ledgerType,
                   authService.getClass.getSimpleName,
                   seeding.toString.toLowerCase,
+                  if (config.stackTraces) "" else ", stack traces = no",
+                  config.profileDir match {
+                    case None => ""
+                    case Some(profileDir) => s", profile directory = ${profileDir}"
+                  },
                 )
                 apiServer
               }

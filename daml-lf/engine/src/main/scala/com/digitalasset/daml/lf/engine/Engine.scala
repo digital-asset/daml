@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{TransactionVersions, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueVersions}
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -398,9 +398,14 @@ final class Engine(config: Engine.Config) {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
 
-  def startProfiling(profileDir: Path) = {
-    this.profileDir = Some(profileDir)
-    compiledPackages.profilingMode = speedy.Compiler.FullProfile
+  def setProfileDir(optProfileDir: Option[Path]) = {
+    optProfileDir match {
+      case None => ()
+      case Some(profileDir) =>
+        Files.createDirectories(profileDir)
+        this.profileDir = Some(profileDir)
+        compiledPackages.profilingMode = speedy.Compiler.FullProfile
+    }
   }
 
   def enableStackTraces(enable: Boolean) = {
