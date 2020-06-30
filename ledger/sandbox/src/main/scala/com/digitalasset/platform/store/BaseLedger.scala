@@ -7,16 +7,6 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.daml.lf.archive.Decode
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.TransactionId
@@ -31,6 +21,16 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.LedgerReadDao
@@ -42,17 +42,11 @@ import scala.util.Try
 
 abstract class BaseLedger(
     val ledgerId: LedgerId,
-    headAtInitialization: Offset,
-    ledgerDao: LedgerReadDao)
-    extends ReadOnlyLedger {
+    ledgerDao: LedgerReadDao,
+    dispatcher: Dispatcher[Offset],
+) extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
-
-  protected final val dispatcher: Dispatcher[Offset] = Dispatcher[Offset](
-    "sql-ledger",
-    Offset.beforeBegin,
-    headAtInitialization
-  )
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
@@ -174,7 +168,5 @@ abstract class BaseLedger(
   override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
     ledgerDao.stopDeduplicatingCommand(commandId, submitter)
 
-  override def close(): Unit = {
-    dispatcher.close()
-  }
+  override def close(): Unit = ()
 }

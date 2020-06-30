@@ -141,7 +141,7 @@ in rec {
       inherit pkgs;
     };
 
-    sphinx183 = bazel_dependencies.sphinx183;
+    sphinx183 = bazel_dependencies.sphinx183-exts;
 
     convert = bazel_dependencies.imagemagick;
 

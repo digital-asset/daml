@@ -132,12 +132,8 @@ final class SandboxServer(
     this(config, materializer, new Metrics(new MetricRegistry))
 
   // NOTE(MH): We must do this _before_ we load the first package.
-  config.profileDir match {
-    case None => ()
-    case Some(profileDir) =>
-      Files.createDirectories(profileDir)
-      engine.startProfiling(profileDir)
-  }
+  engine.setProfileDir(config.profileDir)
+  engine.enableStackTraces(config.stackTraces)
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -342,7 +338,7 @@ final class SandboxServer(
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}",
+        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
         BuildInfo.Version,
         ledgerId,
         apiServer.port.toString,
@@ -351,6 +347,7 @@ final class SandboxServer(
         ledgerType,
         authService.getClass.getSimpleName,
         config.seeding.fold("no")(_.toString.toLowerCase),
+        if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""
           case Some(profileDir) => s", profile directory = ${profileDir}"

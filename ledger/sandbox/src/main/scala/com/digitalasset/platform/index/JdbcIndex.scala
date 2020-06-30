@@ -27,13 +27,18 @@ object JdbcIndex {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
-    ReadOnlySqlLedger
-      .owner(serverRole, jdbcUrl, ledgerId, eventsPageSize, metrics, lfValueTranslationCache)
-      .map { ledger =>
-        new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
-          override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
-            // FIXME(JM): The indexer should on start set the default configuration.
-            Source.single(v2.LedgerConfiguration(initialConfig.maxDeduplicationTime))
-        }
+    new ReadOnlySqlLedger.Owner(
+      serverRole,
+      jdbcUrl,
+      ledgerId,
+      eventsPageSize,
+      metrics,
+      lfValueTranslationCache,
+    ).map { ledger =>
+      new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
+        override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
+          // FIXME(JM): The indexer should on start set the default configuration.
+          Source.single(v2.LedgerConfiguration(initialConfig.maxDeduplicationTime))
       }
+    }
 }

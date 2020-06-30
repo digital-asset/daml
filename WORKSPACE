@@ -542,7 +542,7 @@ nixpkgs_package(
 #sphinx
 nixpkgs_package(
     name = "sphinx_nix",
-    attribute_path = "sphinx183",
+    attribute_path = "sphinx183-exts",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output

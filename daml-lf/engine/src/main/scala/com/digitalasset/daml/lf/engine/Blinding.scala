@@ -51,9 +51,6 @@ object Blinding {
       Right(
         BlindingInfo(
           disclosure = enrichedTx.explicitDisclosure,
-          // NOTE(MH): Local divulgences are a thing of the past and are not
-          // produced by the current implementation anymore.
-          localDivulgence = Map.empty,
           globalDivulgence = enrichedTx.globalImplicitDisclosure,
         ))
     } else {

@@ -48,6 +48,10 @@ jobs:
         demands: assignment -equals default
     steps:
       - checkout: self
+      - ${{ if eq(variables['pool'], 'macos-pool') }}:
+        - bash:
+            for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $shmid; done
+          name: clear_shm
       - template: ../compatibility.yml
       - template: ../daily_tell_slack.yml
 

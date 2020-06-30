@@ -65,12 +65,6 @@ object Ledger {
     // here we just need to align the type for blinding
     val blindingInfo = Blinding.blind(committedTransaction)
 
-    // At this point there should be no local-divulgences
-    assert(
-      blindingInfo.localDivulgence.isEmpty,
-      s"Encountered non-empty local divulgence. This is a bug! [transactionId={$transactionId}, blindingInfo={${blindingInfo.localDivulgence}}"
-    )
-
     // convert LF NodeId to Index EventId
     val disclosureForIndex = blindingInfo.disclosure
 

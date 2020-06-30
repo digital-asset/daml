@@ -953,7 +953,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "blinded correctly" in {
 
       // Bob sees both the archive and the create
-      val bobView = Blinding.divulgedTransaction(blindingInfo.localDisclosure, bob, tx.transaction)
+      val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
         case NodeExercises(
@@ -987,7 +987,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
       // clara only sees create
       val claraView =
-        Blinding.divulgedTransaction(blindingInfo.localDisclosure, clara, tx.transaction)
+        Blinding.divulgedTransaction(blindingInfo.disclosure, clara, tx.transaction)
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {

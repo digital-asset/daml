@@ -39,7 +39,7 @@ class TriggerRunner(
   import TriggerRunner.{Message, Stop}
 
   // Spawn a trigger runner impl. Supervise it. Stop immediately on
-  // initalization halted exceptions, retry any initialization or
+  // initialization halted exceptions, retry any initialization or
   // execution failure exceptions.
   private val child =
     ctx.spawn(
@@ -64,7 +64,7 @@ class TriggerRunner(
 
   override def onSignal: PartialFunction[Signal, Behavior[Message]] = {
     case PostStop =>
-      logger.info(s"Trigger ${name} stopped")
+      logger.info(s"Trigger $name stopped")
       this
   }
 

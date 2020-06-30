@@ -473,9 +473,11 @@ simplifyExpr = fmap fst . cata go'
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
 
 -- | If we have a closed term under a lambda, we want to lift it up to the top level,
--- even though the result of the lambda is also a closed term.
-alwaysLiftUnder :: ExprF t -> Bool
+-- even though the result of the lambda is also a closed term. We avoid breaking up
+-- lambda terms, though.
+alwaysLiftUnder :: ExprF (Expr, Info) -> Bool
 alwaysLiftUnder = \case
+    ETmLamF _ (ETmLam _ _, _) -> False
     ETmLamF _ _ -> True
     _ -> False
 
@@ -489,7 +491,6 @@ isWorthLifting = \case
     EEnumCon _ _ -> False
     ENil _ -> False
     ENone _ -> False
-    ETmLam _ _ -> False
     EUpdate _ -> False
     EScenario _ -> False
     ETypeRep _ -> False

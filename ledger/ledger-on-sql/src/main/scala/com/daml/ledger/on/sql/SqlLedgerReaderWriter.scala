@@ -148,7 +148,7 @@ object SqlLedgerReaderWriter {
           if (resetOnStartup) uninitializedDatabase.migrateAndReset()
           else Future.successful(uninitializedDatabase.migrate()))
         ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
-        dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
+        dispatcher <- new DispatcherOwner(database).acquire()
       } yield
         new SqlLedgerReaderWriter(
           ledgerId,
@@ -186,13 +186,26 @@ object SqlLedgerReaderWriter {
           })
     }
 
-  private def newDispatcher(database: Database)(
-      implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext,
-  ): Future[Dispatcher[Index]] =
-    database
-      .inReadTransaction("read_head") { queries =>
-        Future.fromTry(queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
-      }
-      .map(head => Dispatcher("sql-participant-state", StartIndex, head))
+  private final class DispatcherOwner(database: Database)(implicit logCtx: LoggingContext)
+      extends ResourceOwner[Dispatcher[Index]] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[Dispatcher[Index]] =
+      for {
+        head <- Resource.fromFuture(
+          database
+            .inReadTransaction("read_head") { queries =>
+              Future.fromTry(
+                queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
+            })
+        dispatcher <- Dispatcher
+          .owner(
+            name = "sql-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = head,
+          )
+          .acquire()
+      } yield dispatcher
+  }
+
 }
