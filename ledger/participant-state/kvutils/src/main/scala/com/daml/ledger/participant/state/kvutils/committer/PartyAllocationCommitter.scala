@@ -3,12 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  buildTimestamp,
-  partyAllocationDedupKey
-}
+import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
+import com.daml.ledger.participant.state.kvutils.committer.Committer.{
+  StepInfo,
+  setRecordTimeIfAvailable
+}
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 
@@ -120,7 +120,7 @@ private[kvutils] class PartyAllocationCommitter(
 
     val logEntryBuilder = DamlLogEntry.newBuilder
       .setPartyAllocationEntry(partyAllocationEntry)
-    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
     StepStop(logEntryBuilder.build)
   }
 
@@ -139,7 +139,7 @@ private[kvutils] class PartyAllocationCommitter(
               .setParticipantId(partyAllocationEntry.getParticipantId)
           )
         )
-    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
     logEntryBuilder.build
   }
 

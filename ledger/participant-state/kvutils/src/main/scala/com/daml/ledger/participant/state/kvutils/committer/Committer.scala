@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Timer
+import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
@@ -15,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -115,4 +117,9 @@ object Committer {
           }, conf => Some(Some(entry) -> conf))
       }
       .getOrElse(None -> defaultConfig)
+
+  def setRecordTimeIfAvailable(
+      recordTime: Option[Timestamp],
+      logEntryBuilder: DamlLogEntry.Builder): Unit =
+    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
 }

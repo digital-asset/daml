@@ -167,7 +167,7 @@ private[kvutils] class ConfigCommitter(
 
     val logEntryBuilder = DamlLogEntry.newBuilder
       .setConfigurationEntry(configurationEntry)
-    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
     StepStop(logEntryBuilder.build)
   }
 
@@ -187,7 +187,7 @@ private[kvutils] class ConfigCommitter(
               .setConfiguration(submission.getConfiguration)
           )
         )
-    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
     logEntryBuilder.build
   }
 

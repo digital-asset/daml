@@ -432,8 +432,7 @@ private[kvutils] class TransactionCommitter(
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
     val logEntryBuilder = DamlLogEntry.newBuilder
       .setTransactionEntry(transactionEntry.submission)
-    commitContext.getRecordTime.foreach(timestamp =>
-      logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    setRecordTimeIfAvailable(commitContext.getRecordTime, logEntryBuilder)
     StepStop(logEntryBuilder.build)
   }
 
