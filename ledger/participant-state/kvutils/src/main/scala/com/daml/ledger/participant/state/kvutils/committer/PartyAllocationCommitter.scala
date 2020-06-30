@@ -26,9 +26,9 @@ private[kvutils] class PartyAllocationCommitter(
       s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}")
 
   private val authorizeSubmission: Step = (ctx, partyAllocationEntry) => {
-    if (ctx.getParticipantId == partyAllocationEntry.getParticipantId)
+    if (ctx.getParticipantId == partyAllocationEntry.getParticipantId) {
       StepContinue(partyAllocationEntry)
-    else {
+    } else {
       val msg =
         s"participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, partyAllocationEntry)
@@ -43,9 +43,9 @@ private[kvutils] class PartyAllocationCommitter(
 
   private val validateParty: Step = (ctx, partyAllocationEntry) => {
     val party = partyAllocationEntry.getParty
-    if (Ref.Party.fromString(party).isRight)
+    if (Ref.Party.fromString(party).isRight) {
       StepContinue(partyAllocationEntry)
-    else {
+    } else {
       val msg = s"party string '$party' invalid"
       rejectionTraceLog(msg, partyAllocationEntry)
       StepStop(
@@ -60,9 +60,9 @@ private[kvutils] class PartyAllocationCommitter(
   private val deduplicateParty: Step = (ctx, partyAllocationEntry) => {
     val party = partyAllocationEntry.getParty
     val partyKey = DamlStateKey.newBuilder.setParty(party).build
-    if (ctx.get(partyKey).isEmpty)
+    if (ctx.get(partyKey).isEmpty) {
       StepContinue(partyAllocationEntry)
-    else {
+    } else {
       val msg = s"party already exists party='$party'"
       rejectionTraceLog(msg, partyAllocationEntry)
       StepStop(
@@ -78,9 +78,9 @@ private[kvutils] class PartyAllocationCommitter(
   private val deduplicateSubmission: Step = (ctx, partyAllocationEntry) => {
     val submissionKey =
       partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId)
-    if (ctx.get(submissionKey).isEmpty)
+    if (ctx.get(submissionKey).isEmpty) {
       StepContinue(partyAllocationEntry)
-    else {
+    } else {
       val msg = s"duplicate submission='${partyAllocationEntry.getSubmissionId}'"
       rejectionTraceLog(msg, partyAllocationEntry)
       StepStop(
