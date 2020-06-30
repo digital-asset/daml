@@ -54,8 +54,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "8477f71d5745edca710dca63e70341ba399db62a"  # 2020-06-17
-daml_cheat_sheet_sha256 = "abec6cc804a5cb103e5df68913653234308da4b282bf2119d4e565807c5e37d3"
+daml_cheat_sheet_version = "9d44b550de6c5d23096116da37ccb2fb4a90f7af"  # 2020-06-30
+daml_cheat_sheet_sha256 = "6429b73e33a7a937048c3d1316182bff0cb34b6aed30e2915875da698ee4d5c9"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
