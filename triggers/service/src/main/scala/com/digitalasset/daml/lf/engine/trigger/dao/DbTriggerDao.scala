@@ -10,7 +10,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{EncryptedToken, JdbcConfig, RunningTrigger, UserCredentials}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -127,6 +127,19 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
       }
     } yield (pkgId, payload)
 
+  private def selectRunningTriggers: ConnectionIO[Vector[(UUID, String, String)]] = {
+    val select: Fragment = sql"select * from running_triggers"
+    select.query[(UUID, String, String)].to[Vector]
+  }
+
+  private def parseRunningTrigger(
+      triggerInstance: UUID,
+      token: String,
+      fullTriggerName: String): Either[String, RunningTrigger] = {
+    val credentials = UserCredentials(EncryptedToken(token))
+    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, credentials))
+  }
+
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
   private def dropTables: ConnectionIO[Unit] = {
@@ -166,8 +179,14 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
     import cats.implicits._ // needed for traverse
     run(selectPackages, "Failed to read packages from database").flatMap(
-      _.traverse[({ type E[A] = Either[String, A] })#E, (PackageId, DamlLf.ArchivePayload)](
-        (parsePackage _).tupled)
+      _.traverse((parsePackage _).tupled)
+    )
+  }
+
+  def readRunningTriggers: Either[String, Vector[RunningTrigger]] = {
+    import cats.implicits._ // needed for traverse
+    run(selectRunningTriggers, "Failed to read running triggers from database").flatMap(
+      _.traverse((parseRunningTrigger _).tupled)
     )
   }
 
