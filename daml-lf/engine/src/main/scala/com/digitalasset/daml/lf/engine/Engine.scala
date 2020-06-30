@@ -46,7 +46,7 @@ import java.nio.file.{Files, Path, Paths}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-final class Engine(config: Engine.Config) {
+class Engine(config: Engine.Config) {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
@@ -73,7 +73,7 @@ final class Engine(config: Engine.Config) {
     *
     *
     * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
-    * If let undefined, no discriminator will be generated.
+    * If left undefined, no discriminator will be generated.
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     *
@@ -308,10 +308,9 @@ final class Engine(config: Engine.Config) {
           return Result.needPackage(
             pkgId,
             pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap {
-                case _ =>
-                  callback(compiledPackages)
-                  interpretLoop(machine, time)
+              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                callback(compiledPackages)
+                interpretLoop(machine, time)
               }
             }
           )
@@ -331,13 +330,11 @@ final class Engine(config: Engine.Config) {
         case SResultNeedKey(gk, _, cb) =>
           return ResultNeedKey(
             gk,
-            (
-                result =>
-                  if (cb(SKeyLookupResult(result)))
-                    interpretLoop(machine, time)
-                  else
-                    ResultError(Error(s"dependency error: couldn't find key ${gk.key}"))
-            )
+            result =>
+              if (cb(SKeyLookupResult(result)))
+                interpretLoop(machine, time)
+              else
+                ResultError(Error(s"dependency error: couldn't find key ${gk.key}"))
           )
 
         case _: SResultScenarioCommit =>
@@ -371,9 +368,9 @@ final class Engine(config: Engine.Config) {
           case Some(profileDir) =>
             val hash = meta.nodeSeeds(0)._2.toHexString
             val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"${desc}-${hash.substring(0, 6)}"
+            machine.profile.name = s"$desc-${hash.substring(0, 6)}"
             val profileFile =
-              profileDir.resolve(Paths.get(s"${meta.submissionTime}-${desc}-${hash}.json"))
+              profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
             machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
@@ -398,7 +395,7 @@ final class Engine(config: Engine.Config) {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
 
-  def setProfileDir(optProfileDir: Option[Path]) = {
+  def setProfileDir(optProfileDir: Option[Path]): Unit = {
     optProfileDir match {
       case None =>
         compiledPackages.profilingMode = speedy.Compiler.NoProfile
@@ -424,13 +421,13 @@ object Engine {
       allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
   ) extends NoCopy
 
-  val StableConfig =
+  val StableConfig: Config =
     Config.assertBuild(
       allowedOutputValueVersions = ValueVersions.SupportedStableVersions,
       allowedOutputTransactionVersions = transaction.TransactionVersions.SupportedStableVersions
     )
 
-  val DevConfig =
+  val DevConfig: Config =
     new Config(
       allowedOutputValueVersions = ValueVersions.SupportedDevVersions,
       allowedOutputTransactionVersions = TransactionVersions.SupportedDevVersions,
@@ -473,7 +470,7 @@ object Engine {
   private def profileDesc(tx: Tx.Transaction): String = {
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
-        s"${kind}:${tmpl.qualifiedName.name}${extra.map(extra => s":${extra}").getOrElse("")}"
+        s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
         case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
         case exercise: NodeExercises[_, _, _] =>
@@ -486,6 +483,6 @@ object Engine {
     }
   }
 
-  def DevEngine() = new Engine(Engine.DevConfig)
+  def DevEngine(): Engine = new Engine(Engine.DevConfig)
 
 }
