@@ -505,6 +505,9 @@ genForBind bind body = do
         EUpdate bodyUpd -> bodyUpd
         -- Note: This is a bit of a hack, as we're forced to provide some type to
         -- UPure, but the type itself doesn't really matter.
+        -- The only reason where these types are used is in `bindCids`, where
+        -- they are used to bind fetched / created contract cids, neither of
+        -- which could originate from a UPure update.
         expr -> UPure (TBuiltin BTUnit) expr
   (bodyUpdOut, bodyTyp, creFs) <- genUpdate bodyUpd
   return ( Output

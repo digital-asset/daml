@@ -629,10 +629,12 @@ extRecEnv :: (IsPhase ph, MonadEnv m ph)
 extRecEnv x fs = do
   env <- getEnv
   let skols = envSkols env
-      curFs = [fs' | SkolRec x' fs' <- skols, x == x']
-      newFs = if null curFs
-        then fs
-        else fs ++ head curFs
+      -- Note that x might already be in the skolem list. We thus lookup the
+      -- current (latest) entry, and overwrite it with a new entry containing
+      -- both the current and new fields.
+      newFs = case [fs' | SkolRec x' fs' <- skols, x == x'] of
+        [] -> fs
+        (curFs:_) -> fs ++ curFs
   extSkolEnv (SkolRec x newFs)
 
 -- | Extend the environment with the fields of any given record or type
@@ -800,10 +802,9 @@ lookupRec :: (IsPhase ph, MonadEnv m ph)
   -> m Bool
 lookupRec x f = do
   skols <- envSkols <$> getEnv
-  let fields = [ fs | SkolRec y fs <- skols, x == y ]
-  if not (null fields)
-    then return (elem f $ head fields)
-    else return False
+  case [ fs | SkolRec y fs <- skols, x == y ] of
+    [] -> return False
+    (fields:_) -> return (f `elem` fields)
 
 -- | Lookup a value name in the environment. Returns its (partially) evaluated
 -- definition, together with the updates it performs.
@@ -888,10 +889,9 @@ recExpFields :: (IsPhase ph, MonadEnv m ph)
   -> m (Maybe [(FieldName, Expr)])
 recExpFields (EVar x) = do
   skols <- envSkols <$> getEnv
-  let fss = [ fs | SkolRec y fs <- skols, x == y ]
-  if not (null fss)
-    then return $ Just $ zip (head fss) (map (\f -> EStructProj f (EVar x)) $ head fss)
-    else throwError $ UnboundVar x
+  case [ fs | SkolRec y fs <- skols, x == y ] of
+    [] -> throwError $ UnboundVar x
+    (fss:_) -> return $ Just $ zip fss (map (\f -> EStructProj f (EVar x)) fss)
 recExpFields (ERecCon _ fs) = return $ Just fs
 recExpFields (EStructCon fs) = return $ Just fs
 recExpFields (ERecUpd _ f recExp fExp) = do

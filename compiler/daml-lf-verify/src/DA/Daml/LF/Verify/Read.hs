@@ -65,12 +65,14 @@ optionsParser = Options
         (  metavar "DAR-FILE"
         <> help "DAR file to analyse"
         )
+    -- The choice to analyse: e.g. "--choice Module:Template.Choice"
     <*> option (maybeReader choiceReader)
         (  long "choice"
         <> short 'c'
         <> metavar "CHOICE"
         <> help "The choice to analyse"
         )
+    -- The field to verify: e.g. "--field Module:Template.Field"
     <*> option (maybeReader fieldReader)
         (  long "field"
         <> short 'f'
