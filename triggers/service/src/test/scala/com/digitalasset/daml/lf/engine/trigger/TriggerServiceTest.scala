@@ -359,43 +359,32 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     } yield succeed
   }
 
-  it should "restart triggers with script init errors" in withTriggerService(Some(dar)) {
+  it should "restart triggers with initialization errors" in withTriggerService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // We will attempt to restart the trigger indefinitely.
+        // Just check that we see a few failures and restart attempts.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
         _ <- assertTriggerStatus(
           uri,
           aliceTrigger,
-          triggerStatus => {
-            triggerStatus.count(_ == "starting") ==
-              ServiceConfig.DefaultMaxFailureNumberOfRetries + 1 &&
-            triggerStatus.last == "stopped: initialization failure"
-          }
-        )
-        // Although the trigger won't be restarted again it's entry in the running trigger store
-        // isn't affected.
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+          _.count(_ == "stopped: initialization failure") > 2)
       } yield succeed
   }
 
-  it should "restart triggers with script update errors" in withTriggerService(Some(dar)) {
+  it should "restart triggers with update errors" in withTriggerService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          triggerStatus => {
-            triggerStatus
-              .count(_ == "running") == ServiceConfig.DefaultMaxFailureNumberOfRetries + 1 &&
-            triggerStatus.last == "stopped: runtime failure"
-          }
-        )
-        // Although the trigger won't be restarted again it's entry in the running trigger store
-        // isn't affected.
         _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // We will attempt to restart the trigger indefinitely.
+        // Just check that we see a few failures and restart attempts.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "stopped: runtime failure") > 2)
       } yield succeed
   }
 
