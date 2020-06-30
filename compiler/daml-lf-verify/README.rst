@@ -30,7 +30,7 @@ At the moment, the verification tool is launched from a command line interface.
 Execute the tool by passing in the DAR file, the choice to be 
 verified (``--choice`` / ``-c``), and the field which should be preserved (``--field`` / ``-f``):
 
-.. code::
+.. code-block::
   > bazel run //compiler/daml-lf-verify:daml-lf-verify -- file.dar --choice Module:Template.Choice --field Module:Template.Field
 
 Examples
@@ -43,7 +43,7 @@ As a first example, consider a simple ``Account`` template, with a single choice
 ``Account_Transfer`` for transfering from one account to another. Note that if
 someone tries to transfer more than they own, the choice should just do nothing.
 
-.. code::
+.. code-block:: daml
   module Demo where
   template Account
     with
@@ -81,7 +81,7 @@ It is clear that making a transfer between two accounts, should always preserve
 the total amount of funds. However, running the verification tool produces the 
 following output:
 
-.. code::
+.. code-block::
   > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar --choice Demo:Account.Account_Transfer --field Demo:Account.amount
   
   ...
@@ -127,7 +127,7 @@ we forgot to include ``archive self`` in the example. After
 adding this line to the definition of ``Account_Transfer``, the new output is as 
 follows:
 
-.. code::
+.. code-block::
   > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar --choice Demo:Account.Account_Transfer --field Demo:Account.amount
   
   ...
@@ -165,7 +165,7 @@ For a second example, consider the ``Account_Divide`` choice, which recursively
 donates 1.0 amount from the donor to the receiver account, until the receiver
 account has at least as much funds as the donor.
 
-.. code::
+.. code-block:: daml
         -- | Iteratively transfer 1.0 amount to the receiver, until it has at
         -- least as much funds as the donor.
         nonconsuming Account_Divide : (ContractId Account, ContractId Account)
@@ -185,7 +185,7 @@ account has at least as much funds as the donor.
 We can again use the formal verification tool to ensure that ``Account_Divide``
 always preserves the field ``amount``.
 
-.. code::
+.. code-block::
   > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar --choice Demo:Account.Account_Divide --field Demo:Account.amount
   
   ...
@@ -248,7 +248,7 @@ Testing Framework
 A testing framework is provided for working on the verification tool. Run the
 tests as follows:
 
-.. code::
+.. code-block::
   > bazel run //compiler/daml-lf-verify:verify-tests
   ...
   All 23 tests passed (9.44s)
