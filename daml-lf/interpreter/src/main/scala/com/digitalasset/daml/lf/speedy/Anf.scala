@@ -168,17 +168,6 @@ object Anf {
     )
   }
 
-  /*def transformLet1(depth: DepthA, env: Env, rhs: SExpr, body: SExpr, k: K[SExpr]): Res = {
-    // This is a better transform, but sadly it can blow the stack for deeply nested lets.
-    transformExp(depth, env, rhs, {
-      case (depth, rhs) =>
-        val depth1 = DepthA(depth.n + 1)
-        val env1 = trackBindings(depth, env, 1)
-        val body1 = transformExp(depth1, env1, body, k).bounce
-        Land(SELet1(rhs, body1))
-    })
-  }*/
-
   def flattenAlts(depth: DepthA, env: Env, alts: Array[SCaseAlt]): Array[SCaseAlt] = {
     alts.map {
       case SCaseAlt(pat, body0) =>
