@@ -956,8 +956,8 @@ private[lf] final case class Compiler(
                 SEVar(2)
             }
           )
-        }
-      )
+        },
+      ),
     )
 
   // ELet(a, ELet(b, body)) => ([a, b], body)
