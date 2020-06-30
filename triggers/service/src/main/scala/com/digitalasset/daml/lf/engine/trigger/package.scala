@@ -21,7 +21,7 @@ package object trigger {
       maxInboundMessageSize: Int,
   )
 
-  case class TriggerRunnerConfig(
+  case class TriggerRestartConfig(
       minRestartInterval: FiniteDuration,
       maxRestartInterval: FiniteDuration,
       restartIntervalRandomFactor: Double = 0.2,

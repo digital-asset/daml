@@ -45,7 +45,7 @@ import com.daml.lf.engine.trigger.dao._
 
 class Server(
     ledgerConfig: LedgerConfig,
-    runnerConfig: TriggerRunnerConfig,
+    restartConfig: TriggerRestartConfig,
     secretKey: SecretKey,
     triggerDao: RunningTriggerDao)(
     implicit ctx: ActorContext[Message],
@@ -114,7 +114,7 @@ class Server(
             compiledPackages,
             trigger,
             ledgerConfig,
-            runnerConfig,
+            restartConfig,
             party
           ),
           triggerInstance.toString
@@ -282,7 +282,7 @@ object Server {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      runnerConfig: TriggerRunnerConfig,
+      restartConfig: TriggerRestartConfig,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
@@ -329,7 +329,7 @@ object Server {
     val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
         (dao, server)
       case Some(c) =>
         val dao = DbTriggerDao(c)
@@ -338,7 +338,7 @@ object Server {
             ctx.log.error(err)
             sys.exit(1)
           case Right(pkgs) =>
-            val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+            val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
             server.addPackagesInMemory(pkgs)
             ctx.log.info("Successfully recovered packages from database.")
             (dao, server)

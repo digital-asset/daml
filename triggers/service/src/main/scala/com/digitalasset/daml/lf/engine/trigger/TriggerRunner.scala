@@ -50,9 +50,9 @@ class TriggerRunner(
         )
         .onFailure(
           restartWithBackoff(
-            config.runnerConfig.minRestartInterval,
-            config.runnerConfig.maxRestartInterval,
-            config.runnerConfig.restartIntervalRandomFactor)),
+            config.restartConfig.minRestartInterval,
+            config.restartConfig.maxRestartInterval,
+            config.restartConfig.restartIntervalRandomFactor)),
       name
     )
 

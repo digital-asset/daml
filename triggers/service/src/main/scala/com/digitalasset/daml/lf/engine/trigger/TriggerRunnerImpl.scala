@@ -37,7 +37,7 @@ object TriggerRunnerImpl {
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      runnerConfig: TriggerRunnerConfig,
+      restartConfig: TriggerRestartConfig,
       party: Party,
   )
 

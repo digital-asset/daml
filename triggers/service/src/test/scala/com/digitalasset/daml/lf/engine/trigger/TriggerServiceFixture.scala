@@ -146,7 +146,7 @@ object TriggerServiceFixture {
         Duration.ofSeconds(30),
         ServiceConfig.DefaultMaxInboundMessageSize,
       )
-      runnerConfig = TriggerRunnerConfig(
+      restartConfig = TriggerRestartConfig(
         minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
       )
@@ -154,7 +154,7 @@ object TriggerServiceFixture {
         host.getHostName,
         Port(0).value,
         ledgerConfig,
-        runnerConfig,
+        restartConfig,
         encodedDar,
         jdbcConfig,
         noSecretKey = true // That's ok, use the default.
