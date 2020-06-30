@@ -56,10 +56,14 @@ object Anf {
   case class CompilationError(error: String) extends RuntimeException(error)
 
   /** `DepthE` tracks the stack-depth of the original expression being traversed */
-  case class DepthE(n: Int)
+  case class DepthE(n: Int) {
+    def incr(m: Int) = DepthE(n + m)
+  }
 
   /** `DepthA` tracks the stack-depth of the ANF expression being constructed */
-  case class DepthA(n: Int)
+  case class DepthA(n: Int) {
+    def incr(m: Int) = DepthA(n + m)
+  }
 
   /** `Env` contains the mapping from old to new depth, as well as the old-depth as these
     * components always travel together */
@@ -71,8 +75,8 @@ object Anf {
     if (n == 0) {
       env
     } else {
-      val extra = (0 to n - 1).map(i => (DepthE(env.oldDepth.n + i), DepthA(depth.n + i)))
-      Env(absMap = env.absMap ++ extra, oldDepth = DepthE(env.oldDepth.n + n))
+      val extra = (0 to n - 1).map(i => (env.oldDepth.incr(i), depth.incr(i)))
+      Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
     }
   }
 
@@ -112,7 +116,7 @@ object Anf {
   case class AbsBinding(abs: DepthA)
 
   def makeAbsoluteB(env: Env, rel: Int): AbsBinding = {
-    val oldAbs = DepthE(env.oldDepth.n - rel)
+    val oldAbs = env.oldDepth.incr(-rel)
     env.absMap.get(oldAbs) match {
       case None => throw CompilationError(s"makeAbsoluteB(env=$env,rel=$rel)")
       case Some(abs) => AbsBinding(abs)
@@ -159,7 +163,7 @@ object Anf {
       depth,
       env,
       rhs, { rhs1 =>
-        val depth1 = DepthA(depth.n + 1)
+        val depth1 = depth.incr(1)
         val env1 = trackBindings(depth, env, 1)
         flattenExp(depth1, env1, body, { body1 =>
           k(depth, SELet1(rhs1.wrapped, body1.wrapped))
@@ -173,7 +177,7 @@ object Anf {
       case SCaseAlt(pat, body0) =>
         val n = patternNArgs(pat)
         val env1 = trackBindings(depth, env, n)
-        SCaseAlt(pat, flattenExp(DepthA(depth.n + n), env1, body0, body => {
+        SCaseAlt(pat, flattenExp(depth.incr(n), env1, body0, body => {
           Land(body)
         }).bounce.wrapped)
     }
@@ -302,7 +306,7 @@ object Anf {
             case (depth, anf) =>
               val atom = Right(AbsBinding(depth))
               // Here we call `k' with a newly introduced variable:
-              val body = k(DepthA(depth.n + 1), atom).bounce.wrapped
+              val body = k(depth.incr(1), atom).bounce.wrapped
               // Here we wrap the result of `k` with an enclosing let expression:
               Land(AExpr(SELet1(anf, body)))
           }
