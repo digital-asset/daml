@@ -45,7 +45,6 @@ steps:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.dependency.type=haskell_cabal_library \
-      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
       --detect.notices.report=true \      
       --detect.report.timeout=1500
     displayName: 'Blackduck Haskell Scan'
@@ -70,8 +69,7 @@ steps:
       --detect.bazel.dependency.type=maven_install \
       --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,/Users/brianhealey/g/daml/language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
       --detect.cleanup=false \
-      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
-      --detect.notices.report=true \      
+      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \  
       --detect.cleanup.bdio.files=true \
       --detect.report.timeout=4500
     displayName: 'Blackduck Scan'
