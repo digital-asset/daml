@@ -136,10 +136,6 @@ object Anf {
     case Right(binding) => SELocS(makeRelativeB(depth, binding))
   }
 
-  def relocateA(depth: DepthA, env: Env)(atom: SExprAtomic): SExprAtomic = {
-    makeRelativeA(depth)(makeAbsoluteA(env, atom))
-  }
-
   type AbsLoc = Either[SELoc, AbsBinding]
 
   def makeAbsoluteL(env: Env, loc: SELoc): AbsLoc = loc match {
@@ -152,10 +148,6 @@ object Anf {
     case Left(x: SELocS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
     case Left(loc) => loc
     case Right(binding) => SELocS(makeRelativeB(depth, binding))
-  }
-
-  def relocateL(depth: DepthA, env: Env)(loc: SELoc): SELoc = {
-    makeRelativeL(depth)(makeAbsoluteL(env, loc))
   }
 
   def flattenExp(depth: DepthA, env: Env, exp: SExpr, k: (AExpr => Trampoline[AExpr])): Res = {
@@ -214,7 +206,10 @@ object Anf {
   def transformExp(depth: DepthA, env: Env, exp: SExpr, k: K[SExpr]): Res =
     Bounce(() =>
       exp match {
-        case atom: SExprAtomic => k(depth, relocateA(depth, env)(atom))
+        case atom0: SExprAtomic =>
+          val atom = makeRelativeA(depth)(makeAbsoluteA(env, atom0))
+          k(depth, atom)
+
         case x: SEVal => k(depth, x)
         case x: SEImportValue => k(depth, x)
 
@@ -239,7 +234,7 @@ object Anf {
             }
           )
         case SEMakeClo(fvs0, arity, body0) =>
-          val fvs = fvs0.map(relocateL(depth, env))
+          val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
           val body = flattenToAnf(body0).wrapped
           k(depth, SEMakeClo(fvs, arity, body))
 
