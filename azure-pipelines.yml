@@ -138,6 +138,7 @@ jobs:
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
       - template: ci/report-start.yml
+      - template: ci/clear-shared-segments-macos.yml
       - checkout: self
       - bash: |
           set -euo pipefail
@@ -239,6 +240,7 @@ jobs:
       name: macOS-pool
     steps:
       - template: ci/report-start.yml
+      - template: ci/clear-shared-segments-macos.yml
       - checkout: self
       - template: ci/compatibility.yml
         parameters:

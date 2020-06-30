@@ -180,7 +180,7 @@ conformance_test(
 
 java_image(
     name = "app-image",
-    base = "@openjdk_base//image",
+    base = "@java_base//image",
     main_class = "com.daml.ledger.on.memory.Main",
     resources = ["src/app/resources/logback.xml"],
     visibility = ["//visibility:public"],

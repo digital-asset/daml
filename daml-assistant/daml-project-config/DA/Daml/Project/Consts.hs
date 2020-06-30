@@ -173,10 +173,10 @@ withProjectRoot mbProjectDir (ProjectCheck cmdName check) act = do
             when check $ do
                 hPutStrLn stderr (cmdName <> ": Not in project.")
                 exitFailure
-            act mbProjectPath pure
+            act Nothing pure
         Just projectPath -> do
             projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act mbProjectPath $ \f -> do
+            withCurrentDirectory projectPath $ act (Just projectPath) $ \f -> do
                 absF <- canonicalizePath (previousCwd </> f)
                 pure (projectPath `makeRelative` absF)
 

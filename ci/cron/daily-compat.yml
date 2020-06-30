@@ -48,6 +48,8 @@ jobs:
         demands: assignment -equals default
     steps:
       - checkout: self
+      - ${{ if eq(variables['pool'], 'macos-pool') }}:
+        - template: ../clear-shared-segments-macos.yml
       - template: ../compatibility.yml
       - template: ../daily_tell_slack.yml
 

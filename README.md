@@ -17,7 +17,7 @@ This repository hosts all code for the [DAML smart contract language and SDK](ht
 To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
 Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
-If you have questions about how to use DAML or how to build DAML-based solutions, please ask them on 
+If you have questions about how to use DAML or how to build DAML-based solutions, please ask them on
 [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
 ## Contributing to DAML
@@ -71,7 +71,7 @@ We have a single script to build most targets and run the tests. On Linux and Ma
 
 To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
-On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error. 
+On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error.
 
 ### 4. Installing a local copy
 
@@ -111,6 +111,42 @@ from the `.bazelrc` file.
 If you work with multiple copies of this repository, you can point all of them to the same disk cache
 by overwriting these configs in either a `.bazelrc.local` file in each copy, or a `~/.bazelrc` file
 in your home directory.
+
+### Shared memory segment issues
+
+On macOS at least, it looks like our setup does not always properly close the
+resources PostgreSQL uses. After a number of test runs, you may encounter an
+error message along the lines of:
+
+```
+FATAL:  could not create shared memory segment: No space left on device
+DETAIL:  Failed system call was shmget(key=5432001, size=56, 03600).
+HINT:  This error does *not* mean that you have run out of disk space. It occurs either if all available shared memory IDs have been taken, in which case you need to raise the SHMMNI parameter in your kernel, or because the system's overall limit for shared memory has been reached.
+        The PostgreSQL documentation contains more information about shared memory configuration.
+child process exited with exit code 1
+```
+
+In this case, this is a memory leak, so increasing `SHMNI` (or `SHMALL` etc.)
+as suggested will only delay the issue. You can look at the existing shared
+memory segments on your system by running `ipcs -mcopt`; this will print a line
+per segment, indicating the process ID of the last process to connect to the
+segment as well as the last access time and the number of currently connected
+processes.
+
+If you identify segments with no connected processes, and you are confident you
+can remove them, you can do so with `ipcrm $sid`, where `$sid` is the process
+ID displayed (as the second column) by `ipcs`. Not many macOS applications use
+shared memory segments; **if you have verified that all the existing memory
+segments on your machine need to be deleted**, e.g. because they have all been
+created by PostgreSQL instances that are no longer running, here is a Bash
+invocation you can use to remove all shared memory segments from your system.
+
+**This is a dangerous command. Make sure you understand what it does before
+running it.**
+
+```
+for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $shmid; done
+```
 
 
 ### Haskell profiling builds

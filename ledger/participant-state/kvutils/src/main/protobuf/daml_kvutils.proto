@@ -353,8 +353,7 @@ message DamlCommandDedupKey {
 }
 
 message DamlCommandDedupValue {
-  // record time will be used in the future for pruning
-  google.protobuf.Timestamp record_time = 1;
+  reserved 1; // was record_time
   // the time until when future commands with the same
   // deduplication key will be rejected due to a duplicate submission
   google.protobuf.Timestamp deduplicated_until = 2;
@@ -377,8 +376,7 @@ message DamlSubmissionDedupKey {
 }
 
 message DamlSubmissionDedupValue {
-  // record time will be used in the future for pruning
-  google.protobuf.Timestamp record_time = 1;
+  reserved 1; // was record_time
 }
 
 // DAML contract state, recording the activeness state of a contract.
