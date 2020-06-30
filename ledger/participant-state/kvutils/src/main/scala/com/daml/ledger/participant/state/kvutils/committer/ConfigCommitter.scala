@@ -163,10 +163,10 @@ private[kvutils] class ConfigCommitter(
         .build
     )
 
-    val logEntryBuilder = DamlLogEntry.newBuilder
-      .setConfigurationEntry(configurationEntry)
-    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
-    StepStop(logEntryBuilder.build)
+    val logEntry = buildLogEntryWithOptionalRecordTime(
+      ctx.getRecordTime,
+      _.setConfigurationEntry(configurationEntry))
+    StepStop(logEntry)
   }
 
   private def buildRejectionLogEntry(
@@ -175,18 +175,17 @@ private[kvutils] class ConfigCommitter(
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.config.rejections.inc()
-    val logEntryBuilder =
-      DamlLogEntry.newBuilder
-        .setConfigurationRejectionEntry(
-          addErrorDetails(
-            DamlConfigurationRejectionEntry.newBuilder
-              .setSubmissionId(submission.getSubmissionId)
-              .setParticipantId(submission.getParticipantId)
-              .setConfiguration(submission.getConfiguration)
-          )
+    buildLogEntryWithOptionalRecordTime(
+      ctx.getRecordTime,
+      _.setConfigurationRejectionEntry(
+        addErrorDetails(
+          DamlConfigurationRejectionEntry.newBuilder
+            .setSubmissionId(submission.getSubmissionId)
+            .setParticipantId(submission.getParticipantId)
+            .setConfiguration(submission.getConfiguration)
         )
-    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
-    logEntryBuilder.build
+      )
+    )
   }
 
   override protected def init(

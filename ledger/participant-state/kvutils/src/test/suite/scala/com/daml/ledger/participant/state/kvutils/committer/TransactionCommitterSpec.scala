@@ -142,30 +142,4 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       }
     }
   }
-
-  "buildRejectionLogEntry" should {
-    "set record time in log entry if record time is available" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
-
-      val actualLogEntry = instance.buildRejectionLogEntry(
-        recordTime = Some(theRecordTime),
-        DamlTransactionRejectionEntry.newBuilder())
-
-      actualLogEntry.hasRecordTime shouldBe true
-      actualLogEntry.getRecordTime shouldBe buildTimestamp(theRecordTime)
-    }
-
-    "skip setting record time in log entry when it is not available" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
-
-      val actualLogEntry = instance.buildRejectionLogEntry(
-        recordTime = None,
-        DamlTransactionRejectionEntry.newBuilder())
-
-      actualLogEntry.hasRecordTime shouldBe false
-    }
-  }
-
 }

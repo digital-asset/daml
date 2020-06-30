@@ -430,10 +430,10 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    val logEntryBuilder = DamlLogEntry.newBuilder
-      .setTransactionEntry(transactionEntry.submission)
-    setRecordTimeIfAvailable(commitContext.getRecordTime, logEntryBuilder)
-    StepStop(logEntryBuilder.build)
+    val logEntry = buildLogEntryWithOptionalRecordTime(
+      commitContext.getRecordTime,
+      _.setTransactionEntry(transactionEntry.submission))
+    StepStop(logEntry)
   }
 
   private def updateContractKeyWithContractKeyState(
@@ -582,17 +582,21 @@ private[kvutils] class TransactionCommitter(
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
   ): StepResult[A] = {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
-    StepStop(buildRejectionLogEntry(recordTime, rejectionEntry))
+    StepStop(
+      buildLogEntryWithOptionalRecordTime(
+        recordTime,
+        _.setTransactionRejectionEntry(rejectionEntry)))
   }
-
-  private[committer] def buildRejectionLogEntry(
-      recordTime: Option[Timestamp],
-      rejectionEntry: DamlTransactionRejectionEntry.Builder): DamlLogEntry = {
-    val logEntryBuilder = DamlLogEntry.newBuilder
-      .setTransactionRejectionEntry(rejectionEntry)
-    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
-    logEntryBuilder.build
-  }
+//
+//  private[committer] def buildRejectionLogEntry(
+//      recordTime: Option[Timestamp],
+//      rejectionEntry: DamlTransactionRejectionEntry.Builder): DamlLogEntry = {
+////    val logEntryBuilder = DamlLogEntry.newBuilder
+////      .setTransactionRejectionEntry(rejectionEntry)
+////    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+////    logEntryBuilder.build
+//    buildLogEntryWithOptionalRecordTime(recordTime, _.setTransactionRejectionEntry(rejectionEntry))
+//  }
 
   private object Metrics {
     val rejections: Map[Int, Counter] =

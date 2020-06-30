@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupK
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.{
   StepInfo,
-  setRecordTimeIfAvailable
+  buildLogEntryWithOptionalRecordTime
 }
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
@@ -144,10 +144,9 @@ private[kvutils] class PackageCommitter(
         .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
-    val logEntryBuilder = DamlLogEntry.newBuilder
-      .setPackageUploadEntry(uploadEntry)
-    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
-    StepStop(logEntryBuilder.build)
+    val logEntry =
+      buildLogEntryWithOptionalRecordTime(ctx.getRecordTime, _.setPackageUploadEntry(uploadEntry))
+    StepStop(logEntry)
   }
 
   override protected def init(
@@ -172,17 +171,16 @@ private[kvutils] class PackageCommitter(
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.packageUpload.rejections.inc()
-    val logEntryBuilder =
-      DamlLogEntry.newBuilder
-        .setPackageUploadRejectionEntry(
-          addErrorDetails(
-            DamlPackageUploadRejectionEntry.newBuilder
-              .setSubmissionId(submissionId)
-              .setParticipantId(participantId)
-          )
+    buildLogEntryWithOptionalRecordTime(
+      recordTime,
+      _.setPackageUploadRejectionEntry(
+        addErrorDetails(
+          DamlPackageUploadRejectionEntry.newBuilder
+            .setSubmissionId(submissionId)
+            .setParticipantId(participantId)
         )
-    setRecordTimeIfAvailable(recordTime, logEntryBuilder)
-    logEntryBuilder.build
+      )
+    )
   }
 
   /** Preload the archives to the engine in a background thread.

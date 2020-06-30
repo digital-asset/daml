@@ -118,7 +118,16 @@ object Committer {
       }
       .getOrElse(None -> defaultConfig)
 
-  def setRecordTimeIfAvailable(
+  def buildLogEntryWithOptionalRecordTime(
+      recordTime: Option[Timestamp],
+      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder): DamlLogEntry = {
+    val logEntryBuilder = DamlLogEntry.newBuilder
+    addSubmissionSpecificEntry(logEntryBuilder)
+    setRecordTimeIfAvailable(recordTime, logEntryBuilder)
+    logEntryBuilder.build
+  }
+
+  private def setRecordTimeIfAvailable(
       recordTime: Option[Timestamp],
       logEntryBuilder: DamlLogEntry.Builder): Unit =
     recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))

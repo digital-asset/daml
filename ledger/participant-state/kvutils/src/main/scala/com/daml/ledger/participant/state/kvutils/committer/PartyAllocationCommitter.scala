@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedu
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.{
   StepInfo,
-  setRecordTimeIfAvailable
+  buildLogEntryWithOptionalRecordTime
 }
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
@@ -118,10 +118,10 @@ private[kvutils] class PartyAllocationCommitter(
         .build
     )
 
-    val logEntryBuilder = DamlLogEntry.newBuilder
-      .setPartyAllocationEntry(partyAllocationEntry)
-    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
-    StepStop(logEntryBuilder.build)
+    val logEntry = buildLogEntryWithOptionalRecordTime(
+      ctx.getRecordTime,
+      _.setPartyAllocationEntry(partyAllocationEntry))
+    StepStop(logEntry)
   }
 
   private def buildRejectionLogEntry(
@@ -130,17 +130,16 @@ private[kvutils] class PartyAllocationCommitter(
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
-    val logEntryBuilder =
-      DamlLogEntry.newBuilder
-        .setPartyAllocationRejectionEntry(
-          addErrorDetails(
-            DamlPartyAllocationRejectionEntry.newBuilder
-              .setSubmissionId(partyAllocationEntry.getSubmissionId)
-              .setParticipantId(partyAllocationEntry.getParticipantId)
-          )
+    buildLogEntryWithOptionalRecordTime(
+      ctx.getRecordTime,
+      _.setPartyAllocationRejectionEntry(
+        addErrorDetails(
+          DamlPartyAllocationRejectionEntry.newBuilder
+            .setSubmissionId(partyAllocationEntry.getSubmissionId)
+            .setParticipantId(partyAllocationEntry.getParticipantId)
         )
-    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
-    logEntryBuilder.build
+      )
+    )
   }
 
   override protected def init(

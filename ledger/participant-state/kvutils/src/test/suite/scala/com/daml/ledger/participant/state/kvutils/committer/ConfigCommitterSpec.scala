@@ -79,7 +79,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
     }
 
     "skip setting record time in log entry when it is not available" in {
-      val instance = new ConfigCommitter(theDefaultConfig, theRecordTime.addMicros(1000), metrics)
+      val instance = new ConfigCommitter(theDefaultConfig, theRecordTime, metrics)
       val context = new FakeCommitContext(recordTime = None)
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
