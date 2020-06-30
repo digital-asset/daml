@@ -114,9 +114,9 @@ in your home directory.
 
 ### Shared memory segment issues
 
-On macOS at least, it looks like our setup is not always properly closing all
-the resources PostgreSQL uses. After a number of test runs, you may encounter
-an error message along the lines of:
+On macOS at least, it looks like our setup does not always properly close the
+resources PostgreSQL uses. After a number of test runs, you may encounter an
+error message along the lines of:
 
 ```
 FATAL:  could not create shared memory segment: No space left on device
