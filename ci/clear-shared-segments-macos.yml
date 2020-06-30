@@ -1,0 +1,32 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# We have a number of tests that require spawning and then destroying an
+# instance of a PostgreSQL server. PostgreSQL uses a shared memory segment to
+# coordinate between internal threads. On macOS (and maybe other platforms, but
+# macOS is the one where we observed the issue), about one in three times Bazel
+# stops a PostgreSQL server, the shared memory segment does not get reclaimed.
+# Over time, the shared memory gets full and the machine is not able to start
+# new instances of PostgreSQL until it gets rebooted. Given that we do not have
+# an easy way to reboot macOS nodes, this is a Bad Thing™.
+#
+# This simple script will mark all of the existing shared memory segments on
+# the machine for deletion. This has not been extensively tested and may cause
+# issues. It seems safe enough for now because:
+#
+# 1. We currently do not run any other application than PostgreSQL that uses
+# shared memory segments on CI, and
+#
+# 2. The command, despite the `rm` in its name, does not actually delete the
+# memory segments, but simply marks them for reclamation. They will be kept for
+# as long as there is at least one process connected to them. Since PostgreSQL,
+# at least in the configuration we are using, runs from a single process, this
+# is safe to run even while PostgreSQL is still running (Works On My Machine®).
+# Segments do get deleted immediately if there is no process connected to them
+# when the command is run.
+
+steps:
+  - bash: |
+      set -euo pipefail
+      for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $shmid; done
+    name: clear_shm
