@@ -36,7 +36,7 @@ class BatchingLedgerWriterSpec
       val handle = mock[RunningBatchingQueueHandle]
       when(handle.alive).thenReturn(false)
       val queue = mock[BatchingQueue]
-      when(queue.run(any[BatchingQueue.CommitBatchFunction]())(any[Materializer]()))
+      when(queue.run(any[BatchingQueue.CommitBatchFunction]())(any[Materializer]))
         .thenReturn(handle)
       val writer = mock[LedgerWriter]
       val batchingWriter =
@@ -56,9 +56,12 @@ class BatchingLedgerWriterSpec
         }
       val expected = createExpectedBatch(aCorrelationId -> aSubmission)
       for {
-        submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission)
+        submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission, someCommitMetadata)
       } yield {
-        verify(mockWriter).commit(anyString(), ArgumentMatchers.eq(expected))
+        verify(mockWriter).commit(
+          anyString(),
+          ArgumentMatchers.eq(expected),
+          ArgumentMatchers.eq(CommitMetadata.Empty))
         submissionResult should be(SubmissionResult.Acknowledged)
       }
     }
@@ -71,12 +74,12 @@ class BatchingLedgerWriterSpec
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
       for {
-        result1 <- batchingWriter.commit("test1", aSubmission)
-        result2 <- batchingWriter.commit("test2", aSubmission)
-        result3 <- batchingWriter.commit("test3", aSubmission)
+        result1 <- batchingWriter.commit("test1", aSubmission, someCommitMetadata)
+        result2 <- batchingWriter.commit("test2", aSubmission, someCommitMetadata)
+        result3 <- batchingWriter.commit("test3", aSubmission, someCommitMetadata)
       } yield {
         verify(mockWriter, times(3))
-          .commit(anyString(), any[kvutils.Bytes])
+          .commit(anyString(), any[kvutils.Bytes], any[CommitMetadata])
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
         batchingWriter.currentHealth should be(HealthStatus.healthy)
       }
@@ -87,8 +90,9 @@ class BatchingLedgerWriterSpec
 }
 
 object BatchingLedgerWriterSpec {
-  val aCorrelationId = "aCorrelationId"
-  val aSubmission = ByteString.copyFromUtf8("a submission")
+  private val aCorrelationId = "aCorrelationId"
+  private val aSubmission = ByteString.copyFromUtf8("a submission")
+  private val someCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = Some(123L))
 
   def immediateBatchingQueue()(implicit executionContext: ExecutionContext): BatchingQueue =
     new BatchingQueue {
@@ -111,10 +115,14 @@ object BatchingLedgerWriterSpec {
       captor: Option[ArgumentCaptor[kvutils.Bytes]] = None,
       submissionResult: SubmissionResult = SubmissionResult.Acknowledged): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(anyString(), captor.map(_.capture()).getOrElse(any[kvutils.Bytes]())))
+    when(
+      writer.commit(
+        anyString(),
+        captor.map(_.capture()).getOrElse(any[kvutils.Bytes]),
+        any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
-    when(writer.currentHealth).thenReturn(HealthStatus.healthy)
+    when(writer.currentHealth()).thenReturn(HealthStatus.healthy)
     writer
   }
 
