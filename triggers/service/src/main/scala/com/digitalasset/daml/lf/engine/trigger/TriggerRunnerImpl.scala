@@ -13,7 +13,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.Identifier
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -30,10 +29,8 @@ object TriggerRunnerImpl {
   case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
-      triggerName: Identifier,
       credentials: UserCredentials,
-      // TODO(SF, 2020-06-09): Add access token field here in the
-      // presence of authentication.
+      // TODO(SF, 2020-06-09): Add access token field here in the presence of authentication.
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,

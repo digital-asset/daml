@@ -109,7 +109,6 @@ class Server(
           new TriggerRunner.Config(
             ctx.self,
             triggerInstance,
-            triggerName,
             credentials,
             compiledPackages,
             trigger,
