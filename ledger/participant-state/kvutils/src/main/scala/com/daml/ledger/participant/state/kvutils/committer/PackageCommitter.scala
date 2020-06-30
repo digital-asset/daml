@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer.{
 }
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.metrics.Metrics
@@ -38,18 +39,20 @@ private[kvutils] class PackageCommitter(
       s"Package upload rejected, $msg, correlationId=${packageUploadEntry.getSubmissionId}")
 
   private val authorizeSubmission: Step = (ctx, uploadEntry) => {
-    if (ctx.getParticipantId == uploadEntry.getParticipantId)
+    if (ctx.getParticipantId == uploadEntry.getParticipantId) {
       StepContinue(uploadEntry)
-    else {
+    } else {
       val msg =
         s"participant id ${uploadEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, uploadEntry)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
-          uploadEntry,
+          ctx.getRecordTime,
+          uploadEntry.getSubmissionId,
+          uploadEntry.getParticipantId,
           _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder
-            .setDetails(msg))))
+            .setDetails(msg))
+        ))
     }
   }
 
@@ -74,8 +77,9 @@ private[kvutils] class PackageCommitter(
       rejectionTraceLog(msg, uploadEntry)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
-          uploadEntry,
+          ctx.getRecordTime,
+          uploadEntry.getSubmissionId,
+          uploadEntry.getParticipantId,
           _.setInvalidPackage(Invalid.newBuilder
             .setDetails(msg))))
     }
@@ -83,15 +87,16 @@ private[kvutils] class PackageCommitter(
 
   private val deduplicateSubmission: Step = (ctx, uploadEntry) => {
     val submissionKey = packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId)
-    if (ctx.get(submissionKey).isEmpty)
+    if (ctx.get(submissionKey).isEmpty) {
       StepContinue(uploadEntry)
-    else {
+    } else {
       val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
       rejectionTraceLog(msg, uploadEntry)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
-          uploadEntry,
+          ctx.getRecordTime,
+          uploadEntry.getSubmissionId,
+          uploadEntry.getParticipantId,
           _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
         )
       )
@@ -122,7 +127,7 @@ private[kvutils] class PackageCommitter(
     StepContinue(uploadEntry)
   }
 
-  private val buildLogEntry: Step = (ctx, uploadEntry) => {
+  private[committer] val buildLogEntry: Step = (ctx, uploadEntry) => {
     metrics.daml.kvutils.committer.packageUpload.accepts.inc()
     logger.trace(
       s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=${uploadEntry.getSubmissionId}")
@@ -160,9 +165,10 @@ private[kvutils] class PackageCommitter(
     "build_log_entry" -> buildLogEntry
   )
 
-  private def buildRejectionLogEntry(
-      ctx: CommitContext,
-      packageUploadEntry: DamlPackageUploadEntry.Builder,
+  private[committer] def buildRejectionLogEntry(
+      recordTime: Option[Timestamp],
+      submissionId: String,
+      participantId: String,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.packageUpload.rejections.inc()
@@ -171,11 +177,11 @@ private[kvutils] class PackageCommitter(
         .setPackageUploadRejectionEntry(
           addErrorDetails(
             DamlPackageUploadRejectionEntry.newBuilder
-              .setSubmissionId(packageUploadEntry.getSubmissionId)
-              .setParticipantId(packageUploadEntry.getParticipantId)
+              .setSubmissionId(submissionId)
+              .setParticipantId(participantId)
           )
         )
-    setRecordTimeIfAvailable(ctx.getRecordTime, logEntryBuilder)
+    setRecordTimeIfAvailable(recordTime, logEntryBuilder)
     logEntryBuilder.build
   }
 
