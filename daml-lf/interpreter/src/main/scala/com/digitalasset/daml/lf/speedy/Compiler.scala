@@ -1243,7 +1243,6 @@ private[lf] final case class Compiler(
     }
 
     def goBody(maxS: Int, maxA: Int, maxF: Int): SExpr => Unit = {
-      //println(s"goBody, maxS=$maxS")
       def goLoc(loc: SELoc) = loc match {
         case SELocS(i) =>
           if (i < 1 || i > maxS)
