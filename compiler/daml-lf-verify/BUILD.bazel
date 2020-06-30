@@ -130,6 +130,7 @@ da_haskell_test(
         "containers",
         "filepath",
         "tasty",
+        "tasty-expected-failure",
         "tasty-hunit",
     ],
     main_function = "DA.Daml.LF.Verify.Tests.mainTest",
