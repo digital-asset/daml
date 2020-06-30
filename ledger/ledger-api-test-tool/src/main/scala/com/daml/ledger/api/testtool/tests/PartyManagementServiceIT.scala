@@ -7,7 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
-import com.daml.ledger.test_stable.Test.Dummy
+import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
