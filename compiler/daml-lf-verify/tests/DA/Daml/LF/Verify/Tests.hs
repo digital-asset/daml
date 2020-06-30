@@ -7,7 +7,6 @@ module DA.Daml.LF.Verify.Tests
 
 import System.FilePath
 import Test.Tasty
-import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 
 import DA.Daml.LF.Ast.Base
@@ -21,7 +20,7 @@ mainTest = defaultMain $ testGroup "DA.Daml.LF.Verify"
   , generalTests
   , conditionalTests
   , recursionTests
-  , expectFail recursionTestFail
+  , recursionTestFail
   ]
 
 quickstartPath :: String
