@@ -54,14 +54,15 @@ class BatchingLedgerWriterSpec
         LoggingContext.newLoggingContext { implicit logCtx =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
-      val expected = createExpectedBatch(aCorrelationId -> aSubmission)
+      val expectedBatch = createExpectedBatch(aCorrelationId -> aSubmission)
       for {
         submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission, someCommitMetadata)
       } yield {
+        val expectedCommitMetadata = SimpleCommitMetadata(estimatedInterpretationCost = None)
         verify(mockWriter).commit(
           anyString(),
-          ArgumentMatchers.eq(expected),
-          ArgumentMatchers.eq(CommitMetadata.Empty))
+          ArgumentMatchers.eq(expectedBatch),
+          ArgumentMatchers.eq(expectedCommitMetadata))
         submissionResult should be(SubmissionResult.Acknowledged)
       }
     }
