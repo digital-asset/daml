@@ -1281,15 +1281,6 @@ private[lf] final case class Compiler(
               val n = patternNArgs(pat)
               goBody(maxS + n, maxA, maxF)(body)
           }
-        case SELet1General(rhs, body) => go(SELet(Array(rhs), body))
-        case SELet1Builtin(builtin, args, body) =>
-          go(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
-        case SELet(bounds, body) =>
-          bounds.zipWithIndex.foreach {
-            case (rhs, i) =>
-              goBody(maxS + i, maxA, maxF)(rhs)
-          }
-          goBody(maxS + bounds.length, maxA, maxF)(body)
         case SECatch(body, handler, fin) =>
           go(body)
           go(handler)
@@ -1298,11 +1289,27 @@ private[lf] final case class Compiler(
           go(body)
         case SELabelClosure(_, expr) =>
           go(expr)
-
+        case _: SELet1General => goLets(maxS)(expr)
+        case _: SELet1Builtin => goLets(maxS)(expr)
+        case x: SELet => throw CompilationError(s"validate: unexpected: $x")
         case x: SEVar => throw CompilationError(s"validate: unexpected: $x")
         case x: SEAbs => throw CompilationError(s"validate: unexpected: $x")
         case x: SEWronglyTypeContractId => throw CompilationError(s"validate: unexpected: $x")
         case x: SEImportValue => throw CompilationError(s"validate: unexpected: $x")
+      }
+      @tailrec
+      def goLets(maxS: Int)(expr: SExpr): Unit = {
+        def go = goBody(maxS, maxA, maxF)
+        expr match {
+          case SELet1General(rhs, body) =>
+            go(rhs)
+            goLets(maxS + 1)(body)
+          case SELet1Builtin(_, args, body) =>
+            args.foreach(go)
+            goLets(maxS + 1)(body)
+          case expr =>
+            go(expr)
+        }
       }
       go
     }
