@@ -184,7 +184,7 @@ private[lf] final case class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeClosureConvert(sexpr: SExpr): AExpr =
+  def unsafeCompilationPipeline(sexpr: SExpr): AExpr =
     validate(compilationPipeline(None, sexpr))
 
   // Run the compilation pipeline phases:
