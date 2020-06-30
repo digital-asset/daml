@@ -76,6 +76,8 @@ object ServiceMain {
           )
         val runnerConfig = TriggerRunnerConfig(
           config.maxInboundMessageSize,
+          config.minRestartInterval,
+          config.maxRestartInterval,
           config.maxFailureNumberOfRetries,
           config.failureRetryTimeRange,
         )

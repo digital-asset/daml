@@ -143,6 +143,8 @@ object TriggerServiceFixture {
         Duration.ofSeconds(30))
       runnerConfig = TriggerRunnerConfig(
         ServiceConfig.DefaultMaxInboundMessageSize,
+        ServiceConfig.DefaultMinRestartInterval,
+        ServiceConfig.DefaultMaxRestartInterval,
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,
       )

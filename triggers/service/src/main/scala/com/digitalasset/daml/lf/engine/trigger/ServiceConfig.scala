@@ -9,6 +9,9 @@ import java.time.Duration
 import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
+import scala.concurrent.duration
+import scala.concurrent.duration.FiniteDuration
+
 case class ServiceConfig(
     // For convenience, we allow passing in a DAR on startup
     // as opposed to uploading it dynamically.
@@ -17,6 +20,8 @@ case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     maxInboundMessageSize: Int,
+    minRestartInterval: FiniteDuration,
+    maxRestartInterval: FiniteDuration,
     // These 2 parameters mean that a failing trigger will be
     // restarted up to n times within k seconds.
     maxFailureNumberOfRetries: Int,
@@ -76,6 +81,8 @@ object JdbcConfig {
 object ServiceConfig {
   val DefaultHttpPort: Int = 8088
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
+  val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
+  val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
   val DefaultMaxFailureNumberOfRetries: Int = 3
   val DefaultFailureRetryTimeRange: Duration = Duration.ofSeconds(60)
 
@@ -107,6 +114,18 @@ object ServiceConfig {
       .optional()
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}.")
+
+    opt[Long]("min-restart-interval")
+      .action((x, c) => c.copy(minRestartInterval = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(
+        s"Minimum time interval before restarting a failed trigger. Defaults to ${DefaultMinRestartInterval.toSeconds} seconds.")
+
+    opt[Long]("max-restart-interval")
+      .action((x, c) => c.copy(maxRestartInterval = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(
+        s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
     opt[Int]("max-failure-number-of-retries")
       .action((x, c) => c.copy(maxFailureNumberOfRetries = x))
@@ -159,6 +178,8 @@ object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        minRestartInterval = DefaultMinRestartInterval,
+        maxRestartInterval = DefaultMaxRestartInterval,
         maxFailureNumberOfRetries = DefaultMaxFailureNumberOfRetries,
         failureRetryTimeRange = DefaultFailureRetryTimeRange,
         timeProviderType = TimeProviderType.Static,

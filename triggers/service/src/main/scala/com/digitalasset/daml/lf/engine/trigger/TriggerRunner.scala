@@ -49,9 +49,10 @@ class TriggerRunner(
             .onFailure[InitializationHalted](stop)
         )
         .onFailure(
-          restart.withLimit(
-            config.runnerConfig.maxFailureNumberOfRetries,
-            config.runnerConfig.failureRetryTimeRange)),
+          restartWithBackoff(
+            config.runnerConfig.minRestartInterval,
+            config.runnerConfig.maxRestartInterval,
+            config.runnerConfig.restartIntervalRandomFactor)),
       name
     )
 
