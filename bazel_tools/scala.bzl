@@ -73,8 +73,6 @@ common_plugins = [
 ]
 
 plugin_scalacopts = [
-    # do not enable wart remover for now, because we need to fix a lot of
-    # test code, which didn't have wart remover enabled before
     "-Xplugin-require:wartremover",
 ] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
     # This lists all wartremover linting passes.
