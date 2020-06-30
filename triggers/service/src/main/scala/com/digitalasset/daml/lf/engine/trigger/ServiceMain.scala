@@ -73,9 +73,9 @@ object ServiceMain {
             config.ledgerPort,
             config.timeProviderType,
             config.commandTtl,
+            config.maxInboundMessageSize,
           )
         val runnerConfig = TriggerRunnerConfig(
-          config.maxInboundMessageSize,
           config.minRestartInterval,
           config.maxRestartInterval,
         )

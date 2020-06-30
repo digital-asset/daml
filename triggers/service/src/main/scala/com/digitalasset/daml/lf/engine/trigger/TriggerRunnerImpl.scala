@@ -186,7 +186,7 @@ object TriggerRunnerImpl {
           .fromBuilder(
             NettyChannelBuilder
               .forAddress(config.ledgerConfig.host, config.ledgerConfig.port)
-              .maxInboundMessageSize(config.runnerConfig.maxInboundMessageSize),
+              .maxInboundMessageSize(config.ledgerConfig.maxInboundMessageSize),
             clientConfig,
           )
         runner = new Runner(

@@ -143,9 +143,10 @@ object TriggerServiceFixture {
         host.getHostName,
         ledgerProxyPort.value,
         TimeProviderType.Static,
-        Duration.ofSeconds(30))
-      runnerConfig = TriggerRunnerConfig(
+        Duration.ofSeconds(30),
         ServiceConfig.DefaultMaxInboundMessageSize,
+      )
+      runnerConfig = TriggerRunnerConfig(
         minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
       )

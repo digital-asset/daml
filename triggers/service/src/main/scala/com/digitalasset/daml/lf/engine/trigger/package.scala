@@ -18,10 +18,10 @@ package object trigger {
       port: Int,
       timeProvider: TimeProviderType,
       commandTtl: Duration,
+      maxInboundMessageSize: Int,
   )
 
   case class TriggerRunnerConfig(
-      maxInboundMessageSize: Int,
       minRestartInterval: FiniteDuration,
       maxRestartInterval: FiniteDuration,
       restartIntervalRandomFactor: Double = 0.2,
