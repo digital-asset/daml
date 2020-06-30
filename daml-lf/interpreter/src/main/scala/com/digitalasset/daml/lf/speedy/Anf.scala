@@ -213,8 +213,6 @@ object Anf {
         case x: SEVal => k(depth, x)
         case x: SEImportValue => k(depth, x)
 
-        // (NC) I'm not entirely happy with how the following code is formatted, but
-        // scalafmt wont have it any other way.
         case SEAppGeneral(func, args) =>
           atomizeExp(
             depth,
