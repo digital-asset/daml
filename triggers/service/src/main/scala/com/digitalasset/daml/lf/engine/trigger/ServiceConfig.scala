@@ -22,10 +22,6 @@ case class ServiceConfig(
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
-    // These 2 parameters mean that a failing trigger will be
-    // restarted up to n times within k seconds.
-    maxFailureNumberOfRetries: Int,
-    failureRetryTimeRange: Duration, // in seconds
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
@@ -83,8 +79,6 @@ object ServiceConfig {
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
   val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
-  val DefaultMaxFailureNumberOfRetries: Int = 3
-  val DefaultFailureRetryTimeRange: Duration = Duration.ofSeconds(60)
 
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
@@ -127,19 +121,6 @@ object ServiceConfig {
       .text(
         s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
-    opt[Int]("max-failure-number-of-retries")
-      .action((x, c) => c.copy(maxFailureNumberOfRetries = x))
-      .optional()
-      .text(
-        s"Max number of times to try to restart a failing trigger (within allowed time range). Defaults to ${DefaultMaxFailureNumberOfRetries}.")
-
-    opt[Long]("failure-retry-time-range")
-      .action { (t, c) =>
-        c.copy(failureRetryTimeRange = Duration.ofSeconds(t))
-      }
-      .text(
-        "Allow up to max number of restarts of a failing trigger within this many seconds. Defaults to " + DefaultFailureRetryTimeRange.getSeconds.toString + "s.")
-
     opt[Unit]('w', "wall-clock-time")
       .action { (t, c) =>
         c.copy(timeProviderType = TimeProviderType.WallClock)
@@ -180,8 +161,6 @@ object ServiceConfig {
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,
-        maxFailureNumberOfRetries = DefaultMaxFailureNumberOfRetries,
-        failureRetryTimeRange = DefaultFailureRetryTimeRange,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,

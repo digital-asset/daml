@@ -78,8 +78,6 @@ object ServiceMain {
           config.maxInboundMessageSize,
           config.minRestartInterval,
           config.maxRestartInterval,
-          config.maxFailureNumberOfRetries,
-          config.failureRetryTimeRange,
         )
         val system: ActorSystem[Message] =
           ActorSystem(

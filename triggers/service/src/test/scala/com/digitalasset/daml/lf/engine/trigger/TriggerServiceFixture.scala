@@ -148,8 +148,6 @@ object TriggerServiceFixture {
         ServiceConfig.DefaultMaxInboundMessageSize,
         minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
-        ServiceConfig.DefaultMaxFailureNumberOfRetries,
-        ServiceConfig.DefaultFailureRetryTimeRange,
       )
       service <- ServiceMain.startServer(
         host.getHostName,

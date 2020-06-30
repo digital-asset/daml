@@ -24,8 +24,6 @@ package object trigger {
       maxInboundMessageSize: Int,
       minRestartInterval: FiniteDuration,
       maxRestartInterval: FiniteDuration,
-      maxFailureNumberOfRetries: Int,
-      failureRetryTimeRange: Duration,
       restartIntervalRandomFactor: Double = 0.2,
   )
 
