@@ -82,7 +82,7 @@ private[kvutils] class TransactionCommitter(
 
   /** Reject duplicate commands
     */
-  private def deduplicateCommand: Step = (commitContext, transactionEntry) => {
+  private[committer] def deduplicateCommand: Step = (commitContext, transactionEntry) => {
     commitContext.getRecordTime
       .map { recordTime =>
         val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
@@ -151,7 +151,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLedgerTime: Step =
+  private[committer] def validateLedgerTime: Step =
     (commitContext, transactionEntry) =>
       commitContext.getRecordTime
         .map { recordTime =>
@@ -585,7 +585,7 @@ private[kvutils] class TransactionCommitter(
     StepStop(buildRejectionLogEntry(recordTime, rejectionEntry))
   }
 
-  private def buildRejectionLogEntry(
+  private[committer] def buildRejectionLogEntry(
       recordTime: Option[Timestamp],
       rejectionEntry: DamlTransactionRejectionEntry.Builder): DamlLogEntry = {
     val logEntryBuilder = DamlLogEntry.newBuilder
