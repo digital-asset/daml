@@ -178,7 +178,7 @@ genrule(
 
 container_image(
     name = "sandbox-image-base",
-    base = "@openjdk_base//image",
+    base = "@java_base//image",
     cmd = None,
     directory = "/usr/bin",
     files = [
