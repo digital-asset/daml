@@ -50,6 +50,9 @@ trap stop_postgresql EXIT
 stop_postgresql # in case it's running from a previous build
 start_postgresql
 
+# This is picked up by rules_docker.
+export PULLER_TIMEOUT=3000
+
 # Run the tests.
 bazel test //... \
   --build_tag_filters "$tag_filter" \
