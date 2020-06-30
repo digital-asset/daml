@@ -52,6 +52,9 @@ object TriggerServiceFixture {
     }
   }
 
+  // Use a small initial interval so we can test restart behaviour more easily.
+  private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
+
   def withTriggerService[A](
       testName: String,
       dars: List[File],
@@ -143,7 +146,7 @@ object TriggerServiceFixture {
         Duration.ofSeconds(30))
       runnerConfig = TriggerRunnerConfig(
         ServiceConfig.DefaultMaxInboundMessageSize,
-        ServiceConfig.DefaultMinRestartInterval,
+        minRestartInterval,
         ServiceConfig.DefaultMaxRestartInterval,
         ServiceConfig.DefaultMaxFailureNumberOfRetries,
         ServiceConfig.DefaultFailureRetryTimeRange,

@@ -367,6 +367,8 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
         // We will attempt to restart the trigger indefinitely.
         // Just check that we see a few failures and restart attempts.
+        // This relies on a small minimum restart interval as the interval doubles after each
+        // failure.
         _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
         _ <- assertTriggerStatus(
           uri,
@@ -383,6 +385,8 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
         // We will attempt to restart the trigger indefinitely.
         // Just check that we see a few failures and restart attempts.
+        // This relies on a small minimum restart interval as the interval doubles after each
+        // failure.
         _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
         _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "stopped: runtime failure") > 2)
       } yield succeed
