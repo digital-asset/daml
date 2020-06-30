@@ -6,7 +6,7 @@ DAML Verification Tool
 ======================
 
 This project performs fully automated formal verification of DAML code.
-Provided with a choice and a field, the verification tool employs symbolic 
+Provided with a choice of a template and a field of a (potentially different) template, the verification tool employs symbolic 
 execution and an SMT solver, to verify whether the given choice always preserves
 the total amount of the given field. This allows it to automatically answer
 the common question "Could this smart contract model ever burn money or create
@@ -29,16 +29,16 @@ Running the Verification Tool
 
 At the moment, the verification tool is launched from a command line interface.
 Execute the tool by passing in the DAR file, the choice to be 
-verified (--choice / -c), and the field which should be preserved (--field / -f):
+verified (``--choice`` / ``-c``), and the field which should be preserved (``--field`` / ``-f``):
 
 .. code::
-  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- file.dar -c Module:Template.Choice -f Module:Template.Field
+  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- file.dar --choice Module:Template.Choice --field Module:Template.Field
 
-Some Examples
-=============
+Examples
+========
 
-Example 1
----------
+Example 1: Transferring value
+-----------------------------
 
 As a first example, consider a simple ``Account`` template, with a single choice
 ``Account_Transfer`` for transfering from one account to another. Note that if
@@ -57,7 +57,7 @@ someone tries to transfer more than they own, the choice should just do nothing.
     
         controller owner can
     
-          -- | Transfer a sum to the receiver, or do nothing if this would make the
+          -- | Transfer some amount to the receiver, or do nothing if this would make the
           -- remaining amount in the account negative.
           nonconsuming Account_Transfer : (ContractId Account, ContractId Account)
             with
@@ -82,7 +82,7 @@ It is clear that making a transfer between two accounts, should always preserve
 the total amount of funds. However, running the verification tool produces the 
 following output:
 
-.. code:: haskell
+.. code::
   > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar -c Demo:Account.Account_Transfer -f Demo:Account.amount
   
   ...
