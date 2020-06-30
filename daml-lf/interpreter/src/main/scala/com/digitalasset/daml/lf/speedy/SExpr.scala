@@ -109,8 +109,6 @@ object SExpr {
   /** Function application: General case: 'fun' and 'args' are any kind of expression */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      //machine.pushKont(KArg(args, machine.frame, machine.actuals, machine.env.size))
-      //machine.ctrl = fun
       // We never encounter a general application node when executing on the speedy machine
       // This is because all speedy expression must have been converted to ANF form
       // The wrapper type `AExpr` helps ensure this restrction is adhered to.
