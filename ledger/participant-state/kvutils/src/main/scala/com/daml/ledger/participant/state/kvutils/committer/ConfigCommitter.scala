@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
 private[kvutils] object ConfigCommitter {
@@ -24,7 +25,8 @@ private[kvutils] object ConfigCommitter {
 
 private[kvutils] class ConfigCommitter(
     defaultConfig: Configuration,
-    override protected val metrics: Metrics,
+    maximumRecordTime: Timestamp,
+    override protected val metrics: Metrics
 ) extends Committer[DamlConfigurationSubmission, ConfigCommitter.Result] {
 
   override protected val committerName = "config"
@@ -36,9 +38,9 @@ private[kvutils] class ConfigCommitter(
     // Check the maximum record time against the record time of the commit.
     // This mechanism allows the submitter to detect lost submissions and retry
     // with a submitter controlled rate.
-    if (ctx.getRecordTime > ctx.getMaximumRecordTime) {
+    if (ctx.getRecordTime > maximumRecordTime) {
       rejectionTraceLog(
-        s"submission timed out (${ctx.getRecordTime} > ${ctx.getMaximumRecordTime})",
+        s"submission timed out (${ctx.getRecordTime} > $maximumRecordTime)",
         result.submission)
       StepStop(
         buildRejectionLogEntry(
@@ -46,7 +48,7 @@ private[kvutils] class ConfigCommitter(
           result.submission,
           _.setTimedOut(
             TimedOut.newBuilder
-              .setMaximumRecordTime(buildTimestamp(ctx.getMaximumRecordTime))
+              .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
           )
         ))
     } else {
