@@ -48,7 +48,6 @@ final class StoreBackedCommandExecutor(
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
     val submissionResult = engine.submit(commands.commands, participant, submissionSeed)
-    val interpretationTimeNanos = System.nanoTime() - start
     consume(commands.submitter, submissionResult)
       .map { submission =>
         (for {
@@ -56,7 +55,8 @@ final class StoreBackedCommandExecutor(
           (updateTx, meta) = result
           _ <- Blinding
             .checkAuthorizationAndBlind(updateTx, Set(commands.submitter))
-        } yield
+        } yield {
+          val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
             submitterInfo = SubmitterInfo(
               commands.submitter,
@@ -76,7 +76,8 @@ final class StoreBackedCommandExecutor(
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,
             interpretationTimeNanos = interpretationTimeNanos
-          )).left.map(ErrorCause.DamlLf)
+          )
+        }).left.map(ErrorCause.DamlLf)
       }
   }
 
