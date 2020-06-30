@@ -113,12 +113,7 @@ private[kvutils] class PartyAllocationCommitter(
 
     ctx.set(
       partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId),
-      DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
-        .build
+      DamlStateValue.newBuilder.build
     )
 
     StepStop(

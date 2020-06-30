@@ -33,8 +33,8 @@ class BatchedSubmissionValidatorSpec
     with AkkaBeforeAndAfterAll
     with MockitoSugar {
 
-  val engine = Engine.DevEngine()
-  val metrics = new Metrics(new MetricRegistry)
+  private val engine = Engine.DevEngine()
+  private val metrics = new Metrics(new MetricRegistry)
 
   "validateAndCommit" should {
 
@@ -196,12 +196,12 @@ class BatchedSubmissionValidatorSpec
         )
         .map { _ =>
           verify(mockCommit, times(nSubmissions)).commit(
-            any[ParticipantId](),
-            any[String](),
-            any[DamlLogEntryId](),
-            any[DamlLogEntry](),
-            any[DamlInputState](),
-            any[DamlOutputState]())
+            any[ParticipantId],
+            any[String],
+            any[DamlLogEntryId],
+            any[DamlLogEntry],
+            any[DamlInputState],
+            any[DamlOutputState])
           // Verify that the log entries have been committed in the right order.
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
           logEntries.map(_.getPartyAllocationEntry) should be(
@@ -252,12 +252,12 @@ class BatchedSubmissionValidatorSpec
         .map { _ =>
           // We must have 1 commit only (for the first submission).
           verify(mockCommit, times(1)).commit(
-            any[ParticipantId](),
-            any[String](),
-            any[DamlLogEntryId](),
-            any[DamlLogEntry](),
-            any[DamlInputState](),
-            any[DamlOutputState]())
+            any[ParticipantId],
+            any[String],
+            any[DamlLogEntryId],
+            any[DamlLogEntry],
+            any[DamlInputState],
+            any[DamlOutputState])
           succeed
         }
     }
@@ -353,12 +353,12 @@ class BatchedSubmissionValidatorSpec
         // We expected two state fetches and two commits.
         verify(mockLedgerStateReader, times(nSubmissions)).readState(any[Seq[DamlStateKey]]())
         verify(mockCommit, times(nSubmissions)).commit(
-          any[ParticipantId](),
-          any[String](),
-          any[DamlLogEntryId](),
-          any[DamlLogEntry](),
-          any[DamlInputState](),
-          any[DamlOutputState]())
+          any[ParticipantId],
+          any[String],
+          any[DamlLogEntryId],
+          any[DamlLogEntry],
+          any[DamlInputState],
+          any[DamlOutputState])
         // Verify we have all the expected log entries.
         val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
         logEntries.map(_.getPartyAllocationEntry) should contain allElementsOf

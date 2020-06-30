@@ -132,12 +132,7 @@ private[kvutils] class PackageCommitter(
     }
     ctx.set(
       packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId),
-      DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
-        .build
+      DamlStateValue.newBuilder.build
     )
     StepStop(
       DamlLogEntry.newBuilder
