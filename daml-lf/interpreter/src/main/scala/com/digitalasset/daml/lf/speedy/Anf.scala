@@ -72,12 +72,8 @@ object Anf {
   val initEnv = Env(absMap = Map.empty, oldDepth = DepthE(0))
 
   def trackBindings(depth: DepthA, env: Env, n: Int): Env = {
-    if (n == 0) {
-      env
-    } else {
-      val extra = (0 to n - 1).map(i => (env.oldDepth.incr(i), depth.incr(i)))
-      Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
-    }
+    val extra = (0 to n - 1).map(i => (env.oldDepth.incr(i), depth.incr(i)))
+    Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
   }
 
   // TODO: reference something here about trampolines
