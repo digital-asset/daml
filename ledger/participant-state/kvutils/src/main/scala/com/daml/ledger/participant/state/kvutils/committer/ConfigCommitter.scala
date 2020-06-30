@@ -34,7 +34,7 @@ private[kvutils] class ConfigCommitter(
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
     logger.trace(s"Configuration rejected, $msg, correlationId=${submission.getSubmissionId}")
 
-  private val checkTtl: Step = (ctx, result) => {
+  private[committer] val checkTtl: Step = (ctx, result) => {
     // Check the maximum record time against the record time of the commit.
     // This mechanism allows the submitter to detect lost submissions and retry
     // with a submitter controlled rate.
@@ -139,8 +139,7 @@ private[kvutils] class ConfigCommitter(
     }
   }
 
-  private def buildLogEntry: Step = (ctx, result) => {
-
+  private[committer] def buildLogEntry: Step = (ctx, result) => {
     metrics.daml.kvutils.committer.config.accepts.inc()
     logger.trace(
       s"Configuration accepted, generation=${result.submission.getConfiguration.getGeneration} correlationId=${result.submission.getSubmissionId}")
@@ -150,7 +149,6 @@ private[kvutils] class ConfigCommitter(
       .setParticipantId(result.submission.getParticipantId)
       .setConfiguration(result.submission.getConfiguration)
       .build
-
     ctx.set(
       configurationStateKey,
       DamlStateValue.newBuilder
