@@ -133,18 +133,13 @@ private[kvutils] class PackageCommitter(
     ctx.set(
       packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(ctx.getRecordTime))
-        .setPackageUploadEntry(uploadEntry)
-        .build
-    )
+    val logEntryBuilder = DamlLogEntry.newBuilder
+      .setPackageUploadEntry(uploadEntry)
+    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    StepStop(logEntryBuilder.build)
   }
 
   override protected def init(
@@ -168,16 +163,17 @@ private[kvutils] class PackageCommitter(
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.packageUpload.rejections.inc()
-    DamlLogEntry.newBuilder
-      .setRecordTime(buildTimestamp(ctx.getRecordTime))
-      .setPackageUploadRejectionEntry(
-        addErrorDetails(
-          DamlPackageUploadRejectionEntry.newBuilder
-            .setSubmissionId(packageUploadEntry.getSubmissionId)
-            .setParticipantId(packageUploadEntry.getParticipantId)
+    val logEntryBuilder =
+      DamlLogEntry.newBuilder
+        .setPackageUploadRejectionEntry(
+          addErrorDetails(
+            DamlPackageUploadRejectionEntry.newBuilder
+              .setSubmissionId(packageUploadEntry.getSubmissionId)
+              .setParticipantId(packageUploadEntry.getParticipantId)
+          )
         )
-      )
-      .build
+    ctx.getRecordTime.foreach(timestamp => buildTimestamp(timestamp))
+    logEntryBuilder.build
   }
 
   /** Preload the archives to the engine in a background thread.

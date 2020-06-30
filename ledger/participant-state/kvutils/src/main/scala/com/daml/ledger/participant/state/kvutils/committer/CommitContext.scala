@@ -30,7 +30,7 @@ private[kvutils] trait CommitContext {
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
 
   def getEntryId: DamlLogEntryId
-  def getRecordTime: Timestamp
+  def getRecordTime: Option[Timestamp]
   def getParticipantId: ParticipantId
 
   /** Retrieve value from output state, or if not found, from input state. */

@@ -83,22 +83,26 @@ private[kvutils] class TransactionCommitter(
   /** Reject duplicate commands
     */
   private def deduplicateCommand: Step = (commitContext, transactionEntry) => {
-    val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
-    val dedupEntry = commitContext.get(dedupKey)
-    val submissionTime =
-      if (inStaticTimeMode) Instant.now() else commitContext.getRecordTime.toInstant
-    if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
-      StepContinue(transactionEntry)
-    } else {
-      logger.trace(
-        s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
-      reject(
-        commitContext.getRecordTime,
-        DamlTransactionRejectionEntry.newBuilder
-          .setSubmitterInfo(transactionEntry.submitterInfo)
-          .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
-      )
-    }
+    commitContext.getRecordTime
+      .map { recordTime =>
+        val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
+        val dedupEntry = commitContext.get(dedupKey)
+        val submissionTime =
+          if (inStaticTimeMode) Instant.now() else recordTime.toInstant
+        if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
+          StepContinue(transactionEntry)
+        } else {
+          logger.trace(
+            s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
+          reject(
+            commitContext.getRecordTime,
+            DamlTransactionRejectionEntry.newBuilder
+              .setSubmitterInfo(transactionEntry.submitterInfo)
+              .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
+          )
+        }
+      }
+      .getOrElse(StepContinue(transactionEntry))
   }
 
   // Checks that the submission time of the command is after the
@@ -147,21 +151,27 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLedgerTime: Step = (commitContext, transactionEntry) => {
-    val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
-    val timeModel = config.timeModel
-    val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
+  private def validateLedgerTime: Step =
+    (commitContext, transactionEntry) =>
+      commitContext.getRecordTime
+        .map { recordTime =>
+          val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+          val timeModel = config.timeModel
+          val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
-    timeModel
-      .checkTime(ledgerTime = givenLedgerTime, recordTime = commitContext.getRecordTime.toInstant)
-      .fold(
-        reason =>
-          reject(
-            commitContext.getRecordTime,
-            buildRejectionLogEntry(transactionEntry, RejectionReason.InvalidLedgerTime(reason))),
-        _ => StepContinue(transactionEntry)
-      )
-  }
+          timeModel
+            .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
+            .fold(
+              reason =>
+                reject(
+                  commitContext.getRecordTime,
+                  buildRejectionLogEntry(
+                    transactionEntry,
+                    RejectionReason.InvalidLedgerTime(reason))),
+              _ => StepContinue(transactionEntry)
+            )
+        }
+        .getOrElse(StepContinue(transactionEntry))
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Step =
@@ -238,7 +248,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def validateContractKeyUniqueness(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
     val allUnique = transactionEntry.transaction
@@ -282,7 +292,7 @@ private[kvutils] class TransactionCommitter(
     * NodeLookupByKey.
     */
   private def validateContractKeyCausalMonotonicity(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey],
       damlState: Map[DamlStateKey, DamlStateValue]): StepResult[DamlTransactionEntrySummary] = {
@@ -349,7 +359,6 @@ private[kvutils] class TransactionCommitter(
       DamlStateValue.newBuilder
         .setCommandDedup(
           DamlCommandDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(commitContext.getRecordTime))
             .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
             .build)
         .build
@@ -421,12 +430,11 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(commitContext.getRecordTime))
-        .setTransactionEntry(transactionEntry.submission)
-        .build
-    )
+    val logEntryBuilder = DamlLogEntry.newBuilder
+      .setTransactionEntry(transactionEntry.submission)
+    commitContext.getRecordTime.foreach(timestamp =>
+      logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    StepStop(logEntryBuilder.build)
   }
 
   private def updateContractKeyWithContractKeyState(
@@ -571,16 +579,20 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def reject[A](
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
   ): StepResult[A] = {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(recordTime))
-        .setTransactionRejectionEntry(rejectionEntry)
-        .build,
-    )
+    StepStop(buildRejectionLogEntry(recordTime, rejectionEntry))
+  }
+
+  private def buildRejectionLogEntry(
+      recordTime: Option[Timestamp],
+      rejectionEntry: DamlTransactionRejectionEntry.Builder): DamlLogEntry = {
+    val logEntryBuilder = DamlLogEntry.newBuilder
+      .setTransactionRejectionEntry(rejectionEntry)
+    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    logEntryBuilder.build
   }
 
   private object Metrics {

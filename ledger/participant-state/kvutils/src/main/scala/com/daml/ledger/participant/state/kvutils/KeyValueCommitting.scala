@@ -142,7 +142,7 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics).run(
           entryId,
-          recordTime,
+          Some(recordTime),
           submission.getPackageUploadEntry,
           participantId,
           inputState,
@@ -151,7 +151,7 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).run(
           entryId,
-          recordTime,
+          Some(recordTime),
           submission.getPartyAllocationEntry,
           participantId,
           inputState,
@@ -162,7 +162,7 @@ class KeyValueCommitting private[daml] (
           submission.getConfigurationSubmission.getMaximumRecordTime)
         new ConfigCommitter(defaultConfig, maximumRecordTime, metrics).run(
           entryId,
-          recordTime,
+          Some(recordTime),
           submission.getConfigurationSubmission,
           participantId,
           inputState,
@@ -172,7 +172,7 @@ class KeyValueCommitting private[daml] (
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .run(
             entryId,
-            recordTime,
+            Some(recordTime),
             submission.getTransactionEntry,
             participantId,
             inputState,

@@ -38,7 +38,7 @@ private[kvutils] class ConfigCommitter(
     // Check the maximum record time against the record time of the commit.
     // This mechanism allows the submitter to detect lost submissions and retry
     // with a submitter controlled rate.
-    if (ctx.getRecordTime > maximumRecordTime) {
+    if (ctx.getRecordTime.exists(_ > maximumRecordTime)) {
       rejectionTraceLog(
         s"submission timed out (${ctx.getRecordTime} > $maximumRecordTime)",
         result.submission)
@@ -161,19 +161,14 @@ private[kvutils] class ConfigCommitter(
     ctx.set(
       configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
 
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(ctx.getRecordTime))
-        .setConfigurationEntry(configurationEntry)
-        .build
-    )
+    val logEntryBuilder = DamlLogEntry.newBuilder
+      .setConfigurationEntry(configurationEntry)
+    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    StepStop(logEntryBuilder.build)
   }
 
   private def buildRejectionLogEntry(
@@ -182,17 +177,18 @@ private[kvutils] class ConfigCommitter(
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.config.rejections.inc()
-    DamlLogEntry.newBuilder
-      .setRecordTime(buildTimestamp(ctx.getRecordTime))
-      .setConfigurationRejectionEntry(
-        addErrorDetails(
-          DamlConfigurationRejectionEntry.newBuilder
-            .setSubmissionId(submission.getSubmissionId)
-            .setParticipantId(submission.getParticipantId)
-            .setConfiguration(submission.getConfiguration)
+    val logEntryBuilder =
+      DamlLogEntry.newBuilder
+        .setConfigurationRejectionEntry(
+          addErrorDetails(
+            DamlConfigurationRejectionEntry.newBuilder
+              .setSubmissionId(submission.getSubmissionId)
+              .setParticipantId(submission.getParticipantId)
+              .setConfiguration(submission.getConfiguration)
+          )
         )
-      )
-      .build
+    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    logEntryBuilder.build
   }
 
   override protected def init(

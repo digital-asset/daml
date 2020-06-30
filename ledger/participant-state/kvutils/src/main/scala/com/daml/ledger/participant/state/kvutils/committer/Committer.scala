@@ -64,7 +64,7 @@ private[committer] trait Committer[Submission, PartialResult] {
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
       entryId: DamlLogEntryId,
-      recordTime: Time.Timestamp,
+      recordTime: Option[Time.Timestamp],
       submission: Submission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
@@ -72,7 +72,7 @@ private[committer] trait Committer[Submission, PartialResult] {
     runTimer.time { () =>
       val ctx = new CommitContext {
         override def getEntryId: DamlLogEntryId = entryId
-        override def getRecordTime: Time.Timestamp = recordTime
+        override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
         override def inputs: DamlStateMap = inputState
       }

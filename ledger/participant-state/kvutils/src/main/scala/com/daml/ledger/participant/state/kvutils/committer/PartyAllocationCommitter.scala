@@ -114,19 +114,14 @@ private[kvutils] class PartyAllocationCommitter(
     ctx.set(
       partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(
-          DamlSubmissionDedupValue.newBuilder
-            .setRecordTime(buildTimestamp(ctx.getRecordTime))
-            .build)
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
 
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(ctx.getRecordTime))
-        .setPartyAllocationEntry(partyAllocationEntry)
-        .build
-    )
+    val logEntryBuilder = DamlLogEntry.newBuilder
+      .setPartyAllocationEntry(partyAllocationEntry)
+    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    StepStop(logEntryBuilder.build)
   }
 
   private def buildRejectionLogEntry(
@@ -135,16 +130,17 @@ private[kvutils] class PartyAllocationCommitter(
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): DamlLogEntry = {
     metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
-    DamlLogEntry.newBuilder
-      .setRecordTime(buildTimestamp(ctx.getRecordTime))
-      .setPartyAllocationRejectionEntry(
-        addErrorDetails(
-          DamlPartyAllocationRejectionEntry.newBuilder
-            .setSubmissionId(partyAllocationEntry.getSubmissionId)
-            .setParticipantId(partyAllocationEntry.getParticipantId)
+    val logEntryBuilder =
+      DamlLogEntry.newBuilder
+        .setPartyAllocationRejectionEntry(
+          addErrorDetails(
+            DamlPartyAllocationRejectionEntry.newBuilder
+              .setSubmissionId(partyAllocationEntry.getSubmissionId)
+              .setParticipantId(partyAllocationEntry.getParticipantId)
+          )
         )
-      )
-      .build
+    ctx.getRecordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    logEntryBuilder.build
   }
 
   override protected def init(
