@@ -80,7 +80,7 @@ if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
 
   bazel build ${BAZEL_MODE_FLAGS[@]:-} //compiler/damlc:damlc-dist.tar.gz
 
-  readonly TARBALL="$(bazel info bazel-bin "${BAZEL_MODE_FLAGS[@]:-}")/compiler/damlc/damlc-dist.tar.gz"
+  readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/compiler/damlc/damlc-dist.tar.gz"
   chmod -R u+w "$DAML_HEAD_SDK"
   rm -rf "${DAML_HEAD_SDK}/damlc"
   mkdir -p "${DAML_HEAD_SDK}/damlc"
