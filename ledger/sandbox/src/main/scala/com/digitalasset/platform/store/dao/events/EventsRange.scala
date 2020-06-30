@@ -42,11 +42,11 @@ object EventsRange {
       EmptyRowIdRange.startExclusive
     } else {
       import com.daml.platform.store.Conversions.OffsetToStatement
-      // This query could be: "select min(row_id) - 1 as start from participant_events where event_offset > ${range.startExclusive}"
+      // This query could be: "select min(row_id) - 1 from participant_events where event_offset > ${range.startExclusive}"
       // however there are cases when postgres decides not to use the index. We are forcing the index usage specifying `order by event_offset`
       SQL"select min(row_id) from participant_events where event_offset > ${startExclusive} group by event_offset order by event_offset asc limit 1"
         .withFetchSize(oneRow)
-        .as(get[Option[Long]](1).single)(connection)
+        .as(get[Long](1).singleOpt)(connection)
         .map(_ - 1L)
         .getOrElse(EmptyRowIdRange.startExclusive)
     }
@@ -56,12 +56,12 @@ object EventsRange {
       EmptyRowIdRange.endInclusive
     } else {
       import com.daml.platform.store.Conversions.OffsetToStatement
-      // This query could be: "select max(row_id) as end from participant_events where event_offset <= ${range.endInclusive}"
-      // however there are cases (query takes 24 min on DB with 4million participant_events rows)
+      // This query could be: "select max(row_id) from participant_events where event_offset <= ${range.endInclusive}"
+      // however there are cases (query takes 24 min on DB with 4 million rows in participant_events)
       // when postgres decides not to use the index. We are forcing the index usage specifying `order by event_offset`
       SQL"select max(row_id) from participant_events where event_offset <= ${endInclusive} group by event_offset order by event_offset desc limit 1"
         .withFetchSize(oneRow)
-        .as(get[Option[Long]](1).single)(connection)
+        .as(get[Long](1).singleOpt)(connection)
         .getOrElse(EmptyRowIdRange.endInclusive)
     }
 }
