@@ -31,7 +31,8 @@ import com.daml.lf.speedy.Compiler.CompilationError
 
 import scala.annotation.tailrec
 
-private[speedy] object Anf {
+//TODO: make this object private[speedy] when use of flattenToAnf is removed from daml-script
+object Anf {
 
   /*** Entry point for the ANF transformation phase */
   def flattenToAnf(exp: SExpr): AExpr = {
