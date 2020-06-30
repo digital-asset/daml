@@ -129,7 +129,7 @@ genPackage :: (GenPhase ph, MonadEnv m ph)
 genPackage (id, (pac, _)) = mapM_ (genModule (PRImport id)) (NM.toList $ packageModules pac)
 
 -- | Analyse a value definition and add to the environment.
-genValue :: (GenPhase ph, MonadEnv m ph)
+genValue :: MonadEnv m 'ValueGathering
   => PackageRef
   -- ^ A reference to the package in which this value is defined.
   -> ModuleName

@@ -281,12 +281,8 @@ class IsPhase (ph :: Phase) where
   setEnvSkols :: [Skolem] -> Env ph -> Env ph
   -- | Get the bound values from the environment.
   envVals :: Env ph -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet ph)
-  -- | Update the bound values in the environment.
-  setEnvVals :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet ph) -> Env ph -> Env ph
   -- | Get the data constructors from the environment.
   envDats :: Env ph -> HM.HashMap TypeConName DefDataType
-  -- | Update the data constructors in the environment.
-  setEnvDats :: HM.HashMap TypeConName DefDataType -> Env ph -> Env ph
   -- | Get the fetched cid's mapped to their current variable name, along with
   -- a list of any potential old variable names, from the environment.
   envCids :: Env ph -> HM.HashMap Cid (ExprVarName, [ExprVarName])
@@ -294,16 +290,12 @@ class IsPhase (ph :: Phase) where
   setEnvCids :: HM.HashMap Cid (ExprVarName, [ExprVarName]) -> Env ph -> Env ph
   -- | Get the set of preconditions from the environment.
   envPreconds :: Env ph -> HM.HashMap (Qualified TypeConName) (Expr -> Expr)
-  -- | Update the set of preconditions in the environment.
-  setEnvPreconds :: HM.HashMap (Qualified TypeConName) (Expr -> Expr) -> Env ph -> Env ph
   -- | Get the additional constraints from the environment.
   envCtrs :: Env ph -> [BoolExpr]
   -- | Update the additional constraints in the environment.
   setEnvCtrs :: [BoolExpr] -> Env ph -> Env ph
   -- | Get the set of relevant choices from the environment.
   envChoices :: Env ph -> HM.HashMap UpdChoice (ChoiceData ph)
-  -- | Update the set of relevant choices in the environment.
-  setEnvChoices :: HM.HashMap UpdChoice (ChoiceData ph) -> Env ph -> Env ph
 
 instance IsPhase 'ValueGathering where
   data Upd 'ValueGathering
@@ -348,17 +340,13 @@ instance IsPhase 'ValueGathering where
   envSkols (EnvVG sko _ _ _ _) = sko
   setEnvSkols sko (EnvVG _ val dat cid ctr) = EnvVG sko val dat cid ctr
   envVals (EnvVG _ val _ _ _) = val
-  setEnvVals val (EnvVG sko _ dat cid ctr) = EnvVG sko val dat cid ctr
   envDats (EnvVG _ _ dat _ _) = dat
-  setEnvDats dat (EnvVG sko val _ cid ctr) = EnvVG sko val dat cid ctr
   envCids (EnvVG _ _ _ cid _) = cid
   setEnvCids cid (EnvVG sko val dat _ ctr) = EnvVG sko val dat cid ctr
-  envPreconds _ = error "A value gathering phase environment does not contain preconditions."
-  setEnvPreconds _ _ = error "A value gathering phase environment does not contain preconditions."
+  envPreconds _ = HM.empty
   envCtrs (EnvVG _ _ _ _ ctr) = ctr
   setEnvCtrs ctr (EnvVG sko val dat cid _) = EnvVG sko val dat cid ctr
-  envChoices _ = error "A value gathering phase environment does not contain choices."
-  setEnvChoices _ _ = error "A value gathering phase environment does not contain choices."
+  envChoices _ = HM.empty
 
 instance IsPhase 'ChoiceGathering where
   data Upd 'ChoiceGathering
@@ -406,17 +394,13 @@ instance IsPhase 'ChoiceGathering where
   envSkols (EnvCG sko _ _ _ _ _ _) = sko
   setEnvSkols sko (EnvCG _ val dat cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
   envVals (EnvCG _ val _ _ _ _ _) = val
-  setEnvVals val (EnvCG sko _ dat cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
   envDats (EnvCG _ _ dat _ _ _ _) = dat
-  setEnvDats dat (EnvCG sko val _ cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
   envCids (EnvCG _ _ _ cid _ _ _) = cid
   setEnvCids cid (EnvCG sko val dat _ pre ctr cho) = EnvCG sko val dat cid pre ctr cho
   envPreconds (EnvCG _ _ _ _ pre _ _) = pre
-  setEnvPreconds pre (EnvCG sko val dat cid _ ctr cho) = EnvCG sko val dat cid pre ctr cho
   envCtrs (EnvCG _ _ _ _ _ ctr _) = ctr
   setEnvCtrs ctr (EnvCG sko val dat cid pre _ cho) = EnvCG sko val dat cid pre ctr cho
   envChoices (EnvCG _ _ _ _ _ _ cho) = cho
-  setEnvChoices cho (EnvCG sko val dat cid pre ctr _) = EnvCG sko val dat cid pre ctr cho
 
 instance IsPhase 'Solving where
   data Upd 'Solving
@@ -458,17 +442,35 @@ instance IsPhase 'Solving where
   envSkols (EnvS sko _ _ _ _ _ _) = sko
   setEnvSkols sko (EnvS _ val dat cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
   envVals (EnvS _ val _ _ _ _ _) = val
-  setEnvVals val (EnvS sko _ dat cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
   envDats (EnvS _ _ dat _ _ _ _) = dat
-  setEnvDats dat (EnvS sko val _ cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
   envCids (EnvS _ _ _ cid _ _ _) = cid
   setEnvCids cid (EnvS sko val dat _ pre ctr cho) = EnvS sko val dat cid pre ctr cho
   envPreconds (EnvS _ _ _ _ pre _ _) = pre
-  setEnvPreconds pre (EnvS sko val dat cid _ ctr cho) = EnvS sko val dat cid pre ctr cho
   envCtrs (EnvS _ _ _ _ _ ctr _) = ctr
   setEnvCtrs ctr (EnvS sko val dat cid pre _ cho) = EnvS sko val dat cid pre ctr cho
   envChoices (EnvS _ _ _ _ _ _ cho) = cho
-  setEnvChoices cho (EnvS sko val dat cid pre ctr _) = EnvS sko val dat cid pre ctr cho
+
+-- | Update the bound values in the environment.
+setEnvVals :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
+  -> Env 'ValueGathering -> Env 'ValueGathering
+setEnvVals val (EnvVG sko _ dat cid ctr) = EnvVG sko val dat cid ctr
+
+-- | Update the set of preconditions in the environment.
+setEnvPreconds :: HM.HashMap (Qualified TypeConName) (Expr -> Expr)
+  -> Env 'ChoiceGathering -> Env 'ChoiceGathering
+setEnvPreconds pre (EnvCG sko val dat cid _ ctr cho) =
+  EnvCG sko val dat cid pre ctr cho
+
+-- | Update the data constructors in the environment.
+setEnvDats :: HM.HashMap TypeConName DefDataType
+  -> Env 'ValueGathering -> Env 'ValueGathering
+setEnvDats dat (EnvVG sko val _ cid ctr) = EnvVG sko val dat cid ctr
+
+-- | Update the set of relevant choices in the environment.
+setEnvChoices :: HM.HashMap UpdChoice (ChoiceData 'ChoiceGathering)
+  -> Env 'ChoiceGathering -> Env 'ChoiceGathering
+setEnvChoices cho (EnvCG sko val dat cid pre ctr _) =
+  EnvCG sko val dat cid pre ctr cho
 
 -- | Add a single BaseUpd to an UpdateSet.
 addBaseUpd :: IsPhase ph
@@ -658,12 +660,12 @@ extSkolEnv skol = do
        (putEnv $ setEnvSkols (skol : envSkols env) env)
 
 -- | Extend the environment with a new value definition.
-extValEnv :: (IsPhase ph, MonadEnv m ph)
+extValEnv :: MonadEnv m 'ValueGathering
   => Qualified ExprValName
   -- ^ The name of the value being defined.
   -> Expr
   -- ^ The (partially) evaluated value definition.
-  -> UpdateSet ph
+  -> UpdateSet 'ValueGathering
   -- ^ The updates performed by this value.
   -> m ()
 extValEnv val expr upd = do
@@ -671,7 +673,7 @@ extValEnv val expr upd = do
   putEnv $ setEnvVals (HM.insert val (expr, upd) $ envVals env) env
 
 -- | Extends the environment with a new choice.
-extChEnv :: (IsPhase ph, MonadEnv m ph)
+extChEnv :: MonadEnv m 'ChoiceGathering
   => Qualified TypeConName
   -- ^ The type of the template on which this choice is defined.
   -> ChoiceName
@@ -682,7 +684,7 @@ extChEnv :: (IsPhase ph, MonadEnv m ph)
   -- ^ Variable to bind the contract on which this choice is exercised on to.
   -> ExprVarName
   -- ^ Variable to bind the choice argument to.
-  -> UpdateSet ph
+  -> UpdateSet 'ChoiceGathering
   -- ^ The updates performed by the new choice.
   -> Type
   -- ^ The result type of the new choice.
@@ -692,7 +694,7 @@ extChEnv tc ch self this arg upd typ = do
   putEnv $ setEnvChoices (HM.insert (UpdChoice tc ch) (ChoiceData self this arg upd typ) $ envChoices env) env
 
 -- | Extend the environment with a list of new data type definitions.
-extDatsEnv :: (IsPhase ph, MonadEnv m ph)
+extDatsEnv :: MonadEnv m 'ValueGathering
   => HM.HashMap TypeConName DefDataType
   -- ^ A hashmap of the data constructor names, with their corresponding definitions.
   -> m ()
@@ -745,7 +747,7 @@ extCidEnv b exp var = do
 
 -- | Extend the environment with an additional precondition, assigned to the
 -- corresponding template.
-extPrecond :: (IsPhase ph, MonadEnv m ph)
+extPrecond :: MonadEnv m 'ChoiceGathering
   => Qualified TypeConName
   -- ^ The template to assign the precondition to.
   -> (Expr -> Expr)
