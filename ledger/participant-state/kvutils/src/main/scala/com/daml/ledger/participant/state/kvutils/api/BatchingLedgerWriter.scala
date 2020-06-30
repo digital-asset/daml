@@ -37,19 +37,13 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   private val logger = ContextualizedLogger.get(getClass)
   private val queueHandle = queue.run(commitBatch)
 
-  override def commit(
-      correlationId: String,
-      envelope: kvutils.Bytes,
-      metadata: CommitMetadata,
-  ): Future[SubmissionResult] = {
-    val correlatedSubmissionBuilder = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-      .setCorrelationId(correlationId)
-      .setSubmission(envelope)
-    metadata.estimatedInterpretationCost.foreach(
-      correlatedSubmissionBuilder.setEstimatedInterpretationCost)
+  override def commit(correlationId: String, envelope: kvutils.Bytes): Future[SubmissionResult] =
     queueHandle
-      .offer(correlatedSubmissionBuilder.build)
-  }
+      .offer(
+        DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+          .setCorrelationId(correlationId)
+          .setSubmission(envelope)
+          .build)
 
   override def participantId: ParticipantId = writer.participantId
 
@@ -59,7 +53,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     else
       HealthStatus.unhealthy
 
-  private[api] def commitBatch(
+  private def commitBatch(
       submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]): Future[Unit] = {
     assert(submissions.nonEmpty) // Empty batches should never happen
 
@@ -74,17 +68,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .addAllSubmissions(submissions.asJava)
         .build
       val envelope = Envelope.enclose(batch)
-      // We assume parallelization of interpretation hence return max.
-      val aggregateEstimatedInterpretationCost =
-        submissions.map(_.getEstimatedInterpretationCost).max match {
-          case 0L => None
-          case nonZeroCost => Some(nonZeroCost)
-        }
       writer
-        .commit(
-          correlationId,
-          envelope,
-          SimpleCommitMetadata(estimatedInterpretationCost = aggregateEstimatedInterpretationCost))
+        .commit(correlationId, envelope)
         .map {
           case SubmissionResult.Acknowledged => ()
           case err =>
