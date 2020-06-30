@@ -98,11 +98,18 @@ class Server(
 
   private def startTrigger(
       credentials: UserCredentials,
-      triggerName: Identifier): Either[String, JsValue] = {
+      triggerName: Identifier,
+      existingInstance: Option[UUID] = None): Either[String, JsValue] = {
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
-      triggerInstance = UUID.randomUUID
-      _ <- triggerDao.addRunningTrigger(RunningTrigger(triggerInstance, triggerName, credentials))
+      triggerInstance <- existingInstance match {
+        case None =>
+          val newInstance = UUID.randomUUID
+          triggerDao
+            .addRunningTrigger(RunningTrigger(newInstance, triggerName, credentials))
+            .map(_ => newInstance)
+        case Some(instance) => Right(instance)
+      }
       party = TokenManagement.decodeCredentials(secretKey, credentials)._1
       _ = ctx.spawn(
         TriggerRunner(
