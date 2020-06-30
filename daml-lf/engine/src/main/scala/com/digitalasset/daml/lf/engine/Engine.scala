@@ -46,7 +46,7 @@ import java.nio.file.{Path, Paths}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-final class Engine(config: Engine.Config) {
+class Engine(config: Engine.Config) {
   private[this] val compiledPackages = ConcurrentCompiledPackages()
   private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
   private[this] var profileDir: Option[Path] = None
