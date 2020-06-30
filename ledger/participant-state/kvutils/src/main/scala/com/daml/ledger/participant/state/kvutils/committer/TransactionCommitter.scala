@@ -587,16 +587,6 @@ private[kvutils] class TransactionCommitter(
         recordTime,
         _.setTransactionRejectionEntry(rejectionEntry)))
   }
-//
-//  private[committer] def buildRejectionLogEntry(
-//      recordTime: Option[Timestamp],
-//      rejectionEntry: DamlTransactionRejectionEntry.Builder): DamlLogEntry = {
-////    val logEntryBuilder = DamlLogEntry.newBuilder
-////      .setTransactionRejectionEntry(rejectionEntry)
-////    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
-////    logEntryBuilder.build
-//    buildLogEntryWithOptionalRecordTime(recordTime, _.setTransactionRejectionEntry(rejectionEntry))
-//  }
 
   private object Metrics {
     val rejections: Map[Int, Counter] =
