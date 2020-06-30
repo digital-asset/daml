@@ -14,8 +14,6 @@ import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
-import com.daml.lf.speedy.Pretty.SExpr._
-
 import scala.annotation.tailrec
 
 /** Compiles LF expressions into Speedy expressions.
@@ -174,54 +172,24 @@ private[lf] final case class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): AExpr =
-    validate(compilationPipeline(None, translateCommands(cmds)))
+    validate(compilationPipeline(translateCommands(cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(expr: Expr, who: Option[Identifier] = None): AExpr = {
-    validate(compilationPipeline(who, translate(expr)))
+  def unsafeCompile(expr: Expr): AExpr = {
+    validate(compilationPipeline(translate(expr)))
   }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompilationPipeline(sexpr: SExpr): AExpr =
-    validate(compilationPipeline(None, sexpr))
+    validate(compilationPipeline(sexpr))
 
   // Run the compilation pipeline phases:
   // (1) closure conversion
   // (2) transform to ANF
-  def compilationPipeline(who: Option[Identifier], sexpr: SExpr): AExpr = {
-    //flattenToAnf(closureConvert(Map.empty, sexpr)) // the plain pipeline
-    val tagOpt: Option[String] = who match {
-      case Some(id) =>
-        val q: QualifiedName = id.qualifiedName
-        val pick = false
-        //val pick = (q.module.toString == "Examples") && (q.name.toString == "nfib")
-        if (pick) {
-          Some(q.toString)
-        } else {
-          None
-        }
-      case None =>
-        None
-    }
-    val cc = closureConvert(Map.empty, sexpr)
-    tagOpt match {
-      case Some(tag) =>
-        println(s"--------------------------------------------------[$tag] (cc)")
-        println(prettySExpr(0)(cc).render(80))
-        println(s"--------------------------------------------------[$tag]")
-      case _ =>
-    }
-    val anf = flattenToAnf(cc)
-    tagOpt match {
-      case Some(tag) =>
-        println(s"--------------------------------------------------[$tag] (anf)")
-        println(prettySExpr(0)(anf.wrapped).render(80))
-        println(s"--------------------------------------------------[$tag]")
-      case _ =>
-    }
-    anf
+  def compilationPipeline(sexpr: SExpr): AExpr = {
+    flattenToAnf(closureConvert(Map.empty, sexpr))
   }
 
   @throws[PackageNotFound]
@@ -233,7 +201,7 @@ private[lf] final case class Compiler(
     defn match {
       case DValue(_, _, body, _) =>
         val ref = LfDefRef(identifier)
-        List(ref -> AExpr(withLabel(ref, unsafeCompile(body, Some(identifier)).wrapped)))
+        List(ref -> AExpr(withLabel(ref, unsafeCompile(body).wrapped)))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
@@ -902,7 +870,6 @@ private[lf] final case class Compiler(
     //   in result
     validate(
       compilationPipeline(
-        None,
         withEnv { _ =>
           env = env.incrPos // <byKey flag>
           env = env.incrPos // <actors>
