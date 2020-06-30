@@ -170,6 +170,9 @@ instance ConstrExpr Expr where
         BEModInt64 -> CMod
         _ -> error ("Unsupported builtin operator: " ++ show op)
       builtin_op e = error ("Unsupported builtin expression: " ++ show e)
+  toCExp syns (ETmApp (ETyApp (EVal (Qualified _ _ (ExprValName w))) _) e) = case w of
+    "intToNumeric" -> toCExp syns e
+    _ -> error ("Unsupported builtin value: " ++ T.unpack w)
   toCExp syns (ETmApp (ETyApp (ETyApp (EBuiltin BECastNumeric) _) _) e) = toCExp syns e
   toCExp syns (ELocation _ e) = toCExp syns e
   toCExp _syns (EBuiltin (BEBool b)) = CBool b

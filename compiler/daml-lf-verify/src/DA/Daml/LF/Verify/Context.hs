@@ -88,6 +88,10 @@ data BoolExpr
   deriving (Eq, Show)
 
 -- | Convert an expression constraint into boolean expressions.
+-- This function covers the supported operations in `ensure` statements.
+-- Operations that are not currently supported trigger a warning, and are then
+-- ignored for the remainder of the verification process. No harm comes from an
+-- unsupported operation.
 toBoolExpr :: Expr -> [BoolExpr]
 toBoolExpr (EBuiltin (BEBool True)) = []
 toBoolExpr (ETmApp (ETmApp op e1) e2) = case op of
@@ -96,8 +100,8 @@ toBoolExpr (ETmApp (ETmApp op e1) e2) = case op of
   (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> [BGtE e1 e2]
   (ETyApp (EBuiltin BELessNumeric) _) -> [BLt e1 e2]
   (ETyApp (EBuiltin BELessEqNumeric) _) -> [BLtE e1 e2]
-  _ -> trace ("Unmatched Expr to BoolExpr Operator: " ++ show op) []
-toBoolExpr exp = trace ("Unmatched Expr to BoolExpr: " ++ show exp) []
+  _ -> trace ("Warning: Unmatched Expr to BoolExpr Operator: " ++ show op) []
+toBoolExpr exp = trace ("Warning: Unmatched Expr to BoolExpr: " ++ show exp) []
 
 -- | Data type denoting a potentially conditional value.
 data Cond a
@@ -126,6 +130,8 @@ extCond bexp cond =
   in simplifyCond cond'
 
 -- | Perform common simplifications on Conditionals.
+-- This simplification should never alter the meaning of the constraints in any
+-- way. It's only purpose is to simplify the output shown to the user.
 -- TODO: This can be extended with additional cases in the future.
 simplifyCond :: Eq a => Cond a -> [Cond a]
 simplifyCond (Conditional (BAnd b1 b2) xs ys)
@@ -163,10 +169,14 @@ data Rec a
   -- ^ Basic, non-recursive value.
   | Rec [a]
   -- ^ (Possibly multiple) recursion cycles.
+  -- Note that future optimisations could possible introduce an empty list here,
+  -- so no assumptions are made that this list is non-empty.
   | MutRec [(String,a)]
   -- ^ (Possibly multiple) mutual recursion cycles.
   -- Note that this behaves idential to regular recursion, with the addition of
   -- an information field for debugging purposes.
+  -- In the current version, this String stores the names of all values or
+  -- choices in the cycle.
   deriving Functor
 
 -- | Split a list of Rec values by constructor.
@@ -709,19 +719,15 @@ extCidEnv :: (IsPhase ph, MonadEnv m ph)
   -- ^ The variable name to which the fetched contract is bound.
   -> m ExprSubst
 extCidEnv b exp var = do
-  case exp of
-    -- Filter out any bindings to `_`.
-    EVar (ExprVarName "ds2") -> return emptyExprSubst
-    _ -> do
-      prev <- do
-        { (cur, old) <- lookupCid exp
-        ; return $ cur : old }
-        `catchError` (\_ -> return [])
-      proj_def <- check_proj_cid exp
-      (cid, subst) <- expr2cid (b && null prev && proj_def) exp
-      env <- getEnv
-      putEnv $ setEnvCids (HM.insert cid (var, prev) $ envCids env) env
-      return subst
+  prev <- do
+    { (cur, old) <- lookupCid exp
+    ; return $ cur : old }
+    `catchError` (\_ -> return [])
+  proj_def <- check_proj_cid exp
+  (cid, subst) <- expr2cid (b && null prev && proj_def) exp
+  env <- getEnv
+  putEnv $ setEnvCids (HM.insert cid (var, prev) $ envCids env) env
+  return subst
   where
     -- | Internal function to check whether the given cid has not yet been
     -- defined in a different projection.

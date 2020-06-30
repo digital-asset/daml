@@ -29,6 +29,9 @@ data Options = Options
     , optField :: (ModuleName, TypeConName, FieldName)
     }
 
+-- | Reads a module, template and choice from an input String.
+-- The expected syntax is as follows:
+-- Module:Template.Choice
 choiceReader :: String -> Maybe (ModuleName, TypeConName, ChoiceName)
 choiceReader str =
   let (modStr, remStr) = break (':' ==) str
@@ -41,6 +44,9 @@ choiceReader str =
                        , TypeConName [T.pack tmpStr]
                        , ChoiceName (T.pack $ tail choStr) )
 
+-- | Reads a module, template and field from an input String.
+-- The expected syntax is as follows:
+-- Module:Template.Field
 fieldReader :: String -> Maybe (ModuleName, TypeConName, FieldName)
 fieldReader str =
   let (modStr, remStr) = break (':' ==) str
