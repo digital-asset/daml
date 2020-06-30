@@ -127,7 +127,6 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(ledger, party)) =>
       val key = UUID.randomUUID().toString
-      val commandId = UUID.randomUUID().toString
 
       for {
         // Create a helper and a text key
@@ -135,11 +134,12 @@ final class CommandDeduplicationIT extends LedgerTestSuite {
         _ <- ledger.create(party, TextKey(party, key, List()))
 
         // Create two competing requests
-        requestTemplate = ledger.submitAndWaitRequest(
+        requestA = ledger.submitAndWaitRequest(
           party,
           ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command)
-        requestA = requestTemplate.update(_.commands.commandId := commandId + "-A")
-        requestB = requestTemplate.update(_.commands.commandId := commandId + "-B")
+        requestB = ledger.submitAndWaitRequest(
+          party,
+          ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command)
 
         // Submit both requests in parallel.
         // Either both succeed (if one transaction is recorded faster than the other submission starts command interpretation, unlikely)
