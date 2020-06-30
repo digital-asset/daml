@@ -417,6 +417,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
+        stack_snapshot_json = "//:stackage_snapshot.json",
         packages = [
             "aeson",
             "aeson-extra",
