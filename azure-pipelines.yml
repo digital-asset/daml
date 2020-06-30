@@ -138,10 +138,8 @@ jobs:
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
       - template: ci/report-start.yml
+      - template: ci/clear-shared-segments-macos.yml
       - checkout: self
-      - bash:
-          for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $shmid; done
-        name: clear_shm
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -242,10 +240,8 @@ jobs:
       name: macOS-pool
     steps:
       - template: ci/report-start.yml
+      - template: ci/clear-shared-segments-macos.yml
       - checkout: self
-      - bash:
-          for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $shmid; done
-        name: clear_shm
       - template: ci/compatibility.yml
         parameters:
           test_flags: '--quick'
