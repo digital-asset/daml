@@ -31,7 +31,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, AExpr, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -303,13 +304,13 @@ class Runner(
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
   private val extendedCompiledPackages = {
-    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
+    val fromLedgerValue: PartialFunction[SDefinitionRef, AExpr] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SELocA(0))
+        AExpr(SEMakeClo(Array(), 1, SELocA(0)))
     }
     new CompiledPackages {
       def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
-      def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+      def getDefinition(dref: SDefinitionRef): Option[AExpr] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       override def packages = compiledPackages.packages
       def packageIds = compiledPackages.packageIds
@@ -351,7 +352,7 @@ class Runner(
       }
 
     def run(expr: SExpr): Future[SValue] = {
-      machine.setExpressionToEvaluate(expr)
+      machine.setExpressionToEvaluate(flattenToAnf(expr))
       stepToValue()
         .fold(Future.failed, Future.successful)
         .flatMap {

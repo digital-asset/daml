@@ -472,10 +472,11 @@ object Pretty {
       (pat & text("=>") + lineOrSpace + prettySExpr(newIndex)(alt.body)).nested(2)
     }
 
-    def prettySELoc(loc: SELoc): Doc = loc match {
-      case SELocS(i) => char('S') + str(i)
-      case SELocA(i) => char('A') + str(i)
-      case SELocF(i) => char('F') + str(i)
+    def prettySELoc(index: Int)(loc: SELoc): Doc = loc match {
+      case SELocS(i) =>
+        text("S[") + str(i) + text("=abs:") + str(index - i) + text("]") // show absolute stack position, 0..
+      case SELocA(i) => text("A") + str(i)
+      case SELocF(i) => text("F") + str(i)
     }
 
     def prettySExpr(index: Int)(e: SExpr): Doc =
@@ -490,6 +491,7 @@ object Pretty {
             case other => str(other)
           }
 
+        case SECaseAtomic(scrut, alts) => prettySExpr(index)(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           (text("case") & prettySExpr(index)(scrut) & text("of") +
             line +
@@ -519,16 +521,16 @@ object Pretty {
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
+        case SEAppAtomicGeneral(fun, args) =>
+          val prefix = prettySExpr(index)(fun) + char('(')
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
+        case SEAppAtomicSaturatedBuiltin(builtin, args) =>
+          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + char('(')
+          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
+            .tightBracketBy(prefix, char(')'))
         case SEAppGeneral(fun, args) =>
           val prefix = prettySExpr(index)(fun) + char('(')
-          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
-            .tightBracketBy(prefix, char(')'))
-        case SEAppAtomicFun(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + char('(')
-          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
-            .tightBracketBy(prefix, char(')'))
-        case SEAppSaturatedBuiltinFun(builtin, args) =>
-          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + char('(')
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAbs(n, body) =>
@@ -547,12 +549,12 @@ object Pretty {
 
         case SEMakeClo(fv, n, body) =>
           val prefix = char('[') +
-            intercalate(space, fv.map(prettySELoc)) + char(']') + text("(\\") +
-            intercalate(space, (index to n + index - 1).map((v: Int) => str(v))) &
+            intercalate(space, fv.map(prettySELoc(index))) + char(']') + text("(\\") +
+            intercalate(space, (0 to n - 1).map((v: Int) => text("A") + str(v))) &
             text("-> ")
-          prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
+          prettySExpr(0)(body).tightBracketBy(prefix, char(')'))
 
-        case loc: SELoc => prettySELoc(loc)
+        case loc: SELoc => prettySELoc(index)(loc)
 
         case SELet(bounds, body) =>
           // let [a, b, c] in X
@@ -561,6 +563,12 @@ object Pretty {
               str(index + n) & char('=') & prettySExpr(index + n)(x)
           })).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
+
+        case SELet1General(rhs, body) =>
+          prettySExpr(index)(SELet(Array(rhs), body))
+
+        case SELet1Builtin(builtin, args, body) =>
+          prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
 
         case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)

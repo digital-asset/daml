@@ -24,8 +24,19 @@ import com.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
 
-/** Speedy builtin functions */
-sealed abstract class SBuiltin(val arity: Int) {
+/**
+  Speedy builtins are stratified into two layers:
+  Parent: `SBuiltinMaybeHungry`, child: `SBuiltin` (which are never hungry).
+  Hungry means, may throw SpeedyHungry.
+
+  Non-hungry builtins can be treated specially because their evaluation is immediate.
+  This fact is used by the execution of the ANF expression form: `SELet1Builtin`.
+
+  The vast majority of the builtins are nevery hungry, and so they extend `SBuiltin`
+  There are 7 hungry builtins which extend `SBuiltinMaybeHungry`
+  */
+/** Speedy builtin functions that may raise `SpeedyHungry` exceptions. */
+sealed abstract class SBuiltinMaybeHungry(val arity: Int) {
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
   def apply(args: SExpr*): SExpr =
@@ -36,7 +47,14 @@ sealed abstract class SBuiltin(val arity: Int) {
   def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 }
 
+sealed abstract class SBuiltin(val arity1: Int) extends SBuiltinMaybeHungry(arity1) {
+  // TODO: define evaluate, and convert all subclasses to this simpler form
+  // def evaluate(args: util.ArrayList[SValue]): SValue
+  // Then execute can be defined in terms of evaluate. Like how it is done in `SExprAtomic`.
+}
+
 object SBuiltin {
+
   //
   // Arithmetic
   //
@@ -866,7 +884,7 @@ object SBuiltin {
     *    -> Token
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBUFetch(templateId: TypeConName) extends SBuiltinMaybeHungry(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val coid = args.get(0) match {
@@ -949,7 +967,7 @@ object SBuiltin {
     *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBULookupKey(templateId: TypeConName) extends SBuiltinMaybeHungry(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
@@ -1025,7 +1043,7 @@ object SBuiltin {
     *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltinMaybeHungry(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
@@ -1061,7 +1079,7 @@ object SBuiltin {
   }
 
   /** $getTime :: Token -> Timestamp */
-  final case object SBGetTime extends SBuiltin(1) {
+  final case object SBGetTime extends SBuiltinMaybeHungry(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(0))
       // $ugettime :: Token -> Timestamp
@@ -1084,7 +1102,7 @@ object SBuiltin {
   }
 
   /** $endCommit[mustFail?] :: result -> Token -> () */
-  final case class SBSEndCommit(mustFail: Boolean) extends SBuiltin(2) {
+  final case class SBSEndCommit(mustFail: Boolean) extends SBuiltinMaybeHungry(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       if (mustFail) executeMustFail(args, machine)
@@ -1153,7 +1171,7 @@ object SBuiltin {
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */
-  final case object SBSPass extends SBuiltin(2) {
+  final case object SBSPass extends SBuiltinMaybeHungry(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val relTime = args.get(0) match {
@@ -1171,7 +1189,7 @@ object SBuiltin {
   }
 
   /** $getParty :: Text -> Token -> Party */
-  final case object SBSGetParty extends SBuiltin(2) {
+  final case object SBSGetParty extends SBuiltinMaybeHungry(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       args.get(0) match {

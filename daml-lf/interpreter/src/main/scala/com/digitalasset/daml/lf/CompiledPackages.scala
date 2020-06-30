@@ -6,18 +6,18 @@ package com.daml.lf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SExpr.SDefinitionRef
-import com.daml.lf.speedy.{Compiler, SExpr}
+import com.daml.lf.speedy.{Compiler, AExpr}
 
 /** Trait to abstract over a collection holding onto DAML-LF package definitions + the
   * compiled speedy expressions.
   */
 trait CompiledPackages {
   def getPackage(pkgId: PackageId): Option[Package]
-  def getDefinition(dref: SDefinitionRef): Option[SExpr]
+  def getDefinition(dref: SDefinitionRef): Option[AExpr]
 
   def packages: PartialFunction[PackageId, Package] = Function.unlift(this.getPackage)
   def packageIds: Set[PackageId]
-  def definitions: PartialFunction[SDefinitionRef, SExpr] =
+  def definitions: PartialFunction[SDefinitionRef, AExpr] =
     Function.unlift(this.getDefinition)
 
   def stackTraceMode: Compiler.StackTraceMode
@@ -28,13 +28,13 @@ trait CompiledPackages {
 
 final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
-    defns: Map[SDefinitionRef, SExpr],
+    defns: Map[SDefinitionRef, AExpr],
     stacktracing: Compiler.StackTraceMode,
     profiling: Compiler.ProfilingMode,
 ) extends CompiledPackages {
   override def packageIds: Set[PackageId] = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
-  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
+  override def getDefinition(dref: SDefinitionRef): Option[AExpr] = defns.get(dref)
   override def stackTraceMode = stacktracing
   override def profilingMode = profiling
 }
@@ -46,7 +46,7 @@ object PureCompiledPackages {
     */
   private[lf] def apply(
       packages: Map[PackageId, Package],
-      defns: Map[SDefinitionRef, SExpr],
+      defns: Map[SDefinitionRef, AExpr],
       stacktracing: Compiler.StackTraceMode,
       profiling: Compiler.ProfilingMode
   ): PureCompiledPackages =

@@ -15,7 +15,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
-import com.daml.lf.speedy.SExpr
+import com.daml.lf.speedy.AExpr
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.transaction.TransactionVersions
@@ -54,10 +54,10 @@ class Context(val contextId: Context.ContextId) {
   val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
   private var extPackages: Map[PackageId, Ast.Package] = HashMap.empty
-  private var extDefns: Map[SDefinitionRef, SExpr] = HashMap.empty
+  private var extDefns: Map[SDefinitionRef, AExpr] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
-  private var modDefns: Map[ModuleName, Map[SDefinitionRef, SExpr]] = HashMap.empty
-  private var defns: Map[SDefinitionRef, SExpr] = HashMap.empty
+  private var modDefns: Map[ModuleName, Map[SDefinitionRef, AExpr]] = HashMap.empty
+  private var defns: Map[SDefinitionRef, AExpr] = HashMap.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
@@ -150,7 +150,7 @@ class Context(val contextId: Context.ContextId) {
     for {
       defn <- defns.get(LfDefRef(identifier))
     } yield
-      Speedy.Machine.fromScenarioSExpr(
+      Speedy.Machine.fromScenarioAExpr(
         compiledPackages,
         txSeeding,
         defn,
