@@ -44,7 +44,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
         anEmptyTransaction,
-        Long.MaxValue)
+        anInterpretationCost)
 
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
@@ -107,6 +107,8 @@ object KeyValueParticipantStateWriterSpec {
     timeModel = TimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
+
+  private val anInterpretationCost = 123L
 
   private def createWriter(
       envelopeCaptor: ArgumentCaptor[Bytes],
