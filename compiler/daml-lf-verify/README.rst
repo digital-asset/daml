@@ -1,7 +1,6 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-======================
 DAML Verification Tool
 ======================
 
@@ -44,46 +43,46 @@ As a first example, consider a simple ``Account`` template, with a single choice
 ``Account_Transfer`` for transfering from one account to another. Note that if
 someone tries to transfer more than they own, the choice should just do nothing.
 
-.. code:: haskell
+.. code::
   module Demo where
-    template Account
-      with
-        amount : Decimal
-        owner : Party
-      where
-        ensure amount > 0.0
-    
-        signatory owner
-    
-        controller owner can
-    
-          -- | Transfer some amount to the receiver, or do nothing if this would make the
-          -- remaining amount in the account negative.
-          nonconsuming Account_Transfer : (ContractId Account, ContractId Account)
-            with
-              transferAmount: Decimal
-              receiverCid: ContractId Account
-            do
-              if amount >= transferAmount
-              then do
-                -- The account has sufficient funds.
-                receiver <- fetch receiverCid
-                newSelf <- create this with amount = amount - transferAmount
-                newReceiver <- create receiver with 
-                  amount = receiver.amount + transferAmount
-                archive receiverCid
-                return (newSelf, newReceiver)
-              else do
-                -- The account does not have sufficient funds, and the transfer is
-                -- cancelled.
-                return (self, receiverCid)
+  template Account
+    with
+      amount : Decimal
+      owner : Party
+    where
+      ensure amount > 0.0
+  
+      signatory owner
+  
+      controller owner can
+  
+        -- | Transfer some amount to the receiver, or do nothing if this would make the
+        -- remaining amount in the account negative.
+        nonconsuming Account_Transfer : (ContractId Account, ContractId Account)
+          with
+            transferAmount: Decimal
+            receiverCid: ContractId Account
+          do
+            if amount >= transferAmount
+            then do
+              -- The account has sufficient funds.
+              receiver <- fetch receiverCid
+              newSelf <- create this with amount = amount - transferAmount
+              newReceiver <- create receiver with 
+                amount = receiver.amount + transferAmount
+              archive receiverCid
+              return (newSelf, newReceiver)
+            else do
+              -- The account does not have sufficient funds, and the transfer is
+              -- cancelled.
+              return (self, receiverCid)
 
 It is clear that making a transfer between two accounts, should always preserve
 the total amount of funds. However, running the verification tool produces the 
 following output:
 
 .. code::
-  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar -c Demo:Account.Account_Transfer -f Demo:Account.amount
+  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar --choice Demo:Account.Account_Transfer --field Demo:Account.amount
   
   ...
   
@@ -128,8 +127,8 @@ we forgot to include ``archive self`` in the example. After
 adding this line to the definition of ``Account_Transfer``, the new output is as 
 follows:
 
-.. code:: haskell
-  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar -c Demo:Account.Account_Transfer -f Demo:Account.amount
+.. code::
+  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar --choice Demo:Account.Account_Transfer --field Demo:Account.amount
   
   ...
   
@@ -166,7 +165,7 @@ For a second example, consider the ``Account_Divide`` choice, which recursively
 donates 1.0 amount from the donor to the receiver account, until the receiver
 account has at least as much funds as the donor.
 
-.. code:: haskell
+.. code::
         -- | Iteratively transfer 1.0 amount to the receiver, until it has at
         -- least as much funds as the donor.
         nonconsuming Account_Divide : (ContractId Account, ContractId Account)
@@ -186,8 +185,8 @@ account has at least as much funds as the donor.
 We can again use the formal verification tool to ensure that ``Account_Divide``
 always preserves the field ``amount``.
 
-.. code:: haskell
-  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar -c Demo:Account.Account_Divide -f Demo:Account.amount
+.. code::
+  > bazel run //compiler/daml-lf-verify:daml-lf-verify -- demo.dar --choice Demo:Account.Account_Divide --field Demo:Account.amount
   
   ...
   
