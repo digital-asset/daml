@@ -35,7 +35,7 @@ import scala.collection.immutable.TreeSet
   The vast majority of the builtins are nevery hungry, and so they extend `SBuiltin`
   There are 7 hungry builtins which extend `SBuiltinMaybeHungry`
   */
-/** Speedy builtin functions */
+/** Speedy builtin functions that may raise `SpeedyHungry` exceptions. */
 sealed abstract class SBuiltinMaybeHungry(val arity: Int) {
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
