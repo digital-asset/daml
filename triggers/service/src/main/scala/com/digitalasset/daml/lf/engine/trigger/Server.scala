@@ -88,6 +88,11 @@ class Server(
     triggerDao.persistPackages(encodedDar)
   }
 
+  private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
+    import cats.implicits._ // needed for traverse
+    triggers.traverse_(t => startTrigger(t.credentials, t.triggerName, Some(t.triggerInstance)))
+  }
+
   private def triggerRunnerName(triggerInstance: UUID): String =
     triggerInstance.toString ++ "-monitor"
 
@@ -339,14 +344,19 @@ object Server {
         (dao, server)
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        dao.readPackages match {
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
+        val recovery: Either[String, Unit] = for {
+          packages <- dao.readPackages
+          _ = server.addPackagesInMemory(packages)
+          triggers <- dao.readRunningTriggers
+          _ <- server.restartTriggers(triggers)
+        } yield ()
+        recovery match {
           case Left(err) =>
-            ctx.log.error(err)
+            ctx.log.error("Failed to recover state from database.\n" + err)
             sys.exit(1)
-          case Right(pkgs) =>
-            val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
-            server.addPackagesInMemory(pkgs)
-            ctx.log.info("Successfully recovered packages from database.")
+          case Right(()) =>
+            ctx.log.info("Successfully recovered state from database.")
             (dao, server)
         }
     }
