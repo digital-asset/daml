@@ -44,33 +44,4 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
       }
     }
   }
-
-  "buildRejectionLogEntry" should {
-    "set record time in log entry if record time is available" in {
-      val instance = new PackageCommitter(mock[Engine], metrics)
-
-      val actualLogEntry = instance.buildRejectionLogEntry(
-        recordTime = Some(theRecordTime),
-        submissionId = "id",
-        participantId = "id",
-        addErrorDetails = identity)
-
-      actualLogEntry.hasRecordTime shouldBe true
-      actualLogEntry.getRecordTime shouldBe buildTimestamp(theRecordTime)
-      actualLogEntry.hasPackageUploadRejectionEntry shouldBe true
-    }
-
-    "skip setting record time in log entry when it is not available" in {
-      val instance = new PackageCommitter(mock[Engine], metrics)
-
-      val actualLogEntry = instance.buildRejectionLogEntry(
-        recordTime = None,
-        submissionId = "id",
-        participantId = "id",
-        addErrorDetails = identity)
-
-      actualLogEntry.hasRecordTime shouldBe false
-      actualLogEntry.hasPackageUploadRejectionEntry shouldBe true
-    }
-  }
 }
