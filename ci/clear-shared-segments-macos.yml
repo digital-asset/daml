@@ -26,7 +26,14 @@
 # when the command is run.
 
 steps:
-  - bash: |
-      set -euo pipefail
-      for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $shmid; done
-    name: clear_shm
+- bash: |
+    set -euo pipefail
+
+    # ipcs -m prints a three-line human-friendly header then all memory
+    # segments in a tabular format. The second column holds the segment IDs,
+    # which is what ipcrm expects as its arguments. After the table, ipcs -m
+    # adds an extra blank line, hence the extra sed at the end.
+    for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do
+        ipcrm -m $shmid
+    done
+  name: clear_shm
