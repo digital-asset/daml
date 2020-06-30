@@ -222,8 +222,9 @@ in rec {
     # Cloud tools
     aws = pkgs.awscli;
     gcloud = pkgs.google-cloud-sdk;
-    bq     = gcloud;
+    bq = gcloud;
     gsutil = gcloud;
+    docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version

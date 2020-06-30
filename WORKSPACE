@@ -737,10 +737,11 @@ container_deps()
 load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
 
 container_pull(
-    name = "openjdk_base",
-    registry = "docker.io",
-    repository = "openjdk",
-    tag = "8-alpine",
+    name = "java_base",
+    digest = "sha256:7cef6d99241bc86e09659d41842e3656a1cab99adf0e440a44d2858c8e52a71a",
+    registry = "gcr.io",
+    repository = "distroless/java",
+    tag = "8",
 )
 
 load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
