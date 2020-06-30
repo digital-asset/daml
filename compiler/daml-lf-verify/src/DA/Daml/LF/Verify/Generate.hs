@@ -15,6 +15,7 @@ module DA.Daml.LF.Verify.Generate
   ) where
 
 import Control.Monad.Error.Class (MonadError (..), throwError)
+import Control.Monad.Extra (whenJust)
 import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.NameMap as NM
@@ -612,11 +613,10 @@ extEnvContract (TCon tem) cid bindM = do
   bindV <- genRenamedVar (ExprVarName "var")
   let bind = fromMaybe bindV bindM
   _ <- bindCids False (Just $ TCon tem) cid (EVar bind) Nothing
-  lookupPreconds (TCon tem) bind >>= \case
-    Nothing -> return ()
-    Just precond -> do
-      precondOut <- genExpr False precond
-      extCtr (_oExpr precondOut)
+  mbPreCond <- lookupPreconds (TCon tem) bind
+  whenJust mbPreCond $ \precond -> do
+    precondOut <- genExpr False precond
+    extCtr (_oExpr precondOut)
 extEnvContract _ _ _ = return ()
 
 -- | Bind any contract id's, together with their constraints, for the fields of

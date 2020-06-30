@@ -42,6 +42,7 @@ module DA.Daml.LF.Verify.Context
   ) where
 
 import Control.Monad.Error.Class (MonadError (..), throwError)
+import Control.Monad.Extra (whenJust)
 import Control.Monad.State.Lazy
 import Data.Hashable
 import GHC.Generics
@@ -643,11 +644,10 @@ extRecEnvTCons :: (IsPhase ph, MonadEnv m ph)
 extRecEnvTCons = mapM_ step
   where
     step :: (IsPhase ph, MonadEnv m ph) => (FieldName, Type) -> m ()
-    step (f,typ) =
-      recTypFields typ >>= \case
-        Nothing -> return ()
-        Just fsRec -> do
-          extRecEnv (fieldName2VarName f) $ map fst fsRec
+    step (f,typ) = do
+      mbFields <- recTypFields typ
+      whenJust mbFields $ \fsRec -> 
+        extRecEnv (fieldName2VarName f) $ map fst fsRec
 
 -- | Extend the environment with a new skolem variable.
 extSkolEnv :: (IsPhase ph, MonadEnv m ph)
