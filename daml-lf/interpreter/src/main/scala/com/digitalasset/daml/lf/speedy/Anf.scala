@@ -100,9 +100,9 @@ object Anf {
 
   /** During conversion we need to deal with bindings which are made/found at a given
     absolute stack depth. These are represented using `AbsBinding`. An absolute stack
-    depth is the offset from the bottom of the stack, which is empty when a function is
-    entered. We call it absolute because an offset doesn't change as new bindings are
-    pushed onto the stack.
+    depth is the offset from the depth of the stack when the function is entered. We call
+    it absolute because an offset doesn't change as new bindings are pushed onto the
+    stack.
 
     Note the contrast with the expression form `ELocS` which contains a relative offset
     from the end of the stack. This relative-position is used in both the original
