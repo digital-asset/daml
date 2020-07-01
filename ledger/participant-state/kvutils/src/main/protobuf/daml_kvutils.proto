@@ -324,9 +324,9 @@ message DamlPartyAllocationRejectionEntry {
 // record time.
 message DamlOutOfTimeBoundsEntry {
   DamlLogEntry entry = 1; // entry.recordTime is omitted
-  google.protobuf.Timestamp duplicate_until = 2; // optional
-  google.protobuf.Timestamp too_early_until = 3; // optional
-  google.protobuf.Timestamp too_late_from = 4; // optional
+  google.protobuf.Timestamp duplicate_until = 2;
+  google.protobuf.Timestamp too_early_until = 3;
+  google.protobuf.Timestamp too_late_from = 4;
 }
 
 // DAML state key. [[KeyValueCommitting]] produces effects that are committed
