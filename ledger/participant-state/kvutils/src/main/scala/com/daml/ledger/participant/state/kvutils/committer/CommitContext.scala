@@ -28,6 +28,8 @@ private[kvutils] trait CommitContext {
     mutable.ArrayBuffer()
   private val outputs: mutable.Map[DamlStateKey, DamlStateValue] =
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
+  private val accessedInputKeys: mutable.Set[DamlStateKey] =
+    mutable.Set.empty[DamlStateKey]
 
   def getEntryId: DamlLogEntryId
   def getMaximumRecordTime: Timestamp
@@ -37,7 +39,9 @@ private[kvutils] trait CommitContext {
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
     outputs.get(key).orElse {
-      inputs.getOrElse(key, throw Err.MissingInputState(key))
+      val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
+      accessedInputKeys += key
+      value
     }
 
   /** Set a value in the output state. */
@@ -64,6 +68,10 @@ private[kvutils] trait CommitContext {
           true
         case _ => false
       }
+
+  /** Get the accessed input key set. */
+  def getAccessedInputKeys: collection.Set[DamlStateKey] =
+    accessedInputKeys
 
   private def inputAlreadyContains(key: DamlStateKey, value: DamlStateValue): Boolean =
     inputs.get(key).exists(_.contains(value))
