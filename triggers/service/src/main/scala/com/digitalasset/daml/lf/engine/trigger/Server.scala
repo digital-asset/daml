@@ -45,7 +45,7 @@ import com.daml.lf.engine.trigger.dao._
 
 class Server(
     ledgerConfig: LedgerConfig,
-    runnerConfig: TriggerRunnerConfig,
+    restartConfig: TriggerRestartConfig,
     secretKey: SecretKey,
     triggerDao: RunningTriggerDao)(
     implicit ctx: ActorContext[Message],
@@ -88,6 +88,11 @@ class Server(
     triggerDao.persistPackages(encodedDar)
   }
 
+  private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
+    import cats.implicits._ // needed for traverse
+    triggers.traverse_(t => startTrigger(t.credentials, t.triggerName, Some(t.triggerInstance)))
+  }
+
   private def triggerRunnerName(triggerInstance: UUID): String =
     triggerInstance.toString ++ "-monitor"
 
@@ -98,23 +103,29 @@ class Server(
 
   private def startTrigger(
       credentials: UserCredentials,
-      triggerName: Identifier): Either[String, JsValue] = {
+      triggerName: Identifier,
+      existingInstance: Option[UUID] = None): Either[String, JsValue] = {
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
-      triggerInstance = UUID.randomUUID
-      _ <- triggerDao.addRunningTrigger(RunningTrigger(triggerInstance, triggerName, credentials))
+      triggerInstance <- existingInstance match {
+        case None =>
+          val newInstance = UUID.randomUUID
+          triggerDao
+            .addRunningTrigger(RunningTrigger(newInstance, triggerName, credentials))
+            .map(_ => newInstance)
+        case Some(instance) => Right(instance)
+      }
       party = TokenManagement.decodeCredentials(secretKey, credentials)._1
       _ = ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
             ctx.self,
             triggerInstance,
-            triggerName,
             credentials,
             compiledPackages,
             trigger,
             ledgerConfig,
-            runnerConfig,
+            restartConfig,
             party
           ),
           triggerInstance.toString
@@ -282,7 +293,7 @@ object Server {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      runnerConfig: TriggerRunnerConfig,
+      restartConfig: TriggerRestartConfig,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
@@ -329,18 +340,23 @@ object Server {
     val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
         (dao, server)
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        dao.readPackages match {
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
+        val recovery: Either[String, Unit] = for {
+          packages <- dao.readPackages
+          _ = server.addPackagesInMemory(packages)
+          triggers <- dao.readRunningTriggers
+          _ <- server.restartTriggers(triggers)
+        } yield ()
+        recovery match {
           case Left(err) =>
-            ctx.log.error(err)
+            ctx.log.error("Failed to recover state from database.\n" + err)
             sys.exit(1)
-          case Right(pkgs) =>
-            val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
-            server.addPackagesInMemory(pkgs)
-            ctx.log.info("Successfully recovered packages from database.")
+          case Right(()) =>
+            ctx.log.info("Successfully recovered state from database.")
             (dao, server)
         }
     }
@@ -358,14 +374,14 @@ object Server {
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(runningTrigger) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "starting")
+          case TriggerStarting(triggerInstance) =>
+            server.logTriggerStatus(triggerInstance, "starting")
             Behaviors.same
 
           // Running triggers are added to the store optimistically when the user makes a start
           // request so we don't need to add an entry here.
-          case TriggerStarted(runningTrigger) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "running")
+          case TriggerStarted(triggerInstance) =>
+            server.logTriggerStatus(triggerInstance, "running")
             Behaviors.same
 
           // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
@@ -373,14 +389,14 @@ object Server {
           // fail and restart indefinitely) so in particular we don't need to change the store of
           // running triggers. Entries are removed from there only when the user explicitly stops
           // the trigger with a request.
-          case TriggerInitializationFailure(runningTrigger, cause) =>
+          case TriggerInitializationFailure(triggerInstance, cause) =>
             server
-              .logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
+              .logTriggerStatus(triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
-          case TriggerRuntimeFailure(runningTrigger, cause) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
+          case TriggerRuntimeFailure(triggerInstance, cause) =>
+            server.logTriggerStatus(triggerInstance, "stopped: runtime failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same

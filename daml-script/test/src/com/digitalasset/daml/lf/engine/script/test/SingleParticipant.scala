@@ -356,7 +356,7 @@ case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
 
 case class TraceOrder(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:traceOrder"))
-  def traceMsg(msg: String) = s"""[DA.Internal.Prelude:540]: "$msg""""
+  def traceMsg(msg: String) = s"""[GHC.Base:52]: "$msg""""
   def runTests(): Unit = {
     runner.genericTest(
       "traceOrder",

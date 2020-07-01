@@ -52,6 +52,9 @@ object TriggerServiceFixture {
     }
   }
 
+  // Use a small initial interval so we can test restart behaviour more easily.
+  private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
+
   def withTriggerService[A](
       testName: String,
       dars: List[File],
@@ -140,17 +143,18 @@ object TriggerServiceFixture {
         host.getHostName,
         ledgerProxyPort.value,
         TimeProviderType.Static,
-        Duration.ofSeconds(30))
-      runnerConfig = TriggerRunnerConfig(
+        Duration.ofSeconds(30),
         ServiceConfig.DefaultMaxInboundMessageSize,
-        ServiceConfig.DefaultMaxFailureNumberOfRetries,
-        ServiceConfig.DefaultFailureRetryTimeRange,
+      )
+      restartConfig = TriggerRestartConfig(
+        minRestartInterval,
+        ServiceConfig.DefaultMaxRestartInterval,
       )
       service <- ServiceMain.startServer(
         host.getHostName,
         Port(0).value,
         ledgerConfig,
-        runnerConfig,
+        restartConfig,
         encodedDar,
         jdbcConfig,
         noSecretKey = true // That's ok, use the default.

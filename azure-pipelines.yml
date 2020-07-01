@@ -507,7 +507,9 @@ jobs:
         git checkout -b $BRANCH
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
-        git add compatibility/versions.bzl
+        # Note that maven_install.json might be unchanged but
+        # git add is happy about that.
+        git add compatibility/versions.bzl compatibility/maven_install.json
         git -c user.name="Azure Pipelines DAML Build" \
             -c user.email="support@digitalasset.com" \
             commit \
