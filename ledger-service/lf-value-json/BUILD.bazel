@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -15,6 +16,7 @@ da_scala_library(
     name = "lf-value-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:lf-value-json:__VERSION__"],
+    scalacopts = lf_scalacopts,
     visibility = [
         "//visibility:public",
     ],
@@ -35,6 +37,7 @@ daml_compile(
 da_scala_test(
     name = "tests",
     size = "medium",
+    scalacopts = lf_scalacopts,
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":JsonEncodingTest.dar",
