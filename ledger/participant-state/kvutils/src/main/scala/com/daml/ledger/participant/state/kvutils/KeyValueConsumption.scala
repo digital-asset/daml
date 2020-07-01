@@ -275,8 +275,8 @@ object KeyValueConsumption {
     val tooLateFromMaybe = parseOptionalTimestamp(
       outOfTimeBoundsEntry.hasTooLateFrom,
       outOfTimeBoundsEntry.getTooLateFrom)
-    val deduplicated = duplicateUntilMaybe.exists(recordTime > _)
-    val tooEarly = tooEarlyUntilMaybe.exists(recordTime < _)
+    val deduplicated = duplicateUntilMaybe.exists(recordTime <= _)
+    val tooEarly = tooEarlyUntilMaybe.exists(recordTime <= _)
     val tooLate = tooLateFromMaybe.exists(recordTime > _)
     val invalidLedgerTime = tooEarly || tooLate
 
@@ -303,10 +303,7 @@ object KeyValueConsumption {
             )
           )
         } else {
-          transactionRejectionEntryToUpdate(recordTime, transactionRejectionEntry) match {
-            case Nil => None
-            case head :: Nil => Some(head)
-          }
+          None
         }
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
