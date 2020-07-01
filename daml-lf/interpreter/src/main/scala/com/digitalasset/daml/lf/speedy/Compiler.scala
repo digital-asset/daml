@@ -1128,47 +1128,32 @@ private[lf] final case class Compiler(
     * The returned free variables are de bruijn indices
     * adjusted to the stack of the caller. */
   def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
-    var bound = initiallyBound
-    var free = Set.empty[Int]
-
-    def go(expr: SExpr): Unit =
+    def go(expr: SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
         case SEVar(i) =>
-          if (i > bound)
-            free += i - bound /* adjust to caller's environment */
-        case _: SEVal => ()
-        case _: SEBuiltin => ()
-        case _: SEValue => ()
-        case _: SEBuiltinRecursiveDefinition => ()
+          if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
+        case _: SEVal => free
+        case _: SEBuiltin => free
+        case _: SEValue => free
+        case _: SEBuiltinRecursiveDefinition => free
         case SELocation(_, body) =>
-          go(body)
+          go(body, bound, free)
         case SEAppGeneral(fun, args) =>
-          go(fun)
-          args.foreach(go)
+          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
-          bound += n
-          go(body)
-          bound -= n
+          go(body, bound + n, free)
         case SECase(scrut, alts) =>
-          go(scrut)
-          alts.foreach {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              bound += n; go(body); bound -= n
+          alts.foldLeft(go(scrut, bound, free)) {
+            case (acc, SCaseAlt(pat, body)) => go(body, bound + patternNArgs(pat), acc)
           }
         case SELet(bounds, body) =>
-          bounds.foreach { e =>
-            go(e)
-            bound += 1
+          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
+            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-          go(body)
-          bound -= bounds.size
         case SECatch(body, handler, fin) =>
-          go(body)
-          go(handler)
-          go(fin)
+          go(body, bound, go(handler, bound, go(fin, bound, free)))
         case SELabelClosure(_, expr) =>
-          go(expr)
+          go(expr, bound, free)
         case x: SEWronglyTypeContractId => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SEImportValue => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SELoc => throw CompilationError(s"freeVars: unexpected: $x")
@@ -1179,12 +1164,11 @@ private[lf] final case class Compiler(
         case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
         case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
       }
-    go(expr)
-    free
+    go(expr, initiallyBound, Set.empty)
   }
 
   /** Validate variable references in a speedy expression */
-  // valiate that we correctly captured all free-variables, and so reference to them is
+  // validate that we correctly captured all free-variables, and so reference to them is
   // via the surrounding closure, instead of just finding them higher up on the stack
   def validate(anf0: AExpr): AExpr = {
 
