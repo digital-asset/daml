@@ -172,6 +172,7 @@ object KeyValueParticipantStateReaderSpec {
     .newBuilder()
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
+    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(1234))
     .build()
 
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)

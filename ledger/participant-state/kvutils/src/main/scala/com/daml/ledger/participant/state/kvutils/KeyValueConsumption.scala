@@ -32,8 +32,14 @@ object KeyValueConsumption {
     */
   // TODO(BH): add participantId to ensure participant id matches in DamlLogEntry
   @throws(classOf[Err])
-  def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): List[Update] = {
-    val recordTime = parseTimestamp(entry.getRecordTime)
+  def logEntryToUpdate(
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
+      recordTimeForUpdate: Option[Timestamp] = None): List[Update] = {
+    val recordTimeFromLogEntry = PartialFunction.condOpt(entry.hasRecordTime) {
+      case true => parseTimestamp(entry.getRecordTime)
+    }
+    val recordTime = resolveRecordTimeOrThrow(recordTimeForUpdate, recordTimeFromLogEntry)
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
@@ -177,6 +183,16 @@ object KeyValueConsumption {
         throw Err.InternalError("logEntryToUpdate: PAYLOAD_NOT_SET!")
     }
   }
+
+  private def resolveRecordTimeOrThrow(
+      recordTimeForUpdate: Option[Timestamp],
+      recordTimeFromLogEntry: Option[Timestamp]): Timestamp =
+    (recordTimeForUpdate, recordTimeFromLogEntry) match {
+      case (Some(recordTime), _) => recordTime
+      case (None, Some(recordTime)) => recordTime
+      case (None, None) =>
+        throw Err.InternalError("Record time must be provided in order to generate an update")
+    }
 
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
