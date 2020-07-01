@@ -31,8 +31,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+      val instance = createTransactionCommitter()
       val context = new FakeCommitContext(recordTime = None)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
@@ -44,8 +43,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "continue if record time is after deduplication time in case a deduplication entry is found" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+      val instance = createTransactionCommitter()
       val dedupValue = DamlStateValue.newBuilder
         .setCommandDedup(
           DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(buildTimestamp(aRecordTime)))
@@ -64,8 +62,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "produce rejection log entry in case record time is on or before deduplication time" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+      val instance = createTransactionCommitter()
       for ((recordTime, deduplicationTime) <- Iterable(
           (aRecordTime, aRecordTime),
           (aRecordTime, aRecordTime.addMicros(1)))) {
@@ -92,10 +89,8 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   "validateLedgerTime" should {
     "continue if record time is not available" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+      val instance = createTransactionCommitter()
       val context = new FakeCommitContext(recordTime = None)
-
       val actual = instance.validateLedgerTime(context, aTransactionEntrySummary)
 
       actual match {
@@ -105,8 +100,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "produce rejection log entry if record time is outside of ledger effective time bounds" in {
-      val instance =
-        new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+      val instance = createTransactionCommitter()
       val recordTime = Timestamp.now()
       val recordTimeInstant = recordTime.toInstant
       val lowerBound =
@@ -142,4 +136,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       }
     }
   }
+
+  private def createTransactionCommitter(): TransactionCommitter =
+    new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
 }
