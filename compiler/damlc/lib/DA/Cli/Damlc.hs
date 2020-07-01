@@ -614,6 +614,7 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
                     , "- daml-prim"
                     , "- daml-stdlib"
                     , "- " <> show scriptDar
+                    , "data-dependencies:"
                     , "- " <> show mainDar
                     ]
                 initPackageDb opts (InitPkgDb True)
