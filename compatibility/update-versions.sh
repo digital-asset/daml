@@ -8,3 +8,5 @@ eval "$(../dev-env/bin/dade-assist)"
 
 bazel run //versions:update-versions -- -o $PWD/versions.bzl
 
+# We refer to latest_stable_version so this might need changing.
+bazel run @unpinned_maven//:pin
