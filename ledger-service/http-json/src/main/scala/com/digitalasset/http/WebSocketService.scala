@@ -9,7 +9,7 @@ import akka.stream.scaladsl.{Flow, Source, Sink}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
-import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
+import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
@@ -286,7 +286,6 @@ object WebSocketService {
 class WebSocketService(
     contractsService: ContractsService,
     resolveTemplateId: PackageService.ResolveTemplateId,
-    encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)

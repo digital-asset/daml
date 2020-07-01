@@ -39,7 +39,6 @@ class ContractsService(
     getTermination: LedgerClientJwt.GetTermination,
     lookupType: query.ValuePredicate.TypeLookup,
     contractDao: Option[dbbackend.ContractDao],
-    parallelism: Int = 8,
 )(implicit ec: ExecutionContext, mat: Materializer)
     extends StrictLogging {
 
@@ -55,7 +54,6 @@ class ContractsService(
           getActiveContracts,
           getCreatesAndArchivesSince,
           getTermination,
-          lookupType,
         )(
           dao.logHandler,
         ),
@@ -223,12 +221,11 @@ class ContractsService(
     for {
       _ <- fetch.fetchAndPersist(jwt, party, templateIds.toList)
       cts <- templateIds.toVector
-        .traverse(tpId => searchDbOneTpId_(fetch, doobieLog)(jwt, party, tpId, queryParams))
+        .traverse(tpId => searchDbOneTpId_(doobieLog)(party, tpId, queryParams))
     } yield cts.flatten
   }
 
-  private[this] def searchDbOneTpId_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
-      jwt: Jwt,
+  private[this] def searchDbOneTpId_(doobieLog: doobie.LogHandler)(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue],

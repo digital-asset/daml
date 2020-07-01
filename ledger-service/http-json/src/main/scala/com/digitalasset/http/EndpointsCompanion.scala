@@ -20,15 +20,15 @@ object EndpointsCompanion {
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
 
-  sealed abstract class Error(message: String) extends Product with Serializable
+  sealed abstract class Error extends Product with Serializable
 
-  final case class InvalidUserInput(message: String) extends Error(message)
+  final case class InvalidUserInput(message: String) extends Error
 
-  final case class Unauthorized(message: String) extends Error(message)
+  final case class Unauthorized(message: String) extends Error
 
-  final case class ServerError(message: String) extends Error(message)
+  final case class ServerError(message: String) extends Error
 
-  final case class NotFound(message: String) extends Error(message)
+  final case class NotFound(message: String) extends Error
 
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {

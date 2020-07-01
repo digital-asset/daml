@@ -321,7 +321,7 @@ object ValuePredicate {
     }
 
     (typ match {
-      case tc @ iface.TypeCon(iface.TypeConName(id), typArgs) =>
+      case tc @ iface.TypeCon(iface.TypeConName(id), typArgs @ _) =>
         for {
           dt <- defs(id)
           recTy <- tc instantiate dt match { case r @ iface.Record(_) => Some(r); case _ => None }
