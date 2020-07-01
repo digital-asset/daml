@@ -27,7 +27,7 @@ def daml_haskell_deps():
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
-        stack_snapshot_json = "//:stackage_snapshot.json",
+        stack_snapshot_json = "//:stackage_snapshot.json" if not is_windows else None,
         flags = dicts.add(
             {
                 "cryptonite": ["-integer-gmp"],
