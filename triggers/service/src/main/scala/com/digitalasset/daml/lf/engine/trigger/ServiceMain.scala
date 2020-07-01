@@ -27,7 +27,7 @@ object ServiceMain {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      runnerConfig: TriggerRunnerConfig,
+      restartConfig: TriggerRestartConfig,
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       noSecretKey: Boolean,
@@ -39,7 +39,7 @@ object ServiceMain {
           host,
           port,
           ledgerConfig,
-          runnerConfig,
+          restartConfig,
           encodedDar,
           jdbcConfig,
           initDb = false, // for tests we initialize the database in beforeEach clause
@@ -73,11 +73,11 @@ object ServiceMain {
             config.ledgerPort,
             config.timeProviderType,
             config.commandTtl,
+            config.maxInboundMessageSize,
           )
-        val runnerConfig = TriggerRunnerConfig(
-          config.maxInboundMessageSize,
-          config.maxFailureNumberOfRetries,
-          config.failureRetryTimeRange,
+        val restartConfig = TriggerRestartConfig(
+          config.minRestartInterval,
+          config.maxRestartInterval,
         )
         val system: ActorSystem[Message] =
           ActorSystem(
@@ -85,7 +85,7 @@ object ServiceMain {
               "localhost",
               config.httpPort,
               ledgerConfig,
-              runnerConfig,
+              restartConfig,
               encodedDar,
               config.jdbcConfig,
               config.init,

@@ -37,7 +37,7 @@ object TriggerRunnerImpl {
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      runnerConfig: TriggerRunnerConfig,
+      restartConfig: TriggerRestartConfig,
       party: Party,
   )
 
@@ -136,8 +136,7 @@ object TriggerRunnerImpl {
                   // Tell our monitor there's been a failure. The
                   // monitor's supervisor strategy will respond to
                   // this by writing the exception to the log and
-                  // attempting to restart this actor up to some
-                  // number of times.
+                  // attempting to restart this actor.
                   throw new InitializationException("Couldn't start: " + cause.toString)
               }
             }
@@ -162,7 +161,7 @@ object TriggerRunnerImpl {
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to
-              // restart this actor up to some number of times.
+              // restart this actor.
               throw new RuntimeException(cause)
           }
           .receiveSignal {
@@ -187,7 +186,7 @@ object TriggerRunnerImpl {
           .fromBuilder(
             NettyChannelBuilder
               .forAddress(config.ledgerConfig.host, config.ledgerConfig.port)
-              .maxInboundMessageSize(config.runnerConfig.maxInboundMessageSize),
+              .maxInboundMessageSize(config.ledgerConfig.maxInboundMessageSize),
             clientConfig,
           )
         runner = new Runner(
