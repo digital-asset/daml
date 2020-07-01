@@ -33,8 +33,8 @@ da_scala_library(
 da_scala_binary(
     name = "jwt-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = lf_scalacopts,
     main_class = "com.daml.jwt.Main",
+    scalacopts = lf_scalacopts,
     runtime_deps = [
         ":jwt",
         "@maven//:ch_qos_logback_logback_classic",

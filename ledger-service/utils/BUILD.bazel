@@ -10,8 +10,8 @@ load(
 
 da_scala_library(
     name = "utils",
-    scalacopts = lf_scalacopts,
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -28,8 +28,8 @@ da_scala_library(
 da_scala_test_suite(
     name = "tests",
     size = "small",
-    scalacopts = lf_scalacopts,
     srcs = glob(["src/test/scala/**/*.scala"]),
+    scalacopts = lf_scalacopts,
     deps = [
         ":utils",
     ],
