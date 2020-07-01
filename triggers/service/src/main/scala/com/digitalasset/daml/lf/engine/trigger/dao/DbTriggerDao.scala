@@ -112,7 +112,7 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
   }
 
   private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
-    val select: Fragment = sql"select * from dalfs"
+    val select: Fragment = sql"select * from dalfs order by package_id"
     select.query[(String, Array[Byte])].to[List]
   }
 
@@ -127,8 +127,8 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
       }
     } yield (pkgId, payload)
 
-  private def selectRunningTriggers: ConnectionIO[Vector[(UUID, String, String)]] = {
-    val select: Fragment = sql"select * from running_triggers"
+  private def selectAllTriggers: ConnectionIO[Vector[(UUID, String, String)]] = {
+    val select: Fragment = sql"select * from running_triggers order by trigger_instance"
     select.query[(UUID, String, String)].to[Vector]
   }
 
@@ -185,7 +185,7 @@ class DbTriggerDao(xa: Connection.T) extends RunningTriggerDao {
 
   def readRunningTriggers: Either[String, Vector[RunningTrigger]] = {
     import cats.implicits._ // needed for traverse
-    run(selectRunningTriggers, "Failed to read running triggers from database").flatMap(
+    run(selectAllTriggers, "Failed to read running triggers from database").flatMap(
       _.traverse((parseRunningTrigger _).tupled)
     )
   }
