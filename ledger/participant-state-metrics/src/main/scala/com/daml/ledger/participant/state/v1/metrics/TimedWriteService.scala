@@ -16,11 +16,18 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction
+      transaction: SubmittedTransaction,
+      estimatedInterpretationCost: Long
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.submitTransaction,
-      delegate.submitTransaction(submitterInfo, transactionMeta, transaction))
+      delegate.submitTransaction(
+        submitterInfo,
+        transactionMeta,
+        transaction,
+        estimatedInterpretationCost,
+      ),
+    )
 
   override def uploadPackages(
       submissionId: SubmissionId,

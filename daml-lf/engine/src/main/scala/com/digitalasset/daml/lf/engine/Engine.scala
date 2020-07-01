@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, Pretty}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{TransactionVersions, Transaction => Tx}
@@ -73,7 +73,7 @@ class Engine(config: Engine.Config) {
     *
     *
     * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
-    * If let undefined, no discriminator will be generated.
+    * If left undefined, no discriminator will be generated.
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     *
@@ -275,8 +275,7 @@ class Engine(config: Engine.Config) {
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr
-          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
+        anf = Machine.makeApplyToToken(compiledPackages.compiler.unsafeCompile(commands)),
         globalCids = globalCids,
         committers = submitters,
         supportedValueVersions = config.allowedOutputValueVersions,
@@ -308,10 +307,9 @@ class Engine(config: Engine.Config) {
           return Result.needPackage(
             pkgId,
             pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap {
-                case _ =>
-                  callback(compiledPackages)
-                  interpretLoop(machine, time)
+              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                callback(compiledPackages)
+                interpretLoop(machine, time)
               }
             }
           )
@@ -331,13 +329,11 @@ class Engine(config: Engine.Config) {
         case SResultNeedKey(gk, _, cb) =>
           return ResultNeedKey(
             gk,
-            (
-                result =>
-                  if (cb(SKeyLookupResult(result)))
-                    interpretLoop(machine, time)
-                  else
-                    ResultError(Error(s"dependency error: couldn't find key ${gk.key}"))
-            )
+            result =>
+              if (cb(SKeyLookupResult(result)))
+                interpretLoop(machine, time)
+              else
+                ResultError(Error(s"dependency error: couldn't find key ${gk.key}"))
           )
 
         case _: SResultScenarioCommit =>
@@ -371,9 +367,9 @@ class Engine(config: Engine.Config) {
           case Some(profileDir) =>
             val hash = meta.nodeSeeds(0)._2.toHexString
             val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"${desc}-${hash.substring(0, 6)}"
+            machine.profile.name = s"$desc-${hash.substring(0, 6)}"
             val profileFile =
-              profileDir.resolve(Paths.get(s"${meta.submissionTime}-${desc}-${hash}.json"))
+              profileDir.resolve(Paths.get(s"${meta.submissionTime}-$desc-$hash.json"))
             machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
@@ -398,7 +394,7 @@ class Engine(config: Engine.Config) {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
 
-  def setProfileDir(optProfileDir: Option[Path]) = {
+  def setProfileDir(optProfileDir: Option[Path]): Unit = {
     optProfileDir match {
       case None =>
         compiledPackages.profilingMode = speedy.Compiler.NoProfile
@@ -424,13 +420,13 @@ object Engine {
       allowedOutputTransactionVersions: VersionRange[transaction.TransactionVersion],
   ) extends NoCopy
 
-  val StableConfig =
+  val StableConfig: Config =
     Config.assertBuild(
       allowedOutputValueVersions = ValueVersions.SupportedStableVersions,
       allowedOutputTransactionVersions = transaction.TransactionVersions.SupportedStableVersions
     )
 
-  val DevConfig =
+  val DevConfig: Config =
     new Config(
       allowedOutputValueVersions = ValueVersions.SupportedDevVersions,
       allowedOutputTransactionVersions = TransactionVersions.SupportedDevVersions,
@@ -473,7 +469,7 @@ object Engine {
   private def profileDesc(tx: Tx.Transaction): String = {
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
-        s"${kind}:${tmpl.qualifiedName.name}${extra.map(extra => s":${extra}").getOrElse("")}"
+        s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
         case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
         case exercise: NodeExercises[_, _, _] =>
@@ -486,6 +482,6 @@ object Engine {
     }
   }
 
-  def DevEngine() = new Engine(Engine.DevConfig)
+  def DevEngine(): Engine = new Engine(Engine.DevConfig)
 
 }

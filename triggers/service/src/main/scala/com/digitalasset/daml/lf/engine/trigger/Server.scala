@@ -45,7 +45,7 @@ import com.daml.lf.engine.trigger.dao._
 
 class Server(
     ledgerConfig: LedgerConfig,
-    runnerConfig: TriggerRunnerConfig,
+    restartConfig: TriggerRestartConfig,
     secretKey: SecretKey,
     triggerDao: RunningTriggerDao)(
     implicit ctx: ActorContext[Message],
@@ -101,19 +101,19 @@ class Server(
       triggerName: Identifier): Either[String, JsValue] = {
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
-      party = TokenManagement.decodeCredentials(secretKey, credentials)._1
       triggerInstance = UUID.randomUUID
+      _ <- triggerDao.addRunningTrigger(RunningTrigger(triggerInstance, triggerName, credentials))
+      party = TokenManagement.decodeCredentials(secretKey, credentials)._1
       _ = ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
             ctx.self,
             triggerInstance,
-            triggerName,
             credentials,
             compiledPackages,
             trigger,
             ledgerConfig,
-            runnerConfig,
+            restartConfig,
             party
           ),
           triggerInstance.toString
@@ -281,7 +281,7 @@ object Server {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      runnerConfig: TriggerRunnerConfig,
+      restartConfig: TriggerRestartConfig,
       initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
@@ -328,7 +328,7 @@ object Server {
     val (triggerDao: RunningTriggerDao, server: Server) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+        val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
         (dao, server)
       case Some(c) =>
         val dao = DbTriggerDao(c)
@@ -337,7 +337,7 @@ object Server {
             ctx.log.error(err)
             sys.exit(1)
           case Right(pkgs) =>
-            val server = new Server(ledgerConfig, runnerConfig, secretKey, dao)
+            val server = new Server(ledgerConfig, restartConfig, secretKey, dao)
             server.addPackagesInMemory(pkgs)
             ctx.log.info("Successfully recovered packages from database.")
             (dao, server)
@@ -357,45 +357,33 @@ object Server {
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(runningTrigger) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "starting")
+          case TriggerStarting(triggerInstance) =>
+            server.logTriggerStatus(triggerInstance, "starting")
             Behaviors.same
-          case TriggerStarted(runningTrigger) =>
-            // The trigger has successfully started. Update the
-            // running triggers tables.
-            server.logTriggerStatus(runningTrigger.triggerInstance, "running")
-            triggerDao.addRunningTrigger(runningTrigger) match {
-              case Left(err) =>
-                // The trigger has just advised it's in the running
-                // state but updating the running trigger table has
-                // failed. This error condition is exogenous to the
-                // runner. We therefore need to tell it explicitly to
-                // stop.
-                server.logTriggerStatus(
-                  runningTrigger.triggerInstance,
-                  "stopped: initialization failure (db write failure)")
-                runningTrigger.runner ! TriggerRunner.Stop
-                Behaviors.same
-              case Right(()) => Behaviors.same
-            }
-          case TriggerInitializationFailure(runningTrigger, cause) =>
-            // The trigger has failed to start. No need to update the
-            // running triggers tables since this trigger never made
-            // it there.
+
+          // Running triggers are added to the store optimistically when the user makes a start
+          // request so we don't need to add an entry here.
+          case TriggerStarted(triggerInstance) =>
+            server.logTriggerStatus(triggerInstance, "running")
+            Behaviors.same
+
+          // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
+          // exponential backoff. The trigger is never really "stopped" this way (though it could
+          // fail and restart indefinitely) so in particular we don't need to change the store of
+          // running triggers. Entries are removed from there only when the user explicitly stops
+          // the trigger with a request.
+          case TriggerInitializationFailure(triggerInstance, cause) =>
             server
-              .logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
+              .logTriggerStatus(triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
-          case TriggerRuntimeFailure(runningTrigger, cause) =>
-            // The trigger has failed. Remove it from the running triggers tables.
-            server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
-            // Ignore the result of the deletion as we don't have a sensible way
-            // to handle a failure here at the moment.
-            val _ = triggerDao.removeRunningTrigger(runningTrigger.triggerInstance)
+          case TriggerRuntimeFailure(triggerInstance, cause) =>
+            server.logTriggerStatus(triggerInstance, "stopped: runtime failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
+
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same

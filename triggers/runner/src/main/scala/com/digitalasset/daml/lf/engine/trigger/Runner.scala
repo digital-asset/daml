@@ -24,7 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{AExpr, Compiler, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -137,7 +137,7 @@ object Trigger extends StrictLogging {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
+    val machine = Speedy.Machine.fromPureAExpr(compiledPackages, heartbeat)
     Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
@@ -154,7 +154,7 @@ object Trigger extends StrictLogging {
     val registeredTemplates =
       compiler.unsafeCompile(
         ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
+    val machine = Speedy.Machine.fromPureAExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
@@ -327,31 +327,30 @@ class Runner(
 
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
-    val update: SExpr =
+    val update: AExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
-    val getInitialState: SExpr =
+    val getInitialState: AExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
-    // Prepare a speedy machine for evaluting expressions.
-    val machine: Speedy.Machine = Speedy.Machine.fromPureSExpr(compiledPackages, null: SExpr)
     // Convert the ACS to a speedy expression.
-    val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
+    val createdExpr: SExprAtomic = SEValue(converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
     })
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
-    val initialState: SExpr =
-      SEApp(
+    val initialState: AExpr =
+      makeApp(
         getInitialState,
         Array(
           SEValue(SParty(Party.assertFromString(party))),
-          SEValue(STimestamp(clientTime)): SExpr,
+          SEValue(STimestamp(clientTime)),
           createdExpr))
+    // Prepare a speedy machine for evaluting expressions.
+    val machine: Speedy.Machine = Speedy.Machine.fromPureAExpr(compiledPackages, initialState)
     // Evaluate it.
-    machine.setExpressionToEvaluate(initialState)
     val value = Machine.stepToValue(machine)
     val evaluatedInitialState: SValue = handleStepResult(value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
@@ -393,34 +392,41 @@ class Runner(
           }
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
-      .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
-        val messageVal = message match {
-          case TransactionMsg(transaction) => {
-            converter.fromTransaction(transaction) match {
-              case Left(err) => throw new ConverterException(err)
-              case Right(x) => x
+      .toMat(
+        Sink.fold[SExprAtomic, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
+          val messageVal = message match {
+            case TransactionMsg(transaction) => {
+              converter.fromTransaction(transaction) match {
+                case Left(err) => throw new ConverterException(err)
+                case Right(x) => x
+              }
             }
+            case CompletionMsg(completion) => {
+              val status = completion.getStatus
+              if (status.code != 0) {
+                logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
+              }
+              converter.fromCompletion(completion) match {
+                case Left(err) => throw new ConverterException(err)
+                case Right(x) => x
+              }
+            }
+            case HeartbeatMsg() => converter.fromHeartbeat
           }
-          case CompletionMsg(completion) => {
-            val status = completion.getStatus
-            if (status.code != 0) {
-              logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-            }
-            converter.fromCompletion(completion) match {
-              case Left(err) => throw new ConverterException(err)
-              case Right(x) => x
-            }
-          }
-          case HeartbeatMsg() => converter.fromHeartbeat
-        }
-        val clientTime: Timestamp =
-          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(
-          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
-        val value = Machine.stepToValue(machine)
-        val newState = handleStepResult(value, submit)
-        SEValue(newState)
-      }))(Keep.right[NotUsed, Future[SExpr]])
+          val clientTime: Timestamp =
+            Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+          machine.setExpressionToEvaluate(
+            makeApp(
+              update,
+              Array(SEValue(STimestamp(clientTime)): SExprAtomic, SEValue(messageVal), state)))
+          val value = Machine.stepToValue(machine)
+          val newState = handleStepResult(value, submit)
+          SEValue(newState)
+        }))(Keep.right[NotUsed, Future[SExpr]])
+  }
+
+  def makeApp(func: AExpr, args: Array[SExprAtomic]): AExpr = {
+    AExpr(SELet1General(func.wrapped, SEAppAtomicGeneral(SELocS(1), args)))
   }
 
   // Query the ACS. This allows you to separate the initialization of

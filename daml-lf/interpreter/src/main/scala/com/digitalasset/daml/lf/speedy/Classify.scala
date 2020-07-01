@@ -24,8 +24,11 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var ebuiltin: Int = 0,
       var eval: Int = 0,
       var elocation: Int = 0,
-      var elet: Int = 0,
-      var ecase: Int = 0,
+      var eletG: Int = 0,
+      var elet1: Int = 0,
+      var eletB: Int = 0,
+      var ecaseE: Int = 0,
+      var ecaseA: Int = 0,
       var erecdef: Int = 0,
       var ecatch: Int = 0,
       var eimportvalue: Int = 0,
@@ -39,7 +42,6 @@ object Classify { // classify the machine state w.r.t what step occurs next
       var kpushto: Int = 0,
       var kcacheval: Int = 0,
       var klocation: Int = 0,
-      var kmatch: Int = 0,
       var kcatch: Int = 0,
   ) {
     def steps = ctrlExpr + ctrlValue
@@ -57,8 +59,11 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- ebuiltin", ebuiltin),
         ("- eval", eval),
         ("- elocation", elocation),
-        ("- elet", elet),
-        ("- ecase", ecase),
+        ("- eletG", eletG),
+        ("- elet1", elet1),
+        ("- eletB", eletB),
+        ("- ecaseE", ecaseE),
+        ("- ecaseA", ecaseA),
         ("- erecdef", erecdef),
         ("- ecatch", ecatch),
         ("- eimportvalue", eimportvalue),
@@ -71,7 +76,6 @@ object Classify { // classify the machine state w.r.t what step occurs next
         ("- kpushto", kpushto),
         ("- kcacheval", kcacheval),
         ("- klocation", klocation),
-        ("- kmatch", kmatch),
         ("- kcatch", kcatch),
       ).map { case (tag, n) => s"$tag : $n" }.mkString("\n")
     }
@@ -85,7 +89,9 @@ object Classify { // classify the machine state w.r.t what step occurs next
       classifyKont(kont, counts)
     } else {
       counts.ctrlExpr += 1
-      classifyExpr(machine.ctrl, counts)
+      if (machine.ctrl != null) {
+        classifyExpr(machine.ctrl, counts)
+      }
     }
   }
 
@@ -98,14 +104,17 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case _: SELocA => counts.evarA += 1
       case _: SELocF => counts.evarF += 1
       case _: SEAppGeneral => counts.eappE += 1
-      case _: SEAppAtomicFun => counts.eappA += 1
-      case _: SEAppSaturatedBuiltinFun => counts.eappB += 1
+      case _: SEAppAtomicGeneral => counts.eappA += 1
+      case _: SEAppAtomicSaturatedBuiltin => counts.eappB += 1
       case _: SEMakeClo => counts.eclose += 1
       case _: SEBuiltin => counts.ebuiltin += 1
       case _: SEVal => counts.eval += 1
       case _: SELocation => counts.elocation += 1
-      case _: SELet => counts.elet += 1
-      case _: SECase => counts.ecase += 1
+      case _: SELet => counts.eletG += 1
+      case _: SELet1General => counts.elet1 += 1
+      case _: SELet1Builtin => counts.eletB += 1
+      case _: SECase => counts.ecaseE += 1
+      case _: SECaseAtomic => counts.ecaseA += 1
       case _: SEBuiltinRecursiveDefinition => counts.erecdef += 1
       case _: SECatch => counts.ecatch += 1
       case _: SELabelClosure => ()
@@ -124,7 +133,6 @@ object Classify { // classify the machine state w.r.t what step occurs next
       case _: KPushTo => counts.kpushto += 1
       case _: KCacheVal => counts.kcacheval += 1
       case _: KLocation => counts.klocation += 1
-      case _: KMatch => counts.kmatch += 1
       case _: KCatch => counts.kcatch += 1
       case _: KLabelClosure => ()
       case _: KLeaveClosure => ()

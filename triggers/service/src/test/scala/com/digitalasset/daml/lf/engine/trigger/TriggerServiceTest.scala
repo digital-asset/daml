@@ -18,12 +18,10 @@ import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
 
-import scala.concurrent.{Await, TimeoutException}
-import scala.concurrent.duration._
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
-import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.daml_lf_dev.DamlLf
@@ -195,7 +193,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   def assertTriggerStatus(
       uri: Uri,
       triggerInstance: UUID,
-      pred: (Vector[String]) => Boolean): Future[Assertion] = {
+      pred: Vector[String] => Boolean): Future[Assertion] = {
     eventually {
       val actualTriggerStatus = Await.result(for {
         resp <- triggerStatus(uri, triggerInstance)
@@ -323,120 +321,74 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       } yield succeed
   }
 
-  it should "fail to start a trigger if a ledger client can't be obtained" in withTriggerService(
+  it should "restart trigger on initialization failure due to failed connection" in withTriggerService(
     Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-    // Disable the proxy. This means that the service won't be able to
-    // get a ledger connection.
-    ledgerProxy.disable()
-    try {
-      // Request a trigger be started and setup an assertion that
-      // completes with success when the running trigger table becomes
-      // non-empty.
-      val runningTriggersNotEmpty = for {
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        aliceTrigger <- parseTriggerId(resp)
-        triggerId <- parseTriggerId(resp)
-      } yield (assertTriggerIds(uri, alice, _.nonEmpty))
-      // Wait a good while (10s) on the assertion to become true. If it
-      // does, indicate the test has failed (because, since the trigger
-      // can't be initialized for the lack of a viable ledger client
-      // connection, it should not make its way to the running triggers
-      // table).
-      Await.ready(awaitable = runningTriggersNotEmpty, atMost = 10.seconds)
-      fail("Timeout expected")
-    } catch {
-      // If the assertion times-out the test has succeeded (look to
-      // the log; you'll see messages indicating that the trigger
-      // failed to initialize and was stopped).
-      case _: TimeoutException => succeed
-    } finally {
-      // This isn't strictly neccessary here (since each test gets its
-      // own fixture) but it's jolly decent of us to do it anyway.
-      ledgerProxy.enable()
-    }
+    for {
+      // Simulate a failed ledger connection which will prevent triggers from initializing.
+      _ <- Future(ledgerProxy.disable())
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      // The start request should succeed and an entry should be added to the running trigger store,
+      // even though the trigger will not be able to start.
+      aliceTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+      // Check the log for an initialization failure.
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: initialization failure"))
+      // Finally establish the connection and check that the trigger eventually starts.
+      _ <- Future(ledgerProxy.enable())
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+    } yield succeed
   }
 
-  it should "stop a failing trigger that can't be restarted" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      // Simulate the ledger becoming unrecoverably unavailable due to
-      // network connectivity loss. The stop strategy means the running
-      // trigger will be terminated.
-      for {
-        // Request a trigger be started for Alice.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        aliceTrigger <- parseTriggerId(resp)
-        // Proceed when it's confirmed to be running.
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
-        // Simulate unrecoverable network connectivity loss.
-        _ <- Future { ledgerProxy.disable() }
-        // Confirm that the running trigger ends up stopped and that
-        // its history matches our expectations.
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "stopped: initialization failure")
-      } yield succeed
+  it should "restart trigger on run-time failure due to dropped connection" in withTriggerService(
+    Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+    // Simulate the ledger being briefly unavailable due to network connectivity loss.
+    // We continually restart the trigger until the connection returns.
+    for {
+      // Request a trigger be started for Alice.
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      aliceTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+      // Proceed when it's confirmed to be running.
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      // Simulate brief network connectivity loss and observe the trigger fail.
+      _ <- Future(ledgerProxy.disable())
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: runtime failure"))
+      // Finally check the trigger is restarted after the connection returns.
+      _ <- Future(ledgerProxy.enable())
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+    } yield succeed
   }
 
-  it should "restart a trigger failing due to a dropped connection" in withTriggerService(Some(dar)) {
-    (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
-      // Simulate the ledger briefly being unavailable due to network
-      // connectivity loss. Our restart strategy means that the running
-      // trigger gets restarted.
-      for {
-        // Request a trigger be started for Alice.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        aliceTrigger <- parseTriggerId(resp)
-        // Proceed when it is confirmed to be running.
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
-        // Simulate brief network connectivity loss.
-        _ <- Future { ledgerProxy.disable() }
-        _ <- Future { ledgerProxy.enable() }
-        // Check that the trigger survived the outage and that its
-        // history shows it went through a restart.
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          triggerStatus => {
-            triggerStatus.count(_ == "stopped: runtime failure") == 1 &&
-            triggerStatus.last == "running"
-          }
-        )
-      } yield succeed
-  }
-
-  it should "restart triggers with script init errors" in withTriggerService(Some(dar)) {
+  it should "restart triggers with initialization errors" in withTriggerService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // We will attempt to restart the trigger indefinitely.
+        // Just check that we see a few failures and restart attempts.
+        // This relies on a small minimum restart interval as the interval doubles after each
+        // failure.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
         _ <- assertTriggerStatus(
           uri,
           aliceTrigger,
-          triggerStatus => {
-            triggerStatus.count(_ == "starting") ==
-              ServiceConfig.DefaultMaxFailureNumberOfRetries + 1 &&
-            triggerStatus.last == "stopped: initialization failure"
-          }
-        )
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+          _.count(_ == "stopped: initialization failure") > 2)
       } yield succeed
   }
 
-  it should "restart triggers with script update errors" in withTriggerService(Some(dar)) {
+  it should "restart triggers with update errors" in withTriggerService(Some(dar)) {
     (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          triggerStatus => {
-            triggerStatus
-              .count(_ == "running") == ServiceConfig.DefaultMaxFailureNumberOfRetries + 1 &&
-            triggerStatus.last == "stopped: runtime failure"
-          }
-        )
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        // We will attempt to restart the trigger indefinitely.
+        // Just check that we see a few failures and restart attempts.
+        // This relies on a small minimum restart interval as the interval doubles after each
+        // failure.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "stopped: runtime failure") > 2)
       } yield succeed
   }
 
