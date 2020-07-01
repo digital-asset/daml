@@ -104,9 +104,7 @@ class CommitContextSpec extends WordSpec with Matchers {
   private class TestCommitContext(override val inputs: DamlStateMap) extends CommitContext {
     override def getEntryId: DamlKvutils.DamlLogEntryId = DamlLogEntryId.getDefaultInstance
 
-    override def getMaximumRecordTime: Time.Timestamp = Time.Timestamp.now()
-
-    override def getRecordTime: Time.Timestamp = Time.Timestamp.now()
+    override def getRecordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now())
 
     override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)
   }
