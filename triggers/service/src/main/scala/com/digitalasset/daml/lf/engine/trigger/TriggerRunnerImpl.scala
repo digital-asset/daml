@@ -13,7 +13,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import com.daml.lf.CompiledPackages
-import com.daml.lf.data.Ref.Identifier
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -30,10 +29,8 @@ object TriggerRunnerImpl {
   case class Config(
       server: ActorRef[Message],
       triggerInstance: UUID,
-      triggerName: Identifier,
       credentials: UserCredentials,
-      // TODO(SF, 2020-06-09): Add access token field here in the
-      // presence of authentication.
+      // TODO(SF, 2020-06-09): Add access token field here in the presence of authentication.
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
@@ -53,10 +50,9 @@ object TriggerRunnerImpl {
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
+      val triggerInstance = config.triggerInstance
       // Report to the server that this trigger is starting.
-      val runningTrigger =
-        RunningTrigger(config.triggerInstance, config.triggerName, config.credentials)
-      config.server ! TriggerStarting(runningTrigger)
+      config.server ! TriggerStarting(triggerInstance)
       ctx.log.info(s"Trigger $name is starting")
       val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
@@ -79,13 +75,13 @@ object TriggerRunnerImpl {
               // The stop endpoint can't send a message to a runner
               // that isn't in the running triggers table so this is
               // an odd case.
-              config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
+              config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
               // However we got here though, one thing is clear. We
               // don't want to restart the actor.
               throw new InitializationHalted("User stopped") // Don't retry!
             } else {
               // Report the failure to the server.
-              config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
+              config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
               // Tell our monitor there's been a failure. The
               // monitor's supervision strategy will respond to this
               // (including logging the exception).
@@ -96,7 +92,7 @@ object TriggerRunnerImpl {
               // The stop endpoint can't send a message to a runner
               // that isn't in the running triggers table so this is
               // an odd case.
-              config.server ! TriggerInitializationFailure(runningTrigger, "User stopped")
+              config.server ! TriggerInitializationFailure(triggerInstance, "User stopped")
               // However we got here though, one thing is clear. We
               // don't want to restart the actor.
               throw new InitializationHalted("User stopped") // Don't retry!
@@ -127,12 +123,12 @@ object TriggerRunnerImpl {
                 }
                 // Report to the server that this trigger is entering
                 // the running state.
-                config.server ! TriggerStarted(runningTrigger)
+                config.server ! TriggerStarted(triggerInstance)
                 running(killSwitch)
               } catch {
                 case cause: Throwable =>
                   // Report the failure to the server.
-                  config.server ! TriggerInitializationFailure(runningTrigger, cause.toString)
+                  config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
                   // Tell our monitor there's been a failure. The
                   // monitor's supervisor strategy will respond to
                   // this by writing the exception to the log and
@@ -157,7 +153,7 @@ object TriggerRunnerImpl {
               Behaviors.stopped
             case Failed(cause) =>
               // Report the failure to the server.
-              config.server ! TriggerRuntimeFailure(runningTrigger, cause.toString)
+              config.server ! TriggerRuntimeFailure(triggerInstance, cause.toString)
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to

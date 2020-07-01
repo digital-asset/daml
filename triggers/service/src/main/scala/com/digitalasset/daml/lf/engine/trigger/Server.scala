@@ -109,7 +109,6 @@ class Server(
           new TriggerRunner.Config(
             ctx.self,
             triggerInstance,
-            triggerName,
             credentials,
             compiledPackages,
             trigger,
@@ -358,14 +357,14 @@ object Server {
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case TriggerStarting(runningTrigger) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "starting")
+          case TriggerStarting(triggerInstance) =>
+            server.logTriggerStatus(triggerInstance, "starting")
             Behaviors.same
 
           // Running triggers are added to the store optimistically when the user makes a start
           // request so we don't need to add an entry here.
-          case TriggerStarted(runningTrigger) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "running")
+          case TriggerStarted(triggerInstance) =>
+            server.logTriggerStatus(triggerInstance, "running")
             Behaviors.same
 
           // Trigger failures are handled by the TriggerRunner actor using a restart strategy with
@@ -373,14 +372,14 @@ object Server {
           // fail and restart indefinitely) so in particular we don't need to change the store of
           // running triggers. Entries are removed from there only when the user explicitly stops
           // the trigger with a request.
-          case TriggerInitializationFailure(runningTrigger, cause) =>
+          case TriggerInitializationFailure(triggerInstance, cause) =>
             server
-              .logTriggerStatus(runningTrigger.triggerInstance, "stopped: initialization failure")
+              .logTriggerStatus(triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
-          case TriggerRuntimeFailure(runningTrigger, cause) =>
-            server.logTriggerStatus(runningTrigger.triggerInstance, "stopped: runtime failure")
+          case TriggerRuntimeFailure(triggerInstance, cause) =>
+            server.logTriggerStatus(triggerInstance, "stopped: runtime failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
