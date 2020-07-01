@@ -285,52 +285,44 @@ object KeyValueConsumption {
         // We don't emit updates for deduplicated submissions.
         None
 
-      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
+      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidLedgerTime =>
         val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
-        if (invalidLedgerTime) {
-          val reason = (tooEarlyUntilMaybe, tooLateFromMaybe) match {
-            case (Some(lowerBound), Some(upperBound)) =>
-              s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
-            case _ =>
-              "Ledger time outside of valid range"
-          }
-          val rejectionReason = RejectionReason.InvalidLedgerTime(reason)
-          Some(
-            Update.CommandRejected(
-              recordTime = recordTime,
-              submitterInfo = parseSubmitterInfo(transactionRejectionEntry.getSubmitterInfo),
-              reason = rejectionReason
-            )
-          )
-        } else {
-          None
+        val reason = (tooEarlyUntilMaybe, tooLateFromMaybe) match {
+          case (Some(lowerBound), Some(upperBound)) =>
+            s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
+          case _ =>
+            "Ledger time outside of valid range"
         }
+        val rejectionReason = RejectionReason.InvalidLedgerTime(reason)
+        Some(
+          Update.CommandRejected(
+            recordTime = recordTime,
+            submitterInfo = parseSubmitterInfo(transactionRejectionEntry.getSubmitterInfo),
+            reason = rejectionReason
+          )
+        )
 
-      case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        None
-
-      case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>
+      case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidLedgerTime =>
         val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry
-        if (invalidLedgerTime) {
-          val reason = tooLateFromMaybe
-            .map { maximumRecordTime =>
-              s"Configuration change timed out: $maximumRecordTime < $recordTime"
-            }
-            .getOrElse("Configuration change timed out")
-          Some(
-            Update.ConfigurationChangeRejected(
-              recordTime,
-              SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
-              ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
-              Configuration.decode(configurationRejectionEntry.getConfiguration).right.get,
-              reason
-            )
+        val reason = tooLateFromMaybe
+          .map { maximumRecordTime =>
+            s"Configuration change timed out: $maximumRecordTime < $recordTime"
+          }
+          .getOrElse("Configuration change timed out")
+        Some(
+          Update.ConfigurationChangeRejected(
+            recordTime,
+            SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
+            ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
+            Configuration.decode(configurationRejectionEntry.getConfiguration).right.get,
+            reason
           )
-        } else {
-          None
-        }
+        )
 
-      case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY |
+          DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY |
+          DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY |
+          DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
         None
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY |
