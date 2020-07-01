@@ -504,4 +504,35 @@ class TriggerServiceTestWithDb
     }
   } yield succeed)
 
+  it should "restart triggers after shutdown" in (for {
+    _ <- withTriggerService(Some(dar)) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        // Start a trigger in the first run of the service.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+        triggerId <- parseTriggerId(resp)
+        // The new trigger should be in the running trigger store and eventually running.
+        _ <- assertTriggerIds(uri, alice, _ == Vector(triggerId))
+        _ <- assertTriggerStatus(uri, triggerId, _.last == "running")
+      } yield succeed
+    }
+    // Once service is shutdown, start a new one and check the previously running trigger is restarted.
+    _ <- withTriggerService(None) { (uri: Uri, client: LedgerClient, ledgerProxy: Proxy) =>
+      for {
+        // Get the previous trigger instance using a list request
+        resp <- listTriggers(uri, alice)
+        triggerIds <- parseTriggerIds(resp)
+        _ <- assert(triggerIds.length == 1)
+        aliceTrigger = triggerIds.head
+        // Currently the logs aren't persisted so we can check that the trigger was restarted by
+        // inspecting the new log.
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+
+        // Finally go ahead and stop the trigger.
+        resp <- stopTrigger(uri, aliceTrigger, alice)
+        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "stopped: by user request")
+      } yield succeed
+    }
+  } yield succeed)
+
 }
