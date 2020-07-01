@@ -101,7 +101,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
   }
 
   "validateLedgerTime" should {
-    "continue if record time is not available" in {
+    "continue without accessing ledger configuration if record time is not available" in {
       val instance = createTransactionCommitter()
       val context = new FakeCommitContext(recordTime = None)
       val actual = instance.validateLedgerTime(context, aTransactionEntrySummary)
