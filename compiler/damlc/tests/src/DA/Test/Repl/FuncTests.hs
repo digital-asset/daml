@@ -87,6 +87,7 @@ initPackageConfig scriptDar testDar = do
         , "- daml-prim"
         , "- daml-stdlib"
         , "- " <> show scriptDar
+        , "data-dependencies:"
         , "- " <> show testDar
         ]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
