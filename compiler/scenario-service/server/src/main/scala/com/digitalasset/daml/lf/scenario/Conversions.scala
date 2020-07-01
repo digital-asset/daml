@@ -413,11 +413,12 @@ final class Conversions(
       .setNodeId(convertEventId(eventId))
       .setEffectiveAt(nodeInfo.effectiveAt.micros)
       .addAllReferencedBy(nodeInfo.referencedBy.map(convertEventId).asJava)
-      .addAllObservingSince(nodeInfo.observingSince.toList.map {
-        case (party, txId) =>
-          proto.PartyAndTransactionId.newBuilder
+      .addAllDisclosures(nodeInfo.disclosures.toList.map {
+        case (party, ScenarioLedger.Disclosure(txId, explicit)) =>
+          proto.Disclosure.newBuilder
             .setParty(convertParty(party))
-            .setTxId(txId.index)
+            .setSinceTxId(txId.index)
+            .setExplicit(explicit)
             .build
       }.asJava)
 
