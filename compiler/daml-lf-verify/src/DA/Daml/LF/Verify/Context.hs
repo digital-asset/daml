@@ -284,7 +284,7 @@ class IsPhase (ph :: Phase) where
   -- | Get the bound values from the environment.
   envVals :: Env ph -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet ph)
   -- | Get the data constructors from the environment.
-  envDats :: Env ph -> HM.HashMap TypeConName DefDataType
+  envDats :: Env ph -> HM.HashMap (Qualified TypeConName) DefDataType
   -- | Get the fetched cid's mapped to their current variable name, along with
   -- a list of any potential old variable names, from the environment.
   envCids :: Env ph -> HM.HashMap Cid (ExprVarName, [ExprVarName])
@@ -312,7 +312,7 @@ instance IsPhase 'ValueGathering where
     -- ^ The skolemised term variables and fields.
     !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering))
     -- ^ The bound values.
-    !(HM.HashMap TypeConName DefDataType)
+    !(HM.HashMap (Qualified TypeConName) DefDataType)
     -- ^ The set of data constructors.
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
@@ -361,7 +361,7 @@ instance IsPhase 'ChoiceGathering where
     -- ^ The skolemised term variables and fields.
     !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering))
     -- ^ The bound values.
-    !(HM.HashMap TypeConName DefDataType)
+    !(HM.HashMap (Qualified TypeConName) DefDataType)
     -- ^ The set of data constructors.
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
@@ -413,7 +413,7 @@ instance IsPhase 'Solving where
     -- ^ The skolemised term variables and fields.
     !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'Solving))
     -- ^ The bound values.
-    !(HM.HashMap TypeConName DefDataType)
+    !(HM.HashMap (Qualified TypeConName) DefDataType)
     -- ^ The set of data constructors.
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
@@ -464,7 +464,7 @@ setEnvPreconds pre (EnvCG sko val dat cid _ ctr cho) =
   EnvCG sko val dat cid pre ctr cho
 
 -- | Update the data constructors in the environment.
-setEnvDats :: HM.HashMap TypeConName DefDataType
+setEnvDats :: HM.HashMap (Qualified TypeConName) DefDataType
   -> Env 'ValueGathering -> Env 'ValueGathering
 setEnvDats dat (EnvVG sko val _ cid ctr) = EnvVG sko val dat cid ctr
 
@@ -698,7 +698,7 @@ extChEnv tc ch self this arg upd typ = do
 
 -- | Extend the environment with a list of new data type definitions.
 extDatsEnv :: MonadEnv m 'ValueGathering
-  => HM.HashMap TypeConName DefDataType
+  => HM.HashMap (Qualified TypeConName) DefDataType
   -- ^ A hashmap of the data constructor names, with their corresponding definitions.
   -> m ()
 extDatsEnv hmap = do
@@ -838,7 +838,7 @@ lookupChoice tem ch = do
 
 -- | Lookup a data type definition in the environment.
 lookupDataCon :: (IsPhase ph, MonadEnv m ph)
-  => TypeConName
+  => Qualified TypeConName
   -- ^ The data constructor to lookup.
   -> m DefDataType
 lookupDataCon tc = do
@@ -865,7 +865,7 @@ lookupCid exp = do
 -- TODO: At the moment, this does not work recursively for nested type
 -- constructors. This might be a useful extension later on.
 recTypConFields :: (IsPhase ph, MonadEnv m ph)
-  => TypeConName
+  => Qualified TypeConName
   -- ^ The record type constructor name to lookup.
   -> m (Maybe [(FieldName,Type)])
 recTypConFields tc = lookupDataCon tc >>= \dat -> case dataCons dat of
@@ -878,7 +878,7 @@ recTypFields :: (IsPhase ph, MonadEnv m ph)
   -- ^ The type to lookup.
   -> m (Maybe [(FieldName,Type)])
 recTypFields (TCon tc) = do
-  recTypConFields $ qualObject tc
+  recTypConFields tc
 recTypFields (TStruct fs) = return $ Just fs
 recTypFields (TApp (TBuiltin BTContractId) t) = recTypFields t
 recTypFields _ = return Nothing
@@ -949,7 +949,7 @@ applySubstInBaseUpd subst UpdArchive{..} =
 -- | Data type representing an error.
 data Error
   = UnknownValue (Qualified ExprValName)
-  | UnknownDataCons TypeConName
+  | UnknownDataCons (Qualified TypeConName)
   | UnknownChoice ChoiceName
   | UnboundVar ExprVarName
   | UnknownRecField FieldName

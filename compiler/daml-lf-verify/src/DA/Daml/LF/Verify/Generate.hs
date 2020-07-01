@@ -23,7 +23,6 @@ import qualified Data.NameMap as NM
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Verify.Context
-import DA.Daml.LF.Verify.Subst
 
 -- | Data type denoting the output of the constraint generator.
 data Output (ph :: Phase) = Output
@@ -94,8 +93,9 @@ class IsPhase ph => GenPhase (ph :: Phase) where
 
 instance GenPhase 'ValueGathering where
   genModule pac mod = do
-    extDatsEnv (HM.map (instPRSelf pac) (NM.toHashMap (moduleDataTypes mod)))
-    mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
+    let modName = moduleName mod
+    extDatsEnv (HM.fromList [(Qualified pac modName (dataTypeCon def), def) | def <-  NM.toList (moduleDataTypes mod)])
+    mapM_ (genValue pac modName) (NM.toList $ moduleValues mod)
   genForVal w = return $ Output (EVal w) (extendUpdateSet (valueUpd $ Determined w) emptyUpdateSet)
 
 instance GenPhase 'ChoiceGathering where
@@ -140,15 +140,13 @@ genValue :: MonadEnv m 'ValueGathering
   -- ^ The value to be analysed and added.
   -> m ()
 genValue pac mod val = do
-  expOut <- genExpr True (instPRSelf pac $ dvalBody val)
+  expOut <- genExpr True (dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
 -- | Analyse a choice definition and add to the environment.
 genChoice :: MonadEnv m 'ChoiceGathering
-  => PackageRef
-  -- ^ A reference to the package in which this choice is defined.
-  -> Qualified TypeConName
+  => Qualified TypeConName
   -- ^ The template in which this choice is defined.
   -> ExprVarName
   -- ^ The `this` variable referencing the contract on which this choice is
@@ -158,7 +156,7 @@ genChoice :: MonadEnv m 'ChoiceGathering
   -> TemplateChoice
   -- ^ The choice to be analysed and added.
   -> m ()
-genChoice pac tem this' temFs TemplateChoice{..} = do
+genChoice tem this' temFs TemplateChoice{..} = do
   -- Get the current variable names.
   let self' = chcSelfBinder
       arg' = fst chcArgBinder
@@ -187,8 +185,7 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   -- Run the constraint generator on the resulting choice expression.
   let substVar = foldMap (uncurry exprSubst) [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   expOut <- genExpr True
-    $ applySubstInExpr substVar
-    $ instPRSelf pac chcUpdate
+    $ applySubstInExpr substVar chcUpdate
   -- Add the archive update.
   let out = if chcConsuming
         then addArchiveUpd tem (fields this) expOut
@@ -209,15 +206,15 @@ genTemplate :: MonadEnv m 'ChoiceGathering
   -> m ()
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
-  fields <- recTypConFields tplTypeCon >>= \case
+  fields <- recTypConFields name >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   let preCond (this :: Expr) =
         applySubstInExpr
           (exprSubst tplParam this)
-          (instPRSelf pac tplPrecondition)
+          tplPrecondition
   extPrecond name preCond
-  mapM_ (genChoice pac name tplParam fields)
+  mapM_ (genChoice name tplParam fields)
     (archive : NM.toList tplChoices)
   where
     archive :: TemplateChoice
@@ -539,7 +536,7 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -> m Subst
 bindCids _ Nothing _ _ _ = return mempty
 bindCids b (Just (TContractId (TCon tc))) cid (EVar this) fsExpM = do
-  fs <- recTypConFields (qualObject tc) >>= \case
+  fs <- recTypConFields tc >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   extRecEnv this (map fst fs)
@@ -555,7 +552,7 @@ bindCids b (Just (TContractId (TCon tc))) cid (EVar this) fsExpM = do
         Nothing -> throwError ExpectRecord
     Nothing -> return subst
 bindCids b (Just (TCon tc)) cid (EVar this) fsExpM = do
-  fs <- recTypConFields (qualObject tc) >>= \case
+  fs <- recTypConFields tc >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   extRecEnv this (map fst fs)

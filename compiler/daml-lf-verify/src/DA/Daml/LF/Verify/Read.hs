@@ -99,5 +99,5 @@ readPackages dars = concatMapM darToPackages dars
       packageName <- pure (PackageName . T.pack <$> packageName)
       forM ((DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)) $
         \(dalf, mbPkgName) -> do
-          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsDependency (BSL.toStrict dalf)
           pure (pkgId, (pkg, mbPkgName))
