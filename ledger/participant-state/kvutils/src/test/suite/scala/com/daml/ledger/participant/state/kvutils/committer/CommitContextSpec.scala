@@ -28,14 +28,7 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.get(aKey) shouldBe Some(aValue)
     }
 
-    "record accessed input keys" in {
-      val context = newInstance(Map(aKey -> Some(aValue)))
-      context.get(aKey)
-      context.getAccessedInputKeys.size shouldBe 1
-      context.getAccessedInputKeys.head shouldBe aKey
-    }
-
-    "maintain the order of accessed input keys based on when they were accessed first" in {
+    "records all accessed input keys and iterates over them in a stable order" in {
       val context = newInstance(Map(aKey -> Some(aValue), anotherKey -> Some(anotherValue)))
       context.get(aKey)
       context.get(anotherKey)
