@@ -28,6 +28,7 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.get(aKey) shouldBe Some(aValue)
     }
 
+    // If the access order is deterministic, then the iteration order is not just stable but also deterministic.
     "records all accessed input keys and iterates over them in a stable order" in {
       val context = newInstance(Map(aKey -> Some(aValue), anotherKey -> Some(anotherValue)))
       context.get(aKey)
