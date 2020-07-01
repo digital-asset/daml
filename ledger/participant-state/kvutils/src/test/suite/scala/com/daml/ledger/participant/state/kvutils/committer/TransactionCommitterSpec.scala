@@ -42,6 +42,19 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       }
     }
 
+    "continue if record time is available but no deduplication entry could be found" in {
+      val instance = createTransactionCommitter()
+      val inputs = Map(Conversions.commandDedupKey(aTransactionEntrySummary.submitterInfo) -> None)
+      val context = new FakeCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
+
+      val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
+
+      actual match {
+        case StepContinue(_) => succeed
+        case StepStop(_) => fail
+      }
+    }
+
     "continue if record time is after deduplication time in case a deduplication entry is found" in {
       val instance = createTransactionCommitter()
       val dedupValue = DamlStateValue.newBuilder
