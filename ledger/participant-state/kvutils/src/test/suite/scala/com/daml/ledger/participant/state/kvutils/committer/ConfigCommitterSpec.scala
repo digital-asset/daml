@@ -20,7 +20,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
   "checkTtl" should {
     "produce rejection log entry if maximum record time is before record time" in {
-      val instance = new ConfigCommitter(theDefaultConfig, aRecordTime, metrics)
+      val instance = createConfigCommitter(aRecordTime)
       val context = new FakeCommitContext(recordTime = Some(aRecordTime.addMicros(1)))
 
       val actual = instance.checkTtl(context, anEmptyResult)
@@ -37,7 +37,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "continue if maximum record time is on or after record time" in {
       for (maximumRecordTime <- Iterable(aRecordTime, aRecordTime.addMicros(1))) {
-        val instance = new ConfigCommitter(theDefaultConfig, maximumRecordTime, metrics)
+        val instance = createConfigCommitter(maximumRecordTime)
         val context = new FakeCommitContext(recordTime = Some(aRecordTime))
 
         val actual = instance.checkTtl(context, anEmptyResult)
@@ -50,7 +50,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
     }
 
     "skip checking against maximum record time if record time is not available" in {
-      val instance = new ConfigCommitter(theDefaultConfig, aRecordTime, metrics)
+      val instance = createConfigCommitter(aRecordTime)
       val context = new FakeCommitContext(recordTime = None)
 
       val actual = instance.checkTtl(context, anEmptyResult)
@@ -64,7 +64,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
   "buildLogEntry" should {
     "set record time in log entry when it is available" in {
-      val instance = new ConfigCommitter(theDefaultConfig, theRecordTime.addMicros(1000), metrics)
+      val instance = createConfigCommitter(theRecordTime.addMicros(1000))
       val context = new FakeCommitContext(recordTime = Some(theRecordTime))
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
@@ -79,7 +79,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
     }
 
     "skip setting record time in log entry when it is not available" in {
-      val instance = new ConfigCommitter(theDefaultConfig, theRecordTime, metrics)
+      val instance = createConfigCommitter(theRecordTime)
       val context = new FakeCommitContext(recordTime = None)
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
@@ -92,4 +92,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
       }
     }
   }
+
+  private def createConfigCommitter(recordTime: Timestamp): ConfigCommitter =
+    new ConfigCommitter(theDefaultConfig, recordTime, metrics)
 }
