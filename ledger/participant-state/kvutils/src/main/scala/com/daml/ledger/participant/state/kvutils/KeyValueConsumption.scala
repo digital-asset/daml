@@ -179,6 +179,9 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
         transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
 
+      case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
+        throw Err.InternalError("not implemented yet")
+
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InternalError("logEntryToUpdate: PAYLOAD_NOT_SET!")
     }
