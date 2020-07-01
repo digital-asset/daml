@@ -23,6 +23,7 @@ da_scala_library(
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
+    scalacopts = ["-P:silencer:checkUnused"],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
