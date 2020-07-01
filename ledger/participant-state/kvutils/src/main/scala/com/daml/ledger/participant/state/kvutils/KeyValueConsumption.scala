@@ -180,7 +180,7 @@ object KeyValueConsumption {
         transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
-        throw Err.InternalError("not implemented yet")
+        outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InternalError("logEntryToUpdate: PAYLOAD_NOT_SET!")
@@ -261,6 +261,97 @@ object KeyValueConsumption {
       divulgedContracts = List.empty
     )
   }
+
+  private[kvutils] def outOfTimeBoundsEntryToUpdate(
+      recordTime: Timestamp,
+      outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): Option[Update] = {
+    val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
+    val duplicateUntilMaybe = parseOptionalTimestamp(
+      outOfTimeBoundsEntry.hasDuplicateUntil,
+      outOfTimeBoundsEntry.getDuplicateUntil)
+    val tooEarlyUntilMaybe = parseOptionalTimestamp(
+      outOfTimeBoundsEntry.hasTooEarlyUntil,
+      outOfTimeBoundsEntry.getTooEarlyUntil)
+    val tooLateFromMaybe = parseOptionalTimestamp(
+      outOfTimeBoundsEntry.hasTooLateFrom,
+      outOfTimeBoundsEntry.getTooLateFrom)
+    val deduplicated = duplicateUntilMaybe.exists(recordTime > _)
+    val tooEarly = tooEarlyUntilMaybe.exists(recordTime < _)
+    val tooLate = tooLateFromMaybe.exists(recordTime > _)
+    val invalidLedgerTime = tooEarly || tooLate
+
+    wrappedLogEntry.getPayloadCase match {
+      case _ if deduplicated =>
+        // We don't emit updates for deduplicated submissions.
+        None
+
+      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
+        val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
+        if (invalidLedgerTime) {
+          val reason = (tooEarlyUntilMaybe, tooLateFromMaybe) match {
+            case (Some(lowerBound), Some(upperBound)) =>
+              s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
+            case _ =>
+              "Ledger time outside of valid range"
+          }
+          val rejectionReason = RejectionReason.InvalidLedgerTime(reason)
+          Some(
+            Update.CommandRejected(
+              recordTime = recordTime,
+              submitterInfo = parseSubmitterInfo(transactionRejectionEntry.getSubmitterInfo),
+              reason = rejectionReason
+            )
+          )
+        } else {
+          transactionRejectionEntryToUpdate(recordTime, transactionRejectionEntry) match {
+            case Nil => None
+            case head :: Nil => Some(head)
+          }
+        }
+
+      case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
+        None
+
+      case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>
+        val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry
+        if (invalidLedgerTime) {
+          val reason = tooLateFromMaybe
+            .map { maximumRecordTime =>
+              s"Configuration change timed out: $maximumRecordTime < $recordTime"
+            }
+            .getOrElse("Configuration change timed out")
+          Some(
+            Update.ConfigurationChangeRejected(
+              recordTime,
+              SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
+              ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
+              Configuration.decode(configurationRejectionEntry.getConfiguration).right.get,
+              reason
+            )
+          )
+        } else {
+          None
+        }
+
+      case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+        None
+
+      case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY |
+          DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY |
+          DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY |
+          DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY |
+          DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
+        throw Err.InternalError(
+          s"Out-of-time-bounds log entry does not contain a rejection entry: ${wrappedLogEntry.getPayloadCase}")
+    }
+  }
+
+  private def parseOptionalTimestamp(
+      hasTimestamp: Boolean,
+      getTimestamp: => com.google.protobuf.Timestamp): Option[Timestamp] =
+    PartialFunction.condOpt(hasTimestamp) {
+      case true => parseTimestamp(getTimestamp)
+    }
 
   @throws(classOf[Err])
   private def parseLedgerString(what: String)(s: String): Ref.LedgerString =
