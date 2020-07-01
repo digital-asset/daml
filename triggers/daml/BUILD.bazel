@@ -31,7 +31,7 @@ DAML_LF_VERSIONS = [
 sdk-version: {sdk}
 name: daml-trigger
 source: daml
-version: 0.0.1
+version: {sdk}
 dependencies:
   - daml-stdlib
   - daml-prim
