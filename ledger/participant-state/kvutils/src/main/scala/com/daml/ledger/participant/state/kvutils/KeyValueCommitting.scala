@@ -19,7 +19,6 @@ import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.ValueOuterClass
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -38,29 +37,6 @@ class KeyValueCommitting private[daml] (
 
   def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
 
-  def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
-
-  def unpackDamlStateKey(bytes: ByteString): DamlStateKey =
-    DamlStateKey.parseFrom(bytes)
-
-  def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
-
-  def unpackDamlStateValue(bytes: Array[Byte]): DamlStateValue =
-    DamlStateValue.parseFrom(bytes)
-
-  def unpackDamlStateValue(bytes: ByteString): DamlStateValue =
-    DamlStateValue.parseFrom(bytes)
-
-  def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
-  def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry =
-    DamlLogEntry.parseFrom(bytes)
-
-  def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
-  def unpackDamlLogEntryId(bytes: Array[Byte]): DamlLogEntryId =
-    DamlLogEntryId.parseFrom(bytes)
-  def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId =
-    DamlLogEntryId.parseFrom(bytes)
-
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
     *
@@ -70,8 +46,7 @@ class KeyValueCommitting private[daml] (
     *
     * The caller is expected to store the produced [[DamlLogEntry]] in key-value store at a location
     * that can be accessed through `entryId`. The DAML state updates may create new entries or update
-    * existing entries in the key-value store. The concrete key for DAML state entry is obtained by applying
-    * [[packDamlStateKey]] to [[DamlStateKey]].
+    * existing entries in the key-value store.
     *
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
