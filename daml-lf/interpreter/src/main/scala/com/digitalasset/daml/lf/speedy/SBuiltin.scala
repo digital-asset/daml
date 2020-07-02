@@ -200,7 +200,7 @@ private[lf] object SBuiltin {
   final case object SBDivNumeric extends SBBinaryOpNumeric2(divide)
 
   final case object SBRoundNumeric extends SBuiltin(3) {
-    override override final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scale = args.get(0).asInstanceOf[STNat].n
       val prec = args.get(1).asInstanceOf[SInt64].value
       val x = args.get(2).asInstanceOf[SNumeric].value
@@ -1110,7 +1110,9 @@ private[lf] object SBuiltin {
       else executeCommit(args, machine)
     }
 
-    private[this] override final def executeMustFail(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    private[this] override final def executeMustFail(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       // A mustFail commit evaluated the update with
       // a catch. The second argument is a boolean
       // that marks whether an exception was thrown
@@ -1145,7 +1147,9 @@ private[lf] object SBuiltin {
       }
     }
 
-    private[this] override final def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    private[this] override final def executeCommit(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       val tx =
         machine.ptx
           .finish(machine.supportedValueVersions, machine.supportedTransactionVersions)
