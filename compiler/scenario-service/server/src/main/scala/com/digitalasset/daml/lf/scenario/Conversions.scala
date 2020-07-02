@@ -360,20 +360,6 @@ final class Conversions(
       .setEffectiveAt(rtx.effectiveAt.micros)
       .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
       .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)
-      // previously rtx.disclosures returned both global and local implicit disclosures, but this is not the case anymore
-      // therefore we need to explicitly add the contracts that are divulged directly (via ContractId rather than ScenarioNodeId)
-      .addAllDisclosures(
-        (rtx
-          .disclosures(coidToEventId))
-          .toSeq
-          .map {
-            case (nodeId, parties) =>
-              proto.NodeAndParties.newBuilder
-                .setNodeId(convertEventId(nodeId))
-                .addAllParties(parties.map(convertParty).asJava)
-                .build
-          }
-          .asJava)
       .setFailedAuthorizations(convertFailedAuthorizations(rtx.failedAuthorizations))
       .build
   }
