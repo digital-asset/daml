@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
+  ExecuteSubmission,
   PackageCommitter,
   PartyAllocationCommitter,
   TransactionCommitter
@@ -79,11 +80,10 @@ class KeyValueCommitting private[daml] (
     metrics.daml.kvutils.committer.last.lastParticipantIdGauge.updateValue(participantId)
     val ctx = metrics.daml.kvutils.committer.runTimer.time()
     try {
-      val (logEntry, outputState) = processPayload(
-        engine,
+      val committer = createCommitter(engine, defaultConfig, submission)
+      val (logEntry, outputState) = committer.run(
         entryId,
         Some(recordTime),
-        defaultConfig,
         submission,
         participantId,
         inputState,
@@ -111,88 +111,30 @@ class KeyValueCommitting private[daml] (
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
-  ): PreexecutionResult = {
-    submission.getPayloadCase match {
-      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        new PackageCommitter(engine, metrics).dryRun(
-          submission,
-          participantId,
-          inputState,
-        )
+  ): PreexecutionResult =
+    createCommitter(engine, defaultConfig, submission).dryRun(
+      submission,
+      participantId,
+      inputState,
+    )
 
-      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        new PartyAllocationCommitter(metrics).dryRun(
-          submission,
-          participantId,
-          inputState,
-        )
-
-      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        newConfigCommitter(submission.getConfigurationSubmission, defaultConfig).dryRun(
-          submission,
-          participantId,
-          inputState,
-        )
-
-      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
-          .dryRun(
-            submission,
-            participantId,
-            inputState,
-          )
-
-      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw Err.InvalidSubmission("DamlSubmission payload not set")
-    }
-  }
-
-  private def processPayload(
+  private def createCommitter(
       engine: Engine,
-      entryId: DamlLogEntryId,
-      recordTime: Option[Timestamp],
       defaultConfig: Configuration,
       submission: DamlSubmission,
-      participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
-  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+  ): ExecuteSubmission =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        new PackageCommitter(engine, metrics).run(
-          entryId,
-          recordTime,
-          submission,
-          participantId,
-          inputState,
-        )
+        new PackageCommitter(engine, metrics)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        new PartyAllocationCommitter(metrics).run(
-          entryId,
-          recordTime,
-          submission,
-          participantId,
-          inputState,
-        )
+        new PartyAllocationCommitter(metrics)
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        newConfigCommitter(submission.getConfigurationSubmission, defaultConfig).run(
-          entryId,
-          recordTime,
-          submission,
-          participantId,
-          inputState,
-        )
+        newConfigCommitter(submission.getConfigurationSubmission, defaultConfig)
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
-          .run(
-            entryId,
-            recordTime,
-            submission,
-            participantId,
-            inputState,
-          )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
