@@ -39,6 +39,7 @@ module DA.Daml.LF.Verify.Context
   , computeCycles
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
+  , applySubstInUpd
   ) where
 
 import Control.Monad.Error.Class (MonadError (..), throwError)
@@ -54,7 +55,7 @@ import qualified Data.Text as T
 import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
-import DA.Daml.LF.Verify.Subst
+import DA.Daml.LF.Ast.Subst
 
 -- | Data type denoting the phase of the constraint generator.
 data Phase
@@ -538,7 +539,7 @@ expr2cid :: (IsPhase ph, MonadEnv m ph)
   -- ^ Whether or not the refresh the contract id.
   -> Expr
   -- ^ The expression to be converted.
-  -> m (Cid, ExprSubst)
+  -> m (Cid, Subst)
 expr2cid b (EVar x) = do
   (y, subst) <- refresh_cid b x
   return (CidVar y, subst)
@@ -558,11 +559,11 @@ refresh_cid :: MonadEnv m ph
   -- ^ Whether or not the refresh the contract id.
   -> ExprVarName
   -- ^ The variable name to refresh.
-  -> m (ExprVarName, ExprSubst)
-refresh_cid False x = return (x, emptyExprSubst)
+  -> m (ExprVarName, Subst)
+refresh_cid False x = return (x, mempty)
 refresh_cid True x = do
   y <- genRenamedVar x
-  return (y, singleExprSubst x (EVar y))
+  return (y, exprSubst x (EVar y))
 
 -- | Data type containing the data stored for a choice definition.
 data ChoiceData (ph :: Phase) = ChoiceData
@@ -721,7 +722,7 @@ extCidEnv :: (IsPhase ph, MonadEnv m ph)
   -- ^ The contract id expression.
   -> ExprVarName
   -- ^ The variable name to which the fetched contract is bound.
-  -> m ExprSubst
+  -> m Subst
 extCidEnv b exp var = do
   prev <- do
     { (cur, old) <- lookupCid exp
@@ -831,8 +832,8 @@ lookupChoice tem ch = do
     Nothing -> return Nothing
     Just ChoiceData{..} -> do
       let updFunc (self :: Expr) (this :: Expr) (args :: Expr) =
-            let subst = createExprSubst [(_cdSelf,self),(_cdThis,this),(_cdArgs,args)]
-            in substituteTm subst _cdUpds
+            let subst = foldMap (uncurry exprSubst) [(_cdSelf,self),(_cdThis,this),(_cdArgs,args)]
+            in map (applySubstInUpd subst) _cdUpds
       return $ Just (updFunc, _cdType)
 
 -- | Lookup a data type definition in the environment.
@@ -915,35 +916,35 @@ recExpFields (EStructProj f e) = do
     Nothing -> return Nothing
 recExpFields _ = return Nothing
 
-instance SubstTm BoolExpr where
-  substituteTm s (BExpr e) = BExpr (substituteTm s e)
-  substituteTm s (BAnd e1 e2) = BAnd (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BNot e) = BNot (substituteTm s e)
-  substituteTm s (BEq e1 e2) = BEq (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BGt e1 e2) = BGt (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BGtE e1 e2) = BGtE (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BLt e1 e2) = BLt (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BLtE e1 e2) = BLtE (substituteTm s e1) (substituteTm s e2)
+applySubstInBoolExpr :: Subst -> BoolExpr -> BoolExpr
+applySubstInBoolExpr subst = \case
+    BExpr e -> BExpr (applySubstInExpr subst e)
+    BAnd e1 e2 -> BAnd (applySubstInBoolExpr subst e1) (applySubstInBoolExpr subst e2)
+    BNot e -> BNot (applySubstInBoolExpr subst e)
+    BEq e1 e2 -> BEq (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BGt e1 e2 -> BGt (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BGtE e1 e2 -> BGtE (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BLt e1 e2 -> BLt (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BLtE e1 e2 -> BLtE (applySubstInExpr subst e1) (applySubstInExpr subst e2)
 
-instance SubstTm a => SubstTm (Cond a) where
-  substituteTm s (Determined x) = Determined $ substituteTm s x
-  substituteTm s (Conditional e x y) =
-    Conditional (substituteTm s e) (map (substituteTm s) x) (map (substituteTm s) y)
+applySubstInCond :: (Subst -> a -> a) -> Subst -> Cond a -> Cond a
+applySubstInCond f subst = \case
+    Determined a -> Determined (f subst a)
+    Conditional c xs ys ->
+        Conditional
+            (applySubstInBoolExpr subst c)
+            (map (applySubstInCond f subst) xs)
+            (map (applySubstInCond f subst) ys)
 
-instance SubstTm a => SubstTm (Rec a) where
-  substituteTm s = \case
-    Simple x -> Simple (substituteTm s x)
-    Rec xs -> Rec (map (substituteTm s) xs)
-    MutRec xs -> MutRec (map (second (substituteTm s)) xs)
+applySubstInUpd :: IsPhase ph => Subst -> Upd ph -> Upd ph
+applySubstInUpd subst =
+    mapBaseUpd (baseUpd . fmap (map (applySubstInCond applySubstInBaseUpd subst)))
 
-instance IsPhase ph => SubstTm (Upd ph) where
-  substituteTm s = mapBaseUpd (baseUpd . substituteTm s)
-
-instance SubstTm BaseUpd where
-  substituteTm s UpdCreate{..} = UpdCreate _creTemp
-    (map (second (substituteTm s)) _creField)
-  substituteTm s UpdArchive{..} = UpdArchive _arcTemp
-    (map (second (substituteTm s)) _arcField)
+applySubstInBaseUpd :: Subst -> BaseUpd -> BaseUpd
+applySubstInBaseUpd subst UpdCreate{..} =
+    UpdCreate _creTemp (map (second $ applySubstInExpr subst) _creField)
+applySubstInBaseUpd subst UpdArchive{..} =
+    UpdArchive _arcTemp (map (second $ applySubstInExpr subst) _arcField)
 
 -- | Data type representing an error.
 data Error
