@@ -127,6 +127,15 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
           TimeBounds(tooEarlyUntil = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
+          Assertions()),
+        // Record time within time bounds.
+        (
+          TimeBounds(
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1))),
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+          ),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
           Assertions())
       )
       runAll(testCases)
@@ -172,6 +181,15 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
           Assertions()),
         (
           TimeBounds(tooEarlyUntil = Some(aRecordTime)),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions()),
+        // Record time within time bounds.
+        (
+          TimeBounds(
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1))),
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+          ),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
           Assertions())
