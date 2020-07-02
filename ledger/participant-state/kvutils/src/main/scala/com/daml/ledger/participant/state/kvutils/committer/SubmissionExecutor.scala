@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.{DamlStateMap, DamlStateMapWith
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
 
-trait ExecuteSubmission {
+trait SubmissionExecutor {
   def run(
       entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],

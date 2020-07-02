@@ -48,7 +48,7 @@ import org.slf4j.{Logger, LoggerFactory}
   * e.g. `kvutils.PackageCommitter`. An overall run time is measured in `kvutils.PackageCommitter.run-timer`,
   * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
   */
-private[committer] trait Committer[PartialResult] extends ExecuteSubmission {
+private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
 
   protected final val logger: Logger = LoggerFactory.getLogger(getClass)

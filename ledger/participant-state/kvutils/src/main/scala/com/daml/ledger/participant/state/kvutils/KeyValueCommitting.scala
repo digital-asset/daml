@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
-  ExecuteSubmission,
+  SubmissionExecutor,
   PackageCommitter,
   PartyAllocationCommitter,
   TransactionCommitter
@@ -122,7 +122,7 @@ class KeyValueCommitting private[daml] (
       engine: Engine,
       defaultConfig: Configuration,
       submission: DamlSubmission,
-  ): ExecuteSubmission =
+  ): SubmissionExecutor =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics)
