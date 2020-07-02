@@ -148,12 +148,12 @@ getIntegrationTests registerTODO scenarioService = do
                 , optDlintUsage = DlintEnabled dlintDataDir False
                 }
           in
-          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \mkDamlEnv ->
+          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (mkDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
           shutdown $ \service ->
           withResource
-          (mkDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
           withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase args version service outdir registerTODO) nongeneratedFiles <>
