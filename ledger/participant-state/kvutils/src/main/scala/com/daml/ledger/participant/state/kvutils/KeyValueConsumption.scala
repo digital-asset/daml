@@ -121,7 +121,7 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
-        List(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
+        List(transactionEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         val configEntry = entry.getConfigurationEntry
@@ -235,7 +235,7 @@ object KeyValueConsumption {
   }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
-  private def txEntryToUpdate(
+  private def transactionEntryToUpdate(
       entryId: DamlLogEntryId,
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
@@ -265,24 +265,21 @@ object KeyValueConsumption {
     )
   }
 
+  private[kvutils] case class TimeBounds(
+      tooEarlyUntil: Option[Timestamp] = None,
+      tooLateFrom: Option[Timestamp] = None,
+      deduplicateUntil: Option[Timestamp] = None)
+
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): Option[Update] = {
-    val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
-    val duplicateUntilMaybe = parseOptionalTimestamp(
-      outOfTimeBoundsEntry.hasDuplicateUntil,
-      outOfTimeBoundsEntry.getDuplicateUntil)
-    val tooEarlyUntilMaybe = parseOptionalTimestamp(
-      outOfTimeBoundsEntry.hasTooEarlyUntil,
-      outOfTimeBoundsEntry.getTooEarlyUntil)
-    val tooLateFromMaybe = parseOptionalTimestamp(
-      outOfTimeBoundsEntry.hasTooLateFrom,
-      outOfTimeBoundsEntry.getTooLateFrom)
-    val deduplicated = duplicateUntilMaybe.exists(recordTime <= _)
-    val tooEarly = tooEarlyUntilMaybe.exists(recordTime < _)
-    val tooLate = tooLateFromMaybe.exists(recordTime > _)
+    val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
+    val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)
+    val tooEarly = timeBounds.tooEarlyUntil.exists(recordTime < _)
+    val tooLate = timeBounds.tooLateFrom.exists(recordTime > _)
     val invalidRecordTime = tooEarly || tooLate
 
+    val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
     wrappedLogEntry.getPayloadCase match {
       case _ if deduplicated =>
         // We don't emit updates for deduplicated submissions.
@@ -290,7 +287,7 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidRecordTime =>
         val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
-        val reason = (tooEarlyUntilMaybe, tooLateFromMaybe) match {
+        val reason = (timeBounds.tooEarlyUntil, timeBounds.tooLateFrom) match {
           case (Some(lowerBound), Some(upperBound)) =>
             s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
           case _ =>
@@ -307,7 +304,7 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidRecordTime =>
         val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry
-        val reason = tooLateFromMaybe
+        val reason = timeBounds.tooLateFrom
           .map { maximumRecordTime =>
             s"Configuration change timed out: $maximumRecordTime < $recordTime"
           }
@@ -338,6 +335,19 @@ object KeyValueConsumption {
         throw Err.InternalError(
           s"Out-of-time-bounds log entry does not contain a rejection entry: ${wrappedLogEntry.getPayloadCase}")
     }
+  }
+
+  private def parseTimeBounds(outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): TimeBounds = {
+    val duplicateUntilMaybe = parseOptionalTimestamp(
+      outOfTimeBoundsEntry.hasDuplicateUntil,
+      outOfTimeBoundsEntry.getDuplicateUntil)
+    val tooEarlyUntilMaybe = parseOptionalTimestamp(
+      outOfTimeBoundsEntry.hasTooEarlyUntil,
+      outOfTimeBoundsEntry.getTooEarlyUntil)
+    val tooLateFromMaybe = parseOptionalTimestamp(
+      outOfTimeBoundsEntry.hasTooLateFrom,
+      outOfTimeBoundsEntry.getTooLateFrom)
+    TimeBounds(tooEarlyUntilMaybe, tooLateFromMaybe, duplicateUntilMaybe)
   }
 
   private def parseOptionalTimestamp(

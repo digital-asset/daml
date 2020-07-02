@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
+  TimeBounds,
   logEntryToUpdate,
   outOfTimeBoundsEntryToUpdate
 }
@@ -56,16 +57,13 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
     }
   }
 
-  case class TimeBounds(
-      tooEarlyUntil: Option[Timestamp] = None,
-      tooLateFrom: Option[Timestamp] = None,
-      deduplicateUntil: Option[Timestamp] = None)
+  private def verifyNoUpdateIsGenerated(actual: Option[Update]): Unit = {
+    actual should be(None)
+    ()
+  }
 
   case class Assertions(
-      verify: Option[Update] => Unit = actual => {
-        actual should be(None)
-        ()
-      },
+      verify: Option[Update] => Unit = verifyNoUpdateIsGenerated,
       throwsInternalError: Boolean = false
   )
 
