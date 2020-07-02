@@ -344,10 +344,7 @@ class Runner(
     val initialState: AExpr =
       makeApp(
         getInitialState,
-        Array(
-          SParty(Party.assertFromString(party)),
-          STimestamp(clientTime),
-          createdValue))
+        Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
     // Prepare a speedy machine for evaluting expressions.
     val machine: Speedy.Machine = Speedy.Machine.fromPureAExpr(compiledPackages, initialState)
     // Evaluate it.
@@ -392,41 +389,38 @@ class Runner(
           }
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
-      .toMat(
-        Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
-          val messageVal = message match {
-            case TransactionMsg(transaction) => {
-              converter.fromTransaction(transaction) match {
-                case Left(err) => throw new ConverterException(err)
-                case Right(x) => x
-              }
+      .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
+        val messageVal = message match {
+          case TransactionMsg(transaction) => {
+            converter.fromTransaction(transaction) match {
+              case Left(err) => throw new ConverterException(err)
+              case Right(x) => x
             }
-            case CompletionMsg(completion) => {
-              val status = completion.getStatus
-              if (status.code != 0) {
-                logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-              }
-              converter.fromCompletion(completion) match {
-                case Left(err) => throw new ConverterException(err)
-                case Right(x) => x
-              }
-            }
-            case HeartbeatMsg() => converter.fromHeartbeat
           }
-          val clientTime: Timestamp =
-            Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-          machine.setExpressionToEvaluate(
-            makeApp(
-              update,
-              Array(STimestamp(clientTime): SValue, messageVal, state)))
-          val value = Machine.stepToValue(machine)
-          val newState = handleStepResult(value, submit)
-          newState
-        }))(Keep.right[NotUsed, Future[SValue]])
+          case CompletionMsg(completion) => {
+            val status = completion.getStatus
+            if (status.code != 0) {
+              logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
+            }
+            converter.fromCompletion(completion) match {
+              case Left(err) => throw new ConverterException(err)
+              case Right(x) => x
+            }
+          }
+          case HeartbeatMsg() => converter.fromHeartbeat
+        }
+        val clientTime: Timestamp =
+          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        machine.setExpressionToEvaluate(
+          makeApp(update, Array(STimestamp(clientTime): SValue, messageVal, state)))
+        val value = Machine.stepToValue(machine)
+        val newState = handleStepResult(value, submit)
+        newState
+      }))(Keep.right[NotUsed, Future[SValue]])
   }
 
   def makeApp(func: AExpr, values: Array[SValue]): AExpr = {
-    val args : Array[SExprAtomic] = values.map(SEValue(_))
+    val args: Array[SExprAtomic] = values.map(SEValue(_))
     // We can safely introduce a let-expression here to bind the `func` expression,
     // because there are no stack-references in `args`, since they are pure speedy values.
     AExpr(SELet1General(func.wrapped, SEAppAtomicGeneral(SELocS(1), args)))
@@ -471,11 +465,11 @@ class Runner(
           logger.error(s"Unexpected exception: $e")
       })
     }
-    val (t,futureValue) =
+    val (t, futureValue) =
       source
-      .viaMat(msgFlow)(Keep.right[NotUsed, T])
-      .toMat(getTriggerSink(name, acs, submit))(Keep.both)
-      .run()
+        .viaMat(msgFlow)(Keep.right[NotUsed, T])
+        .toMat(getTriggerSink(name, acs, submit))(Keep.both)
+        .run()
     (t, futureValue.map(SEValue(_)))
   }
 }
