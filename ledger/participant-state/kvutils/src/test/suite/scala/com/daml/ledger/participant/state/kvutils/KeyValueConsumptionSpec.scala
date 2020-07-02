@@ -104,8 +104,8 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
     "generate a rejection entry for a transaction if record time is too early" in {
       val inputEntry = DamlOutOfTimeBoundsEntry.newBuilder
         .setEntry(aLogEntryWithTransactionRejectionEntry)
-        .setTooEarlyUntil(
-          Conversions.buildTimestamp(Timestamp.assertFromInstant(aRecordTimeForUpdateInstant)))
+        .setTooEarlyUntil(Conversions.buildTimestamp(
+          Timestamp.assertFromInstant(aRecordTimeForUpdateInstant.plusMillis(1))))
         .build
 
       val expectedUpdate = Update.CommandRejected(

@@ -276,16 +276,16 @@ object KeyValueConsumption {
       outOfTimeBoundsEntry.hasTooLateFrom,
       outOfTimeBoundsEntry.getTooLateFrom)
     val deduplicated = duplicateUntilMaybe.exists(recordTime <= _)
-    val tooEarly = tooEarlyUntilMaybe.exists(recordTime <= _)
+    val tooEarly = tooEarlyUntilMaybe.exists(recordTime < _)
     val tooLate = tooLateFromMaybe.exists(recordTime > _)
-    val invalidLedgerTime = tooEarly || tooLate
+    val invalidRecordTime = tooEarly || tooLate
 
     wrappedLogEntry.getPayloadCase match {
       case _ if deduplicated =>
         // We don't emit updates for deduplicated submissions.
         None
 
-      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidLedgerTime =>
+      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidRecordTime =>
         val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
         val reason = (tooEarlyUntilMaybe, tooLateFromMaybe) match {
           case (Some(lowerBound), Some(upperBound)) =>
@@ -302,7 +302,7 @@ object KeyValueConsumption {
           )
         )
 
-      case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidLedgerTime =>
+      case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidRecordTime =>
         val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry
         val reason = tooLateFromMaybe
           .map { maximumRecordTime =>
