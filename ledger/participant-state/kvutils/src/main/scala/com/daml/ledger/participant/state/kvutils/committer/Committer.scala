@@ -72,7 +72,6 @@ private[committer] trait Committer[Submission, PartialResult] {
     }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */
-  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
       entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],
@@ -87,20 +86,10 @@ private[committer] trait Committer[Submission, PartialResult] {
         override def getParticipantId: ParticipantId = participantId
         override def inputs: DamlStateMap = inputState
       }
-      var cstate = init(ctx, submission)
-      for ((info, step) <- steps) {
-        val result: StepResult[PartialResult] =
-          stepTimers(info).time(() => step(ctx, cstate))
-        result match {
-          case StepContinue(newCState) => cstate = newCState
-          case StepStop(logEntry) =>
-            return logEntry -> ctx.getOutputs.toMap
-        }
-      }
-      sys.error(s"Internal error: Committer $committerName did not produce a result!")
+      val logEntry = runSteps(ctx, submission)
+      logEntry -> ctx.getOutputs.toMap
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def dryRun(
       submission: Submission,
       participantId: ParticipantId,
@@ -118,28 +107,31 @@ private[committer] trait Committer[Submission, PartialResult] {
         override def getParticipantId: ParticipantId = participantId
         override def inputs: DamlStateMap = inputState.mapValues(_._1)
       }
-      var cstate = init(ctx, submission)
-      for ((info, step) <- steps) {
-        val result: StepResult[PartialResult] =
-          stepTimers(info).time(() => step(ctx, cstate))
-        result match {
-          case StepContinue(newCState) => cstate = newCState
-          case StepStop(logEntry) =>
-            val result = PreexecutionResult(
-              readSet = inputState.mapValues(_._2),
-              successfulLogEntry = logEntry,
-              stateUpdates = ctx.getOutputs.toMap,
-              // TODO(miklos): Take out-of-time-bounds log entry and min/max record time from context.
-              outOfTimeBoundsLogEntry = logEntry,
-              minimumRecordTime = Timestamp.MinValue,
-              maximumRecordTime = Timestamp.MaxValue,
-              // TODO(miklos): Determine set of to-be-notified participants.
-              involvedParticipants = Set(participantId)
-            )
-            return result
+      val logEntry = runSteps(ctx, submission)
+      PreexecutionResult(
+        readSet = inputState.mapValues(_._2),
+        successfulLogEntry = logEntry,
+        stateUpdates = ctx.getOutputs.toMap,
+        // TODO(miklos): Take out-of-time-bounds log entry and min/max record time from context.
+        outOfTimeBoundsLogEntry = logEntry,
+        minimumRecordTime = Timestamp.MinValue,
+        maximumRecordTime = Timestamp.MaxValue,
+        // TODO(miklos): Determine set of to-be-notified participants.
+        involvedParticipants = Set(participantId)
+      )
+    }
+  }
+
+  private def runSteps(commitContext: CommitContext, submission: Submission): DamlLogEntry = {
+    steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
+      case (state, (info, step)) =>
+        state match {
+          case StepContinue(state) => stepTimers(info).time(() => step(commitContext, state))
+          case result @ StepStop(_) => result
         }
-      }
-      sys.error(s"Internal error: Committer $committerName did not produce a result!")
+    } match {
+      case StepStop(logEntry) => logEntry
+      case _ => sys.error(s"Internal error: Committer $committerName did not produce a result!")
     }
   }
 }
