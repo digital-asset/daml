@@ -115,21 +115,21 @@ class KeyValueCommitting private[daml] (
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics).dryRun(
-          submission.getPackageUploadEntry,
+          submission,
           participantId,
           inputState,
         )
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).dryRun(
-          submission.getPartyAllocationEntry,
+          submission,
           participantId,
           inputState,
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         newConfigCommitter(submission.getConfigurationSubmission, defaultConfig).dryRun(
-          submission.getConfigurationSubmission,
+          submission,
           participantId,
           inputState,
         )
@@ -137,7 +137,7 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .dryRun(
-            submission.getTransactionEntry,
+            submission,
             participantId,
             inputState,
           )
@@ -161,7 +161,7 @@ class KeyValueCommitting private[daml] (
         new PackageCommitter(engine, metrics).run(
           entryId,
           recordTime,
-          submission.getPackageUploadEntry,
+          submission,
           participantId,
           inputState,
         )
@@ -170,7 +170,7 @@ class KeyValueCommitting private[daml] (
         new PartyAllocationCommitter(metrics).run(
           entryId,
           recordTime,
-          submission.getPartyAllocationEntry,
+          submission,
           participantId,
           inputState,
         )
@@ -179,7 +179,7 @@ class KeyValueCommitting private[daml] (
         newConfigCommitter(submission.getConfigurationSubmission, defaultConfig).run(
           entryId,
           recordTime,
-          submission.getConfigurationSubmission,
+          submission,
           participantId,
           inputState,
         )
@@ -189,7 +189,7 @@ class KeyValueCommitting private[daml] (
           .run(
             entryId,
             recordTime,
-            submission.getTransactionEntry,
+            submission,
             participantId,
             inputState,
           )

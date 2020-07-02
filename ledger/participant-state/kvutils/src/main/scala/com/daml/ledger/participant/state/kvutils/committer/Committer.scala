@@ -12,7 +12,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
+  DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
 import com.daml.ledger.participant.state.kvutils.{
@@ -30,8 +31,7 @@ import com.google.protobuf.ByteString
 import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
-  * It is parametrized by the submission type `Submission` (e.g. PackageUploadEntry) and a committer's partial result
-  * `PartialResult`.
+  * It is parametrized by the committer's partial result `PartialResult`.
   *
   * A committer implementation defines an initial partial result with `init` and `steps` to process the submission
   * into a set of DAML state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
@@ -48,7 +48,7 @@ import org.slf4j.{Logger, LoggerFactory}
   * e.g. `kvutils.PackageCommitter`. An overall run time is measured in `kvutils.PackageCommitter.run-timer`,
   * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
   */
-private[committer] trait Committer[Submission, PartialResult] {
+private[committer] trait Committer[PartialResult] {
   protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
 
   protected final val logger: Logger = LoggerFactory.getLogger(getClass)
@@ -58,7 +58,7 @@ private[committer] trait Committer[Submission, PartialResult] {
   protected def steps: Iterable[(StepInfo, Step)]
 
   /** The initial internal state passed to first step. */
-  protected def init(ctx: CommitContext, subm: Submission): PartialResult
+  protected def init(ctx: CommitContext, submission: DamlSubmission): PartialResult
 
   protected val metrics: Metrics
 
@@ -75,7 +75,7 @@ private[committer] trait Committer[Submission, PartialResult] {
   def run(
       entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],
-      submission: Submission,
+      submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
@@ -91,7 +91,7 @@ private[committer] trait Committer[Submission, PartialResult] {
     }
 
   def dryRun(
-      submission: Submission,
+      submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMapWithFingerprints,
   ): PreexecutionResult = {
@@ -122,7 +122,7 @@ private[committer] trait Committer[Submission, PartialResult] {
     }
   }
 
-  private def runSteps(commitContext: CommitContext, submission: Submission): DamlLogEntry = {
+  private def runSteps(commitContext: CommitContext, submission: DamlSubmission): DamlLogEntry = {
     steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
       case (state, (info, step)) =>
         state match {

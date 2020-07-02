@@ -15,19 +15,17 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
 private[kvutils] object ConfigCommitter {
-
   case class Result(
       submission: DamlConfigurationSubmission,
       currentConfig: (Option[DamlConfigurationEntry], Configuration),
   )
-
 }
 
 private[kvutils] class ConfigCommitter(
     defaultConfig: Configuration,
     maximumRecordTime: Timestamp,
     override protected val metrics: Metrics
-) extends Committer[DamlConfigurationSubmission, ConfigCommitter.Result] {
+) extends Committer[ConfigCommitter.Result] {
 
   override protected val committerName = "config"
 
@@ -190,10 +188,10 @@ private[kvutils] class ConfigCommitter(
 
   override protected def init(
       ctx: CommitContext,
-      configurationSubmission: DamlConfigurationSubmission,
+      submission: DamlSubmission,
   ): ConfigCommitter.Result =
     ConfigCommitter.Result(
-      configurationSubmission,
+      submission.getConfigurationSubmission,
       getCurrentConfiguration(defaultConfig, ctx.inputs, logger)
     )
 

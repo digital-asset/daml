@@ -43,14 +43,14 @@ private[kvutils] class TransactionCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
     inStaticTimeMode: Boolean
-) extends Committer[DamlTransactionEntry, DamlTransactionEntrySummary] {
+) extends Committer[DamlTransactionEntrySummary] {
   override protected val committerName = "transaction"
 
   override protected def init(
       commitContext: CommitContext,
-      transactionEntry: DamlTransactionEntry,
+      submission: DamlSubmission,
   ): DamlTransactionEntrySummary =
-    DamlTransactionEntrySummary(transactionEntry)
+    DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submitter" -> authorizeSubmitter,
