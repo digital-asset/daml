@@ -17,7 +17,8 @@ import doobie._
 import doobie.implicits._
 import doobie.free.connection
 import cats.effect.{ContextShift, IO}
-import cats.implicits._
+import cats.syntax.apply._
+import cats.syntax.functor._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
