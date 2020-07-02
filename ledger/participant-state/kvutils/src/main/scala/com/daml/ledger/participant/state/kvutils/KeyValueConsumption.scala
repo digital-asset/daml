@@ -194,8 +194,8 @@ object KeyValueConsumption {
       recordTimeForUpdate: Option[Timestamp],
       recordTimeFromLogEntry: Option[Timestamp]): Timestamp =
     (recordTimeForUpdate, recordTimeFromLogEntry) match {
+      case (_, Some(recordTime)) => recordTime
       case (Some(recordTime), _) => recordTime
-      case (None, Some(recordTime)) => recordTime
       case (None, None) =>
         throw Err.InternalError("Record time must be provided in order to generate an update")
     }

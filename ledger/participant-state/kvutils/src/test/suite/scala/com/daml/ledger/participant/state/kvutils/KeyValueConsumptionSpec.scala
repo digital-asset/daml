@@ -29,8 +29,9 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
     .build
   private val aRecordTimeForUpdate = Timestamp(123456789)
   private val aRecordTimeForUpdateInstant = aRecordTimeForUpdate.toInstant
+  private val aRecordTimeFromLogEntry = Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
   private val aLogEntryWithRecordTime = DamlLogEntry.newBuilder
-    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(100))
+    .setRecordTime(Conversions.buildTimestamp(aRecordTimeFromLogEntry))
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
     .build
   private val someSubmitterInfo = DamlSubmitterInfo.newBuilder
@@ -58,13 +59,13 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
         logEntryToUpdate(aLogEntryId, aLogEntryWithoutRecordTime, recordTimeForUpdate = None))
     }
 
-    "use record time provided as input instead of log entry's" in {
+    "use log entry's record time instead of one provided as input" in {
       val actual :: Nil = logEntryToUpdate(
         aLogEntryId,
         aLogEntryWithRecordTime,
         recordTimeForUpdate = Some(aRecordTimeForUpdate))
 
-      actual.recordTime shouldBe aRecordTimeForUpdate
+      actual.recordTime shouldBe aRecordTimeFromLogEntry
     }
 
     "use record time from log entry if not provided as input" in {
