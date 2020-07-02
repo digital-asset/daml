@@ -290,8 +290,12 @@ object KeyValueConsumption {
         val reason = (timeBounds.tooEarlyUntil, timeBounds.tooLateFrom) match {
           case (Some(lowerBound), Some(upperBound)) =>
             s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
+          case (Some(lowerBound), None) =>
+            s"Record time $recordTime  outside of valid range ($recordTime < $lowerBound)"
+          case (None, Some(upperBound)) =>
+            s"Record time $recordTime  outside of valid range ($recordTime > $upperBound)"
           case _ =>
-            "Ledger time outside of valid range"
+            "Record time outside of valid range"
         }
         val rejectionReason = RejectionReason.InvalidLedgerTime(reason)
         Some(
