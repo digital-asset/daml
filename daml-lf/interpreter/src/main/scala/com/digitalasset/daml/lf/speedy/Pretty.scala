@@ -300,20 +300,22 @@ object Pretty {
           })
     }
 
+    // TODO(MH): Take explicitness into account.
     val ppDisclosedTo =
-      if (ni.observingSince.nonEmpty)
+      if (ni.disclosures.nonEmpty)
         meta(
           text("known to (since):") &
             intercalate(
               comma + space,
-              ni.observingSince.toSeq
+              ni.disclosures.toSeq
                 .sortWith {
-                  case ((p1, id1), (p2, id2)) =>
-                    id1 <= id2 && p1 < p2
+                  case ((p1, d1), (p2, d2)) =>
+                    // FIXME(MH): Does this order make any sense?
+                    d1.since <= d2.since && p1 < p2
                 }
                 .map {
-                  case (p, txid) =>
-                    text(p) & text("(#") + str(txid.id) + char(')')
+                  case (p, d) =>
+                    text(p) & text("(#") + str(d.since.id) + char(')')
                 },
             ),
         )
