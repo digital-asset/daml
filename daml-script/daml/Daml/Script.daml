@@ -6,6 +6,8 @@ module Daml.Script
   ( Script
   , submit
   , submitMustFail
+
+  , submitMustFailMsg
   , query
   , PartyIdHint (..)
   , ParticipantName (..)
@@ -240,6 +242,9 @@ instance HasSubmit Script Commands where
 
   submitMustFail p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
     where fail _ = error "Expected submit to fail but it succeeded"
+
+  submitMustFailMsg p cmds = lift $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const "help me"))
+    where fail _ = error $ "Submit succeeded but expected it to fail with msg ???"
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.

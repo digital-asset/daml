@@ -114,3 +114,25 @@ To test this expectation, use the ``submitMustFail`` function:
    :lines: 56-73
 
 When the ``Call`` choice is exercised, the contract instance is archived. The ``fails`` keyword checks that if ``'Alice'`` submits ``exercise payAlice Call`` again, it would fail.
+
+Example with submitMustFailMsg
+==============================
+
+Here’s an example of using ``assertMsg`` to prevent a choice being exercised if certain conditions are not satisfied.
+
+.. literalinclude:: code-snippets/PurchaseOrderValidation.daml
+   :language: daml
+   :lines: 8-25
+
+To test the choice fails with the expected error message, ``submitMustFailMsg`` can be used in combination with functions such as ``assertEq`` provided in ``DA.Assert``.
+
+.. literalinclude:: code-snippets/PurchaseOrderValidation.daml
+   :language: daml
+   :lines: 27-36
+
+If ``DA.Assert`` doesn't contain a suitable function, binding the actual error message to a variable
+enables performing the necessary check. :ref:`abort <daml-ref-abort>` can also be used to achieve the same effect
+
+.. literalinclude:: code-snippets/PurchaseOrderValidation.daml
+   :language: daml
+   :lines: 38-40

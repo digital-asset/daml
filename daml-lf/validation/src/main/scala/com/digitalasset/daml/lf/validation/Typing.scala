@@ -782,6 +782,13 @@ private[validation] object Typing {
       TScenario(TUnit)
     }
 
+    private def typeOfMustFailAtMsg(typ: Type, party: Expr, update: Expr): Type = {
+      checkType(typ, KStar)
+      checkExpr(party, TParty)
+      checkExpr(update, TUpdate(typ))
+      TScenario(TText)
+    }
+
     private def typeOfScenario(scenario: Scenario): Type = scenario match {
       case ScenarioPure(typ, expr) =>
         checkPure(typ, expr)
@@ -792,6 +799,8 @@ private[validation] object Typing {
         typeOfCommit(typ, party, update)
       case ScenarioMustFailAt(party, update, typ) =>
         typeOfMustFailAt(typ, party, update)
+      case ScenarioMustFailAtMsg(party, update, typ) =>
+        typeOfMustFailAtMsg(typ, party, update)
       case ScenarioPass(delta) =>
         checkExpr(delta, TInt64)
         TScenario(TTimestamp)

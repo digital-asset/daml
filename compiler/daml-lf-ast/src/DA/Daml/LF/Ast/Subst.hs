@@ -263,6 +263,10 @@ applySubstInScenario subst = \case
         (applySubstInType subst t)
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
+    SMustFailAtMsg t e1 e2 -> SMustFailAtMsg
+        (applySubstInType subst t)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     SPass e -> SPass
         (applySubstInExpr subst e)
     e@SGetTime -> e

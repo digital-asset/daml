@@ -642,6 +642,16 @@ data Scenario
     , smustFailAtExpr :: !Expr
     -- ^ The expression that yields the update action.
     }
+  -- | A commit to the ledger that is expected to fail with the corresponding
+  -- user initiated error triggered via 'abort' or 'assert'.
+  | SMustFailAtMsg
+    { smustFailAtMsgType :: !Type
+    -- ^ Type of the update to commit.
+    , smustFailAtMsgParty :: !Expr
+    -- ^ The committing party.
+    , smustFailAtMsgExpr :: !Expr
+    -- ^ The expression that yields the update action.
+    }
   -- | Move the time forward.
   | SPass
     { spassDelta :: !Expr

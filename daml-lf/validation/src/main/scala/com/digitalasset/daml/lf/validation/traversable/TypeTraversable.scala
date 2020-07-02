@@ -137,6 +137,11 @@ private[validation] object TypeTraversable {
         foreach(update, f)
         f(retType)
         ()
+      case ScenarioMustFailAtMsg(party, update, retType) =>
+        foreach(party, f)
+        foreach(update, f)
+        f(retType)
+        ()
       case ScenarioEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)

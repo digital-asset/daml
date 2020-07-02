@@ -535,6 +535,11 @@ typeOfScenario = \case
     checkExpr party TParty
     checkExpr update (TUpdate typ)
     pure (TScenario TUnit)
+  SMustFailAtMsg typ party update -> do
+    checkType typ KStar
+    checkExpr party TParty
+    checkExpr update (TUpdate typ)
+    pure (TScenario TText)
   SPass delta -> checkExpr delta TInt64 $> TScenario TTimestamp
   SGetTime -> pure (TScenario TTimestamp)
   SGetParty name -> checkExpr name TText $> TScenario TParty

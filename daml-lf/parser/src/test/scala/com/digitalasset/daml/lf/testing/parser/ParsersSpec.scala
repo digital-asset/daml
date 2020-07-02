@@ -318,6 +318,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           ScenarioCommit(e"party", e"body", t"tau"),
         "must_fail_at @tau party update" ->
           ScenarioMustFailAt(e"party", e"update", t"tau"),
+        "must_fail_at_msg @tau party update" ->
+          ScenarioMustFailAtMsg(e"party", e"update", t"tau"),
         "pass e" ->
           ScenarioPass(e"e"),
         "sget_time" ->

@@ -74,6 +74,7 @@ data ScenarioF expr
   | SBindF       !(BindingF expr) !expr
   | SCommitF     !Type !expr !expr
   | SMustFailAtF !Type !expr !expr
+  | SMustFailAtMsgF !Type !expr !expr
   | SPassF       !expr
   | SGetTimeF
   | SGetPartyF   !expr
@@ -133,6 +134,7 @@ projectScenario = \case
   SBind a b -> SBindF (projectBinding a) b
   SCommit a b c -> SCommitF a b c
   SMustFailAt a b c -> SMustFailAtF a b c
+  SMustFailAtMsg a b c -> SMustFailAtMsgF a b c
   SPass a -> SPassF a
   SGetTime -> SGetTimeF
   SGetParty a -> SGetPartyF a
@@ -144,6 +146,7 @@ embedScenario = \case
   SBindF a b -> SBind (embedBinding a) b
   SCommitF a b c -> SCommit a b c
   SMustFailAtF a b c -> SMustFailAt a b c
+  SMustFailAtMsgF a b c -> SMustFailAtMsg a b c
   SPassF a -> SPass a
   SGetTimeF -> SGetTime
   SGetPartyF a -> SGetParty a

@@ -314,6 +314,11 @@ alphaScenario env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
+    SMustFailAtMsg t1 e1a e1b -> \case
+        SMustFailAtMsg t2 e2a e2b -> alphaType' env t1 t2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     SPass e1 -> \case
         SPass e2 -> alphaExpr' env e1 e2
         _ -> False

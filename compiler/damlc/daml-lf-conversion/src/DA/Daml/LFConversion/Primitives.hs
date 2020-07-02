@@ -36,6 +36,8 @@ convertPrim _ "SCommit" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario a2) | a1 ==
     ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SCommit a1 (EVar varV1) (EVar varV2)
 convertPrim _ "SMustFailAt" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario TUnit) =
     ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SMustFailAt a1 (EVar varV1) (EVar varV2)
+convertPrim _ "SMustFailAtMsg" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario TText) =
+    ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SMustFailAtMsg a1 (EVar varV1) (EVar varV2)
 convertPrim _ "SPass" (t1@TInt64 :-> TScenario TTimestamp) =
     ETmLam (varV1, t1) $ EScenario $ SPass $ EVar varV1
 convertPrim _ "SGetTime" (TScenario TTimestamp) =

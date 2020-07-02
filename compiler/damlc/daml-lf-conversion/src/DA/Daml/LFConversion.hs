@@ -878,7 +878,18 @@ convertExpr env0 e = do
              cmds' <- convertType env cmds
              dict' <- convertExpr env dict
              pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg pty', TmArg upd']
-
+    go env submitMustFailMsg@(VarIn DA_Internal_LF "submitMustFailMsg") (LType m : LType cmds : LExpr dict : LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+         m' <- convertType env m
+         typ' <- convertType env typ
+         pty' <- convertExpr env pty
+         upd' <- convertExpr env upd
+         case m' of
+           TBuiltin BTScenario -> pure $ EScenario (SMustFailAtMsg typ' pty' (EUpdate (UEmbedExpr typ' upd')))
+           _ -> do
+             submitMustFailMsg' <- convertExpr env submitMustFailMsg
+             cmds' <- convertType env cmds
+             dict' <- convertExpr env dict
+             pure $ mkEApps submitMustFailMsg' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg pty', TmArg upd']
     -- custom conversion because they correspond to builtins in DAML-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
         -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
