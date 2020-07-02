@@ -398,10 +398,6 @@ message Party {
   string party = 1;
 }
 
-message NodeAndParties {
-  NodeId node_id = 1;
-  repeated Party parties = 2;
-}
 message Disclosure {
   Party party = 1;
   int32 since_tx_id = 2;
@@ -496,10 +492,6 @@ message Transaction {
   sfixed64 effectiveAt = 2;
   repeated NodeId roots = 3;
   repeated NodeId nodes = 4;
-
-  // Transaction nodes that must be disclosed to individual parties
-  // to make this transaction valid.
-  repeated NodeAndParties disclosures = 5;
 
   // If non-empty, the transaction failed due to these failed authorizations.
   FailedAuthorizations failed_authorizations = 6;
