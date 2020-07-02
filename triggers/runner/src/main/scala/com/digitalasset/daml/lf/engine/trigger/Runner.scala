@@ -322,7 +322,7 @@ class Runner(
       name: String,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
-  ): Sink[TriggerMsg, Future[SExpr]] = {
+  ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
     // Compile the trigger initialState and Update LF functions to
@@ -333,11 +333,11 @@ class Runner(
     val getInitialState: AExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
-    // Convert the ACS to a speedy expression.
-    val createdExpr: SExprAtomic = SEValue(converter.fromACS(acs) match {
+    // Convert the ACS to a speedy value.
+    val createdValue: SValue = converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
-    })
+    }
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
@@ -345,9 +345,9 @@ class Runner(
       makeApp(
         getInitialState,
         Array(
-          SEValue(SParty(Party.assertFromString(party))),
-          SEValue(STimestamp(clientTime)),
-          createdExpr))
+          SParty(Party.assertFromString(party)),
+          STimestamp(clientTime),
+          createdValue))
     // Prepare a speedy machine for evaluting expressions.
     val machine: Speedy.Machine = Speedy.Machine.fromPureAExpr(compiledPackages, initialState)
     // Evaluate it.
@@ -393,7 +393,7 @@ class Runner(
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
       .toMat(
-        Sink.fold[SExprAtomic, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
+        Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
           val messageVal = message match {
             case TransactionMsg(transaction) => {
               converter.fromTransaction(transaction) match {
@@ -418,14 +418,17 @@ class Runner(
           machine.setExpressionToEvaluate(
             makeApp(
               update,
-              Array(SEValue(STimestamp(clientTime)): SExprAtomic, SEValue(messageVal), state)))
+              Array(STimestamp(clientTime): SValue, messageVal, state)))
           val value = Machine.stepToValue(machine)
           val newState = handleStepResult(value, submit)
-          SEValue(newState)
-        }))(Keep.right[NotUsed, Future[SExpr]])
+          newState
+        }))(Keep.right[NotUsed, Future[SValue]])
   }
 
-  def makeApp(func: AExpr, args: Array[SExprAtomic]): AExpr = {
+  def makeApp(func: AExpr, values: Array[SValue]): AExpr = {
+    val args : Array[SExprAtomic] = values.map(SEValue(_))
+    // We can safely introduce a let-expression here to bind the `func` expression,
+    // because there are no stack-references in `args`, since they are pure speedy values.
     AExpr(SELet1General(func.wrapped, SEAppAtomicGeneral(SELocS(1), args)))
   }
 
@@ -468,10 +471,12 @@ class Runner(
           logger.error(s"Unexpected exception: $e")
       })
     }
-    source
+    val (t,futureValue) =
+      source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
       .toMat(getTriggerSink(name, acs, submit))(Keep.both)
       .run()
+    (t, futureValue.map(SEValue(_)))
   }
 }
 
