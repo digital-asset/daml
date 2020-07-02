@@ -1,8 +1,8 @@
 diff --git a/haskell/BUILD.bazel b/haskell/BUILD.bazel
-index b406427d..0f8495b1 100644
+index 910dc57c..99547c5d 100644
 --- a/haskell/BUILD.bazel
 +++ b/haskell/BUILD.bazel
-@@ -84,12 +84,6 @@ py_binary(
+@@ -92,12 +92,6 @@ py_binary(
      visibility = ["//visibility:public"],
  )
  
@@ -181,7 +181,7 @@ index 00e5163c..4fc8cafa 100644
        deps: List of other Haskell libraries to be linked to this target.
        data: See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common.data).,
 diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index 3e7a5d49..7d882078 100644
+index 0d845f29..276c5b5c 100644
 --- a/haskell/private/actions/compile.bzl
 +++ b/haskell/private/actions/compile.bzl
 @@ -10,7 +10,6 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
@@ -334,7 +334,7 @@ index 3e7a5d49..7d882078 100644
 -        for src_file in srcs:
 -            module = module_name(hs, src_file)
 +        for (module, info) in module_map.items():
-             mix_file = hs.actions.declare_file(".hpc/{module}.mix".format(module = module))
+             mix_file = hs.actions.declare_file("{name}_.hpc/{module}.mix".format(name = hs.name, module = module))
 -            coverage_data.append(_coverage_datum(mix_file, src_file, hs.label))
 +            coverage_data.append(_coverage_datum(mix_file, info.src, hs.label))
  
@@ -374,7 +374,7 @@ index 3e7a5d49..7d882078 100644
 -            module = module_name(hs, src_file)
 +        pkg_id_string = pkg_id.to_string(my_pkg_id)
 +        for (module, info) in module_map.items():
-             mix_file = hs.actions.declare_file(".hpc/{pkg}/{module}.mix".format(pkg = pkg_id_string, module = module))
+             mix_file = hs.actions.declare_file("{name}_.hpc/{pkg}/{module}.mix".format(name = hs.name, pkg = pkg_id_string, module = module))
 -            coverage_data.append(_coverage_datum(mix_file, src_file, hs.label))
 +            coverage_data.append(_coverage_datum(mix_file, info.src, hs.label))
  
@@ -711,7 +711,7 @@ index a122332c..bcb83c73 100644
  
      return conf_file, cache_file
 diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
-index c4105128..5caccd1e 100644
+index 87834c4e..8df9ef83 100644
 --- a/haskell/private/haskell_impl.bzl
 +++ b/haskell/private/haskell_impl.bzl
 @@ -11,10 +11,6 @@ load(
@@ -733,7 +733,7 @@ index c4105128..5caccd1e 100644
      "get_dynamic_hs_lib_name",
      "get_lib_extension",
      "get_static_hs_lib_name",
-@@ -173,6 +170,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+@@ -177,6 +174,7 @@ def _haskell_binary_common_impl(ctx, is_test):
  
      with_profiling = is_profiling_enabled(hs)
      srcs_files, import_dir_map = _prepare_srcs(ctx.attr.srcs)
@@ -741,7 +741,7 @@ index c4105128..5caccd1e 100644
      inspect_coverage = _should_inspect_coverage(ctx, hs, is_test)
  
      dynamic = not ctx.attr.linkstatic
-@@ -194,7 +192,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+@@ -198,7 +196,7 @@ def _haskell_binary_common_impl(ctx, is_test):
          dep_info,
          plugin_dep_info,
          srcs = srcs_files,
@@ -750,7 +750,7 @@ index c4105128..5caccd1e 100644
          import_dir_map = import_dir_map,
          extra_srcs = depset(ctx.files.extra_srcs),
          user_compile_flags = user_compile_flags,
-@@ -222,7 +220,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+@@ -226,7 +224,7 @@ def _haskell_binary_common_impl(ctx, is_test):
          dep_info,
          ctx.files.extra_srcs,
          user_compile_flags,
@@ -759,7 +759,7 @@ index c4105128..5caccd1e 100644
          dynamic = dynamic,
          with_profiling = with_profiling,
          version = ctx.attr.version,
-@@ -354,6 +352,7 @@ def haskell_library_impl(ctx):
+@@ -358,6 +356,7 @@ def haskell_library_impl(ctx):
  
      with_profiling = is_profiling_enabled(hs)
      srcs_files, import_dir_map = _prepare_srcs(ctx.attr.srcs)
@@ -767,7 +767,7 @@ index c4105128..5caccd1e 100644
  
      with_shared = not ctx.attr.linkstatic
      if with_profiling or hs.toolchain.is_static:
-@@ -378,6 +377,7 @@ def haskell_library_impl(ctx):
+@@ -382,6 +381,7 @@ def haskell_library_impl(ctx):
          dep_info,
          plugin_dep_info,
          srcs = srcs_files,
@@ -775,7 +775,7 @@ index c4105128..5caccd1e 100644
          import_dir_map = import_dir_map,
          extra_srcs = depset(ctx.files.extra_srcs),
          user_compile_flags = user_compile_flags,
-@@ -390,14 +390,9 @@ def haskell_library_impl(ctx):
+@@ -394,14 +394,9 @@ def haskell_library_impl(ctx):
  
      other_modules = ctx.attr.hidden_modules
      exposed_modules_reexports = _exposed_modules_reexports(ctx.attr.reexported_modules)
@@ -793,7 +793,7 @@ index c4105128..5caccd1e 100644
  
      if srcs_files:
          static_library = link_library_static(
-@@ -405,7 +400,7 @@ def haskell_library_impl(ctx):
+@@ -409,7 +404,7 @@ def haskell_library_impl(ctx):
              cc,
              posix,
              dep_info,
@@ -802,7 +802,7 @@ index c4105128..5caccd1e 100644
              my_pkg_id,
              with_profiling = with_profiling,
          )
-@@ -419,7 +414,7 @@ def haskell_library_impl(ctx):
+@@ -423,7 +418,7 @@ def haskell_library_impl(ctx):
              posix,
              dep_info,
              depset(ctx.files.extra_srcs),
@@ -811,7 +811,7 @@ index c4105128..5caccd1e 100644
              my_pkg_id,
              user_compile_flags,
          )
-@@ -432,14 +427,14 @@ def haskell_library_impl(ctx):
+@@ -436,14 +431,14 @@ def haskell_library_impl(ctx):
          posix,
          dep_info,
          with_shared,

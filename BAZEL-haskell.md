@@ -125,6 +125,7 @@ stack_snapshot(
         "proto3-suite": "@proto3_suite//:proto3-suite",
     },
     local_snapshot = "//:stack-snapshot.yaml",
+    stack_snapshot_json = "//:stackage_snapshot.json",
     flags = {
         "integer-logarithms": ["-integer-gmp"],
         "text": ["integer-simple"],
@@ -147,6 +148,15 @@ custom stack snapshot defined in `stack-snapshot.yaml`. The items listed in the
 custom snapshot and will be built using the `Cabal` library. Additionally, we
 can provide custom Bazel build definitions for packages using the
 `vendored_packages` attribute.
+
+The packages are pinned by the Stackage snapshot, in this case a
+`local_snapshot` and in the lock-file defined by `stack_snapshot_json`. If you
+wish to update packages, then you need to change the `packages` and
+`local_snapshot` attributes accordingly and afterwards execute the following
+command to update the lock-file:
+```
+bazel run @stackage-unpinned//:pin
+```
 
 The `flags` attribute can be used to override default Cabal flags. The `tools`
 attribute defines Bazel targets for known Cabal tools, e.g. `alex`, `happy`, or
