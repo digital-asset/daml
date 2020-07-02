@@ -5,15 +5,18 @@ exports_files(glob(["create-daml-app-test-resources/*"]))
 
 genrule(
     name = "templates-tarball",
-    srcs = glob([
-        "default-gitignore",
-        "default-dlint-yaml",
-        "skeleton/**",
-        "empty-skeleton/**",
-        "create-daml-app/**",
-        "quickstart-java/**",
-        "quickstart-scala/**",
-    ]) + [
+    srcs = glob(
+        [
+            "default-gitignore",
+            "default-dlint-yaml",
+            "skeleton/**",
+            "empty-skeleton/**",
+            "create-daml-app/**",
+            "quickstart-java/**",
+            "quickstart-scala/**",
+        ],
+        exclude = ["**/NO_AUTO_COPYRIGHT"],
+    ) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
