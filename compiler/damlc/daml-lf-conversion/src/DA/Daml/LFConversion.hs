@@ -760,6 +760,18 @@ convertExpr env0 e = do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ fsToText name) record
+    -- NOTE(SF): We also need to inline `setField` in order to get the correct
+    -- evaluation order (record first, then fields in order).
+    go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
+        | isSingleConType recordTyCon = do
+            record' <- convertType env record
+            field' <- convertType env field
+            withTmArg env (varV1, field') args $ \x1 args ->
+                withTmArg env (varV2, record') args $ \x2 args ->
+                    pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
+        -- TODO: Also fix evaluation order for sum-of-record types.
+    -- NOTE(SF): We will need a `setFieldPrim` rule regardless, because
+    -- GeneralizedNewtypeDeriving will skip the typeclass instance.
     go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
         record' <- convertType env record
         field' <- convertType env field
