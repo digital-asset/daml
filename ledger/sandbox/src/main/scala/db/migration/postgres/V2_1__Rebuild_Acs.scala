@@ -288,7 +288,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     "insert into disclosures(transaction_id, event_id, party) values({transaction_id}, {event_id}, {party})"
 
   // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
-  // more than once through BlindingInfo.globalDivulgence.
+  // more than once through BlindingInfo.divulgence.
   // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
   // stores the offset at which the contract was first disclosed.
   // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.
@@ -318,7 +318,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      globalDivulgence: Relation[ContractId, Party])(implicit connection: Connection): Unit =
+      divulgence: Relation[ContractId, Party])(implicit connection: Connection): Unit =
     tx match {
       case LedgerEntry.Transaction(
           _,
@@ -396,7 +396,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           tx.submittingParty,
           transaction,
           mappedDisclosure,
-          globalDivulgence,
+          divulgence,
           List.empty
         )
 
@@ -666,7 +666,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           .collect { case tx: LedgerEntry.Transaction => tx }
           .foreach(tx => {
             val blindingInfo = Blinding.blind(tx.transaction)
-            updateActiveContractSet(offset, tx, blindingInfo.globalDivulgence)
+            updateActiveContractSet(offset, tx, blindingInfo.divulgence)
           })
       }
     })

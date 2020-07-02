@@ -252,7 +252,7 @@ object ScenarioLoader {
           Some(richTransaction.committer),
           tx,
           richTransaction.explicitDisclosure,
-          richTransaction.globalImplicitDisclosure,
+          richTransaction.implicitDisclosure,
           List.empty
         ) match {
           case Right(newAcs) =>
