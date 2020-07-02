@@ -22,11 +22,15 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.util.control.NoStackTrace
 
-object Speedy {
+private[lf] object Speedy {
+
+  // fake participant to generate a new transactionSeed when running scenarios
+  private[this] val scenarioServiceParticipant =
+    Ref.ParticipantId.assertFromString("scenario-service")
 
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
-  val enableInstrumentation: Boolean = false
-  val enableLightweightStepTracing: Boolean = false
+  private[this] val enableInstrumentation: Boolean = false
+  private[this] val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final case class Instrumentation(
@@ -49,7 +53,7 @@ object Speedy {
     }
   }
 
-  object Instrumentation {
+  private object Instrumentation {
     def apply(): Instrumentation = {
       Instrumentation(
         classifyCounts = new Classify.Counts(),
@@ -89,9 +93,9 @@ object Speedy {
    free-var reference by the compiler).
    */
 
-  type Frame = Array[SValue]
+  private type Frame = Array[SValue]
 
-  type Actuals = util.ArrayList[SValue]
+  private type Actuals = util.ArrayList[SValue]
 
   /** The speedy CEK machine. */
   final class Machine(
@@ -149,9 +153,11 @@ object Speedy {
 
     /* kont manipulation... */
 
-    @inline def kontDepth(): Int = kontStack.size()
+    @inline
+    private[speedy] def kontDepth(): Int = kontStack.size()
 
-    @inline def pushKont(k: Kont): Unit = {
+    @inline
+    private[speedy] def pushKont(k: Kont): Unit = {
       kontStack.add(k)
       if (enableInstrumentation) {
         track.countPushesKont += 1
@@ -159,7 +165,8 @@ object Speedy {
       }
     }
 
-    @inline def popKont(): Kont = {
+    @inline
+    private[speedy] def popKont(): Kont = {
       kontStack.remove(kontStack.size - 1)
     }
 
@@ -171,13 +178,16 @@ object Speedy {
     // At runtime these different location-node execute by calling the corresponding `getEnv*` function
 
     // Variables which reside on the stack. Indexed by relative offset from the top of the stack
-    @inline def getEnvStack(i: Int): SValue = env.get(env.size - i)
+    @inline
+    private[speedy] def getEnvStack(i: Int): SValue = env.get(env.size - i)
 
     // Variables which reside in the args array of the current frame. Indexed by absolute offset.
-    @inline def getEnvArg(i: Int): SValue = actuals.get(i)
+    @inline
+    private[speedy] def getEnvArg(i: Int): SValue = actuals.get(i)
 
     // Variables which reside in the free-vars array of the current frame. Indexed by absolute offset.
-    @inline def getEnvFree(i: Int): SValue = frame(i)
+    @inline
+    private[speedy] def getEnvFree(i: Int): SValue = frame(i)
 
     @inline def pushEnv(v: SValue): Unit = {
       env.add(v)
@@ -187,10 +197,12 @@ object Speedy {
       }
     }
 
-    @inline def restoreEnv(
+    @inline
+    def restoreEnv(
         frameToBeRestored: Frame,
         actualsToBeRestored: Actuals,
-        envSizeToBeRestored: Int): Unit = {
+        envSizeToBeRestored: Int,
+    ): Unit = {
       // Restore the frame and actuals to there state when the continuation was created.
       frame = frameToBeRestored
       actuals = actualsToBeRestored
@@ -241,14 +253,14 @@ object Speedy {
     /** Compute a stack trace from the locations in the continuation stack.
         The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
-      val s = new util.ArrayList[Location]
+      val s = ImmArray.newBuilder[Location]
       kontStack.forEach { k =>
         k match {
-          case KLocation(location) => { s.add(location); () }
+          case KLocation(location) => s += location
           case _ => ()
         }
       }
-      ImmArray(s.asScala)
+      s.result()
     }
 
     def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
@@ -317,7 +329,7 @@ object Speedy {
           case SpeedyHungry(res: SResult) => result = res //stop
           case serr: SError =>
             serr match {
-              case _: SErrorDamlException if tryHandleException => () // outer loop will run again
+              case _: SErrorDamlException if tryHandleException() => () // outer loop will run again
               case _ => result = SResultError(serr) //stop
             }
           case ex: RuntimeException =>
@@ -376,7 +388,7 @@ object Speedy {
       }
     }
 
-    def print(count: Int) = {
+    private[speedy] def print(count: Int) = {
       println(s"Step: $count")
       if (returnValue != null) {
         println("Control: null")
@@ -398,17 +410,15 @@ object Speedy {
       println("============================================================")
     }
 
-    // fake participant to generate a new transactionSeed when running scenarios
-    private val scenarioServiceParticipant = Ref.ParticipantId.assertFromString("scenario-service")
-
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
-    def clearCommit: Unit = {
+    private[speedy] def clearCommit: Unit = {
       val freshSeed =
         crypto.Hash.deriveTransactionSeed(
           ptx.context.nextChildrenSeed,
           scenarioServiceParticipant,
-          ptx.submissionTime)
+          ptx.submissionTime,
+        )
       committers = Set.empty
       commitLocation = None
       ptx = PartialTransaction.initial(
@@ -422,7 +432,7 @@ object Speedy {
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
 
-    def importValue(value: V[V.ContractId]): Unit = {
+    private[speedy] def importValue(value: V[V.ContractId]): Unit = {
       def go(value0: V[V.ContractId]): SValue =
         value0 match {
           case V.ValueList(vs) => SList(vs.map[SValue](go))
@@ -559,6 +569,8 @@ object Speedy {
         profile = new Profile(),
       )
 
+    @throws[PackageNotFound]
+    @throws[CompilationError]
     // Construct a machine for running scenario.
     def fromScenarioAExpr(
         compiledPackages: CompiledPackages,
@@ -599,6 +611,8 @@ object Speedy {
         supportedTransactionVersions = supportedTransactionVersions,
       )
 
+    @throws[PackageNotFound]
+    @throws[CompilationError]
     // Construct a machine for evaluating an expression that is neither an update nor a scenario expression.
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
@@ -608,6 +622,8 @@ object Speedy {
       anf = flattenToAnf(expr),
     )
 
+    @throws[PackageNotFound]
+    @throws[CompilationError]
     def fromPureAExpr(
         compiledPackages: CompiledPackages,
         anf: AExpr,
@@ -637,8 +653,8 @@ object Speedy {
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
-  type Env = util.ArrayList[SValue]
-  def emptyEnv: Env = new util.ArrayList[SValue](512)
+  private[speedy] type Env = util.ArrayList[SValue]
+  private[speedy] def emptyEnv: Env = new util.ArrayList[SValue](512)
 
   //
   // Kontinuation
@@ -647,7 +663,7 @@ object Speedy {
   // We do this by pushing a KFinished continutaion on the initially empty stack, which
   // returns the final result (by raising it as a SpeedyHungry exception).
 
-  def initialKontStack(): util.ArrayList[Kont] = {
+  private[this] def initialKontStack(): util.ArrayList[Kont] = {
     val kontStack = new util.ArrayList[Kont](128)
     kontStack.add(KFinished)
     kontStack
@@ -656,14 +672,14 @@ object Speedy {
   /** Kont, or continuation. Describes the next step for the machine
     * after an expression has been evaluated into a 'SValue'.
     */
-  sealed trait Kont {
+  private[speedy] sealed trait Kont {
 
     /** Execute the continuation. */
     def execute(v: SValue, machine: Machine): Unit
   }
 
   /** Final continuation; machine has computed final value */
-  final case object KFinished extends Kont {
+  private[speedy] final case object KFinished extends Kont {
     def execute(v: SValue, machine: Machine) = {
       if (enableInstrumentation) {
         machine.track.print()
@@ -679,7 +695,7 @@ object Speedy {
     arguments are pushed into a continuation, they are not removed from the original array
     which is passed here as 'args'.
     */
-  def evaluateArguments(
+  private[speedy] def evaluateArguments(
       machine: Machine,
       actuals: util.ArrayList[SValue],
       args: Array[SExpr],
@@ -695,7 +711,10 @@ object Speedy {
 
   //TODO: ALMOST DEAD CODE. We can remove this code once KArg has been removed.
   /** The function has been evaluated to a value, now start evaluating the arguments. */
-  def executeApplication(machine: Machine, vfun: SValue, newArgs: Array[SExpr]): Unit = {
+  private[speedy] def executeApplication(
+      machine: Machine,
+      vfun: SValue,
+      newArgs: Array[SExpr]): Unit = {
     vfun match {
       case SPAP(prim, actualsSoFar, arity) =>
         val missing = arity - actualsSoFar.size
@@ -736,7 +755,10 @@ object Speedy {
 
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   // This code replaces `executeApplication` which is almost dead.
-  def enterApplication(machine: Machine, vfun: SValue, newArgs: Array[SExprAtomic]): Unit = {
+  private[speedy] def enterApplication(
+      machine: Machine,
+      vfun: SValue,
+      newArgs: Array[SExprAtomic]): Unit = {
     vfun match {
       case SPAP(prim, actualsSoFar, arity) =>
         val missing = arity - actualsSoFar.size
@@ -800,7 +822,11 @@ object Speedy {
   }
 
   //TODO: Remove KArg once it's use to execute over-applications is removed
-  final case class KArg(newArgs: Array[SExpr], frame: Frame, actuals: Actuals, envSize: Int)
+  private[speedy] final case class KArg(
+      newArgs: Array[SExpr],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(vfun: SValue, machine: Machine) = {
@@ -810,7 +836,10 @@ object Speedy {
   }
 
   /** The function-closure and arguments have been evaluated. Now execute the body. */
-  final case class KFun(closure: PClosure, actuals: util.ArrayList[SValue], envSize: Int)
+  private[speedy] final case class KFun(
+      closure: PClosure,
+      actuals: util.ArrayList[SValue],
+      envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
@@ -829,11 +858,11 @@ object Speedy {
   }
 
   /** The builtin arguments have been evaluated. Now execute the builtin. */
-  final case class KBuiltin(
+  private[speedy] final case class KBuiltin(
       builtin: SBuiltinMaybeHungry,
       actuals: util.ArrayList[SValue],
-      envSize: Int)
-      extends Kont {
+      envSize: Int,
+  ) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
       // A builtin has no free-vars, so we set the frame to null.
@@ -849,7 +878,8 @@ object Speedy {
   }
 
   /** The function's partial-arguments have been evaluated. Construct and return the PAP */
-  final case class KPap(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends Kont {
+  private[speedy] final case class KPap(prim: Prim, actuals: util.ArrayList[SValue], arity: Int)
+      extends Kont {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
       machine.returnValue = SPAP(prim, actuals, arity)
@@ -857,7 +887,7 @@ object Speedy {
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue) = {
+  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
     val altOpt = v match {
       case SBool(b) =>
         alts.find { alt =>
@@ -939,7 +969,7 @@ object Speedy {
     * the PAP that is being built, and in the case of lets the evaluated value is pushed
     * direy into the environment.
     */
-  final case class KPushTo(
+  private[speedy] final case class KPushTo(
       to: util.ArrayList[SValue],
       next: SExpr,
       frame: Frame,
@@ -960,7 +990,7 @@ object Speedy {
     * accessed. In older compilers which did not use the builtin record and struct
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
-  final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
+  private[speedy] final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
     def execute(sv: SValue, machine: Machine): Unit = {
       machine.pushStackTrace(stack_trace)
       v.setCached(sv, stack_trace)
@@ -973,7 +1003,12 @@ object Speedy {
     * If an exception is raised and 'KCatch' is found from kont-stack, then 'handler' is
     * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
     */
-  final case class KCatch(handler: SExpr, fin: SExpr, frame: Frame, actuals: Actuals, envSize: Int)
+  private[speedy] final case class KCatch(
+      handler: SExpr,
+      fin: SExpr,
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
@@ -993,7 +1028,7 @@ object Speedy {
     * used during profiling. Its purpose is to attach a label to closures such
     * that entering the closure can write an "open event" with that label.
     */
-  final case class KLabelClosure(label: Profile.Label) extends Kont {
+  private[speedy] final case class KLabelClosure(label: Profile.Label) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       v match {
         case SPAP(PClosure(_, expr, closure), args, arity) =>
@@ -1007,7 +1042,7 @@ object Speedy {
   /** Continuation marking the exit of a closure. This is only used during
     * profiling.
     */
-  final case class KLeaveClosure(label: Profile.Label) extends Kont {
+  private[speedy] final case class KLeaveClosure(label: Profile.Label) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v
@@ -1016,9 +1051,11 @@ object Speedy {
 
   /** Internal exception thrown when a continuation result needs to be returned.
     Or machine execution has reached a final value. */
-  final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
+  private[speedy] final case class SpeedyHungry(result: SResult)
+      extends RuntimeException
+      with NoStackTrace
 
-  def deriveTransactionSeed(
+  private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,
       participant: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
