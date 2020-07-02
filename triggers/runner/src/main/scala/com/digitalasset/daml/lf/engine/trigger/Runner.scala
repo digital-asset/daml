@@ -24,7 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{AExpr, Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{AExpr, Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -451,7 +451,7 @@ class Runner(
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
       name: String = "")(
       implicit materializer: Materializer,
-      executionContext: ExecutionContext): (T, Future[SExpr]) = {
+      executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     def submit(req: SubmitRequest): Unit = {
@@ -465,12 +465,10 @@ class Runner(
           logger.error(s"Unexpected exception: $e")
       })
     }
-    val (t, futureValue) =
-      source
-        .viaMat(msgFlow)(Keep.right[NotUsed, T])
-        .toMat(getTriggerSink(name, acs, submit))(Keep.both)
-        .run()
-    (t, futureValue.map(SEValue(_)))
+    source
+      .viaMat(msgFlow)(Keep.right[NotUsed, T])
+      .toMat(getTriggerSink(name, acs, submit))(Keep.both)
+      .run()
   }
 }
 
@@ -492,7 +490,7 @@ object Runner extends StrictLogging {
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
       party: String
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages(darMap).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
