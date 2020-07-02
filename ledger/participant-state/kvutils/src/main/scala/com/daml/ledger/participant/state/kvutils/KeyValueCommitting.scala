@@ -131,7 +131,9 @@ class KeyValueCommitting private[daml] (
         new PartyAllocationCommitter(metrics)
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        newConfigCommitter(submission.getConfigurationSubmission, defaultConfig)
+        val maximumRecordTime = parseTimestamp(
+          submission.getConfigurationSubmission.getMaximumRecordTime)
+        new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
@@ -263,13 +265,6 @@ class KeyValueCommitting private[daml] (
           .setTemplateId(templateId)
           .setHash(contractKey.hash.bytes.toByteString))
       .build
-  }
-
-  private def newConfigCommitter(
-      configurationSubmission: DamlConfigurationSubmission,
-      defaultConfig: Configuration): ConfigCommitter = {
-    val maximumRecordTime = parseTimestamp(configurationSubmission.getMaximumRecordTime)
-    new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
   }
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
