@@ -12,7 +12,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err}
+import com.daml.ledger.participant.state.kvutils.{
+  Conversions,
+  DamlStateMap,
+  DamlStateMapWithFingerprints,
+  FingerprintPlaceholder,
+  Err
+}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
@@ -76,7 +82,10 @@ private[committer] trait Committer[Submission, PartialResult] {
         override def getEntryId: DamlLogEntryId = entryId
         override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
-        override def inputs: DamlStateMap = inputState
+        override def inputsWithFingerprints: DamlStateMapWithFingerprints =
+          inputState.map {
+            case (key, value) => (key, (value, FingerprintPlaceholder))
+          }
       }
       var cstate = init(ctx, submission)
       for ((info, step) <- steps) {
@@ -97,7 +106,7 @@ object Committer {
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
       logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
     inputState
       .getOrElse(
