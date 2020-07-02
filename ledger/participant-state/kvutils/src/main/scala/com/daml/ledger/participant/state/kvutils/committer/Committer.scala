@@ -122,7 +122,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
     }
   }
 
-  private def runSteps(commitContext: CommitContext, submission: DamlSubmission): DamlLogEntry = {
+  private def runSteps(commitContext: CommitContext, submission: DamlSubmission): DamlLogEntry =
     steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
       case (state, (info, step)) =>
         state match {
@@ -133,7 +133,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       case StepStop(logEntry) => logEntry
       case _ => sys.error(s"Internal error: Committer $committerName did not produce a result!")
     }
-  }
 }
 
 object Committer {
