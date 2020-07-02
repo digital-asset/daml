@@ -11,8 +11,6 @@ final case class EventsRange[A](startExclusive: A, endInclusive: A)
 object EventsRange {
   private val EmptyRowIdRange = EventsRange(0L, 0L)
 
-  private val oneRow = Some(1)
-
   /**
     * Converts Offset range to Row ID range.
     *
@@ -45,7 +43,6 @@ object EventsRange {
       // This query could be: "select min(row_id) - 1 from participant_events where event_offset > ${range.startExclusive}"
       // however there are cases when postgres decides not to use the index. We are forcing the index usage specifying `order by event_offset`
       SQL"select min(row_id) from participant_events where event_offset > ${startExclusive} group by event_offset order by event_offset asc limit 1"
-        .withFetchSize(oneRow)
         .as(get[Long](1).singleOpt)(connection)
         .map(_ - 1L)
         .getOrElse(EmptyRowIdRange.startExclusive)
@@ -60,7 +57,6 @@ object EventsRange {
       // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
       // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
       SQL"select max(row_id) from participant_events where event_offset <= ${endInclusive} group by event_offset order by event_offset desc limit 1"
-        .withFetchSize(oneRow)
         .as(get[Long](1).singleOpt)(connection)
         .getOrElse(EmptyRowIdRange.endInclusive)
     }
