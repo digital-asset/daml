@@ -16,6 +16,7 @@ da_haskell_binary(
         "lens",
         "memory",
         "optparse-applicative",
+        "process",
         "semver",
         "text",
         "unordered-containers",
