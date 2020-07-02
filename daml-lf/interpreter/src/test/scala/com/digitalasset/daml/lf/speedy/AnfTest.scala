@@ -125,6 +125,14 @@ class AnfTest extends WordSpec with Matchers {
     }
   }
 
+  "issue 6535: [\\f x. f x x]" should {
+    "be transformed to ANF as expected (with no redundant lets)" in {
+      val original = lam(2, app2(arg0, arg1, arg1))
+      val expected = AExpr(lam(2, app2a(arg0, arg1, arg1)))
+      testTransform(original, expected)
+    }
+  }
+
   // expression builders
   def lam(n: Int, body: SExpr): SExpr = SEMakeClo(Array(), n, body)
   def clo1(fv: SELoc, n: Int, body: SExpr): SExpr = SEMakeClo(Array(fv), n, body)
