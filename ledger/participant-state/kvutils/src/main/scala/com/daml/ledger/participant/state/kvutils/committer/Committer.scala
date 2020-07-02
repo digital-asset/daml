@@ -173,6 +173,8 @@ object Committer {
 
   private def setRecordTimeIfAvailable(
       recordTime: Option[Timestamp],
-      logEntryBuilder: DamlLogEntry.Builder): Unit =
-    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+      logEntryBuilder: DamlLogEntry.Builder): DamlLogEntry.Builder =
+    recordTime
+      .map(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+      .getOrElse(logEntryBuilder)
 }
