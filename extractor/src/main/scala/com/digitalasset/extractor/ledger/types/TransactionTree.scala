@@ -32,7 +32,7 @@ object TransactionTree {
       for {
         apiEffectiveAt <- effectiveAtLens(apiTransaction)
         effectiveAt = TimestampConversion.toInstant(apiEffectiveAt)
-        events <- apiTransaction.eventsById.toList.traverseU(kv =>
+        events <- apiTransaction.eventsById.toList.traverse(kv =>
           kv._2.kind.convert.map(kv._1 -> _))
       } yield
         TransactionTree(

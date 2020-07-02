@@ -71,7 +71,7 @@ class RecordsAndVariantsSpec
           }
         }
       """
-    ).traverseU(parse)
+    ).traverse(parse)
 
     expected should be('right) // That should only fail if this JSON^^ is ill-formatted
 

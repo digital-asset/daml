@@ -179,7 +179,7 @@ class Engine(config: Engine.Config) {
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
-        .traverseU(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
+        .traverse(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
         case None => ResultError(ValidationError(s"invalid roots for transaction $tx"))
         case Some(nodes) => ResultDone(nodes)
       }

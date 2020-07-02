@@ -41,7 +41,7 @@ object MetadataReader {
       dar: Dar[(Ref.PackageId, DamlLf.ArchivePayload)]): Error \/ LfMetadata = {
 
     dar.all
-      .traverseU { a =>
+      .traverse { a =>
         decodeInterfaceFromArchive(a).map(x => a._1 -> x): Error \/ (Ref.PackageId, iface.Interface)
       }
       .map(_.toMap)

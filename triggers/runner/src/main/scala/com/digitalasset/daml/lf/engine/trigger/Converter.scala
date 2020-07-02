@@ -249,7 +249,7 @@ object Converter {
     val messageTy = triggerIds.damlTriggerLowLevel("Message")
     val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
     for {
-      events <- FrontStack(t.events).traverseU(fromEvent(valueTranslator, triggerIds, _)).map(SList)
+      events <- FrontStack(t.events).traverse(fromEvent(valueTranslator, triggerIds, _)).map(SList)
       transactionId = fromTransactionId(triggerIds, t.transactionId)
       commandId = fromOptionalCommandId(triggerIds, t.commandId)
     } yield
@@ -373,7 +373,7 @@ object Converter {
 
   private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] = {
     v match {
-      case SList(tpls) => tpls.traverseU(toRegisteredTemplate(_)).map(_.toImmArray.toSeq)
+      case SList(tpls) => tpls.traverse(toRegisteredTemplate(_)).map(_.toImmArray.toSeq)
       case _ => Left(s"Expected list of RegisteredTemplate but got $v")
     }
   }
@@ -554,7 +554,7 @@ object Converter {
       }
       commandId <- toCommandId(values.get(0))
       commands <- values.get(1) match {
-        case SList(cmdValues) => cmdValues.traverseU(toCommand(triggerIds, _))
+        case SList(cmdValues) => cmdValues.traverse(toCommand(triggerIds, _))
         case _ => Left(s"Expected List but got ${values.get(1)}")
       }
     } yield (commandId, commands.toImmArray.toSeq)
@@ -567,7 +567,7 @@ object Converter {
     val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
     for {
       events <- FrontStack(createdEvents)
-        .traverseU(fromCreatedEvent(valueTranslator, triggerIds, _))
+        .traverse(fromCreatedEvent(valueTranslator, triggerIds, _))
         .map(SList)
     } yield record(activeContractsTy, ("activeContracts", events))
   }

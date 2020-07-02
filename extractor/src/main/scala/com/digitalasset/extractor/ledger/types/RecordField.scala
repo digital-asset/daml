@@ -21,7 +21,7 @@ private[types] object RecordField {
       for {
         label <- {
           val rawLabel = apiRecordField.label
-          (rawLabel.nonEmpty option Ref.Name.fromString(rawLabel).disjunction).sequenceU
+          (rawLabel.nonEmpty option Ref.Name.fromString(rawLabel).disjunction).sequence
         }
         apiValue <- fieldLens(apiRecordField)
         value <- apiValue.sum.convert

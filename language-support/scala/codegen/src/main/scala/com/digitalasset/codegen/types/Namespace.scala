@@ -42,7 +42,7 @@ object Namespace {
       // ordering containing both the root and child elements)
       override def traverseImpl[G[_]: Applicative, A, B](fa: Namespace[K, A])(
           f: A => G[B]): G[Namespace[K, B]] =
-        ^(f(fa.here), fa.subtree traverseU (traverseImpl(_)(f)))(Namespace(_, _))
+        ^(f(fa.here), fa.subtree traverse (traverseImpl(_)(f)))(Namespace(_, _))
     }
 
   /** Build a tree from name elements K; the root element is the empty

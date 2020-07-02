@@ -182,25 +182,25 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
 
     (for {
       archiveIOsMulti <- if (useMultiTableFormat)
-        exercisedEvents.traverseU(
+        exercisedEvents.traverse(
           multiTableFormat.handleExercisedEvent(multiTableState, transaction, _)
         )
       else
         List.empty[ConnectionIO[Unit]].right
       createIOsMulti <- if (useMultiTableFormat)
-        createdEvents.traverseU(
+        createdEvents.traverse(
           multiTableFormat.handleCreatedEvent(multiTableState, transaction, _)
         )
       else
         List.empty[ConnectionIO[Unit]].right
       archiveIOsSingle <- if (useSingleTableFormat)
-        exercisedEvents.traverseU(
+        exercisedEvents.traverse(
           singleTableFormat.handleExercisedEvent(SingleTableState, transaction, _)
         )
       else
         List.empty[ConnectionIO[Unit]].right
       createIOsSingle <- if (useSingleTableFormat)
-        createdEvents.traverseU(
+        createdEvents.traverse(
           singleTableFormat.handleCreatedEvent(SingleTableState, transaction, _)
         )
       else
