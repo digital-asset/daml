@@ -83,7 +83,7 @@ object ScenarioLedger {
       globalImplicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
   ) {
-    def disclosures(coidToEventId: ContractId => EventId): Map[EventId, Set[Party]] =
+    def disclosures(coidToEventId: ContractId => EventId): Relation[EventId, Party] =
       Relation.union(
         Relation.mapKeys(explicitDisclosure)(EventId(transactionId, _)),
         Relation.mapKeys(globalImplicitDisclosure)(coidToEventId),
@@ -535,9 +535,9 @@ object ScenarioLedger {
               _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap))
         }
       richTr.globalImplicitDisclosure.foldLeft(cacheWithExplicitDisclosures) {
-        case (cacheP, (coid, witnesses)) =>
+        case (cacheP, (coid, divulgees)) =>
           cacheP.updateLedgerNodeInfo(cacheAfterProcess.coidToNodeId(coid))(
-            _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = false)).toMap))
+            _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap))
       }
     }
   }
