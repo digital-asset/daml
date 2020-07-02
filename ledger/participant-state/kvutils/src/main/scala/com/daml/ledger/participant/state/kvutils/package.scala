@@ -31,7 +31,11 @@ package object kvutils {
 
   type Bytes = ByteString
 
+  type Fingerprint = ByteString
+
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
+
+  type DamlStateMapWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
 
   val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
 

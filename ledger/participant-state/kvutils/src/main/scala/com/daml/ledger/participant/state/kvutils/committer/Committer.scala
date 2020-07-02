@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.util.UUID
+
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
@@ -12,12 +14,19 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err}
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
+import com.daml.ledger.participant.state.kvutils.{
+  Conversions,
+  DamlStateMap,
+  DamlStateMapWithFingerprints,
+  Err
+}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
+import com.google.protobuf.ByteString
 import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
@@ -90,6 +99,49 @@ private[committer] trait Committer[Submission, PartialResult] {
       }
       sys.error(s"Internal error: Committer $committerName did not produce a result!")
     }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  def dryRun(
+      submission: Submission,
+      participantId: ParticipantId,
+      inputState: DamlStateMapWithFingerprints,
+  ): PreexecutionResult = {
+    runTimer.time { () =>
+      // TODO(miklos): Create context for pre-execution here.
+      // TODO(miklos): Generate entry ID based on submission.
+      val ctx = new CommitContext {
+        override def getEntryId: DamlLogEntryId =
+          DamlLogEntryId.newBuilder
+            .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
+            .build
+        override def getRecordTime: Option[Time.Timestamp] = None
+        override def getParticipantId: ParticipantId = participantId
+        override def inputs: DamlStateMap = inputState.mapValues(_._1)
+      }
+      var cstate = init(ctx, submission)
+      for ((info, step) <- steps) {
+        val result: StepResult[PartialResult] =
+          stepTimers(info).time(() => step(ctx, cstate))
+        result match {
+          case StepContinue(newCState) => cstate = newCState
+          case StepStop(logEntry) =>
+            val result = PreexecutionResult(
+              readSet = inputState.mapValues(_._2),
+              successfulLogEntry = logEntry,
+              stateUpdates = ctx.getOutputs.toMap,
+              // TODO(miklos): Take out-of-time-bounds log entry and min/max record time from context.
+              outOfTimeBoundsLogEntry = logEntry,
+              minimumRecordTime = Timestamp.MinValue,
+              maximumRecordTime = Timestamp.MaxValue,
+              // TODO(miklos): Determine set of to-be-notified participants.
+              involvedParticipants = Set(participantId)
+            )
+            return result
+        }
+      }
+      sys.error(s"Internal error: Committer $committerName did not produce a result!")
+    }
+  }
 }
 
 object Committer {

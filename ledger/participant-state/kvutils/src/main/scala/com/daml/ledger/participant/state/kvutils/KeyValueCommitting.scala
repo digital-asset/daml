@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
   PackageCommitter,
@@ -104,6 +105,48 @@ class KeyValueCommitting private[daml] (
     }
   }
 
+  @throws(classOf[Err])
+  def preexecuteSubmission(
+      defaultConfig: Configuration,
+      submission: DamlSubmission,
+      participantId: ParticipantId,
+      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+  ): PreexecutionResult = {
+    submission.getPayloadCase match {
+      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        new PackageCommitter(engine, metrics).dryRun(
+          submission.getPackageUploadEntry,
+          participantId,
+          inputState,
+        )
+
+      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        new PartyAllocationCommitter(metrics).dryRun(
+          submission.getPartyAllocationEntry,
+          participantId,
+          inputState,
+        )
+
+      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
+        newConfigCommitter(submission.getConfigurationSubmission, defaultConfig).dryRun(
+          submission.getConfigurationSubmission,
+          participantId,
+          inputState,
+        )
+
+      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+        new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
+          .dryRun(
+            submission.getTransactionEntry,
+            participantId,
+            inputState,
+          )
+
+      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
+        throw Err.InvalidSubmission("DamlSubmission payload not set")
+    }
+  }
+
   private def processPayload(
       engine: Engine,
       entryId: DamlLogEntryId,
@@ -133,9 +176,7 @@ class KeyValueCommitting private[daml] (
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        val maximumRecordTime = parseTimestamp(
-          submission.getConfigurationSubmission.getMaximumRecordTime)
-        new ConfigCommitter(defaultConfig, maximumRecordTime, metrics).run(
+        newConfigCommitter(submission.getConfigurationSubmission, defaultConfig).run(
           entryId,
           recordTime,
           submission.getConfigurationSubmission,
@@ -282,6 +323,13 @@ class KeyValueCommitting private[daml] (
       .build
   }
 
+  private def newConfigCommitter(
+      configurationSubmission: DamlConfigurationSubmission,
+      defaultConfig: Configuration): ConfigCommitter = {
+    val maximumRecordTime = parseTimestamp(configurationSubmission.getMaximumRecordTime)
+    new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
+  }
+
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
       actualStateUpdates: Map[DamlStateKey, DamlStateValue],
       entryId: DamlLogEntryId,
@@ -295,4 +343,16 @@ class KeyValueCommitting private[daml] (
       )
     }
   }
+}
+
+object KeyValueCommitting {
+  case class PreexecutionResult(
+      readSet: Map[DamlStateKey, Fingerprint],
+      successfulLogEntry: DamlLogEntry,
+      stateUpdates: Map[DamlStateKey, DamlStateValue],
+      outOfTimeBoundsLogEntry: DamlLogEntry,
+      minimumRecordTime: Timestamp,
+      maximumRecordTime: Timestamp,
+      involvedParticipants: Set[ParticipantId]
+  )
 }
