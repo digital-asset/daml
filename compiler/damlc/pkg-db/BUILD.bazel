@@ -6,13 +6,8 @@ load(
     "daml_package_db",
     "daml_package_rule",
 )
+load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS")
 
-DAML_LF_VERSIONS = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
 
 daml_package_db(
     name = "package_db_for_daml-prim",

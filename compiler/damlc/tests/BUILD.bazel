@@ -1,12 +1,12 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
-load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
+load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//compiler/damlc:util.bzl", "ghc_pkg")
+load("//compiler/damlc:util.bzl", "ghc_pkg", "DAML_LF_VERSIONS")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -107,11 +107,80 @@ da_haskell_test(
     ],
 )
 
-# Integration tests for all non-dev DAML-LF versions
-damlc_integration_test("integration-stable", "DA.Test.DamlcIntegration.mainAll")
+da_haskell_library(
+    name = "integration-lib",
+    srcs = ["src/DA/Test/DamlcIntegration.hs"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-opts",
+        "//compiler/scenario-service/client",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+    hackage_deps = [
+        "aeson-pretty",
+        "base",
+        "bytestring",
+        "data-default",
+        "deepseq",
+        "directory",
+        "dlist",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "ghcide",
+        "haskell-lsp-types",
+        "optparse-applicative",
+        "process",
+        "proto3-suite",
+        "shake",
+        "tagged",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "time",
+        "unordered-containers",
+    ],
+    visibility = ["//visibility:public"],
+)
 
-# Integration tests for DAML-LF 1.dev
-damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
+[
+    da_haskell_test(
+        # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
+        # the components of the version number by dot, dash or underscore.
+        name = "integration-v{}".format(version.replace(".", "")),
+        size = "large",
+        srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+        src_strip_prefix = "src",
+        main_function = "DA.Test.DamlcIntegrationMain.main",
+        # args = ["--daml-lf-version", version],
+        data = [
+            "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
+            "//compiler/scenario-service/server:scenario_service_jar",
+            "@jq_dev_env//:jq",
+            ":daml-test-files",
+            ":bond-trading",
+            ":query-lf-lib",
+        ],
+        deps = [
+            ":integration-lib",
+        ],
+        hackage_deps = [
+            "base",
+        ],
+        visibility = ["//visibility:public"],
+    )
+    for version in DAML_LF_VERSIONS
+]
 
 # Tests for daml-doc
 da_haskell_test(
