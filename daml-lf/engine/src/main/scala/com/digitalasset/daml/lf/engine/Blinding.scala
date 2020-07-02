@@ -51,7 +51,7 @@ object Blinding {
       Right(
         BlindingInfo(
           disclosure = enrichedTx.explicitDisclosure,
-          globalDivulgence = enrichedTx.globalImplicitDisclosure,
+          globalDivulgence = enrichedTx.implicitDisclosure,
         ))
     } else {
       Left(
