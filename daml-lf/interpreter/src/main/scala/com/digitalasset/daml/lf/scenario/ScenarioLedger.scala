@@ -82,13 +82,7 @@ object ScenarioLedger {
       explicitDisclosure: Relation[Tx.NodeId, Party],
       globalImplicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
-  ) {
-    def disclosures(coidToEventId: ContractId => EventId): Relation[EventId, Party] =
-      Relation.union(
-        Relation.mapKeys(explicitDisclosure)(EventId(transactionId, _)),
-        Relation.mapKeys(globalImplicitDisclosure)(coidToEventId),
-      )
-  }
+  )
 
   object RichTransaction {
 
