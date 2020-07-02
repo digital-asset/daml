@@ -11,6 +11,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
@@ -18,6 +19,8 @@ import scala.collection.JavaConverters._
   * key-value based ledger.
   */
 object KeyValueConsumption {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
@@ -323,6 +326,8 @@ object KeyValueConsumption {
           DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY |
           DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY |
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+        logger.info(
+          s"Dropped out-of-time-bounds log entry of type=${wrappedLogEntry.getPayloadCase}")
         None
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY |
