@@ -36,30 +36,31 @@ import scala.collection.immutable.TreeSet
   There are 7 hungry builtins which extend `SBuiltinMaybeHungry`
   */
 /** Speedy builtin functions that may raise `SpeedyHungry` exceptions. */
-sealed abstract class SBuiltinMaybeHungry(val arity: Int) {
+private[speedy] sealed abstract class SBuiltinMaybeHungry(val arity: Int) {
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
-  def apply(args: SExpr*): SExpr =
+  private[speedy] def apply(args: SExpr*): SExpr =
     SEApp(SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly. */
-  def execute(args: util.ArrayList[SValue], machine: Machine): Unit
+  private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 }
 
-sealed abstract class SBuiltin(val arity1: Int) extends SBuiltinMaybeHungry(arity1) {
+private[speedy] sealed abstract class SBuiltin(val arity1: Int)
+    extends SBuiltinMaybeHungry(arity1) {
   // TODO: define evaluate, and convert all subclasses to this simpler form
   // def evaluate(args: util.ArrayList[SValue]): SValue
   // Then execute can be defined in terms of evaluate. Like how it is done in `SExprAtomic`.
 }
 
-object SBuiltin {
+private[lf] object SBuiltin {
 
   //
   // Arithmetic
   //
 
-  private def add(x: Long, y: Long): Long =
+  private[this] def add(x: Long, y: Long): Long =
     try {
       Math.addExact(x, y)
     } catch {
@@ -67,7 +68,7 @@ object SBuiltin {
         throw DamlEArithmeticError(s"Int64 overflow when adding $y to $x.")
     }
 
-  private def div(x: Long, y: Long): Long =
+  private[this] def div(x: Long, y: Long): Long =
     if (y == 0)
       throw DamlEArithmeticError(s"Attempt to divide $x by 0.")
     else if (x == Long.MinValue && y == -1)
@@ -75,7 +76,7 @@ object SBuiltin {
     else
       x / y
 
-  private def mult(x: Long, y: Long): Long =
+  private[this] def mult(x: Long, y: Long): Long =
     try {
       Math.multiplyExact(x, y)
     } catch {
@@ -83,7 +84,7 @@ object SBuiltin {
         throw DamlEArithmeticError(s"Int64 overflow when multiplying $x by $y.")
     }
 
-  private def sub(x: Long, y: Long): Long =
+  private[this] def sub(x: Long, y: Long): Long =
     try {
       Math.subtractExact(x, y)
     } catch {
@@ -91,7 +92,7 @@ object SBuiltin {
         throw DamlEArithmeticError(s"Int64 overflow when subtracting $y from $x.")
     }
 
-  private def mod(x: Long, y: Long): Long =
+  private[this] def mod(x: Long, y: Long): Long =
     if (y == 0)
       throw DamlEArithmeticError(s"Attempt to compute $x modulo 0.")
     else
@@ -99,7 +100,7 @@ object SBuiltin {
 
   // Exponentiation by squaring
   // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
-  private def exp(base: Long, exponent: Long): Long =
+  private[this] def exp(base: Long, exponent: Long): Long =
     if (exponent < 0)
       throw DamlEArithmeticError(s"Attempt to raise $base to the negative exponent $exponent.")
     else if (exponent == 0) 1
@@ -125,7 +126,7 @@ object SBuiltin {
       }
 
   sealed abstract class SBBinaryOpInt64(op: (Long, Long) => Long) extends SBuiltin(2) {
-    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+    override final def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.returnValue = (args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => SInt64(op(a, b))
         case _ => crash(s"type mismatch add: $args")
@@ -141,25 +142,25 @@ object SBuiltin {
 
   // Numeric Arithmetic
 
-  private def add(x: Numeric, y: Numeric): Numeric =
+  private[this] def add(x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric ${x.scale}) overflow when adding ${Numeric.toString(y)} to ${Numeric.toString(x)}.",
       Numeric.add(x, y),
     )
 
-  private def subtract(x: Numeric, y: Numeric): Numeric =
+  private[this] def subtract(x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric ${x.scale}) overflow when subtracting ${Numeric.toString(y)} from ${Numeric.toString(x)}.",
       Numeric.subtract(x, y),
     )
 
-  private def multiply(scale: Scale, x: Numeric, y: Numeric): Numeric =
+  private[this] def multiply(scale: Scale, x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric $scale) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
       Numeric.multiply(scale, x, y),
     )
 
-  private def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
+  private[this] def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
     if (y.signum() == 0)
       throw DamlEArithmeticError(
         s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
@@ -171,7 +172,7 @@ object SBuiltin {
       )
 
   sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
-    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scale = args.get(0).asInstanceOf[STNat].n
       val a = args.get(1).asInstanceOf[SNumeric].value
       val b = args.get(2).asInstanceOf[SNumeric].value
@@ -182,7 +183,7 @@ object SBuiltin {
 
   sealed abstract class SBBinaryOpNumeric2(op: (Scale, Numeric, Numeric) => Numeric)
       extends SBuiltin(5) {
-    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scaleA = args.get(0).asInstanceOf[STNat].n
       val scaleB = args.get(1).asInstanceOf[STNat].n
       val scale = args.get(2).asInstanceOf[STNat].n
@@ -199,7 +200,7 @@ object SBuiltin {
   final case object SBDivNumeric extends SBBinaryOpNumeric2(divide)
 
   final case object SBRoundNumeric extends SBuiltin(3) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scale = args.get(0).asInstanceOf[STNat].n
       val prec = args.get(1).asInstanceOf[SInt64].value
       val x = args.get(2).asInstanceOf[SNumeric].value
@@ -210,7 +211,7 @@ object SBuiltin {
   }
 
   final case object SBCastNumeric extends SBuiltin(3) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val inputScale = args.get(0).asInstanceOf[STNat].n
       val outputScale = args.get(1).asInstanceOf[STNat].n
       val x = args.get(2).asInstanceOf[SNumeric].value
@@ -1109,7 +1110,7 @@ object SBuiltin {
       else executeCommit(args, machine)
     }
 
-    private def executeMustFail(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    private[this] def executeMustFail(args: util.ArrayList[SValue], machine: Machine): Unit = {
       // A mustFail commit evaluated the update with
       // a catch. The second argument is a boolean
       // that marks whether an exception was thrown
@@ -1144,7 +1145,7 @@ object SBuiltin {
       }
     }
 
-    private def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    private[this] def executeCommit(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val tx =
         machine.ptx
           .finish(machine.supportedValueVersions, machine.supportedTransactionVersions)
@@ -1434,7 +1435,7 @@ object SBuiltin {
     * throw if so. The partial transaction abort status must be
     * checked after every operation on it.
     */
-  private def checkAborted(ptx: PartialTransaction): Unit =
+  private[this] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
@@ -1444,14 +1445,14 @@ object SBuiltin {
         ()
     }
 
-  private def checkToken(v: SValue): Unit =
+  private[this] def checkToken(v: SValue): Unit =
     v match {
       case SToken => ()
       case _ =>
         crash(s"value not a token: $v")
     }
 
-  private def extractParties(v: SValue): TreeSet[Party] =
+  private[this] def extractParties(v: SValue): TreeSet[Party] =
     v match {
       case SList(vs) =>
         TreeSet.empty(Party.ordering) ++ vs.iterator.map {
@@ -1464,7 +1465,7 @@ object SBuiltin {
         crash(s"value not a list of parties or party: $v")
     }
 
-  private def extractKeyWithMaintainers(
+  private[this] def extractKeyWithMaintainers(
       v: SValue,
   ): KeyWithMaintainers[V[Nothing]] =
     v match {
@@ -1486,7 +1487,7 @@ object SBuiltin {
       case _ => crash(s"Invalid key with maintainers: $v")
     }
 
-  private def extractOptionalKeyWithMaintainers(
+  private[this] def extractOptionalKeyWithMaintainers(
       optKey: SValue,
   ): Option[KeyWithMaintainers[V[Nothing]]] =
     optKey match {
@@ -1494,10 +1495,10 @@ object SBuiltin {
       case v => crash(s"Expected optional key with maintainers, got: $v")
     }
 
-  private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
+  private[this] def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
 
-  private def rightOrCrash[A](either: Either[String, A]) =
+  private[this] def rightOrCrash[A](either: Either[String, A]) =
     either.fold(crash, identity)
 
 }
