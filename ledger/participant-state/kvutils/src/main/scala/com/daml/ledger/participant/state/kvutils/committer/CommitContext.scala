@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -39,6 +41,9 @@ private[kvutils] trait CommitContext {
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
   private val accessedInputKeysAndFingerprints: mutable.Set[(DamlStateKey, Fingerprint)] =
     mutable.Set.empty[(DamlStateKey, Fingerprint)]
+
+  var minimumRecordTime: Option[Instant] = None
+  var maximumRecordTime: Option[Instant] = None
 
   def getEntryId: DamlLogEntryId
   def getRecordTime: Option[Timestamp]

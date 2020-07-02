@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
@@ -19,6 +21,12 @@ import org.scalatest.{Matchers, WordSpec}
 
 class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
+  private val defaultConfigurationStateValueBuilder =
+    DamlStateValue.newBuilder
+      .setConfigurationEntry(
+        DamlConfigurationEntry.newBuilder
+          .setConfiguration(Configuration.encode(theDefaultConfig))
+      )
   private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
     .setSubmitterInfo(
       DamlSubmitterInfo.newBuilder
@@ -28,12 +36,12 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     .build
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aRecordTime = Timestamp(100)
+  private val instance = createTransactionCommitter() // Stateless, can be shared between tests
   private val dedupKey = Conversions
     .commandDedupKey(aTransactionEntrySummary.submitterInfo)
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
-      val instance = createTransactionCommitter()
       val context = new FakeCommitContext(recordTime = None)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
@@ -45,7 +53,6 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "continue if record time is available but no deduplication entry could be found" in {
-      val instance = createTransactionCommitter()
       val inputs = Map(dedupKey -> (None -> ByteString.EMPTY))
       val context =
         new FakeCommitContext(recordTime = Some(aRecordTime), inputsWithFingerprints = inputs)
@@ -59,7 +66,6 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "continue if record time is after deduplication time in case a deduplication entry is found" in {
-      val instance = createTransactionCommitter()
       val dedupValue = newDedupValue(aRecordTime)
       val inputs =
         Map(dedupKey -> (Some(dedupValue) -> dedupValue.toByteString))
@@ -77,7 +83,6 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "produce rejection log entry in case record time is on or before deduplication time" in {
-      val instance = createTransactionCommitter()
       for ((recordTime, deduplicationTime) <- Iterable(
           (aRecordTime, aRecordTime),
           (aRecordTime, aRecordTime.addMicros(1)))) {
@@ -98,32 +103,82 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
   }
 
-  "validateLedgerTime" should {
-    "continue without accessing ledger configuration if record time is not available" in {
-      val instance = createTransactionCommitter()
-      val context = new FakeCommitContext(recordTime = None)
-      val actual = instance.validateLedgerTime(context, aTransactionEntrySummary)
+  "validateLedgerTime" can {
+    "when the record time is not available" should {
+      val configurationStateValue = defaultConfigurationStateValueBuilder.build
+      val inputWithDeclaredConfig =
+        Map((Conversions.configurationStateKey, (Some(configurationStateValue), ByteString.EMPTY)))
+      val context =
+        new FakeCommitContext(recordTime = None, inputsWithFingerprints = inputWithDeclaredConfig)
 
-      actual match {
-        case StepContinue(_) => succeed
-        case StepStop(_) => fail
+      "continue" in {
+        val result = instance.validateLedgerTime(context, aTransactionEntrySummary)
+
+        result match {
+          case StepContinue(_) => succeed
+          case StepStop(_) => fail
+        }
+      }
+
+      val aSubmissionTime = createProtobufTimestamp(seconds = 1)
+      val aLedgerEffectiveTime = createProtobufTimestamp(seconds = 2)
+      val aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes =
+        aDamlTransactionEntry.toBuilder
+          .setSubmissionTime(aSubmissionTime)
+          .setLedgerEffectiveTime(aLedgerEffectiveTime)
+          .build()
+      val aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes =
+        DamlTransactionEntrySummary(aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes)
+
+      "compute and correctly set the minimum ledger time without deduplicateUntil" in {
+        instance.validateLedgerTime(
+          context,
+          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
+        context.minimumRecordTime shouldEqual Some(Instant.ofEpochSecond(-28))
+      }
+
+      "compute and correctly set the maximum ledger time without deduplicateUntil" in {
+        instance.validateLedgerTime(
+          context,
+          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
+        context.maximumRecordTime shouldEqual Some(Instant.ofEpochSecond(32))
+      }
+
+      val aDeduplicateUntil = createProtobufTimestamp(seconds = 3)
+      val aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimesAndDeduplicateUntil =
+        aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes.toBuilder
+          .setSubmitterInfo(
+            aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes.getSubmitterInfo.toBuilder
+              .setDeduplicateUntil(aDeduplicateUntil)
+              .build())
+          .build()
+      val aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimesAndDeduplicateUntil =
+        DamlTransactionEntrySummary(
+          aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimesAndDeduplicateUntil)
+
+      "compute and correctly set the minimum ledger time with deduplicateUntil" in {
+        instance.validateLedgerTime(
+          context,
+          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimesAndDeduplicateUntil)
+        context.minimumRecordTime shouldEqual Some(Instant.ofEpochSecond(3))
+      }
+
+      "compute and correctly set the maximum ledger time with deduplicateUntil" in {
+        instance.validateLedgerTime(
+          context,
+          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimesAndDeduplicateUntil)
+        context.maximumRecordTime shouldEqual Some(Instant.ofEpochSecond(32))
       }
     }
 
     "produce rejection log entry if record time is outside of ledger effective time bounds" in {
-      val instance = createTransactionCommitter()
       val recordTime = Timestamp.now()
       val recordTimeInstant = recordTime.toInstant
       val lowerBound =
         recordTimeInstant.minus(theDefaultConfig.timeModel.minSkew).minusMillis(1)
       val upperBound =
         recordTimeInstant.plus(theDefaultConfig.timeModel.maxSkew).plusMillis(1)
-      val configurationStateValue = DamlStateValue.newBuilder
-        .setConfigurationEntry(
-          DamlConfigurationEntry.newBuilder
-            .setConfiguration(Configuration.encode(theDefaultConfig))
-        )
-        .build
+      val configurationStateValue = defaultConfigurationStateValueBuilder.build
       val inputWithDeclaredConfig =
         Map(
           Conversions.configurationStateKey -> (Some(configurationStateValue) -> configurationStateValue.toByteString))
@@ -159,4 +214,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       .setCommandDedup(
         DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(buildTimestamp(deduplicationTime)))
       .build
+
+  private def createProtobufTimestamp(seconds: Long) =
+    com.google.protobuf.Timestamp.newBuilder().setSeconds(seconds).build()
 }

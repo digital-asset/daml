@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.time.{Duration, Instant}
+
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
@@ -10,16 +12,14 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{
-  Conversions,
-  DamlStateMap,
   DamlStateMapWithFingerprints,
   FingerprintPlaceholder,
-  Err
 }
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
+import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
@@ -140,4 +140,21 @@ object Committer {
       recordTime: Option[Timestamp],
       logEntryBuilder: DamlLogEntry.Builder): Unit =
     recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
+  private[committer] def transactionMinimumRecordTime(
+      maybeDeduplicateUntil: Option[Instant],
+      ledgerTime: Instant,
+      maxSkew: Duration,
+      submissionTime: Instant): Instant =
+    List(
+      maybeDeduplicateUntil,
+      Some(ledgerTime.minus(maxSkew)),
+      Some(submissionTime.minus(maxSkew))).flatten.max
+
+  private[committer] def transactionMaximumRecordTime(
+      ledgerTime: Instant,
+      minSkew: Duration): Instant =
+    ledgerTime.plus(minSkew)
+
 }

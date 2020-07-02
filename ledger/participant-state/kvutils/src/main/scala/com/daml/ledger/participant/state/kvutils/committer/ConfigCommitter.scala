@@ -51,7 +51,8 @@ private[kvutils] class ConfigCommitter(
               .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
           )
         ))
-    } else {
+    } else { // Pre-execution: propagate the time bounds and defer the checks to post-execution
+      ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
       StepContinue(result)
     }
   }

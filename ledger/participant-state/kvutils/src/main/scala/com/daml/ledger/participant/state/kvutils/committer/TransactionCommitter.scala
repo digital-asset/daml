@@ -151,11 +151,12 @@ private[kvutils] class TransactionCommitter(
 
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
-    (commitContext, transactionEntry) =>
-      commitContext.getRecordTime
-        .map { recordTime =>
-          val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
-          val timeModel = config.timeModel
+    (commitContext, transactionEntry) => {
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+      val timeModel = config.timeModel
+
+      commitContext.getRecordTime match {
+        case Some(recordTime) =>
           val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
           timeModel
@@ -169,8 +170,25 @@ private[kvutils] class TransactionCommitter(
                     RejectionReason.InvalidLedgerTime(reason))),
               _ => StepContinue(transactionEntry)
             )
-        }
-        .getOrElse(StepContinue(transactionEntry))
+        case _ => // Pre-execution: propagate the time bounds and defer the checks to post-execution
+          val maybeDeduplicateUntil =
+            PartialFunction.condOpt(transactionEntry.submitterInfo.hasDeduplicateUntil) {
+              case true =>
+                parseTimestamp(transactionEntry.submitterInfo.getDeduplicateUntil).toInstant
+            }
+          commitContext.minimumRecordTime = Some(
+            transactionMinimumRecordTime(
+              maybeDeduplicateUntil,
+              transactionEntry.ledgerEffectiveTime.toInstant,
+              timeModel.maxSkew,
+              transactionEntry.submissionTime.toInstant))
+          commitContext.maximumRecordTime = Some(
+            transactionMaximumRecordTime(
+              transactionEntry.ledgerEffectiveTime.toInstant,
+              timeModel.minSkew))
+          StepContinue(transactionEntry)
+      }
+    }
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Step =
