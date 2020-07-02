@@ -7,7 +7,7 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services._
+import com.daml.ledger.api.auth.internal.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest

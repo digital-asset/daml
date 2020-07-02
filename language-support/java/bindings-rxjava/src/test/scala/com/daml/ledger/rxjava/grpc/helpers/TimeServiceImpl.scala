@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.TimeServiceAuthorization
+import com.daml.ledger.api.auth.internal.services.TimeServiceAuthorization
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.testing.time_service.{
   GetTimeRequest,

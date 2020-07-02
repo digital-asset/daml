@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.ActiveContractsServiceAuthorization
+import com.daml.ledger.api.auth.internal.services.ActiveContractsServiceAuthorization
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,

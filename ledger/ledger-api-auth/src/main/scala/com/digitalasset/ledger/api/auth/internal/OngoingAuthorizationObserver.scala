@@ -1,11 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.auth
+package com.daml.ledger.api.auth.internal
 
+import com.daml.ledger.api.auth.Claims
 import io.grpc.stub.ServerCallStreamObserver
 
-final class OngoingAuthorizationObserver[A](
+final private[auth] class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     claims: Claims,
     authorized: Claims => Boolean,

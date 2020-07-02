@@ -12,8 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.auth.{AuthService, AuthorizationInterceptor, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -25,7 +24,7 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
   PartyConfiguration,
-  ServerRole,
+  ServerRole
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore

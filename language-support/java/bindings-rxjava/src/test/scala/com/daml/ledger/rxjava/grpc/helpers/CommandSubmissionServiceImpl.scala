@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.CommandSubmissionServiceAuthorization
+import com.daml.ledger.api.auth.internal.services.CommandSubmissionServiceAuthorization
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,

@@ -13,8 +13,12 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceWildcard,
+  AuthorizationInterceptor,
+  Authorizer
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService

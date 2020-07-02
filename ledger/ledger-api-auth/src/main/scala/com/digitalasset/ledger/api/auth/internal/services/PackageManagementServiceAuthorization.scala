@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.auth.services
+package com.daml.ledger.api.auth.internal.services
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer

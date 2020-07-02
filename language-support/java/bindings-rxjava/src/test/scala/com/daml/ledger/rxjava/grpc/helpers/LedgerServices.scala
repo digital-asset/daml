@@ -11,8 +11,12 @@ import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceWildcard,
+  AuthorizationInterceptor,
+  Authorizer
+}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,

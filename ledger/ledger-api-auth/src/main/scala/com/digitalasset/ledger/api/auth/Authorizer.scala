@@ -5,7 +5,7 @@ package com.daml.ledger.api.auth
 
 import java.time.Instant
 
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.auth.internal.OngoingAuthorizationObserver
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.platform.server.api.validation.ErrorFactories.permissionDenied
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}

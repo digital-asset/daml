@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.CommandCompletionServiceAuthorization
+import com.daml.ledger.api.auth.internal.services.CommandCompletionServiceAuthorization
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.daml.ledger.api.v1.command_completion_service._
 import io.grpc.ServerServiceDefinition

@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.LedgerConfigurationServiceAuthorization
+import com.daml.ledger.api.auth.internal.services.LedgerConfigurationServiceAuthorization
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
