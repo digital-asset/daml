@@ -85,12 +85,7 @@ private[lf] object Speedy {
    the current frame, actuals and env-stack-depth within the continuation. Then, when the
    continuation is entered, it will call `restoreEnv`.
 
-   We do this for KArg, KPushTo, KCatch.
-
-   We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
-   changes `frame` to point to itself, and there will be no references to existing
-   stack-variables within the body of the function. (They will have been translated to
-   free-var reference by the compiler).
+   We do this for KPushTo, KCatch and KOverApp.
    */
 
   private type Frame = Array[SValue]
@@ -688,71 +683,6 @@ private[lf] object Speedy {
     }
   }
 
-  /** Evaluate the first 'n' arguments in 'args'.
-    'args' will contain at least 'n' expressions, but it may contain more(!)
-
-    This is because, in the call from 'executeApplication' below, although over-applied
-    arguments are pushed into a continuation, they are not removed from the original array
-    which is passed here as 'args'.
-    */
-  private[speedy] def evaluateArguments(
-      machine: Machine,
-      actuals: util.ArrayList[SValue],
-      args: Array[SExpr],
-      n: Int) = {
-    var i = 1
-    while (i < n) {
-      val arg = args(n - i)
-      machine.pushKont(KPushTo(actuals, arg, machine.frame, machine.actuals, machine.env.size))
-      i = i + 1
-    }
-    machine.ctrl = args(0)
-  }
-
-  //TODO: ALMOST DEAD CODE. We can remove this code once KArg has been removed.
-  /** The function has been evaluated to a value, now start evaluating the arguments. */
-  private[speedy] def executeApplication(
-      machine: Machine,
-      vfun: SValue,
-      newArgs: Array[SExpr]): Unit = {
-    vfun match {
-      case SPAP(prim, actualsSoFar, arity) =>
-        val missing = arity - actualsSoFar.size
-        val newArgsLimit = Math.min(missing, newArgs.length)
-
-        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-        actuals.addAll(actualsSoFar)
-
-        val othersLength = newArgs.length - missing
-
-        // Not enough arguments. Push a continuation to construct the PAP.
-        if (othersLength < 0) {
-          machine.pushKont(KPap(prim, actuals, arity))
-        } else {
-          // Too many arguments: Push a continuation to re-apply the over-applied args.
-          if (othersLength > 0) {
-            val others = new Array[SExpr](othersLength)
-            System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
-          }
-          // Now the correct number of arguments is ensured. What kind of prim do we have?
-          prim match {
-            case closure: PClosure =>
-              // Push a continuation to execute the function body when the arguments have been evaluated
-              machine.pushKont(KFun(closure, actuals, machine.env.size))
-
-            case PBuiltin(builtin) =>
-              // Push a continuation to execute the builtin when the arguments have been evaluated
-              machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
-          }
-        }
-        evaluateArguments(machine, actuals, newArgs, newArgsLimit)
-
-      case _ =>
-        crash(s"Applying non-PAP: $vfun")
-    }
-  }
-
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   // This code replaces `executeApplication` which is almost dead.
   private[speedy] def enterApplication(
@@ -783,11 +713,9 @@ private[lf] object Speedy {
         } else {
           // Too many arguments: Push a continuation to re-apply the over-applied args.
           if (othersLength > 0) {
-            // TODO: Stop using Karg. Instead save the already evaluated 'actuals' in a special
-            // and much simpler continuation to perform the application.
-            val others = new Array[SExpr](othersLength)
+            val others = new Array[SExprAtomic](othersLength)
             System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
+            machine.pushKont(KOverApp(others, machine.frame, machine.actuals, machine.env.size))
           }
           // Now the correct number of arguments is ensured. What kind of prim do we have?
           prim match {
@@ -818,71 +746,6 @@ private[lf] object Speedy {
 
       case _ =>
         crash(s"Applying non-PAP: $vfun")
-    }
-  }
-
-  //TODO: Remove KArg once it's use to execute over-applications is removed
-  private[speedy] final case class KArg(
-      newArgs: Array[SExpr],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
-      extends Kont
-      with SomeArrayEquals {
-    def execute(vfun: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
-      executeApplication(machine, vfun, newArgs)
-    }
-  }
-
-  /** The function-closure and arguments have been evaluated. Now execute the body. */
-  private[speedy] final case class KFun(
-      closure: PClosure,
-      actuals: util.ArrayList[SValue],
-      envSize: Int)
-      extends Kont
-      with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
-      actuals.add(v)
-      // Set frame/actuals to allow access to the function arguments and closure free-varables.
-      machine.restoreEnv(closure.frame, actuals, envSize)
-      // Maybe push a continuation for the profiler
-      val label = closure.label
-      if (label != null) {
-        machine.profile.addOpenEvent(label)
-        machine.pushKont(KLeaveClosure(label))
-      }
-      // Start evaluating the body of the closure.
-      machine.ctrl = closure.expr
-    }
-  }
-
-  /** The builtin arguments have been evaluated. Now execute the builtin. */
-  private[speedy] final case class KBuiltin(
-      builtin: SBuiltinMaybeHungry,
-      actuals: util.ArrayList[SValue],
-      envSize: Int,
-  ) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      actuals.add(v)
-      // A builtin has no free-vars, so we set the frame to null.
-      machine.restoreEnv(null, actuals, envSize)
-      try {
-        builtin.execute(actuals, machine)
-      } catch {
-        // We turn arithmetic exceptions into a daml exception that can be caught.
-        case e: ArithmeticException =>
-          throw DamlEArithmeticError(e.getMessage)
-      }
-    }
-  }
-
-  /** The function's partial-arguments have been evaluated. Construct and return the PAP */
-  private[speedy] final case class KPap(prim: Prim, actuals: util.ArrayList[SValue], arity: Int)
-      extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      actuals.add(v)
-      machine.returnValue = SPAP(prim, actuals, arity)
     }
   }
 
@@ -961,6 +824,19 @@ private[lf] object Speedy {
     machine.ctrl = altOpt
       .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
       .body
+  }
+
+  private[speedy] final case class KOverApp(
+      newArgs: Array[SExprAtomic],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(vfun: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
+      enterApplication(machine, vfun, newArgs)
+    }
   }
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
