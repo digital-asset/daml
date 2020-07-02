@@ -275,8 +275,6 @@ class IsPhase (ph :: Phase) where
   extCondUpd :: BoolExpr -> Upd ph -> UpdateSet ph
   -- | Construct an empty environment.
   emptyEnv :: Env ph
-  -- | Combine two environments.
-  concatEnv :: Env ph -> Env ph -> Env ph
   -- | Get the skolemised term variables and fields from the environment.
   envSkols :: Env ph -> [Skolem]
   -- | Update the skolemised term variables and fields in the environment.
@@ -333,12 +331,6 @@ instance IsPhase 'ValueGathering where
     (UpdVGChoice cho) -> map UpdVGChoice $ extCond bexp cho
     (UpdVGVal val) -> map UpdVGVal $ extCond bexp val
   emptyEnv = EnvVG [] HM.empty HM.empty HM.empty []
-  concatEnv (EnvVG vars1 vals1 dats1 cids1 ctrs1) (EnvVG vars2 vals2 dats2 cids2 ctrs2) =
-    EnvVG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2)
-  -- TODO: union makes me slightly nervous, as it allows overlapping keys
-  -- (and just uses the first). `unionWith concatUpdateSet` would indeed be better,
-  -- but this still makes me nervous as the expr and exprvarnames wouldn't be merged.
   envSkols (EnvVG sko _ _ _ _) = sko
   setEnvSkols sko (EnvVG _ val dat cid ctr) = EnvVG sko val dat cid ctr
   envVals (EnvVG _ val _ _ _) = val
@@ -389,10 +381,6 @@ instance IsPhase 'ChoiceGathering where
       in map UpdCGBase base'
     (UpdCGChoice cho) -> map UpdCGChoice (extCond bexp cho)
   emptyEnv = EnvCG [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
-  concatEnv (EnvCG vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvCG vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
-    EnvCG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (pres1 `HM.union` pres2) (ctrs1 ++ ctrs2)
-      (chos1 `HM.union` chos2)
   envSkols (EnvCG sko _ _ _ _ _ _) = sko
   setEnvSkols sko (EnvCG _ val dat cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
   envVals (EnvCG _ val _ _ _ _ _) = val
@@ -437,10 +425,6 @@ instance IsPhase 'Solving where
           MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
     in map UpdSBase base'
   emptyEnv = EnvS [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
-  concatEnv (EnvS vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvS vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
-    EnvS (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (pres1 `HM.union` pres2) (ctrs1 ++ ctrs2)
-      (chos1 `HM.union` chos2)
   envSkols (EnvS sko _ _ _ _ _ _) = sko
   setEnvSkols sko (EnvS _ val dat cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
   envVals (EnvS _ val _ _ _ _ _) = val
