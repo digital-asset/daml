@@ -6,11 +6,13 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 
 da_scala_library(
     name = "jwt",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -32,6 +34,7 @@ da_scala_binary(
     name = "jwt-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.jwt.Main",
+    scalacopts = lf_scalacopts,
     runtime_deps = [
         ":jwt",
         "@maven//:ch_qos_logback_logback_classic",
@@ -53,6 +56,7 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
+    scalacopts = lf_scalacopts,
     deps = [
         ":jwt",
         "@maven//:com_auth0_java_jwt",
