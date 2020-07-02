@@ -57,8 +57,8 @@ object EventsRange {
     } else {
       import com.daml.platform.store.Conversions.OffsetToStatement
       // This query could be: "select max(row_id) from participant_events where event_offset <= ${range.endInclusive}"
-      // however there are cases (query takes 24 min on DB with 4 million rows in participant_events)
-      // when postgres decides not to use the index. We are forcing the index usage specifying `order by event_offset`
+      // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
+      // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
       SQL"select max(row_id) from participant_events where event_offset <= ${endInclusive} group by event_offset order by event_offset desc limit 1"
         .withFetchSize(oneRow)
         .as(get[Long](1).singleOpt)(connection)
