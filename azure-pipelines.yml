@@ -480,7 +480,7 @@ jobs:
 
   - job: compat_versions_pr
     dependsOn:
-    - release
+    #- release
     - check_for_release
     pool:
       name: linux-pool
