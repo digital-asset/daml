@@ -5,52 +5,32 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationRejectionEntry,
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlOutOfTimeBoundsEntry,
-  DamlPackageUploadEntry,
-  DamlSubmitterInfo,
-  DamlTransactionRejectionEntry
+import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
+  logEntryToUpdate,
+  outOfTimeBoundsEntryToUpdate
 }
-import org.scalatest.{Matchers, WordSpec}
-import KeyValueConsumption.{logEntryToUpdate, outOfTimeBoundsEntryToUpdate}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, Update}
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import org.scalatest.prop.TableDrivenPropertyChecks._
+import org.scalatest.prop.TableFor4
+import org.scalatest.prop.Tables.Table
+import org.scalatest.{Matchers, WordSpec}
 
 class KeyValueConsumptionSpec extends WordSpec with Matchers {
   private val aLogEntryId = DamlLogEntryId.getDefaultInstance
   private val aLogEntryWithoutRecordTime = DamlLogEntry.newBuilder
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
     .build
-  private val aRecordTimeForUpdate = Timestamp(123456789)
-  private val aRecordTimeForUpdateInstant = aRecordTimeForUpdate.toInstant
+  private val aRecordTime = Timestamp(123456789)
+  private val aRecordTimeInstant = aRecordTime.toInstant
   private val aRecordTimeFromLogEntry = Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
   private val aLogEntryWithRecordTime = DamlLogEntry.newBuilder
     .setRecordTime(Conversions.buildTimestamp(aRecordTimeFromLogEntry))
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
-    .build
-  private val someSubmitterInfo = DamlSubmitterInfo.newBuilder
-    .setSubmitter("a submitter")
-    .setApplicationId("test")
-    .setCommandId("a command ID")
-    .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)
-    .build
-  private val aLogEntryWithTransactionRejectionEntry = DamlLogEntry.newBuilder
-    .setTransactionRejectionEntry(
-      DamlTransactionRejectionEntry.newBuilder
-        .setSubmitterInfo(someSubmitterInfo))
-    .build
-  private val aLogEntryWithConfigurationRejectionEntry = DamlLogEntry.newBuilder
-    .setConfigurationRejectionEntry(
-      DamlConfigurationRejectionEntry.newBuilder
-        .setConfiguration(Configuration.encode(LedgerReader.DefaultConfiguration))
-        .setSubmissionId("a submission")
-        .setParticipantId("a participant"))
     .build
 
   "logEntryToUpdate" should {
@@ -63,7 +43,7 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
       val actual :: Nil = logEntryToUpdate(
         aLogEntryId,
         aLogEntryWithRecordTime,
-        recordTimeForUpdate = Some(aRecordTimeForUpdate))
+        recordTimeForUpdate = Some(aRecordTime))
 
       actual.recordTime shouldBe aRecordTimeFromLogEntry
     }
@@ -76,68 +56,234 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
     }
   }
 
+  case class TimeBounds(
+      tooEarlyUntil: Option[Timestamp] = None,
+      tooLateFrom: Option[Timestamp] = None,
+      deduplicateUntil: Option[Timestamp] = None)
+
+  case class Assertions(
+      verify: Option[Update] => Unit = actual => {
+        actual should be(None)
+        ()
+      },
+      throwsInternalError: Boolean = false
+  )
+
   "outOfTimeBoundsEntryToUpdate" should {
-    "not generate an update for a deduplicated transaction entry" in {
-      val inputEntry = DamlOutOfTimeBoundsEntry.newBuilder
-        .setEntry(aLogEntryWithTransactionRejectionEntry)
-        .setDuplicateUntil(
-          Conversions.buildTimestamp(Timestamp.assertFromInstant(aRecordTimeForUpdateInstant)))
-        .build
-
-      outOfTimeBoundsEntryToUpdate(aRecordTimeForUpdate, inputEntry) shouldBe None
-    }
-
-    "generate a rejection entry for a transaction if record time is too late" in {
-      val inputEntry = DamlOutOfTimeBoundsEntry.newBuilder
-        .setEntry(aLogEntryWithTransactionRejectionEntry)
-        .setTooLateFrom(Conversions.buildTimestamp(
-          Timestamp.assertFromInstant(aRecordTimeForUpdateInstant.minusMillis(1))))
-        .build
-
-      val expectedUpdate = Update.CommandRejected(
-        recordTime = aRecordTimeForUpdate,
-        submitterInfo = Conversions.parseSubmitterInfo(someSubmitterInfo),
-        reason = RejectionReason.InvalidLedgerTime("Ledger time outside of valid range")
+    "not generate an update for deduplicated entries" in {
+      val testCases = Table(
+        ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
+        (
+          TimeBounds(deduplicateUntil = Some(aRecordTime)),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions()),
+        (
+          TimeBounds(deduplicateUntil = Some(aRecordTime)),
+          aRecordTime,
+          PACKAGE_UPLOAD_REJECTION_ENTRY,
+          Assertions()),
+        (
+          TimeBounds(deduplicateUntil = Some(aRecordTime)),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions()),
+        (
+          TimeBounds(deduplicateUntil = Some(aRecordTime)),
+          aRecordTime,
+          PARTY_ALLOCATION_REJECTION_ENTRY,
+          Assertions())
       )
-      outOfTimeBoundsEntryToUpdate(aRecordTimeForUpdate, inputEntry) shouldBe Some(expectedUpdate)
+      runAll(testCases)
     }
 
-    "generate a rejection entry for a transaction if record time is too early" in {
-      val inputEntry = DamlOutOfTimeBoundsEntry.newBuilder
-        .setEntry(aLogEntryWithTransactionRejectionEntry)
-        .setTooEarlyUntil(Conversions.buildTimestamp(
-          Timestamp.assertFromInstant(aRecordTimeForUpdateInstant.plusMillis(1))))
-        .build
-
-      val expectedUpdate = Update.CommandRejected(
-        recordTime = aRecordTimeForUpdate,
-        submitterInfo = Conversions.parseSubmitterInfo(someSubmitterInfo),
-        reason = RejectionReason.InvalidLedgerTime("Ledger time outside of valid range")
+    "generate a rejection entry for a transaction if record time is out of time bounds" in {
+      def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
+        case Some(Update.CommandRejected(recordTime, submitterInfo, reason)) =>
+          recordTime shouldBe aRecordTime
+          submitterInfo shouldBe Conversions.parseSubmitterInfo(someSubmitterInfo)
+          reason shouldBe a[RejectionReason.InvalidLedgerTime]
+          ()
+        case _ => fail
+      }
+      val testCases = Table(
+        ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
+        (
+          TimeBounds(
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = verifyCommandRejection)),
+        (
+          TimeBounds(
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = verifyCommandRejection)),
+        (
+          TimeBounds(tooLateFrom = Some(aRecordTime)),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions()),
+        (
+          TimeBounds(tooEarlyUntil = Some(aRecordTime)),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions())
       )
-      outOfTimeBoundsEntryToUpdate(aRecordTimeForUpdate, inputEntry) shouldBe Some(expectedUpdate)
+      runAll(testCases)
     }
 
-    "generate a rejection entry for a configuration if record time is too late" in {
-      val inputEntry = DamlOutOfTimeBoundsEntry.newBuilder
-        .setEntry(aLogEntryWithConfigurationRejectionEntry)
-        .setTooLateFrom(Conversions.buildTimestamp(
-          Timestamp.assertFromInstant(aRecordTimeForUpdateInstant.minusMillis(1))))
-        .build
-
-      val expectedUpdate = Update.ConfigurationChangeRejected(
-        recordTime = aRecordTimeForUpdate,
-        submissionId = v1.SubmissionId.assertFromString(
-          aLogEntryWithConfigurationRejectionEntry.getConfigurationRejectionEntry.getSubmissionId),
-        participantId = Ref.ParticipantId.assertFromString(
-          aLogEntryWithConfigurationRejectionEntry.getConfigurationRejectionEntry.getParticipantId),
-        proposedConfiguration = Configuration
-          .decode(
-            aLogEntryWithConfigurationRejectionEntry.getConfigurationRejectionEntry.getConfiguration)
-          .getOrElse(fail),
-        rejectionReason =
-          s"Configuration change timed out: ${aRecordTimeForUpdateInstant.minusMillis(1)} < $aRecordTimeForUpdateInstant"
+    "generate a rejection entry for a configuration if record time is out of time bounds" in {
+      def verifyConfigurationRejection(actual: Option[Update]): Unit = actual match {
+        case Some(
+            Update.ConfigurationChangeRejected(
+              recordTime,
+              submissionId,
+              participantId,
+              proposedConfiguration,
+              rejectionReason)) =>
+          recordTime shouldBe aRecordTime
+          submissionId shouldBe aConfigurationRejectionEntry.getSubmissionId
+          participantId shouldBe aConfigurationRejectionEntry.getParticipantId
+          proposedConfiguration shouldBe Configuration
+            .decode(aConfigurationRejectionEntry.getConfiguration)
+            .getOrElse(fail)
+          rejectionReason should include("Configuration change timed out")
+          ()
+        case _ => fail
+      }
+      val testCases = Table(
+        ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
+        (
+          TimeBounds(
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions(verify = verifyConfigurationRejection)),
+        (
+          TimeBounds(
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions(verify = verifyConfigurationRejection)),
+        (
+          TimeBounds(tooLateFrom = Some(aRecordTime)),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions()),
+        (
+          TimeBounds(tooEarlyUntil = Some(aRecordTime)),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions())
       )
-      outOfTimeBoundsEntryToUpdate(aRecordTimeForUpdate, inputEntry) shouldBe Some(expectedUpdate)
+      runAll(testCases)
     }
+
+    "not generate an update for rejected entries" in {
+      val testCases = Table(
+        ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
+        (TimeBounds(), aRecordTime, TRANSACTION_REJECTION_ENTRY, Assertions()),
+        (TimeBounds(), aRecordTime, PACKAGE_UPLOAD_REJECTION_ENTRY, Assertions()),
+        (TimeBounds(), aRecordTime, CONFIGURATION_REJECTION_ENTRY, Assertions()),
+        (TimeBounds(), aRecordTime, PARTY_ALLOCATION_REJECTION_ENTRY, Assertions())
+      )
+      runAll(testCases)
+    }
+
+    "throw in case a normal log entry is seen" in {
+      val testCases = Table(
+        ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
+        (TimeBounds(), aRecordTime, TRANSACTION_ENTRY, Assertions(throwsInternalError = true)),
+        (TimeBounds(), aRecordTime, PACKAGE_UPLOAD_ENTRY, Assertions(throwsInternalError = true)),
+        (TimeBounds(), aRecordTime, CONFIGURATION_ENTRY, Assertions(throwsInternalError = true)),
+        (TimeBounds(), aRecordTime, PARTY_ALLOCATION_ENTRY, Assertions(throwsInternalError = true)),
+        (
+          TimeBounds(),
+          aRecordTime,
+          OUT_OF_TIME_BOUNDS_ENTRY,
+          Assertions(throwsInternalError = true))
+      )
+      runAll(testCases)
+    }
+  }
+
+  private def runAll(
+      table: TableFor4[TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]): Unit = {
+    forAll(table) {
+      (
+          timeBounds: TimeBounds,
+          recordTime: Timestamp,
+          logEntryType: DamlLogEntry.PayloadCase,
+          assertions: Assertions) =>
+        val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
+        if (assertions.throwsInternalError) {
+          assertThrows[Err.InternalError](outOfTimeBoundsEntryToUpdate(recordTime, inputEntry))
+        } else {
+          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
+          assertions.verify(actual)
+          ()
+        }
+    }
+  }
+
+  private def buildOutOfTimeBoundsEntry(
+      timeBounds: TimeBounds,
+      logEntryType: DamlLogEntry.PayloadCase): DamlOutOfTimeBoundsEntry = {
+    val builder = DamlOutOfTimeBoundsEntry.newBuilder
+    timeBounds.tooEarlyUntil.foreach(value => builder.setTooEarlyUntil(buildTimestamp(value)))
+    timeBounds.tooLateFrom.foreach(value => builder.setTooLateFrom(buildTimestamp(value)))
+    timeBounds.deduplicateUntil.foreach(value => builder.setDuplicateUntil(buildTimestamp(value)))
+    builder.setEntry(buildLogEntry(logEntryType))
+    builder.build
+  }
+
+  private def someSubmitterInfo: DamlSubmitterInfo =
+    DamlSubmitterInfo.newBuilder
+      .setSubmitter("a submitter")
+      .setApplicationId("test")
+      .setCommandId("a command ID")
+      .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)
+      .build
+
+  private def aTransactionRejectionEntry: DamlTransactionRejectionEntry =
+    DamlTransactionRejectionEntry.newBuilder
+      .setSubmitterInfo(someSubmitterInfo)
+      .build
+
+  private def aConfigurationRejectionEntry: DamlConfigurationRejectionEntry =
+    DamlConfigurationRejectionEntry.newBuilder
+      .setConfiguration(Configuration.encode(LedgerReader.DefaultConfiguration))
+      .setSubmissionId("a submission")
+      .setParticipantId("a participant")
+      .build
+
+  private def buildLogEntry(payloadCase: DamlLogEntry.PayloadCase): DamlLogEntry = {
+    val builder = DamlLogEntry.newBuilder
+    payloadCase match {
+      case TRANSACTION_ENTRY =>
+        builder.setTransactionEntry(DamlTransactionEntry.getDefaultInstance)
+      case TRANSACTION_REJECTION_ENTRY =>
+        builder.setTransactionRejectionEntry(aTransactionRejectionEntry)
+      case PACKAGE_UPLOAD_ENTRY =>
+        builder.setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
+      case PACKAGE_UPLOAD_REJECTION_ENTRY =>
+        builder.setPackageUploadRejectionEntry(DamlPackageUploadRejectionEntry.getDefaultInstance)
+      case CONFIGURATION_ENTRY =>
+        builder.setConfigurationEntry(DamlConfigurationEntry.getDefaultInstance)
+      case CONFIGURATION_REJECTION_ENTRY =>
+        builder.setConfigurationRejectionEntry(aConfigurationRejectionEntry)
+      case PARTY_ALLOCATION_ENTRY =>
+        builder.setPartyAllocationEntry(DamlPartyAllocationEntry.getDefaultInstance)
+      case PARTY_ALLOCATION_REJECTION_ENTRY =>
+        builder.setPartyAllocationRejectionEntry(
+          DamlPartyAllocationRejectionEntry.getDefaultInstance)
+      case OUT_OF_TIME_BOUNDS_ENTRY =>
+        builder.setOutOfTimeBoundsEntry(DamlOutOfTimeBoundsEntry.getDefaultInstance)
+      case PAYLOAD_NOT_SET =>
+        ()
+    }
+    builder.build
   }
 }
