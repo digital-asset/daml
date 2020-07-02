@@ -25,11 +25,12 @@ import scala.util.control.NoStackTrace
 private[lf] object Speedy {
 
   // fake participant to generate a new transactionSeed when running scenarios
-  private val scenarioServiceParticipant = Ref.ParticipantId.assertFromString("scenario-service")
+  private[this] val scenarioServiceParticipant =
+    Ref.ParticipantId.assertFromString("scenario-service")
 
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
-  private val enableInstrumentation: Boolean = false
-  private val enableLightweightStepTracing: Boolean = false
+  private[this] val enableInstrumentation: Boolean = false
+  private[this] val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final case class Instrumentation(
