@@ -172,10 +172,8 @@ private[kvutils] class TransactionCommitter(
             )
         case _ => // Pre-execution: propagate the time bounds and defer the checks to post-execution
           val maybeDeduplicateUntil =
-            PartialFunction.condOpt(transactionEntry.submitterInfo.hasDeduplicateUntil) {
-              case true =>
-                parseTimestamp(transactionEntry.submitterInfo.getDeduplicateUntil).toInstant
-            }
+            getLedgerDeduplicateUntil(transactionEntry, commitContext)
+
           commitContext.minimumRecordTime = Some(
             transactionMinimumRecordTime(
               maybeDeduplicateUntil,
@@ -645,4 +643,14 @@ private[kvutils] object TransactionCommitter {
 
   private def transactionMaximumRecordTime(ledgerTime: Instant, minSkew: Duration): Instant =
     ledgerTime.plus(minSkew)
+
+  private def getLedgerDeduplicateUntil(
+      transactionEntry: DamlTransactionEntrySummary,
+      commitContext: CommitContext): Option[Instant] =
+    for {
+      dedupEntry <- commitContext.get(commandDedupKey(transactionEntry.submitterInfo))
+      dedupTimestamp <- PartialFunction.condOpt(dedupEntry.getCommandDedup.hasDeduplicatedUntil) {
+        case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
+      }
+    } yield parseTimestamp(dedupTimestamp).toInstant
 }
