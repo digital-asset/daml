@@ -79,7 +79,6 @@ private[committer] trait Committer[Submission, PartialResult] {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val ctx = new CommitContext {
-        override def getEntryId: DamlLogEntryId = entryId
         override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
         override def inputsWithFingerprints: DamlStateMapWithFingerprints =
