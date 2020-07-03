@@ -49,20 +49,31 @@ type ModuleRef = LF.Qualified ()
 
 unmangleQualifiedName :: T.Text -> (LF.ModuleName, T.Text)
 unmangleQualifiedName t = case T.splitOn ":" t of
-    [modName, defName] -> (unmangleModuleName modName, unmangle defName)
+    [modName, defName] -> (unmangleModuleName modName, unmangleDotted defName)
     _ -> error "Bad definition"
 
 unmangleModuleName :: T.Text -> LF.ModuleName
-unmangleModuleName t = LF.ModuleName (map unmangle $ T.splitOn "." t)
+unmangleModuleName t = LF.ModuleName (map (unwrapUnmangle . unmangleIdentifier) $ T.splitOn "." t)
 
-unmangle :: T.Text -> T.Text
-unmangle s = case unmangleIdentifier s of
-    Left err -> error err
-    Right (UnmangledIdentifier s) -> s
+-- | Partial helper to handle the result
+-- of `unmangleIdentifier` by crashing if it failed.
+unwrapUnmangle :: Either String UnmangledIdentifier -> T.Text
+unwrapUnmangle (Left err) = error err
+unwrapUnmangle (Right (UnmangledIdentifier s)) = s
 
+unmangleDotted :: T.Text -> T.Text
+unmangleDotted s = unwrapUnmangle unmangled
+  where unmangled =
+              fmap (UnmangledIdentifier . T.intercalate "." . map getUnmangledIdentifier) $
+              traverse unmangleIdentifier $
+              T.splitOn "." s
+
+-- This assumes the name is dotted which is the case for all type
+-- constructors which is the only thing we use it for.
 {-# COMPLETE UnmangledQualifiedName #-}
 pattern UnmangledQualifiedName :: LF.ModuleName -> T.Text -> TL.Text
-pattern UnmangledQualifiedName mod def <- (unmangleQualifiedName . TL.toStrict -> (mod, def))
+pattern UnmangledQualifiedName mod def <-
+    (unmangleQualifiedName . TL.toStrict -> (mod, def))
 
 runM :: V.Vector Node -> LF.World -> M (Doc SyntaxClass) -> Doc SyntaxClass
 runM nodes world =
@@ -725,6 +736,7 @@ prettyPackageIdentifier (PackageIdentifier psum) = case psum of
   (Just (PackageIdentifierSumSelf _))        -> mempty
   (Just (PackageIdentifierSumPackageId pid)) -> char '@' <> ltext pid
 
+-- | Note that this should only be called with dotted identifiers.
 prettyDefName :: LF.World -> Identifier -> Doc SyntaxClass
 prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName))
   | Just mod0 <- lookupModule world mbPkgId modName
