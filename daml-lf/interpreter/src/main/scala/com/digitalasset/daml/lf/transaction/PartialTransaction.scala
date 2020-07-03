@@ -17,7 +17,7 @@ import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
 
 import scala.collection.immutable.HashMap
 
-object PartialTransaction {
+private[lf] object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
   type Node = Node.GenNode[Value.NodeId, Value.ContractId, Value[Value.ContractId]]
@@ -58,14 +58,14 @@ object PartialTransaction {
             _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
       }
 
-    def apply(exeContext: ExercisesContext) =
+    private[PartialTransaction] def apply(exeContext: ExercisesContext) =
       new Context(
         Some(exeContext),
         BackStack.empty,
         childrenSeeds(exeContext.parent.nextChildrenSeed),
       )
 
-    private def childrenSeeds(seed: crypto.Hash)(i: Int) =
+    private[this] def childrenSeeds(seed: crypto.Hash)(i: Int) =
       crypto.Hash.deriveNodeSeed(seed, i)
 
   }
@@ -153,7 +153,7 @@ object PartialTransaction {
   *              correct semantics, since otherwise lookups for keys for
   *              locally archived contract ids will succeed wrongly.
   */
-case class PartialTransaction(
+private[lf] case class PartialTransaction(
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[Value.NodeId, PartialTransaction.Node],
@@ -292,7 +292,7 @@ case class PartialTransaction(
     }
   }
 
-  def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
+  private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
       coid: Value.ContractId,
@@ -419,7 +419,8 @@ case class PartialTransaction(
     }
 
   /** Note that the transaction building failed due to the given error */
-  def noteAbort(err: Tx.TransactionError): PartialTransaction = copy(aborted = Some(err))
+  private[this] def noteAbort(err: Tx.TransactionError): PartialTransaction =
+    copy(aborted = Some(err))
 
   /** `True` iff the given `ContractId` has been consumed already */
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
@@ -427,7 +428,7 @@ case class PartialTransaction(
   /** Guard the execution of a step with the unconsumedness of a
     * `ContractId`
     */
-  def mustBeActive(
+  private[this] def mustBeActive(
       coid: Value.ContractId,
       templateId: TypeConName,
       f: => PartialTransaction,
@@ -450,9 +451,9 @@ case class PartialTransaction(
 
 }
 
-sealed abstract class InitialSeeding extends Product with Serializable
+private[lf] sealed abstract class InitialSeeding extends Product with Serializable
 
-object InitialSeeding {
+private[lf] object InitialSeeding {
   // NoSeed may be used to initialize machines that are not intended to create transactions
   // e.g. trigger and script runners, tests
   final case object NoSeed extends InitialSeeding

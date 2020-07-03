@@ -22,7 +22,7 @@ import com.daml.lf.speedy.SBuiltin._
 // Pretty-printer for the interpreter errors and the scenario ledger
 //
 
-object Pretty {
+private[lf] object Pretty {
 
   def prettyError(err: SError, ptx: PartialTransaction): Doc =
     text("Error:") & (err match {

@@ -188,7 +188,7 @@ private[lf] final case class Compiler(
   // Run the compilation pipeline phases:
   // (1) closure conversion
   // (2) transform to ANF
-  def compilationPipeline(sexpr: SExpr): AExpr = {
+  private[this] def compilationPipeline(sexpr: SExpr): AExpr = {
     flattenToAnf(closureConvert(Map.empty, sexpr))
   }
 

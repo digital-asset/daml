@@ -51,13 +51,13 @@ trait Ledger extends ReadOnlyLedger {
 
 object Ledger {
 
-  type GlobalDivulgence = Relation[ContractId, Party]
+  type Divulgence = Relation[ContractId, Party]
 
   def convertToCommittedTransaction(
       committer: TransactionCommitter,
       transactionId: TransactionId,
       transaction: SubmittedTransaction
-  ): (CommittedTransaction, Relation[Tx.NodeId, Party], GlobalDivulgence) = {
+  ): (CommittedTransaction, Relation[Tx.NodeId, Party], Divulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones
     val committedTransaction = committer.commitTransaction(transactionId, transaction)
@@ -68,6 +68,6 @@ object Ledger {
     // convert LF NodeId to Index EventId
     val disclosureForIndex = blindingInfo.disclosure
 
-    (committedTransaction, disclosureForIndex, blindingInfo.globalDivulgence)
+    (committedTransaction, disclosureForIndex, blindingInfo.divulgence)
   }
 }

@@ -119,7 +119,7 @@ private[dao] final class TransactionsWriter(
     val localDivulgence = divulgence(transaction, blinding.disclosure, toBeInserted)
     val fullDivulgence = Relation.union(
       localDivulgence,
-      blinding.globalDivulgence.filterKeys(cid => !toBeDeleted(cid) && !transient(cid))
+      blinding.divulgence.filterKeys(cid => !toBeDeleted(cid) && !transient(cid))
     )
     val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
     if (localDivulgence.nonEmpty) {

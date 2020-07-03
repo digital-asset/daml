@@ -83,6 +83,9 @@ runtime_deps = [
 da_scala_library(
     name = "sandbox",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -95,12 +98,15 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = runtime_deps,
-    deps = compile_deps,
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
 )
 
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -113,7 +119,7 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = runtime_deps,
-    deps = compile_deps,
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
 )
 
 da_scala_binary(

@@ -31,10 +31,10 @@ import com.daml.lf.speedy.Compiler.CompilationError
 
 import scala.annotation.tailrec
 
-//TODO: make this object private[speedy] when use of flattenToAnf is removed from daml-script
-object Anf {
+private[lf] object Anf {
 
   /*** Entry point for the ANF transformation phase */
+  @throws[CompilationError]
   def flattenToAnf(exp: SExpr): AExpr = {
     val depth = DepthA(0)
     val env = initEnv
@@ -56,28 +56,28 @@ object Anf {
     managed by the using of a Trampoline[T] type.
     */
   /** `DepthE` tracks the stack-depth of the original expression being traversed */
-  final case class DepthE(n: Int) {
+  private[this] final case class DepthE(n: Int) {
     def incr(m: Int) = DepthE(n + m)
   }
 
   /** `DepthA` tracks the stack-depth of the ANF expression being constructed */
-  final case class DepthA(n: Int) {
+  private[this] final case class DepthA(n: Int) {
     def incr(m: Int) = DepthA(n + m)
   }
 
   /** `Env` contains the mapping from old to new depth, as well as the old-depth as these
     * components always travel together */
-  final case class Env(absMap: Map[DepthE, DepthA], oldDepth: DepthE)
+  private[this] final case class Env(absMap: Map[DepthE, DepthA], oldDepth: DepthE)
 
-  val initEnv = Env(absMap = Map.empty, oldDepth = DepthE(0))
+  private[this] val initEnv = Env(absMap = Map.empty, oldDepth = DepthE(0))
 
-  private def trackBindings(depth: DepthA, env: Env, n: Int): Env = {
+  private[this] def trackBindings(depth: DepthA, env: Env, n: Int): Env = {
     val extra = (0 to n - 1).map(i => (env.oldDepth.incr(i), depth.incr(i)))
     Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
   }
 
   // TODO: reference something here about trampolines
-  sealed abstract class Trampoline[T] {
+  private[this] sealed abstract class Trampoline[T] {
     @tailrec
     final def bounce: T = this match {
       case Land(x) => x
@@ -85,18 +85,18 @@ object Anf {
     }
   }
 
-  final case class Land[T](x: T) extends Trampoline[T]
-  final case class Bounce[T](continue: () => Trampoline[T]) extends Trampoline[T]
+  private[this] final case class Land[T](x: T) extends Trampoline[T]
+  private[this] final case class Bounce[T](continue: () => Trampoline[T]) extends Trampoline[T]
 
   /** `Res` is the final, fully transformed ANF expression, returned by the continuations. */
-  type Res = Trampoline[AExpr]
+  private[this] type Res = Trampoline[AExpr]
 
   /** `K[T]` is the continuation type which must be passed to the core transformation
     functions, i,e, `transformExp`.
 
     Notice how the DepthA is threaded through the continuation.
     */
-  type K[T] = ((DepthA, T) => Res)
+  private[this] type K[T] = ((DepthA, T) => Res)
 
   /** During conversion we need to deal with bindings which are made/found at a given
     absolute stack depth. These are represented using `AbsBinding`. An absolute stack
@@ -109,9 +109,9 @@ object Anf {
     expression which we traverse AND the new ANF expression we are constructing. The
     relative-offset to a binding varies as new bindings are pushed on the stack.
     */
-  case class AbsBinding(abs: DepthA)
+  private[this] case class AbsBinding(abs: DepthA)
 
-  private def makeAbsoluteB(env: Env, rel: Int): AbsBinding = {
+  private[this] def makeAbsoluteB(env: Env, rel: Int): AbsBinding = {
     val oldAbs = env.oldDepth.incr(-rel)
     env.absMap.get(oldAbs) match {
       case None => throw CompilationError(s"makeAbsoluteB(env=$env,rel=$rel)")
@@ -119,38 +119,38 @@ object Anf {
     }
   }
 
-  private def makeRelativeB(depth: DepthA, binding: AbsBinding): Int = {
+  private[this] def makeRelativeB(depth: DepthA, binding: AbsBinding): Int = {
     (depth.n - binding.abs.n)
   }
 
-  type AbsAtom = Either[SExprAtomic, AbsBinding]
+  private[this] type AbsAtom = Either[SExprAtomic, AbsBinding]
 
-  private def makeAbsoluteA(env: Env, atom: SExprAtomic): AbsAtom = atom match {
+  private[this] def makeAbsoluteA(env: Env, atom: SExprAtomic): AbsAtom = atom match {
     case SELocS(rel) => Right(makeAbsoluteB(env, rel))
     case x => Left(x)
   }
 
-  private def makeRelativeA(depth: DepthA)(atom: AbsAtom): SExprAtomic = atom match {
+  private[this] def makeRelativeA(depth: DepthA)(atom: AbsAtom): SExprAtomic = atom match {
     case Left(x: SELocS) => throw CompilationError(s"makeRelativeA: unexpected: $x")
     case Left(atom) => atom
     case Right(binding) => SELocS(makeRelativeB(depth, binding))
   }
 
-  type AbsLoc = Either[SELoc, AbsBinding]
+  private[this] type AbsLoc = Either[SELoc, AbsBinding]
 
-  private def makeAbsoluteL(env: Env, loc: SELoc): AbsLoc = loc match {
+  private[this] def makeAbsoluteL(env: Env, loc: SELoc): AbsLoc = loc match {
     case SELocS(rel) => Right(makeAbsoluteB(env, rel))
     case x: SELocA => Left(x)
     case x: SELocF => Left(x)
   }
 
-  private def makeRelativeL(depth: DepthA)(loc: AbsLoc): SELoc = loc match {
+  private[this] def makeRelativeL(depth: DepthA)(loc: AbsLoc): SELoc = loc match {
     case Left(x: SELocS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
     case Left(loc) => loc
     case Right(binding) => SELocS(makeRelativeB(depth, binding))
   }
 
-  private def flattenExp(
+  private[this] def flattenExp(
       depth: DepthA,
       env: Env,
       exp: SExpr,
@@ -158,7 +158,12 @@ object Anf {
     Bounce(() => k(transformExp(depth, env, exp, { case (_, sexpr) => Land(AExpr(sexpr)) }).bounce))
   }
 
-  private def transformLet1(depth: DepthA, env: Env, rhs: SExpr, body: SExpr, k: K[SExpr]): Res = {
+  private[this] def transformLet1(
+      depth: DepthA,
+      env: Env,
+      rhs: SExpr,
+      body: SExpr,
+      k: K[SExpr]): Res = {
     flattenExp(
       depth,
       env,
@@ -172,7 +177,7 @@ object Anf {
     )
   }
 
-  private def flattenAlts(depth: DepthA, env: Env, alts: Array[SCaseAlt]): Array[SCaseAlt] = {
+  private[this] def flattenAlts(depth: DepthA, env: Env, alts: Array[SCaseAlt]): Array[SCaseAlt] = {
     alts.map {
       case SCaseAlt(pat, body0) =>
         val n = patternNArgs(pat)
@@ -183,7 +188,7 @@ object Anf {
     }
   }
 
-  private def patternNArgs(pat: SCasePat): Int = pat match {
+  private[this] def patternNArgs(pat: SCasePat): Int = pat match {
     case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
     case _: SCPVariant | SCPSome => 1
     case SCPCons => 2
@@ -196,7 +201,7 @@ object Anf {
     wrap further expression-AST around the expression returned by `k`.
     See: `atomizeExp` for a instance where this wrapping occurs.
     */
-  private def transformExp(depth: DepthA, env: Env, exp: SExpr, k: K[SExpr]): Res =
+  private[this] def transformExp(depth: DepthA, env: Env, exp: SExpr, k: K[SExpr]): Res =
     Bounce(() =>
       exp match {
         case atom0: SExprAtomic =>
@@ -281,7 +286,11 @@ object Anf {
 
     })
 
-  private def atomizeExps(depth: DepthA, env: Env, exps: List[SExpr], k: K[List[AbsAtom]]): Res =
+  private[this] def atomizeExps(
+      depth: DepthA,
+      env: Env,
+      exps: List[SExpr],
+      k: K[List[AbsAtom]]): Res =
     exps match {
       case Nil => k(depth, Nil)
       case exp :: exps =>
@@ -295,7 +304,7 @@ object Anf {
           }))
     }
 
-  private def atomizeExp(depth: DepthA, env: Env, exp: SExpr, k: K[AbsAtom]): Res = {
+  private[this] def atomizeExp(depth: DepthA, env: Env, exp: SExpr, k: K[AbsAtom]): Res = {
     exp match {
       case ea: SExprAtomic => k(depth, makeAbsoluteA(env, ea))
       case _ =>
@@ -314,7 +323,7 @@ object Anf {
     }
   }
 
-  private def expandMultiLet(rhss: List[SExpr], body: SExpr): SExpr = {
+  private[this] def expandMultiLet(rhss: List[SExpr], body: SExpr): SExpr = {
     //loop over rhss in reverse order
     @tailrec
     def loop(acc: SExpr, xs: List[SExpr]): SExpr = {

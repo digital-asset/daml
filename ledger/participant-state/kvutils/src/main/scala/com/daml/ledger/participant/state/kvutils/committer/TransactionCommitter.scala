@@ -406,7 +406,7 @@ private[kvutils] class TransactionCommitter(
     }
 
     // Update contract state of divulged contracts
-    blindingInfo.globalDivulgence.foreach {
+    blindingInfo.divulgence.foreach {
       case (coid, parties) =>
         val key = contractIdToStateKey(coid)
         val cs = getContractState(commitContext, key)
