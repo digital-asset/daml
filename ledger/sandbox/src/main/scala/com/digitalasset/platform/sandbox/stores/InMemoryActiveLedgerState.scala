@@ -152,7 +152,7 @@ case class InMemoryActiveLedgerState(
       submitter: Option[Party],
       transaction: Tx.CommittedTransaction,
       disclosure: Relation[Tx.NodeId, Party],
-      globalDivulgence: Relation[ContractId, Party],
+      divulgence: Relation[ContractId, Party],
       referencedContracts: List[(Value.ContractId, ContractInst)]
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
@@ -162,7 +162,7 @@ case class InMemoryActiveLedgerState(
       submitter,
       transaction,
       disclosure,
-      globalDivulgence,
+      divulgence,
       referencedContracts)
 
   /**
