@@ -83,8 +83,11 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
     runTimer.time { () =>
       val ctx = new CommitContext {
         override def getEntryId: DamlLogEntryId = entryId
+
         override def getRecordTime: Option[Time.Timestamp] = recordTime
+
         override def getParticipantId: ParticipantId = participantId
+
         override def inputsWithFingerprints: DamlStateMapWithFingerprints =
           inputState.map {
             case (key, value) => (key, (value, FingerprintPlaceholder))
@@ -102,29 +105,44 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
     runTimer.time { () =>
       // TODO(miklos): Create context for pre-execution here.
       // TODO(miklos): Generate entry ID based on submission.
-      val ctx = new CommitContext {
+      val commitContext = new CommitContext {
         override def getEntryId: DamlLogEntryId =
           DamlLogEntryId.newBuilder
             .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
             .build
+
         override def getRecordTime: Option[Time.Timestamp] = None
+
         override def getParticipantId: ParticipantId = participantId
+
         override def inputsWithFingerprints: DamlStateMapWithFingerprints = inputState
       }
-      val logEntry = runSteps(ctx, submission)
-      PreexecutionResult(
-        readSet = inputState.mapValues(_._2),
-        successfulLogEntry = logEntry,
-        stateUpdates = ctx.getOutputs.toMap,
-        // TODO(miklos): Take out-of-time-bounds log entry and min/max record time from context.
-        outOfTimeBoundsLogEntry = logEntry,
-        minimumRecordTime = Timestamp.MinValue,
-        maximumRecordTime = Timestamp.MaxValue,
-        // TODO(miklos): Determine set of to-be-notified participants.
-        involvedParticipants = Set(participantId)
-      )
+      preexecute(submission, participantId, inputState, commitContext)
     }
   }
+
+  private[committer] def preexecute(
+      submission: DamlSubmission,
+      participantId: ParticipantId,
+      inputState: DamlStateMapWithFingerprints,
+      commitContext: CommitContext,
+  ): PreexecutionResult = {
+    val logEntry = runSteps(commitContext, submission)
+    PreexecutionResult(
+      readSet = commitContext.getAccessedInputKeysWithFingerprints.toMap,
+      successfulLogEntry = logEntry,
+      stateUpdates = commitContext.getOutputs.toMap,
+      // TODO(miklos): Take out-of-time-bounds log entry and min/max record time from context.
+      outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),
+      minimumRecordTime = Timestamp.MinValue,
+      maximumRecordTime = Timestamp.MaxValue,
+      // TODO(miklos): Determine set of to-be-notified participants.
+      involvedParticipants = Set(participantId)
+    )
+  }
+
+  private def constructOutOfTimeBoundsLogEntry(commitContext: CommitContext): DamlLogEntry =
+    DamlLogEntry.getDefaultInstance
 
   private def runSteps(commitContext: CommitContext, submission: DamlSubmission): DamlLogEntry =
     steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
