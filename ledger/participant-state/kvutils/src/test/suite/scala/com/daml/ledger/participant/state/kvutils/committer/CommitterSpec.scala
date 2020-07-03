@@ -47,6 +47,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       actual.readSet shouldBe expectedReadSet.toMap
       actual.successfulLogEntry shouldBe aLogEntry
       actual.stateUpdates shouldBe expectedOutputs
+      actual.involvedParticipants shouldBe Committer.AllParticipants
     }
 
     "construct out-of-time-bounds log entry" in {

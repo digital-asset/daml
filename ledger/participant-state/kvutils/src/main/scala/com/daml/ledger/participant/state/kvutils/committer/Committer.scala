@@ -136,15 +136,17 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),
       minimumRecordTime = Timestamp.MinValue,
       maximumRecordTime = Timestamp.MaxValue,
-      // TODO(miklos): Determine set of to-be-notified participants.
-      involvedParticipants = Set(participantId)
+      // We assume the time updates must be visible to every participant.
+      involvedParticipants = AllParticipants
     )
   }
 
   private def constructOutOfTimeBoundsLogEntry(commitContext: CommitContext): DamlLogEntry =
     DamlLogEntry.getDefaultInstance
 
-  private def runSteps(commitContext: CommitContext, submission: DamlSubmission): DamlLogEntry =
+  private[committer] def runSteps(
+      commitContext: CommitContext,
+      submission: DamlSubmission): DamlLogEntry =
     steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
       case (state, (info, step)) =>
         state match {
@@ -159,6 +161,8 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
 object Committer {
   type StepInfo = String
+
+  val AllParticipants: Set[ParticipantId] = Set.empty
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
