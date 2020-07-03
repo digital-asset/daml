@@ -15,7 +15,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.Future
 
-final class TimeServiceAuthorization(
+private[daml] final class TimeServiceAuthorization(
     protected val service: TimeService with AutoCloseable,
     private val authorizer: Authorizer)
     extends TimeService

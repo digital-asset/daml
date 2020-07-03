@@ -13,7 +13,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
 
-final class PackageServiceAuthorization(
+private[daml] final class PackageServiceAuthorization(
     protected val service: PackageService with AutoCloseable,
     private val authorizer: Authorizer)
     extends PackageService
