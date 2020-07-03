@@ -170,18 +170,18 @@ private[kvutils] class TransactionCommitter(
                     RejectionReason.InvalidLedgerTime(reason))),
               _ => StepContinue(transactionEntry)
             )
-        case _ => // Pre-execution: propagate the time bounds and defer the checks to post-execution
+        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution
           val maybeDeduplicateUntil =
             getLedgerDeduplicateUntil(transactionEntry, commitContext)
 
           commitContext.minimumRecordTime = Some(
-            transactionMinimumRecordTime(
+            transactionMinRecordTime(
               transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
               maybeDeduplicateUntil,
               timeModel.maxSkew))
           commitContext.maximumRecordTime = Some(
-            transactionMaximumRecordTime(
+            transactionMaxRecordTime(
               transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
               timeModel.minSkew))
@@ -632,7 +632,7 @@ private[kvutils] object TransactionCommitter {
     commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
-  private def transactionMinimumRecordTime(
+  private def transactionMinRecordTime(
       submissionTime: Instant,
       ledgerTime: Instant,
       maybeDeduplicateUntil: Option[Instant],
@@ -640,15 +640,15 @@ private[kvutils] object TransactionCommitter {
     List(
       maybeDeduplicateUntil
         .map(_.plus(TimeModel.resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
-      Some(ledgerTime.minus(maxSkew)),
+      Some(TimeModel.minRecordTime(ledgerTime, maxSkew)),
       Some(submissionTime.minus(maxSkew))
     ).flatten.max
 
-  private def transactionMaximumRecordTime(
+  private def transactionMaxRecordTime(
       submissionTime: Instant,
       ledgerTime: Instant,
       minSkew: Duration): Instant =
-    List(ledgerTime.plus(minSkew), submissionTime.plus(minSkew)).min
+    List(TimeModel.maxRecordTime(ledgerTime, minSkew), submissionTime.plus(minSkew)).min
 
   private def getLedgerDeduplicateUntil(
       transactionEntry: DamlTransactionEntrySummary,

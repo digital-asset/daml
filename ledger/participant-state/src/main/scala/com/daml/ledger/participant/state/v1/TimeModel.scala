@@ -21,6 +21,7 @@ case class TimeModel private (
     minSkew: Duration,
     maxSkew: Duration,
 ) {
+  import TimeModel._
 
   /**
     * Verifies whether the given ledger time and record time are valid under the ledger time model.
@@ -30,14 +31,13 @@ case class TimeModel private (
       ledgerTime: Instant,
       recordTime: Instant
   ): Either[String, Unit] = {
-    val lowerBound = recordTime.minus(minSkew)
-    val upperBound = recordTime.plus(maxSkew)
+    val lowerBound = minLedgerTime(recordTime, minSkew)
+    val upperBound = maxLedgerTime(recordTime, maxSkew)
     if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
       Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
     else
       Right(())
   }
-
 }
 
 object TimeModel {
@@ -62,4 +62,16 @@ object TimeModel {
       require(!maxSkew.isNegative, "Negative max skew")
       new TimeModel(avgTransactionLatency, minSkew, maxSkew)
     }
+
+  private[state] def minRecordTime(ledgerTime: Instant, maxSkew: Duration): Instant =
+    ledgerTime.minus(maxSkew)
+
+  private[state] def maxRecordTime(ledgerTime: Instant, minSkew: Duration): Instant =
+    ledgerTime.plus(minSkew)
+
+  private def minLedgerTime(recordTime: Instant, minSkew: Duration): Instant =
+    recordTime.minus(minSkew)
+
+  private def maxLedgerTime(recordTime: Instant, maxSkew: Duration): Instant =
+    recordTime.plus(maxSkew)
 }
