@@ -81,6 +81,44 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
     }
   }
 
+  "runSteps" should {
+    "stop at first StepStop" in {
+      val expectedLogEntry = aLogEntry
+      val instance = new Committer[Int] {
+        override protected def steps: Iterable[(StepInfo, Step)] = Iterable[(StepInfo, Step)](
+          ("first", (_, _) => StepContinue(1)),
+          ("second", (_, _) => StepStop(expectedLogEntry)),
+          ("third", (_, _) => StepStop(DamlLogEntry.getDefaultInstance))
+        )
+
+        override protected val committerName: String = "test"
+
+        override protected def init(ctx: CommitContext, submission: DamlSubmission): Int = 0
+
+        override protected val metrics: Metrics = newMetrics()
+      }
+
+      instance.runSteps(mock[CommitContext], aDamlSubmission) shouldBe expectedLogEntry
+    }
+
+    "throw in case there was no StepStop yielded" in {
+      val instance = new Committer[Int] {
+        override protected def steps: Iterable[(StepInfo, Step)] = Iterable(
+          ("first", (_, _) => StepContinue(1)),
+          ("second", (_, _) => StepContinue(2))
+        )
+
+        override protected val committerName: String = "test"
+
+        override protected def init(ctx: CommitContext, submission: DamlSubmission): Int = 0
+
+        override protected val metrics: Metrics = newMetrics()
+      }
+
+      assertThrows[RuntimeException](instance.runSteps(mock[CommitContext], aDamlSubmission))
+    }
+  }
+
   private val aLogEntry = DamlLogEntry.newBuilder
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder
@@ -88,6 +126,8 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
         .setParty("a party")
     )
     .build
+
+  private def newMetrics() = new Metrics(new MetricRegistry)
 
   private def createCommitter(): Committer[Int] = new Committer[Int] {
     override protected val committerName: String = "test"
@@ -97,6 +137,6 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
     override protected def init(ctx: CommitContext, submission: DamlKvutils.DamlSubmission): Int = 0
 
-    override protected val metrics: Metrics = new Metrics(new MetricRegistry)
+    override protected val metrics: Metrics = newMetrics()
   }
 }
