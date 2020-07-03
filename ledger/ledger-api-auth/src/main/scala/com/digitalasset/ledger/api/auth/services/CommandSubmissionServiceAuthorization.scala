@@ -14,7 +14,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
 
-final class CommandSubmissionServiceAuthorization(
+private[daml] final class CommandSubmissionServiceAuthorization(
     protected val service: CommandSubmissionService with AutoCloseable,
     private val authorizer: Authorizer)
     extends CommandSubmissionService
