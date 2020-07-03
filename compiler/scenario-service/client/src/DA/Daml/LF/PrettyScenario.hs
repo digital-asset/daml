@@ -857,8 +857,8 @@ renderRow world parties NodeInfo{..} =
                     | party `S.member` niDivulgences = ("D", Just "Divulged")
                     | otherwise = ("-", Nothing)
             in
-            H.td H.! A.class_ "disclosure" $ H.div H.! A.class_ "tooltip" $ do
-                H.text label
+            H.td H.! A.class_ (H.textValue $ T.unwords $ "disclosure" : ["disclosed" | isJust mbHint]) $ H.div H.! A.class_ "tooltip" $ do
+                H.span $ H.text label
                 whenJust mbHint $ \hint -> H.span H.! A.class_ "tooltiptext" $ H.text hint
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -905,7 +905,7 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             Nothing -> H.body H.! A.class_ "hide_note" $ do
                 noteView
                 transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note" $ do
+            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note hidden_disclosure" $ do
                 H.div $ do
                     H.button H.! A.onclick "toggle_view();" $ do
                         H.span H.! A.class_ "table" $ H.text "Show transaction view"
@@ -914,6 +914,9 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                     H.span H.! A.class_ "table" $ do
                         H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
                         H.label H.! A.for "show_archived" $ "Show archived"
+                    H.span H.! A.class_ "table" $ do
+                        H.input H.! A.type_ "checkbox" H.! A.id "show_detailed_disclosure" H.! A.onchange "toggle_detailed_disclosure();"
+                        H.label H.! A.for "show_detailed_disclosure" $ "Show detailed disclosure"
                 noteView
                 tbl
                 transView

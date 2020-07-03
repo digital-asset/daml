@@ -31,6 +31,12 @@ td.disclosure {
 tr.archived td.disclosure {
   text-decoration: none;
 }
+.hidden_disclosure td.disclosed.disclosure span {
+  display: none;
+}
+.hidden_disclosure td.disclosed.disclosure:after {
+  content: 'X';
+}
 th {
   vertical-align: bottom;
 }

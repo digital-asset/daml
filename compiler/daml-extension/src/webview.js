@@ -5,6 +5,9 @@ const vscode = acquireVsCodeApi();
 function show_archived_changed() {
   document.body.classList.toggle('hide_archived', !document.getElementById('show_archived').checked);
 }
+function toggle_detailed_disclosure() {
+  document.body.classList.toggle('hidden_disclosure', !document.getElementById('show_detailed_disclosure').checked);
+}
 function toggle_view() {
   document.body.classList.toggle('hide_transaction');
   document.body.classList.toggle('hide_table');
