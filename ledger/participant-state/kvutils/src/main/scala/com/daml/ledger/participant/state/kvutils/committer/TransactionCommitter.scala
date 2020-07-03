@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -632,4 +632,17 @@ private[kvutils] object TransactionCommitter {
   def getContractState(commitContext: CommitContext, key: DamlStateKey): DamlContractState =
     commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
 
+  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
+  private def transactionMinimumRecordTime(
+      maybeDeduplicateUntil: Option[Instant],
+      ledgerTime: Instant,
+      maxSkew: Duration,
+      submissionTime: Instant): Instant =
+    List(
+      maybeDeduplicateUntil,
+      Some(ledgerTime.minus(maxSkew)),
+      Some(submissionTime.minus(maxSkew))).flatten.max
+
+  private def transactionMaximumRecordTime(ledgerTime: Instant, minSkew: Duration): Instant =
+    ledgerTime.plus(minSkew)
 }
