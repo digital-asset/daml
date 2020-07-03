@@ -176,12 +176,13 @@ private[kvutils] class TransactionCommitter(
 
           commitContext.minimumRecordTime = Some(
             transactionMinimumRecordTime(
-              maybeDeduplicateUntil,
+              transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
-              timeModel.maxSkew,
-              transactionEntry.submissionTime.toInstant))
+              maybeDeduplicateUntil,
+              timeModel.maxSkew))
           commitContext.maximumRecordTime = Some(
             transactionMaximumRecordTime(
+              transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
               timeModel.minSkew))
           StepContinue(transactionEntry)
@@ -632,10 +633,10 @@ private[kvutils] object TransactionCommitter {
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   private def transactionMinimumRecordTime(
-      maybeDeduplicateUntil: Option[Instant],
+      submissionTime: Instant,
       ledgerTime: Instant,
-      maxSkew: Duration,
-      submissionTime: Instant): Instant =
+      maybeDeduplicateUntil: Option[Instant],
+      maxSkew: Duration): Instant =
     List(
       maybeDeduplicateUntil
         .map(_.plus(TimeModel.resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
@@ -643,8 +644,11 @@ private[kvutils] object TransactionCommitter {
       Some(submissionTime.minus(maxSkew))
     ).flatten.max
 
-  private def transactionMaximumRecordTime(ledgerTime: Instant, minSkew: Duration): Instant =
-    ledgerTime.plus(minSkew)
+  private def transactionMaximumRecordTime(
+      submissionTime: Instant,
+      ledgerTime: Instant,
+      minSkew: Duration): Instant =
+    List(ledgerTime.plus(minSkew), submissionTime.plus(minSkew)).min
 
   private def getLedgerDeduplicateUntil(
       transactionEntry: DamlTransactionEntrySummary,

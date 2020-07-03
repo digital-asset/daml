@@ -151,7 +151,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           contextWithTimeModelAndEmptyCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndEmptyCommandDeduplication.maximumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(32))
+          Instant.ofEpochSecond(31))
       }
 
       val aDeduplicateUntil = createProtobufTimestamp(seconds = 3)
@@ -181,7 +181,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           contextWithTimeModelAndCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndCommandDeduplication.maximumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(32))
+          Instant.ofEpochSecond(31))
       }
     }
 
