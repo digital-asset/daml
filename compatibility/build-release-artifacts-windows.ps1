@@ -37,6 +37,8 @@ function bazel() {
 
 
 bazel shutdown
+# TODO remove once nodes have been reset
+bazel clean --expunge
 bazel fetch @nodejs_dev_env//...
 bazel build `
   `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
