@@ -469,7 +469,7 @@ private[kvutils] class TransactionCommitter(
       // result in a LookupByKey than the original transaction. This means that the contract state data for the
       // contractId pointed to by that contractKey might not have been preloaded into the input state map.
       // This is not a problem because after the transaction reinterpretation, we compare the original
-      // transaction with the reintrepreted one, and the LookupByKey node will not match.
+      // transaction with the reinterpreted one, and the LookupByKey node will not match.
       // Additionally, all contract keys are checked to uphold causal monotonicity.
       contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
       if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)

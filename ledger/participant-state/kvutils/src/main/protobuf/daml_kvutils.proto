@@ -113,6 +113,9 @@ message DamlLogEntry {
 
     // A rejection of party allocation request.
     DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 9;
+
+    // A rejection of a pre-executed submission because of out-of-time-bounds.
+    DamlOutOfTimeBoundsEntry out_of_time_bounds_entry = 10;
   }
 }
 
@@ -314,6 +317,17 @@ message DamlPartyAllocationRejectionEntry {
     ParticipantNotAuthorized participant_not_authorized = 5;
     Duplicate duplicate_submission = 6;
   }
+}
+
+// Indicates that a submission has been rejected after pre-execution.
+// [[KeyValueConsumption.logEntryToUpdate]] will pick the right rejection reason based on current
+// record time.
+message DamlOutOfTimeBoundsEntry {
+  // We don't expect entry.recordTime to be present.
+  DamlLogEntry entry = 1;
+  google.protobuf.Timestamp duplicate_until = 2;
+  google.protobuf.Timestamp too_early_until = 3;
+  google.protobuf.Timestamp too_late_from = 4;
 }
 
 // DAML state key. [[KeyValueCommitting]] produces effects that are committed
