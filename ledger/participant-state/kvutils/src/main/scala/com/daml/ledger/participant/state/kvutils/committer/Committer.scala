@@ -20,7 +20,8 @@ import com.daml.ledger.participant.state.kvutils.{
   Conversions,
   DamlStateMap,
   DamlStateMapWithFingerprints,
-  Err
+  Err,
+  FingerprintPlaceholder,
 }
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
@@ -84,7 +85,10 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
         override def getEntryId: DamlLogEntryId = entryId
         override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
-        override def inputs: DamlStateMap = inputState
+        override def inputsWithFingerprints: DamlStateMapWithFingerprints =
+          inputState.map {
+            case (key, value) => (key, (value, FingerprintPlaceholder))
+          }
       }
       val logEntry = runSteps(ctx, submission)
       logEntry -> ctx.getOutputs.toMap
@@ -105,7 +109,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
             .build
         override def getRecordTime: Option[Time.Timestamp] = None
         override def getParticipantId: ParticipantId = participantId
-        override def inputs: DamlStateMap = inputState.mapValues(_._1)
+        override def inputsWithFingerprints: DamlStateMap = inputState
       }
       val logEntry = runSteps(ctx, submission)
       PreexecutionResult(
@@ -140,7 +144,7 @@ object Committer {
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
       logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
     inputState
       .getOrElse(
@@ -173,5 +177,6 @@ object Committer {
   private def setRecordTimeIfAvailable(
       recordTime: Option[Timestamp],
       logEntryBuilder: DamlLogEntry.Builder): DamlLogEntry.Builder =
-    recordTime.fold(logEntryBuilder)(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+    recordTime.fold(logEntryBuilder)(timestamp =>
+      logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
 }

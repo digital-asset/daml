@@ -72,7 +72,7 @@ class KeyValueCommitting private[daml] (
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     metrics.daml.kvutils.committer.processing.inc()
     metrics.daml.kvutils.committer.last.lastRecordTimeGauge.updateValue(recordTime.toString)

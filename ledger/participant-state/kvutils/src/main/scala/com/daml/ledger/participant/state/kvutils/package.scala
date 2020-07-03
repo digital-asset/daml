@@ -30,12 +30,11 @@ import com.google.protobuf.ByteString
 package object kvutils {
 
   type Bytes = ByteString
-
-  type Fingerprint = ByteString
-
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
 
+  type Fingerprint = Bytes
   type DamlStateMapWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
+  val FingerprintPlaceholder: Fingerprint = ByteString.EMPTY
 
   val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
 
