@@ -327,7 +327,7 @@ object KeyValueConsumption {
           DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY |
           DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY |
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
-        logger.info(
+        logger.error(
           s"Dropped out-of-time-bounds log entry of type=${wrappedLogEntry.getPayloadCase}")
         None
 
