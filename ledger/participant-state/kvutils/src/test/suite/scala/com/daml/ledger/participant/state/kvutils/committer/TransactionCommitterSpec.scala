@@ -28,6 +28,8 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     .build
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aRecordTime = Timestamp(100)
+  private val dedupKey = Conversions
+    .commandDedupKey(aTransactionEntrySummary.submitterInfo)
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
@@ -44,8 +46,9 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
     "continue if record time is available but no deduplication entry could be found" in {
       val instance = createTransactionCommitter()
-      val inputs = Map(Conversions.commandDedupKey(aTransactionEntrySummary.submitterInfo) -> None)
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
+      val inputs = Map(dedupKey -> (None -> ByteString.EMPTY))
+      val context =
+        new FakeCommitContext(recordTime = Some(aRecordTime), inputsWithFingerprints = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -57,14 +60,13 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
     "continue if record time is after deduplication time in case a deduplication entry is found" in {
       val instance = createTransactionCommitter()
-      val dedupValue = DamlStateValue.newBuilder
-        .setCommandDedup(
-          DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(buildTimestamp(aRecordTime)))
-        .build
+      val dedupValue = newDedupValue(aRecordTime)
       val inputs =
-        Map(Conversions.commandDedupKey(aTransactionEntrySummary.submitterInfo) -> Some(dedupValue))
+        Map(dedupKey -> (Some(dedupValue) -> dedupValue.toByteString))
       val context =
-        new FakeCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
+        new FakeCommitContext(
+          recordTime = Some(aRecordTime.addMicros(1)),
+          inputsWithFingerprints = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -79,15 +81,11 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       for ((recordTime, deduplicationTime) <- Iterable(
           (aRecordTime, aRecordTime),
           (aRecordTime, aRecordTime.addMicros(1)))) {
-        val dedupValue = DamlStateValue.newBuilder
-          .setCommandDedup(DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(
-            buildTimestamp(deduplicationTime)))
-          .build
+        val dedupValue = newDedupValue(deduplicationTime)
         val inputs =
-          Map(
-            Conversions.commandDedupKey(aTransactionEntrySummary.submitterInfo) -> Some(dedupValue))
+          Map(dedupKey -> (Some(dedupValue) -> dedupValue.toByteString))
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputs)
+          new FakeCommitContext(recordTime = Some(recordTime), inputsWithFingerprints = inputs)
 
         val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -127,11 +125,14 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         )
         .build
       val inputWithDeclaredConfig =
-        Map(Conversions.configurationStateKey -> Some(configurationStateValue))
+        Map(
+          Conversions.configurationStateKey -> (Some(configurationStateValue) -> configurationStateValue.toByteString))
 
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
+          new FakeCommitContext(
+            recordTime = Some(recordTime),
+            inputsWithFingerprints = inputWithDeclaredConfig)
         val transactionEntrySummary = DamlTransactionEntrySummary(
           aDamlTransactionEntry.toBuilder
             .setLedgerEffectiveTime(
@@ -152,4 +153,10 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   private def createTransactionCommitter(): TransactionCommitter =
     new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+
+  private def newDedupValue(deduplicationTime: Timestamp): DamlStateValue =
+    DamlStateValue.newBuilder
+      .setCommandDedup(
+        DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(buildTimestamp(deduplicationTime)))
+      .build
 }
