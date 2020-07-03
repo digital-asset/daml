@@ -599,14 +599,15 @@ prettyNode Node{..}
                    <-> fcommasep (mapV prettyNodeIdLink nodeReferencedBy)
 
       let ppDisclosedTo =
-            if V.null nodeObservingSince
+            if V.null nodeDisclosures
             then mempty
             else
               meta $ keyword_ "known to (since):"
                 <-> fcommasep
                   (mapV
-                    (\(PartyAndTransactionId p txId) -> prettyMayParty p <-> parens (prettyTxId txId))
-                    nodeObservingSince)
+                    -- TODO(MH): Take explicitness into account.
+                    (\(Disclosure p txId _explicit) -> prettyMayParty p <-> parens (prettyTxId txId))
+                    nodeDisclosures)
 
       pure
          $ prettyMay "<missing node id>" prettyNodeId nodeNodeId
@@ -777,6 +778,7 @@ data NodeInfo = NodeInfo
     , niSignatories :: S.Set T.Text
     , niStakeholders :: S.Set T.Text  -- Is a superset of `niSignatories`.
     , niWitnesses :: S.Set T.Text  -- Is a superset of `niStakeholders`.
+    , niDivulgences :: S.Set T.Text
     }
 
 data Table = Table
@@ -794,12 +796,14 @@ nodeInfo Node{..} = do
     let niActive = isNothing nodeConsumedBy
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
-    let niWitnesses = S.fromList $ mapMaybe party $ V.toList nodeObservingSince
+    let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures
+    let niWitnesses = S.fromList $ mapMaybe party nodeWitnesses
+    let niDivulgences = S.fromList $ mapMaybe party nodeDivulgences
     pure NodeInfo{..}
     where
-        party :: PartyAndTransactionId -> Maybe T.Text
-        party PartyAndTransactionId{..} = do
-            Party{..} <- partyAndTransactionIdParty
+        party :: Disclosure -> Maybe T.Text
+        party Disclosure{..} = do
+            Party{..} <- disclosureParty
             pure (TL.toStrict partyParty)
 
 
@@ -837,7 +841,8 @@ renderRow world parties NodeInfo{..} =
             let (label, mbHint)
                     | party `S.member` niSignatories = ("S", Just "Signatory")
                     | party `S.member` niStakeholders = ("O", Just "Observer")
-                    | party `S.member` niWitnesses = ("D", Just "Disclosed/\x200B\&Divulged")  -- The charater after the "/" is a zero-width space.
+                    | party `S.member` niWitnesses = ("W", Just "Witness")
+                    | party `S.member` niDivulgences = ("D", Just "Divulged")
                     | otherwise = ("-", Nothing)
             in
             H.td H.! A.class_ "disclosure" $ H.div H.! A.class_ "tooltip" $ do
@@ -856,7 +861,7 @@ renderRow world parties NodeInfo{..} =
 -- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
-    let parties = S.unions $ map niWitnesses tRows
+    let parties = S.unions $ map (\row -> niWitnesses row `S.union` niDivulgences row) tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
     let (headers, rows) = unzip $ map (renderRow world parties) tRows
     H.table $ head headers <> mconcat rows

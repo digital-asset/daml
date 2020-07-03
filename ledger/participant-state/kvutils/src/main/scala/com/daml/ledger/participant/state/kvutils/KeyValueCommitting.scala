@@ -61,10 +61,6 @@ class KeyValueCommitting private[daml] (
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId =
     DamlLogEntryId.parseFrom(bytes)
 
-  // A stop-gap measure, to be used while maximum record time is not yet available on every request
-  private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp =
-    recordTime.addMicros(100)
-
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
     *
@@ -110,7 +106,7 @@ class KeyValueCommitting private[daml] (
       val (logEntry, outputState) = processPayload(
         engine,
         entryId,
-        recordTime,
+        Some(recordTime),
         defaultConfig,
         submission,
         participantId,
@@ -136,7 +132,7 @@ class KeyValueCommitting private[daml] (
   private def processPayload(
       engine: Engine,
       entryId: DamlLogEntryId,
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
@@ -146,7 +142,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics).run(
           entryId,
-          estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPackageUploadEntry,
           participantId,
@@ -156,7 +151,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).run(
           entryId,
-          estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPartyAllocationEntry,
           participantId,
@@ -164,9 +158,10 @@ class KeyValueCommitting private[daml] (
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        new ConfigCommitter(defaultConfig, metrics).run(
+        val maximumRecordTime = parseTimestamp(
+          submission.getConfigurationSubmission.getMaximumRecordTime)
+        new ConfigCommitter(defaultConfig, maximumRecordTime, metrics).run(
           entryId,
-          parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
           recordTime,
           submission.getConfigurationSubmission,
           participantId,
@@ -177,7 +172,6 @@ class KeyValueCommitting private[daml] (
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .run(
             entryId,
-            estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getTransactionEntry,
             participantId,

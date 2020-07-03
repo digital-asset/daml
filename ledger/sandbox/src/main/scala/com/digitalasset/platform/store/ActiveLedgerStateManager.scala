@@ -65,20 +65,9 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       submitter: Option[Party],
       transaction: Tx.CommittedTransaction,
       disclosure: Relation[Tx.NodeId, Party],
-      globalDivulgence: Relation[ContractId, Party],
+      divulgence: Relation[ContractId, Party],
       divulgedContracts: List[(Value.ContractId, ContractInst)])
     : Either[Set[RejectionReason], ALS] = {
-    // NOTE(RA): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
-    // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
-    // will also point to contracts created in the same transaction.
-    //
-    // This is dealt with as follows:
-    // - First, all transaction nodes are traversed without updating divulgence info.
-    //   - When validating a fetch/exercise node, both the set of previously divulged contracts and
-    //     the newly divulged contracts is used.
-    //   - While traversing consuming exercise nodes, the set of all contracts archived in this transaction is collected.
-    // - Finally, divulgence information is updated using `globalImplicitDisclosure` minus the set of contracts
-    //   archived in this transaction.
     val st =
       transaction
         .fold[AddTransactionState](AddTransactionState(initialState)) {
@@ -130,8 +119,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   workflowId = workflowId,
                   contract = nc.coinst,
                   witnesses = disclosure(nodeId),
-                  // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
-                  // But this field is always empty in transactions with only contract ids.
+                  // A contract starts its life without being divulged at all.
                   divulgences = Map.empty,
                   key =
                     nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
@@ -210,7 +198,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
             }
         }
 
-    val divulgedContractIds = globalDivulgence -- st.archivedIds
+    val divulgedContractIds = divulgence -- st.archivedIds
     st.mapAcs(
         _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
       .mapAcs(_ addParties st.parties)

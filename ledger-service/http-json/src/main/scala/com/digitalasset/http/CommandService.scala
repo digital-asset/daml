@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import com.daml.api.util.TimeProvider
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
 import com.daml.http.domain.{
@@ -36,7 +35,6 @@ class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
-    timeProvider: TimeProvider,
 )(implicit ec: ExecutionContext)
     extends StrictLogging {
 

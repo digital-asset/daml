@@ -187,7 +187,7 @@ object KVTest {
               .map { v =>
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
               }
-          }, { pkgId =>
+          }, { _ =>
             Some(decodedPackageWithContractData(additionalContractDataTy))
           }, { _ =>
             sys.error("no keys")

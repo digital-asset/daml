@@ -19,7 +19,7 @@ object EnrichedTransaction {
   /** State to use during enriching a transaction with disclosure information. */
   private final case class EnrichState(
       disclosures: Relation[Tx.NodeId, Party],
-      globalDivulgences: Relation[ContractId, Party],
+      divulgences: Relation[ContractId, Party],
       failedAuthorizations: Map[Tx.NodeId, FailedAuthorization],
   ) {
 
@@ -38,8 +38,8 @@ object EnrichedTransaction {
 
     def divulgeCoidTo(witnesses: Set[Party], acoid: ContractId): EnrichState = {
       copy(
-        globalDivulgences = globalDivulgences
-          .updated(acoid, witnesses union globalDivulgences.getOrElse(acoid, Set.empty)),
+        divulgences = divulgences
+          .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty)),
       )
     }
 
@@ -383,7 +383,7 @@ object EnrichedTransaction {
     new EnrichedTransaction(
       tx,
       explicitDisclosure = finalState.disclosures,
-      globalImplicitDisclosure = finalState.globalDivulgences,
+      implicitDisclosure = finalState.divulgences,
       failedAuthorizations = finalState.failedAuthorizations,
     )
   }
@@ -396,7 +396,7 @@ final case class EnrichedTransaction[Transaction <: Tx.Transaction](
     explicitDisclosure: Relation[Tx.NodeId, Party],
     // A relation between contract id and the parties to which the contract id gets
     // explicitly disclosed.
-    globalImplicitDisclosure: Relation[ContractId, Party],
+    implicitDisclosure: Relation[ContractId, Party],
     // A map from node ids to authorizations that failed for them.
     failedAuthorizations: FailedAuthorizations,
 )

@@ -6,7 +6,7 @@ package com.daml.ledger.client.configuration
 import com.github.ghik.silencer.silent
 import org.scalatest.{Matchers, WordSpec}
 
-@silent("deprecated")
+@silent("LedgerIdRequirement is deprecated \\(since 1.3.0\\): Use Option-based (copy|constructor)")
 class LedgerIdRequirementTest extends WordSpec with Matchers {
 
   "LedgerIdRequirement" when {

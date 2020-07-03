@@ -19,7 +19,7 @@ import Data.List (intercalate)
 import qualified Data.HashMap.Strict as HM
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
-import DA.Daml.LF.Verify.Subst
+import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Verify.Context
 
 -- | Solves the value references by computing the closure of all referenced
@@ -123,9 +123,9 @@ solveChoiceReferences env =
       -> ChoiceData 'Solving
       -> ChoiceData 'Solving
     ext_upds chdat1 chdat2 =
-      let varSubst = createExprSubst [(_cdSelf chdat2, EVar (_cdSelf chdat1)), (_cdThis chdat2, EVar (_cdThis chdat1)), (_cdArgs chdat2, EVar (_cdArgs chdat1))]
+      let varSubst = foldMap (uncurry exprSubst) [(_cdSelf chdat2, EVar (_cdSelf chdat1)), (_cdThis chdat2, EVar (_cdThis chdat1)), (_cdArgs chdat2, EVar (_cdArgs chdat1))]
           newUpds = _cdUpds chdat1 `concatUpdateSet`
-            (substituteTm varSubst $ _cdUpds chdat2)
+            map (applySubstInUpd varSubst) (_cdUpds chdat2)
       in chdat1{_cdUpds = newUpds}
 
     make_rec :: ChoiceData 'Solving -> ChoiceData 'Solving

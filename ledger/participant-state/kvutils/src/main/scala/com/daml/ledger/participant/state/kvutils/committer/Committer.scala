@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Timer
+import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
@@ -15,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -64,8 +66,7 @@ private[committer] trait Committer[Submission, PartialResult] {
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
       entryId: DamlLogEntryId,
-      maximumRecordTime: Time.Timestamp,
-      recordTime: Time.Timestamp,
+      recordTime: Option[Time.Timestamp],
       submission: Submission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
@@ -73,8 +74,7 @@ private[committer] trait Committer[Submission, PartialResult] {
     runTimer.time { () =>
       val ctx = new CommitContext {
         override def getEntryId: DamlLogEntryId = entryId
-        override def getMaximumRecordTime: Time.Timestamp = maximumRecordTime
-        override def getRecordTime: Time.Timestamp = recordTime
+        override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
         override def inputs: DamlStateMap = inputState
       }
@@ -117,4 +117,18 @@ object Committer {
           }, conf => Some(Some(entry) -> conf))
       }
       .getOrElse(None -> defaultConfig)
+
+  def buildLogEntryWithOptionalRecordTime(
+      recordTime: Option[Timestamp],
+      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder): DamlLogEntry = {
+    val logEntryBuilder = DamlLogEntry.newBuilder
+    addSubmissionSpecificEntry(logEntryBuilder)
+    setRecordTimeIfAvailable(recordTime, logEntryBuilder)
+    logEntryBuilder.build
+  }
+
+  private def setRecordTimeIfAvailable(
+      recordTime: Option[Timestamp],
+      logEntryBuilder: DamlLogEntry.Builder): Unit =
+    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
 }

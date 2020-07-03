@@ -37,6 +37,7 @@ da_scala_test_suite(
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
     ],
+    scalacopts = ["-P:silencer:checkUnused"],
     deps = [
         ":ledger-api-client",
         "//language-support/scala/bindings",

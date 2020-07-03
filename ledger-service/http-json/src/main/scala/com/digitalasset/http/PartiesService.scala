@@ -63,14 +63,6 @@ class PartiesService(
     et.run
   }
 
-  private def collectParties(
-      xs: List[api.domain.PartyDetails],
-      requested: Set[String]
-  ): Set[domain.PartyDetails] =
-    xs.iterator.collect {
-      case p if requested(p.party) => domain.PartyDetails.fromLedgerApi(p)
-    }.toSet
-
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
       requested: OneAnd[Set, domain.Party]

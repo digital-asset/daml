@@ -26,7 +26,6 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
 import scala.collection.JavaConverters._
-import TransactionCommitter._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
 //
@@ -82,23 +81,27 @@ private[kvutils] class TransactionCommitter(
 
   /** Reject duplicate commands
     */
-  private def deduplicateCommand: Step = (commitContext, transactionEntry) => {
-    val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
-    val dedupEntry = commitContext.get(dedupKey)
-    val submissionTime =
-      if (inStaticTimeMode) Instant.now() else commitContext.getRecordTime.toInstant
-    if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
-      StepContinue(transactionEntry)
-    } else {
-      logger.trace(
-        s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
-      reject(
-        commitContext.getRecordTime,
-        DamlTransactionRejectionEntry.newBuilder
-          .setSubmitterInfo(transactionEntry.submitterInfo)
-          .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
-      )
-    }
+  private[committer] def deduplicateCommand: Step = (commitContext, transactionEntry) => {
+    commitContext.getRecordTime
+      .map { recordTime =>
+        val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
+        val dedupEntry = commitContext.get(dedupKey)
+        val submissionTime =
+          if (inStaticTimeMode) Instant.now() else recordTime.toInstant
+        if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
+          StepContinue(transactionEntry)
+        } else {
+          logger.trace(
+            s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
+          reject(
+            commitContext.getRecordTime,
+            DamlTransactionRejectionEntry.newBuilder
+              .setSubmitterInfo(transactionEntry.submitterInfo)
+              .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
+          )
+        }
+      }
+      .getOrElse(StepContinue(transactionEntry))
   }
 
   // Checks that the submission time of the command is after the
@@ -147,21 +150,27 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLedgerTime: Step = (commitContext, transactionEntry) => {
-    val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
-    val timeModel = config.timeModel
-    val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
+  private[committer] def validateLedgerTime: Step =
+    (commitContext, transactionEntry) =>
+      commitContext.getRecordTime
+        .map { recordTime =>
+          val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+          val timeModel = config.timeModel
+          val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
-    timeModel
-      .checkTime(ledgerTime = givenLedgerTime, recordTime = commitContext.getRecordTime.toInstant)
-      .fold(
-        reason =>
-          reject(
-            commitContext.getRecordTime,
-            buildRejectionLogEntry(transactionEntry, RejectionReason.InvalidLedgerTime(reason))),
-        _ => StepContinue(transactionEntry)
-      )
-  }
+          timeModel
+            .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
+            .fold(
+              reason =>
+                reject(
+                  commitContext.getRecordTime,
+                  buildRejectionLogEntry(
+                    transactionEntry,
+                    RejectionReason.InvalidLedgerTime(reason))),
+              _ => StepContinue(transactionEntry)
+            )
+        }
+        .getOrElse(StepContinue(transactionEntry))
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Step =
@@ -238,7 +247,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def validateContractKeyUniqueness(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
     val allUnique = transactionEntry.transaction
@@ -282,7 +291,7 @@ private[kvutils] class TransactionCommitter(
     * NodeLookupByKey.
     */
   private def validateContractKeyCausalMonotonicity(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
       keys: Set[DamlStateKey],
       damlState: Map[DamlStateKey, DamlStateValue]): StepResult[DamlTransactionEntrySummary] = {
@@ -397,7 +406,7 @@ private[kvutils] class TransactionCommitter(
     }
 
     // Update contract state of divulged contracts
-    blindingInfo.globalDivulgence.foreach {
+    blindingInfo.divulgence.foreach {
       case (coid, parties) =>
         val key = contractIdToStateKey(coid)
         val cs = getContractState(commitContext, key)
@@ -420,12 +429,10 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(commitContext.getRecordTime))
-        .setTransactionEntry(transactionEntry.submission)
-        .build
-    )
+    val logEntry = buildLogEntryWithOptionalRecordTime(
+      commitContext.getRecordTime,
+      _.setTransactionEntry(transactionEntry.submission))
+    StepStop(logEntry)
   }
 
   private def updateContractKeyWithContractKeyState(
@@ -570,16 +577,14 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def reject[A](
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
   ): StepResult[A] = {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
     StepStop(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(recordTime))
-        .setTransactionRejectionEntry(rejectionEntry)
-        .build,
-    )
+      buildLogEntryWithOptionalRecordTime(
+        recordTime,
+        _.setTransactionRejectionEntry(rejectionEntry)))
   }
 
   private object Metrics {

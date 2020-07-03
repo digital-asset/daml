@@ -11,7 +11,7 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 
-object PrettyLightweight { // lightweight pretty printer for CEK machine states
+private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def ppMachine(m: Machine): String = {
     s"${ppEnv(m.env)} -- ${ppCtrl(m.ctrl, m.returnValue)} -- ${ppKontStack(m.kontStack)}"
@@ -34,10 +34,7 @@ object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def ppKont(k: Kont): String = k match {
     case KFinished => "KFinished"
-    case _: KArg => "KArg"
-    case _: KFun => "KFun"
-    case _: KBuiltin => "KBuiltin"
-    case _: KPap => "KPap"
+    case _: KOverApp => "KOverApp"
     case _: KPushTo => "KPushTo"
     case _: KCacheVal => "KCacheVal"
     case _: KLocation => "KLocation"

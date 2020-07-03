@@ -28,6 +28,21 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.get(aKey) shouldBe Some(aValue)
     }
 
+    "record all accessed input keys" in {
+      val context = newInstance(Map(aKey -> Some(aValue), anotherKey -> Some(anotherValue)))
+      context.get(aKey)
+      context.get(anotherKey)
+
+      context.getAccessedInputKeys shouldBe Set(aKey, anotherKey)
+    }
+
+    "not record input keys that are not accessed" in {
+      val context = newInstance(Map(aKey -> Some(aValue), anotherKey -> Some(anotherValue)))
+      context.get(aKey)
+
+      context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+
     "throw in case key cannot be found" in {
       val context = newInstance()
       assertThrows[MissingInputState](context.get(aKey))
@@ -89,9 +104,7 @@ class CommitContextSpec extends WordSpec with Matchers {
   private class TestCommitContext(override val inputs: DamlStateMap) extends CommitContext {
     override def getEntryId: DamlKvutils.DamlLogEntryId = DamlLogEntryId.getDefaultInstance
 
-    override def getMaximumRecordTime: Time.Timestamp = Time.Timestamp.now()
-
-    override def getRecordTime: Time.Timestamp = Time.Timestamp.now()
+    override def getRecordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now())
 
     override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)
   }

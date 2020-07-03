@@ -10,6 +10,7 @@ da_scala_binary(
     name = "repl",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.lf.speedy.testing.Main",
+    max_heap_size = "8g",
     tags = ["maven_coordinates=com.daml:daml-lf-repl:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [

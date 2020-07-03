@@ -24,7 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{AExpr, Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{AExpr, Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -322,7 +322,7 @@ class Runner(
       name: String,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
-  ): Sink[TriggerMsg, Future[SExpr]] = {
+  ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
     // Compile the trigger initialState and Update LF functions to
@@ -333,21 +333,18 @@ class Runner(
     val getInitialState: AExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
-    // Convert the ACS to a speedy expression.
-    val createdExpr: SExprAtomic = SEValue(converter.fromACS(acs) match {
+    // Convert the ACS to a speedy value.
+    val createdValue: SValue = converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
-    })
+    }
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
     val initialState: AExpr =
       makeApp(
         getInitialState,
-        Array(
-          SEValue(SParty(Party.assertFromString(party))),
-          SEValue(STimestamp(clientTime)),
-          createdExpr))
+        Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
     // Prepare a speedy machine for evaluting expressions.
     val machine: Speedy.Machine = Speedy.Machine.fromPureAExpr(compiledPackages, initialState)
     // Evaluate it.
@@ -392,40 +389,40 @@ class Runner(
           }
         case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
       })
-      .toMat(
-        Sink.fold[SExprAtomic, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
-          val messageVal = message match {
-            case TransactionMsg(transaction) => {
-              converter.fromTransaction(transaction) match {
-                case Left(err) => throw new ConverterException(err)
-                case Right(x) => x
-              }
+      .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
+        val messageVal = message match {
+          case TransactionMsg(transaction) => {
+            converter.fromTransaction(transaction) match {
+              case Left(err) => throw new ConverterException(err)
+              case Right(x) => x
             }
-            case CompletionMsg(completion) => {
-              val status = completion.getStatus
-              if (status.code != 0) {
-                logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-              }
-              converter.fromCompletion(completion) match {
-                case Left(err) => throw new ConverterException(err)
-                case Right(x) => x
-              }
-            }
-            case HeartbeatMsg() => converter.fromHeartbeat
           }
-          val clientTime: Timestamp =
-            Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-          machine.setExpressionToEvaluate(
-            makeApp(
-              update,
-              Array(SEValue(STimestamp(clientTime)): SExprAtomic, SEValue(messageVal), state)))
-          val value = Machine.stepToValue(machine)
-          val newState = handleStepResult(value, submit)
-          SEValue(newState)
-        }))(Keep.right[NotUsed, Future[SExpr]])
+          case CompletionMsg(completion) => {
+            val status = completion.getStatus
+            if (status.code != 0) {
+              logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
+            }
+            converter.fromCompletion(completion) match {
+              case Left(err) => throw new ConverterException(err)
+              case Right(x) => x
+            }
+          }
+          case HeartbeatMsg() => converter.fromHeartbeat
+        }
+        val clientTime: Timestamp =
+          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        machine.setExpressionToEvaluate(
+          makeApp(update, Array(STimestamp(clientTime): SValue, messageVal, state)))
+        val value = Machine.stepToValue(machine)
+        val newState = handleStepResult(value, submit)
+        newState
+      }))(Keep.right[NotUsed, Future[SValue]])
   }
 
-  def makeApp(func: AExpr, args: Array[SExprAtomic]): AExpr = {
+  def makeApp(func: AExpr, values: Array[SValue]): AExpr = {
+    val args: Array[SExprAtomic] = values.map(SEValue(_))
+    // We can safely introduce a let-expression here to bind the `func` expression,
+    // because there are no stack-references in `args`, since they are pure speedy values.
     AExpr(SELet1General(func.wrapped, SEAppAtomicGeneral(SELocS(1), args)))
   }
 
@@ -454,7 +451,7 @@ class Runner(
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
       name: String = "")(
       implicit materializer: Materializer,
-      executionContext: ExecutionContext): (T, Future[SExpr]) = {
+      executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     def submit(req: SubmitRequest): Unit = {
@@ -493,7 +490,7 @@ object Runner extends StrictLogging {
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
       party: String
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages(darMap).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {

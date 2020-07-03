@@ -215,7 +215,6 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       contractId: ContractId,
       create: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
       uri: Uri): Future[Assertion] =
     postContractsLookup(contractLocator, uri).flatMap {
       case (status, output) =>
@@ -223,7 +222,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
         assertStatus(output, StatusCodes.OK)
         val result = getResult(output)
         contractId shouldBe getContractId(result)
-        assertActiveContract(result)(create, encoder, decoder)
+        assertActiveContract(result)(create, encoder)
     }
 
   protected def removeRecordId(a: v.Value): v.Value = a match {
@@ -408,8 +407,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def assertActiveContract(jsVal: JsValue)(
       command: domain.CreateCommand[v.Record],
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder): Assertion = {
+      encoder: DomainJsonEncoder): Assertion = {
 
     import encoder.implicits._
 
@@ -660,7 +658,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "create IOU" in withHttpService { (uri, encoder, decoder) =>
+  "create IOU" in withHttpService { (uri, encoder, _) =>
     val command: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     postCreateCommand(command, encoder, uri).flatMap {
@@ -668,7 +666,7 @@ abstract class AbstractHttpServiceIntegrationTest
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val activeContract = getResult(output)
-        assertActiveContract(activeContract)(command, encoder, decoder)
+        assertActiveContract(activeContract)(command, encoder)
     }: Future[Assertion]
   }
 
@@ -729,7 +727,6 @@ abstract class AbstractHttpServiceIntegrationTest
                   getResult(exerciseOutput),
                   create,
                   exercise,
-                  encoder,
                   decoder,
                   uri)
             }
@@ -775,7 +772,6 @@ abstract class AbstractHttpServiceIntegrationTest
       exerciseResponse: JsValue,
       createCmd: domain.CreateCommand[v.Record],
       exerciseCmd: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
-      encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder,
       uri: Uri
   ): Future[Assertion] = {
@@ -820,7 +816,7 @@ abstract class AbstractHttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  "exercise Archive" in withHttpService { (uri, encoder, decoder) =>
+  "exercise Archive" in withHttpService { (uri, encoder, _) =>
     val create: domain.CreateCommand[v.Record] = iouCreateCommand()
     postCreateCommand(create, encoder, uri)
       .flatMap {
@@ -840,13 +836,12 @@ abstract class AbstractHttpServiceIntegrationTest
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
                 val exercisedResponse: JsObject = getResult(exerciseOutput).asJsObject
-                assertExerciseResponseArchivedContract(decoder, exercisedResponse, exercise)
+                assertExerciseResponseArchivedContract(exercisedResponse, exercise)
             }
       }: Future[Assertion]
   }
 
   private def assertExerciseResponseArchivedContract(
-      decoder: DomainJsonDecoder,
       exerciseResponse: JsValue,
       exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId]
   ): Assertion = {
@@ -1113,7 +1108,7 @@ abstract class AbstractHttpServiceIntegrationTest
         }
   }
 
-  "fetch by contractId" in withHttpService { (uri, encoder, decoder) =>
+  "fetch by contractId" in withHttpService { (uri, encoder, _) =>
     val command: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     postCreateCommand(command, encoder, uri).flatMap {
@@ -1122,7 +1117,7 @@ abstract class AbstractHttpServiceIntegrationTest
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
         val locator = domain.EnrichedContractId(None, contractId)
-        lookupContractAndAssert(locator)(contractId, command, encoder, decoder, uri)
+        lookupContractAndAssert(locator)(contractId, command, encoder, uri)
     }: Future[Assertion]
   }
 
@@ -1145,7 +1140,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "fetch by key" in withHttpService { (uri, encoder, decoder) =>
+  "fetch by key" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
@@ -1159,11 +1154,11 @@ abstract class AbstractHttpServiceIntegrationTest
           domain.TemplateId(None, "Account", "Account"),
           JsArray(JsString(owner.unwrap), JsString(accountNumber))
         )
-        lookupContractAndAssert(locator)(contractId, command, encoder, decoder, uri)
+        lookupContractAndAssert(locator)(contractId, command, encoder, uri)
     }: Future[Assertion]
   }
 
-  "commands/exercise Archive by key" in withHttpService { (uri, encoder, decoder) =>
+  "commands/exercise Archive by key" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val create: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)

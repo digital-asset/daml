@@ -39,6 +39,7 @@ module DA.Daml.LF.Verify.Context
   , computeCycles
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
+  , applySubstInUpd
   ) where
 
 import Control.Monad.Error.Class (MonadError (..), throwError)
@@ -54,7 +55,7 @@ import qualified Data.Text as T
 import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
-import DA.Daml.LF.Verify.Subst
+import DA.Daml.LF.Ast.Subst
 
 -- | Data type denoting the phase of the constraint generator.
 data Phase
@@ -274,8 +275,6 @@ class IsPhase (ph :: Phase) where
   extCondUpd :: BoolExpr -> Upd ph -> UpdateSet ph
   -- | Construct an empty environment.
   emptyEnv :: Env ph
-  -- | Combine two environments.
-  concatEnv :: Env ph -> Env ph -> Env ph
   -- | Get the skolemised term variables and fields from the environment.
   envSkols :: Env ph -> [Skolem]
   -- | Update the skolemised term variables and fields in the environment.
@@ -283,7 +282,7 @@ class IsPhase (ph :: Phase) where
   -- | Get the bound values from the environment.
   envVals :: Env ph -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet ph)
   -- | Get the data constructors from the environment.
-  envDats :: Env ph -> HM.HashMap TypeConName DefDataType
+  envDats :: Env ph -> HM.HashMap (Qualified TypeConName) DefDataType
   -- | Get the fetched cid's mapped to their current variable name, along with
   -- a list of any potential old variable names, from the environment.
   envCids :: Env ph -> HM.HashMap Cid (ExprVarName, [ExprVarName])
@@ -311,7 +310,7 @@ instance IsPhase 'ValueGathering where
     -- ^ The skolemised term variables and fields.
     !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering))
     -- ^ The bound values.
-    !(HM.HashMap TypeConName DefDataType)
+    !(HM.HashMap (Qualified TypeConName) DefDataType)
     -- ^ The set of data constructors.
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
@@ -332,12 +331,6 @@ instance IsPhase 'ValueGathering where
     (UpdVGChoice cho) -> map UpdVGChoice $ extCond bexp cho
     (UpdVGVal val) -> map UpdVGVal $ extCond bexp val
   emptyEnv = EnvVG [] HM.empty HM.empty HM.empty []
-  concatEnv (EnvVG vars1 vals1 dats1 cids1 ctrs1) (EnvVG vars2 vals2 dats2 cids2 ctrs2) =
-    EnvVG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (ctrs1 ++ ctrs2)
-  -- TODO: union makes me slightly nervous, as it allows overlapping keys
-  -- (and just uses the first). `unionWith concatUpdateSet` would indeed be better,
-  -- but this still makes me nervous as the expr and exprvarnames wouldn't be merged.
   envSkols (EnvVG sko _ _ _ _) = sko
   setEnvSkols sko (EnvVG _ val dat cid ctr) = EnvVG sko val dat cid ctr
   envVals (EnvVG _ val _ _ _) = val
@@ -360,7 +353,7 @@ instance IsPhase 'ChoiceGathering where
     -- ^ The skolemised term variables and fields.
     !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering))
     -- ^ The bound values.
-    !(HM.HashMap TypeConName DefDataType)
+    !(HM.HashMap (Qualified TypeConName) DefDataType)
     -- ^ The set of data constructors.
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
@@ -388,10 +381,6 @@ instance IsPhase 'ChoiceGathering where
       in map UpdCGBase base'
     (UpdCGChoice cho) -> map UpdCGChoice (extCond bexp cho)
   emptyEnv = EnvCG [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
-  concatEnv (EnvCG vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvCG vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
-    EnvCG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (pres1 `HM.union` pres2) (ctrs1 ++ ctrs2)
-      (chos1 `HM.union` chos2)
   envSkols (EnvCG sko _ _ _ _ _ _) = sko
   setEnvSkols sko (EnvCG _ val dat cid pre ctr cho) = EnvCG sko val dat cid pre ctr cho
   envVals (EnvCG _ val _ _ _ _ _) = val
@@ -412,7 +401,7 @@ instance IsPhase 'Solving where
     -- ^ The skolemised term variables and fields.
     !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'Solving))
     -- ^ The bound values.
-    !(HM.HashMap TypeConName DefDataType)
+    !(HM.HashMap (Qualified TypeConName) DefDataType)
     -- ^ The set of data constructors.
     !(HM.HashMap Cid (ExprVarName, [ExprVarName]))
     -- ^ The set of fetched cid's mapped to their current variable name, along
@@ -436,10 +425,6 @@ instance IsPhase 'Solving where
           MutRec cycles -> [MutRec $ map (second (concatMap (extCond bexp))) cycles]
     in map UpdSBase base'
   emptyEnv = EnvS [] HM.empty HM.empty HM.empty HM.empty [] HM.empty
-  concatEnv (EnvS vars1 vals1 dats1 cids1 pres1 ctrs1 chos1) (EnvS vars2 vals2 dats2 cids2 pres2 ctrs2 chos2) =
-    EnvS (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
-      (cids1 `HM.union` cids2) (pres1 `HM.union` pres2) (ctrs1 ++ ctrs2)
-      (chos1 `HM.union` chos2)
   envSkols (EnvS sko _ _ _ _ _ _) = sko
   setEnvSkols sko (EnvS _ val dat cid pre ctr cho) = EnvS sko val dat cid pre ctr cho
   envVals (EnvS _ val _ _ _ _ _) = val
@@ -463,7 +448,7 @@ setEnvPreconds pre (EnvCG sko val dat cid _ ctr cho) =
   EnvCG sko val dat cid pre ctr cho
 
 -- | Update the data constructors in the environment.
-setEnvDats :: HM.HashMap TypeConName DefDataType
+setEnvDats :: HM.HashMap (Qualified TypeConName) DefDataType
   -> Env 'ValueGathering -> Env 'ValueGathering
 setEnvDats dat (EnvVG sko val _ cid ctr) = EnvVG sko val dat cid ctr
 
@@ -538,7 +523,7 @@ expr2cid :: (IsPhase ph, MonadEnv m ph)
   -- ^ Whether or not the refresh the contract id.
   -> Expr
   -- ^ The expression to be converted.
-  -> m (Cid, ExprSubst)
+  -> m (Cid, Subst)
 expr2cid b (EVar x) = do
   (y, subst) <- refresh_cid b x
   return (CidVar y, subst)
@@ -558,11 +543,11 @@ refresh_cid :: MonadEnv m ph
   -- ^ Whether or not the refresh the contract id.
   -> ExprVarName
   -- ^ The variable name to refresh.
-  -> m (ExprVarName, ExprSubst)
-refresh_cid False x = return (x, emptyExprSubst)
+  -> m (ExprVarName, Subst)
+refresh_cid False x = return (x, mempty)
 refresh_cid True x = do
   y <- genRenamedVar x
-  return (y, singleExprSubst x (EVar y))
+  return (y, exprSubst x (EVar y))
 
 -- | Data type containing the data stored for a choice definition.
 data ChoiceData (ph :: Phase) = ChoiceData
@@ -697,7 +682,7 @@ extChEnv tc ch self this arg upd typ = do
 
 -- | Extend the environment with a list of new data type definitions.
 extDatsEnv :: MonadEnv m 'ValueGathering
-  => HM.HashMap TypeConName DefDataType
+  => HM.HashMap (Qualified TypeConName) DefDataType
   -- ^ A hashmap of the data constructor names, with their corresponding definitions.
   -> m ()
 extDatsEnv hmap = do
@@ -721,7 +706,7 @@ extCidEnv :: (IsPhase ph, MonadEnv m ph)
   -- ^ The contract id expression.
   -> ExprVarName
   -- ^ The variable name to which the fetched contract is bound.
-  -> m ExprSubst
+  -> m Subst
 extCidEnv b exp var = do
   prev <- do
     { (cur, old) <- lookupCid exp
@@ -831,13 +816,13 @@ lookupChoice tem ch = do
     Nothing -> return Nothing
     Just ChoiceData{..} -> do
       let updFunc (self :: Expr) (this :: Expr) (args :: Expr) =
-            let subst = createExprSubst [(_cdSelf,self),(_cdThis,this),(_cdArgs,args)]
-            in substituteTm subst _cdUpds
+            let subst = foldMap (uncurry exprSubst) [(_cdSelf,self),(_cdThis,this),(_cdArgs,args)]
+            in map (applySubstInUpd subst) _cdUpds
       return $ Just (updFunc, _cdType)
 
 -- | Lookup a data type definition in the environment.
 lookupDataCon :: (IsPhase ph, MonadEnv m ph)
-  => TypeConName
+  => Qualified TypeConName
   -- ^ The data constructor to lookup.
   -> m DefDataType
 lookupDataCon tc = do
@@ -864,7 +849,7 @@ lookupCid exp = do
 -- TODO: At the moment, this does not work recursively for nested type
 -- constructors. This might be a useful extension later on.
 recTypConFields :: (IsPhase ph, MonadEnv m ph)
-  => TypeConName
+  => Qualified TypeConName
   -- ^ The record type constructor name to lookup.
   -> m (Maybe [(FieldName,Type)])
 recTypConFields tc = lookupDataCon tc >>= \dat -> case dataCons dat of
@@ -877,7 +862,7 @@ recTypFields :: (IsPhase ph, MonadEnv m ph)
   -- ^ The type to lookup.
   -> m (Maybe [(FieldName,Type)])
 recTypFields (TCon tc) = do
-  recTypConFields $ qualObject tc
+  recTypConFields tc
 recTypFields (TStruct fs) = return $ Just fs
 recTypFields (TApp (TBuiltin BTContractId) t) = recTypFields t
 recTypFields _ = return Nothing
@@ -915,40 +900,40 @@ recExpFields (EStructProj f e) = do
     Nothing -> return Nothing
 recExpFields _ = return Nothing
 
-instance SubstTm BoolExpr where
-  substituteTm s (BExpr e) = BExpr (substituteTm s e)
-  substituteTm s (BAnd e1 e2) = BAnd (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BNot e) = BNot (substituteTm s e)
-  substituteTm s (BEq e1 e2) = BEq (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BGt e1 e2) = BGt (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BGtE e1 e2) = BGtE (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BLt e1 e2) = BLt (substituteTm s e1) (substituteTm s e2)
-  substituteTm s (BLtE e1 e2) = BLtE (substituteTm s e1) (substituteTm s e2)
+applySubstInBoolExpr :: Subst -> BoolExpr -> BoolExpr
+applySubstInBoolExpr subst = \case
+    BExpr e -> BExpr (applySubstInExpr subst e)
+    BAnd e1 e2 -> BAnd (applySubstInBoolExpr subst e1) (applySubstInBoolExpr subst e2)
+    BNot e -> BNot (applySubstInBoolExpr subst e)
+    BEq e1 e2 -> BEq (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BGt e1 e2 -> BGt (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BGtE e1 e2 -> BGtE (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BLt e1 e2 -> BLt (applySubstInExpr subst e1) (applySubstInExpr subst e2)
+    BLtE e1 e2 -> BLtE (applySubstInExpr subst e1) (applySubstInExpr subst e2)
 
-instance SubstTm a => SubstTm (Cond a) where
-  substituteTm s (Determined x) = Determined $ substituteTm s x
-  substituteTm s (Conditional e x y) =
-    Conditional (substituteTm s e) (map (substituteTm s) x) (map (substituteTm s) y)
+applySubstInCond :: (Subst -> a -> a) -> Subst -> Cond a -> Cond a
+applySubstInCond f subst = \case
+    Determined a -> Determined (f subst a)
+    Conditional c xs ys ->
+        Conditional
+            (applySubstInBoolExpr subst c)
+            (map (applySubstInCond f subst) xs)
+            (map (applySubstInCond f subst) ys)
 
-instance SubstTm a => SubstTm (Rec a) where
-  substituteTm s = \case
-    Simple x -> Simple (substituteTm s x)
-    Rec xs -> Rec (map (substituteTm s) xs)
-    MutRec xs -> MutRec (map (second (substituteTm s)) xs)
+applySubstInUpd :: IsPhase ph => Subst -> Upd ph -> Upd ph
+applySubstInUpd subst =
+    mapBaseUpd (baseUpd . fmap (map (applySubstInCond applySubstInBaseUpd subst)))
 
-instance IsPhase ph => SubstTm (Upd ph) where
-  substituteTm s = mapBaseUpd (baseUpd . substituteTm s)
-
-instance SubstTm BaseUpd where
-  substituteTm s UpdCreate{..} = UpdCreate _creTemp
-    (map (second (substituteTm s)) _creField)
-  substituteTm s UpdArchive{..} = UpdArchive _arcTemp
-    (map (second (substituteTm s)) _arcField)
+applySubstInBaseUpd :: Subst -> BaseUpd -> BaseUpd
+applySubstInBaseUpd subst UpdCreate{..} =
+    UpdCreate _creTemp (map (second $ applySubstInExpr subst) _creField)
+applySubstInBaseUpd subst UpdArchive{..} =
+    UpdArchive _arcTemp (map (second $ applySubstInExpr subst) _arcField)
 
 -- | Data type representing an error.
 data Error
   = UnknownValue (Qualified ExprValName)
-  | UnknownDataCons TypeConName
+  | UnknownDataCons (Qualified TypeConName)
   | UnknownChoice ChoiceName
   | UnboundVar ExprVarName
   | UnknownRecField FieldName
