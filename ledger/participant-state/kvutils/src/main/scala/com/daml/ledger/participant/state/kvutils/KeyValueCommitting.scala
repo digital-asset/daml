@@ -105,7 +105,6 @@ class KeyValueCommitting private[daml] (
     try {
       val (logEntry, outputState) = processPayload(
         engine,
-        entryId,
         Some(recordTime),
         defaultConfig,
         submission,
@@ -131,7 +130,6 @@ class KeyValueCommitting private[daml] (
 
   private def processPayload(
       engine: Engine,
-      entryId: DamlLogEntryId,
       recordTime: Option[Timestamp],
       defaultConfig: Configuration,
       submission: DamlSubmission,
@@ -141,7 +139,6 @@ class KeyValueCommitting private[daml] (
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics).run(
-          entryId,
           recordTime,
           submission.getPackageUploadEntry,
           participantId,
@@ -150,7 +147,6 @@ class KeyValueCommitting private[daml] (
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).run(
-          entryId,
           recordTime,
           submission.getPartyAllocationEntry,
           participantId,
@@ -161,7 +157,6 @@ class KeyValueCommitting private[daml] (
         val maximumRecordTime = parseTimestamp(
           submission.getConfigurationSubmission.getMaximumRecordTime)
         new ConfigCommitter(defaultConfig, maximumRecordTime, metrics).run(
-          entryId,
           recordTime,
           submission.getConfigurationSubmission,
           participantId,
@@ -171,7 +166,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .run(
-            entryId,
             recordTime,
             submission.getTransactionEntry,
             participantId,
