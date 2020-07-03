@@ -109,7 +109,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
             .build
         override def getRecordTime: Option[Time.Timestamp] = None
         override def getParticipantId: ParticipantId = participantId
-        override def inputsWithFingerprints: DamlStateMap = inputState
+        override def inputsWithFingerprints: DamlStateMapWithFingerprints = inputState
       }
       val logEntry = runSteps(ctx, submission)
       PreexecutionResult(
