@@ -53,6 +53,8 @@ object TimeModel {
       maxSkew = Duration.ofSeconds(30L),
     ).get
 
+  val resolution: Duration = Duration.ofNanos(1000L)
+
   def apply(avgTransactionLatency: Duration, minSkew: Duration, maxSkew: Duration): Try[TimeModel] =
     Try {
       require(!avgTransactionLatency.isNegative, "Negative average transaction latency")

@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.DamlTransactionEntrySummary
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
@@ -173,7 +173,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           contextWithTimeModelAndCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndCommandDeduplication.minimumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(3))
+          Instant.ofEpochSecond(3).plus(TimeModel.resolution))
       }
 
       "compute and correctly set the maximum ledger time with deduplicateUntil" in {

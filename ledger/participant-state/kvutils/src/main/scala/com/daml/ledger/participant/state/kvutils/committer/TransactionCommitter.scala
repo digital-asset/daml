@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
@@ -637,9 +637,11 @@ private[kvutils] object TransactionCommitter {
       maxSkew: Duration,
       submissionTime: Instant): Instant =
     List(
-      maybeDeduplicateUntil,
+      maybeDeduplicateUntil
+        .map(_.plus(TimeModel.resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
       Some(ledgerTime.minus(maxSkew)),
-      Some(submissionTime.minus(maxSkew))).flatten.max
+      Some(submissionTime.minus(maxSkew))
+    ).flatten.max
 
   private def transactionMaximumRecordTime(ledgerTime: Instant, minSkew: Duration): Instant =
     ledgerTime.plus(minSkew)
