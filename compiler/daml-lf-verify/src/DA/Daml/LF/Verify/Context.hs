@@ -633,7 +633,7 @@ extRecEnvTCons = mapM_ step
     step :: (IsPhase ph, MonadEnv m ph) => (FieldName, Type) -> m ()
     step (f,typ) = do
       mbFields <- recTypFields typ
-      whenJust mbFields $ \fsRec -> 
+      whenJust mbFields $ \fsRec ->
         extRecEnv (fieldName2VarName f) $ map fst fsRec
 
 -- | Extend the environment with a new skolem variable.
@@ -898,6 +898,7 @@ recExpFields (EStructProj f e) = do
       Just e' -> recExpFields e'
       Nothing -> throwError $ UnknownRecField f
     Nothing -> return Nothing
+recExpFields (ELocation _ e) = recExpFields e
 recExpFields _ = return Nothing
 
 applySubstInBoolExpr :: Subst -> BoolExpr -> BoolExpr
