@@ -112,7 +112,7 @@ class KeyValueCommitting private[daml] (
         inputState,
       )
       Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
-      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, entryId, submission)
+      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, submission)
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
@@ -179,7 +179,7 @@ class KeyValueCommitting private[daml] (
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
     * the processing of the submission.
     */
-  def submissionOutputs(entryId: DamlLogEntryId, submission: DamlSubmission): Set[DamlStateKey] = {
+  def submissionOutputs(submission: DamlSubmission): Set[DamlStateKey] = {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val packageEntry = submission.getPackageUploadEntry
@@ -199,7 +199,7 @@ class KeyValueCommitting private[daml] (
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val transactionEntry = submission.getTransactionEntry
-        transactionOutputs(transactionEntry, entryId) + commandDedupKey(
+        transactionOutputs(transactionEntry) + commandDedupKey(
           transactionEntry.getSubmitterInfo,
         )
 
@@ -216,8 +216,7 @@ class KeyValueCommitting private[daml] (
   }
 
   private def transactionOutputs(
-      transactionEntry: DamlTransactionEntry,
-      entryId: DamlLogEntryId,
+      transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val transaction = transactionEntry.getTransaction
     val transactionVersion = TransactionCoder
@@ -237,7 +236,6 @@ class KeyValueCommitting private[daml] (
           Conversions
             .contractIdStructOrStringToStateKey(
               transactionVersion,
-              entryId,
               create.getContractId,
               create.getContractIdStruct,
             ) :: contractKeyStateKeyOrEmpty
@@ -253,7 +251,6 @@ class KeyValueCommitting private[daml] (
           Conversions
             .contractIdStructOrStringToStateKey(
               transactionVersion,
-              entryId,
               exe.getContractId,
               exe.getContractIdStruct,
             ) :: contractKeyStateKeyOrEmpty
@@ -264,7 +261,6 @@ class KeyValueCommitting private[daml] (
             Conversions
               .contractIdStructOrStringToStateKey(
                 transactionVersion,
-                entryId,
                 node.getFetch.getContractId,
                 node.getFetch.getContractIdStruct,
               ),
@@ -303,10 +299,9 @@ class KeyValueCommitting private[daml] (
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
       actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
       submission: DamlSubmission,
   ): Unit = {
-    val expectedStateUpdates = submissionOutputs(entryId, submission)
+    val expectedStateUpdates = submissionOutputs(submission)
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
