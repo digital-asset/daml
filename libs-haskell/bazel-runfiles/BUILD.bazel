@@ -10,6 +10,7 @@ da_haskell_library(
         "base",
         "directory",
         "filepath",
+        "safe-exceptions",
         "split",
         "transformers",
     ],
