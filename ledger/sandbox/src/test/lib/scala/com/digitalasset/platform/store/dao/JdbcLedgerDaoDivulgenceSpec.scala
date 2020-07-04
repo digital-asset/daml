@@ -101,7 +101,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
-        )
+        ),
+        parent = rootExercise,
       )
       builder.add(
         NodeCreate(
