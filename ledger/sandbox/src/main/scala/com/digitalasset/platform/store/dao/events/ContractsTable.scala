@@ -123,35 +123,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       divulgedContracts: Iterable[DivulgedContract],
   ): RawBatches = {
 
-    /** Add divulged contracts.
-      * - If a divulged contracts is also created in the same transaction, the divulged contract will
-      *   be replaced by the regular contract through [[AccumulatingBatches.insert]].
-      * - If a divulged contract was created or divulged before, the existing contract will not be replaced by the
-      *   new divulged contract because the SQL query uses 'ON CONFLICT DO NOTHING'.
-      * - It can never happen that [[divulgedContracts]] contains archived contracts, even if the archive event is
-      *   not visible to this participant.
-      * - It can never happen that [[divulgedContracts]] contains contracts for which the create event will
-      *   appear to this participant in a future transaction.
-      * */
-    val divulgedContractsInsertions =
-      divulgedContracts.iterator
-        .map(
-          contract =>
-            contract.contractId -> new RawBatch.Contract(
-              contractId = contract.contractId,
-              templateId = contract.contractInst.template,
-              createArgument = contract.contractInst.arg,
-              createLedgerEffectiveTime = None,
-              stakeholders = Set.empty,
-              key = None,
-          ))
-        .toMap
-
     // Add the locally created contracts, ensuring that _transient_
     // contracts are not inserted in the first place
     val locallyCreatedContracts =
       transaction
-        .fold(AccumulatingBatches(divulgedContractsInsertions, Map.empty, Set.empty)) {
+        .fold(AccumulatingBatches(Map.empty, Map.empty, Set.empty)) {
           case (batches, (_, node: Create)) =>
             batches.insert(
               contractId = node.coid,
@@ -173,7 +149,27 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
             batches // ignore any event which is neither a create nor a consuming exercise
         }
 
-    locallyCreatedContracts.prepare
+    // Divulged contracts are inserted _after_ locally created contracts to make sure they are
+    // not skipped if consumed in this transaction due to the logic that prevents the insertion
+    // of transient contracts (a divulged contract _must_ be inserted, regardless of whether it's
+    // consumed or not).
+    val divulgedContractsInsertions =
+      divulgedContracts.iterator.collect {
+        case contract if !locallyCreatedContracts.insertions.contains(contract.contractId) =>
+          contract.contractId -> new RawBatch.Contract(
+            contractId = contract.contractId,
+            templateId = contract.contractInst.template,
+            createArgument = contract.contractInst.arg,
+            createLedgerEffectiveTime = None,
+            stakeholders = Set.empty,
+            key = None,
+          )
+      }.toMap
+
+    locallyCreatedContracts
+      .copy(insertions = locallyCreatedContracts.insertions ++ divulgedContractsInsertions)
+      .prepare
+
   }
 
   override final def lookupContractKeyGlobally(key: Key)(

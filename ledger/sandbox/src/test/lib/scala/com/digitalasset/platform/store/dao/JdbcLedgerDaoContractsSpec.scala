@@ -78,7 +78,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
-        offsetAndTx = emptyTransaction(alice)
+        offsetAndTx = singleExercise(divulgedContractId)
       )
       (_, tx) <- store(singleCreate)
       contractIds = nonTransient(tx) + divulgedContractId
@@ -97,7 +97,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
-        offsetAndTx = emptyTransaction(alice)
+        offsetAndTx = singleExercise(divulgedContractId)
       )
       result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
