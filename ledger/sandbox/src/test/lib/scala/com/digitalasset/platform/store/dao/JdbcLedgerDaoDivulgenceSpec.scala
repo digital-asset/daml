@@ -162,7 +162,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         )
       )
       _ <- store(
-        divulgedContracts = Map((create1, someVersionedContractInstance) -> Set(alice)),
+        divulgedContracts = Map((create2, someVersionedContractInstance) -> Set(alice)),
         nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
           transactionId = UUID.randomUUID.toString,
