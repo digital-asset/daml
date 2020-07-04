@@ -20,7 +20,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
 
   behavior of "JdbcLedgerDao (divulgence)"
 
-  it should "tolerate redundant divulgence" in {
+  it should "preserve divulged contracts" in {
     val (create1, tx1) = {
       val builder = new TransactionBuilder
       val contractId = builder.newCid
@@ -137,8 +137,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
-          transactionId = appId,
-          applicationId = Some(UUID.randomUUID.toString),
+          transactionId = UUID.randomUUID.toString,
+          applicationId = Some(appId),
           submittingParty = Some(alice),
           workflowId = None,
           ledgerEffectiveTime = t1,
@@ -150,8 +150,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
-          transactionId = appId,
-          applicationId = Some(UUID.randomUUID.toString),
+          transactionId = UUID.randomUUID.toString,
+          applicationId = Some(appId),
           submittingParty = Some(bob),
           workflowId = None,
           ledgerEffectiveTime = t2,
@@ -164,8 +164,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         divulgedContracts = Map((create1, someVersionedContractInstance) -> Set(alice)),
         nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
-          transactionId = appId,
-          applicationId = Some(UUID.randomUUID.toString),
+          transactionId = UUID.randomUUID.toString,
+          applicationId = Some(appId),
           submittingParty = Some(bob),
           workflowId = None,
           ledgerEffectiveTime = t3,

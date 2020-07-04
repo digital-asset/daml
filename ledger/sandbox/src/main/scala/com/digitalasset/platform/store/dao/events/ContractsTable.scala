@@ -44,6 +44,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       else
         copy(deletions = deletions.updated(contractId, deletion))
 
+    def contains(contractId: ContractId): Boolean =
+      insertions.contains(contractId) ||
+        deletions.contains(contractId) ||
+        transientContracts.contains(contractId)
+
     private def prepareRawNonEmpty(
         query: String,
         contractIdToParameters: Map[ContractId, PartialParameters],
@@ -125,7 +130,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
     // Add the locally created contracts, ensuring that _transient_
     // contracts are not inserted in the first place
-    val locallyCreatedContracts =
+    val localContractStageChanges =
       transaction
         .fold(AccumulatingBatches(Map.empty, Map.empty, Set.empty)) {
           case (batches, (_, node: Create)) =>
@@ -151,11 +156,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
     // Divulged contracts are inserted _after_ locally created contracts to make sure they are
     // not skipped if consumed in this transaction due to the logic that prevents the insertion
-    // of transient contracts (a divulged contract _must_ be inserted, regardless of whether it's
-    // consumed or not).
+    // of transient contracts.
+    // We skip contracts that are either added or deleted as part of this transaction.
     val divulgedContractsInsertions =
       divulgedContracts.iterator.collect {
-        case contract if !locallyCreatedContracts.insertions.contains(contract.contractId) =>
+        case contract if !localContractStageChanges.contains(contract.contractId) =>
           contract.contractId -> new RawBatch.Contract(
             contractId = contract.contractId,
             templateId = contract.contractInst.template,
@@ -166,8 +171,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
           )
       }.toMap
 
-    locallyCreatedContracts
-      .copy(insertions = locallyCreatedContracts.insertions ++ divulgedContractsInsertions)
+    localContractStageChanges
+      .copy(insertions = localContractStageChanges.insertions ++ divulgedContractsInsertions)
       .prepare
 
   }
