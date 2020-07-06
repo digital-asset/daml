@@ -3,13 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.FingerprintPlaceholder
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.{Conversions, FingerprintPlaceholder}
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
@@ -22,12 +21,6 @@ import org.scalatest.{Matchers, WordSpec}
 
 class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
-  private val defaultConfigurationStateValueBuilder =
-    DamlStateValue.newBuilder
-      .setConfigurationEntry(
-        DamlConfigurationEntry.newBuilder
-          .setConfiguration(Configuration.encode(theDefaultConfig))
-      )
   private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
     .setSubmitterInfo(
       DamlSubmitterInfo.newBuilder
@@ -40,7 +33,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
   private val instance = createTransactionCommitter() // Stateless, can be shared between tests
   private val dedupKey = Conversions
     .commandDedupKey(aTransactionEntrySummary.submitterInfo)
-  private val configurationStateValue = defaultConfigurationStateValueBuilder.build
+  private val configurationStateValue = defaultConfigurationStateValueBuilder().build
   private val inputWithTimeModelAndEmptyCommandDeduplication =
     Map(
       Conversions.configurationStateKey ->
@@ -163,7 +156,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           contextWithTimeModelAndCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndCommandDeduplication.minimumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(3).plus(TimeModel.resolution))
+          Instant.ofEpochSecond(3).plus(TimeModel.Resolution))
         contextWithTimeModelAndCommandDeduplication.maximumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(31))
       }
@@ -176,7 +169,6 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         recordTimeInstant.minus(theDefaultConfig.timeModel.minSkew).minusMillis(1)
       val upperBound =
         recordTimeInstant.plus(theDefaultConfig.timeModel.maxSkew).plusMillis(1)
-      val configurationStateValue = defaultConfigurationStateValueBuilder.build
       val inputWithDeclaredConfig =
         Map(
           Conversions.configurationStateKey -> (Some(configurationStateValue) -> configurationStateValue.toByteString))
@@ -215,4 +207,11 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   private def createProtobufTimestamp(seconds: Long) =
     Conversions.buildTimestamp(Timestamp.assertFromInstant(Instant.ofEpochSecond(seconds)))
+
+  private def defaultConfigurationStateValueBuilder(): DamlStateValue.Builder =
+    DamlStateValue.newBuilder
+      .setConfigurationEntry(
+        DamlConfigurationEntry.newBuilder
+          .setConfiguration(Configuration.encode(theDefaultConfig))
+      )
 }

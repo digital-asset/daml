@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.v1
 
+import java.time.temporal.ChronoUnit.MICROS
 import java.time.{Duration, Instant}
 
 import scala.util.Try
@@ -59,7 +60,7 @@ object TimeModel {
       maxSkew = Duration.ofSeconds(30L),
     ).get
 
-  val resolution: Duration = Duration.ofNanos(1000L)
+  val Resolution: Duration = Duration.of(1L, MICROS)
 
   def apply(avgTransactionLatency: Duration, minSkew: Duration, maxSkew: Duration): Try[TimeModel] =
     Try {
