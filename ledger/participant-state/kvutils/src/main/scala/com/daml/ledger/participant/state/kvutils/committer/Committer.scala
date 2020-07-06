@@ -5,21 +5,8 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
-  DamlLogEntry,
-  DamlStateKey,
-  DamlStateValue,
-  DamlSubmission
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
-import com.daml.ledger.participant.state.kvutils.{
-  Conversions,
-  DamlStateMap,
-  DamlStateMapWithFingerprints,
-  Err,
-  FingerprintPlaceholder,
-}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
@@ -98,7 +85,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   ): PreexecutionResult = {
     runTimer.time { () =>
       // TODO(miklos): Create context for pre-execution here.
-      // TODO(miklos): Generate entry ID based on submission.
       val commitContext = new CommitContext {
         override def getRecordTime: Option[Time.Timestamp] = None
 

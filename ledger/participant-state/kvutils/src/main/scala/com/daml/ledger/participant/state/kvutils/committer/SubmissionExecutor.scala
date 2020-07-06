@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
-  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
   DamlSubmission
@@ -17,7 +16,6 @@ import com.daml.lf.data.Time
 
 trait SubmissionExecutor {
   def run(
-      entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
       participantId: ParticipantId,
