@@ -272,6 +272,27 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
+  protected def singleNonConsumingExercise(
+      targetCid: ContractId,
+  ): (Offset, LedgerEntry.Transaction) = {
+    val offset = nextOffset()
+    val id = offset.toLong
+    val txId = s"trId$id"
+    val eid = event(txId, id)
+    val let = Instant.now
+    offset -> LedgerEntry.Transaction(
+      Some(s"commandId$id"),
+      txId,
+      Some("appID1"),
+      Some("Alice"),
+      Some("workflowId"),
+      let,
+      let,
+      transaction(eid -> exercise(targetCid).copy(consuming = false)),
+      Map(eid -> Set("Alice", "Bob"))
+    )
+  }
+
   protected def fullyTransient: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
     val absCid = ContractId.assertFromString("#" + UUID.randomUUID().toString)

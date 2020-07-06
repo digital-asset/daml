@@ -580,3 +580,29 @@ template CreateAndFetch
             cid <- create CreateAndFetch with p
             _ <- fetch cid
             return ()
+
+template Proposal
+  with
+    from: Party
+    to: Party
+  where
+    signatory from
+    controller to can
+      ProposalAccept: ContractId Asset
+        with asset: ContractId Asset
+        do
+          fetch asset
+          exercise asset AssetTransfer with newOwner = from
+
+template Asset
+  with
+    issuer: Party
+    owner: Party
+  where
+    signatory issuer
+    key issuer: Party
+    maintainer key
+    controller owner can
+      AssetTransfer: ContractId Asset
+        with newOwner: Party
+        do create this with owner = newOwner
