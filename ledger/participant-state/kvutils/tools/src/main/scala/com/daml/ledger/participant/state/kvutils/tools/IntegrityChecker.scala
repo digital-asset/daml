@@ -45,7 +45,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       new ConflictDetection(metrics),
       metrics,
       engine,
-      NoopLedgerDataExporter
+      NoopLedgerDataExporter,
     )
     val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
     processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
@@ -82,9 +82,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           )
           actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
           sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-          _ = if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
-            sys.exit(1)
-          }
+          _ = compareWriteSets(expectedWriteSet, sortedActualWriteSet)
           n <- go()
         } yield n + 1
       }
@@ -96,28 +94,36 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     }
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
       Print.green("OK")
-      true
     } else {
       Print.red("FAIL")
-      if (expectedWriteSet.size == actualWriteSet.size) {
-        for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
-            actualWriteSet)) {
-          if (expectedKey == actualKey && expectedValue != actualValue) {
-            Print.red(
-              s"expected value: ${bytesAsHexString(expectedValue)} vs. actual value: ${bytesAsHexString(actualValue)}")
-            Print.red(explainDifference(expectedKey, expectedValue, actualValue))
-          } else if (expectedKey != actualKey) {
-            Print.red(
-              s"expected key: ${bytesAsHexString(expectedKey)} vs. actual key: ${bytesAsHexString(actualKey)}")
-          }
+      val message =
+        if (expectedWriteSet.size == actualWriteSet.size) {
+          expectedWriteSet
+            .zip(actualWriteSet)
+            .flatMap {
+              case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
+                if (expectedKey == actualKey && expectedValue != actualValue) {
+                  Seq(
+                    s"expected value:    ${bytesAsHexString(expectedValue)}",
+                    s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                    explainDifference(expectedKey, expectedValue, actualValue),
+                  )
+                } else if (expectedKey != actualKey) {
+                  Seq(
+                    s"expected key:    ${bytesAsHexString(expectedKey)}",
+                    s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                  )
+                } else
+                  Seq.empty
+            }
+            .mkString(System.lineSeparator())
+        } else {
+          s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}"
         }
-      } else {
-        Print.red(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
-      }
-      false
+      throw new ComparisonFailureException(message)
     }
   }
 
@@ -129,8 +135,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         val stateKey =
           commitStrategySupport.stateKeySerializationStrategy().deserializeStateKey(key)
         val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
-        s"State key: $stateKey${System.lineSeparator()}" +
-          s"Expected: $expectedStateValue${System.lineSeparator()}Actual: $actualStateValue"
+        s"""|State key: $stateKey
+            |Expected: $expectedStateValue
+            |Actual: $actualStateValue""".stripMargin
       }
       .getOrElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
@@ -155,4 +162,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 object IntegrityChecker {
   def bytesAsHexString(bytes: ByteString): String =
     bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+
+  class CheckFailedException(message: String) extends RuntimeException(message)
+
+  class ComparisonFailureException(message: String) extends CheckFailedException(message)
+
 }
