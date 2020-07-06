@@ -66,11 +66,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       commitStrategy: CommitStrategy[LogResult],
       queryableWriteSet: QueryableWriteSet,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    def go(counter: Int): Future[Unit] =
+    def go(): Future[Int] =
       if (input.available() == 0) {
-        Print.white(s"Processed $counter submissions.")
-        println()
-        Future.unit
+        Future.successful(0)
       } else {
         val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
         for {
@@ -87,11 +85,15 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           _ = if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
             sys.exit(1)
           }
-          _ <- go(counter + 1)
-        } yield ()
+          n <- go()
+        } yield n + 1
       }
 
-    go(counter = 0)
+    go().map { counter =>
+      Print.white(s"Processed $counter submissions.")
+      println()
+      ()
+    }
   }
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
