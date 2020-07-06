@@ -10,12 +10,12 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.{
   SubmissionInfo,
   WriteSet
 }
 import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -28,32 +28,40 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService}
 import scala.io.AnsiColor
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
   import IntegrityChecker._
 
-  private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(
-    Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
-  private implicit val actorSystem: ActorSystem = ActorSystem("integrity-checker")
-  private implicit val materializer: Materializer = Materializer(actorSystem)
-
   def run(input: DataInputStream): Unit = {
-    val engine = new Engine(Engine.DevConfig)
-    val metricRegistry = new MetricRegistry
-    val metrics = new Metrics(metricRegistry)
-    val submissionValidator = BatchedSubmissionValidator[LogResult](
-      BatchedSubmissionValidatorParameters.default,
-      new KeyValueCommitting(engine, metrics),
-      new ConflictDetection(metrics),
-      metrics,
-      engine,
-      NoopLedgerDataExporter
-    )
-    val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
-    processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
-    reportDetailedMetrics(metricRegistry)
+    implicit val executionContext: ExecutionContextExecutorService =
+      ExecutionContext.fromExecutorService(
+        Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
+
+    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
+    implicit val materializer: Materializer = Materializer(actorSystem)
+
+    try {
+      val engine = new Engine(Engine.DevConfig)
+      val metricRegistry = new MetricRegistry
+      val metrics = new Metrics(metricRegistry)
+      val submissionValidator = BatchedSubmissionValidator[LogResult](
+        BatchedSubmissionValidatorParameters.default,
+        new KeyValueCommitting(engine, metrics),
+        new ConflictDetection(metrics),
+        metrics,
+        engine,
+        NoopLedgerDataExporter
+      )
+      val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
+      processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
+      reportDetailedMetrics(metricRegistry)
+    } finally {
+      materializer.shutdown()
+      actorSystem.terminate()
+      executionContext.shutdown()
+    }
   }
 
   private def processSubmissions(
@@ -61,7 +69,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       submissionValidator: BatchedSubmissionValidator[LogResult],
       reader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[LogResult],
-      queryableWriteSet: QueryableWriteSet): Unit = {
+      queryableWriteSet: QueryableWriteSet,
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Unit = {
     var counter = 0
     while (input.available() > 0) {
       val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
