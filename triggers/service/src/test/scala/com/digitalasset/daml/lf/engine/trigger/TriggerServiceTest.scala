@@ -40,6 +40,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   // Abstract member for testing with and without a database
   def jdbcConfig: Option[JdbcConfig]
 
+  // Default retry config for `eventually`
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
 
@@ -193,7 +194,12 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   def assertTriggerStatus(
       uri: Uri,
       triggerInstance: UUID,
-      pred: Vector[String] => Boolean): Future[Assertion] = {
+      pred: Vector[String] => Boolean,
+      timeoutSeconds: Long = 15): Future[Assertion] = {
+    implicit val patienceConfig: PatienceConfig =
+      PatienceConfig(
+        timeout = scaled(Span(timeoutSeconds, Seconds)),
+        interval = scaled(Span(1, Seconds)))
     eventually {
       val actualTriggerStatus = Await.result(for {
         resp <- triggerStatus(uri, triggerInstance)
@@ -525,7 +531,7 @@ class TriggerServiceTestWithDb
         aliceTrigger = triggerIds.head
         // Currently the logs aren't persisted so we can check that the trigger was restarted by
         // inspecting the new log.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+        _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running", 30)
 
         // Finally go ahead and stop the trigger.
         resp <- stopTrigger(uri, aliceTrigger, alice)
