@@ -4,18 +4,18 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.DataInputStream
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.participant.state.kvutils.export.FileBasedLedgerDataExporter.{
   SubmissionInfo,
   WriteSet
 }
 import com.daml.ledger.participant.state.kvutils.export.{NoopLedgerDataExporter, Serialization}
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -27,41 +27,37 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.AnsiColor
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
   import IntegrityChecker._
 
-  def run(input: DataInputStream): Unit = {
-    implicit val executionContext: ExecutionContextExecutorService =
-      ExecutionContext.fromExecutorService(
-        Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
-
+  def run(input: DataInputStream)(implicit executionContext: ExecutionContext): Future[Unit] = {
     val actorSystem: ActorSystem = ActorSystem("integrity-checker")
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    try {
-      val engine = new Engine(Engine.DevConfig)
-      val metricRegistry = new MetricRegistry
-      val metrics = new Metrics(metricRegistry)
-      val submissionValidator = BatchedSubmissionValidator[LogResult](
-        BatchedSubmissionValidatorParameters.default,
-        new KeyValueCommitting(engine, metrics),
-        new ConflictDetection(metrics),
-        metrics,
-        engine,
-        NoopLedgerDataExporter
-      )
-      val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
-      processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
-      reportDetailedMetrics(metricRegistry)
-    } finally {
-      materializer.shutdown()
-      actorSystem.terminate()
-      executionContext.shutdown()
-    }
+    val engine = new Engine(Engine.DevConfig)
+    val metricRegistry = new MetricRegistry
+    val metrics = new Metrics(metricRegistry)
+    val submissionValidator = BatchedSubmissionValidator[LogResult](
+      BatchedSubmissionValidatorParameters.default,
+      new KeyValueCommitting(engine, metrics),
+      new ConflictDetection(metrics),
+      metrics,
+      engine,
+      NoopLedgerDataExporter
+    )
+    val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
+    processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
+      .map { _ =>
+        reportDetailedMetrics(metricRegistry)
+      }
+      .andThen {
+        case _ =>
+          materializer.shutdown()
+          actorSystem.terminate()
+      }
   }
 
   private def processSubmissions(
@@ -70,28 +66,33 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       reader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[LogResult],
       queryableWriteSet: QueryableWriteSet,
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Unit = {
-    var counter = 0
-    while (input.available() > 0) {
-      val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
-      val validationFuture = submissionValidator.validateAndCommit(
-        submissionInfo.submissionEnvelope,
-        submissionInfo.correlationId,
-        submissionInfo.recordTimeInstant,
-        submissionInfo.participantId,
-        reader,
-        commitStrategy
-      )
-      Await.ready(validationFuture, 1.minute)
-      counter += 1
-      val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-      val sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-      if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
-        println(AnsiColor.WHITE)
-        sys.exit(1)
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+    def go(counter: Int): Future[Unit] =
+      if (input.available() == 0) {
+        println(s"Processed $counter submissions")
+        Future.unit
+      } else {
+        val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
+        for {
+          _ <- submissionValidator.validateAndCommit(
+            submissionInfo.submissionEnvelope,
+            submissionInfo.correlationId,
+            submissionInfo.recordTimeInstant,
+            submissionInfo.participantId,
+            reader,
+            commitStrategy,
+          )
+          actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
+          sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+          _ = if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
+            println(AnsiColor.WHITE)
+            sys.exit(1)
+          }
+          _ <- go(counter + 1)
+        } yield ()
       }
-    }
-    println(s"Processed $counter submissions")
+
+    go(counter = 0)
   }
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {

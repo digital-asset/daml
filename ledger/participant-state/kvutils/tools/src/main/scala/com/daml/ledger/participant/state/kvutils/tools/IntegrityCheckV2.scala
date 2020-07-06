@@ -4,8 +4,12 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.{DataInputStream, FileInputStream}
+import java.util.concurrent.{Executors, TimeUnit}
 
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 object IntegrityCheckV2 {
   def main(args: Array[String]): Unit = {
@@ -18,9 +22,22 @@ object IntegrityCheckV2 {
 
     val filename = args(0)
     println(s"Verifying integrity of $filename...")
-    val ledgerDumpStream =
-      new DataInputStream(new FileInputStream(filename))
-    new IntegrityChecker(LogAppendingCommitStrategySupport).run(ledgerDumpStream)
-    sys.exit(0)
+
+    val executionContext: ExecutionContextExecutorService =
+      ExecutionContext.fromExecutorService(
+        Executors.newFixedThreadPool(sys.runtime.availableProcessors()))
+    val ledgerDumpStream = new DataInputStream(new FileInputStream(filename))
+    new IntegrityChecker(LogAppendingCommitStrategySupport)
+      .run(ledgerDumpStream)(executionContext)
+      .andThen {
+        case _ =>
+          executionContext.shutdown()
+          executionContext.awaitTermination(1, TimeUnit.MINUTES)
+      }(DirectExecutionContext)
+      .failed
+      .foreach { exception =>
+        exception.printStackTrace()
+        sys.exit(1)
+      }(DirectExecutionContext)
   }
 }
