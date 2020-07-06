@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -179,12 +179,12 @@ private[kvutils] class TransactionCommitter(
               transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
               maybeDeduplicateUntil,
-              timeModel.maxSkew))
+              timeModel))
           commitContext.maximumRecordTime = Some(
             transactionMaxRecordTime(
               transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
-              timeModel.minSkew))
+              timeModel))
           StepContinue(transactionEntry)
       }
     }
@@ -636,19 +636,21 @@ private[kvutils] object TransactionCommitter {
       submissionTime: Instant,
       ledgerTime: Instant,
       maybeDeduplicateUntil: Option[Instant],
-      maxSkew: Duration): Instant =
+      timeModel: TimeModel): Instant =
     List(
       maybeDeduplicateUntil
         .map(_.plus(TimeModel.resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
-      Some(TimeModel.minRecordTime(ledgerTime, maxSkew)),
-      Some(submissionTime.minus(maxSkew))
+      Some(timeModel.minRecordTimeFromLedgerTime(ledgerTime)),
+      Some(timeModel.minRecordTimeFromLedgerTime(submissionTime))
     ).flatten.max
 
   private def transactionMaxRecordTime(
       submissionTime: Instant,
       ledgerTime: Instant,
-      minSkew: Duration): Instant =
-    List(TimeModel.maxRecordTime(ledgerTime, minSkew), submissionTime.plus(minSkew)).min
+      timeModel: TimeModel): Instant =
+    List(
+      timeModel.maxRecordTimeFromLedgerTime(ledgerTime),
+      timeModel.maxRecordTimeFromLedgerTime(submissionTime)).min
 
   private def getLedgerDeduplicateUntil(
       transactionEntry: DamlTransactionEntrySummary,
