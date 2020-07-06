@@ -170,15 +170,11 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     } yield triggerIds
   }
 
-  def assertTriggerIds(uri: Uri, party: User, pred: Vector[UUID] => Boolean): Future[Assertion] = {
-    eventually {
-      val actualTriggerIds = Await.result(for {
-        resp <- listTriggers(uri, party)
-        result <- parseTriggerIds(resp)
-      } yield result, Duration.Inf)
-      assert(pred(actualTriggerIds))
-    }
-  }
+  def assertTriggerIds(uri: Uri, party: User, expected: Vector[UUID]): Future[Assertion] =
+    for {
+      resp <- listTriggers(uri, party)
+      result <- parseTriggerIds(resp)
+    } yield assert(result == expected)
 
   def parseTriggerStatus(resp: HttpResponse): Future[Vector[String]] = {
     for {
@@ -248,7 +244,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         _ <- mainPackageId should not be empty
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, _ == Vector(triggerId))
+        _ <- assertTriggerIds(uri, alice, Vector(triggerId))
         resp <- stopTrigger(uri, triggerId, alice)
         stoppedTriggerId <- parseTriggerId(resp)
         _ <- stoppedTriggerId should equal(triggerId)
@@ -264,26 +260,26 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
         // Start trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", bob)
         bobTrigger1 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, bob, _ == Vector(bobTrigger1))
+        _ <- assertTriggerIds(uri, bob, Vector(bobTrigger1))
         // Start another trigger for Bob.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", bob)
         bobTrigger2 <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, bob, _ == Vector(bobTrigger1, bobTrigger2).sorted)
+        _ <- assertTriggerIds(uri, bob, Vector(bobTrigger1, bobTrigger2).sorted)
         // Stop Alice's trigger.
         resp <- stopTrigger(uri, aliceTrigger, alice)
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
-        _ <- assertTriggerIds(uri, bob, _ == Vector(bobTrigger1, bobTrigger2).sorted)
+        _ <- assertTriggerIds(uri, alice, Vector())
+        _ <- assertTriggerIds(uri, bob, Vector(bobTrigger1, bobTrigger2).sorted)
         // Stop Bob's triggers.
         resp <- stopTrigger(uri, bobTrigger1, bob)
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, bobTrigger2, bob)
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, bob, _.isEmpty)
+        _ <- assertTriggerIds(uri, bob, Vector())
       } yield succeed
   }
 
@@ -336,7 +332,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       // The start request should succeed and an entry should be added to the running trigger store,
       // even though the trigger will not be able to start.
       aliceTrigger <- parseTriggerId(resp)
-      _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+      _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Check the log for an initialization failure.
       _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: initialization failure"))
       // Finally establish the connection and check that the trigger eventually starts.
@@ -353,7 +349,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       // Request a trigger be started for Alice.
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
       aliceTrigger <- parseTriggerId(resp)
-      _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+      _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Proceed when it's confirmed to be running.
       _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
       // Simulate brief network connectivity loss and observe the trigger fail.
@@ -370,7 +366,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
         // We will attempt to restart the trigger indefinitely.
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
@@ -388,7 +384,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
       for {
         resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, _ == Vector(aliceTrigger))
+        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
         // We will attempt to restart the trigger indefinitely.
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
@@ -505,7 +501,7 @@ class TriggerServiceTestWithDb
         // start trigger defined in previously uploaded dar
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, _ == Vector(triggerId))
+        _ <- assertTriggerIds(uri, alice, Vector(triggerId))
       } yield succeed
     }
   } yield succeed)
@@ -517,7 +513,7 @@ class TriggerServiceTestWithDb
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         triggerId <- parseTriggerId(resp)
         // The new trigger should be in the running trigger store and eventually running.
-        _ <- assertTriggerIds(uri, alice, _ == Vector(triggerId))
+        _ <- assertTriggerIds(uri, alice, Vector(triggerId))
         _ <- assertTriggerStatus(uri, triggerId, _.last == "running")
       } yield succeed
     }
@@ -535,7 +531,7 @@ class TriggerServiceTestWithDb
 
         // Finally go ahead and stop the trigger.
         resp <- stopTrigger(uri, aliceTrigger, alice)
-        _ <- assertTriggerIds(uri, alice, _.isEmpty)
+        _ <- assertTriggerIds(uri, alice, Vector())
         _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "stopped: by user request")
       } yield succeed
     }
