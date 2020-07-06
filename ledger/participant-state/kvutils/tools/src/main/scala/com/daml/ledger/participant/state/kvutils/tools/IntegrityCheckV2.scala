@@ -31,6 +31,7 @@ object IntegrityCheckV2 {
       .run(ledgerDumpStream)(executionContext)
       .andThen {
         case _ =>
+          ledgerDumpStream.close()
           executionContext.shutdown()
           executionContext.awaitTermination(1, TimeUnit.MINUTES)
       }(DirectExecutionContext)
