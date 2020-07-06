@@ -4,17 +4,12 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.{
-  DamlKvutils,
-  DamlStateMapWithFingerprints,
-  TestHelpers
-}
+import com.daml.ledger.participant.state.kvutils.{DamlStateMapWithFingerprints, TestHelpers}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
 import org.scalatest.{Matchers, WordSpec}
@@ -110,8 +105,6 @@ class CommitContextSpec extends WordSpec with Matchers {
 
   private class TestCommitContext(override val inputsWithFingerprints: DamlStateMapWithFingerprints)
       extends CommitContext {
-    override def getEntryId: DamlKvutils.DamlLogEntryId = DamlLogEntryId.getDefaultInstance
-
     override def getRecordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now())
 
     override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)

@@ -399,7 +399,6 @@ private[kvutils] class TransactionCommitter(
           .setContractState(
             cs.toBuilder
               .setArchivedAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
-              .setArchivedByEntry(commitContext.getEntryId)
           )
           .build
       )
