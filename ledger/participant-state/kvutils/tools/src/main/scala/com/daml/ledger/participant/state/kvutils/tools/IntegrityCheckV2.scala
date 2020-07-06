@@ -37,7 +37,7 @@ object IntegrityCheckV2 {
       .failed
       .foreach {
         case exception: IntegrityChecker.CheckFailedException =>
-          Print.red(exception.getMessage)
+          println(exception.getMessage.red)
           sys.exit(1)
         case exception =>
           exception.printStackTrace()

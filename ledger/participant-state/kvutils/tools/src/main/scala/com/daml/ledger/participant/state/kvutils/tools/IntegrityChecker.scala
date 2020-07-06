@@ -88,17 +88,16 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       }
 
     go().map { counter =>
-      Print.white(s"Processed $counter submissions.")
+      println(s"Processed $counter submissions.".white)
       println()
-      ()
     }
   }
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
-      Print.green("OK")
+      println("OK".green)
     } else {
-      Print.red("FAIL")
+      println("FAIL".red)
       val message =
         if (expectedWriteSet.size == actualWriteSet.size) {
           expectedWriteSet
