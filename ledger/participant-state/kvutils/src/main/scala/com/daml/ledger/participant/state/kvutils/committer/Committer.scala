@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
-  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
 }
@@ -69,7 +68,6 @@ private[committer] trait Committer[Submission, PartialResult] {
   /** A committer can `run` a submission and produce a log entry and output states. */
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
-      entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],
       submission: Submission,
       participantId: ParticipantId,
@@ -77,7 +75,6 @@ private[committer] trait Committer[Submission, PartialResult] {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val ctx = new CommitContext {
-        override def getEntryId: DamlLogEntryId = entryId
         override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
         override def inputsWithFingerprints: DamlStateMapWithFingerprints =
