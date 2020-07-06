@@ -27,7 +27,7 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService}
 import scala.io.AnsiColor
 
@@ -82,7 +82,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         reader,
         commitStrategy
       )
-      Await.ready(validationFuture, Duration(10, TimeUnit.SECONDS))
+      Await.ready(validationFuture, 1.minute)
       counter += 1
       val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
       val sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
