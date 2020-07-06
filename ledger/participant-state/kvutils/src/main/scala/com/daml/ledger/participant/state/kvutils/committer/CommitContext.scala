@@ -3,11 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{
   DamlStateMap,
   DamlStateMapWithFingerprints,
@@ -40,7 +36,6 @@ private[kvutils] trait CommitContext {
   private val accessedInputKeysAndFingerprints: mutable.Set[(DamlStateKey, Fingerprint)] =
     mutable.Set.empty[(DamlStateKey, Fingerprint)]
 
-  def getEntryId: DamlLogEntryId
   def getRecordTime: Option[Timestamp]
   def getParticipantId: ParticipantId
 

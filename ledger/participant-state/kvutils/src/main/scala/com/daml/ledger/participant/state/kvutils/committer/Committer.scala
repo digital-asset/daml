@@ -3,14 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.util.UUID
-
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
-  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
   DamlSubmission
@@ -24,11 +21,11 @@ import com.daml.ledger.participant.state.kvutils.{
   FingerprintPlaceholder,
 }
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
+import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
@@ -74,7 +71,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   /** A committer can `run` a submission and produce a log entry and output states. */
   def run(
-      entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
       participantId: ParticipantId,
@@ -82,8 +78,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val ctx = new CommitContext {
-        override def getEntryId: DamlLogEntryId = entryId
-
         override def getRecordTime: Option[Time.Timestamp] = recordTime
 
         override def getParticipantId: ParticipantId = participantId
@@ -106,11 +100,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       // TODO(miklos): Create context for pre-execution here.
       // TODO(miklos): Generate entry ID based on submission.
       val commitContext = new CommitContext {
-        override def getEntryId: DamlLogEntryId =
-          DamlLogEntryId.newBuilder
-            .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
-            .build
-
         override def getRecordTime: Option[Time.Timestamp] = None
 
         override def getParticipantId: ParticipantId = participantId

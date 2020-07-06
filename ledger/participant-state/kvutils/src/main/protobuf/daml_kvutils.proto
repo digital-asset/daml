@@ -406,8 +406,7 @@ message DamlContractState {
   // Optional, if set the contract has been archived.
   google.protobuf.Timestamp archived_at = 2;
 
-  // Optional. The log entry that caused the contract to be archived.
-  DamlLogEntryId archived_by_entry = 3;
+  reserved 3; // was archived_by_entry
 
   // The parties to which this contract has been explicitly disclosed, that is,
   // the parties which witnessed the creation of the contract.

@@ -17,7 +17,6 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
@@ -43,7 +42,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
       instance.submitTransaction(
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
-        anEmptyTransaction,
+        TransactionBuilder.EmptySubmitted,
         anInterpretationCost)
 
       verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
@@ -95,9 +94,6 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 object KeyValueParticipantStateWriterSpec {
 
   private val aParty = Ref.Party.assertFromString("aParty")
-
-  private val anEmptyTransaction: Tx.SubmittedTransaction =
-    Tx.SubmittedTransaction(TransactionBuilder.Empty)
 
   private val aSubmissionId: SubmissionId =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)

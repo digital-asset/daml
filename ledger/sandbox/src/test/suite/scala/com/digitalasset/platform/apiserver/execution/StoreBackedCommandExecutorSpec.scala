@@ -19,8 +19,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar with Matchers {
-  private val emptyTransaction =
-    Transaction.SubmittedTransaction(TransactionBuilder.Empty)
+
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
     submissionTime = Time.Timestamp.now(),
@@ -35,7 +34,7 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
       when(mockEngine.submit(any[com.daml.lf.command.Commands], any[ParticipantId], any[Hash]))
         .thenReturn(
           ResultDone[(Transaction.SubmittedTransaction, Transaction.Metadata)](
-            (emptyTransaction, emptyTransactionMetadata)
+            (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
           )
         )
       val instance = new StoreBackedCommandExecutor(

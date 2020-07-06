@@ -15,6 +15,7 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoConfigurationSpec
     with JdbcLedgerDaoContractsSpec
+    with JdbcLedgerDaoDivulgenceSpec
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
