@@ -640,17 +640,15 @@ private[kvutils] object TransactionCommitter {
     List(
       maybeDeduplicateUntil
         .map(_.plus(TimeModel.resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
-      Some(timeModel.minRecordTimeFromLedgerTime(ledgerTime)),
-      Some(timeModel.minRecordTimeFromLedgerTime(submissionTime))
+      Some(timeModel.minRecordTime(ledgerTime)),
+      Some(timeModel.minRecordTime(submissionTime))
     ).flatten.max
 
   private def transactionMaxRecordTime(
       submissionTime: Instant,
       ledgerTime: Instant,
       timeModel: TimeModel): Instant =
-    List(
-      timeModel.maxRecordTimeFromLedgerTime(ledgerTime),
-      timeModel.maxRecordTimeFromLedgerTime(submissionTime)).min
+    List(timeModel.maxRecordTime(ledgerTime), timeModel.maxRecordTime(submissionTime)).min
 
   private def getLedgerDeduplicateUntil(
       transactionEntry: DamlTransactionEntrySummary,

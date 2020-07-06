@@ -31,25 +31,19 @@ case class TimeModel private (
       ledgerTime: Instant,
       recordTime: Instant
   ): Either[String, Unit] = {
-    val lowerBound = minLedgerTime(recordTime)
-    val upperBound = maxLedgerTime(recordTime)
-    if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
-      Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
+    val lowerBound = minRecordTime(ledgerTime)
+    val upperBound = maxRecordTime(ledgerTime)
+    if (recordTime.isBefore(lowerBound) || recordTime.isAfter(upperBound))
+      Left(s"Record time $ledgerTime outside of range [$lowerBound, $upperBound]")
     else
       Right(())
   }
 
-  private[state] def minRecordTimeFromLedgerTime(ledgerTime: Instant): Instant =
-    ledgerTime.minus(maxSkew)
+  private[state] def minRecordTime(ledgerTime: Instant): Instant =
+    ledgerTime.minus(minSkew)
 
-  private[state] def maxRecordTimeFromLedgerTime(ledgerTime: Instant): Instant =
-    ledgerTime.plus(minSkew)
-
-  private def minLedgerTime(recordTime: Instant): Instant =
-    recordTime.minus(minSkew)
-
-  private def maxLedgerTime(recordTime: Instant): Instant =
-    recordTime.plus(maxSkew)
+  private[state] def maxRecordTime(ledgerTime: Instant): Instant =
+    ledgerTime.plus(maxSkew)
 }
 
 object TimeModel {
