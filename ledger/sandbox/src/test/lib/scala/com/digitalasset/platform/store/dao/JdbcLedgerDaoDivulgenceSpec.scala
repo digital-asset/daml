@@ -9,7 +9,6 @@ import java.util.UUID
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
 import com.daml.lf.value.ValueVersion
 import com.daml.platform.store.entries.LedgerEntry
@@ -34,7 +33,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = None
         )
       )
-      contractId -> Tx.CommittedTransaction(builder.build())
+      contractId -> builder.buildCommitted()
     }
     val (create2, tx2) = {
       val builder = new TransactionBuilder
@@ -51,7 +50,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           )
         )
       )
-      contractId -> Tx.CommittedTransaction(builder.build())
+      contractId -> builder.buildCommitted()
     }
     val tx3 = {
       val builder = new TransactionBuilder
@@ -117,7 +116,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         ),
         parent = nestedExercise,
       )
-      Tx.CommittedTransaction(builder.build())
+      builder.buildCommitted()
     }
 
     val someVersionedContractInstance =

@@ -65,8 +65,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
-      val emptyTransaction: Transaction = TransactionBuilder.Empty
-      project(emptyTransaction) shouldBe List.empty
+      project(TransactionBuilder.Empty) shouldBe List.empty
     }
 
     "yield two projection roots for single root transaction with two parties" in {
