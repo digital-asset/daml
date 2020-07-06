@@ -204,7 +204,6 @@ private[state] object Conversions {
 
   def contractIdStructOrStringToStateKey[A](
       transactionVersion: TransactionVersion,
-      entryId: DamlLogEntryId,
       coidString: String,
       coidStruct: ValueOuterClass.ContractId,
   ): DamlStateKey =

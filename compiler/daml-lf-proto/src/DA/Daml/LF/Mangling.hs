@@ -113,7 +113,7 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
             | otherwise = MangledSize 1 (word16s + 6)
 
 -- | Newtype to make it explicit when we have already unmangled a string.
-newtype UnmangledIdentifier = UnmangledIdentifier T.Text
+newtype UnmangledIdentifier = UnmangledIdentifier { getUnmangledIdentifier :: T.Text }
 
 unmangleIdentifier :: T.Text -> Either String UnmangledIdentifier
 unmangleIdentifier txt = mapLeft (\err -> "Could not unmangle name " ++ show txt ++ ": " ++ err) $ coerce $ do

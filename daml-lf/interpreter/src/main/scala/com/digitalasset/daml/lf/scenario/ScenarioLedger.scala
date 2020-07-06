@@ -80,7 +80,7 @@ object ScenarioLedger {
       transactionId: LedgerString,
       transaction: Tx.CommittedTransaction,
       explicitDisclosure: Relation[Tx.NodeId, Party],
-      globalImplicitDisclosure: Relation[ContractId, Party],
+      implicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
   )
 
@@ -105,7 +105,7 @@ object ScenarioLedger {
         transactionId = transactionId,
         transaction = enrichedTx.tx,
         explicitDisclosure = enrichedTx.explicitDisclosure,
-        globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
+        implicitDisclosure = enrichedTx.implicitDisclosure,
         failedAuthorizations = enrichedTx.failedAuthorizations,
       )
 
@@ -528,7 +528,7 @@ object ScenarioLedger {
             cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
               _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap))
         }
-      richTr.globalImplicitDisclosure.foldLeft(cacheWithExplicitDisclosures) {
+      richTr.implicitDisclosure.foldLeft(cacheWithExplicitDisclosures) {
         case (cacheP, (coid, divulgees)) =>
           cacheP.updateLedgerNodeInfo(cacheAfterProcess.coidToNodeId(coid))(
             _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap))

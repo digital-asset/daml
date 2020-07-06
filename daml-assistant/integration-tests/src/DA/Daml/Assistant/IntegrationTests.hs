@@ -33,7 +33,7 @@ import qualified Web.JWT as JWT
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
+import DA.Daml.Helper.Util (waitForHttpServer,waitForConnectionOnPort)
 import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)

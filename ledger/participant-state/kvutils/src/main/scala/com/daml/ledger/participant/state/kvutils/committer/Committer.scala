@@ -8,12 +8,11 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
-  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
+import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
@@ -65,7 +64,6 @@ private[committer] trait Committer[Submission, PartialResult] {
   /** A committer can `run` a submission and produce a log entry and output states. */
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
-      entryId: DamlLogEntryId,
       recordTime: Option[Time.Timestamp],
       submission: Submission,
       participantId: ParticipantId,
@@ -73,10 +71,12 @@ private[committer] trait Committer[Submission, PartialResult] {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val ctx = new CommitContext {
-        override def getEntryId: DamlLogEntryId = entryId
         override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
-        override def inputs: DamlStateMap = inputState
+        override def inputsWithFingerprints: DamlStateMapWithFingerprints =
+          inputState.map {
+            case (key, value) => (key, (value, FingerprintPlaceholder))
+          }
       }
       var cstate = init(ctx, submission)
       for ((info, step) <- steps) {
@@ -97,7 +97,7 @@ object Committer {
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
       logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
     inputState
       .getOrElse(

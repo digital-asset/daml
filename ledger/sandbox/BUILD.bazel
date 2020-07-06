@@ -175,8 +175,8 @@ genrule(
         cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
-        tar c sandbox \
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c sandbox \\
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n > $$out
     """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],

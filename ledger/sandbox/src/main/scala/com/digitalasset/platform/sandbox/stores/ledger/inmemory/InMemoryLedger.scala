@@ -310,7 +310,7 @@ class InMemoryLedger(
       .fold(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
-          val (committedTransaction, disclosureForIndex, globalDivulgence) =
+          val (committedTransaction, disclosureForIndex, divulgence) =
             Ledger
               .convertToCommittedTransaction(
                 transactionCommitter,
@@ -324,7 +324,7 @@ class InMemoryLedger(
             Some(submitterInfo.submitter),
             committedTransaction,
             disclosureForIndex,
-            globalDivulgence,
+            divulgence,
             List.empty
           )
           acsRes match {

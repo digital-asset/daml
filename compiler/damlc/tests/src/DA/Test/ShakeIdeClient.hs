@@ -258,12 +258,15 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
                 , "  alice <- getParty \"Alice\""
                 , "  t' <- submit alice (create (T' alice))"
                 , "  submit alice (exercise t' Archive)"
+                , "  pure (T1 0)"
+                , "data NestedT = T1 { t1 : Int } | T2 { t2 : Int }"
                 ]
             setFilesOfInterest [a]
             expectNoErrors
             let va = VRScenario a "mangled'"
             setOpenVirtualResources [va]
             expectVirtualResource va "title=\"MangledScenario':T'\""
+            expectVirtualResource va "MangledScenario&#39;:NestedT:T1"
 
 
     ,   testCaseFails' "Modules must match their filename DEL-7175" $ do
@@ -1228,8 +1231,8 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             , "<tr"
             , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
             , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
-            , "<td", "tooltip", ">-</div></td>"
-            , "<td", "tooltip", ">-</div></td>"
+            , "<td", "tooltip", ">-<", "</td>"
+            , "<td", "tooltip", ">-<", "</td>"
             , "</tr"
             , "<tr"
             , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
