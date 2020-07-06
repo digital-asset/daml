@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.platform.store.dao.events.TransactionBuilder
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
@@ -276,12 +275,10 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected def singleNonConsumingExercise(
       targetCid: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = new TransactionBuilder
-    val nid = txBuilder.add(exercise(targetCid).copy(consuming = false))
-    val tx = txBuilder.build()
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
+    val eid = event(txId, id)
     val let = Instant.now
     offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
@@ -291,8 +288,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      tx,
-      Map(nid -> Set("Alice", "Bob"))
+      transaction(eid -> exercise(targetCid).copy(consuming = false)),
+      Map(eid -> Set("Alice", "Bob"))
     )
   }
 

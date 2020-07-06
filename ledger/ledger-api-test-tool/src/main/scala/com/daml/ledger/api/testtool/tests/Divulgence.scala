@@ -6,8 +6,8 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.test_stable.Test.Divulgence2._
-import com.daml.ledger.test.model.Test.Proposal._
-import com.daml.ledger.test.model.Test.{Asset, Divulgence1, Divulgence2, Proposal}
+import com.daml.ledger.test_stable.Test.Proposal._
+import com.daml.ledger.test_stable.Test.{Asset, Divulgence1, Divulgence2, Proposal}
 import scalaz.Tag
 
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
@@ -214,7 +214,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
     "DivulgenceKeys",
     "Divulgence should behave as expected in a workflow involving keys",
     allocate(SingleParty, SingleParty)
-  )(implicit ec => {
+  ) {
     case Participants(Participant(alpha, proposer), Participant(beta, owner)) =>
       for {
         offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
@@ -223,5 +223,5 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       } yield {
         // nothing to test, if the workflow ends successfully the test is considered successful
       }
-  })
+  }
 }

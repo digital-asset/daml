@@ -6,128 +6,142 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.ledger.EventId
+import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
-import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
-import com.daml.lf.value.ValueVersion
+import com.daml.lf.value.Value.{ContractId, ValueParty, ValueRecord, VersionedValue}
 import com.daml.lf.value.ValueVersions
-import com.daml.platform.store.dao.events.TransactionBuilder
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers}
 
+import scala.collection.immutable.HashMap
+
 private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+
+  private final val someVersionedCreateArg = VersionedValue(
+    ValueVersions.acceptedVersions.head,
+    ValueRecord(
+      Some(someRecordId),
+      ImmArray(Some(Ref.Name.assertFromString("field")) -> someValueText)))
 
   behavior of "JdbcLedgerDao (divulgence)"
 
   it should "preserve divulged contracts" in {
     val (create1, tx1) = {
-      val builder = new TransactionBuilder
-      val contractId = toCid("cid1")
-      builder.add(
-        NodeCreate(
-          coid = contractId,
-          coinst = someContractInstance,
-          optLocation = None,
-          signatories = Set(alice),
-          stakeholders = Set(alice),
-          key = None
-        )
+      val nid = EventId.assertFromString("#0:0")
+      val cid = ContractId.assertFromString("#contract1")
+      val tx: GenTransaction.WithTxValue[EventId, ContractId] = GenTransaction(
+        nodes = HashMap(
+          nid ->
+            NodeCreate(
+              coid = cid,
+              coinst = someContractInstance,
+              optLocation = None,
+              signatories = Set(alice),
+              stakeholders = Set(alice),
+              key = None
+            )
+        ),
+        roots = ImmArray(nid),
       )
-      contractId -> builder.build()
+      cid -> tx
     }
     val (create2, tx2) = {
-      val builder = new TransactionBuilder
-      val contractId = toCid("cid2")
-      builder.add(
-        NodeCreate(
-          coid = contractId,
-          coinst = someContractInstance,
-          optLocation = None,
-          signatories = Set(bob),
-          stakeholders = Set(bob),
-          key = Some(
-            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
-          )
-        )
-      )
-      contractId -> builder.build()
-    }
-    val tx3 = {
-      val builder = new TransactionBuilder
-      val rootExercise = builder.add(
-        NodeExercises(
-          targetCoid = create1,
-          templateId = someTemplateId,
-          choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
-          optLocation = None,
-          consuming = true,
-          actingParties = Set(bob),
-          chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, someValueRecord),
-          stakeholders = Set(alice, bob),
-          signatories = Set(alice),
-          children = ImmArray.empty,
-          exerciseResult = None,
-          key = None,
-        )
-      )
-      builder.add(
-        NodeFetch(
-          coid = create2,
-          templateId = someTemplateId,
-          optLocation = None,
-          actingParties = Some(Set(bob)),
-          signatories = Set(bob),
-          stakeholders = Set(bob),
-          key = Some(
-            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
-          ),
-        ),
-        parent = rootExercise,
-      )
-      val nestedExercise = builder.add(
-        NodeExercises(
-          targetCoid = create2,
-          templateId = someTemplateId,
-          choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
-          optLocation = None,
-          consuming = true,
-          actingParties = Set(bob),
-          chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, someValueRecord),
-          stakeholders = Set(bob),
-          signatories = Set(bob),
-          children = ImmArray.empty,
-          exerciseResult = None,
-          key = Some(
-            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
-          ),
-        ),
-        parent = rootExercise,
-      )
-      builder.add(
-        NodeCreate(
-          coid = toCid("cid3"),
-          coinst = someContractInstance,
-          optLocation = None,
-          signatories = Set(bob),
-          stakeholders = Set(alice, bob),
-          key = Some(
-            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
+      val nid = EventId.assertFromString("#1:0")
+      val cid = ContractId.assertFromString("#contract2")
+      val tx: GenTransaction.WithTxValue[EventId, ContractId] = GenTransaction(
+        nodes = HashMap(
+          nid -> NodeCreate[ContractId, VersionedValue[ContractId]](
+            coid = cid,
+            coinst = someContractInstance,
+            optLocation = None,
+            signatories = Set(bob),
+            stakeholders = Set(bob),
+            key = Some(
+              KeyWithMaintainers(
+                VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
+                Set(bob))
+            )
           )
         ),
-        parent = nestedExercise,
+        roots = ImmArray(nid)
       )
-      builder.build()
+      cid -> tx
     }
-
-    val someVersionedContractInstance =
-      ContractInst(
-        template = someContractInstance.template,
-        agreementText = someContractInstance.agreementText,
-        arg = someContractInstance.arg
+    val tx3: GenTransaction.WithTxValue[EventId, ContractId] = {
+      val nidRootExercise = EventId.assertFromString("#2:0")
+      val nidFetch = EventId.assertFromString("#2:1")
+      val nidNestedExercise = EventId.assertFromString("#2:2")
+      val nidCreate = EventId.assertFromString("#2:3")
+      val cid = ContractId.assertFromString("#contract3")
+      GenTransaction(
+        nodes = HashMap(
+          nidRootExercise ->
+            NodeExercises[EventId, ContractId, VersionedValue[ContractId]](
+              targetCoid = create1,
+              templateId = someTemplateId,
+              choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
+              optLocation = None,
+              consuming = true,
+              actingParties = Set(bob),
+              chosenValue = someVersionedCreateArg,
+              stakeholders = Set(alice, bob),
+              signatories = Set(alice),
+              children = ImmArray(nidFetch, nidNestedExercise),
+              exerciseResult = None,
+              key = None,
+            ),
+          nidFetch ->
+            NodeFetch[ContractId, VersionedValue[ContractId]](
+              coid = create2,
+              templateId = someTemplateId,
+              optLocation = None,
+              actingParties = Some(Set(bob)),
+              signatories = Set(bob),
+              stakeholders = Set(bob),
+              key = Some(
+                KeyWithMaintainers(
+                  VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
+                  Set(bob))
+              ),
+            ),
+          nidNestedExercise ->
+            NodeExercises[EventId, ContractId, VersionedValue[ContractId]](
+              targetCoid = create2,
+              templateId = someTemplateId,
+              choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
+              optLocation = None,
+              consuming = true,
+              actingParties = Set(bob),
+              chosenValue = someVersionedCreateArg,
+              stakeholders = Set(bob),
+              signatories = Set(bob),
+              children = ImmArray(nidCreate),
+              exerciseResult = None,
+              key = Some(
+                KeyWithMaintainers(
+                  VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
+                  Set(bob))),
+            ),
+          nidCreate ->
+            NodeCreate[ContractId, VersionedValue[ContractId]](
+              coid = cid,
+              coinst = someContractInstance,
+              optLocation = None,
+              signatories = Set(bob),
+              stakeholders = Set(alice, bob),
+              key = Some(
+                KeyWithMaintainers(
+                  VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
+                  Set(bob))
+              )
+            ),
+        ),
+        roots = ImmArray(nidRootExercise),
       )
+    }
 
     val t1 = Instant.now()
     val t2 = t1.plusMillis(1)
@@ -161,7 +175,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         )
       )
       _ <- store(
-        divulgedContracts = Map((create2, someVersionedContractInstance) -> Set(alice)),
+        divulgedContracts = Map((create2, someContractInstance) -> Set(alice)),
         nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
           transactionId = UUID.randomUUID.toString,
@@ -179,6 +193,4 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     }
   }
 
-  private def toCid(s: String): ContractId.V1 =
-    ContractId.V1(crypto.Hash.hashPrivateKey(s))
 }
