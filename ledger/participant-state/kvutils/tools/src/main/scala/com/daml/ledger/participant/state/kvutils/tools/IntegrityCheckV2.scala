@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.{DataInputStream, FileInputStream}
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
@@ -33,12 +33,15 @@ object IntegrityCheckV2 {
         case _ =>
           ledgerDumpStream.close()
           executionContext.shutdown()
-          executionContext.awaitTermination(1, TimeUnit.MINUTES)
       }(DirectExecutionContext)
       .failed
-      .foreach { exception =>
-        exception.printStackTrace()
-        sys.exit(1)
+      .foreach {
+        case exception: IntegrityChecker.CheckFailedException =>
+          println(exception.getMessage.red)
+          sys.exit(1)
+        case exception =>
+          exception.printStackTrace()
+          sys.exit(1)
       }(DirectExecutionContext)
   }
 }
