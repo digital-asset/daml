@@ -233,25 +233,25 @@ genrule(
         ln -s ../external/npm/node_modules .
 
         # Run sass and grunt
-        ../$(location @sass_nix//:bin/sass) \
-            -I bower_components_static/bourbon/dist \
-            -I bower_components_static/neat/app/assets/stylesheets \
-            -I bower_components_static/font-awesome/scss \
-            -I bower_components_static/wyrm/sass \
-            --style compressed \
-            --sourcemap=none \
-            --update \
+        ../$(location @sass_nix//:bin/sass) \\
+            -I bower_components_static/bourbon/dist \\
+            -I bower_components_static/neat/app/assets/stylesheets \\
+            -I bower_components_static/font-awesome/scss \\
+            -I bower_components_static/wyrm/sass \\
+            --style compressed \\
+            --sourcemap=none \\
+            --update \\
             sass:da_theme/static/css
         ../$(location :grunt) build
 
-        tar c da_theme \
-            --owner=1000 \
-            --group=1000 \
-            --mtime=2000-01-01\ 00:00Z \
-            --no-acls \
-            --no-xattrs \
-            --no-selinux \
-            --sort=name \
+        tar c da_theme \\
+            --owner=1000 \\
+            --group=1000 \\
+            --mtime=2000-01-01\\ 00:00Z \\
+            --no-acls \\
+            --no-xattrs \\
+            --no-selinux \\
+            --sort=name \\
             | gzip -n > ../$(location da_theme.tar.gz)
     """,
     tools = [
@@ -276,8 +276,8 @@ genrule(
 
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
-        tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \
-            --strip-components 1 \
+        tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
+            --strip-components 1 \\
             -C source/daml/stdlib
 
         # Copy in daml-trigger documentation
@@ -293,8 +293,8 @@ genrule(
         cp -L $(location //:LICENSE) source/LICENSE
         cp -L $(location //:NOTICES) source/NOTICES
 
-        tar c source \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c source \\
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
             | gzip -n > $(location source.tar.gz)
     """,
 )
@@ -421,7 +421,7 @@ genrule(
         # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
-        WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
+        WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \\
             grep -Pi "(?<!future)warning:" || true)
 
         if [ "$$WARNINGS" != "" ]; then
@@ -445,7 +445,7 @@ genrule(
         # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
         # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
         # pointing to itself.
-        sed -i -e 's,^.*\(Comprehensive documentation\|<h2>Documentation</h2>\|0.0.0-SDKVERSION\).*$$,,' html/app-dev/bindings-ts/*/index.html
+        sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' html/app-dev/bindings-ts/*/index.html
 
         # Get the daml cheat sheet
         mkdir -p html/cheat-sheet
@@ -455,8 +455,8 @@ genrule(
         mkdir -p html/hoogle_db
         cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
 
-        tar c html \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c html \\
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
             | gzip -n > ../$(location html-only.tar.gz)
         """.format(sdk = sdk_version),
     tools = [
@@ -484,8 +484,8 @@ genrule(
                 sed -i -e "s,__URL__,$${to}," redirects/$$from
             fi
         done <docs/redirects.map
-        tar c redirects \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c redirects \\
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
             | gzip -n > $(location redirects.tar.gz)
     """,
 )
@@ -507,9 +507,9 @@ genrule(
         cp -L docs/error.html html
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
-        SMHEAD=\"{head}\"
-        SMITEM=\"{item}\"
-        SMFOOT=\"{foot}\"
+        SMHEAD="{head}"
+        SMITEM="{item}"
+        SMFOOT="{foot}"
         echo $$SMHEAD > sitemap.xml
         while read item; do
             echo $$SMITEM | sed -e "s,%DATE%,$${{VERSION_DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
@@ -521,8 +521,8 @@ genrule(
         cp -L $(location :pdf-docs) html/_downloads
         # Remove Sphinx build products
         rm -rf .buildinfo .doctrees objects.inv
-        tar c html \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c html \\
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
             | gzip -n > $(location html.tar.gz)
     """.format(
         head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
@@ -556,8 +556,8 @@ genrule(
         mkdir -p quickstart-java
         cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* quickstart-java/
         sed -i "s/__VERSION__/{mvn}/" quickstart-java/pom.xml
-        tar c quickstart-java \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c quickstart-java \\
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
             | gzip -n > $@
     """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],

@@ -36,8 +36,8 @@ rules_haskell_version = "a4bf003b7d913c116e966f1834e8c493f44eaf53"
 rules_haskell_sha256 = "7cf407198590be786cba49b0a12a4e77274ab81866295e2acebf27e9f29d8a63"
 rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
 rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
-buildifier_version = "0.26.0"
-buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
+buildifier_version = "3.3.0"
+buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
 zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"
 zlib_sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45"
 rules_nodejs_version = "1.6.0"
@@ -141,6 +141,7 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
                 "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
+                "@com_github_digital_asset_daml//bazel_tools:scala-fix-jopt-simple-version.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -320,14 +321,14 @@ genrule(
   cmd = '''
     DIR=$$(dirname $(execpath _config.yml))
     $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
-    tar hc _site \
-        --owner=1000 \
-        --group=1000 \
-        --mtime=2000-01-01\ 00:00Z \
-        --no-acls \
-        --no-xattrs \
-        --no-selinux \
-        --sort=name \
+    tar hc _site \\
+        --owner=1000 \\
+        --group=1000 \\
+        --mtime=2000-01-01\\ 00:00Z \\
+        --no-acls \\
+        --no-xattrs \\
+        --no-selinux \\
+        --sort=name \\
         | gzip -n > $(OUTS)
   ''',
 )
