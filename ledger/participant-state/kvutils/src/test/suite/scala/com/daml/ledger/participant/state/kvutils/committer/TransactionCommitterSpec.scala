@@ -148,34 +148,22 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         }
       }
 
-      "compute and correctly set the minimum ledger time without deduplicateUntil" in {
+      "compute and correctly set the min/max ledger time without deduplicateUntil" in {
         instance.validateLedgerTime(
           contextWithTimeModelAndEmptyCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndEmptyCommandDeduplication.minimumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(-28))
-      }
-
-      "compute and correctly set the maximum ledger time without deduplicateUntil" in {
-        instance.validateLedgerTime(
-          contextWithTimeModelAndEmptyCommandDeduplication,
-          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndEmptyCommandDeduplication.maximumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(31))
       }
 
-      "compute and correctly set the minimum ledger time with deduplicateUntil" in {
+      "compute and correctly set the min/max ledger time with deduplicateUntil" in {
         instance.validateLedgerTime(
           contextWithTimeModelAndCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndCommandDeduplication.minimumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(3).plus(TimeModel.resolution))
-      }
-
-      "compute and correctly set the maximum ledger time with deduplicateUntil" in {
-        instance.validateLedgerTime(
-          contextWithTimeModelAndCommandDeduplication,
-          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndCommandDeduplication.maximumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(31))
       }
@@ -226,6 +214,5 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       .build
 
   private def createProtobufTimestamp(seconds: Long) =
-    Conversions.buildTimestamp(
-      Timestamp.assertFromInstant(Instant.EPOCH.plus(Duration.ofSeconds(seconds))))
+    Conversions.buildTimestamp(Timestamp.assertFromInstant(Instant.ofEpochSecond(seconds)))
 }
