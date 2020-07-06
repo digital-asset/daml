@@ -180,7 +180,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         key = None,
       )
     )
-    val fetchEventId = txBuilder.add(
+    txBuilder.add(
       NodeFetch(
         coid = id,
         templateId = someTemplateId,
@@ -196,8 +196,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"just-divulged-${id.coid}"),
       transactionId = s"trId${id.coid}",
-      Some("appID1"),
-      Some(divulgees.head),
+      applicationId = Some("appID1"),
+      submittingParty = Some(divulgees.head),
       workflowId = None,
       ledgerEffectiveTime = Instant.now,
       recordedAt = Instant.now,

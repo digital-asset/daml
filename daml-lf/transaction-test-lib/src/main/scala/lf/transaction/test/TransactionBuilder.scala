@@ -27,7 +27,6 @@ final class TransactionBuilder {
   private var nodes = HashMap.newBuilder[NodeId, TxNode]
   private val roots = ImmArray.newBuilder[NodeId]
 
-  // not thread safe
   private[this] def newNode(node: Node): NodeId = {
     lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
     nodes += (nodeId -> version(node))
@@ -59,6 +58,7 @@ final class TransactionBuilder {
   }
 
   def buildSubmitted(): Tx.SubmittedTransaction = Tx.SubmittedTransaction(build())
+
   def buildCommitted(): Tx.CommittedTransaction = Tx.CommittedTransaction(build())
 
   def newCid: ContractId = ContractId.V1(newHash())
