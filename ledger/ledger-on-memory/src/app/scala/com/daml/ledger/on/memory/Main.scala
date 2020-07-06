@@ -81,7 +81,7 @@ object Main {
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
       LedgerConfiguration.defaultLocalLedger
 
-    override val defaultExtraConfig: ExtraConfig = ExtraConfig.default
+    override val defaultExtraConfig: ExtraConfig = ExtraConfig.reasonableDefault
 
     override final def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
       parser
