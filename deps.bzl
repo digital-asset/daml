@@ -141,6 +141,7 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
                 "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
+                "@com_github_digital_asset_daml//bazel_tools:scala-fix-jopt-simple-version.patch",
             ],
             patch_args = ["-p1"],
         )
