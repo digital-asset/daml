@@ -40,7 +40,7 @@ class BatchedSubmissionValidatorSpec
 
     "return validation failure for invalid envelope" in {
       val validator = BatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.default,
+        BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
         metrics)
 
@@ -61,7 +61,7 @@ class BatchedSubmissionValidatorSpec
 
     "return validation failure for invalid message type in envelope" in {
       val validator = BatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.default,
+        BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
         metrics)
       val notASubmission = Envelope.enclose(DamlStateValue.getDefaultInstance)
@@ -83,7 +83,7 @@ class BatchedSubmissionValidatorSpec
 
     "return validation failure for invalid envelope in batch" in {
       val validator = BatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.default,
+        BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
         metrics)
       val batchSubmission = DamlSubmissionBatch.newBuilder
@@ -127,7 +127,7 @@ class BatchedSubmissionValidatorSpec
           outputStateCaptor.capture()))
         .thenReturn(Future.unit)
       val validator = BatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.default,
+        BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
         metrics)
 
@@ -182,7 +182,8 @@ class BatchedSubmissionValidatorSpec
           any[Map[DamlStateKey, DamlStateValue]]
         ))
         .thenReturn(Future.unit)
-      val validatorConfig = BatchedSubmissionValidatorParameters.default.copy(commitParallelism = 1)
+      val validatorConfig =
+        BatchedSubmissionValidatorParameters.reasonableDefault.copy(commitParallelism = 1)
       val validator = BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics)
 
       validator
@@ -236,7 +237,7 @@ class BatchedSubmissionValidatorSpec
         ))
         .thenReturn(Future.unit)
       val validator = BatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.default,
+        BatchedSubmissionValidatorParameters.reasonableDefault,
         engine,
         metrics)
 
@@ -283,7 +284,7 @@ class BatchedSubmissionValidatorSpec
         .thenReturn(Future.unit)
       val validator =
         BatchedSubmissionValidator[Unit](
-          BatchedSubmissionValidatorParameters.default,
+          BatchedSubmissionValidatorParameters.reasonableDefault,
           engine,
           metrics)
 
@@ -337,7 +338,8 @@ class BatchedSubmissionValidatorSpec
         outputStateCaptor.capture()))
       .thenReturn(Future.unit)
     val validatorConfig =
-      BatchedSubmissionValidatorParameters.default.copy(commitParallelism = commitParallelism)
+      BatchedSubmissionValidatorParameters.reasonableDefault.copy(
+        commitParallelism = commitParallelism)
     val validator = BatchedSubmissionValidator[Unit](validatorConfig, engine, metrics)
 
     validator
