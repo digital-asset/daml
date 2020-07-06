@@ -36,6 +36,8 @@ object Offset {
 
   val beforeBegin: Offset = Offset.fromByteArray(Array.empty[Byte])
 
+  val begin: Offset = Offset.fromByteArray(Array(0: Byte))
+
   def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
 
   def fromInputStream(is: InputStream) = new Offset(Bytes.fromInputStream(is))
