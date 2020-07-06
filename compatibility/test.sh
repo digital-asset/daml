@@ -50,9 +50,9 @@ start_postgresql
 bazel build //...
 
 BAZEL_TARGET="//..."
-if [ "${1:-}" = "--quick" ]; then
-    BAZEL_TARGET="//:head-quick"
-fi
+# if [ "${1:-}" = "--quick" ]; then
+#     BAZEL_TARGET="//:head-quick"
+# fi
 
 bazel test $BAZEL_TARGET \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
