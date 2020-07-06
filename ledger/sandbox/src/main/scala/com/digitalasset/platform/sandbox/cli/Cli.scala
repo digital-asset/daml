@@ -256,12 +256,10 @@ object Cli {
       opt[MetricsReporter]("metrics-reporter")
         .optional()
         .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
-        .hidden()
 
       opt[Duration]("metrics-reporting-interval")
         .optional()
         .action((interval, config) => config.copy(metricsReportingInterval = interval))
-        .hidden()
 
       opt[Int]("max-commands-in-flight")
         .optional()

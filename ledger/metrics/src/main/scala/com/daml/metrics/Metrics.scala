@@ -6,7 +6,7 @@ package com.daml.metrics
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
-class Metrics(val registry: MetricRegistry) {
+final class Metrics(val registry: MetricRegistry) {
 
   private def gauge[T](name: MetricName, metricSupplier: MetricSupplier[Gauge[_]]): Gauge[T] = {
     registry.remove(name)
@@ -64,9 +64,6 @@ class Metrics(val registry: MetricRegistry) {
 
         // Timer (and count) of how fast submissions have been processed.
         val runTimer: Timer = registry.timer(Prefix :+ "run_timer")
-
-        // Number of exceptions seen.
-        val exceptions: Counter = registry.counter(Prefix :+ "exceptions")
 
         // Counter to monitor how many at a time and when kvutils is processing a submission.
         val processing: Counter = registry.counter(Prefix :+ "processing")
@@ -424,7 +421,7 @@ class Metrics(val registry: MetricRegistry) {
     object services {
       private val Prefix: MetricName = daml.Prefix :+ "services"
 
-      object indexService {
+      object index {
         private val Prefix: MetricName = services.Prefix :+ "index"
 
         val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")

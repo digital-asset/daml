@@ -40,28 +40,28 @@ import scala.concurrent.Future
 final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
-    Timed.future(metrics.daml.services.indexService.listLfPackages, delegate.listLfPackages())
+    Timed.future(metrics.daml.services.index.listLfPackages, delegate.listLfPackages())
 
   override def getLfArchive(packageId: PackageId): Future[Option[DamlLf.Archive]] =
-    Timed.future(metrics.daml.services.indexService.getLfArchive, delegate.getLfArchive(packageId))
+    Timed.future(metrics.daml.services.index.getLfArchive, delegate.getLfArchive(packageId))
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    Timed.future(metrics.daml.services.indexService.getLfPackage, delegate.getLfPackage(packageId))
+    Timed.future(metrics.daml.services.index.getLfPackage, delegate.getLfPackage(packageId))
 
   override def packageEntries(
       startExclusive: LedgerOffset.Absolute
   ): Source[domain.PackageEntry, NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.packageEntries,
+      metrics.daml.services.index.packageEntries,
       delegate.packageEntries(startExclusive))
 
   override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.getLedgerConfiguration,
+      metrics.daml.services.index.getLedgerConfiguration,
       delegate.getLedgerConfiguration())
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    Timed.future(metrics.daml.services.indexService.currentLedgerEnd, delegate.currentLedgerEnd())
+    Timed.future(metrics.daml.services.index.currentLedgerEnd, delegate.currentLedgerEnd())
 
   override def getCompletions(
       begin: domain.LedgerOffset,
@@ -69,7 +69,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       parties: Set[Party]
   ): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.getCompletions,
+      metrics.daml.services.index.getCompletions,
       delegate.getCompletions(begin, applicationId, parties))
 
   override def transactions(
@@ -79,7 +79,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       verbose: Boolean
   ): Source[GetTransactionsResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.transactions,
+      metrics.daml.services.index.transactions,
       delegate.transactions(begin, endAt, filter, verbose))
 
   override def transactionTrees(
@@ -89,7 +89,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       verbose: Boolean
   ): Source[GetTransactionTreesResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.transactionTrees,
+      metrics.daml.services.index.transactionTrees,
       delegate.transactionTrees(begin, endAt, filter, verbose))
 
   override def getTransactionById(
@@ -97,7 +97,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       requestingParties: Set[Party]
   ): Future[Option[GetFlatTransactionResponse]] =
     Timed.future(
-      metrics.daml.services.indexService.getTransactionById,
+      metrics.daml.services.index.getTransactionById,
       delegate.getTransactionById(transactionId, requestingParties))
 
   override def getTransactionTreeById(
@@ -105,7 +105,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       requestingParties: Set[Party]
   ): Future[Option[GetTransactionResponse]] =
     Timed.future(
-      metrics.daml.services.indexService.getTransactionTreeById,
+      metrics.daml.services.index.getTransactionTreeById,
       delegate.getTransactionTreeById(transactionId, requestingParties))
 
   override def getActiveContracts(
@@ -113,7 +113,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.getActiveContracts,
+      metrics.daml.services.index.getActiveContracts,
       delegate.getActiveContracts(filter, verbose))
 
   override def lookupActiveContract(
@@ -121,7 +121,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       contractId: Value.ContractId
   ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
     Timed.future(
-      metrics.daml.services.indexService.lookupActiveContract,
+      metrics.daml.services.index.lookupActiveContract,
       delegate.lookupActiveContract(submitter, contractId))
 
   override def lookupContractKey(
@@ -129,45 +129,41 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       key: Node.GlobalKey
   ): Future[Option[Value.ContractId]] =
     Timed.future(
-      metrics.daml.services.indexService.lookupContractKey,
+      metrics.daml.services.index.lookupContractKey,
       delegate.lookupContractKey(submitter, key))
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId],
   ): Future[Option[Instant]] =
     Timed.future(
-      metrics.daml.services.indexService.lookupMaximumLedgerTime,
+      metrics.daml.services.index.lookupMaximumLedgerTime,
       delegate.lookupMaximumLedgerTime(ids))
 
   override def getLedgerId(): Future[LedgerId] =
-    Timed.future(metrics.daml.services.indexService.getLedgerId, delegate.getLedgerId())
+    Timed.future(metrics.daml.services.index.getLedgerId, delegate.getLedgerId())
 
   override def getParticipantId(): Future[ParticipantId] =
-    Timed.future(metrics.daml.services.indexService.getParticipantId, delegate.getParticipantId())
+    Timed.future(metrics.daml.services.index.getParticipantId, delegate.getParticipantId())
 
   override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =
-    Timed.future(metrics.daml.services.indexService.getParties, delegate.getParties(parties))
+    Timed.future(metrics.daml.services.index.getParties, delegate.getParties(parties))
 
   override def listKnownParties(): Future[List[domain.PartyDetails]] =
-    Timed.future(metrics.daml.services.indexService.listKnownParties, delegate.listKnownParties())
+    Timed.future(metrics.daml.services.index.listKnownParties, delegate.listKnownParties())
 
   override def partyEntries(
       startExclusive: LedgerOffset.Absolute
   ): Source[domain.PartyEntry, NotUsed] =
-    Timed.source(
-      metrics.daml.services.indexService.partyEntries,
-      delegate.partyEntries(startExclusive))
+    Timed.source(metrics.daml.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
   override def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
-    Timed.future(
-      metrics.daml.services.indexService.lookupConfiguration,
-      delegate.lookupConfiguration())
+    Timed.future(metrics.daml.services.index.lookupConfiguration, delegate.lookupConfiguration())
 
   override def configurationEntries(
       startExclusive: Option[LedgerOffset.Absolute]
   ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
     Timed.source(
-      metrics.daml.services.indexService.configurationEntries,
+      metrics.daml.services.index.configurationEntries,
       delegate.configurationEntries(startExclusive))
 
   override def deduplicateCommand(
@@ -177,7 +173,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       deduplicateUntil: Instant
   ): Future[v2.CommandDeduplicationResult] =
     Timed.future(
-      metrics.daml.services.indexService.deduplicateCommand,
+      metrics.daml.services.index.deduplicateCommand,
       delegate.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
 
   override def stopDeduplicatingCommand(
@@ -185,7 +181,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       submitter: Ref.Party,
   ): Future[Unit] =
     Timed.future(
-      metrics.daml.services.indexService.stopDeduplicateCommand,
+      metrics.daml.services.index.stopDeduplicateCommand,
       delegate.stopDeduplicatingCommand(commandId, submitter))
 
   override def currentHealth(): HealthStatus =

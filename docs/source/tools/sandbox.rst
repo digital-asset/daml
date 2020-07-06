@@ -226,3 +226,141 @@ Command-line reference
 To start Sandbox, run: ``sandbox [options] <archive>...``.
 
 To see all the available options, run ``daml sandbox --help``.
+
+Metrics
+*******
+
+Enable and configure reporting
+==============================
+
+To enable metrics and configure reporting, you can use the two following CLI options:
+
+- ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
+  are ``console``, ``csv:</path/to/metrics.csv>`` and ``graphite:<local_server_port>``.
+  - ``console``: prints captured metrics on the standard output
+  - ``csv:</path/to/metrics.csv>``: saves the captured metrics in CSV format at the specified location
+  - ``graphite:<local_server_port>``: sends captured metrics to a local Graphite server. If the port
+    is omitted, the default value ``2003`` will be used.
+- ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
+  the reporter, this option allows the user to set the interval. The formats accepted are based
+  on the ISO-8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
+  The default interval is 10 seconds.
+
+Types of metrics
+================
+
+This is a list of type of metrics with all data points recorded for each.
+Use this as a reference when reading the list of metrics.
+
+Gauge
+-----
+
+An individual instantaneous measurement.
+
+Counter
+-------
+
+Number of occurrences of some event.
+
+Meter
+-----
+
+A meter tracks the number of times a given event occurred. The following data
+points are kept and reported by any meter.
+
+- ``<metric.qualified.name>.count``: number of registered data points overall
+- ``<metric.qualified.name>.m1_rate``: number of registered data points per minute
+- ``<metric.qualified.name>.m5_rate``: number of registered data points every 5 minutes
+- ``<metric.qualified.name>.m15_rate``: number of registered data points every 15 minutes
+- ``<metric.qualified.name>.mean_rate``: mean number of registered data points
+
+Histogram
+---------
+
+An histogram records aggregated statistics about collections of events.
+The exact meaning of the number depends on the metric (e.g. timers
+are histograms about the time necessary to complete an operation).
+
+- ``<metric.qualified.name>.mean``: arithmetic mean
+- ``<metric.qualified.name>.stddev``: standard deviation
+- ``<metric.qualified.name>.p50``: median
+- ``<metric.qualified.name>.p75``: 75th percentile
+- ``<metric.qualified.name>.p95``: 95th percentile
+- ``<metric.qualified.name>.p98``: 98th percentile
+- ``<metric.qualified.name>.p99``: 99th percentile
+- ``<metric.qualified.name>.p999``: 99.9th percentile
+- ``<metric.qualified.name>.min``: lowest registered value overall
+- ``<metric.qualified.name>.max``: highest registered value overall
+
+Histograms only keep a small *reservoir* of statistically relevant data points
+to ensure that metrics collection can be reasonably accurate without being
+too taxing resource-wise.
+
+Unless mentioned otherwise all histograms (including timers, mentioned below)
+use exponentially decaying reservoirs (i.e. the data is roughly relevant for
+the last five minutes of recording) to ensure that recent and possibly
+operationally relevant changes are visible through the metrics reporter.
+
+Note that ``min`` and ``max`` values are not affected by the reservoir sampling policy.
+
+You can read more about reservoir sampling and possible associated policies
+in the `Dropwizard Metrics library documentation <https://metrics.dropwizard.io/4.1.2/manual/core.html#man-core-histograms/>`__.
+
+Timers
+------
+
+A timer records all metrics registered by a meter and by an histogram, where
+the histogram records the time necessary to execute a given operation (measured
+in milliseconds, unless otherwise specified).
+
+Cache Metrics
+-------------
+
+A "cache metric" is a collection of simpler metrics that keep track of
+relevant numbers about caches kept by the system to avoid re-running
+expensive operations.
+
+The metrics are:
+
+- ``<metric.qualified.name>.size`` (gauge): instant measurement of the number of cached items
+- ``<metric.qualified.name>.weight`` (gauge): instant measurement of the number of the (possibly approximate) size in bytes of cached items
+- ``<metric.qualified.name>.hitCount`` (counter): how many times the cache was successfully accessed to retrieve an item
+- ``<metric.qualified.name>.missCount`` (counter): how many times the cache did not have the required item and had to load it
+- ``<metric.qualified.name>.loadSuccessCount`` (counter): how many times the cache successfully loaded an item so that it could be later served
+- ``<metric.qualified.name>.loadFailureCount`` (counter): how many times the cache failed while trying to load an item
+- ``<metric.qualified.name>.totalLoadTime`` (timer): overall time spent accessing the resource cached by this entity
+- ``<metric.qualified.name>.evictionCount`` (counter): how many items have been evicted overall
+- ``<metric.qualified.name>.evictionWeight`` (counter): (possibly approximate) size in bytes of overall evicted items
+
+Database Metrics
+----------------
+
+A "database metric" is a collection of simpler metrics that keep track of
+relevant numbers when interacting with a persistent relational store.
+
+These metrics are:
+
+- ``<metric.qualified.name>.wait`` (timer): time to acquire a connection to the database
+- ``<metric.qualified.name>.exec`` (timer): time to run the query and read the result
+- ``<metric.qualified.name>.query`` (timer): time to run the query
+- ``<metric.qualified.name>.commit`` (timer): time to perform the commit
+- ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized DAML-LF values into in-memory objects
+
+List of metrics
+===============
+
+How to read this list
+---------------------
+
+This list contains all the metrics recorded by a running sandbox.
+
+Based on your setup, the list of metrics may vary. For simplicity, this list
+is split in three main sections: metrics kept by any sandbox, additional metrics
+when running a persistent sandbox (using the ``--sql-backend-jdbcurl`` CLI
+option) and further additional metrics when running ``daml sandbox`` (as
+opposed to ``daml sandbox-classic``).
+
+TODO List
+---------
+
+TODO
