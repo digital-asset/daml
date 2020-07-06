@@ -107,19 +107,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
                   Set(bob))
               ),
             ),
-          nidCreate ->
-            NodeCreate[ContractId, VersionedValue[ContractId]](
-              coid = cid,
-              coinst = someContractInstance,
-              optLocation = None,
-              signatories = Set(bob),
-              stakeholders = Set(alice, bob),
-              key = Some(
-                KeyWithMaintainers(
-                  VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
-                  Set(bob))
-              )
-            ),
           nidNestedExercise ->
             NodeExercises[EventId, ContractId, VersionedValue[ContractId]](
               targetCoid = create2,
@@ -137,6 +124,19 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
                 KeyWithMaintainers(
                   VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
                   Set(bob))),
+            ),
+          nidCreate ->
+            NodeCreate[ContractId, VersionedValue[ContractId]](
+              coid = cid,
+              coinst = someContractInstance,
+              optLocation = None,
+              signatories = Set(bob),
+              stakeholders = Set(alice, bob),
+              key = Some(
+                KeyWithMaintainers(
+                  VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)),
+                  Set(bob))
+              )
             ),
         ),
         roots = ImmArray(nidRootExercise),
