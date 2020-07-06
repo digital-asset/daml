@@ -722,9 +722,9 @@ load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 
 scala_register_toolchains()
 
-load("//bazel_tools:scala.bzl", "da_jmh_repositories")
+load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
-da_jmh_repositories()
+jmh_repositories()
 
 load("@io_bazel_rules_docker//repositories:repositories.bzl", container_repositories = "repositories")
 

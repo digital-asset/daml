@@ -10,12 +10,7 @@ load(
     "scala_test_suite",
 )
 load(
-    "@io_bazel_rules_scala//scala:scala_maven_import_external.bzl",
-    "scala_maven_import_external",
-)
-load(
     "@io_bazel_rules_scala//jmh:jmh.bzl",
-    "jmh_repositories",
     "scala_benchmark_jmh",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
@@ -577,20 +572,3 @@ def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_
 # just a matter of passing the flag in
 def da_scala_benchmark_jmh(**kwargs):
     _wrap_rule_no_plugins(scala_benchmark_jmh, **kwargs)
-
-# We override the version of JOPT simple.
-# JMH is built against version 4.6, but scala rules import version 5.0.3
-def da_jmh_repositories(maven_servers = ["https://repo.maven.apache.org/maven2"]):
-    jmh_repositories(maven_servers)
-    scala_maven_import_external(
-        name = "io_bazel_rules_scala_net_sf_jopt_simple_jopt_simple",
-        artifact = "net.sf.jopt-simple:jopt-simple:4.6",
-        artifact_sha256 = "3fcfbe3203c2ea521bf7640484fd35d6303186ea2e08e72f032d640ca067ffda",
-        licenses = ["notice"],
-        server_urls = maven_servers,
-    )
-    native.bind(
-        name =
-            "io_bazel_rules_scala/dependency/jmh/net_sf_jopt_simple_jopt_simple",
-        actual = "@io_bazel_rules_scala_net_sf_jopt_simple_jopt_simple//jar",
-    )
