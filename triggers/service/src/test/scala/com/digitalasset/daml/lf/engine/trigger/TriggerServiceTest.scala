@@ -169,10 +169,11 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
     } yield triggerIds
   }
 
-  def assertTriggerIds(uri: Uri, party: User, expected: Vector[UUID]): Future[Assertion] = for {
-    resp <- listTriggers(uri, party)
-    result <- parseTriggerIds(resp)
-  } yield assert(result == expected)
+  def assertTriggerIds(uri: Uri, party: User, expected: Vector[UUID]): Future[Assertion] =
+    for {
+      resp <- listTriggers(uri, party)
+      result <- parseTriggerIds(resp)
+    } yield assert(result == expected)
 
   def parseTriggerStatus(resp: HttpResponse): Future[Vector[String]] = {
     for {
