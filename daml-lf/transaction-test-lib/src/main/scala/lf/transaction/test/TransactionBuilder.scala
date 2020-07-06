@@ -202,7 +202,7 @@ object TransactionBuilder {
   def justCommitted(node: Node, nodes: Node*): Tx.CommittedTransaction =
     Tx.CommittedTransaction(just(node, nodes: _*))
 
-  // not a valid transactions.
+  // not valid transactions.
   val Empty: Tx.Transaction =
     TransactionVersions.assertAsVersionedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
   val EmptySubmitted: Tx.SubmittedTransaction = Tx.SubmittedTransaction(Empty)
