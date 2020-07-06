@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.DataInputStream
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -27,19 +27,16 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.AnsiColor
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
   import IntegrityChecker._
 
-  private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(
-    Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
-  private implicit val actorSystem: ActorSystem = ActorSystem("integrity-checker")
-  private implicit val materializer: Materializer = Materializer(actorSystem)
+  def run(input: DataInputStream)(implicit executionContext: ExecutionContext): Future[Unit] = {
+    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
+    implicit val materializer: Materializer = Materializer(actorSystem)
 
-  def run(input: DataInputStream): Unit = {
     val engine = new Engine(Engine.DevConfig)
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
@@ -53,7 +50,14 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     )
     val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
     processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
-    reportDetailedMetrics(metricRegistry)
+      .map { _ =>
+        reportDetailedMetrics(metricRegistry)
+      }
+      .andThen {
+        case _ =>
+          materializer.shutdown()
+          actorSystem.terminate()
+      }
   }
 
   private def processSubmissions(
@@ -61,28 +65,34 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       submissionValidator: BatchedSubmissionValidator[LogResult],
       reader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[LogResult],
-      queryableWriteSet: QueryableWriteSet): Unit = {
-    var counter = 0
-    while (input.available() > 0) {
-      val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
-      val validationFuture = submissionValidator.validateAndCommit(
-        submissionInfo.submissionEnvelope,
-        submissionInfo.correlationId,
-        submissionInfo.recordTimeInstant,
-        submissionInfo.participantId,
-        reader,
-        commitStrategy
-      )
-      Await.ready(validationFuture, Duration(10, TimeUnit.SECONDS))
-      counter += 1
-      val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-      val sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-      if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
-        println(AnsiColor.WHITE)
-        sys.exit(1)
+      queryableWriteSet: QueryableWriteSet,
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+    def go(counter: Int): Future[Unit] =
+      if (input.available() == 0) {
+        println(s"Processed $counter submissions")
+        Future.unit
+      } else {
+        val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
+        for {
+          _ <- submissionValidator.validateAndCommit(
+            submissionInfo.submissionEnvelope,
+            submissionInfo.correlationId,
+            submissionInfo.recordTimeInstant,
+            submissionInfo.participantId,
+            reader,
+            commitStrategy,
+          )
+          actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
+          sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+          _ = if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
+            println(AnsiColor.WHITE)
+            sys.exit(1)
+          }
+          _ <- go(counter + 1)
+        } yield ()
       }
-    }
-    println(s"Processed $counter submissions")
+
+    go(counter = 0)
   }
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
