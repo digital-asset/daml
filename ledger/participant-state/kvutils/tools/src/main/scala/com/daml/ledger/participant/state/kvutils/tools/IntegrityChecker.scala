@@ -28,7 +28,6 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.io.AnsiColor
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
   import IntegrityChecker._
@@ -46,7 +45,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       new ConflictDetection(metrics),
       metrics,
       engine,
-      NoopLedgerDataExporter
+      NoopLedgerDataExporter,
     )
     val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
     processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
@@ -67,10 +66,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       commitStrategy: CommitStrategy[LogResult],
       queryableWriteSet: QueryableWriteSet,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    def go(counter: Int): Future[Unit] =
+    def go(): Future[Int] =
       if (input.available() == 0) {
-        println(s"Processed $counter submissions")
-        Future.unit
+        Future.successful(0)
       } else {
         val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
         for {
@@ -84,39 +82,47 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           )
           actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
           sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-          _ = if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
-            println(AnsiColor.WHITE)
-            sys.exit(1)
-          }
-          _ <- go(counter + 1)
-        } yield ()
+          _ = compareWriteSets(expectedWriteSet, sortedActualWriteSet)
+          n <- go()
+        } yield n + 1
       }
 
-    go(counter = 0)
+    go().map { counter =>
+      println(s"Processed $counter submissions.".white)
+      println()
+    }
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
-      println(s"${AnsiColor.GREEN}OK${AnsiColor.WHITE}")
-      true
+      println("OK".green)
     } else {
-      println(s"${AnsiColor.RED}FAIL")
-      if (expectedWriteSet.size == actualWriteSet.size) {
-        for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
-            actualWriteSet)) {
-          if (expectedKey == actualKey && expectedValue != actualValue) {
-            println(
-              s"expected value: ${bytesAsHexString(expectedValue)} vs. actual value: ${bytesAsHexString(actualValue)}")
-            println(explainDifference(expectedKey, expectedValue, actualValue))
-          } else if (expectedKey != actualKey) {
-            println(
-              s"expected key: ${bytesAsHexString(expectedKey)} vs. actual key: ${bytesAsHexString(actualKey)}")
-          }
+      println("FAIL".red)
+      val message =
+        if (expectedWriteSet.size == actualWriteSet.size) {
+          expectedWriteSet
+            .zip(actualWriteSet)
+            .flatMap {
+              case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
+                if (expectedKey == actualKey && expectedValue != actualValue) {
+                  Seq(
+                    s"expected value:    ${bytesAsHexString(expectedValue)}",
+                    s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                    explainDifference(expectedKey, expectedValue, actualValue),
+                  )
+                } else if (expectedKey != actualKey) {
+                  Seq(
+                    s"expected key:    ${bytesAsHexString(expectedKey)}",
+                    s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                  )
+                } else
+                  Seq.empty
+            }
+            .mkString(System.lineSeparator())
+        } else {
+          s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}"
         }
-      } else {
-        println(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
-      }
-      false
+      throw new ComparisonFailureException(message)
     }
   }
 
@@ -128,8 +134,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         val stateKey =
           commitStrategySupport.stateKeySerializationStrategy().deserializeStateKey(key)
         val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
-        s"State key: $stateKey${System.lineSeparator()}" +
-          s"Expected: $expectedStateValue${System.lineSeparator()}Actual: $actualStateValue"
+        s"""|State key: $stateKey
+            |Expected: $expectedStateValue
+            |Actual: $actualStateValue""".stripMargin
       }
       .getOrElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
@@ -154,4 +161,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 object IntegrityChecker {
   def bytesAsHexString(bytes: ByteString): String =
     bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+
+  class CheckFailedException(message: String) extends RuntimeException(message)
+
+  class ComparisonFailureException(message: String) extends CheckFailedException(message)
+
 }

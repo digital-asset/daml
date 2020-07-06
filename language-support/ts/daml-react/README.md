@@ -11,7 +11,7 @@ Comprehensive documentation for `@daml/react` can be found [here](https://docs.d
 The best way to get you started quickly is to look at [Create DAMLApp](https://github.com/digital-asset/create-daml-app)
 and to read the [QuickstartGuide](https://docs.daml.com/getting-started/quickstart.html).
 
-To get an overview on how to build a DAML application, please read the [application architecture overview](https://docs.daml.com/app-dev/index.html).
+To get an overview on how to build a DAML application, please read the [application architecture overview](https://docs.daml.com/app-dev/app-arch.html).
 
 To use `@daml/react` your application needs to be connected to the JSON API of a DAML ledger. If
 your JSON API server for the ledger runs on the local host on port 7575, set
