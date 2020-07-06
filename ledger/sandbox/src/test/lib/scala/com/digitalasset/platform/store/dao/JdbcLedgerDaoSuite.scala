@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.platform.store.dao.events.TransactionBuilder
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
@@ -277,7 +278,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = new TransactionBuilder
     val nid = txBuilder.add(exercise(targetCid).copy(consuming = false))
-    val tx = Tx.CommittedTransaction(txBuilder.build())
+    val tx = txBuilder.build()
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
@@ -290,7 +291,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      Tx.CommittedTransaction(tx),
+      tx,
       Map(nid -> Set("Alice", "Bob"))
     )
   }

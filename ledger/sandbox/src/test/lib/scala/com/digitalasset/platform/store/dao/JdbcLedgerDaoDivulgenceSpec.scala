@@ -6,12 +6,14 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
+import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
 import com.daml.lf.value.ValueVersion
+import com.daml.lf.value.ValueVersions
+import com.daml.platform.store.dao.events.TransactionBuilder
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers}
 
@@ -23,7 +25,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
   it should "preserve divulged contracts" in {
     val (create1, tx1) = {
       val builder = new TransactionBuilder
-      val contractId = builder.newCid
+      val contractId = toCid("cid1")
       builder.add(
         NodeCreate(
           coid = contractId,
@@ -34,11 +36,11 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = None
         )
       )
-      contractId -> Tx.CommittedTransaction(builder.build())
+      contractId -> builder.build()
     }
     val (create2, tx2) = {
       val builder = new TransactionBuilder
-      val contractId = builder.newCid
+      val contractId = toCid("cid2")
       builder.add(
         NodeCreate(
           coid = contractId,
@@ -47,11 +49,11 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
           )
         )
       )
-      contractId -> Tx.CommittedTransaction(builder.build())
+      contractId -> builder.build()
     }
     val tx3 = {
       val builder = new TransactionBuilder
@@ -63,7 +65,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           optLocation = None,
           consuming = true,
           actingParties = Set(bob),
-          chosenValue = someValueRecord,
+          chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, someValueRecord),
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
           children = ImmArray.empty,
@@ -80,7 +82,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
           ),
         ),
         parent = rootExercise,
@@ -93,41 +95,38 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           optLocation = None,
           consuming = true,
           actingParties = Set(bob),
-          chosenValue = someValueRecord,
+          chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, someValueRecord),
           stakeholders = Set(bob),
           signatories = Set(bob),
           children = ImmArray.empty,
           exerciseResult = None,
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
           ),
         ),
         parent = rootExercise,
       )
       builder.add(
         NodeCreate(
-          coid = builder.newCid,
+          coid = toCid("cid3"),
           coinst = someContractInstance,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(VersionedValue(ValueVersions.acceptedVersions.head, ValueParty(bob)), Set(bob))
           )
         ),
         parent = nestedExercise,
       )
-      Tx.CommittedTransaction(builder.build())
+      builder.build()
     }
 
     val someVersionedContractInstance =
       ContractInst(
         template = someContractInstance.template,
         agreementText = someContractInstance.agreementText,
-        arg = VersionedValue(
-          version = ValueVersion("6"),
-          value = someContractInstance.arg
-        )
+        arg = someContractInstance.arg
       )
 
     val t1 = Instant.now()
@@ -180,4 +179,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     }
   }
 
+  private def toCid(s: String): ContractId.V1 =
+    ContractId.V1(crypto.Hash.hashPrivateKey(s))
 }
