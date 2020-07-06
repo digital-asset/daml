@@ -445,10 +445,18 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    val logEntry = buildLogEntryWithOptionalRecordTime(
+    val successLogEntry = buildLogEntryWithOptionalRecordTime(
       commitContext.getRecordTime,
       _.setTransactionEntry(transactionEntry.submission))
-    StepStop(logEntry)
+    if (commitContext.preExecute) {
+      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(transactionEntry.submitterInfo))
+        .build
+      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
+    }
+    StepStop(successLogEntry)
   }
 
   private def updateContractKeyWithContractKeyState(

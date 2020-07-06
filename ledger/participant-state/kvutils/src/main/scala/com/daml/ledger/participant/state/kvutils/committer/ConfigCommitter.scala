@@ -167,18 +167,25 @@ private[kvutils] class ConfigCommitter(
         .build
     )
 
-    val logEntry = buildLogEntryWithOptionalRecordTime(
+    val successLogEntry = buildLogEntryWithOptionalRecordTime(
       ctx.getRecordTime,
       _.setConfigurationEntry(configurationEntry))
-    StepStop(logEntry)
+    if (ctx.preExecute) {
+      ctx.outOfTimeBoundsLogEntry = Some(
+        buildRejectionLogEntry(ctx, result.submission, identity, incrementMetric = false))
+    }
+    StepStop(successLogEntry)
   }
 
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       submission: DamlConfigurationSubmission,
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
+      incrementMetric: Boolean = true,
   ): DamlLogEntry = {
-    metrics.daml.kvutils.committer.config.rejections.inc()
+    if (incrementMetric) {
+      metrics.daml.kvutils.committer.config.rejections.inc()
+    }
     buildLogEntryWithOptionalRecordTime(
       ctx.getRecordTime,
       _.setConfigurationRejectionEntry(

@@ -118,18 +118,25 @@ private[kvutils] class PartyAllocationCommitter(
         .build
     )
 
-    val logEntry = buildLogEntryWithOptionalRecordTime(
+    val successLogEntry = buildLogEntryWithOptionalRecordTime(
       ctx.getRecordTime,
       _.setPartyAllocationEntry(partyAllocationEntry))
-    StepStop(logEntry)
+    if (ctx.preExecute) {
+      ctx.outOfTimeBoundsLogEntry = Some(
+        buildRejectionLogEntry(ctx, partyAllocationEntry, identity, incrementMetric = false))
+    }
+    StepStop(successLogEntry)
   }
 
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       partyAllocationEntry: DamlPartyAllocationEntry.Builder,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
+      incrementMetric: Boolean = true,
   ): DamlLogEntry = {
-    metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
+    if (incrementMetric) {
+      metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
+    }
     buildLogEntryWithOptionalRecordTime(
       ctx.getRecordTime,
       _.setPartyAllocationRejectionEntry(
