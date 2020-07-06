@@ -10,6 +10,7 @@ import com.daml.lf.data.Ref.{ChoiceName, Name}
 import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+
 import scala.collection.immutable.HashMap
 
 final class TransactionBuilder {
@@ -26,7 +27,6 @@ final class TransactionBuilder {
   private var nodes = HashMap.newBuilder[NodeId, TxNode]
   private val roots = ImmArray.newBuilder[NodeId]
 
-  // not thread safe
   private[this] def newNode(node: Node): NodeId = {
     lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
     nodes += (nodeId -> version(node))
@@ -56,6 +56,10 @@ final class TransactionBuilder {
   def build(): Tx.Transaction = ids.synchronized {
     TransactionVersions.assertAsVersionedTransaction(GenTransaction(nodes.result(), roots.result()))
   }
+
+  def buildSubmitted(): Tx.SubmittedTransaction = Tx.SubmittedTransaction(build())
+
+  def buildCommitted(): Tx.CommittedTransaction = Tx.CommittedTransaction(build())
 
   def newCid: ContractId = ContractId.V1(newHash())
 
@@ -198,12 +202,10 @@ object TransactionBuilder {
   def justCommitted(node: Node, nodes: Node*): Tx.CommittedTransaction =
     Tx.CommittedTransaction(just(node, nodes: _*))
 
-  // not a valid transaction.
+  // not valid transactions.
   val Empty: Tx.Transaction =
-    Tx.CommittedTransaction(
-      TransactionVersions.assertAsVersionedTransaction(
-        GenTransaction(HashMap.empty, ImmArray.empty)
-      )
-    )
+    TransactionVersions.assertAsVersionedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
+  val EmptySubmitted: Tx.SubmittedTransaction = Tx.SubmittedTransaction(Empty)
+  val EmptyCommitted: Tx.CommittedTransaction = Tx.CommittedTransaction(Empty)
 
 }
