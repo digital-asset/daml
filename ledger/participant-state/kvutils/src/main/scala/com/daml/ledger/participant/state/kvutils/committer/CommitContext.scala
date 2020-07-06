@@ -45,6 +45,8 @@ private[kvutils] trait CommitContext {
   var minimumRecordTime: Option[Instant] = None
   var maximumRecordTime: Option[Instant] = None
 
+  // Rejection log entry used for generating an out-of-time-bounds log entry in case of
+  // pre-execution.
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
 
   def getRecordTime: Option[Timestamp]
