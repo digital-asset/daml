@@ -28,7 +28,6 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.io.AnsiColor
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
   import IntegrityChecker._
@@ -69,7 +68,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     def go(counter: Int): Future[Unit] =
       if (input.available() == 0) {
-        println(s"Processed $counter submissions")
+        Print.white(s"Processed $counter submissions.")
+        println()
         Future.unit
       } else {
         val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
@@ -85,7 +85,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
           sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
           _ = if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
-            println(AnsiColor.WHITE)
             sys.exit(1)
           }
           _ <- go(counter + 1)
@@ -97,24 +96,24 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 
   private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
     if (expectedWriteSet == actualWriteSet) {
-      println(s"${AnsiColor.GREEN}OK${AnsiColor.WHITE}")
+      Print.green("OK")
       true
     } else {
-      println(s"${AnsiColor.RED}FAIL")
+      Print.red("FAIL")
       if (expectedWriteSet.size == actualWriteSet.size) {
         for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
             actualWriteSet)) {
           if (expectedKey == actualKey && expectedValue != actualValue) {
-            println(
+            Print.red(
               s"expected value: ${bytesAsHexString(expectedValue)} vs. actual value: ${bytesAsHexString(actualValue)}")
-            println(explainDifference(expectedKey, expectedValue, actualValue))
+            Print.red(explainDifference(expectedKey, expectedValue, actualValue))
           } else if (expectedKey != actualKey) {
-            println(
+            Print.red(
               s"expected key: ${bytesAsHexString(expectedKey)} vs. actual key: ${bytesAsHexString(actualKey)}")
           }
         }
       } else {
-        println(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
+        Print.red(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
       }
       false
     }
