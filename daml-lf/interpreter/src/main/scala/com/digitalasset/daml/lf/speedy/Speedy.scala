@@ -10,7 +10,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
-import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -85,7 +84,7 @@ private[lf] object Speedy {
    the current frame, actuals and env-stack-depth within the continuation. Then, when the
    continuation is entered, it will call `restoreEnv`.
 
-   We do this for KArg, KPushTo, KCatch.
+   We do this for KArg, KMatch, KPushTo, KCatch.
 
    We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
    changes `frame` to point to itself, and there will be no references to existing
@@ -226,8 +225,7 @@ private[lf] object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
-        // TODO: re-work the location handling, to avoid the following fragile special-case
-        case Some(KPushTo(_, SEAppAtomicGeneral(SELocS(1), Array(SEValue.Token)), _, _, _)) => {
+        case Some(KArg(Array(SEValue.Token), _, _, _)) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
           kontStack.add(last_index, KLocation(loc))
           if (enableInstrumentation) {
@@ -283,10 +281,9 @@ private[lf] object Speedy {
     /** Reuse an existing speedy machine to evaluate a new expression.
       Do not use if the machine is partway though an existing evaluation.
       i.e. run() has returned an `SResult` requiring a callback.
-      This function takes an `AExpr` to prove that the expression has been converted to ANF
       */
-    def setExpressionToEvaluate(anf: AExpr): Unit = {
-      ctrl = anf.wrapped
+    def setExpressionToEvaluate(expr: SExpr): Unit = {
+      ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
       steps = 0
@@ -367,7 +364,7 @@ private[lf] object Speedy {
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               pushKont(KCacheVal(eval, Nil))
-              ctrl = body.wrapped
+              ctrl = body
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
                 crash(
@@ -536,7 +533,7 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
-        anf: AExpr,
+        expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
         supportedValueVersions: VersionRange[value.ValueVersion],
@@ -547,7 +544,7 @@ private[lf] object Speedy {
         supportedValueVersions = supportedValueVersions,
         supportedTransactionVersions = supportedTransactionVersions,
         validating = validating,
-        ctrl = anf.wrapped,
+        ctrl = expr,
         returnValue = null,
         frame = null,
         actuals = null,
@@ -572,26 +569,22 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running scenario.
-    def fromScenarioAExpr(
+    def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
-        scenario: AExpr,
+        scenario: SExpr,
         supportedValueVersions: VersionRange[ValueVersion],
         supportedTransactionVersions: VersionRange[TransactionVersion],
     ): Machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-      anf = makeApplyToToken(scenario),
+      expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
       supportedValueVersions = supportedValueVersions,
       supportedTransactionVersions = supportedTransactionVersions,
     )
-
-    def makeApplyToToken(anf: AExpr): AExpr = {
-      AExpr(SELet1General(anf.wrapped, SEAppAtomicGeneral(SELocS(1), Array(SEValue.Token))))
-    }
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -603,7 +596,7 @@ private[lf] object Speedy {
         supportedValueVersions: VersionRange[ValueVersion],
         supportedTransactionVersions: VersionRange[TransactionVersion],
     ): Machine =
-      fromScenarioAExpr(
+      fromScenarioSExpr(
         compiledPackages = compiledPackages,
         transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
@@ -617,22 +610,12 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
-    ): Machine = fromPureAExpr(
-      compiledPackages = compiledPackages,
-      anf = flattenToAnf(expr),
-    )
-
-    @throws[PackageNotFound]
-    @throws[CompilationError]
-    def fromPureAExpr(
-        compiledPackages: CompiledPackages,
-        anf: AExpr,
     ): Machine =
       Machine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.NoSeed,
-        anf = anf,
+        expr = expr,
         globalCids = Set.empty,
         committers = Set.empty,
         supportedValueVersions = ValueVersions.SupportedDevVersions,
@@ -646,7 +629,8 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         expr: Expr,
     ): Machine =
-      fromPureAExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
+      fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
+
   }
 
   // Environment
@@ -709,7 +693,6 @@ private[lf] object Speedy {
     machine.ctrl = args(0)
   }
 
-  //TODO: ALMOST DEAD CODE. We can remove this code once KArg has been removed.
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   private[speedy] def executeApplication(
       machine: Machine,
@@ -753,80 +736,8 @@ private[lf] object Speedy {
     }
   }
 
-  /** The function has been evaluated to a value, now start evaluating the arguments. */
-  // This code replaces `executeApplication` which is almost dead.
-  private[speedy] def enterApplication(
-      machine: Machine,
-      vfun: SValue,
-      newArgs: Array[SExprAtomic]): Unit = {
-    vfun match {
-      case SPAP(prim, actualsSoFar, arity) =>
-        val missing = arity - actualsSoFar.size
-        val newArgsLimit = Math.min(missing, newArgs.length)
-
-        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-        actuals.addAll(actualsSoFar)
-
-        val othersLength = newArgs.length - missing
-
-        // Evaluate the arguments
-        for (i <- 0 to newArgsLimit - 1) {
-          val newArg = newArgs(i)
-          val v = newArg.lookupValue(machine)
-          actuals.add(v)
-        }
-
-        // Not enough arguments. Return a PAP.
-        if (othersLength < 0) {
-          machine.returnValue = SPAP(prim, actuals, arity)
-
-        } else {
-          // Too many arguments: Push a continuation to re-apply the over-applied args.
-          if (othersLength > 0) {
-            // TODO: Stop using Karg. Instead save the already evaluated 'actuals' in a special
-            // and much simpler continuation to perform the application.
-            val others = new Array[SExpr](othersLength)
-            System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.pushKont(KArg(others, machine.frame, machine.actuals, machine.env.size))
-          }
-          // Now the correct number of arguments is ensured. What kind of prim do we have?
-          prim match {
-            case closure: PClosure =>
-              machine.frame = closure.frame
-              machine.actuals = actuals
-              // Maybe push a continuation for the profiler
-              val label = closure.label
-              if (label != null) {
-                machine.profile.addOpenEvent(label)
-                machine.pushKont(KLeaveClosure(label))
-              }
-              // Start evaluating the body of the closure.
-              machine.ctrl = closure.expr
-
-            case PBuiltin(builtin) =>
-              machine.actuals = actuals
-              try {
-                builtin.execute(actuals, machine)
-              } catch {
-                // We turn arithmetic exceptions into a daml exception that can be caught.
-                case e: ArithmeticException =>
-                  throw DamlEArithmeticError(e.getMessage)
-              }
-
-          }
-        }
-
-      case _ =>
-        crash(s"Applying non-PAP: $vfun")
-    }
-  }
-
-  //TODO: Remove KArg once it's use to execute over-applications is removed
-  private[speedy] final case class KArg(
-      newArgs: Array[SExpr],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
+  /** The function has been evaluated to a value. Now restore the environment and execute the application */
+  private[speedy] final case class KArg(newArgs: Array[SExpr], frame: Frame, actuals: Actuals, envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(vfun: SValue, machine: Machine) = {
@@ -858,11 +769,8 @@ private[lf] object Speedy {
   }
 
   /** The builtin arguments have been evaluated. Now execute the builtin. */
-  private[speedy] final case class KBuiltin(
-      builtin: SBuiltinMaybeHungry,
-      actuals: util.ArrayList[SValue],
-      envSize: Int,
-  ) extends Kont {
+  private[speedy] final case class KBuiltin(builtin: SBuiltin, actuals: util.ArrayList[SValue], envSize: Int)
+      extends Kont {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
       // A builtin has no free-vars, so we set the frame to null.
@@ -887,80 +795,85 @@ private[lf] object Speedy {
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
-    val altOpt = v match {
-      case SBool(b) =>
-        alts.find { alt =>
-          alt.pattern match {
-            case SCPPrimCon(PCTrue) => b
-            case SCPPrimCon(PCFalse) => !b
-            case SCPDefault => true
-            case _ => false
+  private[speedy] final case class KMatch(alts: Array[SCaseAlt], frame: Frame, actuals: Actuals, envSize: Int)
+      extends Kont
+      with SomeArrayEquals {
+    def execute(v: SValue, machine: Machine) = {
+      machine.restoreEnv(frame, actuals, envSize)
+      val altOpt = v match {
+        case SBool(b) =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPPrimCon(PCTrue) => b
+              case SCPPrimCon(PCFalse) => !b
+              case SCPDefault => true
+              case _ => false
+            }
           }
-        }
-      case SVariant(_, _, rank1, arg) =>
-        alts.find { alt =>
-          alt.pattern match {
-            case SCPVariant(_, _, rank2) if rank1 == rank2 =>
-              machine.pushEnv(arg)
-              true
-            case SCPDefault => true
-            case _ => false
+        case SVariant(_, _, rank1, arg) =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPVariant(_, _, rank2) if rank1 == rank2 =>
+                machine.pushEnv(arg)
+                true
+              case SCPDefault => true
+              case _ => false
+            }
           }
-        }
-      case SEnum(_, _, rank1) =>
-        alts.find { alt =>
-          alt.pattern match {
-            case SCPEnum(_, _, rank2) => rank1 == rank2
-            case SCPDefault => true
-            case _ => false
+        case SEnum(_, _, rank1) =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPEnum(_, _, rank2) => rank1 == rank2
+              case SCPDefault => true
+              case _ => false
+            }
           }
-        }
-      case SList(lst) =>
-        alts.find { alt =>
-          alt.pattern match {
-            case SCPNil if lst.isEmpty => true
-            case SCPCons if !lst.isEmpty =>
-              val Some((head, tail)) = lst.pop
-              machine.pushEnv(head)
-              machine.pushEnv(SList(tail))
-              true
-            case SCPDefault => true
-            case _ => false
+        case SList(lst) =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPNil if lst.isEmpty => true
+              case SCPCons if !lst.isEmpty =>
+                val Some((head, tail)) = lst.pop
+                machine.pushEnv(head)
+                machine.pushEnv(SList(tail))
+                true
+              case SCPDefault => true
+              case _ => false
+            }
           }
-        }
-      case SUnit =>
-        alts.find { alt =>
-          alt.pattern match {
-            case SCPPrimCon(PCUnit) => true
-            case SCPDefault => true
-            case _ => false
+        case SUnit =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPPrimCon(PCUnit) => true
+              case SCPDefault => true
+              case _ => false
+            }
           }
-        }
-      case SOptional(mbVal) =>
-        alts.find { alt =>
-          alt.pattern match {
-            case SCPNone if mbVal.isEmpty => true
-            case SCPSome =>
-              mbVal match {
-                case None => false
-                case Some(x) =>
-                  machine.pushEnv(x)
-                  true
-              }
-            case SCPDefault => true
-            case _ => false
+        case SOptional(mbVal) =>
+          alts.find { alt =>
+            alt.pattern match {
+              case SCPNone if mbVal.isEmpty => true
+              case SCPSome =>
+                mbVal match {
+                  case None => false
+                  case Some(x) =>
+                    machine.pushEnv(x)
+                    true
+                }
+              case SCPDefault => true
+              case _ => false
+            }
           }
-        }
-      case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
-            _) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) | SAny(_, _) |
-          STypeRep(_) | STNat(_) | _: SPAP | SToken =>
-        crash(s"Match on non-matchable value: $v")
-    }
+        case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
+            STimestamp(_) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) |
+            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SToken =>
+          crash("Match on non-matchable value")
+      }
 
-    machine.ctrl = altOpt
-      .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-      .body
+      machine.ctrl = altOpt
+        .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
+        .body
+    }
   }
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.

@@ -36,12 +36,7 @@ sealed abstract class SExpr extends Product with Serializable {
 object SExpr {
 
   sealed abstract class SExprAtomic extends SExpr {
-    def lookupValue(machine: Machine): SValue
-
-    def execute(machine: Machine): Unit = {
-      machine.returnValue = lookupValue(machine)
-    }
-
+    def evaluate(machine: Machine): SValue
   }
 
   /** Reference to a variable. 'index' is the 1-based de Bruijn index,
@@ -50,7 +45,10 @@ object SExpr {
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     * This expression form is only allowed prior to closure conversion
     */
-  final case class SEVar(index: Int) extends SExpr {
+  final case class SEVar(index: Int) extends SExprAtomic {
+    def evaluate(machine: Machine): SValue = {
+      crash("unexpected SEVar, expected SELoc(S/A/F)")
+    }
     def execute(machine: Machine): Unit = {
       crash("unexpected SEVar, expected SELoc(S/A/F)")
     }
@@ -85,10 +83,19 @@ object SExpr {
   }
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltinMaybeHungry) extends SExprAtomic {
-    def lookupValue(machine: Machine): SValue = {
+  final case class SEBuiltin(b: SBuiltin) extends SExprAtomic {
+    def evaluate(machine: Machine): SValue = {
       /* special case for nullary record constructors */
       b match {
+        case SBRecCon(id, fields) if b.arity == 0 =>
+          SRecord(id, fields, new util.ArrayList())
+        case _ =>
+          SPAP(PBuiltin(b), new util.ArrayList(), b.arity)
+      }
+    }
+    def execute(machine: Machine): Unit = {
+      /* special case for nullary record constructors */
+      machine.returnValue = b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
           SRecord(id, fields, new util.ArrayList())
         case _ =>
@@ -99,69 +106,75 @@ object SExpr {
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExprAtomic {
-    def lookupValue(machine: Machine): SValue = {
+    def evaluate(machine: Machine): SValue = {
       v
+    }
+    def execute(machine: Machine): Unit = {
+      machine.returnValue = v
     }
   }
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application: General case: 'fun' and 'args' are any kind of expression */
+  /** Function application:
+    General case: 'fun' and 'args' are any kind of expression */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      // We never encounter a general application node when executing on the speedy machine
-      // This is because all speedy expression must have been converted to ANF form
-      // The wrapper type `AExpr` helps ensure this restrction is adhered to.
-      // Better still would be to properly separate the `SExpr` and `AExpr` types.
-      throw SErrorCrash(s"execute: unexpected SEAppGeneral")
+      machine.pushKont(KArg(args, machine.frame, machine.actuals, machine.env.size))
+      machine.ctrl = fun
+    }
+  }
+
+  /** Function application:
+    Special case: 'fun' is an atomic expression. */
+  final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
+    def execute(machine: Machine): Unit = {
+      val vfun = fun.evaluate(machine)
+      executeApplication(machine, vfun, args)
+    }
+  }
+
+  /** Function application:
+    Special case: 'fun' is a builtin; size of `args' matches the builtin arity.
+    */
+  // A fully saturated builtin application
+  final case class SEAppSaturatedBuiltinFun(builtin: SBuiltin, args: Array[SExpr])
+      extends SExpr
+      with SomeArrayEquals {
+    if (args.size != builtin.arity) {
+      throw SErrorCrash(s"SEAppB: arg.size != builtin.arity")
+    }
+    def execute(machine: Machine): Unit = {
+      val arity = builtin.arity
+      val actuals = new util.ArrayList[SValue](arity)
+      machine.pushKont(KBuiltin(builtin, actuals, machine.env.size))
+      evaluateArguments(machine, actuals, args, args.length);
     }
   }
 
   object SEApp {
-    //TODO: SEApp is no longer a smart constructor; remove this indirection.
+
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
-      SEAppGeneral(fun, args)
-    }
-  }
+      fun match {
+        // Detect special cases of function-application which can we executed more efficiently
 
-  /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
-  final case class SEAppAtomicGeneral(fun: SExprAtomic, args: Array[SExprAtomic])
-      extends SExpr
-      with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-      val vfun = fun.lookupValue(machine)
-      //TODO: evaluate args to SValue here
-      enterApplication(machine, vfun, args)
-    }
-  }
-
-  /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
-    * of `args' matches the builtin arity. */
-  final case class SEAppAtomicSaturatedBuiltin(
-      builtin: SBuiltinMaybeHungry,
-      args: Array[SExprAtomic])
-      extends SExpr
-      with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-      val arity = builtin.arity
-      val actuals = new util.ArrayList[SValue](arity)
-      for (i <- 0 to arity - 1) {
-        val arg = args(i)
-        val v = arg.lookupValue(machine)
-        actuals.add(v)
-      }
-      builtin.execute(actuals, machine)
-    }
-  }
-
-  object SEAppAtomic {
-    // smart constructor: detect special case of saturated builtin application
-    def apply(func: SExprAtomic, args: Array[SExprAtomic]): SExpr = {
-      func match {
         case SEBuiltin(builtin) if builtin.arity == args.length =>
-          SEAppAtomicSaturatedBuiltin(builtin, args)
-        case _ =>
-          SEAppAtomicGeneral(func, args) // general case
+          SEAppSaturatedBuiltinFun(builtin, args)
+
+        case SEBuiltin(builtin) if builtin.arity < args.length =>
+          val arity = builtin.arity
+          val extra = args.length - arity
+          val arityArgs = new Array[SExpr](arity)
+          val extraArgs = new Array[SExpr](extra)
+          System.arraycopy(args, 0, arityArgs, 0, arity)
+          System.arraycopy(args, arity, extraArgs, 0, extra)
+          SEApp(SEAppSaturatedBuiltinFun(builtin, arityArgs), extraArgs)
+
+        case vfun: SExprAtomic => SEAppAtomicFun(vfun, args)
+
+        case _ => SEAppGeneral(fun, args) // fall back to the general case
       }
     }
   }
@@ -194,7 +207,7 @@ object SExpr {
       val sValues = Array.ofDim[SValue](fvs.length)
       var i = 0
       while (i < fvs.length) {
-        sValues(i) = fvs(i).lookupValue(machine)
+        sValues(i) = fvs(i).lookup(machine)
         i += 1
       }
       machine.returnValue =
@@ -207,25 +220,33 @@ object SExpr {
     This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
     S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
     */
-  sealed abstract class SELoc extends SExprAtomic
+  sealed abstract class SELoc extends SExprAtomic {
+    def lookup(machine: Machine): SValue
+    def evaluate(machine: Machine): SValue = {
+      lookup(machine)
+    }
+    def execute(machine: Machine): Unit = {
+      machine.returnValue = lookup(machine)
+    }
+  }
 
   // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
   final case class SELocS(n: Int) extends SELoc {
-    def lookupValue(machine: Machine): SValue = {
+    def lookup(machine: Machine): SValue = {
       machine.getEnvStack(n)
     }
   }
 
   // SELocS -- variable is located in the args array of the application
   final case class SELocA(n: Int) extends SELoc {
-    def lookupValue(machine: Machine): SValue = {
+    def lookup(machine: Machine): SValue = {
       machine.getEnvArg(n)
     }
   }
 
   // SELocF -- variable is located in the free-vars array of the closure being applied
   final case class SELocF(n: Int) extends SELoc {
-    def lookupValue(machine: Machine): SValue = {
+    def lookup(machine: Machine): SValue = {
       machine.getEnvFree(n)
     }
   }
@@ -233,63 +254,25 @@ object SExpr {
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      // All SEcase are converted to SECaseAtomic in Anf.flattenToAnf
-      throw SErrorCrash(s"execute: unexpected SEcase")
+      machine.pushKont(KMatch(alts, machine.frame, machine.actuals, machine.env.size))
+      machine.ctrl = scrut
     }
+
     override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
   }
 
-  final case class SECaseAtomic(scrut: SExprAtomic, alts: Array[SCaseAlt])
-      extends SExpr
-      with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-      val vscrut = scrut.lookupValue(machine)
-      executeMatchAlts(machine, alts, vscrut)
-    }
-  }
+  object SECase {
 
-  /** A let-expression with a single RHS */
-  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-      machine.pushKont(KPushTo(machine.env, body, machine.frame, machine.actuals, machine.env.size))
-      machine.ctrl = rhs
+    // Helper for constructing case expressions:
+    // SECase(scrut) of(
+    //   SECaseAlt(SCPNil ,...),
+    //   SECaseAlt(SCPDefault, ...),
+    // )
+    case class PartialSECase(scrut: SExpr) {
+      def of(alts: SCaseAlt*): SExpr = SECase(scrut, alts.toArray)
     }
-  }
 
-  /** A (single) let-expression with an unhungry,saturated builtin-application as RHS */
-  final case class SELet1Builtin(builtin: SBuiltin, args: Array[SExprAtomic], body: SExpr)
-      extends SExpr
-      with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-      val arity = builtin.arity
-      val actuals = new util.ArrayList[SValue](arity)
-      for (i <- 0 to arity - 1) {
-        val arg = args(i)
-        val v = arg.lookupValue(machine)
-        actuals.add(v)
-      }
-      // TODO: define/call builtin.evaluate() to get the SValue directly
-      // Every non-hungry SBuiltin assigns an SValue to returnValue when we call execute()
-      builtin.execute(actuals, machine)
-      if (machine.returnValue == null) {
-        crash("SELet1Builtin, called SBuiltin.execute(), but didn't get returnValue")
-      }
-      val v = machine.returnValue
-      machine.returnValue = null
-
-      machine.env.add(v)
-      machine.ctrl = body
-    }
-  }
-
-  object SELet1 {
-    def apply(rhs: SExpr, body: SExpr): SExpr = {
-      rhs match {
-        case SEAppAtomicSaturatedBuiltin(builtin: SBuiltin, args) =>
-          SELet1Builtin(builtin, args, body)
-        case _ => SELet1General(rhs, body)
-      }
-    }
+    def apply(scrut: SExpr) = PartialSECase(scrut)
   }
 
   /** A non-recursive, non-parallel let block. Each bound expression
@@ -440,26 +423,19 @@ object SExpr {
   // definition to save java stack
   //
 
-  final case class SEBuiltinRecursiveDefinition(
-      ref: SEBuiltinRecursiveDefinition.Reference,
-  ) extends SExprAtomic {
+  final case class SEBuiltinRecursiveDefinition(ref: SEBuiltinRecursiveDefinition.Reference)
+      extends SExpr {
 
     import SEBuiltinRecursiveDefinition._
 
-    private val frame = Array.ofDim[SValue](0) // no free vars
-    private val arity = 3
-
-    private def body: SExpr = ref match {
-      case Reference.FoldL => foldLBody
-      case Reference.FoldR => foldRBody
-      case Reference.EqualList => equalListBody
+    def execute(machine: Machine): Unit = {
+      val body = ref match {
+        case Reference.FoldL => foldLBody
+        case Reference.FoldR => foldRBody
+        case Reference.EqualList => equalListBody
+      }
+      body.execute(machine)
     }
-
-    private def closure: SValue =
-      SPAP(PClosure(Profile.LabelUnset, body, frame), new util.ArrayList[SValue](), arity)
-
-    def lookupValue(machine: Machine): SValue = closure
-
   }
 
   final object SEBuiltinRecursiveDefinition {
@@ -472,109 +448,107 @@ object SExpr {
       final case object EqualList extends Reference
     }
 
-    val FoldL = SEBuiltinRecursiveDefinition(Reference.FoldL)
-    val FoldR = SEBuiltinRecursiveDefinition(Reference.FoldR)
-    val EqualList = SEBuiltinRecursiveDefinition(Reference.EqualList)
+    val FoldL: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldL)
+    val FoldR: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.FoldR)
+    val EqualList: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.EqualList)
 
-    // The body of an expanded recursive-builtin will always be in ANF form.
-    // The comments show where variables are to be found at runtime.
-
-    private def foldLBody: SExpr =
-      SECaseAtomic( // case xs of
-        SELocA(2),
-        Array(
-          SCaseAlt(SCPNil, SELocA(1)), // nil -> z
-          SCaseAlt( // cons y ys ->
-            SCPCons,
-            SELet1( // let sub = (f z y) in
-              SEAppAtomicGeneral(
-                SELocA(0), // f
-                Array(
-                  SELocA(1), // z
-                  SELocS(2) // y
-                )
-              ),
-              SEAppAtomicGeneral(
-                FoldL,
-                Array(
-                  SELocA(0), // f
-                  SELocS(1), // (f z y)
-                  SELocS(2) // ys
-                ))
-            )
-          )
-        )
-      )
-
-    private def foldRBody: SExpr =
-      SECaseAtomic( // case xs of
-        SELocA(2),
-        Array( // nil -> z
+    private val foldLBody: SExpr =
+      // foldl f z xs =
+      SEMakeClo(
+        Array(),
+        3,
+        // case xs of
+        SECase(SELocA(2)) of (
+          // nil -> z
           SCaseAlt(SCPNil, SELocA(1)),
-          SCaseAlt( // cons y ys ->
+          // cons y ys ->
+          SCaseAlt(
             SCPCons,
-            SELet1General( // let sub = (foldr f z ys) in
-              SEAppAtomicGeneral(
-                FoldR,
-                Array(
-                  SELocA(0), // f
-                  SELocA(1), // z
-                  SELocS(1) // ys
-                )),
-              SEAppAtomicGeneral(
-                SELocA(0), // f
-                Array(
-                  SELocS(3), // y
-                  SELocS(1) // (foldr f z ys)
-                )
+            // foldl f (f z y) ys
+            SEApp(
+              FoldL,
+              Array(
+                SELocA(0), /* f */
+                SEApp(
+                  SELocA(0),
+                  Array(
+                    SELocA(1), /* z */
+                    SELocS(2) /* y */
+                  )
+                ),
+                SELocS(1) /* ys */
               )
             )
           )
         )
       )
 
-    private def equalListBody: SExpr =
-      SECaseAtomic( // case xs of
-        SELocA(1),
-        Array(
+    private val foldRBody: SExpr =
+      // foldr f z xs =
+      SEMakeClo(
+        Array(),
+        3,
+        // case xs of
+        SECase(SELocA(2)) of (// nil -> z
+        SCaseAlt(SCPNil, SELocA(1)),
+        // cons y ys ->
+        SCaseAlt(
+          SCPCons,
+          // f y (foldr f z ys)
+          SEApp(
+            SELocA(0),
+            Array(
+              /* f */
+              SELocS(2), /* y */
+              SEApp(
+                FoldR,
+                Array(
+                  /* foldr f z ys */
+                  SELocA(0), /* f */
+                  SELocA(1), /* z */
+                  SELocS(1) /* ys */
+                )
+              )
+            )
+          )
+        ))
+      )
+
+    private val equalListBody: SExpr =
+      // equalList f xs ys =
+      SEMakeClo(
+        Array(),
+        3,
+        // case xs of
+        SECase(SELocA(1) /* xs */ ) of (
+          // nil ->
           SCaseAlt(
-            SCPNil, // nil ->
-            SECaseAtomic( // case ys of
-              SELocA(2),
-              Array(
-                SCaseAlt(SCPNil, SEValue.True), // nil -> True
-                SCaseAlt(SCPDefault, SEValue.False))) // default -> False
+            SCPNil,
+            // case ys of
+            //   nil -> True
+            //   default -> False
+            SECase(SELocA(2)) of (SCaseAlt(SCPNil, SEValue.True),
+            SCaseAlt(SCPDefault, SEValue.False))
           ),
-          SCaseAlt( // cons x xss ->
+          // cons x xss ->
+          SCaseAlt(
             SCPCons,
-            SECaseAtomic( // case ys of
-              SELocA(2),
-              Array(
-                SCaseAlt(SCPNil, SEValue.False), // nil -> False
-                SCaseAlt( // cons y yss ->
-                  SCPCons,
-                  SELet1( // let sub = (f y x) in
-                    SEAppAtomicGeneral(
-                      SELocA(0), // f
-                      Array(
-                        SELocS(2), // y
-                        SELocS(4))), // x
-                    SECaseAtomic( // case (f y x) of
-                      SELocS(1),
-                      Array(
-                        SCaseAlt(
-                          SCPPrimCon(PCTrue), // True ->
-                          SEAppAtomicGeneral(
-                            EqualList,
-                            Array(
-                              SELocA(0), // f
-                              SELocS(2), // yss
-                              SELocS(4))) // xss
-                        ),
-                        SCaseAlt(SCPPrimCon(PCFalse), SEValue.False) // False -> False
-                      )
-                    )
-                  )
+            // case ys of
+            //       True -> listEqual f xss yss
+            //       False -> False
+            SECase(SELocA(2) /* ys */ ) of (
+              // nil -> False
+              SCaseAlt(SCPNil, SEValue.False),
+              // cons y yss ->
+              SCaseAlt(
+                SCPCons,
+                // case f x y of
+                SECase(SEApp(SELocA(0), Array(SELocS(2), SELocS(4)))) of (
+                  SCaseAlt(
+                    SCPPrimCon(PCTrue),
+                    SEApp(EqualList, Array(SELocA(0), SELocS(1), SELocS(3))),
+                  ),
+                  SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
                 )
               )
             )

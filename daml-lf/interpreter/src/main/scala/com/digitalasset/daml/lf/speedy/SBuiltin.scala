@@ -24,19 +24,8 @@ import com.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
 
-/**
-  Speedy builtins are stratified into two layers:
-  Parent: `SBuiltinMaybeHungry`, child: `SBuiltin` (which are never hungry).
-  Hungry means, may throw SpeedyHungry.
-
-  Non-hungry builtins can be treated specially because their evaluation is immediate.
-  This fact is used by the execution of the ANF expression form: `SELet1Builtin`.
-
-  The vast majority of the builtins are nevery hungry, and so they extend `SBuiltin`
-  There are 7 hungry builtins which extend `SBuiltinMaybeHungry`
-  */
-/** Speedy builtin functions that may raise `SpeedyHungry` exceptions. */
-private[speedy] sealed abstract class SBuiltinMaybeHungry(val arity: Int) {
+/** Speedy builtin functions */
+private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
   private[speedy] def apply(args: SExpr*): SExpr =
@@ -47,15 +36,7 @@ private[speedy] sealed abstract class SBuiltinMaybeHungry(val arity: Int) {
   private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 }
 
-private[speedy] sealed abstract class SBuiltin(val arity1: Int)
-    extends SBuiltinMaybeHungry(arity1) {
-  // TODO: define evaluate, and convert all subclasses to this simpler form
-  // def evaluate(args: util.ArrayList[SValue]): SValue
-  // Then execute can be defined in terms of evaluate. Like how it is done in `SExprAtomic`.
-}
-
 private[lf] object SBuiltin {
-
   //
   // Arithmetic
   //
@@ -985,10 +966,8 @@ private[lf] object SBuiltin {
     *    -> Token
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends SBuiltinMaybeHungry(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1072,10 +1051,8 @@ private[lf] object SBuiltin {
     *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltinMaybeHungry(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
         extractKeyWithMaintainers(args.get(0))
@@ -1152,10 +1129,8 @@ private[lf] object SBuiltin {
     *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltinMaybeHungry(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
@@ -1190,10 +1165,8 @@ private[lf] object SBuiltin {
   }
 
   /** $getTime :: Token -> Timestamp */
-  final case object SBGetTime extends SBuiltinMaybeHungry(1) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case object SBGetTime extends SBuiltin(1) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(0))
       // $ugettime :: Token -> Timestamp
       throw SpeedyHungry(
@@ -1217,10 +1190,8 @@ private[lf] object SBuiltin {
   }
 
   /** $endCommit[mustFail?] :: result -> Token -> () */
-  final case class SBSEndCommit(mustFail: Boolean) extends SBuiltinMaybeHungry(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case class SBSEndCommit(mustFail: Boolean) extends SBuiltin(2) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       if (mustFail) executeMustFail(args, machine)
       else executeCommit(args, machine)
@@ -1290,10 +1261,8 @@ private[lf] object SBuiltin {
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */
-  final case object SBSPass extends SBuiltinMaybeHungry(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case object SBSPass extends SBuiltin(2) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val relTime = args.get(0) match {
         case SInt64(t) => t
@@ -1310,10 +1279,8 @@ private[lf] object SBuiltin {
   }
 
   /** $getParty :: Text -> Token -> Party */
-  final case object SBSGetParty extends SBuiltinMaybeHungry(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine): Unit = {
+  final case object SBSGetParty extends SBuiltin(2) {
+    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       args.get(0) match {
         case SText(name) =>
