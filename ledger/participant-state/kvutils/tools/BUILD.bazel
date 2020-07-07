@@ -44,13 +44,8 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_java_proto",
         "//ledger/ledger-on-memory",
         "//ledger/metrics",
         "//ledger/participant-state",
@@ -61,7 +56,6 @@ da_scala_binary(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

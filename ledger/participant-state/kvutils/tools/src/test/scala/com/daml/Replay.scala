@@ -34,7 +34,7 @@ final case class TxEntry(
     submissionSeed: crypto.Hash,
 )
 
-final case class BenchMarkSate(
+final case class BenchMarkState(
     name: String,
     transaction: TxEntry,
     contracts: ContractId => Option[Tx.ContractInst[ContractId]],
@@ -56,8 +56,8 @@ class Replay {
   private var engineDarFile: Option[String] = None
   private var engine: Engine = _
   private var benchmarksFile: Option[String] = None
-  private var benchmarks: Map[String, BenchMarkSate] = _
-  private var benchmark: BenchMarkSate = _
+  private var benchmarks: Map[String, BenchMarkState] = _
+  private var benchmark: BenchMarkState = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(): Unit = {
@@ -170,7 +170,7 @@ object Replay {
   private def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  private def loadBenchmarks(dumpFile: Path): Map[String, BenchMarkSate] = {
+  private def loadBenchmarks(dumpFile: Path): Map[String, BenchMarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
     val transactions = exportEntries(dumpFile).flatMap(decodeSubmissionInfo)
     if (transactions.isEmpty) sys.error("no transaction find")
@@ -198,7 +198,7 @@ object Replay {
         case ImmArray(exe: Node.NodeExercises.WithTxValue[_, ContractId]) =>
           val inputContracts = entry.tx.inputContracts
           List(
-            BenchMarkSate(
+            BenchMarkState(
               name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
               transaction = entry,
               contracts = allContracts.filterKeys(inputContracts).get,
