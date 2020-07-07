@@ -44,7 +44,7 @@ private[events] object EventsTable
       eventOffset: Offset,
       transactionId: String,
       nodeIndex: Int,
-      rowId: Long,
+      eventSequentialId: Long,
       ledgerEffectiveTime: Instant,
       commandId: String,
       workflowId: String,
@@ -171,7 +171,7 @@ private[events] trait EventsTable {
     offset("event_offset") ~
       str("transaction_id") ~
       int("node_index") ~
-      long("row_id") ~
+      long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
       instant("ledger_effective_time") ~
