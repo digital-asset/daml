@@ -1,0 +1,8 @@
+-- @ERROR Aborted: BOOM
+module EvaluationOrder where
+
+boom = scenario do
+  let f x = error "BOOM"
+  let _ = f 1 (error "BANG")
+  let _ = f 1 2
+  pure ()
