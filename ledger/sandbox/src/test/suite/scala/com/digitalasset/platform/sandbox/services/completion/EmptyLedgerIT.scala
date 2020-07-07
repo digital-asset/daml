@@ -4,7 +4,6 @@
 package com.daml.platform.sandbox.services.completion
 
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.command_completion_service.{
