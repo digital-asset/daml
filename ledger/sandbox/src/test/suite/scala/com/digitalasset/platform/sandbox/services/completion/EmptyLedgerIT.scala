@@ -22,7 +22,7 @@ import com.daml.platform.testing.StreamConsumer
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.DurationInt
 import scalaz.syntax.tag._
 
 class EmptyLedgerIT
