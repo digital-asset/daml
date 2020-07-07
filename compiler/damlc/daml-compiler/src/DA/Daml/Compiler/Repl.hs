@@ -205,9 +205,9 @@ loadDar replClient ideState dar = do
     toImportDecl = simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString
 
 
-runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
-runRepl opts mainDar replClient ideState = do
-    imports <- loadDar replClient ideState mainDar
+runRepl :: Options -> [FilePath] -> ReplClient.Handle -> IdeState -> IO ()
+runRepl opts dars replClient ideState = do
+    imports <- concat <$> mapM (loadDar replClient ideState) dars
     let initReplState = ReplState
           { imports = imports
           , bindings = []
