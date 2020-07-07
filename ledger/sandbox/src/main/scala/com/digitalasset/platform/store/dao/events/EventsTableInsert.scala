@@ -34,20 +34,17 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     "tree_event_witnesses" -> "{tree_event_witnesses}",
   )
 
-  private val insertCreate: String =
+  private val insertEvent: String =
     insertEvent(
       commonPrefix,
+      // create event values
       "create_argument" -> "{create_argument}",
       "create_signatories" -> "{create_signatories}",
       "create_observers" -> "{create_observers}",
       "create_agreement_text" -> "{create_agreement_text}",
       "create_consumed_at" -> "null",
-      "create_key_value" -> "{create_key_value}"
-    )
-
-  private val insertExercise =
-    insertEvent(
-      commonPrefix,
+      "create_key_value" -> "{create_key_value}",
+      // exercise event values
       "exercise_consuming" -> "{exercise_consuming}",
       "exercise_choice" -> "{exercise_choice}",
       "exercise_argument" -> "{exercise_argument}",
@@ -69,58 +66,47 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     )
 
   final class RawBatches private[EventsTableInsert] (
-      creates: Option[RawBatch],
-      exercises: Option[RawBatch],
+      events: Option[RawBatch],
       archives: Option[BatchSql],
   ) {
     def applySerialization(
         lfValueTranslation: LfValueTranslation,
     ): SerializedBatches =
       new SerializedBatches(
-        creates = creates.map(_.applySerialization(lfValueTranslation)),
-        exercises = exercises.map(_.applySerialization(lfValueTranslation)),
+        events = events.map(_.applySerialization(lfValueTranslation)),
         archives = archives,
       )
   }
 
   final class SerializedBatches(
-      creates: Option[Vector[Vector[NamedParameter]]],
-      exercises: Option[Vector[Vector[NamedParameter]]],
+      events: Option[Vector[Vector[NamedParameter]]],
       archives: Option[BatchSql],
   ) {
     def applyBatching(): PreparedBatches =
       new PreparedBatches(
-        creates = creates.map(cs => BatchSql(insertCreate, cs.head, cs.tail: _*)),
-        exercises = exercises.map(es => BatchSql(insertExercise, es.head, es.tail: _*)),
+        events = events.map(cs => BatchSql(insertEvent, cs.head, cs.tail: _*)),
         archives = archives,
       )
   }
 
   final class PreparedBatches(
-      creates: Option[BatchSql],
-      exercises: Option[BatchSql],
+      events: Option[BatchSql],
       archives: Option[BatchSql],
   ) {
-    def isEmpty: Boolean = creates.isEmpty && exercises.isEmpty && archives.isEmpty
+    def isEmpty: Boolean = events.isEmpty && archives.isEmpty
     def foreach[U](f: BatchSql => U): Unit = {
-      creates.foreach(f)
-      exercises.foreach(f)
+      events.foreach(f)
       archives.foreach(f)
     }
   }
 
   private case class AccumulatingBatches(
-      creates: Vector[RawBatch.Event[RawBatch.Event.Created]],
-      exercises: Vector[RawBatch.Event[RawBatch.Event.Exercised]],
+      events: Vector[RawBatch.Event[RawBatch.Event.Specific]],
       archives: Vector[Vector[NamedParameter]],
   ) {
 
-    def add(create: RawBatch.Event[RawBatch.Event.Created]): AccumulatingBatches =
-      copy(creates = creates :+ create)
-
-    def add(exercise: RawBatch.Event[RawBatch.Event.Exercised])(
-        implicit dummy: DummyImplicit): AccumulatingBatches =
-      copy(exercises = exercises :+ exercise)
+    def add(event: RawBatch.Event[RawBatch.Event.Specific]): AccumulatingBatches =
+      copy(events = this.events :+ event)
 
     def add(archive: Vector[NamedParameter]): AccumulatingBatches =
       copy(archives = archives :+ archive)
@@ -139,8 +125,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
     def prepare: RawBatches =
       new RawBatches(
-        prepareRawNonEmpty(insertCreate, creates),
-        prepareRawNonEmpty(insertExercise, exercises),
+        prepareRawNonEmpty(insertEvent, events),
         prepareNonEmpty(updateArchived, archives),
       )
 
@@ -148,8 +133,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
   private object AccumulatingBatches {
     val empty: AccumulatingBatches = AccumulatingBatches(
-      creates = Vector.empty,
-      exercises = Vector.empty,
+      events = Vector.empty,
       archives = Vector.empty,
     )
   }
