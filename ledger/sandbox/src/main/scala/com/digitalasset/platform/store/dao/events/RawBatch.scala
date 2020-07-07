@@ -3,9 +3,11 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.PreparedStatement
 import java.time.Instant
 
 import anorm.NamedParameter
+
 import com.daml.ledger.EventId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
@@ -89,7 +91,6 @@ private[events] object RawBatch {
   }
 
   object Event {
-
     sealed abstract class Specific {
       private[Event] def applySerialization(
           transactionId: TransactionId,
@@ -108,7 +109,15 @@ private[events] object RawBatch {
           "create_signatories" -> create.signatories.toArray[String],
           "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
           "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
+          // set exercise event columns to NULL
+          "exercise_consuming" -> nullParamValue[Boolean],
+          "exercise_choice" -> nullParamValue[String],
+          "exercise_argument" -> nullParamValue[Array[Byte]],
+          "exercise_result" -> nullParamValue[Array[Byte]],
+          "exercise_actors" -> nullParamValue[Array[String]],
+          "exercise_child_event_ids" -> nullParamValue[Array[String]],
         )
+
       override private[Event] def applySerialization(
           transactionId: TransactionId,
           eventId: EventId,
@@ -127,6 +136,12 @@ private[events] object RawBatch {
           "exercise_consuming" -> exercise.consuming,
           "exercise_choice" -> exercise.choiceId,
           "exercise_actors" -> exercise.actingParties.toArray[String],
+          // set create event columns to NULL
+          "create_argument" -> nullParamValue[Array[Byte]],
+          "create_signatories" -> nullParamValue[Array[String]],
+          "create_observers" -> nullParamValue[Array[String]],
+          "create_agreement_text" -> nullParamValue[String],
+          "create_key_value" -> nullParamValue[Array[Byte]],
         )
       override private[Event] def applySerialization(
           transactionId: TransactionId,
@@ -140,4 +155,23 @@ private[events] object RawBatch {
 
   }
 
+  private implicit lazy val stringArrayParameterMetadata: anorm.ParameterMetaData[Array[String]] =
+    new anorm.ParameterMetaData[Array[String]] {
+      override def sqlType: String = "ARRAY"
+
+      override def jdbcType: Int = java.sql.Types.ARRAY
+    }
+
+  private val dummy = new java.lang.Object();
+
+  private def nullParamValue[A: anorm.ParameterMetaData] =
+    anorm.ParameterValue(dummy.asInstanceOf[A], null, nullToStatement[A])
+
+  private def nullToStatement[A: anorm.ParameterMetaData]: anorm.ToStatement[A] =
+    new anorm.ToStatement[A] {
+      val jdbcType = implicitly[anorm.ParameterMetaData[A]].jdbcType
+
+      override def set(s: PreparedStatement, index: Int, dummy: A): Unit =
+        s.setNull(index, jdbcType)
+    }
 }

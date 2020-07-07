@@ -145,6 +145,20 @@ const newUiPage = async (): Promise<Page> => {
   return page;
 }
 
+// Note that Follow is a consuming choice on a contract
+// with a contract key so it is crucial to wait between follows.
+// Otherwise, you get errors due to contention.
+// Those can manifest in puppeteer throwing `Target closed`
+// but that is not the underlying error (the JSON API will
+// output the contention errors as well so look through the log).
+const waitForFollowers = async (page: Page, n: number) => {
+  await page.waitForFunction(
+      (n) => document.querySelectorAll(".test-select-following").length == n,
+      {},
+      n
+  );
+}
+
 // LOGIN_FUNCTION_BEGIN
 // Log in using a party name and wait for the main screen to load.
 const login = async (page: Page, partyName: string) => {
@@ -228,15 +242,13 @@ test('log in as three different users and start following each other', async () 
   // This should work even though Party 2 has not logged in yet.
   // Check Party 1 follows exactly Party 2.
   await follow(page1, party2);
-  await page1.waitForSelector('.test-select-following');
+  await waitForFollowers(page1, 1);
   const followingList1 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
   expect(followingList1).toEqual([party2]);
 
    // Add Party 3 as well and check both are in the list.
    await follow(page1, party3);
-   await page1.waitForFunction(
-    () => document.querySelectorAll(".test-select-following").length == 2
-   );
+   await waitForFollowers(page1, 2);
    const followingList11 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
    expect(followingList11).toHaveLength(2);
    expect(followingList11).toContain(party2);
@@ -260,6 +272,7 @@ test('log in as three different users and start following each other', async () 
   const userIcons = await page2.$$('.test-select-add-user-icon');
   expect(userIcons).toHaveLength(1);
   await userIcons[0].click();
+  await waitForFollowers(page2, 1);
 
   // Also follow Party 3 using the text input.
   // Note that we can also use the icon to follow Party 3 as they appear in the
@@ -268,9 +281,7 @@ test('log in as three different users and start following each other', async () 
   await follow(page2, party3);
 
   // Check the following list is updated correctly.
-  await page2.waitForFunction(
-    () => document.querySelectorAll(".test-select-following").length == 2
-  );
+  await waitForFollowers(page2, 2);
   const followingList2 = await page2.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
   expect(followingList2).toHaveLength(2);
   expect(followingList2).toContain(party1);

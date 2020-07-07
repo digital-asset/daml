@@ -4,6 +4,8 @@
 
 module ReplTest where
 
+import ReplTestIndirect
+
 template T
   with
     proposer : Party
@@ -20,5 +22,5 @@ template TProposal
     observer accepter
     choice Accept : ContractId T
       controller accepter
-      do  create (T proposer accepter)
+      do  myCreate (T proposer accepter)
 

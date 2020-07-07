@@ -6,10 +6,11 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 
-hj_scalacopts = [
+hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
@@ -157,10 +158,11 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     resources = glob(["src/it/resources/**/*"]),
-    scalacopts = hj_scalacopts,
+    scalacopts = hj_scalacopts + ["-P:silencer:checkUnused"],
     deps = [
         ":http-json",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -182,6 +184,7 @@ da_scala_test(
         "//libs-scala/postgresql-testing",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_ghik_silencer_lib_2_12_11",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",

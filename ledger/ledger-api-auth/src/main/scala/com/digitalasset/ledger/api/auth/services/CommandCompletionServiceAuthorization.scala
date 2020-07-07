@@ -14,7 +14,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.Future
 
-final class CommandCompletionServiceAuthorization(
+private[daml] final class CommandCompletionServiceAuthorization(
     protected val service: CommandCompletionService with AutoCloseable,
     private val authorizer: Authorizer)
     extends CommandCompletionService

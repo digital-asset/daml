@@ -17,7 +17,7 @@ import scala.language.implicitConversions
 
 class HashSpec extends WordSpec with Matchers {
 
-  @com.github.ghik.silencer.silent // dead code. Well, yeah
+  @com.github.ghik.silencer.silent("dead code following this construct")
   private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
 
   private val packageId0 = Ref.PackageId.assertFromString("package")

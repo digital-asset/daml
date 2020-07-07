@@ -53,11 +53,15 @@ da_haskell_binary(
     hackage_deps = [
         "base",
         "extra",
+        "filepath",
+        "safe-exceptions",
+        "typed-process",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-helper-lib",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )

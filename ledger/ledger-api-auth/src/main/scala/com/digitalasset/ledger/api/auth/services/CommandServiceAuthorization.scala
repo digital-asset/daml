@@ -17,7 +17,7 @@ import scala.concurrent.Future
 /** Note: the command service internally uses calls to the CommandSubmissionService and CommandCompletionService.
   * These calls already require authentication, but it is better to check authorization here as well.
   */
-final class CommandServiceAuthorization(
+private[daml] final class CommandServiceAuthorization(
     protected val service: CommandService with AutoCloseable,
     private val authorizer: Authorizer)
     extends CommandService

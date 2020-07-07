@@ -84,6 +84,9 @@ runtime_deps = [
 da_scala_library(
     name = "sandbox",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -96,12 +99,15 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = runtime_deps,
-    deps = compile_deps,
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
 )
 
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -114,7 +120,7 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = runtime_deps,
-    deps = compile_deps,
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
 )
 
 da_scala_binary(
@@ -170,8 +176,8 @@ genrule(
         cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
-        tar c sandbox \
-          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        tar c sandbox \\
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n > $$out
     """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],

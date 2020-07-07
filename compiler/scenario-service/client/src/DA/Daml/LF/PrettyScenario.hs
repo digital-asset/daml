@@ -49,20 +49,31 @@ type ModuleRef = LF.Qualified ()
 
 unmangleQualifiedName :: T.Text -> (LF.ModuleName, T.Text)
 unmangleQualifiedName t = case T.splitOn ":" t of
-    [modName, defName] -> (unmangleModuleName modName, unmangle defName)
+    [modName, defName] -> (unmangleModuleName modName, unmangleDotted defName)
     _ -> error "Bad definition"
 
 unmangleModuleName :: T.Text -> LF.ModuleName
-unmangleModuleName t = LF.ModuleName (map unmangle $ T.splitOn "." t)
+unmangleModuleName t = LF.ModuleName (map (unwrapUnmangle . unmangleIdentifier) $ T.splitOn "." t)
 
-unmangle :: T.Text -> T.Text
-unmangle s = case unmangleIdentifier s of
-    Left err -> error err
-    Right (UnmangledIdentifier s) -> s
+-- | Partial helper to handle the result
+-- of `unmangleIdentifier` by crashing if it failed.
+unwrapUnmangle :: Either String UnmangledIdentifier -> T.Text
+unwrapUnmangle (Left err) = error err
+unwrapUnmangle (Right (UnmangledIdentifier s)) = s
 
+unmangleDotted :: T.Text -> T.Text
+unmangleDotted s = unwrapUnmangle unmangled
+  where unmangled =
+              fmap (UnmangledIdentifier . T.intercalate "." . map getUnmangledIdentifier) $
+              traverse unmangleIdentifier $
+              T.splitOn "." s
+
+-- This assumes the name is dotted which is the case for all type
+-- constructors which is the only thing we use it for.
 {-# COMPLETE UnmangledQualifiedName #-}
 pattern UnmangledQualifiedName :: LF.ModuleName -> T.Text -> TL.Text
-pattern UnmangledQualifiedName mod def <- (unmangleQualifiedName . TL.toStrict -> (mod, def))
+pattern UnmangledQualifiedName mod def <-
+    (unmangleQualifiedName . TL.toStrict -> (mod, def))
 
 runM :: V.Vector Node -> LF.World -> M (Doc SyntaxClass) -> Doc SyntaxClass
 runM nodes world =
@@ -599,14 +610,15 @@ prettyNode Node{..}
                    <-> fcommasep (mapV prettyNodeIdLink nodeReferencedBy)
 
       let ppDisclosedTo =
-            if V.null nodeObservingSince
+            if V.null nodeDisclosures
             then mempty
             else
               meta $ keyword_ "known to (since):"
                 <-> fcommasep
                   (mapV
-                    (\(PartyAndTransactionId p txId) -> prettyMayParty p <-> parens (prettyTxId txId))
-                    nodeObservingSince)
+                    -- TODO(MH): Take explicitness into account.
+                    (\(Disclosure p txId _explicit) -> prettyMayParty p <-> parens (prettyTxId txId))
+                    nodeDisclosures)
 
       pure
          $ prettyMay "<missing node id>" prettyNodeId nodeNodeId
@@ -724,6 +736,7 @@ prettyPackageIdentifier (PackageIdentifier psum) = case psum of
   (Just (PackageIdentifierSumSelf _))        -> mempty
   (Just (PackageIdentifierSumPackageId pid)) -> char '@' <> ltext pid
 
+-- | Note that this should only be called with dotted identifiers.
 prettyDefName :: LF.World -> Identifier -> Doc SyntaxClass
 prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName))
   | Just mod0 <- lookupModule world mbPkgId modName
@@ -777,6 +790,7 @@ data NodeInfo = NodeInfo
     , niSignatories :: S.Set T.Text
     , niStakeholders :: S.Set T.Text  -- Is a superset of `niSignatories`.
     , niWitnesses :: S.Set T.Text  -- Is a superset of `niStakeholders`.
+    , niDivulgences :: S.Set T.Text
     }
 
 data Table = Table
@@ -794,12 +808,14 @@ nodeInfo Node{..} = do
     let niActive = isNothing nodeConsumedBy
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
-    let niWitnesses = S.fromList $ mapMaybe party $ V.toList nodeObservingSince
+    let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures
+    let niWitnesses = S.fromList $ mapMaybe party nodeWitnesses
+    let niDivulgences = S.fromList $ mapMaybe party nodeDivulgences
     pure NodeInfo{..}
     where
-        party :: PartyAndTransactionId -> Maybe T.Text
-        party PartyAndTransactionId{..} = do
-            Party{..} <- partyAndTransactionIdParty
+        party :: Disclosure -> Maybe T.Text
+        party Disclosure{..} = do
+            Party{..} <- disclosureParty
             pure (TL.toStrict partyParty)
 
 
@@ -837,11 +853,12 @@ renderRow world parties NodeInfo{..} =
             let (label, mbHint)
                     | party `S.member` niSignatories = ("S", Just "Signatory")
                     | party `S.member` niStakeholders = ("O", Just "Observer")
-                    | party `S.member` niWitnesses = ("D", Just "Disclosed/\x200B\&Divulged")  -- The charater after the "/" is a zero-width space.
+                    | party `S.member` niWitnesses = ("W", Just "Witness")
+                    | party `S.member` niDivulgences = ("D", Just "Divulged")
                     | otherwise = ("-", Nothing)
             in
-            H.td H.! A.class_ "disclosure" $ H.div H.! A.class_ "tooltip" $ do
-                H.text label
+            H.td H.! A.class_ (H.textValue $ T.unwords $ "disclosure" : ["disclosed" | isJust mbHint]) $ H.div H.! A.class_ "tooltip" $ do
+                H.span $ H.text label
                 whenJust mbHint $ \hint -> H.span H.! A.class_ "tooltiptext" $ H.text hint
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -856,7 +873,7 @@ renderRow world parties NodeInfo{..} =
 -- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
-    let parties = S.unions $ map niWitnesses tRows
+    let parties = S.unions $ map (\row -> niWitnesses row `S.union` niDivulgences row) tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
     let (headers, rows) = unzip $ map (renderRow world parties) tRows
     H.table $ head headers <> mconcat rows
@@ -888,7 +905,7 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             Nothing -> H.body H.! A.class_ "hide_note" $ do
                 noteView
                 transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note" $ do
+            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note hidden_disclosure" $ do
                 H.div $ do
                     H.button H.! A.onclick "toggle_view();" $ do
                         H.span H.! A.class_ "table" $ H.text "Show transaction view"
@@ -897,6 +914,9 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                     H.span H.! A.class_ "table" $ do
                         H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
                         H.label H.! A.for "show_archived" $ "Show archived"
+                    H.span H.! A.class_ "table" $ do
+                        H.input H.! A.type_ "checkbox" H.! A.id "show_detailed_disclosure" H.! A.onchange "toggle_detailed_disclosure();"
+                        H.label H.! A.for "show_detailed_disclosure" $ "Show detailed disclosure"
                 noteView
                 tbl
                 transView

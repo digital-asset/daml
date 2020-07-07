@@ -7,15 +7,14 @@ import Control.Concurrent.Async
 import Control.Lens ((.~), (&), (^?!), view, _Right)
 import Control.Monad
 import Crypto.Hash (digestFromByteString, hashlazy, Digest, SHA256)
-import Data.Aeson
 import Data.ByteArray.Encoding (Base(Base16), convertFromBase, convertToBase)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as BSL
-import Data.Either (fromRight)
+import Data.Either (fromRight, rights)
 import Data.Either.Extra (eitherToMaybe)
-import qualified Data.HashMap.Strict as HashMap
 import Data.List
 import Data.Map (Map)
+import Data.Maybe (mapMaybe)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -27,17 +26,13 @@ import Network.HTTP.Client (responseTimeout, responseTimeoutMicro)
 import Network.HTTP.Simple
 import Options.Applicative
 import System.IO.Extra
+import qualified System.Process
 
 newtype Versions = Versions { getVersions :: Set Version }
     deriving Show
 
 instance Semigroup Versions where
     Versions a <> Versions b = Versions (a <> b)
-
-instance FromJSON Versions where
-    parseJSON = withObject "version object" $ \obj ->
-        either fail (pure . Versions . Set.fromList) $
-        traverse SemVer.fromText $ HashMap.keys obj
 
 minimumVersion :: Version
 minimumVersion = SemVer.incrementMajor SemVer.initial
@@ -168,15 +163,16 @@ optsParser :: Parser Opts
 optsParser = Opts
   <$> strOption (short 'o' <> help "Path to output file")
 
+getVersionsFromTags :: IO (Set Version, Set Version)
+getVersionsFromTags = do
+    tags <- lines <$> System.Process.readProcess "git" ["tag"] ""
+    let versions = Set.fromList $ rights $ mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v") tags
+    return $ Set.partition (null . view SemVer.release) versions
+
 main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser fullDesc)
-    versionsReq <- parseRequestThrow "https://docs.daml.com/versions.json"
-    snapshotsReq <- parseRequestThrow "https://docs.daml.com/snapshots.json"
-    versionsResp <- httpJSON versionsReq
-    snapshotsResp <- httpJSON snapshotsReq
-    let stableVers = getVersions (getResponseBody versionsResp)
-    let allSnapshots = getVersions (getResponseBody snapshotsResp)
+    (stableVers, allSnapshots) <- getVersionsFromTags
     -- List of releases that we want to filter out snapshots for even
     -- though they do not exist.
     let skipped = Set.fromList [SemVer.fromText "1.1.0" ^?! _Right]

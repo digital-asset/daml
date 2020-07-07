@@ -50,6 +50,6 @@ REGEX_HIDE_HASHES="s,@[a-z0-9]{8},@XXXXXXXX,g"
 
 $DAMLC package $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
 
-$REPL $DEVFLAG test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
+$REPL $DEVFLAG test Test:run $TESTDAR | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
 $DIFF -u --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger

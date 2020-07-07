@@ -36,7 +36,7 @@ data PackageDbMetadata = PackageDbMetadata
   { directDependencies :: [Ghc.UnitId]
   -- ^ Unit ids of direct dependencies. These are exposed by default
   , moduleRenamings :: Map Ghc.UnitId (Ghc.ModuleName, [LF.ModuleName])
-  -- ^ Map frm GHC unit id to the prefix and a list of all modules in this package.
+  -- ^ Map from GHC unit id to the prefix and a list of all modules in this package.
   -- We do not bother differentiating between exposed and unexposed modules
   -- since we already warn on non-exposed modules anyway and this
   -- is intended for data-dependencies where everything is exposed.

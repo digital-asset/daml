@@ -398,13 +398,10 @@ message Party {
   string party = 1;
 }
 
-message NodeAndParties {
-  NodeId node_id = 1;
-  repeated Party parties = 2;
-}
-message PartyAndTransactionId {
+message Disclosure {
   Party party = 1;
-  int32 tx_id = 2;
+  int32 since_tx_id = 2;
+  bool explicit = 3;
 }
 
 message FailedAuthorization {
@@ -496,10 +493,6 @@ message Transaction {
   repeated NodeId roots = 3;
   repeated NodeId nodes = 4;
 
-  // Transaction nodes that must be disclosed to individual parties
-  // to make this transaction valid.
-  repeated NodeAndParties disclosures = 5;
-
   // If non-empty, the transaction failed due to these failed authorizations.
   FailedAuthorizations failed_authorizations = 6;
 }
@@ -545,14 +538,14 @@ message Node {
   }
 
   message LookupByKey {
-    Identifier template_id = 1;  
-    KeyWithMaintainers key_with_maintainers = 2; 
+    Identifier template_id = 1;
+    KeyWithMaintainers key_with_maintainers = 2;
     string contract_id = 3; // optional, if empty, we haven't found a contract
   }
 
   NodeId node_id = 1;
   sfixed64 effective_at = 2;
-  repeated PartyAndTransactionId observing_since = 3;
+  repeated Disclosure disclosures = 3;
   repeated NodeId referenced_by = 4;
   NodeId consumed_by = 5; // optional
   NodeId parent = 6; // optional

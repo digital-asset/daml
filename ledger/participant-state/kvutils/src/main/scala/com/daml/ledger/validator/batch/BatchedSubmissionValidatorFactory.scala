@@ -30,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object BatchedSubmissionValidatorFactory {
   def defaultParametersFor(enableBatching: Boolean): BatchedSubmissionValidatorParameters =
     if (enableBatching) {
-      BatchedSubmissionValidatorParameters.default
+      BatchedSubmissionValidatorParameters.reasonableDefault
     } else {
       BatchedSubmissionValidatorParameters(
         cpuParallelism = 1,

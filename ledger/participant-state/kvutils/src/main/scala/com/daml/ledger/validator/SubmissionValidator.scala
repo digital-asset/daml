@@ -10,7 +10,7 @@ import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, DamlStateMap, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -45,7 +45,7 @@ class SubmissionValidator[LogResult] private[validator] (
         Timestamp,
         DamlSubmission,
         ParticipantId,
-        Map[DamlStateKey, Option[DamlStateValue]],
+        DamlStateMap,
     ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
@@ -235,7 +235,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
   private def verifyAllInputsArePresent[T](
       declaredInputs: Seq[DamlStateKey],
-      readInputs: Map[DamlStateKey, Option[DamlStateValue]],
+      readInputs: DamlStateMap,
   ): Future[Unit] = {
     if (checkForMissingInputs) {
       val missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
@@ -250,7 +250,7 @@ class SubmissionValidator[LogResult] private[validator] (
   }
 
   private def flattenInputStates(
-      inputs: Map[DamlStateKey, Option[DamlStateValue]]
+      inputs: DamlStateMap
   ): Map[DamlStateKey, DamlStateValue] =
     inputs.collect {
       case (key, Some(value)) => key -> value
@@ -347,7 +347,7 @@ object SubmissionValidator {
       recordTime: Timestamp,
       damlSubmission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
   ): LogEntryAndState =
     keyValueCommitting.processSubmission(
       damlLogEntryId,

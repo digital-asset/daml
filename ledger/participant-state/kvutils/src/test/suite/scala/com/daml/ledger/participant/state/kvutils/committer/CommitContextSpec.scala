@@ -4,13 +4,12 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, DamlStateMap, TestHelpers}
+import com.daml.ledger.participant.state.kvutils.{DamlStateMapWithFingerprints, TestHelpers}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
 import org.scalatest.{Matchers, WordSpec}
@@ -18,14 +17,32 @@ import org.scalatest.{Matchers, WordSpec}
 class CommitContextSpec extends WordSpec with Matchers {
   "get" should {
     "check output first" in {
-      val context = newInstance(Map(aKey -> Some(anotherValue)))
+      val context = newInstance(newDamlStateMap(aKey -> anotherValue))
       context.set(aKey, aValue)
       context.get(aKey) shouldBe Some(aValue)
     }
 
     "return input if key has not been output" in {
-      val context = newInstance(Map(aKey -> Some(aValue)))
+      val context = newInstance(newDamlStateMap(aKey -> aValue))
       context.get(aKey) shouldBe Some(aValue)
+    }
+
+    "record all accessed input keys" in {
+      val context = newInstance(newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+      context.get(aKey)
+      context.get(anotherKey)
+
+      context.getAccessedInputKeysWithFingerprints shouldBe Set(
+        aKey -> aValue.toByteString,
+        anotherKey -> anotherValue.toByteString)
+    }
+
+    "not record input keys that are not accessed" in {
+      val context =
+        newInstance(newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+      context.get(aKey)
+
+      context.getAccessedInputKeysWithFingerprints shouldBe Set(aKey -> aValue.toByteString)
     }
 
     "throw in case key cannot be found" in {
@@ -55,19 +72,19 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
 
     "not output a key whose value is identical to its input value" in {
-      val context = newInstance(Map(aKey -> Some(aValue)))
+      val context = newInstance(newDamlStateMap(aKey -> aValue))
       context.set(aKey, aValue)
       context.getOutputs should have size 0
     }
 
     "output a key whose value has changed from its input value" in {
-      val context = newInstance(Map(aKey -> Some(aValue)))
+      val context = newInstance(newDamlStateMap(aKey -> aValue))
       context.set(aKey, anotherValue)
       context.getOutputs.toSeq shouldBe Seq((aKey, anotherValue))
     }
 
     "output last set value for a key that was also input" in {
-      val context = newInstance(Map(aKey -> Some(aValue)))
+      val context = newInstance(newDamlStateMap(aKey -> aValue))
 
       context.set(aKey, anotherValue)
       context.set(aKey, aValue)
@@ -86,15 +103,18 @@ class CommitContextSpec extends WordSpec with Matchers {
     .setParty(DamlPartyAllocation.newBuilder.setDisplayName("another party name"))
     .build
 
-  private class TestCommitContext(override val inputs: DamlStateMap) extends CommitContext {
-    override def getEntryId: DamlKvutils.DamlLogEntryId = DamlLogEntryId.getDefaultInstance
-
-    override def getMaximumRecordTime: Time.Timestamp = Time.Timestamp.now()
-
-    override def getRecordTime: Time.Timestamp = Time.Timestamp.now()
+  private class TestCommitContext(override val inputsWithFingerprints: DamlStateMapWithFingerprints)
+      extends CommitContext {
+    override def getRecordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now())
 
     override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)
   }
 
-  private def newInstance(inputs: DamlStateMap = Map.empty) = new TestCommitContext(inputs)
+  private def newInstance(inputsWithFingerprints: DamlStateMapWithFingerprints = Map.empty) =
+    new TestCommitContext(inputsWithFingerprints)
+
+  private def newDamlStateMap(
+      keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMapWithFingerprints =
+    (for ((key, value) <- keyAndValues)
+      yield (key, (Some(value), value.toByteString))).toMap
 }

@@ -377,6 +377,7 @@ jobs:
           if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
+            mkdir $(Build.StagingDirectory)/bucket
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
@@ -408,7 +409,7 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(daml-on-sql)
-          targetPath: $(Build.StagingDirectory)/release
+          targetPath: $(Build.StagingDirectory)/bucket
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
@@ -429,6 +430,10 @@ jobs:
           sha256sum $(find . -type f | sort) > sha256sums
           # Note: relies on our release artifacts not having spaces in their
           # names. Creates a ${f}.asc with the signature for each $f.
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+          cd ../bucket
           for f in *; do
               gpg --homedir $GPG_DIR -ab $f
           done
@@ -462,9 +467,9 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql) \
+          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql) \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql)
-          gsutil cp $(Build.StagingDirectory)/release/$(daml-on-sql).asc \
+          gsutil cp $(Build.StagingDirectory)/bucket/$(daml-on-sql).asc \
                     gs://daml-binaries/daml-on-sql/$(daml-on-sql).asc
           gsutil cp $(Build.StagingDirectory)/release/$(json-api) \
                     gs://daml-binaries/json-api/$(json-api)
@@ -507,7 +512,9 @@ jobs:
         git checkout -b $BRANCH
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
-        git add compatibility/versions.bzl
+        # Note that maven_install.json might be unchanged but
+        # git add is happy about that.
+        git add compatibility/versions.bzl compatibility/maven_install.json
         git -c user.name="Azure Pipelines DAML Build" \
             -c user.email="support@digitalasset.com" \
             commit \

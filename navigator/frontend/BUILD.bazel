@@ -106,18 +106,18 @@ genrule(
     # -d --progress --display-error-details --verbose
     WP_IN={WP_IN}
     WP_OUT={WP_OUT}
-    $(execpath :webpack) \
-      --config="$$IN/webpack.config.js" \
-      --env.prod \
-      --env.paths_case_check="{PATHS_CASE_CHECK}" \
-      --env.bazel_in_dir="{WP_IN_ESCAPED}" \
+    $(execpath :webpack) \\
+      --config="$$IN/webpack.config.js" \\
+      --env.prod \\
+      --env.paths_case_check="{PATHS_CASE_CHECK}" \\
+      --env.bazel_in_dir="{WP_IN_ESCAPED}" \\
       --env.bazel_out_dir="{WP_OUT_ESCAPED}"
 
     # Package result (.TGZ)
     # To debug, change 'c' to 'cv'.
     echo "Packaging result from $$OUT to $(@D)/frontend.tgz"
-    tar c -C $$OUT . \
-        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+    tar c -C $$OUT . \\
+        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
         | gzip -n > "$(@D)/frontend.tgz"
 
     # Package result (.JAR)

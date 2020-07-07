@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
+import java.util.UUID
+
 import akka.actor.typed.ActorRef
 import akka.http.scaladsl.Http.ServerBinding
 
@@ -16,16 +18,18 @@ final case class Started(binding: ServerBinding) extends Message
 
 case object Stop extends Message
 
-final case class TriggerStarting(runningTrigger: RunningTrigger) extends Message
+// Messages passed to the server from a TriggerRunnerImpl
 
-final case class TriggerStarted(runningTrigger: RunningTrigger) extends Message
+final case class TriggerStarting(triggerInstance: UUID) extends Message
+
+final case class TriggerStarted(triggerInstance: UUID) extends Message
 
 final case class TriggerInitializationFailure(
-    runningTrigger: RunningTrigger,
+    triggerInstance: UUID,
     cause: String
 ) extends Message
 
 final case class TriggerRuntimeFailure(
-    runningTrigger: RunningTrigger,
+    triggerInstance: UUID,
     cause: String
 ) extends Message

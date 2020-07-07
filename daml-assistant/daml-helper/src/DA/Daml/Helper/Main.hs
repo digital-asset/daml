@@ -3,18 +3,26 @@
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
 
-import Control.Exception
+import Control.Exception.Safe
 import Control.Monad
 import Data.Foldable
 import Data.List.Extra
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
+import System.FilePath
 import System.IO
+import System.Process.Typed
 import Text.Read (readMaybe)
 
 import DA.Signals
-import DA.Daml.Helper.Run
+import DA.Daml.Project.Consts
+import DA.Daml.Helper.Init
+import DA.Daml.Helper.Ledger
+import DA.Daml.Helper.New
+import DA.Daml.Helper.Start
+import DA.Daml.Helper.Studio
+import DA.Daml.Helper.Util
 
 main :: IO ()
 main =
@@ -346,8 +354,10 @@ runCommand = \case
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} ->
         case lang of
-            JavaScript ->
-                runDaml2js remainingArguments
+            JavaScript -> do
+                daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
+                withProcessWait_' (proc daml2js remainingArguments) (const $ pure ()) `catchIO`
+                    (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
             Java ->
                 runJar
                     "daml-sdk/daml-sdk.jar"
