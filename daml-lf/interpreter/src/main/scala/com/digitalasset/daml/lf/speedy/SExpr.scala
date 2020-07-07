@@ -130,8 +130,11 @@ object SExpr {
       with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       val vfun = fun.lookupValue(machine)
-      //TODO: evaluate args to SValue here
-      enterApplication(machine, vfun, args)
+      val actuals = new util.ArrayList[SValue](args.size)
+      for (i <- 0 until args.size) {
+        actuals.add(args(i).lookupValue(machine))
+      }
+      enterApplication(machine, vfun, actuals)
     }
   }
 
@@ -144,9 +147,7 @@ object SExpr {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       for (i <- 0 to arity - 1) {
-        val arg = args(i)
-        val v = arg.lookupValue(machine)
-        actuals.add(v)
+        actuals.add(args(i).lookupValue(machine))
       }
       builtin.executeEffect(actuals, machine)
     }

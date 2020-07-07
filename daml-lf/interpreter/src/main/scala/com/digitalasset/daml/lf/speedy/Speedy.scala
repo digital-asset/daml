@@ -684,27 +684,27 @@ private[lf] object Speedy {
   }
 
   /** The function has been evaluated to a value, now start evaluating the arguments. */
-  // This code replaces `executeApplication` which is almost dead.
   private[speedy] def enterApplication(
       machine: Machine,
       vfun: SValue,
-      newArgs: Array[SExprAtomic]): Unit = {
+      newActuals: Actuals): Unit = {
     vfun match {
       case SPAP(prim, actualsSoFar, arity) =>
         val missing = arity - actualsSoFar.size
-        val newArgsLimit = Math.min(missing, newArgs.length)
 
-        val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-        actuals.addAll(actualsSoFar)
+        val actuals =
+          if (actualsSoFar.size > 0) {
+            // combine actualsSoFar & newActuals
+            val newActualsLimit = Math.min(missing, newActuals.size)
+            val combined = new Actuals(actualsSoFar.size + newActualsLimit)
+            combined.addAll(actualsSoFar)
+            combined.addAll(newActuals)
+            combined
+          } else {
+            newActuals
+          }
 
-        val othersLength = newArgs.length - missing
-
-        // Evaluate the arguments
-        for (i <- 0 to newArgsLimit - 1) {
-          val newArg = newArgs(i)
-          val v = newArg.lookupValue(machine)
-          actuals.add(v)
-        }
+        val othersLength = newActuals.size - missing
 
         // Not enough arguments. Return a PAP.
         if (othersLength < 0) {
@@ -713,9 +713,11 @@ private[lf] object Speedy {
         } else {
           // Too many arguments: Push a continuation to re-apply the over-applied args.
           if (othersLength > 0) {
-            val others = new Array[SExprAtomic](othersLength)
-            System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.pushKont(KOverApp(others, machine.frame, machine.actuals, machine.env.size))
+            val overActuals = new Actuals(othersLength)
+            for (i <- 0 to othersLength - 1) {
+              overActuals.add(newActuals.get(missing + i))
+            }
+            machine.pushKont(KOverApp(overActuals))
           }
           // Now the correct number of arguments is ensured. What kind of prim do we have?
           prim match {
@@ -826,16 +828,11 @@ private[lf] object Speedy {
       .body
   }
 
-  private[speedy] final case class KOverApp(
-      newArgs: Array[SExprAtomic],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
+  private[speedy] final case class KOverApp(overActuals: Actuals)
       extends Kont
       with SomeArrayEquals {
     def execute(vfun: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
-      enterApplication(machine, vfun, newArgs)
+      enterApplication(machine, vfun, overActuals)
     }
   }
 
