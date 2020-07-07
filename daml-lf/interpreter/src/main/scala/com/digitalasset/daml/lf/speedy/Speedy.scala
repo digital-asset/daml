@@ -806,7 +806,7 @@ private[lf] object Speedy {
             case PBuiltin(builtin) =>
               machine.actuals = actuals
               try {
-                builtin.executeEffect(actuals, machine)
+                builtin.execute(actuals, machine)
               } catch {
                 // We turn arithmetic exceptions into a daml exception that can be caught.
                 case e: ArithmeticException =>
@@ -859,7 +859,7 @@ private[lf] object Speedy {
 
   /** The builtin arguments have been evaluated. Now execute the builtin. */
   private[speedy] final case class KBuiltin(
-      builtin: SBuiltinEffect,
+      builtin: SBuiltinMaybeHungry,
       actuals: util.ArrayList[SValue],
       envSize: Int,
   ) extends Kont {
@@ -868,7 +868,7 @@ private[lf] object Speedy {
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreEnv(null, actuals, envSize)
       try {
-        builtin.executeEffect(actuals, machine)
+        builtin.execute(actuals, machine)
       } catch {
         // We turn arithmetic exceptions into a daml exception that can be caught.
         case e: ArithmeticException =>
