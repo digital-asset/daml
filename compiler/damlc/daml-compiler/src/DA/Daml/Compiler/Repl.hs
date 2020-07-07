@@ -183,9 +183,12 @@ parseReplInput input dflags =
     tryParse (PFailed _ _ errMsg) = Left (ParseError errMsg)
 
 
-runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
-runRepl opts mainDar replClient ideState = do
-    Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
+-- | Load all packages in the given Dar into the REPL service.
+--
+-- Returns the list of modules in the main DALF.
+loadDar :: ReplClient.Handle -> IdeState -> FilePath -> IO [ImportDecl GhcPs]
+loadDar replClient ideState dar = do
+    Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile dar
     (_, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
     let moduleNames = map LF.moduleName (NM.elems (LF.packageModules pkg))
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
@@ -194,11 +197,19 @@ runRepl opts mainDar replClient ideState = do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
         case r of
             Left err -> do
-                hPutStrLn stderr ("Package could not be loaded: " <> show err)
+                hPutStrLn stderr ("Package " ++ dar ++ " could not be loaded: " <> show err)
                 exitFailure
             Right _ -> pure ()
+    pure $! map toImportDecl moduleNames
+  where
+    toImportDecl = simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString
+
+
+runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
+runRepl opts mainDar replClient ideState = do
+    imports <- loadDar replClient ideState mainDar
     let initReplState = ReplState
-          { imports = map (simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString) moduleNames
+          { imports = imports
           , bindings = []
           , lineNumber = 0
           }
