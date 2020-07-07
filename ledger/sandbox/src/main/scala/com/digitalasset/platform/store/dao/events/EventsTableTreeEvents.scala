@@ -170,7 +170,8 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
         SqlSequence point arithPage
       else
         SqlSequence.vector(
-          SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause order by event_sequential_id limit $minPageSize",
+          SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause order by event_sequential_id limit $minPageSize"
+            .withFetchSize(Some(minPageSize)),
           rawTreeEventParser
         )
     }
@@ -197,7 +198,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       else
         SqlSequence.vector(
           SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id limit $minPageSize"
-            .withFetchSize(Some(pageSize)),
+            .withFetchSize(Some(minPageSize)),
           rawTreeEventParser
         )
     }
