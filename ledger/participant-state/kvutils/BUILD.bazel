@@ -165,7 +165,6 @@ da_java_proto_library(
 # in-memory ledger.
 client_server_test(
     name = "reference-ledger-dump",
-    tags = ["exclusive"],
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--concurrent-test-runs=4",
@@ -185,4 +184,5 @@ client_server_test(
     server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
+    tags = ["exclusive"],
 ) if not is_windows else None
