@@ -17,6 +17,15 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
+# Occasionally we end up with a stale sandbox process for a hardcoded
+# port number. Not quite sure how we end up with a stale process
+# but it happens sufficiently rarely that just killing it here is
+# a cheaper solution than having to reset the node.
+SANDBOX_PID=$(lsof -ti tcp:6865)
+if [ -n "$SANDBOX_PID" ]; then
+    kill "$SANDBOX_PID"
+fi
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... --build_tag_filters "$tag_filter"
 
