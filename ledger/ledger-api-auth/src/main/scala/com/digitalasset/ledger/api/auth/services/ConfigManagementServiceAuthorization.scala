@@ -13,7 +13,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
 
-final class ConfigManagementServiceAuthorization(
+private[daml] final class ConfigManagementServiceAuthorization(
     protected val service: ConfigManagementService with AutoCloseable,
     private val authorizer: Authorizer)
     extends ConfigManagementService

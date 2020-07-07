@@ -14,7 +14,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.{FutureUtil, NewBoolean}
-import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -191,13 +190,12 @@ object HttpServiceTestFixture {
 
   def jsonCodecs(client: LedgerClient)(
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
-    val ledgerId = apiLedgerId(client.ledgerId)
     val packageService = new PackageService(
       HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None))
     packageService
       .reload(ec)
       .flatMap(x => FutureUtil.toFuture(x))
-      .map(_ => HttpService.buildJsonCodecs(ledgerId, packageService))
+      .map(_ => HttpService.buildJsonCodecs(packageService))
   }
 
   private def stripLeft(fa: Future[HttpService.Error \/ ServerBinding])(

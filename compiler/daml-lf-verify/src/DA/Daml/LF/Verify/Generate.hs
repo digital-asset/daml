@@ -21,8 +21,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
+import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Verify.Context
-import DA.Daml.LF.Verify.Subst
 
 -- | Data type denoting the output of the constraint generator.
 data Output (ph :: Phase) = Output
@@ -93,8 +93,9 @@ class IsPhase ph => GenPhase (ph :: Phase) where
 
 instance GenPhase 'ValueGathering where
   genModule pac mod = do
-    extDatsEnv (HM.map (instPRSelf pac) (NM.toHashMap (moduleDataTypes mod)))
-    mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
+    let modName = moduleName mod
+    extDatsEnv (HM.fromList [(Qualified pac modName (dataTypeCon def), def) | def <-  NM.toList (moduleDataTypes mod)])
+    mapM_ (genValue pac modName) (NM.toList $ moduleValues mod)
   genForVal w = return $ Output (EVal w) (extendUpdateSet (valueUpd $ Determined w) emptyUpdateSet)
 
 instance GenPhase 'ChoiceGathering where
@@ -139,15 +140,13 @@ genValue :: MonadEnv m 'ValueGathering
   -- ^ The value to be analysed and added.
   -> m ()
 genValue pac mod val = do
-  expOut <- genExpr True (instPRSelf pac $ dvalBody val)
+  expOut <- genExpr True (dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
 -- | Analyse a choice definition and add to the environment.
 genChoice :: MonadEnv m 'ChoiceGathering
-  => PackageRef
-  -- ^ A reference to the package in which this choice is defined.
-  -> Qualified TypeConName
+  => Qualified TypeConName
   -- ^ The template in which this choice is defined.
   -> ExprVarName
   -- ^ The `this` variable referencing the contract on which this choice is
@@ -157,7 +156,7 @@ genChoice :: MonadEnv m 'ChoiceGathering
   -> TemplateChoice
   -- ^ The choice to be analysed and added.
   -> m ()
-genChoice pac tem this' temFs TemplateChoice{..} = do
+genChoice tem this' temFs TemplateChoice{..} = do
   -- Get the current variable names.
   let self' = chcSelfBinder
       arg' = fst chcArgBinder
@@ -184,10 +183,9 @@ genChoice pac tem this' temFs TemplateChoice{..} = do
   extEnvContractTCons temFs this (Just this)
   -- Substitute the renamed variables, and the `Self` package id.
   -- Run the constraint generator on the resulting choice expression.
-  let substVar = createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]
+  let substVar = foldMap (uncurry exprSubst) [(self',EVar self),(this',EVar this),(arg',EVar arg)]
   expOut <- genExpr True
-    $ substituteTm substVar
-    $ instPRSelf pac chcUpdate
+    $ applySubstInExpr substVar chcUpdate
   -- Add the archive update.
   let out = if chcConsuming
         then addArchiveUpd tem (fields this) expOut
@@ -208,14 +206,15 @@ genTemplate :: MonadEnv m 'ChoiceGathering
   -> m ()
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
-  fields <- recTypConFields tplTypeCon >>= \case
+  fields <- recTypConFields name >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   let preCond (this :: Expr) =
-        substituteTm (singleExprSubst tplParam this)
-        (instPRSelf pac tplPrecondition)
+        applySubstInExpr
+          (exprSubst tplParam this)
+          tplPrecondition
   extPrecond name preCond
-  mapM_ (genChoice pac name tplParam fields)
+  mapM_ (genChoice name tplParam fields)
     (archive : NM.toList tplChoices)
   where
     archive :: TemplateChoice
@@ -282,8 +281,8 @@ genForTmApp updFlag fun arg = do
   arout <- genExpr updFlag arg
   case _oExpr funOut of
     ETmLam bndr body -> do
-      let subst = singleExprSubst (fst bndr) (_oExpr arout)
-          resExpr = substituteTm subst body
+      let subst = exprSubst (fst bndr) (_oExpr arout)
+          resExpr = applySubstInExpr subst body
       resOut <- genExpr updFlag resExpr
       return $ combineOut resOut
         $ combineOut funOut arout
@@ -303,8 +302,8 @@ genForTyApp updFlag expr typ = do
   exprOut <- genExpr updFlag expr
   case _oExpr exprOut of
     ETyLam bndr body -> do
-      let subst = singleTypeSubst (fst bndr) typ
-          resExpr = substituteTy subst body
+      let subst = typeSubst (fst bndr) typ
+          resExpr = applySubstInExpr subst body
       resOut <- genExpr updFlag resExpr
       return $ combineOut resOut exprOut
     expr' -> return $ updateOutExpr (ETyApp expr' typ) exprOut
@@ -321,8 +320,8 @@ genForLet :: (GenPhase ph, MonadEnv m ph)
 genForLet updFlag bind body = do
   bindOut <- genExpr False (bindingBound bind)
   let var = fst $ bindingBinder bind
-      subst = singleExprSubst var (_oExpr bindOut)
-      resExpr = substituteTm subst body
+      subst = exprSubst var (_oExpr bindOut)
+      resExpr = applySubstInExpr subst body
   resOut <- genExpr updFlag resExpr
   return $ combineOut resOut bindOut
 
@@ -490,7 +489,7 @@ genForBind bind body = do
     EUpdate (UFetch tc cid) -> do
       let var0 = fst $ bindingBinder bind
       var1 <- genRenamedVar var0
-      let subst = singleExprSubst var0 (EVar var1)
+      let subst = exprSubst var0 (EVar var1)
       _ <- bindCids False (Just $ TContractId (TCon tc)) cid (EVar var1) Nothing
       return (emptyUpdateSet, subst)
     EUpdate upd -> do
@@ -498,9 +497,9 @@ genForBind bind body = do
       this <- genRenamedVar (ExprVarName "this")
       subst <- bindCids True updTyp (EVar $ fst $ bindingBinder bind) (EVar this) creFs
       return (_oUpdate updOut, subst)
-    _ -> return (emptyUpdateSet, emptyExprSubst)
+    _ -> return (emptyUpdateSet, mempty)
   extVarEnv (fst $ bindingBinder bind)
-  bodyOut <- genExpr False $ substituteTm subst body
+  bodyOut <- genExpr False $ applySubstInExpr subst body
   let bodyUpd = case _oExpr bodyOut of
         EUpdate bodyUpd -> bodyUpd
         -- Note: This is a bit of a hack, as we're forced to provide some type to
@@ -534,17 +533,17 @@ bindCids :: (GenPhase ph, MonadEnv m ph)
   -- ^ The variables to bind them to.
   -> Maybe Expr
   -- ^ The field values for any created contracts, if available.
-  -> m ExprSubst
-bindCids _ Nothing _ _ _ = return emptyExprSubst
+  -> m Subst
+bindCids _ Nothing _ _ _ = return mempty
 bindCids b (Just (TContractId (TCon tc))) cid (EVar this) fsExpM = do
-  fs <- recTypConFields (qualObject tc) >>= \case
+  fs <- recTypConFields tc >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   extRecEnv this (map fst fs)
   subst <- extCidEnv b cid this
   case fsExpM of
     Just fsExp -> do
-      fsOut <- genExpr False $ substituteTm subst fsExp
+      fsOut <- genExpr False $ applySubstInExpr subst fsExp
       recExpFields (_oExpr fsOut) >>= \case
         Just fields -> do
           fields' <- mapM (\(f,e) -> genExpr False e >>= \out -> return (f,_oExpr out)) fields
@@ -553,14 +552,14 @@ bindCids b (Just (TContractId (TCon tc))) cid (EVar this) fsExpM = do
         Nothing -> throwError ExpectRecord
     Nothing -> return subst
 bindCids b (Just (TCon tc)) cid (EVar this) fsExpM = do
-  fs <- recTypConFields (qualObject tc) >>= \case
+  fs <- recTypConFields tc >>= \case
     Nothing -> throwError ExpectRecord
     Just fs -> return fs
   extRecEnv this (map fst fs)
   subst <- extCidEnv b cid this
   case fsExpM of
     Just fsExp -> do
-      fsOut <- genExpr False $ substituteTm subst fsExp
+      fsOut <- genExpr False $ applySubstInExpr subst fsExp
       recExpFields (_oExpr fsOut) >>= \case
         Just fields -> do
           fields' <- mapM (\(f,e) -> genExpr False e >>= \out -> return (f,_oExpr out)) fields
@@ -572,11 +571,11 @@ bindCids b (Just (TApp (TApp (TCon con) t1) t2)) cid var fsExpM =
   case head $ unTypeConName $ qualObject con of
     "Tuple2" -> do
       subst1 <- bindCids b (Just t1) (EStructProj (FieldName "_1") cid) var fsExpM
-      subst2 <- bindCids b (Just t2) (substituteTm subst1 $ EStructProj (FieldName "_2") cid) var fsExpM
-      return (subst1 `concatExprSubst` subst2)
+      subst2 <- bindCids b (Just t2) (applySubstInExpr subst1 $ EStructProj (FieldName "_2") cid) var fsExpM
+      return (subst1 <> subst2)
     con' -> error ("Binding contract id's for this constructor has not been implemented yet: " ++ show con')
-bindCids _ (Just (TBuiltin BTUnit)) _ _ _ = return emptyExprSubst
-bindCids _ (Just (TBuiltin BTTimestamp)) _ _ _ = return emptyExprSubst
+bindCids _ (Just (TBuiltin BTUnit)) _ _ _ = return mempty
+bindCids _ (Just (TBuiltin BTTimestamp)) _ _ _ = return mempty
 -- TODO: This can be extended with additional cases later on.
 bindCids _ (Just typ) _ _ _ =
   error ("Binding contract id's for this particular type has not been implemented yet: " ++ show typ)

@@ -143,21 +143,19 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val txBuilder = new TransactionBuilder
     val cid = txBuilder.newCid
     val eid = txBuilder.add(create(cid))
-    val tx = Tx.CommittedTransaction(txBuilder.build())
     val offset = nextOffset()
     val id = offset.toLong
-    val txId = s"trId$id"
     val let = Instant.now
     offset -> LedgerEntry.Transaction(
-      Some(s"commandId$id"),
-      txId,
-      Some("appID1"),
-      Some(alice),
-      Some("workflowId"),
-      let,
-      let,
-      tx,
-      Map(eid -> Set("Alice", "Bob"))
+      commandId = Some(s"commandId$id"),
+      transactionId = s"trId$id",
+      applicationId = Some("appID1"),
+      submittingParty = Some(alice),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = txBuilder.buildCommitted(),
+      explicitDisclosure = Map(eid -> Set("Alice", "Bob"))
     )
   }
 
@@ -182,7 +180,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         key = None,
       )
     )
-    val fetchEventId = txBuilder.add(
+    txBuilder.add(
       NodeFetch(
         coid = id,
         templateId = someTemplateId,
@@ -194,18 +192,16 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       ),
       exerciseId,
     )
-    val tx = Tx.CommittedTransaction(txBuilder.build())
     val offset = nextOffset()
-    val txId = s"trId${id.coid}"
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"just-divulged-${id.coid}"),
-      transactionId = txId,
-      Some("appID1"),
-      Some(divulgees.head),
+      transactionId = s"trId${id.coid}",
+      applicationId = Some("appID1"),
+      submittingParty = Some(divulgees.head),
       workflowId = None,
       ledgerEffectiveTime = Instant.now,
       recordedAt = Instant.now,
-      transaction = tx,
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map.empty,
     )
   }
@@ -215,21 +211,40 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = new TransactionBuilder
     val nid = txBuilder.add(exercise(targetCid))
-    val tx = Tx.CommittedTransaction(txBuilder.build())
     val offset = nextOffset()
     val id = offset.toLong
-    val txId = s"trId$id"
     val let = Instant.now
     offset -> LedgerEntry.Transaction(
-      Some(s"commandId$id"),
-      txId,
-      Some("appID1"),
-      Some("Alice"),
-      Some("workflowId"),
-      let,
-      let,
-      Tx.CommittedTransaction(tx),
-      Map(nid -> Set("Alice", "Bob"))
+      commandId = Some(s"commandId$id"),
+      transactionId = s"trId$id",
+      applicationId = Some("appID1"),
+      submittingParty = Some("Alice"),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = Tx.CommittedTransaction(txBuilder.buildCommitted()),
+      explicitDisclosure = Map(nid -> Set("Alice", "Bob"))
+    )
+  }
+
+  protected def singleNonConsumingExercise(
+      targetCid: ContractId,
+  ): (Offset, LedgerEntry.Transaction) = {
+    val txBuilder = new TransactionBuilder
+    val nid = txBuilder.add(exercise(targetCid).copy(consuming = false))
+    val offset = nextOffset()
+    val id = offset.toLong
+    val let = Instant.now
+    offset -> LedgerEntry.Transaction(
+      commandId = Some(s"commandId$id"),
+      transactionId = s"trId$id",
+      applicationId = Some("appID1"),
+      submittingParty = Some("Alice"),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = txBuilder.buildCommitted(),
+      explicitDisclosure = Map(nid -> Set("Alice", "Bob"))
     )
   }
 
@@ -262,19 +277,17 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val cid = txBuilder.newCid
     val createId = txBuilder.add(create(cid))
     val exerciseId = txBuilder.add(exercise(cid))
-    val tx = Tx.CommittedTransaction(txBuilder.build())
-    val txId = UUID.randomUUID().toString
     val let = Instant.now
     nextOffset() -> LedgerEntry.Transaction(
-      Some(UUID.randomUUID().toString),
-      txId,
-      Some("appID1"),
-      Some(alice),
-      Some("workflowId"),
-      let,
-      let,
-      tx,
-      Map(
+      commandId = Some(UUID.randomUUID().toString),
+      transactionId = UUID.randomUUID().toString,
+      applicationId = Some("appID1"),
+      submittingParty = Some(alice),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = txBuilder.buildCommitted(),
+      explicitDisclosure = Map(
         createId -> Set(alice, bob),
         exerciseId -> Set(alice, bob),
       )
@@ -291,19 +304,17 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val rootExerciseId = txBuilder.add(exercise(root).copy(actingParties = Set(charlie)))
     val createTransientId = txBuilder.add(create(transient), rootExerciseId)
     val consumeTransientId = txBuilder.add(exercise(transient), rootExerciseId)
-    val tx = Tx.CommittedTransaction(txBuilder.build())
-    val txId = UUID.randomUUID().toString
     val let = Instant.now
     nextOffset() -> LedgerEntry.Transaction(
-      Some(UUID.randomUUID.toString),
-      txId,
-      Some("appID1"),
-      Some(alice),
-      Some("workflowId"),
-      let,
-      let,
-      tx,
-      Map(
+      commandId = Some(UUID.randomUUID.toString),
+      transactionId = UUID.randomUUID().toString,
+      applicationId = Some("appID1"),
+      submittingParty = Some(alice),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = txBuilder.buildCommitted(),
+      explicitDisclosure = Map(
         rootCreateId -> Set(alice, bob),
         rootExerciseId -> Set(alice, bob, charlie),
         createTransientId -> Set(alice, bob, charlie),
@@ -348,19 +359,17 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       create(txBuilder.newCid),
       exerciseId,
     )
-    val tx = Tx.CommittedTransaction(txBuilder.build())
-    val txId = UUID.randomUUID().toString
     val let = Instant.now
     nextOffset() -> LedgerEntry.Transaction(
-      Some(UUID.randomUUID().toString),
-      txId,
-      Some("appID1"),
-      Some(charlie),
-      Some("workflowId"),
-      let,
-      let,
-      tx,
-      Map(
+      commandId = Some(UUID.randomUUID().toString),
+      transactionId = UUID.randomUUID().toString,
+      applicationId = Some("appID1"),
+      submittingParty = Some(charlie),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = txBuilder.buildCommitted(),
+      explicitDisclosure = Map(
         createId -> Set(charlie),
         exerciseId -> Set(charlie),
         childCreateId1 -> Set(alice, charlie),
@@ -382,7 +391,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       signatoriesAndTemplates: Seq[(String, String)],
   ): (Offset, LedgerEntry.Transaction) = {
     require(signatoriesAndTemplates.nonEmpty, "multipleCreates cannot create empty transactions")
-    val transactionId = UUID.randomUUID.toString
     val txBuilder = new TransactionBuilder
     val disclosure = for {
       entry <- signatoriesAndTemplates
@@ -396,16 +404,15 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
           coinst = contract.coinst.copy(template = Identifier.assertFromString(template)),
         ))
     } yield nodeId -> parties
-    val tx = txBuilder.build()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = transactionId,
+      transactionId = UUID.randomUUID.toString,
       applicationId = Some("appID1"),
       submittingParty = Some(operator),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = Instant.now,
       recordedAt = Instant.now,
-      transaction = Tx.CommittedTransaction(tx),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = disclosure.toMap,
     )
   }
@@ -441,7 +448,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       party: Party,
       key: String,
   ): (Offset, LedgerEntry.Transaction) = {
-    val transactionId = UUID.randomUUID.toString
     val txBuilder = new TransactionBuilder
     val createNodeId = txBuilder.add(
       NodeCreate(
@@ -455,13 +461,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     nextOffset() ->
       LedgerEntry.Transaction(
         commandId = Some(UUID.randomUUID().toString),
-        transactionId = transactionId,
+        transactionId = UUID.randomUUID.toString,
         applicationId = Some(defaultAppId),
         submittingParty = Some(party),
         workflowId = Some(defaultWorkflowId),
         ledgerEffectiveTime = Instant.now,
         recordedAt = Instant.now,
-        Tx.CommittedTransaction(txBuilder.build()),
+        transaction = txBuilder.buildCommitted(),
         explicitDisclosure = Map(createNodeId -> Set(party))
       )
   }
@@ -472,7 +478,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       contract: (ContractId, Option[String]),
   ): (Offset, LedgerEntry.Transaction) = {
     val (contractId, maybeKey) = contract
-    val transactionId = UUID.randomUUID.toString
     val txBuilder = new TransactionBuilder
     val archiveNodeId = txBuilder.add(
       NodeExercises(
@@ -492,13 +497,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId,
-      Some(defaultAppId),
-      Some(party),
-      Some(defaultWorkflowId),
+      transactionId = UUID.randomUUID.toString,
+      applicationId = Some(defaultAppId),
+      submittingParty = Some(party),
+      workflowId = Some(defaultWorkflowId),
       ledgerEffectiveTime = Instant.now,
       recordedAt = Instant.now,
-      transaction = Tx.CommittedTransaction(txBuilder.build()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(archiveNodeId -> Set(party))
     )
   }
@@ -509,7 +514,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       key: String,
       result: Option[ContractId],
   ): (Offset, LedgerEntry.Transaction) = {
-    val transactionId = UUID.randomUUID.toString
     val txBuilder = new TransactionBuilder
     val lookupByKeyNodeId = txBuilder.add(
       NodeLookupByKey(
@@ -520,13 +524,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = transactionId,
+      transactionId = UUID.randomUUID.toString,
       applicationId = Some(defaultAppId),
       submittingParty = Some(party),
       workflowId = Some(defaultWorkflowId),
       ledgerEffectiveTime = Instant.now(),
       recordedAt = Instant.now(),
-      transaction = Tx.CommittedTransaction(txBuilder.build()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(lookupByKeyNodeId -> Set(party))
     )
   }
@@ -535,7 +539,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       party: Party,
       contractId: ContractId,
   ): (Offset, LedgerEntry.Transaction) = {
-    val transactionId = UUID.randomUUID.toString
     val txBuilder = new TransactionBuilder
     val fetchNodeId = txBuilder.add(
       NodeFetch(
@@ -549,13 +552,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = transactionId,
+      transactionId = UUID.randomUUID.toString,
       applicationId = Some(defaultAppId),
       submittingParty = Some(party),
       workflowId = Some(defaultWorkflowId),
       ledgerEffectiveTime = Instant.now(),
       recordedAt = Instant.now(),
-      transaction = Tx.CommittedTransaction(txBuilder.build()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(fetchNodeId -> Set(party))
     )
   }
@@ -569,7 +572,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       workflowId = Some(defaultWorkflowId),
       ledgerEffectiveTime = Instant.now(),
       recordedAt = Instant.now(),
-      transaction = Tx.CommittedTransaction(TransactionBuilder.Empty),
+      transaction = TransactionBuilder.EmptyCommitted,
       explicitDisclosure = Map.empty,
     )
 

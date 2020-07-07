@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, DamlStateMap, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
@@ -92,7 +92,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
           recordTime: Timestamp,
           damlSubmission: DamlSubmission,
           participantId: ParticipantId,
-          inputState: Map[DamlStateKey, Option[DamlStateValue]]
+          inputState: DamlStateMap
       ): LogEntryAndState =
         throw new IllegalArgumentException("Validation failed")
 

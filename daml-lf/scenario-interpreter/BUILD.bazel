@@ -25,6 +25,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/interpreter",
+        "//daml-lf/language",
         "//daml-lf/transaction",
     ],
 )

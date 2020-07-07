@@ -5,7 +5,7 @@ package com.daml.ledger.api.auth
 
 import io.grpc.stub.ServerCallStreamObserver
 
-final class OngoingAuthorizationObserver[A](
+private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     claims: Claims,
     authorized: Claims => Boolean,

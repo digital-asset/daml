@@ -61,10 +61,6 @@ class KeyValueCommitting private[daml] (
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId =
     DamlLogEntryId.parseFrom(bytes)
 
-  // A stop-gap measure, to be used while maximum record time is not yet available on every request
-  private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp =
-    recordTime.addMicros(100)
-
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
     *
@@ -99,7 +95,7 @@ class KeyValueCommitting private[daml] (
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     metrics.daml.kvutils.committer.processing.inc()
     metrics.daml.kvutils.committer.last.lastRecordTimeGauge.updateValue(recordTime.toString)
@@ -109,15 +105,14 @@ class KeyValueCommitting private[daml] (
     try {
       val (logEntry, outputState) = processPayload(
         engine,
-        entryId,
-        recordTime,
+        Some(recordTime),
         defaultConfig,
         submission,
         participantId,
         inputState,
       )
       Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
-      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, entryId, submission)
+      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, submission)
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
@@ -135,18 +130,15 @@ class KeyValueCommitting private[daml] (
 
   private def processPayload(
       engine: Engine,
-      entryId: DamlLogEntryId,
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         new PackageCommitter(engine, metrics).run(
-          entryId,
-          estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPackageUploadEntry,
           participantId,
@@ -155,8 +147,6 @@ class KeyValueCommitting private[daml] (
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         new PartyAllocationCommitter(metrics).run(
-          entryId,
-          estimateMaximumRecordTime(recordTime),
           recordTime,
           submission.getPartyAllocationEntry,
           participantId,
@@ -164,9 +154,9 @@ class KeyValueCommitting private[daml] (
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        new ConfigCommitter(defaultConfig, metrics).run(
-          entryId,
-          parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
+        val maximumRecordTime = parseTimestamp(
+          submission.getConfigurationSubmission.getMaximumRecordTime)
+        new ConfigCommitter(defaultConfig, maximumRecordTime, metrics).run(
           recordTime,
           submission.getConfigurationSubmission,
           participantId,
@@ -176,8 +166,6 @@ class KeyValueCommitting private[daml] (
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
           .run(
-            entryId,
-            estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getTransactionEntry,
             participantId,
@@ -191,7 +179,7 @@ class KeyValueCommitting private[daml] (
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
     * the processing of the submission.
     */
-  def submissionOutputs(entryId: DamlLogEntryId, submission: DamlSubmission): Set[DamlStateKey] = {
+  def submissionOutputs(submission: DamlSubmission): Set[DamlStateKey] = {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val packageEntry = submission.getPackageUploadEntry
@@ -211,7 +199,7 @@ class KeyValueCommitting private[daml] (
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val transactionEntry = submission.getTransactionEntry
-        transactionOutputs(transactionEntry, entryId) + commandDedupKey(
+        transactionOutputs(transactionEntry) + commandDedupKey(
           transactionEntry.getSubmitterInfo,
         )
 
@@ -228,8 +216,7 @@ class KeyValueCommitting private[daml] (
   }
 
   private def transactionOutputs(
-      transactionEntry: DamlTransactionEntry,
-      entryId: DamlLogEntryId,
+      transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val transaction = transactionEntry.getTransaction
     val transactionVersion = TransactionCoder
@@ -249,7 +236,6 @@ class KeyValueCommitting private[daml] (
           Conversions
             .contractIdStructOrStringToStateKey(
               transactionVersion,
-              entryId,
               create.getContractId,
               create.getContractIdStruct,
             ) :: contractKeyStateKeyOrEmpty
@@ -265,7 +251,6 @@ class KeyValueCommitting private[daml] (
           Conversions
             .contractIdStructOrStringToStateKey(
               transactionVersion,
-              entryId,
               exe.getContractId,
               exe.getContractIdStruct,
             ) :: contractKeyStateKeyOrEmpty
@@ -276,7 +261,6 @@ class KeyValueCommitting private[daml] (
             Conversions
               .contractIdStructOrStringToStateKey(
                 transactionVersion,
-                entryId,
                 node.getFetch.getContractId,
                 node.getFetch.getContractIdStruct,
               ),
@@ -315,10 +299,9 @@ class KeyValueCommitting private[daml] (
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
       actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
       submission: DamlSubmission,
   ): Unit = {
-    val expectedStateUpdates = submissionOutputs(entryId, submission)
+    val expectedStateUpdates = submissionOutputs(submission)
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(

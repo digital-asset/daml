@@ -62,7 +62,7 @@ def _dadew_where(ctx, ps):
     return ps_result.stdout.splitlines()[0]
 
 def _dadew_tool_home(dadew, tool):
-    return "%s\\scoop\\apps\%s\\current" % (dadew, tool)
+    return "%s\\scoop\\apps\\%s\\current" % (dadew, tool)
 
 def _find_files_recursive(ctx, find, root):
     find_result = ctx.execute([find, "-L", root, "-type", "f", "-print0"])
@@ -113,10 +113,10 @@ def _dev_env_tool_impl(ctx):
         find = _dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\find.exe"
         tool_home = _dadew_tool_home(dadew, ctx.attr.win_tool)
         for i in ctx.attr.win_include:
-            src = "%s\%s" % (tool_home, i)
+            src = "%s\\%s" % (tool_home, i)
             dst = ctx.attr.win_include_as.get(i, i)
             if ctx.attr.prefix:
-                dst = "%s\%s" % (ctx.attr.prefix, dst)
+                dst = "%s\\%s" % (ctx.attr.prefix, dst)
             _symlink_files_recursive(ctx, find, src, dst)
     else:
         find = "find"

@@ -10,7 +10,7 @@ import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.{ScenarioRunner, Speedy}
+import com.daml.lf.speedy.ScenarioRunner
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
@@ -110,7 +110,11 @@ object ScenarioLoader {
     (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
   }
 
-  private def buildScenarioLedger(
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // This should be made configurable
+  private[this] val engineConfig = Engine.DevConfig
+
+  private[this] def buildScenarioLedger(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String,
@@ -119,51 +123,16 @@ object ScenarioLoader {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
     val candidateScenarios = getCandidateScenarios(packages, scenarioQualName)
     val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
-    val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages, transactionSeed)
-    val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
-    (scenarioLedger, scenarioRef)
-  }
-
-  private def getScenarioLedger(
-      scenarioRef: Ref.DefinitionRef,
-      speedyMachine: Speedy.Machine,
-  ): ScenarioLedger =
-    ScenarioRunner(speedyMachine).run() match {
-      case Left(e) =>
-        throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
-      case Right((_, _, l, _)) => l
-    }
-
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // This should be made configurable
-  private[this] val engineConfig = Engine.DevConfig
-
-  private def getSpeedyMachine(
-      scenarioExpr: Ast.Expr,
-      compiledPackages: CompiledPackages,
-      transactionSeed: crypto.Hash,
-  ): Speedy.Machine =
-    Speedy.Machine.fromScenarioExpr(
-      compiledPackages,
-      transactionSeed,
-      scenarioExpr,
-      engineConfig.allowedOutputValueVersions,
-      engineConfig.allowedOutputTransactionVersions,
+    @com.github.ghik.silencer.silent("can be used only by sandbox classic.")
+    val scenarioLedger = ScenarioRunner.getScenarioLedger(
+      scenarioRef = scenarioRef,
+      scenarioDef = scenarioDef,
+      compiledPackages = compiledPackages,
+      transactionSeed = transactionSeed,
+      supportedValueVersions = engineConfig.allowedOutputValueVersions,
+      supportedTransactionVersions = engineConfig.allowedOutputTransactionVersions,
     )
-
-  private def getScenarioExpr(
-      scenarioRef: Ref.DefinitionRef,
-      scenarioDef: Ast.Definition): Ast.Expr = {
-    scenarioDef match {
-      case Ast.DValue(_, _, body, _) => body
-      case _: Ast.DTypeSyn =>
-        throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a type synonym, not a definition")
-      case _: Ast.DDataType =>
-        throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a data type, not a definition")
-    }
+    (scenarioLedger, scenarioRef)
   }
 
   private def identifyScenario(
@@ -252,7 +221,7 @@ object ScenarioLoader {
           Some(richTransaction.committer),
           tx,
           richTransaction.explicitDisclosure,
-          richTransaction.globalImplicitDisclosure,
+          richTransaction.implicitDisclosure,
           List.empty
         ) match {
           case Right(newAcs) =>

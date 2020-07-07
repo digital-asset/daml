@@ -4,17 +4,18 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Timer
+import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
-  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
+import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -63,20 +64,19 @@ private[committer] trait Committer[Submission, PartialResult] {
   /** A committer can `run` a submission and produce a log entry and output states. */
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
-      entryId: DamlLogEntryId,
-      maximumRecordTime: Time.Timestamp,
-      recordTime: Time.Timestamp,
+      recordTime: Option[Time.Timestamp],
       submission: Submission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val ctx = new CommitContext {
-        override def getEntryId: DamlLogEntryId = entryId
-        override def getMaximumRecordTime: Time.Timestamp = maximumRecordTime
-        override def getRecordTime: Time.Timestamp = recordTime
+        override def getRecordTime: Option[Time.Timestamp] = recordTime
         override def getParticipantId: ParticipantId = participantId
-        override def inputs: DamlStateMap = inputState
+        override def inputsWithFingerprints: DamlStateMapWithFingerprints =
+          inputState.map {
+            case (key, value) => (key, (value, FingerprintPlaceholder))
+          }
       }
       var cstate = init(ctx, submission)
       for ((info, step) <- steps) {
@@ -97,7 +97,7 @@ object Committer {
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: DamlStateMap,
       logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
     inputState
       .getOrElse(
@@ -117,4 +117,18 @@ object Committer {
           }, conf => Some(Some(entry) -> conf))
       }
       .getOrElse(None -> defaultConfig)
+
+  def buildLogEntryWithOptionalRecordTime(
+      recordTime: Option[Timestamp],
+      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder): DamlLogEntry = {
+    val logEntryBuilder = DamlLogEntry.newBuilder
+    addSubmissionSpecificEntry(logEntryBuilder)
+    setRecordTimeIfAvailable(recordTime, logEntryBuilder)
+    logEntryBuilder.build
+  }
+
+  private def setRecordTimeIfAvailable(
+      recordTime: Option[Timestamp],
+      logEntryBuilder: DamlLogEntry.Builder): Unit =
+    recordTime.foreach(timestamp => logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
 }

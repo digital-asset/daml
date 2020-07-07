@@ -28,5 +28,5 @@ final case class BlindingInfo(
       * containing only contract ids, this map may also
       * contain contracts produced in the same transaction.
       */
-    globalDivulgence: Relation[ContractId, Party],
+    divulgence: Relation[ContractId, Party],
 )

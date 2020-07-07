@@ -42,7 +42,7 @@ def _proto_gen_impl(ctx):
 
     sources_out = ctx.actions.declare_directory(ctx.attr.name + "-sources")
 
-    descriptor_set_delim = "\;" if _is_windows(ctx) else ":"
+    descriptor_set_delim = "\\;" if _is_windows(ctx) else ":"
 
     args = []
     args += [

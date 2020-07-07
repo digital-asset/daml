@@ -65,55 +65,54 @@ common_scalacopts = [
 ]
 
 plugin_deps = [
-    "@maven//:org_wartremover_wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_2_12_11",
 ]
 
 common_plugins = [
-    "@maven//:org_wartremover_wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_2_12_11",
 ]
 
 plugin_scalacopts = [
-    # do not enable wart remover for now, because we need to fix a lot of
-    # test code, which didn't have wart remover enabled before
     "-Xplugin-require:wartremover",
-
+] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
     # This lists all wartremover linting passes.
-    # "-P:wartremover:traverser:org.wartremover.warts.Any",
-    "-P:wartremover:traverser:org.wartremover.warts.AnyVal",
-    "-P:wartremover:traverser:org.wartremover.warts.ArrayEquals",
-    # "-P:wartremover:traverser:org.wartremover.warts.AsInstanceOf",
-    # "-P:wartremover:traverser:org.wartremover.warts.DefaultArguments",
-    # "-P:wartremover:traverser:org.wartremover.warts.EitherProjectionPartial",
-    "-P:wartremover:traverser:org.wartremover.warts.Enumeration",
-    # "-P:wartremover:traverser:org.wartremover.warts.Equals",
-    "-P:wartremover:traverser:org.wartremover.warts.ExplicitImplicitTypes",
-    # "-P:wartremover:traverser:org.wartremover.warts.FinalCaseClass",
-    # "-P:wartremover:traverser:org.wartremover.warts.FinalVal",
-    # "-P:wartremover:traverser:org.wartremover.warts.ImplicitConversion",
-    # "-P:wartremover:traverser:org.wartremover.warts.ImplicitParameter",
-    # "-P:wartremover:traverser:org.wartremover.warts.IsInstanceOf",
-    "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
-    "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
-    # "-P:wartremover:traverser:org.wartremover.warts.MutableDataStructures",
-    # "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-    # "-P:wartremover:traverser:org.wartremover.warts.Nothing",
-    # "-P:wartremover:traverser:org.wartremover.warts.Null",
-    "-P:wartremover:traverser:org.wartremover.warts.Option2Iterable",
-    # "-P:wartremover:traverser:org.wartremover.warts.OptionPartial",
-    # "-P:wartremover:traverser:org.wartremover.warts.Overloading",
-    "-P:wartremover:traverser:org.wartremover.warts.Product",
-    # "-P:wartremover:traverser:org.wartremover.warts.PublicInference",
-    # "-P:wartremover:traverser:org.wartremover.warts.Recursion",
-    "-P:wartremover:traverser:org.wartremover.warts.Return",
-    "-P:wartremover:traverser:org.wartremover.warts.Serializable",
-    "-P:wartremover:traverser:org.wartremover.warts.StringPlusAny",
-    # "-P:wartremover:traverser:org.wartremover.warts.Throw",
-    # "-P:wartremover:traverser:org.wartremover.warts.ToString",
-    # "-P:wartremover:traverser:org.wartremover.warts.TraversableOps",
-    # "-P:wartremover:traverser:org.wartremover.warts.TryPartial",
-    # "-P:wartremover:traverser:org.wartremover.warts.Var",
-    # "-P:wartremover:traverser:org.wartremover.warts.While",
-]
+    # "Any",
+    "AnyVal",
+    "ArrayEquals",
+    # "AsInstanceOf",
+    # "DefaultArguments",
+    # "EitherProjectionPartial",
+    "Enumeration",
+    # "Equals",
+    "ExplicitImplicitTypes",
+    # "FinalCaseClass",
+    # "FinalVal",
+    # "ImplicitConversion",
+    # "ImplicitParameter",
+    # "IsInstanceOf",
+    # "JavaConversions",
+    "JavaSerializable",
+    "LeakingSealed",
+    # "MutableDataStructures",
+    # "NonUnitStatements",
+    # "Nothing",
+    # "Null",
+    "Option2Iterable",
+    # "OptionPartial",
+    # "Overloading",
+    "Product",
+    # "PublicInference",
+    # "Recursion",
+    "Return",
+    "Serializable",
+    "StringPlusAny",
+    # "Throw",
+    # "ToString",
+    # "TraversableOps",
+    # "TryPartial",
+    # "Var",
+    # "While",
+]]
 
 # delete items from lf_scalacopts as they are restored to common_scalacopts and plugin_scalacopts
 # # calculate items to delete

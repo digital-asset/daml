@@ -12,7 +12,7 @@ import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
-final class LedgerConfigurationServiceAuthorization(
+private[daml] final class LedgerConfigurationServiceAuthorization(
     protected val service: LedgerConfigurationService with AutoCloseable,
     private val authorizer: Authorizer)
     extends LedgerConfigurationService

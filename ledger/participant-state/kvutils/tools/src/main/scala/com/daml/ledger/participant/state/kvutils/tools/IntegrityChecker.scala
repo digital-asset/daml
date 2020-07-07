@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.DataInputStream
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -27,33 +27,36 @@ import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext}
-import scala.io.AnsiColor
+import scala.concurrent.{ExecutionContext, Future}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
   import IntegrityChecker._
 
-  private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutorService(
-    Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
-  private implicit val actorSystem: ActorSystem = ActorSystem("integrity-checker")
-  private implicit val materializer: Materializer = Materializer(actorSystem)
+  def run(input: DataInputStream)(implicit executionContext: ExecutionContext): Future[Unit] = {
+    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
+    implicit val materializer: Materializer = Materializer(actorSystem)
 
-  def run(input: DataInputStream): Unit = {
     val engine = new Engine(Engine.DevConfig)
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
     val submissionValidator = BatchedSubmissionValidator[LogResult](
-      BatchedSubmissionValidatorParameters.default,
+      BatchedSubmissionValidatorParameters.reasonableDefault,
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
       metrics,
       engine,
-      NoopLedgerDataExporter
+      NoopLedgerDataExporter,
     )
     val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()
     processSubmissions(input, submissionValidator, reader, commitStrategy, queryableWriteSet)
-    reportDetailedMetrics(metricRegistry)
+      .map { _ =>
+        reportDetailedMetrics(metricRegistry)
+      }
+      .andThen {
+        case _ =>
+          materializer.shutdown()
+          actorSystem.terminate()
+      }
   }
 
   private def processSubmissions(
@@ -61,52 +64,65 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       submissionValidator: BatchedSubmissionValidator[LogResult],
       reader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[LogResult],
-      queryableWriteSet: QueryableWriteSet): Unit = {
-    var counter = 0
-    while (input.available() > 0) {
-      val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
-      val validationFuture = submissionValidator.validateAndCommit(
-        submissionInfo.submissionEnvelope,
-        submissionInfo.correlationId,
-        submissionInfo.recordTimeInstant,
-        submissionInfo.participantId,
-        reader,
-        commitStrategy
-      )
-      Await.ready(validationFuture, Duration(10, TimeUnit.SECONDS))
-      counter += 1
-      val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-      val sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-      if (!compareWriteSets(expectedWriteSet, sortedActualWriteSet)) {
-        println(AnsiColor.WHITE)
-        sys.exit(1)
+      queryableWriteSet: QueryableWriteSet,
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+    def go(): Future[Int] =
+      if (input.available() == 0) {
+        Future.successful(0)
+      } else {
+        val (submissionInfo, expectedWriteSet) = readSubmissionAndOutputs(input)
+        for {
+          _ <- submissionValidator.validateAndCommit(
+            submissionInfo.submissionEnvelope,
+            submissionInfo.correlationId,
+            submissionInfo.recordTimeInstant,
+            submissionInfo.participantId,
+            reader,
+            commitStrategy,
+          )
+          actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
+          sortedActualWriteSet = actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+          _ = compareWriteSets(expectedWriteSet, sortedActualWriteSet)
+          n <- go()
+        } yield n + 1
       }
+
+    go().map { counter =>
+      println(s"Processed $counter submissions.".white)
+      println()
     }
-    println(s"Processed $counter submissions")
   }
 
-  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Boolean = {
+  private def compareWriteSets(expectedWriteSet: WriteSet, actualWriteSet: WriteSet): Unit = {
     if (expectedWriteSet == actualWriteSet) {
-      println(s"${AnsiColor.GREEN}OK${AnsiColor.WHITE}")
-      true
+      println("OK".green)
     } else {
-      println(s"${AnsiColor.RED}FAIL")
-      if (expectedWriteSet.size == actualWriteSet.size) {
-        for (((expectedKey, expectedValue), (actualKey, actualValue)) <- expectedWriteSet.zip(
-            actualWriteSet)) {
-          if (expectedKey == actualKey && expectedValue != actualValue) {
-            println(
-              s"expected value: ${bytesAsHexString(expectedValue)} vs. actual value: ${bytesAsHexString(actualValue)}")
-            println(explainDifference(expectedKey, expectedValue, actualValue))
-          } else if (expectedKey != actualKey) {
-            println(
-              s"expected key: ${bytesAsHexString(expectedKey)} vs. actual key: ${bytesAsHexString(actualKey)}")
-          }
+      println("FAIL".red)
+      val message =
+        if (expectedWriteSet.size == actualWriteSet.size) {
+          expectedWriteSet
+            .zip(actualWriteSet)
+            .flatMap {
+              case ((expectedKey, expectedValue), (actualKey, actualValue)) =>
+                if (expectedKey == actualKey && expectedValue != actualValue) {
+                  Seq(
+                    s"expected value:    ${bytesAsHexString(expectedValue)}",
+                    s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                    explainDifference(expectedKey, expectedValue, actualValue),
+                  )
+                } else if (expectedKey != actualKey) {
+                  Seq(
+                    s"expected key:    ${bytesAsHexString(expectedKey)}",
+                    s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                  )
+                } else
+                  Seq.empty
+            }
+            .mkString(System.lineSeparator())
+        } else {
+          s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}"
         }
-      } else {
-        println(s"Expected write-set of size ${expectedWriteSet.size} vs. ${actualWriteSet.size}")
-      }
-      false
+      throw new ComparisonFailureException(message)
     }
   }
 
@@ -118,8 +134,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         val stateKey =
           commitStrategySupport.stateKeySerializationStrategy().deserializeStateKey(key)
         val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
-        s"State key: $stateKey${System.lineSeparator()}" +
-          s"Expected: $expectedStateValue${System.lineSeparator()}Actual: $actualStateValue"
+        s"""|State key: $stateKey
+            |Expected: $expectedStateValue
+            |Actual: $actualStateValue""".stripMargin
       }
       .getOrElse(commitStrategySupport.explainMismatchingValue(key, expectedValue, actualValue))
 
@@ -144,4 +161,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 object IntegrityChecker {
   def bytesAsHexString(bytes: ByteString): String =
     bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+
+  class CheckFailedException(message: String) extends RuntimeException(message)
+
+  class ComparisonFailureException(message: String) extends CheckFailedException(message)
+
 }

@@ -31,6 +31,7 @@ import org.jline.reader.impl.history.DefaultHistory
 
 import scala.collection.immutable.ListMap
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
 
 object Main extends App {
   // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
@@ -151,7 +152,9 @@ object Repl {
     load(file, devMode) fMap cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
-    val validationResults = state.packages.keys.map(Validation.checkPackage(state.packages, _))
+    val (validationResults, validationTime) = time(
+      state.packages.keys.map(Validation.checkPackage(state.packages, _)))
+    System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
     validationResults collectFirst {
       case Left(e) =>
         println(s"Context: ${e.context}")
@@ -176,8 +179,11 @@ object Repl {
       devMode: Boolean,
       profiling: Compiler.ProfilingMode,
   ) {
-    val compiledPackages =
+    val (compiledPackages, compileTime) = time {
       PureCompiledPackages(packages, Compiler.FullStackTrace, profiling).right.get
+    }
+    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
+
     private val seed = nextSeed()
 
     val (valVersions, txVersions) =
@@ -370,6 +376,13 @@ object Repl {
     prettyType(typ)
   }
 
+  private def time[R](block: => R): (R, Long) = {
+    val startTime = System.nanoTime()
+    val result = block // call-by-name
+    val endTime = System.nanoTime()
+    result -> Duration.fromNanos(endTime - startTime).toMillis
+  }
+
   // Load DAML-LF packages from a set of files.
   def load(
       darFile: String,
@@ -378,17 +391,19 @@ object Repl {
   ): (Boolean, State) = {
     val state = initialState(devMode, profiling)
     try {
-      val packages =
-        UniversalArchiveReader().readFile(new File(darFile)).get
-      val packagesMap = Map(packages.all.map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-      }: _*)
-      val (mainPkgId, mainPkgArchive) = packages.main
-      val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+      val (packagesMap, loadingTime) = time {
+        val packages =
+          UniversalArchiveReader().readFile(new File(darFile)).get
+        Map(packages.all.map {
+          case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+        }: _*)
+      }
+
       val npkgs = packagesMap.size
       val ndefs =
         packagesMap.flatMap(_._2.modules.values.map(_.definitions.size)).sum
-      println(s"$ndefs definitions from $npkgs package(s) loaded.")
+
+      System.err.println(s"$ndefs definition(s) from $npkgs package(s) loaded in $loadingTime ms.")
 
       true -> rebuildReader(
         state.copy(

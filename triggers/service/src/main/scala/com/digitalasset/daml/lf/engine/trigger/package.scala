@@ -9,6 +9,8 @@ import java.util.UUID
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.services.time.TimeProviderType
 
+import scala.concurrent.duration.FiniteDuration
+
 package object trigger {
 
   case class LedgerConfig(
@@ -16,12 +18,13 @@ package object trigger {
       port: Int,
       timeProvider: TimeProviderType,
       commandTtl: Duration,
+      maxInboundMessageSize: Int,
   )
 
-  case class TriggerRunnerConfig(
-      maxInboundMessageSize: Int,
-      maxFailureNumberOfRetries: Int,
-      failureRetryTimeRange: Duration
+  case class TriggerRestartConfig(
+      minRestartInterval: FiniteDuration,
+      maxRestartInterval: FiniteDuration,
+      restartIntervalRandomFactor: Double = 0.2,
   )
 
   final case class SecretKey(value: String)

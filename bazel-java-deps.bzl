@@ -167,7 +167,7 @@ def install_java_deps():
             "org.tpolecat:doobie-core_2.12:0.6.0",
             "org.tpolecat:doobie-postgres_2.12:0.6.0",
             "org.typelevel:paiges-core_2.12:0.2.1",
-            "org.wartremover:wartremover_2.12:2.2.0",
+            "org.wartremover:wartremover_2.12.11:2.4.9",
             "org.xerial:sqlite-jdbc:3.30.1",
             "uk.co.datumedge:hamcrest-json:0.2",
         ],

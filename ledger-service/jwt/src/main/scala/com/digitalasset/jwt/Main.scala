@@ -32,9 +32,8 @@ object Main {
             e.printStackTrace()
             sys.exit(ErrorCodes.GenerateKeysError)
         }
-      case Some(Config(None, Some(GenerateJwt(Some(publicKey), Some(privateKey))))) =>
-        JwtGenerator.generate(
-          domain.KeyPair(publicKey = Seq.empty[Byte], privateKey = Seq.empty[Byte])) match {
+      case Some(Config(None, Some(GenerateJwt(Some(publicKey @ _), Some(privateKey @ _))))) =>
+        JwtGenerator.generate match {
           case Success(a) =>
             println(s"Generated JWT: $a")
           case Failure(e) =>

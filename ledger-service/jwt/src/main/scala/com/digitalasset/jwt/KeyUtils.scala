@@ -61,56 +61,50 @@ object KeyUtils {
     * Reads a RSA private key from a PEM/PKCS#8 file.
     * These usually have the .pem file extension.
     */
-  def readRSAPrivateKeyFromPem(file: File): Try[RSAPrivateKey] = {
-    bracket(Try(new FileInputStream(file)))(is => Try(is.close())).flatMap { istream =>
-      for {
-        fileContent <- Try(Files.readAllBytes(file.toPath))
+  def readRSAPrivateKeyFromPem(file: File): Try[RSAPrivateKey] =
+    for {
+      fileContent <- Try(Files.readAllBytes(file.toPath))
 
-        // Remove PEM container header and footer
-        pemContent <- Try(
-          new String(fileContent, mimeCharSet)
-            .replaceFirst("-----BEGIN ([A-Z ])*-----\n", "")
-            .replaceFirst("\n-----END ([A-Z ])*-----\n", "")
-            .replace("\r", "")
-            .replace("\n", "")
-        )
+      // Remove PEM container header and footer
+      pemContent <- Try(
+        new String(fileContent, mimeCharSet)
+          .replaceFirst("-----BEGIN ([A-Z ])*-----\n", "")
+          .replaceFirst("\n-----END ([A-Z ])*-----\n", "")
+          .replace("\r", "")
+          .replace("\n", "")
+      )
 
-        // Base64-decode the PEM container content
-        decoded <- Base64
-          .decode(pemContent)
-          .leftMap(e => new RuntimeException(e.shows))
-          .toEither
-          .toTry
+      // Base64-decode the PEM container content
+      decoded <- Base64
+        .decode(pemContent)
+        .leftMap(e => new RuntimeException(e.shows))
+        .toEither
+        .toTry
 
-        // Interpret the container content as PKCS#8
-        key <- Try {
-          val kf = KeyFactory.getInstance("RSA")
-          val keySpec = new PKCS8EncodedKeySpec(decoded.getBytes)
-          kf.generatePrivate(keySpec).asInstanceOf[RSAPrivateKey]
-        }
-      } yield key
-    }
-  }
+      // Interpret the container content as PKCS#8
+      key <- Try {
+        val kf = KeyFactory.getInstance("RSA")
+        val keySpec = new PKCS8EncodedKeySpec(decoded.getBytes)
+        kf.generatePrivate(keySpec).asInstanceOf[RSAPrivateKey]
+      }
+    } yield key
 
   /**
     * Reads a RSA private key from a binary file (PKCS#8, DER).
     * To generate this file from a .pem file, use the following command:
     * openssl pkcs8 -topk8 -inform PEM -outform DER -in private-key.pem -nocrypt > private-key.der
     */
-  def readRSAPrivateKeyFromDer(file: File): Try[RSAPrivateKey] = {
-    bracket(Try(new FileInputStream(file)))(is => Try(is.close())).flatMap { istream =>
-      for {
-        fileContent <- Try(Files.readAllBytes(file.toPath))
+  def readRSAPrivateKeyFromDer(file: File): Try[RSAPrivateKey] =
+    for {
+      fileContent <- Try(Files.readAllBytes(file.toPath))
 
-        // Interpret the container content as PKCS#8
-        key <- Try {
-          val kf = KeyFactory.getInstance("RSA")
-          val keySpec = new PKCS8EncodedKeySpec(fileContent)
-          kf.generatePrivate(keySpec).asInstanceOf[RSAPrivateKey]
-        }
-      } yield key
-    }
-  }
+      // Interpret the container content as PKCS#8
+      key <- Try {
+        val kf = KeyFactory.getInstance("RSA")
+        val keySpec = new PKCS8EncodedKeySpec(fileContent)
+        kf.generatePrivate(keySpec).asInstanceOf[RSAPrivateKey]
+      }
+    } yield key
 
   /**
     * Generates a JWKS JSON object for the given map of KeyID->Key
