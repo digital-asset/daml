@@ -41,10 +41,10 @@ case class TimeModel private (
   }
 
   private[state] def minRecordTime(ledgerTime: Instant): Instant =
-    ledgerTime.minus(minSkew)
+    ledgerTime.minus(maxSkew)
 
   private[state] def maxRecordTime(ledgerTime: Instant): Instant =
-    ledgerTime.plus(maxSkew)
+    ledgerTime.plus(minSkew)
 }
 
 object TimeModel {
