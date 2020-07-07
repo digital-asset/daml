@@ -21,7 +21,7 @@ fi
 # port number. Not quite sure how we end up with a stale process
 # but it happens sufficiently rarely that just killing it here is
 # a cheaper solution than having to reset the node.
-SANDBOX_PID=$(lsof -ti tcp:6865)
+SANDBOX_PID="$(lsof -ti tcp:6865)"
 if [ -n "$SANDBOX_PID" ]; then
     kill "$SANDBOX_PID"
 fi
