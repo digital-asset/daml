@@ -57,7 +57,7 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
-  def default[Extra](extra: Extra): Config[Extra] =
+  def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
       ledgerId = None,
       archiveFiles = Vector.empty,
@@ -90,7 +90,7 @@ object Config {
       defaultExtra: Extra,
       args: Seq[String],
   ): Option[Config[Extra]] =
-    parser(name, extraOptions).parse(args, default(defaultExtra))
+    parser(name, extraOptions).parse(args, createDefault(defaultExtra))
 
   private def parser[Extra](
       name: String,
