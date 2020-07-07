@@ -17,9 +17,9 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.MetricsReporter
+import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth

@@ -105,6 +105,7 @@ da_scala_test(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/caching",
+        "//ledger/daml-integration-api",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",

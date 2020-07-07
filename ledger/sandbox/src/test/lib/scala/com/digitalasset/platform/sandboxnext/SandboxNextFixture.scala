@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.GrpcClientResource
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.ports.Port
 import com.daml.resources.ResourceOwner
 import io.grpc.Channel

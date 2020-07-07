@@ -150,6 +150,8 @@ da_scala_test_suite(
         "//ledger-service/http-json",
         "//ledger-service/jwt",
         "//ledger/caching",
+        "//ledger/daml-integration-api",
+        "//ledger/daml-integration-api:daml-integration-api-tests-lib",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",

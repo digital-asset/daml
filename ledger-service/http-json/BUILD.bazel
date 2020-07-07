@@ -175,6 +175,7 @@ da_scala_test(
         "//ledger-service/jwt",
         "//ledger-service/utils",
         "//ledger/caching",
+        "//ledger/daml-integration-api",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/participant-state",

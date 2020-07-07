@@ -26,6 +26,8 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/daml-integration-api",
+        "//ledger/daml-integration-api:daml-integration-api-tests-lib",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",

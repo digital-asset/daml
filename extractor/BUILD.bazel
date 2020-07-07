@@ -214,6 +214,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger-service/utils",
         "//ledger/caching",
+        "//ledger/daml-integration-api",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",

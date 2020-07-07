@@ -16,9 +16,9 @@ import com.daml.grpc.sampleservice.Responding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import com.daml.platform.sandbox.services.GrpcClientResource
 import com.daml.platform.testing.StreamConsumer
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}

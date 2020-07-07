@@ -69,6 +69,7 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/daml-integration-api",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
