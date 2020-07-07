@@ -79,7 +79,7 @@ class BasicPrimitiveTypesSpec
           "time_field" : "0001-01-01T00:00:00Z"
         }
       """
-    ).traverseU(parse)
+    ).traverse(parse)
 
     expected should be('right) // That should only fail if this JSON^^ is ill-formatted
 

@@ -203,7 +203,7 @@ object HttpService extends StrictLogging {
   )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
     Future(
       holderM
-        .traverseU { holder =>
+        .traverse { holder =>
           holder.refresh()
           holder.token
             .map(\/-(_))
