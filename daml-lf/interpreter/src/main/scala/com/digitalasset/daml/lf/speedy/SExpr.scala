@@ -85,7 +85,7 @@ object SExpr {
   }
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltinMaybeHungry) extends SExprAtomic {
+  final case class SEBuiltin(b: SBuiltinEffect) extends SExprAtomic {
     def lookupValue(machine: Machine): SValue = {
       /* special case for nullary record constructors */
       b match {
@@ -137,9 +137,7 @@ object SExpr {
 
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
     * of `args' matches the builtin arity. */
-  final case class SEAppAtomicSaturatedBuiltin(
-      builtin: SBuiltinMaybeHungry,
-      args: Array[SExprAtomic])
+  final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinEffect, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
@@ -150,7 +148,7 @@ object SExpr {
         val v = arg.lookupValue(machine)
         actuals.add(v)
       }
-      builtin.execute(actuals, machine)
+      builtin.executeEffect(actuals, machine)
     }
   }
 
@@ -268,15 +266,7 @@ object SExpr {
         val v = arg.lookupValue(machine)
         actuals.add(v)
       }
-      // TODO: define/call builtin.evaluate() to get the SValue directly
-      // Every non-hungry SBuiltin assigns an SValue to returnValue when we call execute()
-      builtin.execute(actuals, machine)
-      if (machine.returnValue == null) {
-        crash("SELet1Builtin, called SBuiltin.execute(), but didn't get returnValue")
-      }
-      val v = machine.returnValue
-      machine.returnValue = null
-
+      val v = builtin.execute(actuals)
       machine.env.add(v)
       machine.ctrl = body
     }
