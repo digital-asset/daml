@@ -131,6 +131,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: macOS-pool
+      demands: assignment -equals broken-macos
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
