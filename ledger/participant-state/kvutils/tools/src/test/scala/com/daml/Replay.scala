@@ -14,19 +14,19 @@ import com.daml.ledger.participant.state.kvutils.export.Serialization
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{Node, Transaction => Tx, TransactionCoder => TxCoder}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
-import com.daml.lf.{crypto, data}
 import com.google.protobuf.ByteString
 import org.openjdk.jmh.annotations._
 
 import scala.collection.JavaConverters._
 
-case class TxEntry(
+final case class TxEntry(
     tx: Tx.SubmittedTransaction,
     participantId: ParticipantId,
     ledgerTime: Time.Timestamp,
@@ -34,7 +34,7 @@ case class TxEntry(
     submissionSeed: crypto.Hash,
 )
 
-case class BenchMarkSate(
+final case class BenchMarkSate(
     name: String,
     transaction: TxEntry,
     contracts: ContractId => Option[Tx.ContractInst[ContractId]],
@@ -60,8 +60,8 @@ class Replay {
   private var benchmark: BenchMarkSate = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def bench() = {
-    engine
+  def bench(): Unit = {
+    val r = engine
       .replay(
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
@@ -70,10 +70,11 @@ class Replay {
         benchmark.transaction.submissionSeed,
       )
       .consume(benchmark.contracts, _ => Replay.unexpectedError, benchmark.contractKeys)
+    assert(r.isRight)
   }
 
   @Setup(Level.Trial)
-  def init() = {
+  def init(): Unit = {
     if (!engineDarFile.contains(darFile)) {
       engine = Replay.loadDar(Paths.get(darFile))
       engineDarFile = Some(darFile)
@@ -113,9 +114,7 @@ object Replay {
     val r = engine
       .preloadPackage(dar.main._1, packages(dar.main._1))
       .consume(_ => unexpectedError, packages.get, _ => unexpectedError)
-      .left
-      .map(_.msg)
-    data.assertRight(r)
+    assert(r.isRight)
     engine
   }
 
@@ -134,24 +133,26 @@ object Replay {
   }
 
   private def decodeSubmission(participantId: ParticipantId, submission: Proto.DamlSubmission) = {
-    if (submission.getPayloadCase == Proto.DamlSubmission.PayloadCase.TRANSACTION_ENTRY) {
-      val entry = submission.getTransactionEntry
-      val tx = TxCoder
-        .decodeTransaction(
-          TxCoder.NidDecoder,
-          ValCoder.CidDecoder,
-          submission.getTransactionEntry.getTransaction)
-        .fold(err => sys.error(err.toString), Tx.SubmittedTransaction(_))
-      Stream(
-        TxEntry(
-          tx = tx,
-          participantId = participantId,
-          ledgerTime = parseTimestamp(entry.getLedgerEffectiveTime),
-          submissionTime = parseTimestamp(entry.getSubmissionTime),
-          submissionSeed = parseHash(entry.getSubmissionSeed)
-        ))
-    } else
-      Stream.empty
+    submission.getPayloadCase match {
+      case Proto.DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+        val entry = submission.getTransactionEntry
+        val tx = TxCoder
+          .decodeTransaction(
+            TxCoder.NidDecoder,
+            ValCoder.CidDecoder,
+            submission.getTransactionEntry.getTransaction)
+          .fold(err => sys.error(err.toString), Tx.SubmittedTransaction(_))
+        Stream(
+          TxEntry(
+            tx = tx,
+            participantId = participantId,
+            ledgerTime = parseTimestamp(entry.getLedgerEffectiveTime),
+            submissionTime = parseTimestamp(entry.getSubmissionTime),
+            submissionSeed = parseHash(entry.getSubmissionSeed)
+          ))
+      case _ =>
+        Stream.empty
+    }
   }
 
   private def decodeEnvelope(participantId: ParticipantId, envelope: ByteString): Stream[TxEntry] =
@@ -169,15 +170,15 @@ object Replay {
   private def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  def loadBenchmarks(dumpFile: Path): Map[String, BenchMarkSate] = {
+  private def loadBenchmarks(dumpFile: Path): Map[String, BenchMarkSate] = {
     println(s"%%% load ledger export file  $dumpFile...")
     val transactions = exportEntries(dumpFile).flatMap(decodeSubmissionInfo)
     if (transactions.isEmpty) sys.error("no transaction find")
 
-    val createsNodes: Seq[Node.NodeCreate[ContractId, Tx.Value[ContractId]]] =
+    val createsNodes: Seq[Node.NodeCreate.WithTxValue[ContractId]] =
       transactions.flatMap(entry =>
         entry.tx.nodes.values.collect {
-          case create: Node.NodeCreate[ContractId, Tx.Value[ContractId]] =>
+          case create: Node.NodeCreate.WithTxValue[ContractId] =>
             create
       })
 
@@ -194,7 +195,7 @@ object Replay {
 
     val benchmarks = transactions.flatMap { entry =>
       entry.tx.roots.map(entry.tx.nodes) match {
-        case ImmArray(exe: Node.NodeExercises[_, ContractId, Tx.Value[ContractId]]) =>
+        case ImmArray(exe: Node.NodeExercises.WithTxValue[_, ContractId]) =>
           val inputContracts = entry.tx.inputContracts
           List(
             BenchMarkSate(
