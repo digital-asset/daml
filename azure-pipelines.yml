@@ -87,6 +87,7 @@ jobs:
       final_job_name: da_ghc_lib
 
   - job: Linux
+    condition: false
     dependsOn:
       - da_ghc_lib
       - check_for_release
@@ -124,7 +125,9 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
-  - job: macOS
+  - job:
+      name: macOS
+      demands: assignment -equals broken
     dependsOn:
       - da_ghc_lib
       - check_for_release
@@ -161,6 +164,7 @@ jobs:
       final_job_name: patch_bazel_windows
 
   - job: Windows
+    condition: false
     dependsOn:
       - da_ghc_lib
       - check_for_release
