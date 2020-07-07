@@ -25,19 +25,20 @@ def _damlc_compile_test_impl(ctx):
         stack_opt = stack_opt,
         heap_opt = heap_opt,
     )
+    binary = ctx.outputs.executable
     ctx.actions.write(
-        output = ctx.outputs.executable,
+        output = binary,
         content = script,
     )
 
     # To ensure the files needed by the script are available, we put them in
     # the runfiles.
+    damlc_runfiles = ctx.attr.damlc[DefaultInfo].default_runfiles
     runfiles = ctx.runfiles(
-        files =
-            ctx.files.srcs + ctx.files.main +
-            [ctx.executable.damlc],
-    )
+        files = [binary] + ctx.files.srcs + ctx.files.main,
+    ).merge(damlc_runfiles)
     return [DefaultInfo(
+        files = depset([binary]),
         runfiles = runfiles,
     )]
 

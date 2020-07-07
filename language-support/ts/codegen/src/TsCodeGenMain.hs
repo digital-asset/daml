@@ -3,6 +3,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
 
+import DA.Bazel.Runfiles (setRunfilesEnv)
 import DA.Directory
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.Reader as DAR
@@ -120,27 +121,31 @@ mergePackageMap ps = foldM merge Map.empty ps
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
-main = withProgName "daml codegen js" $ do
-    opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
-    sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    sdkVersion <- case sdkVersionOrErr of
-          Left _ -> fail "Invalid SDK version"
-          Right v -> pure v
-    pkgs <- readPackages optInputDars
-    case mergePackageMap pkgs of
-      Left err -> fail . T.unpack $ err
-      Right pkgMap -> do
-        dependencies <-
-          forM (Map.toList pkgMap) $
-            \(pkgId, (mbPkgName, pkg)) -> do
-                 let id = unPackageId pkgId
-                     pkgName = packageNameText pkgId mbPkgName
-                 let pkgDesc = case mbPkgName of
-                       Nothing -> id
-                       Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
-                 T.putStrLn $ "Generating " <> pkgDesc
-                 daml2js Daml2jsParams{..}
-        buildPackages sdkVersion optScope optOutputDir dependencies
+main = do
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
+    withProgName "daml codegen js" $ do
+        opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
+        sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+        sdkVersion <- case sdkVersionOrErr of
+              Left _ -> fail "Invalid SDK version"
+              Right v -> pure v
+        pkgs <- readPackages optInputDars
+        case mergePackageMap pkgs of
+          Left err -> fail . T.unpack $ err
+          Right pkgMap -> do
+            dependencies <-
+              forM (Map.toList pkgMap) $
+                \(pkgId, (mbPkgName, pkg)) -> do
+                     let id = unPackageId pkgId
+                         pkgName = packageNameText pkgId mbPkgName
+                     let pkgDesc = case mbPkgName of
+                           Nothing -> id
+                           Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
+                     T.putStrLn $ "Generating " <> pkgDesc
+                     daml2js Daml2jsParams{..}
+            buildPackages sdkVersion optScope optOutputDir dependencies
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent

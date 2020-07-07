@@ -5,6 +5,7 @@ module DA.Daml.Helper.Main (main) where
 
 import Control.Exception.Safe
 import Control.Monad
+import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
 import Options.Applicative.Extended
@@ -25,7 +26,10 @@ import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 
 main :: IO ()
-main =
+main = do
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
     withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
         hPutStrLn stderr (displayException e)
         exitFailure

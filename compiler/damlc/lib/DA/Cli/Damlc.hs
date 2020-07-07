@@ -850,6 +850,9 @@ main :: IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
     installSignalHandlers
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
     numProcessors <- getNumProcessors
     let parse = ParseArgs.lax (parserInfo numProcessors)
     cliArgs <- getArgs
