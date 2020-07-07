@@ -638,7 +638,7 @@ private[kvutils] object TransactionCommitter {
       timeModel: TimeModel): Instant =
     List(
       maybeDeduplicateUntil
-        .map(_.plus(TimeModel.Resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
+        .map(_.plus(Timestamp.Resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
       Some(timeModel.minRecordTime(ledgerTime)),
       Some(timeModel.minRecordTime(submissionTime))
     ).flatten.max

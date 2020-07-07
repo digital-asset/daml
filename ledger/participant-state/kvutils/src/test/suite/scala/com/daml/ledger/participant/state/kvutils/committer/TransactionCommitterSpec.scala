@@ -156,7 +156,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           contextWithTimeModelAndCommandDeduplication,
           aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes)
         contextWithTimeModelAndCommandDeduplication.minimumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(3).plus(TimeModel.Resolution))
+          Instant.ofEpochSecond(3).plus(Timestamp.Resolution))
         contextWithTimeModelAndCommandDeduplication.maximumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(31))
       }

@@ -5,6 +5,7 @@ package com.daml.lf.data
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
+import java.time.temporal.ChronoUnit.MICROS
 import java.time.{Duration, Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
 
@@ -123,6 +124,8 @@ object Time {
 
     val MaxValue: Timestamp =
       Timestamp(assertMicrosFromString("9999-12-31T23:59:59.999999Z"))
+
+    val Resolution: Duration = Duration.of(1L, MICROS)
 
     val Epoch: Timestamp =
       Timestamp(0)
