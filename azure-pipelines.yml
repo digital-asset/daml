@@ -173,7 +173,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
-      demands: assignment -equals default
+      demands: assignment -equals broken-windows
     steps:
       - template: ci/report-start.yml
       - checkout: self
