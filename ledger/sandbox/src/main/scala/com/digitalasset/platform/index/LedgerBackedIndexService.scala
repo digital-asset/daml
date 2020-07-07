@@ -144,10 +144,10 @@ abstract class LedgerBackedIndexService(
     }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] = {
-    if (ledger.ledgerEnd == Offset.beforeBegin) {
-      Future.successful(toAbsolute(Offset.begin))
-    } else
-      Future.successful(toAbsolute(ledger.ledgerEnd))
+    val offset =
+      if (ledger.ledgerEnd == Offset.beforeBegin) Offset.begin
+      else ledger.ledgerEnd
+    Future.successful(toAbsolute(offset))
   }
 
   override def getTransactionById(

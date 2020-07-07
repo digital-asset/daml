@@ -45,12 +45,12 @@ class EmptyLedgerIT
       implicitPartyAllocation = false
     )
 
-  private[this] val applicationId = "CompletionServiceIT"
+  private[this] val applicationId = getClass.getSimpleName
 
   // How long it takes to download the entire completion stream.
   // Because the stream does not terminate, we use a timeout to determine when the stream
   // is done emitting elements.
-  private[this] val completionTimeout = FiniteDuration(2, TimeUnit.SECONDS)
+  private[this] val completionTimeout = 2.seconds
 
   private[this] def completionsFromOffset(
       completionService: CommandCompletionServiceGrpc.CommandCompletionServiceStub,
