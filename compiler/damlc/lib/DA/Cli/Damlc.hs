@@ -260,7 +260,7 @@ cmdRepl numProcessors =
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
-            <*> strArgument (help "DAR to load in the repl" <> metavar "DAR")
+            <*> some (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag
@@ -583,17 +583,17 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl
     :: ProjectOpts
     -> Options
-    -> FilePath -> FilePath
+    -> FilePath -> [FilePath]
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
     -> ReplClient.ReplTimeMode
     -> Command
-execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar dars ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
-            mainDar <- makeAbsolute mainDar
+            dars <- mapM makeAbsolute dars
             opts <- pure opts
                 { optDlintUsage = DlintDisabled
                 , optScenarioService = EnableScenarioService False
@@ -605,7 +605,7 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
-                writeFileUTF8 "daml.yaml" $ unlines
+                writeFileUTF8 "daml.yaml" $ unlines $
                     [ "sdk-version: " <> sdkVer
                     , "name: repl"
                     , "version: 0.0.1"
@@ -615,12 +615,11 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mb
                     , "- daml-stdlib"
                     , "- " <> show scriptDar
                     , "data-dependencies:"
-                    , "- " <> show mainDar
-                    ]
+                    ] ++ ["- " <> show dar | dar <- dars]
                 initPackageDb opts (InitPkgDb True)
                 -- We want diagnostics to go to stdout in the repl.
                 withDamlIdeState opts logger (hDiagnosticsLogger stdout)
-                    (Repl.runRepl opts [mainDar] replHandle)
+                    (Repl.runRepl opts dars replHandle)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
