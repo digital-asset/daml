@@ -209,7 +209,7 @@ object Runner {
       implicit ec: ExecutionContext,
       system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
     def client(params: ApiParameters) = {
-      val uri = Uri(params.host + ":" + params.port.toString)
+      val uri = Uri(params.host).withPort(params.port)
       params.access_token match {
         case None =>
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
