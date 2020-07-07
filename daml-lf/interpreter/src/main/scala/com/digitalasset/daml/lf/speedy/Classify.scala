@@ -35,7 +35,10 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       var ewrongcid: Int = 0,
       // kont classification (ctrlValue)
       var kfinished: Int = 0,
-      var koverapp: Int = 0,
+      var karg: Int = 0,
+      var kfun: Int = 0,
+      var kbuiltin: Int = 0,
+      var kpap: Int = 0,
       var kpushto: Int = 0,
       var kcacheval: Int = 0,
       var klocation: Int = 0,
@@ -66,7 +69,10 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
         ("- eimportvalue", eimportvalue),
         ("CtrlValue:", ctrlValue),
         ("- kfinished", kfinished),
-        ("- koverapp", koverapp),
+        ("- karg", karg),
+        ("- kfun", kfun),
+        ("- kbuiltin", kbuiltin),
+        ("- kpap", kpap),
         ("- kpushto", kpushto),
         ("- kcacheval", kcacheval),
         ("- klocation", klocation),
@@ -120,7 +126,10 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
   def classifyKont(kont: Kont, counts: Counts): Unit = {
     kont match {
       case KFinished => counts.kfinished += 1
-      case _: KOverApp => counts.koverapp += 1
+      case _: KArg => counts.karg += 1
+      case _: KFun => counts.kfun += 1
+      case _: KBuiltin => counts.kbuiltin += 1
+      case _: KPap => counts.kpap += 1
       case _: KPushTo => counts.kpushto += 1
       case _: KCacheVal => counts.kcacheval += 1
       case _: KLocation => counts.klocation += 1
