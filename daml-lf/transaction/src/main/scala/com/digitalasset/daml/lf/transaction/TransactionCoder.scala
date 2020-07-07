@@ -226,7 +226,7 @@ object TransactionCoder {
         for {
           argValue <- encodeValue(encodeCid, ne.chosenValue)
           (vversion, arg) = argValue
-          retValue <- ne.exerciseResult traverseU (v => encodeValue(encodeCid, v))
+          retValue <- ne.exerciseResult traverse (v => encodeValue(encodeCid, v))
           exBuilder = TransactionOuterClass.NodeExercise
             .newBuilder()
             .setChoice(ne.choiceId)
@@ -292,7 +292,7 @@ object TransactionCoder {
               EncodeError(transactionVersion, isTooOldFor = "NodeLookupByKey transaction nodes")
           )
           versionAndKey <- encodeKeyWithMaintainers(encodeCid, nlbk.key)
-          encodedCid <- nlbk.result traverseU (cid => encodeCid.encode(transactionVersion, cid))
+          encodedCid <- nlbk.result traverse (cid => encodeCid.encode(transactionVersion, cid))
         } yield {
           val (vversion, key) = versionAndKey
           nlbkBuilder

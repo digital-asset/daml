@@ -3,6 +3,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
 
+import DA.Bazel.Runfiles (setRunfilesEnv)
 import DA.Directory
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.Reader as DAR
@@ -19,6 +20,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
 
+import Control.Exception
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
@@ -27,7 +29,6 @@ import Data.Tuple.Extra
 import Data.List.Extra
 import Data.Graph
 import Data.Maybe
-import Data.Bifoldable
 import Options.Applicative
 import System.Directory
 import System.Environment
@@ -120,27 +121,31 @@ mergePackageMap ps = foldM merge Map.empty ps
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
-main = withProgName "daml codegen js" $ do
-    opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
-    sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    sdkVersion <- case sdkVersionOrErr of
-          Left _ -> fail "Invalid SDK version"
-          Right v -> pure v
-    pkgs <- readPackages optInputDars
-    case mergePackageMap pkgs of
-      Left err -> fail . T.unpack $ err
-      Right pkgMap -> do
-        dependencies <-
-          forM (Map.toList pkgMap) $
-            \(pkgId, (mbPkgName, pkg)) -> do
-                 let id = unPackageId pkgId
-                     pkgName = packageNameText pkgId mbPkgName
-                 let pkgDesc = case mbPkgName of
-                       Nothing -> id
-                       Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
-                 T.putStrLn $ "Generating " <> pkgDesc
-                 daml2js Daml2jsParams{..}
-        buildPackages sdkVersion optScope optOutputDir dependencies
+main = do
+    -- Save the runfiles environment to work around
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
+    withProgName "daml codegen js" $ do
+        opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
+        sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+        sdkVersion <- case sdkVersionOrErr of
+              Left _ -> fail "Invalid SDK version"
+              Right v -> pure v
+        pkgs <- readPackages optInputDars
+        case mergePackageMap pkgs of
+          Left err -> fail . T.unpack $ err
+          Right pkgMap -> do
+            dependencies <-
+              forM (Map.toList pkgMap) $
+                \(pkgId, (mbPkgName, pkg)) -> do
+                     let id = unPackageId pkgId
+                         pkgName = packageNameText pkgId mbPkgName
+                     let pkgDesc = case mbPkgName of
+                           Nothing -> id
+                           Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
+                     T.putStrLn $ "Generating " <> pkgDesc
+                     daml2js Daml2jsParams{..}
+            buildPackages sdkVersion optScope optOutputDir dependencies
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
@@ -200,16 +205,15 @@ genModule pkgMap (Scope scope) curPkgId mod
   | null serDefs =
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
-    let (defSers, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
+    let (decls, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
         imports = (PRSelf, modName) `Set.delete` Set.unions refs
         (internalImports, externalImports) = splitImports imports
         rootPath = map (const "..") (unModuleName modName)
-        defs = map biconcat defSers
         modText = T.unlines $ intercalate [""] $ filter (not . null) $
           modHeader
           : map (externalImportDecl pkgMap) (Set.toList externalImports)
           : map (internalImportDecl rootPath) internalImports
-          : defs
+          : map (map renderTsDecl) decls
         depends = Set.map (Dependency . pkgRefStr pkgMap) externalImports
    in Just (modText, depends)
   where
@@ -259,91 +263,335 @@ genModule pkgMap (Scope scope) curPkgId mod
 defDataTypes :: Module -> [DefDataType]
 defDataTypes mod = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDataDef :: PackageId -> Module -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDataDef :: PackageId -> Module -> NM.NameMap Template -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
 genDataDef curPkgId mod tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
 
     [conName] -> genDefDataType curPkgId conName mod tpls def
-    [c1, c2] -> ((makeNamespace $ map ("  " <>) typs, []), refs)
+    [c1, c2] -> ([DeclNamespace c1 tyDecls], refs)
       where
-        ((typs, _), refs) = genDefDataType curPkgId c2 mod tpls def
-        makeNamespace stuff =
-          ["export namespace " <> c1 <> " {"] ++ stuff ++ ["} //namespace " <> c1]
+        (decls, refs) = genDefDataType curPkgId c2 mod tpls def
+        tyDecls = [d | d@DeclTypeDef{} <- decls]
 
-genDefDataType :: PackageId -> T.Text -> Module -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+-- | The typescript declarations we produce.
+data TsDecl
+    = DeclTemplateDef TemplateDef
+    | DeclSerializableDef SerializableDef
+    | DeclTypeDef TypeDef
+    | DeclTemplateNamespace TemplateNamespace
+    | DeclTemplateRegistration TemplateRegistration
+    | DeclNamespace T.Text [TsDecl]
+    -- ^ Note that we special-case some namespaces, e.g., the template namespace
+    -- that always have fixed contents. This constructor is only used for the namespace
+    -- for sums of products.
+
+renderTsDecl :: TsDecl -> T.Text
+renderTsDecl = \case
+    DeclTemplateDef t -> renderTemplateDef t
+    DeclSerializableDef t -> renderSerializableDef t
+    DeclTypeDef t -> renderTypeDef t
+    DeclTemplateNamespace t -> renderTemplateNamespace t
+    DeclTemplateRegistration t -> renderTemplateRegistration t
+    DeclNamespace t decls -> T.unlines $ concat
+        [ [ "export namespace " <> t <> " {" ]
+        , [ "  " <> l | d <- decls, l <- T.lines (renderTsDecl d) ]
+        , [ "} //namespace " <> t ]
+        ]
+
+
+-- | Namespace containing type synonyms for Key, CreatedEvent, ArchivedEvent and Event
+-- for the given template.
+data TemplateNamespace = TemplateNamespace
+  { tnsName :: T.Text
+  , tnsMbKeyDef :: Maybe T.Text
+  }
+
+renderTemplateNamespace :: TemplateNamespace -> T.Text
+renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
+    [ [ "export namespace " <> tnsName <> " {" ]
+    , [ "  export type Key = " <> keyDef | Just keyDef <- [tnsMbKeyDef] ]
+    , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
+      , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
+      , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
+      , "}"
+      ]
+    ]
+  where
+    tK = maybe "undefined" (const (tnsName <.> "Key")) tnsMbKeyDef
+    tI = "typeof " <> tnsName <.> "templateId"
+    tParams xs = "<" <> T.intercalate ", " xs <> ">"
+
+data TemplateRegistration = TemplateRegistration T.Text
+
+renderTemplateRegistration :: TemplateRegistration -> T.Text
+renderTemplateRegistration (TemplateRegistration t) = T.unlines
+  [ "damlTypes.registerTemplate(" <> t <> ");" ]
+
+data TemplateDef = TemplateDef
+  { tplName :: T.Text
+  , tplPkgId :: PackageId
+  , tplModule :: ModuleName
+  , tplDecoder :: Decoder
+  , tplKeyDecoder :: Maybe Decoder
+  -- ^ Nothing if we do not have a key.
+  , tplChoices' :: [ChoiceDef]
+  }
+
+renderTemplateDef :: TemplateDef -> T.Text
+renderTemplateDef TemplateDef{..} = T.unlines $ concat
+    [ [ "export const " <> tplName <> ":"
+      , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & {"
+      ]
+    , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
+        tplName <> ", " <>
+        chcArgTy <> ", " <>
+        chcRetTy <> ", " <>
+        keyTy <> ">;" | ChoiceDef{..} <- tplChoices' ]
+    , [ "} = {"
+      , "  templateId: '" <> templateId <> "',"
+      , "  keyDecoder: " <> keyDec <> ","
+      , "  decoder: () => " <> renderDecoder tplDecoder <> ","
+      ]
+    , concat
+      [ [ "  " <> chcName' <> ": {"
+        , "    template: () => " <> tplName <> ","
+        , "    choiceName: '" <> chcName' <> "',"
+        , "    argumentDecoder: " <> chcArgTy <> ".decoder,"
+        , "    resultDecoder: () => " <> chcRetSerTy <> ".decoder(),"
+        , "  },"
+        ]
+      | ChoiceDef{..} <- tplChoices'
+      ]
+    , [ "};" ]
+    ]
+  where (keyTy, keyDec) = case tplKeyDecoder of
+            Nothing -> ("undefined", "() => " <> renderDecoder (DecoderConstant ConstantUndefined))
+            Just d -> (tplName <> ".Key", "() => " <> renderDecoder d)
+        templateId =
+            unPackageId tplPkgId <> ":" <>
+            T.intercalate "." (unModuleName tplModule) <> ":" <>
+            tplName
+
+data ChoiceDef = ChoiceDef
+  { chcName' :: T.Text
+  , chcArgTy :: T.Text
+  , chcRetTy :: T.Text
+  -- ^ Return type in typescript, e.g., `{}` for `()`
+  , chcRetSerTy :: T.Text
+  -- ^ Type that has the serializability definition, e.g., `damlTypes.Unit` for `()`.
+  }
+
+data SerializableDef = SerializableDef
+  { serName :: T.Text
+  , serParams :: [T.Text]
+  -- ^ Type parameters.
+  , serKeys :: [T.Text]
+  -- ^ Keys for enums. Note that enums never have type parameters
+  -- but for simplicity we do not express this in this type.
+  , serDecoder :: Decoder
+  , serNestedDecoders :: [(T.Text, Decoder)]
+  -- ^ For sums of products, e.g., `data X = Y { a : Int }
+  }
+
+renderSerializableDef :: SerializableDef -> T.Text
+renderSerializableDef SerializableDef{..}
+  | null serParams = T.unlines $ concat
+      [ [ "export const " <> serName <> ":"
+        , "  damlTypes.Serializable<" <> serName <> "> & {"
+        ]
+      , [ "  " <> n <> ": damlTypes.Serializable<" <> serName <.> n <> ">;" | (n, _) <- serNestedDecoders ]
+      , [ "  } "
+        ]
+      , [ "& { readonly keys: " <> serName <> "[] } & { readonly [e in " <> serName <> "]: e }" | notNull serKeys ]
+      , [ "  = ({" ]
+      , [ "  " <> k <> ":" <> "'" <> k <> "'," | k <- serKeys ]
+      , [ "  keys: [" <> T.concat (map (\s -> "'" <> s <> "',") serKeys) <> "]," | notNull serKeys ]
+      , [ "  decoder: () => " <> renderDecoder serDecoder <> ","
+        ]
+      , concat $
+        [ [ "  " <> n <> ":({"
+          , "    decoder: () => " <> renderDecoder d <> ","
+          , "  }),"
+          ]
+        | (n, d) <- serNestedDecoders
+        ]
+      , [ "});" ]
+      ]
+  | otherwise = assert (null serKeys) $ T.unlines $
+  -- If we have type parameters, the serializable definition is
+  -- a function and we generate extra properties on that function
+  -- for each nested decoder.
+      [ "export const " <> serName <> " = " <> tyArgs <> ":"
+      , "  damlTypes.Serializable<" <> serName <> tyParams <> "> => ({"
+      , "  decoder: () => " <> renderDecoder serDecoder <> ","
+      , "});"
+      ] <> concat
+      [ [ serName <.> n <> " = " <> tyArgs <> ":"
+        , "  damlTypes.Serializable<" <> serName <.> n <> tyParams <> "> => ({"
+        , "  decoder: () => " <> renderDecoder d <> ","
+        , "});"
+        ]
+      | (n, d) <- serNestedDecoders
+      ]
+  where tyParams = "<" <> T.intercalate ", " serParams <> ">"
+        tyArgs = tyParams <> "(" <> T.intercalate ", " (map (\name -> name <> ": damlTypes.Serializable<" <> name <> ">") serParams) <> ")"
+
+
+data Decoder
+    = DecoderOneOf T.Text [Decoder]
+    | DecoderObject [(T.Text, Decoder)]
+    | DecoderConstant DecoderConstant
+    | DecoderRef T.Text -- ^ Reference to an object with a .decoder() method
+    | DecoderLazy Decoder
+
+data DecoderConstant
+    = ConstantUndefined
+    | ConstantString T.Text -- ^ String literal
+    | ConstantRef T.Text -- ^ Variable reference
+
+renderDecoderConstant :: DecoderConstant -> T.Text
+renderDecoderConstant = \case
+    ConstantUndefined -> "undefined"
+    ConstantString s -> "'" <> s <> "'"
+    ConstantRef v -> v
+
+renderDecoder :: Decoder -> T.Text
+renderDecoder = \case
+    DecoderOneOf constr branches ->
+        "jtv.oneOf<" <> constr <> ">(" <>
+        T.concat (map (\b -> renderDecoder b <> ",") branches) <>
+        ")"
+    DecoderObject fields ->
+        "jtv.object({" <>
+        T.concat (map (\(name, d) -> name <> ":" <> renderDecoder d <> ",") fields) <>
+        "})"
+    DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
+    DecoderRef n -> n <> ".decoder()"
+    DecoderLazy d -> "jtv.lazy(() => " <> renderDecoder d <> ")"
+
+data TypeDef
+    = UnionDef T.Text [T.Text] [(T.Text, T.Text)]
+    | ObjectDef T.Text [T.Text] [(T.Text, T.Text)]
+    | EnumDef T.Text [T.Text] [T.Text]
+
+renderTypeDef :: TypeDef -> T.Text
+renderTypeDef = \case
+    UnionDef t args bs -> T.unlines $ concat
+        [ [ "export type " <> ty t args <> " =" ]
+        , [ "  |  { tag: '" <> k <> "'; value: " <> v <> " }" | (k, v) <- bs ]
+        ]
+    ObjectDef t args fs -> T.unlines $ concat
+        [ [ "export type " <> ty t args <> " = {" ]
+        , [ "  " <> k <> ": " <> v <> ";" | (k, v) <- fs ]
+        , [ "}" ]
+        ]
+    EnumDef t args fs -> T.unlines $ concat
+        [ [ "export type " <> ty t args <> " =" ]
+        , [ "  | '" <> f <> "'" | f <- fs ]
+        ]
+  where ty t args = t <> "<" <> T.intercalate ", " args <> ">"
+
+-- | Generate the Serializable definition for a datatype.
+-- Note that for templates we do not use this directly since the Template definition
+-- subsumes this.
+genSerializableDef :: PackageId -> T.Text -> Module -> DefDataType -> SerializableDef
+genSerializableDef curPkgId conName mod def =
+    case dataCons def of
+        DataVariant bs ->
+            let typ = conName <> typeParams
+            in SerializableDef
+                 { serName = conName
+                 , serParams = paramNames
+                 , serKeys = []
+                 , serDecoder = DecoderOneOf typ (map genBranch bs)
+                 , serNestedDecoders =
+                   [ (name, serDecoder (genSerializableDef curPkgId (conName <.> name) mod b)) | (name, b) <- nestedDefDataTypes ]
+                 }
+        DataEnum enumCons ->
+            let cs = map unVariantConName enumCons
+            in SerializableDef
+                 { serName = conName
+                 , serParams = []
+                 , serKeys = cs
+                 , serDecoder = DecoderOneOf conName [DecoderConstant (ConstantRef (conName <.> cons)) | cons <- cs]
+                 , serNestedDecoders = []
+                 }
+        DataRecord fields ->
+            let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
+                fieldSers = map (snd . genType (moduleName mod)) fieldTypesLf
+            in SerializableDef
+                 { serName = conName
+                 , serParams = paramNames
+                 , serKeys = []
+                 , serDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldSers]
+                 , serNestedDecoders = []
+                 }
+  where
+    paramNames = map (unTypeVarName . fst) (dataParams def)
+    typeParams
+        | null paramNames = ""
+        | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
+    genBranch (VariantConName cons, t) =
+        let (_, ser) = genType (moduleName mod) t
+        in DecoderObject
+             [ ("tag", DecoderConstant (ConstantString cons))
+             , ("value", DecoderLazy (DecoderRef ser))
+             ]
+    nestedDefDataTypes =
+        [ (sub, def)
+        | def <- defDataTypes mod
+        , [sup, sub] <- [unTypeConName (dataTypeCon def)], sup == conName
+        ]
+
+genTypeDef :: T.Text -> Module -> DefDataType -> TypeDef
+genTypeDef conName mod def =
+    case dataCons def of
+        DataVariant bs ->
+            UnionDef
+                conName
+                paramNames
+                [ (cons, typ)
+                | (VariantConName cons, t) <- bs, let (typ, _) = genType (moduleName mod) t
+                ]
+        DataEnum enumCons ->
+            EnumDef
+                conName
+                paramNames
+                (map unVariantConName enumCons)
+        DataRecord fields ->
+            ObjectDef
+                conName
+                paramNames
+                [ (n, fst (genType (moduleName mod) ty)) | (FieldName n, ty) <- fields ]
+
+  where
+    paramNames = map (unTypeVarName . fst) (dataParams def)
+
+genDefDataType :: PackageId -> T.Text -> Module -> NM.NameMap Template -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
 genDefDataType curPkgId conName mod tpls def =
     case dataCons def of
         DataVariant bs ->
           let
-            (typs, sers) = unzip $ map genBranch bs
-            typeDesc = makeType ([""] ++ typs)
-            typ = conName <> typeParams -- Type of the variant.
-            serDesc =
-              if not $ null paramNames -- Polymorphic type.
-              then -- Companion function.
-                let
-                  -- Any associated serializers.
-                  assocSers = map (\(n, d) -> serFromDef id n d) assocDefDataTypes
-                  -- The variant deserializer.
-                  function = onLast (<> ";") (makeSer ( ["() => jtv.oneOf<" <> typ <> ">("] ++ sers ++ [")"]));
-                  props = -- Fix the first and last line of each serializer.
-                    concatMap (onHead (fromJust . T.stripPrefix (T.pack "export const ")) . onLast (<> ";")) assocSers
-                  -- The complete definition of the companion function.
-                  in function ++ props
-              else -- Companion object.
-                let
-                  assocNames = map fst assocDefDataTypes
-                  -- Any associated serializers, dropping the first line
-                  -- of each.
-                  assocSers = map (\(n, d) -> (n, serFromDef (drop 1) n d)) assocDefDataTypes
-                  -- Type of the companion object.
-                  typ' = "damlTypes.Serializable<" <> conName <> "> & {\n" <>
-                    T.concat (map (\n -> "    " <> n <> ": damlTypes.Serializable<" <> (conName <.> n) <> ">;\n") assocNames) <>
-                    "  }"
-                  -- Body of the companion object.
-                  body = map ("  " <>) $
-                    -- The variant deserializer.
-                    ["decoder: () => jtv.oneOf<" <> typ <> ">("] ++  sers ++ ["),"] ++
-                    -- Remember how we dropped the first line of each
-                    -- associated serializer above? This replaces them.
-                    concatMap (\(n, ser) -> n <> ": ({" : onLast (<> ",") ser) assocSers
-                  -- The complete definition of the companion object.
-                  in ["export const " <> conName <> ":\n  " <> typ' <> " = ({"] ++ body ++ ["});"]
-            in ((typeDesc, serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
-        DataEnum enumCons ->
-          let cs = map unVariantConName enumCons
-              typeDesc = "" : ["  | '" <> cons <> "'" | cons <- cs]
-              -- The complete definition of the companion object.
-              serDesc =
-                ["export const " <> conName <> ": damlTypes.Serializable<" <> conName <> "> " <>
-                 "& { readonly keys: " <> conName <> "[] } & { readonly [e in " <> conName <> "]: e } = {"] ++
-                ["  " <> cons <> ": '" <> cons <> "'," | cons <- cs] ++
-                ["  keys: [" <> T.concat ["'" <> cons <> "'," | cons <- cs] <> "],"] ++
-                ["  decoder: () => jtv.oneOf<" <> conName <> ">" <> "("] ++
-                ["      jtv.constant(" <> conName <> "." <> cons <> ")," | cons <- cs] ++
-                ["  ),"] ++
-                ["};"]
+            typeDesc = genTypeDef conName mod def
+            serDesc = genSerializableDef curPkgId conName mod def
+          in ([DeclTypeDef typeDesc, DeclSerializableDef serDesc], Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
+        DataEnum _ ->
+          let typeDesc = genTypeDef conName mod def
+              serDesc = genSerializableDef curPkgId conName mod def
           in
-          ((makeType typeDesc, serDesc), Set.empty)
+          ([DeclTypeDef typeDesc, DeclSerializableDef serDesc], Set.empty)
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
-                (fieldTypesTs, fieldSers) = unzip (map (genType (moduleName mod)) fieldTypesLf)
+                (_, fieldSers) = unzip (map (genType (moduleName mod)) fieldTypesLf)
                 fieldRefs = map (Set.setOf typeModuleRef . snd) fields
-                typeDesc =
-                    ["{"] ++
-                    ["  " <> x <> ": " <> t <> ";" | (x, t) <- zip fieldNames fieldTypesTs] ++
-                    ["}"]
-                serDesc =
-                    ["() => jtv.object({"] ++
-                    ["  " <> x <> ": " <> ser <> ".decoder()," | (x, ser) <- zip fieldNames fieldSers] ++
-                    ["})"]
+                typeDesc = genTypeDef conName mod def
             in
             case NM.lookup (dataTypeCon def) tpls of
-                Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
+                Nothing -> ([DeclTypeDef typeDesc, DeclSerializableDef $ genSerializableDef curPkgId conName mod def], Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, chcRefs) = unzip
-                            [((unChoiceName (chcName chc), t, rtyp, rser), Set.union argRefs retRefs)
+                            [(ChoiceDef (unChoiceName (chcName chc)) t rtyp rser, Set.union argRefs retRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
                             , let rLf = chcReturnType chc
@@ -352,93 +600,28 @@ genDefDataType curPkgId conName mod tpls def =
                             , let argRefs = Set.setOf typeModuleRef tLf
                             , let retRefs = Set.setOf typeModuleRef rLf
                             ]
-                        (keyTypeTs, keySer, keyRefs) = case tplKey tpl of
-                            Nothing -> ("undefined", "() => jtv.constant(undefined)", Set.empty)
+                        (keyDecoder, keyRefs) = case tplKey tpl of
+                            Nothing -> (Nothing, Set.empty)
                             Just key ->
                                 let keyType = tplKeyType key
                                 in
-                                (conName <.> "Key", "() => " <> snd (genType (moduleName mod) keyType) <> ".decoder()", Set.setOf typeModuleRef keyType)
-                        templateId = unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName
-                        dict =
-                            ["export const " <> conName <> ": damlTypes.Template<" <> conName <> ", " <> keyTypeTs <> ", '" <> templateId <> "'> & {"] ++
-                            ["  " <> x <> ": damlTypes.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
-                            ["} = {"
-                            ] ++
-                            ["  templateId: '" <> templateId <> "',"
-                            ,"  keyDecoder: " <> keySer <> ","
-                            ] ++
-                            map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
-                            concat
-                            [ ["  " <> x <> ": {"
-                              ,"    template: () => " <> conName <> ","
-                              ,"    choiceName: '" <> x <> "',"
-                              ,"    argumentDecoder: " <> t <> ".decoder,"
-                              -- We'd write,
-                              --   "   resultDecoder: " <> rser <> ".decoder"
-                              -- here but, consider the following scenario:
-                              --   export const Person: damlTypes.Template<Person>...
-                              --    = {  ...
-                              --         Birthday: { resultDecoder: damlTypes.ContractId(Person).decoder, ... }
-                              --         ...
-                              --      }
-                              -- This gives rise to "error TS2454: Variable 'Person' is used before being assigned."
-                              ,"    resultDecoder: () => " <> rser <> ".decoder()," -- Eta-conversion provides an escape hatch.
-                              ,"  },"
-                              ]
-                            | (x, t, _rtyp, rser) <- chcs
-                            ] ++
-                            ["};"]
-                        associatedTypes =
-                          let mbKeyDef = fst . genType (moduleName mod) . tplKeyType <$> tplKey tpl
-                              tT = conName
-                              tK = maybe "undefined" (const (tT <> ".Key")) mbKeyDef
-                              tI = "typeof " <> tT <> ".templateId" in
-                          [ "export namespace " <> tT <> " {" ] ++
-                          [ "  export type Key = " <> keyDef | Just keyDef <- [mbKeyDef] ] ++
-                          [ "  export type CreateEvent = damlLedger.CreateEvent" <> "<" <> tparams [tT, tK, tI] <> ">"
-                          , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> "<" <>  tparams [tT, tI] <> ">"
-                          , "  export type Event = damlLedger.Event"  <> "<" <>  tparams [tT, tK, tI] <> ">"
-                          , "}"
-                          ]
-                          where tparams = T.intercalate ", "
-                        registrations =
-                            ["damlTypes.registerTemplate(" <> conName <> ");"]
+                                (Just (DecoderRef $ snd (genType (moduleName mod) keyType)), Set.setOf typeModuleRef keyType)
+                        dict = TemplateDef
+                            { tplName = conName
+                            , tplPkgId = curPkgId
+                            , tplModule = moduleName mod
+                            , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldSers]
+                            , tplKeyDecoder = keyDecoder
+                            , tplChoices' = chcs
+                            }
+                        associatedTypes = TemplateNamespace
+                          { tnsName = conName
+                          , tnsMbKeyDef = fst . genType (moduleName mod) . tplKeyType <$> tplKey tpl
+                          }
+                        registrations = TemplateRegistration conName
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
                     in
-                    ((makeType typeDesc, dict ++ associatedTypes ++ registrations), refs)
-      where
-        paramNames = map (unTypeVarName . fst) (dataParams def)
-        typeParams
-          | null paramNames = ""
-          | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
-        serParam paramName = paramName <> ": damlTypes.Serializable<" <> paramName <> ">"
-        serHeader
-          | null paramNames = ": damlTypes.Serializable<" <> conName <> "> ="
-          | otherwise = " = " <> typeParams <> "(" <> T.intercalate ", " (map serParam paramNames) <> "): damlTypes.Serializable<" <> conName <> typeParams <> "> =>"
-        makeType = onHead (\x -> "export type " <> conName <> typeParams <> " = " <> x)
-        makeSer serDesc =
-            ["export const " <> conName <> serHeader <> " ({"] ++
-            map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
-            ["})"]
-        genBranch (VariantConName cons, t) =
-          let (typ, ser) = genType (moduleName mod) t in
-          ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"
-          , "  jtv.object({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
-          )
-        -- A type such as
-        --   data Q = C { x: Int, y: Text }| G { z: Bool }
-        -- has a DAML-LF representation like,
-        --   record Q.C = { x: Int, y: String }
-        --   record Q.G = { z: Bool }
-        --   variant Q = C Q.C | G Q.G
-        -- This constant is the definitions of 'Q.C' and 'Q.G' given
-        -- 'Q'.
-        assocDefDataTypes =
-          [(sub, def) | def <- defDataTypes mod
-            , [sup, sub] <- [unTypeConName (dataTypeCon def)], sup == conName]
-        -- Extract the serialization code associated with a data type
-        -- definition.
-        serFromDef f c2 = f . snd . fst . genDefDataType curPkgId (conName <.> c2) mod tpls
+                    ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
 
 infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) :: T.Text -> T.Text -> T.Text
@@ -525,17 +708,6 @@ genModuleRef (pkgRef, modName) = case pkgRef of
 -- "B"]' is "./A/B".
 modPath :: [T.Text] -> T.Text
 modPath parts = T.intercalate "/" parts
-
-onHead :: (a -> a) -> [a] -> [a]
-onHead f = \case
-    [] -> []
-    x : xs -> f x : xs
-
-onLast :: (a -> a) -> [a] -> [a]
-onLast f = \case
-    [] -> []
-    [l] -> [f l]
-    x : xs -> x : onLast f xs
 
 writeTsConfig :: FilePath -> IO ()
 writeTsConfig dir =

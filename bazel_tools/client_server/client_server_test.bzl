@@ -40,6 +40,7 @@ if [ -z "$client_args" ]; then
     done
 fi
 
+export KVUTILS_LEDGER_DUMP=$(mktemp)
 $runner $client "$client_args" $server "$server_args" "$runner_args"
 """.format(
             runner = ctx.executable.runner.short_path,

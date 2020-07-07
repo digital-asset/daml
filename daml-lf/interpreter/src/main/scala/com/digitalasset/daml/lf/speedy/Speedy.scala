@@ -734,7 +734,7 @@ private[lf] object Speedy {
             case PBuiltin(builtin) =>
               machine.actuals = actuals
               try {
-                builtin.execute(actuals, machine)
+                builtin.executeEffect(actuals, machine)
               } catch {
                 // We turn arithmetic exceptions into a daml exception that can be caught.
                 case e: ArithmeticException =>
