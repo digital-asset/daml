@@ -65,7 +65,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
 
-    val requestedRangeF = getRowIdRange(startExclusive, endInclusive)
+    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
     val query = (range: EventsRange[Long]) =>
       (connection: Connection) =>
@@ -85,7 +85,7 @@ private[dao] final class TransactionsReader(
             verbose,
             dbMetrics.getFlatTransactions,
             query,
-            nextPageRowIdRange[Event](requestedRange.endInclusive)
+            nextPageRange[Event](requestedRange.endInclusive)
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -126,7 +126,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
 
-    val requestedRangeF = getRowIdRange(startExclusive, endInclusive)
+    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
     val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
       EventsTable
@@ -145,7 +145,7 @@ private[dao] final class TransactionsReader(
             verbose,
             dbMetrics.getTransactionTrees,
             query,
-            nextPageRowIdRange[TreeEvent](requestedRange.endInclusive)
+            nextPageRange[TreeEvent](requestedRange.endInclusive)
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -185,7 +185,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
 
-    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsRowIdRange(activeAt)
+    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
 
     val query = (range: EventsRange[(Offset, Long)]) =>
       (connection: Connection) =>
@@ -205,7 +205,7 @@ private[dao] final class TransactionsReader(
             verbose,
             dbMetrics.getActiveContracts,
             query,
-            nextPageRowIdRangeWithOffset[Event](requestedRange.endInclusive)
+            nextPageRange[Event](requestedRange.endInclusive)
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -214,27 +214,28 @@ private[dao] final class TransactionsReader(
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
   }
 
-  private def nextPageRowIdRange[E](endRowId: Long)(a: EventsTable.Entry[E]): EventsRange[Long] =
-    EventsRange(startExclusive = a.rowId, endInclusive = endRowId)
+  private def nextPageRange[E](endEventSeqId: Long)(a: EventsTable.Entry[E]): EventsRange[Long] =
+    EventsRange(startExclusive = a.eventSequentialId, endInclusive = endEventSeqId)
 
-  private def nextPageRowIdRangeWithOffset[E](endRowId: (Offset, Long))(
+  private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]): EventsRange[(Offset, Long)] =
-    EventsRange(startExclusive = (a.eventOffset, a.rowId), endInclusive = endRowId)
+    EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
-  private def getAcsRowIdRange(activeAt: Offset): Future[EventsRange[(Offset, Long)]] =
+  private def getAcsEventSeqIdRange(activeAt: Offset): Future[EventsRange[(Offset, Long)]] =
     dispatcher
-      .executeSql(dbMetrics.getAcsRowIdRange)(EventsRange.readRowIdRange(activeAt))
+      .executeSql(dbMetrics.getAcsEventSeqIdRange)(EventsRange.readEventSeqIdRange(activeAt))
       .map { x =>
         EventsRange(
           startExclusive = (Offset.beforeBegin, 0),
           endInclusive = (activeAt, x.endInclusive))
       }
 
-  private def getRowIdRange(
+  private def getEventSeqIdRange(
       startExclusive: Offset,
-      endInclusive: Offset): Future[EventsRange[Long]] =
-    dispatcher.executeSql(dbMetrics.getRowIdRange)(
-      EventsRange.readRowIdRange(EventsRange(startExclusive, endInclusive)))
+      endInclusive: Offset
+  ): Future[EventsRange[Long]] =
+    dispatcher.executeSql(dbMetrics.getEventSeqIdRange)(
+      EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive)))
 
   private def streamEvents[A, E](
       verbose: Boolean,

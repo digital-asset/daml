@@ -105,13 +105,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       archives: Vector[Vector[NamedParameter]],
   ) {
 
-    def add(create: RawBatch.Event[RawBatch.Event.Created]): AccumulatingBatches =
-      copy(events = this.events :+ create)
-
-    // TODO(Leo) merge with the above method, take Specific as an argument
-    def add(exercise: RawBatch.Event[RawBatch.Event.Exercised])(
-        implicit dummy: DummyImplicit): AccumulatingBatches =
-      copy(events = this.events :+ exercise)
+    def add(event: RawBatch.Event[RawBatch.Event.Specific]): AccumulatingBatches =
+      copy(events = this.events :+ event)
 
     def add(archive: Vector[NamedParameter]): AccumulatingBatches =
       copy(archives = archives :+ archive)

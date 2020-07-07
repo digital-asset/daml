@@ -59,7 +59,7 @@ object KVTest {
   def runTestWithPackage[A](additionalContractDataTy: String, parties: Party*)(test: KVTest[A]): A =
     (for {
       _ <- uploadArchive(additionalContractDataTy)
-      _ <- parties.toList.map(p => allocateParty(p, p)).sequenceU
+      _ <- parties.toList.traverse(p => allocateParty(p, p))
       r <- test
     } yield r).eval(initialTestState)
 

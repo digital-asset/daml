@@ -150,10 +150,10 @@ object InterfaceReader {
       fields: ImmArraySeq[(Ast.FieldName, Type)]
   ) =
     for {
-      choices <- dfn.choices.toList traverseU {
+      choices <- dfn.choices.toList traverse {
         case (choiceName, choice) => visitChoice(name, choice) map (x => choiceName -> x)
       }
-      key <- dfn.key traverseU (k => toIfaceType(name, k.typ))
+      key <- dfn.key traverse (k => toIfaceType(name, k.typ))
     } yield name -> iface.InterfaceType.Template(Record(fields), DefTemplate(choices.toMap, key))
 
   private def visitChoice(
@@ -193,7 +193,7 @@ object InterfaceReader {
 
   private[reader] def fieldsOrCons(ctx: QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
     : InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
-    fields.toSeq traverseU {
+    fields.toSeq traverse {
       case (fieldName, typ) => toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 

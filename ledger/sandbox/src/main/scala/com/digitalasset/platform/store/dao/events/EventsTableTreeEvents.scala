@@ -13,12 +13,12 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ rowId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           nodeIndex = nodeIndex,
-          rowId = rowId,
+          eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -38,12 +38,12 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ rowId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
           nodeIndex = nodeIndex,
-          rowId = rowId,
+          eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
           workflowId = workflowId.getOrElse(""),
@@ -69,7 +69,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "event_offset",
     "transaction_id",
     "node_index",
-    "row_id",
+    "event_sequential_id",
     "participant_events.event_id",
     "contract_id",
     "ledger_effective_time",
@@ -162,7 +162,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
     SqlSequence.vector(
-      SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= $guessedPageEnd and #$witnessesWhereClause order by row_id"
+      SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= $guessedPageEnd and #$witnessesWhereClause order by event_sequential_id"
         .withFetchSize(Some(pageSize)),
       rawTreeEventParser
     ) flatMap { arithPage =>
@@ -170,7 +170,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
         SqlSequence point arithPage
       else
         SqlSequence.vector(
-          SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause order by row_id limit $minPageSize",
+          SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause order by event_sequential_id limit $minPageSize",
           rawTreeEventParser
         )
     }
@@ -188,7 +188,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
     SqlSequence.vector(
-      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= $guessedPageEnd and #$witnessesWhereClause group by (#$groupByColumns) order by row_id limit $pageSize"
+      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= $guessedPageEnd and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id limit $pageSize"
         .withFetchSize(Some(pageSize)),
       rawTreeEventParser
     ) flatMap { arithPage =>
@@ -196,7 +196,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
         SqlSequence point arithPage
       else
         SqlSequence.vector(
-          SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where row_id > ${range.startExclusive} and row_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by row_id limit $minPageSize"
+          SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= ${range.endInclusive} and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id limit $minPageSize"
             .withFetchSize(Some(pageSize)),
           rawTreeEventParser
         )
