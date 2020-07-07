@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.v1
 
-import java.time.temporal.ChronoUnit.MICROS
 import java.time.{Duration, Instant}
 
 import scala.util.Try
@@ -41,10 +40,10 @@ case class TimeModel private (
   }
 
   private[state] def minRecordTime(ledgerTime: Instant): Instant =
-    ledgerTime.minus(minSkew)
+    ledgerTime.minus(maxSkew)
 
   private[state] def maxRecordTime(ledgerTime: Instant): Instant =
-    ledgerTime.plus(maxSkew)
+    ledgerTime.plus(minSkew)
 }
 
 object TimeModel {
@@ -59,8 +58,6 @@ object TimeModel {
       minSkew = Duration.ofSeconds(30L),
       maxSkew = Duration.ofSeconds(30L),
     ).get
-
-  val Resolution: Duration = Duration.of(1L, MICROS)
 
   def apply(avgTransactionLatency: Duration, minSkew: Duration, maxSkew: Duration): Try[TimeModel] =
     Try {

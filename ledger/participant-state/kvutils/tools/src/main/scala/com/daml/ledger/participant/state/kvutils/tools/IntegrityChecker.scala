@@ -40,7 +40,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
     val submissionValidator = BatchedSubmissionValidator[LogResult](
-      BatchedSubmissionValidatorParameters.default,
+      BatchedSubmissionValidatorParameters.reasonableDefault,
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
       metrics,
