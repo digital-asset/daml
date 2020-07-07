@@ -16,15 +16,16 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.sandbox.services.completion.EmptyLedgerIT._
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.testing.StreamConsumer
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
-
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
 import scalaz.syntax.tag._
 
-class EmptyLedgerIT
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
+
+final class EmptyLedgerIT
     extends AsyncWordSpec
     with Matchers
     with Inspectors
@@ -44,30 +45,7 @@ class EmptyLedgerIT
       implicitPartyAllocation = false
     )
 
-  private[this] val applicationId = getClass.getSimpleName
-
-  // How long it takes to download the entire completion stream.
-  // Because the stream does not terminate, we use a timeout to determine when the stream
-  // is done emitting elements.
-  private[this] val completionTimeout = 2.seconds
-
-  private[this] def completionsFromOffset(
-      completionService: CommandCompletionServiceGrpc.CommandCompletionServiceStub,
-      ledgerId: String,
-      parties: Seq[String],
-      offset: LedgerOffset,
-  ): Future[Vector[String]] = {
-    new StreamConsumer[CompletionStreamResponse](
-      completionService.completionStream(
-        CompletionStreamRequest(ledgerId, applicationId, parties, Some(offset)),
-        _
-      )
-    ).within(completionTimeout)
-      .map(_.flatMap(_.completions).map(_.commandId))
-  }
-
   "CommandCompletionService gives sensible ledger end on an empty ledger" in {
-
     val partyA = "partyA"
     val lid = ledgerId().unwrap
     val completionService = CommandCompletionServiceGrpc.stub(channel)
@@ -77,5 +55,29 @@ class EmptyLedgerIT
     } yield {
       completions shouldBe empty
     }
+  }
+}
+
+object EmptyLedgerIT {
+  private val applicationId = classOf[EmptyLedgerIT].getSimpleName
+
+  // How long it takes to download the entire completion stream.
+  // Because the stream does not terminate, we use a timeout to determine when the stream
+  // is done emitting elements.
+  private val completionTimeout = 2.seconds
+
+  private def completionsFromOffset(
+      completionService: CommandCompletionServiceGrpc.CommandCompletionServiceStub,
+      ledgerId: String,
+      parties: Seq[String],
+      offset: LedgerOffset,
+  )(implicit ec: ExecutionContext): Future[Vector[String]] = {
+    new StreamConsumer[CompletionStreamResponse](
+      completionService.completionStream(
+        CompletionStreamRequest(ledgerId, applicationId, parties, Some(offset)),
+        _
+      )
+    ).within(completionTimeout)
+      .map(_.flatMap(_.completions).map(_.commandId))
   }
 }
