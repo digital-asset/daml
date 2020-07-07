@@ -422,6 +422,34 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "repl-test-two",
+    srcs = [
+        "ReplTest2.daml",
+    ],
+    outs = ["repl-test-two.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location ReplTest2.daml) $$TMP_DIR/daml
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: repl-test-two
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-stdlib
+  - daml-prim
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-two.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 da_haskell_test(
     name = "repl",
     srcs = ["src/DA/Test/Repl.hs"],
@@ -464,6 +492,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/Repl/FuncTests.hs"],
     data = [
         ":repl-test.dar",
+        ":repl-test-two.dar",
         ghc_pkg,
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
