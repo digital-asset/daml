@@ -361,17 +361,12 @@ private[kvutils] class TransactionCommitter(
       blindingInfo: BlindingInfo
   ): StepResult[DamlTransactionEntrySummary] = {
     val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
-
     val cid2nid: Value.ContractId => Value.NodeId =
       transactionEntry.transaction.localContracts
 
-    val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
-
-    val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
-
     // Set a deduplication entry
     commitContext.set(
-      dedupKey,
+      commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
         .setCommandDedup(
           DamlCommandDedupValue.newBuilder
@@ -436,6 +431,7 @@ private[kvutils] class TransactionCommitter(
     }
 
     // Update contract keys
+    val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
     effects.updatedContractKeys.foreach {
       case (key, contractKeyState) =>
         val (k, v) =
