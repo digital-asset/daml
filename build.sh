@@ -10,4 +10,4 @@ execution_log_postfix=${1:-}
 
 export LC_ALL=en_US.UTF-8
 
-du -h / | sort -h
+sudo du -h / | sort -h
