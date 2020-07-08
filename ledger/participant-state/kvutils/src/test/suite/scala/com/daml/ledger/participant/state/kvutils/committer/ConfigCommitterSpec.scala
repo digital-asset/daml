@@ -109,6 +109,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
+        actual.hasRecordTime shouldBe false
         actual.hasConfigurationRejectionEntry shouldBe true
         actual.getConfigurationRejectionEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
         actual.getConfigurationRejectionEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId

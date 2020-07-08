@@ -204,6 +204,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
+        actual.hasRecordTime shouldBe false
         actual.hasTransactionRejectionEntry shouldBe true
         actual.getTransactionRejectionEntry.getSubmitterInfo shouldBe aTransactionEntrySummary.submitterInfo
       }
