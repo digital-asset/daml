@@ -44,7 +44,12 @@ withTempFileResource :: (IO FilePath -> TestTree) -> TestTree
 withTempFileResource f = withResource newTempFile snd (f . fmap fst)
 
 withTempDirResource :: (IO FilePath -> TestTree) -> TestTree
-withTempDirResource f = withResource newTempDir snd (f . fmap fst)
+withTempDirResource f = withResource newTempDir delete (f . fmap fst)
+  -- The delete action provided by `newTempDir` calls `removeDirectoryRecursively`
+  -- and silently swallows errors. SDK installations are marked read-only
+  -- which means that they don’t end up being removed which is obviously
+  -- not what we intend.
+  where delete (d, _delete) = removePathForcibly d
 
 nullDevice :: FilePath
 nullDevice
