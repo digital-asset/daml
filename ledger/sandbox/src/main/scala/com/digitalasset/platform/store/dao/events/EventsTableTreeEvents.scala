@@ -189,7 +189,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
     SqlSequence.vector(
-      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= $guessedPageEnd and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id limit $pageSize"
+      SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where event_sequential_id > ${range.startExclusive} and event_sequential_id <= $guessedPageEnd and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id"
         .withFetchSize(Some(pageSize)),
       rawTreeEventParser
     ) flatMap { arithPage =>
