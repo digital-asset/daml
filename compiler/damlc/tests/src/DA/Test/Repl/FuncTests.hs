@@ -233,6 +233,15 @@ functionalTests replClient serviceOut options ideState = describe "repl func tes
           , input "debug proposal.accepter"
           , matchServiceOutput "'bob'"
           ]
+    , testInteraction' "symbols from different DARs"
+          [ input "party <- allocatePartyWithHint \"Party\" (PartyIdHint \"two_dars_party\")"
+          , input "proposal <- pure (T party party)"
+          , input "debug proposal"
+          , matchServiceOutput "^.*: T {proposer = 'two_dars_party', accepter = 'two_dars_party'}"
+          , input "t2 <- pure (T2 party)"
+          , input "debug t2"
+          , matchServiceOutput "^.*: T2 {owner = 'two_dars_party'}"
+          ]
     ]
   where
     testInteraction' testName steps =
