@@ -619,7 +619,7 @@ execRepl projectOpts opts scriptDar dars ledgerHost ledgerPort mbAuthToken mbSsl
                 initPackageDb opts (InitPkgDb True)
                 -- We want diagnostics to go to stdout in the repl.
                 withDamlIdeState opts logger (hDiagnosticsLogger stdout)
-                    (Repl.runRepl opts dars replHandle)
+                    (Repl.runRepl opts replHandle)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command

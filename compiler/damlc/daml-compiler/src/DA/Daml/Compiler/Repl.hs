@@ -5,25 +5,23 @@
 module DA.Daml.Compiler.Repl (runRepl) where
 
 import BasicTypes (Boxity(..))
-import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Lens (toListOf)
 import Control.Monad.Except
 import qualified Control.Monad.State.Strict as State
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
-import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion.UtilGHC
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import qualified DA.Daml.Preprocessor.Records as Preprocessor
 import Data.Bifunctor (first)
-import qualified Data.ByteString.Lazy as BSL
 import Data.Functor.Alt
 import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
@@ -183,31 +181,34 @@ parseReplInput input dflags =
     tryParse (PFailed _ _ errMsg) = Left (ParseError errMsg)
 
 
--- | Load all packages in the given Dar into the REPL service.
+-- | Load all packages in the given session.
 --
--- Returns the list of modules in the main DALF.
-loadDar :: ReplClient.Handle -> IdeState -> FilePath -> IO [ImportDecl GhcPs]
-loadDar replClient ideState dar = do
-    Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile dar
-    (_, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
-    let moduleNames = map LF.moduleName (NM.elems (LF.packageModules pkg))
+-- Returns the list of modules in the main DALFs.
+loadPackages :: ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
+loadPackages replClient ideState = do
+    -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
     Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
     for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
         case r of
             Left err -> do
-                hPutStrLn stderr ("Package " ++ dar ++ " could not be loaded: " <> show err)
+                hPutStrLn stderr ("Package could not be loaded: " <> show err)
                 exitFailure
             Right _ -> pure ()
-    pure $! map toImportDecl moduleNames
-  where
-    toImportDecl = simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString
+    -- Determine module names
+    md <- readMetadata (toNormalizedFilePath' ".")
+    pure
+      [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
+      | dep <- directDependencies md
+      , let pkg = LF.extPackagePkg $ LF.dalfPackagePkg $ pkgs Map.! dep
+      , mod <- NM.names $ LF.packageModules pkg
+      ]
 
 
-runRepl :: Options -> [FilePath] -> ReplClient.Handle -> IdeState -> IO ()
-runRepl opts dars replClient ideState = do
-    imports <- concat <$> mapM (loadDar replClient ideState) dars
+runRepl :: Options -> ReplClient.Handle -> IdeState -> IO ()
+runRepl opts replClient ideState = do
+    imports <- loadPackages replClient ideState
     let initReplState = ReplState
           { imports = imports
           , bindings = []

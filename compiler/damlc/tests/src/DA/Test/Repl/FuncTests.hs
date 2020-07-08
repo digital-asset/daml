@@ -73,7 +73,7 @@ main = do
             initPackageConfig scriptDar testDars
             logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
             withDamlIdeState options logger (hDiagnosticsLogger stdout) $ \ideState ->
-                (hspec $ functionalTests replHandle serviceLineChan testDars options ideState) `finally`
+                (hspec $ functionalTests replHandle serviceLineChan options ideState) `finally`
                     -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
                     terminateProcess processHandle
 
@@ -102,8 +102,8 @@ drainHandle handle chan = forever $ do
 options :: Options
 options = (defaultOptions Nothing) { optScenarioService = EnableScenarioService False }
 
-functionalTests :: ReplClient.Handle -> Chan String -> [FilePath] -> Options -> IdeState -> Spec
-functionalTests replClient serviceOut dars options ideState = describe "repl func tests" $ sequence_
+functionalTests :: ReplClient.Handle -> Chan String -> Options -> IdeState -> Spec
+functionalTests replClient serviceOut options ideState = describe "repl func tests" $ sequence_
     [ testInteraction' "create and query"
           [ input "alice <- allocateParty \"Alice\""
           , input "debug =<< query @T alice"
@@ -237,17 +237,16 @@ functionalTests replClient serviceOut dars options ideState = describe "repl fun
   where
     testInteraction' testName steps =
         it testName $
-        testInteraction dars replClient serviceOut options ideState steps
+        testInteraction replClient serviceOut options ideState steps
 
 testInteraction
-    :: [FilePath]
-    -> ReplClient.Handle
+    :: ReplClient.Handle
     -> Chan String
     -> Options
     -> IdeState
     -> [Step]
     -> Expectation
-testInteraction dars replClient serviceOut options ideState steps = do
+testInteraction replClient serviceOut options ideState steps = do
     let (inLines, outAssertions) = processSteps steps
     -- On Windows we cannot dup2 between a file handle and a pipe.
     -- Therefore, we redirect to files, run the action and assert afterwards.
@@ -256,7 +255,7 @@ testInteraction dars replClient serviceOut options ideState steps = do
         withBinaryFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
-            capture_ $ runRepl options dars replClient ideState
+            capture_ $ runRepl options replClient ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out
