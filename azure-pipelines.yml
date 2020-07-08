@@ -98,7 +98,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
-      demands: assignment -equals default
+      demands: assignment -equals broken-linux
     steps:
       - template: ci/report-start.yml
       - checkout: self
