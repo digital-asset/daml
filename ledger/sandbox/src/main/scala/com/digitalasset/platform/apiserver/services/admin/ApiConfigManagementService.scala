@@ -44,7 +44,8 @@ final class ApiConfigManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val defaultConfigResponse = configToResponse(ledgerConfiguration.initialConfiguration)
+  private val defaultConfigResponse = configToResponse(
+    ledgerConfiguration.initialConfiguration.copy(generation = LedgerConfiguration.NoGeneration))
 
   override def close(): Unit = ()
 
@@ -82,23 +83,24 @@ final class ApiConfigManagementService private (
       // Lookup latest configuration to check generation and to extend it with the new time model.
       optConfigAndOffset <- index.lookupConfiguration()
       pollOffset = optConfigAndOffset.map(_._1)
-      currentConfig = optConfigAndOffset
-        .map(_._2)
-        .getOrElse(ledgerConfiguration.initialConfiguration)
+      currentConfig = optConfigAndOffset.map(_._2)
 
       // Verify that we're modifying the current configuration.
-      _ <- if (request.configurationGeneration != currentConfig.generation) {
+      expectedGeneration = currentConfig
+        .map(_.generation)
+        .getOrElse(LedgerConfiguration.NoGeneration)
+      _ <- if (request.configurationGeneration != expectedGeneration) {
         Future.failed(ErrorFactories.invalidArgument(
-          s"Mismatching configuration generation, expected ${currentConfig.generation}, received ${request.configurationGeneration}"))
+          s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"))
       } else {
-        Future.successful(())
+        Future.unit
       }
 
       // Create the new extended configuration.
-      newConfig = currentConfig.copy(
-        generation = currentConfig.generation + 1,
-        timeModel = params.newTimeModel
-      )
+      newConfig = currentConfig
+        .map(config => config.copy(generation = config.generation + 1))
+        .getOrElse(ledgerConfiguration.initialConfiguration)
+        .copy(timeModel = params.newTimeModel)
 
       // Submit configuration to the ledger, and start polling for the result.
       submissionResult <- FutureConverters
