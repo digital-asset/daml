@@ -396,34 +396,32 @@ private[kvutils] class TransactionCommitter(
     val cid2nid: Value.ContractId => Value.NodeId =
       transactionEntry.transaction.localContracts
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
-    effects.createdContracts.foreach {
-      case (key, createNode) =>
-        val cs = DamlContractState.newBuilder
-        cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
-        val localDisclosure =
-          blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
-        cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-        cs.setContractInstance(
-          Conversions.encodeContractInstance(createNode.coinst)
+    for ((key, createNode) <- effects.createdContracts) {
+      val cs = DamlContractState.newBuilder
+      cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
+      val localDisclosure =
+        blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
+      cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+      cs.setContractInstance(
+        Conversions.encodeContractInstance(createNode.coinst)
+      )
+      createNode.key.foreach { keyWithMaintainers =>
+        cs.setContractKey(
+          Conversions.encodeGlobalKey(
+            Node.GlobalKey
+              .build(
+                createNode.coinst.template,
+                keyWithMaintainers.key.value
+              )
+              .fold(
+                _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
+                identity))
         )
-        createNode.key.foreach { keyWithMaintainers =>
-          cs.setContractKey(
-            Conversions.encodeGlobalKey(
-              Node.GlobalKey
-                .build(
-                  createNode.coinst.template,
-                  keyWithMaintainers.key.value
-                )
-                .fold(
-                  _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
-                  identity))
-          )
-        }
-        commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
+      }
+      commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
     }
-
     // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
-    effects.consumedContracts.foreach { key =>
+    for (key <- effects.consumedContracts) {
       val cs = getContractState(commitContext, key)
       commitContext.set(
         key,
@@ -435,28 +433,24 @@ private[kvutils] class TransactionCommitter(
           .build
       )
     }
-
     // Update contract state of divulged contracts.
-    blindingInfo.divulgence.foreach {
-      case (coid, parties) =>
-        val key = contractIdToStateKey(coid)
-        val cs = getContractState(commitContext, key)
-        val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
-        val newDivulgences: Set[String] = parties.toSet[String] -- divulged
-        if (newDivulgences.nonEmpty) {
-          val cs2 = cs.toBuilder
-            .addAllDivulgedTo(newDivulgences.asJava)
-          commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
-        }
+    for ((coid, parties) <- blindingInfo.divulgence) {
+      val key = contractIdToStateKey(coid)
+      val cs = getContractState(commitContext, key)
+      val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
+      val newDivulgences: Set[String] = parties.toSet[String] -- divulged
+      if (newDivulgences.nonEmpty) {
+        val cs2 = cs.toBuilder
+          .addAllDivulgedTo(newDivulgences.asJava)
+        commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
+      }
     }
-
     // Update contract keys.
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
-    effects.updatedContractKeys.foreach {
-      case (key, contractKeyState) =>
-        val (k, v) =
-          updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
-        commitContext.set(k, v)
+    for ((key, contractKeyState) <- effects.updatedContractKeys) {
+      val (k, v) =
+        updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
+      commitContext.set(k, v)
     }
   }
 
