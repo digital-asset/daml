@@ -10,4 +10,4 @@ execution_log_postfix=${1:-}
 
 export LC_ALL=en_US.UTF-8
 
-ls /tmp/extra-dir-*
+du -h / | sort -h
