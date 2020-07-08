@@ -47,10 +47,11 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
     }
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = new FakeCommitContext(recordTime = None)
 
       instance.buildLogEntry(context, anEmptyResult)
 
+      context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
@@ -62,10 +63,11 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
 
       instance.buildLogEntry(context, anEmptyResult)
 
+      context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }

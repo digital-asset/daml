@@ -96,14 +96,14 @@ class CommitContextSpec extends WordSpec with Matchers {
   }
 
   "preExecute" should {
-    "return true in case record time is set" in {
+    "return false in case record time is set" in {
       val context = newInstance(recordTime = Some(Time.Timestamp.now()))
-      context.preExecute shouldBe true
+      context.preExecute shouldBe false
     }
 
-    "return false in case record time is not set" in {
+    "return true in case record time is not set" in {
       val context = newInstance(recordTime = None)
-      context.preExecute shouldBe false
+      context.preExecute shouldBe true
     }
   }
 

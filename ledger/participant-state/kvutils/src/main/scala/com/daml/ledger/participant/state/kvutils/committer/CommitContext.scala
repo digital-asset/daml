@@ -52,7 +52,7 @@ private[kvutils] trait CommitContext {
   def getRecordTime: Option[Timestamp]
   def getParticipantId: ParticipantId
 
-  def preExecute: Boolean = getRecordTime.isDefined
+  def preExecute: Boolean = getRecordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =

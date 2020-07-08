@@ -103,10 +103,11 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val instance = createConfigCommitter(theRecordTime.addMicros(1000))
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+      val context = new FakeCommitContext(recordTime = None)
 
       instance.buildLogEntry(context, anEmptyResult)
 
+      context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
@@ -119,10 +120,11 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val instance = createConfigCommitter(theRecordTime)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
 
       instance.buildLogEntry(context, anEmptyResult)
 
+      context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }

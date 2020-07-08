@@ -93,7 +93,7 @@ private[kvutils] class PartyAllocationCommitter(
     }
   }
 
-  private val buildLogEntry: Step = (ctx, partyAllocationEntry) => {
+  private[committer] val buildLogEntry: Step = (ctx, partyAllocationEntry) => {
     val party = partyAllocationEntry.getParty
     val partyKey = DamlStateKey.newBuilder.setParty(party).build
 

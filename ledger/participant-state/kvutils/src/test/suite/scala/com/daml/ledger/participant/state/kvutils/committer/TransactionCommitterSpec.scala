@@ -198,27 +198,29 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   "buildLogEntry" should {
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+      val context = new FakeCommitContext(recordTime = None)
 
       val actualSuccessLogEntry = instance.buildLogEntry(aTransactionEntrySummary, context)
 
+      context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
         actual.hasTransactionRejectionEntry shouldBe true
         actual.getTransactionRejectionEntry.getSubmitterInfo shouldBe aTransactionEntrySummary.submitterInfo
       }
-      actualSuccessLogEntry.hasRecordTime shouldBe true
+      actualSuccessLogEntry.hasRecordTime shouldBe false
       actualSuccessLogEntry.getTransactionEntry shouldBe aTransactionEntrySummary.submission
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
 
       val actualSuccessLogEntry = instance.buildLogEntry(aTransactionEntrySummary, context)
 
+      context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
-      actualSuccessLogEntry.hasRecordTime shouldBe false
+      actualSuccessLogEntry.hasRecordTime shouldBe true
       actualSuccessLogEntry.getTransactionEntry shouldBe aTransactionEntrySummary.submission
     }
   }
