@@ -12,6 +12,8 @@ import scala.util.{Failure, Success, Try}
 // offsets sent over the API and received from the API.
 object ApiOffset {
 
+  val begin: Offset = Offset.fromByteArray(Array(0: Byte))
+
   def fromString(s: String): Try[Offset] =
     Ref.HexString
       .fromString(s)

@@ -67,7 +67,7 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
     import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.list.listInstance
 
-    ImmArray(1, 2).traverseU(n => (0 to n).toList) shouldBe
+    ImmArray(1, 2).traverse(n => (0 to n).toList) shouldBe
       List(
         ImmArray(0, 0),
         ImmArray(0, 1),

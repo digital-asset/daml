@@ -94,13 +94,12 @@ case class InMemoryPackageStore(
       archives: List[Archive]
   ): Either[String, InMemoryPackageStore] =
     archives
-      .map(archive =>
+      .traverse(archive =>
         try {
           Right((archive, Decode.decodeArchive(archive)._2))
         } catch {
           case err: ParseError => Left(s"Could not parse archive ${archive.getHash}: $err")
       })
-      .sequenceU
       .map(pkgs =>
         pkgs.foldLeft(this) {
           case (store, (archive, pkg)) =>

@@ -431,7 +431,7 @@ class Runner(
                       acs <- client.query(party, tplId)
                       res <- Converter.toFuture(
                         FrontStack(acs)
-                          .traverseU(Converter
+                          .traverse(Converter
                             .fromCreated(valueTranslator, _)))
                       v <- {
                         run(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
@@ -507,7 +507,7 @@ class Runner(
                         case Left(err) => Future.failed(new RuntimeException(err))
                       }
                       partyDetails <- client.listKnownParties()
-                      partyDetails_ <- Converter.toFuture(partyDetails.traverseU(details =>
+                      partyDetails_ <- Converter.toFuture(partyDetails.traverse(details =>
                         Converter.fromPartyDetails(script.scriptIds, details)))
                       v <- {
                         run(
