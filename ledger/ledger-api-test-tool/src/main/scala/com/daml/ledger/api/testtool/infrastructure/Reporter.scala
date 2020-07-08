@@ -38,8 +38,10 @@ object Reporter {
         .map(_.getLineNumber)
   }
 
-  final class ColorizedPrintStreamReporter(s: PrintStream, printStackTraces: Boolean)
-      extends Reporter[Unit] {
+  final class ColorizedPrintStreamReporter(
+      s: PrintStream,
+      printStackTraces: Boolean,
+  ) extends Reporter[Unit] {
 
     import ColorizedPrintStreamReporter._
 
@@ -59,8 +61,8 @@ object Reporter {
             result match {
               case Right(Result.Succeeded(duration)) =>
                 s.println(green(s"Success (${duration.toMillis} ms)"))
-              case Right(Result.Skipped(reason)) =>
-                s.println(yellow(s"Skipped (reason: $reason)"))
+              case Right(Result.Retired) =>
+                s.println(yellow(s"Skipped (retired test)"))
               case Left(Result.TimedOut) => s.println(red(s"Timeout"))
               case Left(Result.Failed(cause)) =>
                 val message =

@@ -159,3 +159,18 @@ conformance_test(
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
     ],
 )
+
+# Explicitly include retired tests here to make sure existing CI pipelines are not broken
+# Retired tests will be eventually removed
+conformance_test(
+    name = "retired-tests",
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=ssl-test,port=6865",
+    ],
+    test_tool_args = [
+        "--include=LotsOfPartiesIT",
+        "--include=TransactionScaleIT",
+    ],
+)
