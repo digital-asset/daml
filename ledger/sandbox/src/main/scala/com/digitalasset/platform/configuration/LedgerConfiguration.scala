@@ -32,16 +32,22 @@ case class LedgerConfiguration(
 
 object LedgerConfiguration {
 
+  val NoGeneration: Long = 0
+
+  val StartingGeneration: Long = 1
+
+  private val reasonableInitialConfiguration: Configuration = Configuration(
+    generation = StartingGeneration,
+    timeModel = TimeModel.reasonableDefault,
+    maxDeduplicationTime = Duration.ofDays(1),
+  )
+
   /** Default configuration for a ledger-backed index,
     * i.e., if there is zero delay between the ledger and the index.
     * Example: Sandbox classic.
     */
   val defaultLedgerBackedIndex: LedgerConfiguration = LedgerConfiguration(
-    initialConfiguration = Configuration(
-      generation = 1,
-      timeModel = TimeModel.reasonableDefault,
-      maxDeduplicationTime = Duration.ofDays(1)
-    ),
+    initialConfiguration = reasonableInitialConfiguration,
     initialConfigurationSubmitDelay = Duration.ZERO,
     configurationLoadTimeout = Duration.ofSeconds(1),
   )
@@ -51,11 +57,7 @@ object LedgerConfiguration {
     * Example: Sandbox next.
     */
   val defaultLocalLedger: LedgerConfiguration = LedgerConfiguration(
-    initialConfiguration = Configuration(
-      generation = 1,
-      timeModel = TimeModel.reasonableDefault,
-      maxDeduplicationTime = Duration.ofDays(1)
-    ),
+    initialConfiguration = reasonableInitialConfiguration,
     initialConfigurationSubmitDelay = Duration.ofMillis(500),
     configurationLoadTimeout = Duration.ofSeconds(5),
   )
@@ -64,11 +66,7 @@ object LedgerConfiguration {
     * i.e., if there may be significant delay between the ledger and the index.
     */
   val defaultRemote: LedgerConfiguration = LedgerConfiguration(
-    initialConfiguration = Configuration(
-      generation = 1,
-      timeModel = TimeModel.reasonableDefault,
-      maxDeduplicationTime = Duration.ofDays(1)
-    ),
+    initialConfiguration = reasonableInitialConfiguration,
     initialConfigurationSubmitDelay = Duration.ofSeconds(5),
     configurationLoadTimeout = Duration.ofSeconds(10),
   )
