@@ -46,9 +46,12 @@ setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
         [ "private" .= True
         , "workspaces" .= workspaces
         , "resolutions" .= object
+        -- TODO (MK) Temporary hack because lodash messed up 4.17.16, see
+        -- https://github.com/lodash/lodash/issues/4837#issuecomment-655458301
+            (("**/lodash" .= ("4.17.15" :: T.Text)) :
             [ pkgName .= ("file:./" ++ name)
             | tsLib <- tsLibs
             , let name = tsLibraryName tsLib
             , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
-            ]
+            ])
         ]
