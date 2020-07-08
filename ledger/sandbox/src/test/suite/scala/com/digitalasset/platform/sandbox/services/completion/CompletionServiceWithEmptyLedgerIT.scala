@@ -94,15 +94,14 @@ final class CompletionServiceWithEmptyLedgerIT
       _ <- publishATimeModel(channel)
       _ <- uploadDarFile(darFile, channel)
       _ <- allocateParty(party, channel)
-      completionsF = completionsFromOffset(
+      _ <- submissionService.submit(dummyCommands(lid, commandId, party))
+      completions <- completionsFromOffset(
         completionService = completionService,
         ledgerId = lid,
         parties = List(party),
         offset = end.getOffset,
-        completionTimeout = 10.seconds,
+        completionTimeout = 2.seconds,
       )
-      _ <- submissionService.submit(dummyCommands(lid, commandId, party))
-      completions <- completionsF
     } yield {
       completions shouldBe Vector(commandId)
     }
