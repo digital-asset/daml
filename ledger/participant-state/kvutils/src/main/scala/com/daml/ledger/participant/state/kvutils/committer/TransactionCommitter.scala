@@ -360,11 +360,7 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
   ): StepResult[DamlTransactionEntrySummary] = {
-    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
-    val cid2nid: Value.ContractId => Value.NodeId =
-      transactionEntry.transaction.localContracts
-
-    // Set a deduplication entry
+    // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
@@ -374,8 +370,32 @@ private[kvutils] class TransactionCommitter(
             .build)
         .build
     )
+    updateContractState(transactionEntry, blindingInfo, commitContext)
 
-    // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
+    metrics.daml.kvutils.committer.transaction.accepts.inc()
+    logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
+    val successLogEntry = buildLogEntryWithOptionalRecordTime(
+      commitContext.getRecordTime,
+      _.setTransactionEntry(transactionEntry.submission))
+    if (commitContext.preExecute) {
+      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(transactionEntry.submitterInfo))
+        .build
+      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
+    }
+    StepStop(successLogEntry)
+  }
+
+  private def updateContractState(
+      transactionEntry: DamlTransactionEntrySummary,
+      blindingInfo: BlindingInfo,
+      commitContext: CommitContext): Unit = {
+    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
+    val cid2nid: Value.ContractId => Value.NodeId =
+      transactionEntry.transaction.localContracts
+    // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
     effects.createdContracts.foreach {
       case (key, createNode) =>
         val cs = DamlContractState.newBuilder
@@ -402,7 +422,7 @@ private[kvutils] class TransactionCommitter(
         commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
     }
 
-    // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
+    // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
     effects.consumedContracts.foreach { key =>
       val cs = getContractState(commitContext, key)
       commitContext.set(
@@ -416,7 +436,7 @@ private[kvutils] class TransactionCommitter(
       )
     }
 
-    // Update contract state of divulged contracts
+    // Update contract state of divulged contracts.
     blindingInfo.divulgence.foreach {
       case (coid, parties) =>
         val key = contractIdToStateKey(coid)
@@ -430,7 +450,7 @@ private[kvutils] class TransactionCommitter(
         }
     }
 
-    // Update contract keys
+    // Update contract keys.
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
     effects.updatedContractKeys.foreach {
       case (key, contractKeyState) =>
@@ -438,21 +458,6 @@ private[kvutils] class TransactionCommitter(
           updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
         commitContext.set(k, v)
     }
-
-    metrics.daml.kvutils.committer.transaction.accepts.inc()
-    logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    val successLogEntry = buildLogEntryWithOptionalRecordTime(
-      commitContext.getRecordTime,
-      _.setTransactionEntry(transactionEntry.submission))
-    if (commitContext.preExecute) {
-      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
-        .setTransactionRejectionEntry(
-          DamlTransactionRejectionEntry.newBuilder
-            .setSubmitterInfo(transactionEntry.submitterInfo))
-        .build
-      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
-    }
-    StepStop(successLogEntry)
   }
 
   private def updateContractKeyWithContractKeyState(
