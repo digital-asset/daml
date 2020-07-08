@@ -128,16 +128,15 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[Long]) =>
-      (connection: Connection) =>
-        EventsTable
-          .preparePagedGetTransactionTrees(sqlFunctions)(
-            eventsRange = range,
-            requestingParties = requestingParties,
-            pageSize = pageSize,
-          )
-          .withFetchSize(Some(pageSize))
-          .asVectorOf(EventsTable.rawTreeEventParser)(connection)
+    val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
+      EventsTable
+        .preparePagedGetTransactionTrees(sqlFunctions)(
+          eventsRange = range,
+          requestingParties = requestingParties,
+          pageSize = pageSize,
+        )
+        .executeSql
+    }
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
       Source
