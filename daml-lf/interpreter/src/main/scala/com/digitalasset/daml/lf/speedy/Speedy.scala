@@ -737,7 +737,11 @@ private[lf] object Speedy {
   }
 
   /** The function has been evaluated to a value. Now restore the environment and execute the application */
-  private[speedy] final case class KArg(newArgs: Array[SExpr], frame: Frame, actuals: Actuals, envSize: Int)
+  private[speedy] final case class KArg(
+      newArgs: Array[SExpr],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(vfun: SValue, machine: Machine) = {
@@ -769,7 +773,10 @@ private[lf] object Speedy {
   }
 
   /** The builtin arguments have been evaluated. Now execute the builtin. */
-  private[speedy] final case class KBuiltin(builtin: SBuiltin, actuals: util.ArrayList[SValue], envSize: Int)
+  private[speedy] final case class KBuiltin(
+      builtin: SBuiltin,
+      actuals: util.ArrayList[SValue],
+      envSize: Int)
       extends Kont {
     def execute(v: SValue, machine: Machine) = {
       actuals.add(v)
@@ -795,7 +802,11 @@ private[lf] object Speedy {
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
-  private[speedy] final case class KMatch(alts: Array[SCaseAlt], frame: Frame, actuals: Actuals, envSize: Int)
+  private[speedy] final case class KMatch(
+      alts: Array[SCaseAlt],
+      frame: Frame,
+      actuals: Actuals,
+      envSize: Int)
       extends Kont
       with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {

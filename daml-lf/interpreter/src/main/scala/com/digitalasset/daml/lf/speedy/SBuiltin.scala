@@ -967,7 +967,9 @@ private[lf] object SBuiltin {
     *    -> a
     */
   final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
@@ -1052,7 +1054,9 @@ private[lf] object SBuiltin {
     *   -> Maybe (ContractId T)
     */
   final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers =
         extractKeyWithMaintainers(args.get(0))
@@ -1130,7 +1134,9 @@ private[lf] object SBuiltin {
     *   -> ContractId T
     */
   final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
@@ -1166,7 +1172,9 @@ private[lf] object SBuiltin {
 
   /** $getTime :: Token -> Timestamp */
   final case object SBGetTime extends SBuiltin(1) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(0))
       // $ugettime :: Token -> Timestamp
       throw SpeedyHungry(
@@ -1191,7 +1199,9 @@ private[lf] object SBuiltin {
 
   /** $endCommit[mustFail?] :: result -> Token -> () */
   final case class SBSEndCommit(mustFail: Boolean) extends SBuiltin(2) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(1))
       if (mustFail) executeMustFail(args, machine)
       else executeCommit(args, machine)
@@ -1262,7 +1272,9 @@ private[lf] object SBuiltin {
 
   /** $pass :: Int64 -> Token -> Timestamp */
   final case object SBSPass extends SBuiltin(2) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(1))
       val relTime = args.get(0) match {
         case SInt64(t) => t
@@ -1280,7 +1292,9 @@ private[lf] object SBuiltin {
 
   /** $getParty :: Text -> Token -> Party */
   final case object SBSGetParty extends SBuiltin(2) {
-    override private[speedy] final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+    override private[speedy] final def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine): Unit = {
       checkToken(args.get(1))
       args.get(0) match {
         case SText(name) =>
