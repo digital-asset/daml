@@ -238,11 +238,11 @@ private[kvutils] class TransactionCommitter(
           initialAuthorizers = Set(transactionEntry.submitter),
         )
         .fold(
-          err =>
+          error =>
             reject(
               commitContext.getRecordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
-          succ => buildFinalResult(commitContext, transactionEntry, succ)
+              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(error.msg))),
+          blindingInfo => buildFinalResult(commitContext, transactionEntry, blindingInfo)
       )
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
@@ -370,22 +370,12 @@ private[kvutils] class TransactionCommitter(
             .build)
         .build
     )
+
     updateContractState(transactionEntry, blindingInfo, commitContext)
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    val successLogEntry = buildLogEntryWithOptionalRecordTime(
-      commitContext.getRecordTime,
-      _.setTransactionEntry(transactionEntry.submission))
-    if (commitContext.preExecute) {
-      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
-        .setTransactionRejectionEntry(
-          DamlTransactionRejectionEntry.newBuilder
-            .setSubmitterInfo(transactionEntry.submitterInfo))
-        .build
-      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
-    }
-    StepStop(successLogEntry)
+    StepStop(buildLogEntry(transactionEntry, commitContext))
   }
 
   private def updateContractState(
@@ -452,6 +442,22 @@ private[kvutils] class TransactionCommitter(
         updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
       commitContext.set(k, v)
     }
+  }
+
+  private[committer] def buildLogEntry(
+      transactionEntry: DamlTransactionEntrySummary,
+      commitContext: CommitContext): DamlLogEntry = {
+    if (commitContext.preExecute) {
+      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(transactionEntry.submitterInfo))
+        .build
+      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
+    }
+    buildLogEntryWithOptionalRecordTime(
+      commitContext.getRecordTime,
+      _.setTransactionEntry(transactionEntry.submission))
   }
 
   private def updateContractKeyWithContractKeyState(
