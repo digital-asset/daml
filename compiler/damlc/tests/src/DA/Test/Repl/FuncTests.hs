@@ -47,7 +47,8 @@ main :: IO ()
 main = do
     setNumCapabilities 1
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
+    testDars <- forM ["repl-test", "repl-test-two"] $ \name ->
+        locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <.> "dar")
     replDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
     forM_ [stdin, stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     let replJar = replDir </> "repl-service.jar"
@@ -61,7 +62,7 @@ main = do
     -- it will spin up sandbox and the repl client.
     withTempFile $ \portFile ->
         withBinaryFile nullDevice WriteMode $ \devNull ->
-        bracket (createSandbox portFile devNull defaultSandboxConf { dars = [testDar] }) destroySandbox $ \SandboxResource{sandboxPort} ->
+        bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
         ReplClient.withReplClient (ReplClient.Options replJar "localhost" (show sandboxPort) Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
@@ -69,16 +70,16 @@ main = do
         Just serviceOut <- pure mbServiceOut
         hSetBuffering serviceOut LineBuffering
         withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
-            initPackageConfig scriptDar testDar
+            initPackageConfig scriptDar testDars
             logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
             withDamlIdeState options logger (hDiagnosticsLogger stdout) $ \ideState ->
-                (hspec $ functionalTests replHandle serviceLineChan testDar options ideState) `finally`
+                (hspec $ functionalTests replHandle serviceLineChan options ideState) `finally`
                     -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
                     terminateProcess processHandle
 
-initPackageConfig :: FilePath -> FilePath -> IO ()
-initPackageConfig scriptDar testDar = do
-    writeFileUTF8 "daml.yaml" $ unlines
+initPackageConfig :: FilePath -> [FilePath] -> IO ()
+initPackageConfig scriptDar dars = do
+    writeFileUTF8 "daml.yaml" $ unlines $
         [ "sdk-version: " <> sdkVersion
         , "name: repl"
         , "version: 0.0.1"
@@ -88,8 +89,7 @@ initPackageConfig scriptDar testDar = do
         , "- daml-stdlib"
         , "- " <> show scriptDar
         , "data-dependencies:"
-        , "- " <> show testDar
-        ]
+        ] ++ ["- " <> show dar | dar <- dars]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         dir <- getCurrentDirectory
         createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pModulePrefixes pDependencies pDataDependencies
@@ -102,8 +102,8 @@ drainHandle handle chan = forever $ do
 options :: Options
 options = (defaultOptions Nothing) { optScenarioService = EnableScenarioService False }
 
-functionalTests :: ReplClient.Handle -> Chan String -> FilePath -> Options -> IdeState -> Spec
-functionalTests replClient serviceOut testDar options ideState = describe "repl func tests" $ sequence_
+functionalTests :: ReplClient.Handle -> Chan String -> Options -> IdeState -> Spec
+functionalTests replClient serviceOut options ideState = describe "repl func tests" $ sequence_
     [ testInteraction' "create and query"
           [ input "alice <- allocateParty \"Alice\""
           , input "debug =<< query @T alice"
@@ -233,21 +233,29 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , input "debug proposal.accepter"
           , matchServiceOutput "'bob'"
           ]
+    , testInteraction' "symbols from different DARs"
+          [ input "party <- allocatePartyWithHint \"Party\" (PartyIdHint \"two_dars_party\")"
+          , input "proposal <- pure (T party party)"
+          , input "debug proposal"
+          , matchServiceOutput "^.*: T {proposer = 'two_dars_party', accepter = 'two_dars_party'}"
+          , input "t2 <- pure (T2 party)"
+          , input "debug t2"
+          , matchServiceOutput "^.*: T2 {owner = 'two_dars_party'}"
+          ]
     ]
   where
     testInteraction' testName steps =
         it testName $
-        testInteraction testDar replClient serviceOut options ideState steps
+        testInteraction replClient serviceOut options ideState steps
 
 testInteraction
-    :: FilePath
-    -> ReplClient.Handle
+    :: ReplClient.Handle
     -> Chan String
     -> Options
     -> IdeState
     -> [Step]
     -> Expectation
-testInteraction testDar replClient serviceOut options ideState steps = do
+testInteraction replClient serviceOut options ideState steps = do
     let (inLines, outAssertions) = processSteps steps
     -- On Windows we cannot dup2 between a file handle and a pipe.
     -- Therefore, we redirect to files, run the action and assert afterwards.
@@ -256,7 +264,7 @@ testInteraction testDar replClient serviceOut options ideState steps = do
         withBinaryFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
-            capture_ $ runRepl options testDar replClient ideState
+            capture_ $ runRepl options replClient ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out

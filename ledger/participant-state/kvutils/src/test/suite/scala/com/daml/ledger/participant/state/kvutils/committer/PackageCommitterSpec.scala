@@ -15,6 +15,8 @@ import org.scalatest.{Matchers, WordSpec}
 class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
   private val anEmptyResult = DamlPackageUploadEntry.newBuilder
+    .setSubmissionId("an ID")
+    .setParticipantId("a participant")
 
   "buildLogEntry" should {
     "set record time in log entry if record time is available" in {
@@ -42,6 +44,31 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe false
       }
+    }
+    "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
+      val instance = new PackageCommitter(mock[Engine], metrics)
+      val context = new FakeCommitContext(recordTime = None)
+
+      instance.buildLogEntry(context, anEmptyResult)
+
+      context.preExecute shouldBe true
+      context.outOfTimeBoundsLogEntry should not be empty
+      context.outOfTimeBoundsLogEntry.foreach { actual =>
+        actual.hasRecordTime shouldBe false
+        actual.hasPackageUploadRejectionEntry shouldBe true
+        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult.getSubmissionId
+        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult.getParticipantId
+      }
+    }
+
+    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
+      val instance = new PackageCommitter(mock[Engine], metrics)
+      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+
+      instance.buildLogEntry(context, anEmptyResult)
+
+      context.preExecute shouldBe false
+      context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }
 }

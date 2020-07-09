@@ -6,7 +6,9 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlConfigurationSubmission
+import com.daml.ledger.participant.state.kvutils.TestHelpers
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.scalatest.{Matchers, WordSpec}
@@ -14,7 +16,11 @@ import org.scalatest.{Matchers, WordSpec}
 class ConfigCommitterSpec extends WordSpec with Matchers {
   private val metrics = new Metrics(new MetricRegistry)
   private val aRecordTime = Timestamp(100)
-  private val aConfigurationSubmission = DamlConfigurationSubmission.getDefaultInstance
+  private val aConfigurationSubmission = DamlConfigurationSubmission.newBuilder
+    .setSubmissionId("an ID")
+    .setParticipantId("a participant")
+    .setConfiguration(Configuration.encode(TestHelpers.theDefaultConfig))
+    .build
   private val anEmptyResult =
     ConfigCommitter.Result(aConfigurationSubmission, (None, theDefaultConfig))
 
@@ -93,6 +99,33 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
           actualLogEntry.hasRecordTime shouldBe false
           actualLogEntry.hasConfigurationEntry shouldBe true
       }
+    }
+
+    "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
+      val instance = createConfigCommitter(theRecordTime.addMicros(1000))
+      val context = new FakeCommitContext(recordTime = None)
+
+      instance.buildLogEntry(context, anEmptyResult)
+
+      context.preExecute shouldBe true
+      context.outOfTimeBoundsLogEntry should not be empty
+      context.outOfTimeBoundsLogEntry.foreach { actual =>
+        actual.hasRecordTime shouldBe false
+        actual.hasConfigurationRejectionEntry shouldBe true
+        actual.getConfigurationRejectionEntry.getSubmissionId shouldBe aConfigurationSubmission.getSubmissionId
+        actual.getConfigurationRejectionEntry.getParticipantId shouldBe aConfigurationSubmission.getParticipantId
+        actual.getConfigurationRejectionEntry.getConfiguration shouldBe aConfigurationSubmission.getConfiguration
+      }
+    }
+
+    "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
+      val instance = createConfigCommitter(theRecordTime)
+      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+
+      instance.buildLogEntry(context, anEmptyResult)
+
+      context.preExecute shouldBe false
+      context.outOfTimeBoundsLogEntry shouldBe empty
     }
   }
 
