@@ -7,7 +7,7 @@ It is used to obtain tokens used to access the ledger on behalf of trigger servi
 
 ## Auth service concepts
 
-The auth service has the following important entities:
+The auth service has the following important notions:
  * user
  * service account (SA)
  * SA credential
@@ -15,7 +15,7 @@ The auth service has the following important entities:
 
 The SA token is a JWT token eventually used for ledger access.
 
-In general, each entity in the list can have a one-to-many relationship with an entity later in the list.
+In general, each item in the list can have a one-to-many relationship with an item later in the list.
 For our purposes, users and service accounts correspond one-to-one and represent parties using the trigger service.
 Service accounts do not expire.
 
