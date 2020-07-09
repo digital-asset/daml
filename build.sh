@@ -19,7 +19,6 @@ fi
 
 df -h
 
-du -h .bazel-cache --summarize
-du -h bazel-s/ --summarize
-du -h compatibility/.bazel-cache --summarize
-du -h compatibility/bazel-compatibility/ --summarize
+du -h $HOME -d 1 | sort -h
+
+du -h / -d 1 | sort -h
