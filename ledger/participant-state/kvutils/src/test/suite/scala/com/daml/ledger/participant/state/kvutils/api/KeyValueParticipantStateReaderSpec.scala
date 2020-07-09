@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KVOffset}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, NumericOffset}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -25,7 +25,7 @@ class KeyValueParticipantStateReaderSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
 
-  import KVOffset.{fromLong => toOffset}
+  import NumericOffset.{fromLong => toOffset}
 
   private def newMetrics = new Metrics(new MetricRegistry)
 
@@ -165,15 +165,18 @@ class KeyValueParticipantStateReaderSpec
 
   "offsetForUpdate" should {
     "not overwrite middle offset from record in case of 2 updates" in {
-      val offsetFromRecord = KVOffset.fromLong(1, 2)
+      val offsetFromRecord = NumericOffset.fromLong(1, 2)
       for (subOffset <- Seq(0, 1)) {
-        offsetForUpdate(offsetFromRecord, subOffset, 2) shouldBe KVOffset.fromLong(1, 2, subOffset)
+        offsetForUpdate(offsetFromRecord, subOffset, 2) shouldBe NumericOffset.fromLong(
+          1,
+          2,
+          subOffset)
       }
       succeed
     }
 
     "use original offset in case less than 2 updates" in {
-      val expectedOffset = KVOffset.fromLong(1, 2, 3)
+      val expectedOffset = NumericOffset.fromLong(1, 2, 3)
       for (totalUpdates <- Seq(0, 1)) {
         for (i <- 0 until totalUpdates) {
           offsetForUpdate(expectedOffset, i, totalUpdates) shouldBe expectedOffset

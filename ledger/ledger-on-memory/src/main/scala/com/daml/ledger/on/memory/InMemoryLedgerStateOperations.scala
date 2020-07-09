@@ -4,7 +4,7 @@
 package com.daml.ledger.on.memory
 
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
-import com.daml.ledger.participant.state.kvutils.KVOffset
+import com.daml.ledger.participant.state.kvutils.NumericOffset
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.BatchingLedgerStateOperations
@@ -41,7 +41,7 @@ object InMemoryLedgerStateOperations {
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Index = {
     val entryAtIndex = log.size
-    val offset = KVOffset.fromLong(entryAtIndex.toLong)
+    val offset = NumericOffset.fromLong(entryAtIndex.toLong)
     val entry = createEntry(offset)
     log += entry
     entryAtIndex

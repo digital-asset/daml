@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
 
-object KVOffset {
+object NumericOffset {
   private[kvutils] val highestStart = 0
   private[kvutils] val middleStart = 8
   private[kvutils] val lowestStart = 12
