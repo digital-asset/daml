@@ -57,6 +57,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         t"forall (a:*) (b:*) . a -> b -> a" -> k"*",
         t"< f1 : Int64, f2 : Bool >" -> k"*",
         t"Arrow Int64" -> k"* -> *",
+        t"forall (a: * -> nat). Unit" -> k"*",
       )
 
       forEvery(testCases) { (typ: Type, expectedKind: Kind) =>
@@ -295,6 +296,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
         env.typeOf(exp) shouldBe expectedType
+      }
+    }
+
+    "reject ill formed types" in {
+      val testCases = Table(
+        "non-well formed type",
+        T"∀ (τ : ⋆). 10",
+      )
+      forEvery(testCases) { exp =>
+        a[ValidationError] should be thrownBy env.kindOf(exp)
       }
     }
 
