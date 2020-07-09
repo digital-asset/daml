@@ -13,12 +13,12 @@ The auth service has the following important notions:
  * SA credential
  * SA token
 
-The SA token is a JWT token eventually used for ledger access.
-
 In general, each item in the list can have a one-to-many relationship with an item later in the list.
 For our purposes, users and service accounts correspond one-to-one and represent parties using the trigger service.
-Service accounts do not expire.
+A service account is used to obtain an SA credential, which in turn is used to obtain an SA token which is used to authenticate ledger requests.
 
+It is important to note the validity windows for each of these items as they influence our authentication flow.
+Users and service accounts are valid forever.
 However, both SA credentials and SA tokens have validity windows: 30 days for an SA credential and 1 day for an SA token.
 For this reason there may be many SA credentials per service account, and many SA tokens per SA credential.
 Note that there is also a bearer token used to interact with the auth service with a validity window of 1 day.
