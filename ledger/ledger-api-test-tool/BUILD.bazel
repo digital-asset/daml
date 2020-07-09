@@ -176,6 +176,8 @@ conformance_test(
 )
 
 # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken
+# This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
+# exclusively for backwards-compatibility
 # Deprecated CLI options will be eventually removed
 conformance_test(
     name = "deprecated-cli-options",
@@ -187,7 +189,7 @@ conformance_test(
     test_tool_args = [
         "--include=IdentityIT",
         "--all-tests",
-        "--load-scale-factor=1",
-        "--target-port=8080",
+        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
     ],
 )
