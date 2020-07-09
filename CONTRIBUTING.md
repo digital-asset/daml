@@ -86,28 +86,26 @@ Here are a few practical tips:
 
 ### List of components for changelog entries
 
-  * Compiler
-  * DAML Maven Plugin
+  * DAML Compiler
   * DAML on SQL
   * DAML Studio
-  * Examples & Docs
   * Extractor
   * Java Bindings
   * Java Codegen
   * JavaScript Client Libraries
+  * JavaScript Codegen
   * JSON API
   * Ledger API Specification
-  * Ledger API Test Tool
+  * Integration Kit (Ledger API Test Tool and changes only relevant for ledger integrations, e.g, kvutils changes, metrics, …)
   * Navigator
-  * REPL
+  * DAML REPL
   * Sandbox
   * Scala Bindings
   * Scala Codegen
-  * Script
-  * SDK Assistant
-  * Standard Library
-  * Test Library
-  * Triggers
+  * DAML Script
+  * DAML Assistant
+  * DAML Standard Library
+  * DAML Triggers
 
 ## Working with issues
 
