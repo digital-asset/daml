@@ -415,7 +415,7 @@ renderSerializableDef SerializableDef{..}
               , "  damlTypes.Serializable<" <> serName <> "> & {"
               ]
             , [ "  " <> n <> ": damlTypes.Serializable<" <> serName <.> n <> ">;" | (n, _) <- serNestedDecoders ]
-            , [ "  } "
+            , [ "  }"
               ]
             , [ "& { readonly keys: " <> serName <> "[] } & { readonly [e in " <> serName <> "]: e }" | notNull serKeys ]
             , [ ";"]
