@@ -196,7 +196,7 @@ loadPackages replClient ideState = do
                 hPutStrLn stderr ("Package could not be loaded: " <> show err)
                 exitFailure
             Right _ -> pure ()
-    -- Determine module names
+    -- Determine module names in main DALFs.
     md <- readMetadata (toNormalizedFilePath' ".")
     pure
       [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
