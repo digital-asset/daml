@@ -25,10 +25,6 @@ import org.scalatest.{Matchers, WordSpec}
 import org.mockito.Mockito._
 
 class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
-  private val aRecordTime = Timestamp(100)
-  private val aDamlSubmission = DamlSubmission.getDefaultInstance
-  private val aParticipantId = Ref.ParticipantId.assertFromString("a participant")
-
   "preExecute" should {
     "set pre-execution results from context" in {
       val expectedMinRecordTime = Instant.ofEpochSecond(100)
@@ -144,6 +140,9 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
     }
   }
 
+  private val aRecordTime = Timestamp(100)
+  private val aDamlSubmission = DamlSubmission.getDefaultInstance
+  private val aParticipantId = Ref.ParticipantId.assertFromString("a participant")
   private val aLogEntry = DamlLogEntry.newBuilder
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder
