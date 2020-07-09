@@ -127,20 +127,23 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
     )
   }
 
-  private def constructOutOfTimeBoundsLogEntry(commitContext: CommitContext): DamlLogEntry = {
-    val rejectionLogEntry = commitContext.outOfTimeBoundsLogEntry
-      .getOrElse(
-        throw new IllegalArgumentException("Committer did not set an out-of-time-bounds log entry"))
-    val builder = DamlOutOfTimeBoundsEntry.newBuilder
-      .setEntry(rejectionLogEntry)
-    commitContext.minimumRecordTime.foreach(instant =>
-      builder.setTooEarlyUntil(buildTimestamp(instant)))
-    commitContext.maximumRecordTime.foreach(instant =>
-      builder.setTooLateFrom(buildTimestamp(instant)))
-    DamlLogEntry.newBuilder
-      .setOutOfTimeBoundsEntry(builder)
-      .build
-  }
+  private def constructOutOfTimeBoundsLogEntry(commitContext: CommitContext): DamlLogEntry =
+    commitContext.outOfTimeBoundsLogEntry
+      .map { rejectionLogEntry =>
+        val builder = DamlOutOfTimeBoundsEntry.newBuilder
+          .setEntry(rejectionLogEntry)
+        commitContext.minimumRecordTime.foreach { instant =>
+          builder.setTooEarlyUntil(buildTimestamp(instant))
+        }
+        commitContext.maximumRecordTime.foreach { instant =>
+          builder.setTooLateFrom(buildTimestamp(instant))
+        }
+        DamlLogEntry.newBuilder
+          .setOutOfTimeBoundsEntry(builder)
+          .build
+      }
+      .getOrElse(throw new IllegalArgumentException(
+        "Committer did not set an out-of-time-bounds log entry"))
 
   private[committer] def runSteps(
       commitContext: CommitContext,
