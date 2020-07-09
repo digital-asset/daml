@@ -3,7 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import java.time.Instant
+
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlStateKey,
+  DamlStateValue
+}
 import com.daml.ledger.participant.state.kvutils.{
   DamlStateMap,
   DamlStateMapWithFingerprints,
@@ -36,8 +42,17 @@ private[kvutils] trait CommitContext {
   private val accessedInputKeysAndFingerprints: mutable.Set[(DamlStateKey, Fingerprint)] =
     mutable.Set.empty[(DamlStateKey, Fingerprint)]
 
+  var minimumRecordTime: Option[Instant] = None
+  var maximumRecordTime: Option[Instant] = None
+
+  // Rejection log entry used for generating an out-of-time-bounds log entry in case of
+  // pre-execution.
+  var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
+
   def getRecordTime: Option[Timestamp]
   def getParticipantId: ParticipantId
+
+  def preExecute: Boolean = getRecordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =

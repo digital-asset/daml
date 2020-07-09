@@ -145,7 +145,8 @@ withTools tests = do
   tests tools
 
 main :: IO ()
-main = do
+main = withTempDir $ \yarnCache -> do
+  setEnv "YARN_CACHE_FOLDER" yarnCache True
   setEnv "TASTY_NUM_THREADS" "1" True
   let options =
         [ Option @DamlOption Proxy
@@ -240,9 +241,11 @@ setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
         [ "private" Aeson..= True
         , "workspaces" Aeson..= workspaces
         , "resolutions" Aeson..= Aeson.object
+        -- TODO (MK) See DA.Test.Daml2jsUtils.setupYarnEnv in the non-compat workspace
+            ("**/lodash" Aeson..= ("4.17.15" :: T.Text) :
             [ pkgName Aeson..= ("file:./" ++ name)
             | (tsLib, _) <- tsLibs
             , let name = tsLibraryName tsLib
             , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
-            ]
+            ])
         ]

@@ -398,8 +398,6 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -412,33 +410,7 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-config-management",
-    server_args = [
-        "--wall-clock-time",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--include=ConfigManagementServiceIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-command-deduplication",
-    server_args = [
-        "--wall-clock-time",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--include=CommandDeduplicationIT",
     ],
 )
 
@@ -451,8 +423,6 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -484,9 +454,7 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--all-tests",
         "--exclude=ClosedWorldIT",
-        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -498,21 +466,7 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--all-tests",
         "--exclude=ClosedWorldIT",
-        "--exclude=ConfigManagementServiceIT",
-    ],
-)
-
-server_conformance_test(
-    name = "next-conformance-test-config-management",
-    server_args = [
-        "--wall-clock-time",
-    ],
-    servers = NEXT_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--include=ConfigManagementServiceIT",
     ],
 )
 

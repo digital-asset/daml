@@ -53,7 +53,6 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 

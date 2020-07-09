@@ -241,22 +241,6 @@ da_scala_test_suite(
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
-                "--all-tests",
-                "--exclude=ConfigManagementServiceIT",
-            ],
-        ),
-        conformance_test(
-            name = "conformance-test-config-management-{}".format(db["name"]),
-            ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
-            server_args = [
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=conformance-test,port=6865",
-            ] + db.get("conformance_test_server_args", []),
-            tags = db.get("conformance_test_tags", []),
-            test_tool_args = db.get("conformance_test_tool_args", []) + [
-                "--verbose",
-                "--include=ConfigManagementServiceIT",
             ],
         ),
         conformance_test(

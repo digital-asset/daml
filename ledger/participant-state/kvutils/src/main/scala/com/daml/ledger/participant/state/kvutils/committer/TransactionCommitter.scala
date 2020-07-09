@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
@@ -151,11 +151,12 @@ private[kvutils] class TransactionCommitter(
 
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
-    (commitContext, transactionEntry) =>
-      commitContext.getRecordTime
-        .map { recordTime =>
-          val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
-          val timeModel = config.timeModel
+    (commitContext, transactionEntry) => {
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+      val timeModel = config.timeModel
+
+      commitContext.getRecordTime match {
+        case Some(recordTime) =>
           val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
           timeModel
@@ -169,8 +170,24 @@ private[kvutils] class TransactionCommitter(
                     RejectionReason.InvalidLedgerTime(reason))),
               _ => StepContinue(transactionEntry)
             )
-        }
-        .getOrElse(StepContinue(transactionEntry))
+        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution
+          val maybeDeduplicateUntil =
+            getLedgerDeduplicateUntil(transactionEntry, commitContext)
+
+          commitContext.minimumRecordTime = Some(
+            transactionMinRecordTime(
+              transactionEntry.submissionTime.toInstant,
+              transactionEntry.ledgerEffectiveTime.toInstant,
+              maybeDeduplicateUntil,
+              timeModel))
+          commitContext.maximumRecordTime = Some(
+            transactionMaxRecordTime(
+              transactionEntry.submissionTime.toInstant,
+              transactionEntry.ledgerEffectiveTime.toInstant,
+              timeModel))
+          StepContinue(transactionEntry)
+      }
+    }
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Step =
@@ -221,11 +238,11 @@ private[kvutils] class TransactionCommitter(
           initialAuthorizers = Set(transactionEntry.submitter),
         )
         .fold(
-          err =>
+          error =>
             reject(
               commitContext.getRecordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
-          succ => buildFinalResult(commitContext, transactionEntry, succ)
+              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(error.msg))),
+          blindingInfo => buildFinalResult(commitContext, transactionEntry, blindingInfo)
       )
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
@@ -343,18 +360,9 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
   ): StepResult[DamlTransactionEntrySummary] = {
-    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
-
-    val cid2nid: Value.ContractId => Value.NodeId =
-      transactionEntry.transaction.localContracts
-
-    val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
-
-    val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
-
-    // Set a deduplication entry
+    // Set a deduplication entry.
     commitContext.set(
-      dedupKey,
+      commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
         .setCommandDedup(
           DamlCommandDedupValue.newBuilder
@@ -363,35 +371,47 @@ private[kvutils] class TransactionCommitter(
         .build
     )
 
-    // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
-    effects.createdContracts.foreach {
-      case (key, createNode) =>
-        val cs = DamlContractState.newBuilder
-        cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
-        val localDisclosure =
-          blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
-        cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-        cs.setContractInstance(
-          Conversions.encodeContractInstance(createNode.coinst)
-        )
-        createNode.key.foreach { keyWithMaintainers =>
-          cs.setContractKey(
-            Conversions.encodeGlobalKey(
-              Node.GlobalKey
-                .build(
-                  createNode.coinst.template,
-                  keyWithMaintainers.key.value
-                )
-                .fold(
-                  _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
-                  identity))
-          )
-        }
-        commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
-    }
+    updateContractState(transactionEntry, blindingInfo, commitContext)
 
-    // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
-    effects.consumedContracts.foreach { key =>
+    metrics.daml.kvutils.committer.transaction.accepts.inc()
+    logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
+    StepStop(buildLogEntry(transactionEntry, commitContext))
+  }
+
+  private def updateContractState(
+      transactionEntry: DamlTransactionEntrySummary,
+      blindingInfo: BlindingInfo,
+      commitContext: CommitContext): Unit = {
+    val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
+    val cid2nid: Value.ContractId => Value.NodeId =
+      transactionEntry.transaction.localContracts
+    // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
+    for ((key, createNode) <- effects.createdContracts) {
+      val cs = DamlContractState.newBuilder
+      cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
+      val localDisclosure =
+        blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
+      cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+      cs.setContractInstance(
+        Conversions.encodeContractInstance(createNode.coinst)
+      )
+      createNode.key.foreach { keyWithMaintainers =>
+        cs.setContractKey(
+          Conversions.encodeGlobalKey(
+            Node.GlobalKey
+              .build(
+                createNode.coinst.template,
+                keyWithMaintainers.key.value
+              )
+              .fold(
+                _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
+                identity))
+        )
+      }
+      commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs).build)
+    }
+    // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
+    for (key <- effects.consumedContracts) {
       val cs = getContractState(commitContext, key)
       commitContext.set(
         key,
@@ -403,35 +423,41 @@ private[kvutils] class TransactionCommitter(
           .build
       )
     }
-
-    // Update contract state of divulged contracts
-    blindingInfo.divulgence.foreach {
-      case (coid, parties) =>
-        val key = contractIdToStateKey(coid)
-        val cs = getContractState(commitContext, key)
-        val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
-        val newDivulgences: Set[String] = parties.toSet[String] -- divulged
-        if (newDivulgences.nonEmpty) {
-          val cs2 = cs.toBuilder
-            .addAllDivulgedTo(newDivulgences.asJava)
-          commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
-        }
+    // Update contract state of divulged contracts.
+    for ((coid, parties) <- blindingInfo.divulgence) {
+      val key = contractIdToStateKey(coid)
+      val cs = getContractState(commitContext, key)
+      val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
+      val newDivulgences: Set[String] = parties.toSet[String] -- divulged
+      if (newDivulgences.nonEmpty) {
+        val cs2 = cs.toBuilder
+          .addAllDivulgedTo(newDivulgences.asJava)
+        commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
+      }
     }
-
-    // Update contract keys
-    effects.updatedContractKeys.foreach {
-      case (key, contractKeyState) =>
-        val (k, v) =
-          updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
-        commitContext.set(k, v)
+    // Update contract keys.
+    val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
+    for ((key, contractKeyState) <- effects.updatedContractKeys) {
+      val (k, v) =
+        updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
+      commitContext.set(k, v)
     }
+  }
 
-    metrics.daml.kvutils.committer.transaction.accepts.inc()
-    logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    val logEntry = buildLogEntryWithOptionalRecordTime(
+  private[committer] def buildLogEntry(
+      transactionEntry: DamlTransactionEntrySummary,
+      commitContext: CommitContext): DamlLogEntry = {
+    if (commitContext.preExecute) {
+      val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(transactionEntry.submitterInfo))
+        .build
+      commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
+    }
+    buildLogEntryWithOptionalRecordTime(
       commitContext.getRecordTime,
       _.setTransactionEntry(transactionEntry.submission))
-    StepStop(logEntry)
   }
 
   private def updateContractKeyWithContractKeyState(
@@ -613,4 +639,32 @@ private[kvutils] object TransactionCommitter {
   def getContractState(commitContext: CommitContext, key: DamlStateKey): DamlContractState =
     commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
 
+  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
+  private def transactionMinRecordTime(
+      submissionTime: Instant,
+      ledgerTime: Instant,
+      maybeDeduplicateUntil: Option[Instant],
+      timeModel: TimeModel): Instant =
+    List(
+      maybeDeduplicateUntil
+        .map(_.plus(Timestamp.Resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
+      Some(timeModel.minRecordTime(ledgerTime)),
+      Some(timeModel.minRecordTime(submissionTime))
+    ).flatten.max
+
+  private def transactionMaxRecordTime(
+      submissionTime: Instant,
+      ledgerTime: Instant,
+      timeModel: TimeModel): Instant =
+    List(timeModel.maxRecordTime(ledgerTime), timeModel.maxRecordTime(submissionTime)).min
+
+  private def getLedgerDeduplicateUntil(
+      transactionEntry: DamlTransactionEntrySummary,
+      commitContext: CommitContext): Option[Instant] =
+    for {
+      dedupEntry <- commitContext.get(commandDedupKey(transactionEntry.submitterInfo))
+      dedupTimestamp <- PartialFunction.condOpt(dedupEntry.getCommandDedup.hasDeduplicatedUntil) {
+        case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
+      }
+    } yield parseTimestamp(dedupTimestamp).toInstant
 }

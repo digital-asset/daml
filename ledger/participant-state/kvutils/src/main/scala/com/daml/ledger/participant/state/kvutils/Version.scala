@@ -83,8 +83,8 @@ object Version {
     *   5: * Add active_at to DamlContractKeyState to be able to check causal monotonicity of positive key lookups,
     *        i.e. whether the contract currently associated with a contract key was created in a transaction with
     *        ledger_effective_time <= the ledger_effective_time of the transaction under validation.
-    *   6: * Remove fields record_time from DamlCommandDedupValue and DamlSubmissionDedupValue.
+    *      * Remove fields record_time from DamlCommandDedupValue and DamlSubmissionDedupValue.
     *
     */
-  val version: Long = 6
+  val version: Long = 5
 }
