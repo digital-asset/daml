@@ -149,7 +149,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-                  and template_id in ($templateIds) group by (#$groupByColumns)
+                  and template_id in ($templateIds)
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -167,7 +167,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
-                  and #$witnessesWhereClause group by (#$groupByColumns)
+                  and #$witnessesWhereClause
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -187,7 +187,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-                  and template_id in ($templateIds) group by (#$groupByColumns)
+                  and template_id in ($templateIds)
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -209,7 +209,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
-                  and #$partiesAndTemplatesCondition group by (#$groupByColumns)
+                  and #$partiesAndTemplatesCondition
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -234,7 +234,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
-                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition) group by (#$groupByColumns)
+                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
             order by event_sequential_id limit $pageSize"""
     }
   }
@@ -299,7 +299,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id > ${range.startExclusive._2: Long}
                   and event_sequential_id <= ${range.endInclusive._2: Long}
                   and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$witnessesWhereClause group by (#$groupByColumns)
+                  and #$witnessesWhereClause
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -321,7 +321,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id <= ${range.endInclusive._2: Long}
                   and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
                   and #$witnessesWhereClause
-                  and template_id in ($templateIds) group by (#$groupByColumns)
+                  and template_id in ($templateIds)
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -345,7 +345,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id > ${range.startExclusive._2: Long}
                   and event_sequential_id <= ${range.endInclusive._2: Long}
                   and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$partiesAndTemplatesCondition group by (#$groupByColumns)
+                  and #$partiesAndTemplatesCondition
             order by event_sequential_id limit $pageSize"""
     }
 
@@ -372,7 +372,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id > ${range.startExclusive._2: Long}
                   and event_sequential_id <= ${range.endInclusive._2: Long}
                   and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition) group by (#$groupByColumns)
+                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
             order by event_sequential_id limit $pageSize"""
     }
   }
