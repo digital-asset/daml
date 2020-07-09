@@ -44,7 +44,7 @@ private[kvutils] class ConfigCommitter(
         result.submission)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
+          ctx.getRecordTime,
           result.submission,
           _.setTimedOut(
             TimedOut.newBuilder
@@ -52,8 +52,8 @@ private[kvutils] class ConfigCommitter(
           )
         ))
     } else {
-      if (ctx.getRecordTime.isEmpty) {
-        // Pre-execution: propagate the time bounds and defer the checks to post-execution.
+      if (ctx.preExecute) {
+        // Propagate the time bounds and defer the checks to post-execution.
         ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
       }
       StepContinue(result)
@@ -78,7 +78,7 @@ private[kvutils] class ConfigCommitter(
       rejectionTraceLog(msg, result.submission)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
+          ctx.getRecordTime,
           result.submission,
           _.setParticipantNotAuthorized(
             ParticipantNotAuthorized.newBuilder
@@ -89,7 +89,7 @@ private[kvutils] class ConfigCommitter(
       rejectionTraceLog(msg, result.submission)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
+          ctx.getRecordTime,
           result.submission,
           _.setParticipantNotAuthorized(
             ParticipantNotAuthorized.newBuilder
@@ -107,7 +107,7 @@ private[kvutils] class ConfigCommitter(
         err =>
           StepStop(
             buildRejectionLogEntry(
-              ctx,
+              ctx.getRecordTime,
               result.submission,
               _.setInvalidConfiguration(Invalid.newBuilder
                 .setDetails(err)))),
@@ -115,7 +115,7 @@ private[kvutils] class ConfigCommitter(
           if (config.generation != (1 + result.currentConfig._2.generation))
             StepStop(
               buildRejectionLogEntry(
-                ctx,
+                ctx.getRecordTime,
                 result.submission,
                 _.setGenerationMismatch(GenerationMismatch.newBuilder
                   .setExpectedGeneration(1 + result.currentConfig._2.generation))
@@ -135,7 +135,7 @@ private[kvutils] class ConfigCommitter(
       rejectionTraceLog(msg, result.submission)
       StepStop(
         buildRejectionLogEntry(
-          ctx,
+          ctx.getRecordTime,
           result.submission,
           _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
         )
@@ -171,23 +171,22 @@ private[kvutils] class ConfigCommitter(
       ctx.getRecordTime,
       _.setConfigurationEntry(configurationEntry))
     if (ctx.preExecute) {
-      ctx.outOfTimeBoundsLogEntry = Some(
-        buildRejectionLogEntry(ctx, result.submission, identity, incrementMetric = false))
+      setOutOfTimeBoundsLogEntry(result.submission, ctx)
     }
     StepStop(successLogEntry)
   }
 
   private def buildRejectionLogEntry(
-      ctx: CommitContext,
+      recordTime: Option[Timestamp],
       submission: DamlConfigurationSubmission,
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
-      incrementMetric: Boolean = true,
+      incrementRejectionCount: Boolean = true,
   ): DamlLogEntry = {
-    if (incrementMetric) {
+    if (incrementRejectionCount) {
       metrics.daml.kvutils.committer.config.rejections.inc()
     }
     buildLogEntryWithOptionalRecordTime(
-      ctx.getRecordTime,
+      recordTime,
       _.setConfigurationRejectionEntry(
         addErrorDetails(
           DamlConfigurationRejectionEntry.newBuilder
@@ -197,6 +196,17 @@ private[kvutils] class ConfigCommitter(
         )
       )
     )
+  }
+
+  private def setOutOfTimeBoundsLogEntry(
+      submission: DamlConfigurationSubmission,
+      commitContext: CommitContext): Unit = {
+    commitContext.outOfTimeBoundsLogEntry = Some(
+      buildRejectionLogEntry(
+        recordTime = None,
+        submission,
+        identity,
+        incrementRejectionCount = false))
   }
 
   override protected def init(
