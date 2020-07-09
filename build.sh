@@ -19,7 +19,7 @@ fi
 
 rm -rf .bazel-cache compatibility/.bazel-cache
 
-find /tmp -xdev -printf '%h\n' | sort | uniq -c | sort -k 1 -n
+find compatibility/bazel-compatibility/ -xdev -printf '%h\n' | sort | uniq -c | sort -k 1 -n
 
 # df -h
 
