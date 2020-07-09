@@ -63,14 +63,14 @@ If you want to verify the changelog entries as described by a range of Git revis
 
 ## Writing a good changelog entry
 
-Writing good changelog entries is **important**: as a developer, it gives visibility on your contribution; as a user, it makes clear what is new, what changes and two deal with those, making the product more accessible and your work more meaningful.
+Writing good changelog entries is **important**: as a developer, it gives visibility on your contribution; as a user, it makes clear what is new, what's changed, and how to deal with them, making the product more accessible and your work more meaningful.
 
-The raw changelog is used to compile a meaningful summary of changes across releases. This happens some time after the PR has been merged and the person taking the responsability of summarizing new user-facing features must be in the position of easily understand the nature of the change and report it. The ideal changelog entry can be more or less incorporated verbatim in the release notes.
+The raw changelog is used to compile a meaningful summary of changes across releases. This happens some time after the PR has been merged and the person taking the responsibility of summarizing new user-facing features must be in the position to easily understand the nature of the change and report it. The ideal changelog entry can be more or less incorporated verbatim in the release notes.
 
-Here are a few practical tips
+Here are a few practical tips:
 
 * the first term to appear should be the affected component -- [here's a list](#list-of-components-for-changelog-entries)
-* write as many as necessary changelog entries as necessary
+* write as many changelog entries as necessary
 * don't be _too_ succinct: a single entry does **not have to** fit on a single line
 * on the other end, if the size grows beyond 5-6 lines, rather add a link to a relevant documentation or issue with more details
 * the ultimate target are end users: focus on the impact on them, tell them what's new or how to deal with a change
@@ -151,4 +151,3 @@ You can also join a `#daml-contributors` channel on our Slack: [damldriven.slack
 # Thank you!
 
 Thank you for taking the time to contribute!
-
