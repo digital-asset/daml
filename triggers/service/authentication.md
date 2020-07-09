@@ -30,22 +30,26 @@ The auth service endpoints that are relevant to us are:
  * `credRequest`: asynchronously creates an SA credential request for the given user and service account id (to be consumed by an auth service bot)
  * `cred`: retrieves the SA credential associated with the given credential id (valid 30 days)
  * `login`: uses (credential id, credential string) pair for basic auth and returns an SA token for ledger access (valid 1 day)
- 
+
 ## Authentication flow 
 
 For a new party using the trigger service, we must:
- * `authorize` with basic username/password credentials to get an auth service bearer token
- * `request` a service account using the above token as an OAuth2 bearer token
- * send “list” requests in a polling fashion (the service account is created asynchronously) until a service account appears in the response (this is a ServiceAccountResponse with a service account id but no credential ids)
+ 1. `authorize` with basic username/password credentials to get an auth service bearer token
+ 1. `request` a service account using the above token as an OAuth2 bearer token
+ 1. send “list” requests in a polling fashion (the service account is created asynchronously) until a service account appears in the response (this is a ServiceAccountResponse with a service account id but no credential ids)
+ 1. `credRequest` with the party’s service account id 
+ 1. poll “list” request until the ServiceAccountResponse has a new credential id at the front of the creds list
+ 1. `cred` request with the new credential id to get a ServiceAccountCredentialResponse with the SA credential details
+ 1. `login` using the (credential id, credential string) pair for basic auth to receive an SA token
 
-A new ledger access token is required for a party if either
- * it is the party’s first request to the trigger service, or
- * the party had a ledger access token which expired.
+This token is used in the ledger client config and is sent with ledger requests for that party.
+When the SA token expires after 1 day, we repeat the `login` step (7) using the same credential (as it is valid for 30 days).
+Finally when the credential expires, we repeat step 1 (as our bearer token for that party will also have expired) and then steps 4-7.
 
-In these cases, we have the following flow to get a new token.
- * `credRequest` with the party’s service account id 
- * poll “list” request until the ServiceAccountResponse has a new credential id at the front of the creds list
- * `cred` request with the new credential id to get a ServiceAccountCredentialResponse with the full credential details
- * `login` using the (credential id, credential string) pair for basic auth to receive a new JWT ledger access token
+In the context of the trigger service, we detect that an SA token has expired by a trigger failing with an "unauthorized" error.
+Our trigger retry logic will need to request a new SA token.
+We can directly check that the credential is still valid before requesting a new SA token with `login`.
 
-This token is used in the ledger client config and is sent with ledger requests for that party, until it expires.
+For a party using the trigger service after the first time, we will look up their service account and see if there is a valid SA credential associated with it.
+Depending on that, we enter the flow at step 4 (requesting a new SA credential) or step 7 (`login` with an existing credential).
+
