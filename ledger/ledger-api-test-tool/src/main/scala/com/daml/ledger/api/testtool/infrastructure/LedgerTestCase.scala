@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param shortIdentifier A unique identifier used to generate party names, command identifiers, etc.
   * @param description A human-readable description of what this case tests
   * @param timeoutScale The factor applied to the default
-  * @param isolated True if the test is safe be ran in parallel without affecting other tests, false otherwise
+  * @param runConcurrently True if the test is safe be ran concurrently with other tests without affecting their results
   * @param participants What parties need to be allocated on what participants as a setup for the test case
   * @param runTestCase The body of the test to be executed
   */
@@ -23,7 +23,7 @@ sealed class LedgerTestCase(
     val shortIdentifier: Ref.LedgerString,
     val description: String,
     val timeoutScale: Double,
-    val isolated: Boolean,
+    val runConcurrently: Boolean,
     participants: ParticipantAllocation,
     runTestCase: ExecutionContext => Participants => Future[Unit],
 ) {

@@ -136,13 +136,13 @@ final class LedgerTestCasesRunner(
         .map(_.toVector.sortBy(_._2).map(_._1))
     }
 
-    val (isolatedTestCases, unrestrictedTestCases) = testCases.partition(_.isolated)
+    val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
 
     val testResults =
       for {
-        isolatedTestsResults <- runTestCases(isolatedTestCases, concurrentTestRuns)
-        unrestrictedTestsResults <- runTestCases(unrestrictedTestCases, concurrency = 1)
-      } yield isolatedTestsResults ++ unrestrictedTestsResults
+        concurrentTestsResults <- runTestCases(concurrentTestCases, concurrentTestRuns)
+        sequentialTestsResults <- runTestCases(sequentialTestCases, concurrency = 1)
+      } yield concurrentTestsResults ++ sequentialTestsResults
 
     testResults
       .recover { case NonFatal(e) => throw LedgerTestCasesRunner.UncaughtExceptionError(e) }
