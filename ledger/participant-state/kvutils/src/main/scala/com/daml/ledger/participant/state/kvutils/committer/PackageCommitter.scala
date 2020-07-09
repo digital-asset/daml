@@ -147,15 +147,21 @@ private[kvutils] class PackageCommitter(
     val successLogEntry =
       buildLogEntryWithOptionalRecordTime(ctx.getRecordTime, _.setPackageUploadEntry(uploadEntry))
     if (ctx.preExecute) {
-      ctx.outOfTimeBoundsLogEntry = Some(
-        buildRejectionLogEntry(
-          recordTime = None,
-          uploadEntry.getSubmissionId,
-          uploadEntry.getParticipantId,
-          identity,
-          incrementMetric = false))
+      setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
     }
     StepStop(successLogEntry)
+  }
+
+  private def setOutOfTimeBoundsLogEntry(
+      uploadEntry: DamlPackageUploadEntry.Builder,
+      commitContext: CommitContext): Unit = {
+    commitContext.outOfTimeBoundsLogEntry = Some(
+      buildRejectionLogEntry(
+        recordTime = None,
+        uploadEntry.getSubmissionId,
+        uploadEntry.getParticipantId,
+        identity,
+        incrementRejectionCount = false))
   }
 
   override protected def init(
@@ -178,9 +184,9 @@ private[kvutils] class PackageCommitter(
       submissionId: String,
       participantId: String,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
-      incrementMetric: Boolean = true,
+      incrementRejectionCount: Boolean = true,
   ): DamlLogEntry = {
-    if (incrementMetric) {
+    if (incrementRejectionCount) {
       metrics.daml.kvutils.committer.packageUpload.rejections.inc()
     }
     buildLogEntryWithOptionalRecordTime(
