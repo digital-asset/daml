@@ -79,12 +79,11 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
       actual.outOfTimeBoundsLogEntry.hasOutOfTimeBoundsEntry shouldBe true
-      actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getTooEarlyUntil shouldBe buildTimestamp(
-        expectedMinRecordTime)
-      actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getTooLateFrom shouldBe buildTimestamp(
-        expectedMaxRecordTime)
-      actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.hasEntry shouldBe true
-      actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry.getEntry shouldBe aRejectionLogEntry
+      val actualOutOfTimeBoundsLogEntry = actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry
+      actualOutOfTimeBoundsLogEntry.getTooEarlyUntil shouldBe buildTimestamp(expectedMinRecordTime)
+      actualOutOfTimeBoundsLogEntry.getTooLateFrom shouldBe buildTimestamp(expectedMaxRecordTime)
+      actualOutOfTimeBoundsLogEntry.hasEntry shouldBe true
+      actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }
 
     "throw in case no out-of-time-bounds log entry is set" in {
