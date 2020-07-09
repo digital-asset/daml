@@ -88,31 +88,6 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "exercise_child_event_ids",
   ).mkString(", ")
 
-  private val groupByColumns = Seq(
-    "event_offset",
-    "transaction_id",
-    "node_index",
-    "participant_events.event_id",
-    "contract_id",
-    "ledger_effective_time",
-    "template_id",
-    "command_id",
-    "workflow_id",
-    "application_id",
-    "submitter",
-    "create_argument",
-    "create_signatories",
-    "create_observers",
-    "create_agreement_text",
-    "create_key_value",
-    "exercise_consuming",
-    "exercise_choice",
-    "exercise_argument",
-    "exercise_result",
-    "exercise_actors",
-    "exercise_child_event_ids",
-  ).mkString(", ")
-
   def prepareLookupTransactionTreeById(sqlFunctions: SqlFunctions)(
       transactionId: TransactionId,
       requestingParties: Set[Party],
@@ -147,7 +122,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                  case when submitter in ($requestingParties) then command_id else '' end as command_id
           from participant_events
           where transaction_id = $transactionId and #$witnessesWhereClause
-          group by (#$groupByColumns) order by node_index asc"""
+          order by node_index asc"""
   }
 
   def preparePagedGetTransactionTrees(sqlFunctions: SqlFunctions)(
@@ -215,7 +190,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= $guessedPageEnd
                   and #$witnessesWhereClause
-            group by (#$groupByColumns) order by event_sequential_id"""
+            order by event_sequential_id"""
         .withFetchSize(Some(pageSize)),
       rawTreeEventParser
     ) flatMap { arithPage =>
@@ -229,7 +204,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                 where event_sequential_id > ${range.startExclusive}
                       and event_sequential_id <= ${range.endInclusive}
                       and #$witnessesWhereClause
-                group by (#$groupByColumns) order by event_sequential_id limit $minPageSize"""
+                order by event_sequential_id limit $minPageSize"""
             .withFetchSize(Some(minPageSize)),
           rawTreeEventParser
         )
