@@ -105,13 +105,13 @@ class KeyValueCommitting private[daml] (
   }
 
   @throws(classOf[Err])
-  def preexecuteSubmission(
+  def preExecuteSubmission(
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
   ): PreExecutionResult =
-    createCommitter(engine, defaultConfig, submission).dryRun(
+    createCommitter(engine, defaultConfig, submission).runWithPreExecution(
       submission,
       participantId,
       inputState,

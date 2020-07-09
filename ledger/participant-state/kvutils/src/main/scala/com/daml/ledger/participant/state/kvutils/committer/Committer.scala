@@ -86,7 +86,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       logEntry -> ctx.getOutputs.toMap
     }
 
-  def dryRun(
+  def runWithPreExecution(
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMapWithFingerprints,

@@ -22,7 +22,7 @@ trait SubmissionExecutor {
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue])
 
-  def dryRun(
+  def runWithPreExecution(
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMapWithFingerprints,
