@@ -185,6 +185,7 @@ private[kvutils] class TransactionCommitter(
               transactionEntry.submissionTime.toInstant,
               transactionEntry.ledgerEffectiveTime.toInstant,
               timeModel))
+          commitContext.deduplicateUntil = maybeDeduplicateUntil
           StepContinue(transactionEntry)
       }
     }
