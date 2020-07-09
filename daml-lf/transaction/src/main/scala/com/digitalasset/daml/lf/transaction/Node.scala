@@ -351,7 +351,7 @@ object Node {
           import nf._
           coid === coid2 && templateId == templateId2 &&
           actingParties.forall(_ => actingParties == actingParties2) &&
-          signatories == signatories2 && stakeholders == stakeholders2
+          signatories == signatories2 && stakeholders == stakeholders2 &&
           key.forall(_ => key == key2)
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
