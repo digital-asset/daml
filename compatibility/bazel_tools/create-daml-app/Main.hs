@@ -145,7 +145,8 @@ withTools tests = do
   tests tools
 
 main :: IO ()
-main = do
+main = withTempDir $ \yarnCache -> do
+  setEnv "YARN_CACHE_FOLDER" yarnCache True
   setEnv "TASTY_NUM_THREADS" "1" True
   let options =
         [ Option @DamlOption Proxy
