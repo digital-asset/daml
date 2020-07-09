@@ -19,9 +19,7 @@ fi
 
 df -h
 
-ls
-
 du -h .bazel-cache --summarize
-du -h bazel-daml/ --summarize
+du -h bazel-s/ --summarize
 du -h compatibility/.bazel-cache --summarize
 du -h compatibility/bazel-compatibility/ --summarize
