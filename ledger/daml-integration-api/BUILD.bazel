@@ -4,11 +4,6 @@
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
-load("@io_bazel_rules_docker//java:image.bzl", "java_image")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@build_environment//:configuration.bzl", "mvn_version")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
@@ -79,6 +74,27 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
+    tags = ["maven_coordinates=com.daml:daml-integration-api:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = runtime_deps,
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
+)
+
+da_scala_library(
+    name = "ledger-api-server",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ),
     tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -99,12 +115,19 @@ da_scala_library(
     deps = [
         ":daml-integration-api",
         "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings",
+        "//ledger-api/testing-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_transport",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
