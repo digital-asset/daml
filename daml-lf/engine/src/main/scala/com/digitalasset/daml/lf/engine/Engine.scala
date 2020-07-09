@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{TransactionVersions, Transaction => Tx}
@@ -151,35 +151,20 @@ class Engine(config: Engine.Config) {
       (tx, meta) = result
     } yield (tx, meta)
 
-  /**
-    * Check if the given transaction is a valid result of some single-submitter command.
-    *
-    * Formally, for all tx, pcs, pkgs, keys:
-    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
-    * where:
-    *   evaluate(result) = result.consume(pcs, pkgs, keys)
-    *
-    * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
-    *
-    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
-    *
-    *  @param tx a complete unblinded Transaction to be validated
-    *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
-    */
-  def validate(
+  def replay(
       tx: Tx.SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[Unit] = {
+  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
 
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
-        .traverseU(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
+        .traverse(nid => tx.nodes.get(nid).map(_.requiredAuthorizers)) match {
         case None => ResultError(ValidationError(s"invalid roots for transaction $tx"))
         case Some(nodes) => ResultDone(nodes)
       }
@@ -211,6 +196,35 @@ class Engine(config: Engine.Config) {
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
         globalCids,
       )
+
+    } yield result
+  }
+
+  /**
+    * Check if the given transaction is a valid result of some single-submitter command.
+    *
+    * Formally, for all tx, pcs, pkgs, keys:
+    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
+    * where:
+    *   evaluate(result) = result.consume(pcs, pkgs, keys)
+    *
+    * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
+    *
+    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
+    *
+    *  @param tx a complete unblinded Transaction to be validated
+    *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
+    */
+  def validate(
+      tx: Tx.SubmittedTransaction,
+      ledgerEffectiveTime: Time.Timestamp,
+      participantId: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+      submissionSeed: crypto.Hash,
+  ): Result[Unit] = {
+    //reinterpret
+    for {
+      result <- replay(tx, ledgerEffectiveTime, participantId, submissionTime, submissionSeed)
       (rtx, _) = result
       validationResult <- if (tx.transaction isReplayedBy rtx.transaction) {
         ResultDone.Unit
@@ -275,7 +289,8 @@ class Engine(config: Engine.Config) {
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        anf = Machine.makeApplyToToken(compiledPackages.compiler.unsafeCompile(commands)),
+        expr = SExpr
+          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
         supportedValueVersions = config.allowedOutputValueVersions,

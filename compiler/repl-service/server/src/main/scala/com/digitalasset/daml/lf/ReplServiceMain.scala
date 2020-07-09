@@ -12,7 +12,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.speedy.AExpr
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -191,7 +190,7 @@ class ReplService(
     mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
-  var compiledDefinitions: Map[SDefinitionRef, AExpr] = Map.empty
+  var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
   implicit val esf_ = esf

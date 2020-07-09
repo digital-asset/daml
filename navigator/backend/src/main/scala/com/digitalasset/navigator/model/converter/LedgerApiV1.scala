@@ -187,7 +187,7 @@ case object LedgerApiV1 {
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
       keyResult = event.contractKey
-        .traverseU(k => readArgument(k, template.key.get, ctx))
+        .traverse(k => readArgument(k, template.key.get, ctx))
       key <- keyResult
     } yield
       Model.ContractCreated(
@@ -311,7 +311,7 @@ case object LedgerApiV1 {
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
       }
-      values <- list.values traverseU (fillInTypeInfo(_, elementType, ctx))
+      values <- list.values traverse (fillInTypeInfo(_, elementType, ctx))
     } yield V.ValueList(values)
 
   private def fillInTextMapTI(
@@ -325,7 +325,7 @@ case object LedgerApiV1 {
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $textMap as $typ"))
       }
-      values <- textMap.value traverseU (fillInTypeInfo(_, elementType, ctx))
+      values <- textMap.value traverse (fillInTypeInfo(_, elementType, ctx))
     } yield V.ValueTextMap(values)
 
   private def fillInGenMapTI(
@@ -340,7 +340,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $genMap as $typ"))
       }
       (keyType, valueType) = types
-      values <- genMap.entries.toSeq traverseU {
+      values <- genMap.entries.toSeq traverse {
         case (k, v) =>
           for {
             key <- fillInTypeInfo(k, keyType, ctx)
@@ -360,7 +360,7 @@ case object LedgerApiV1 {
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $opt as $typ"))
       }
-      value <- opt.value traverseU (fillInTypeInfo(_, optType, ctx))
+      value <- opt.value traverse (fillInTypeInfo(_, optType, ctx))
     } yield V.ValueOptional(value)
 
   private def asTypeCon(

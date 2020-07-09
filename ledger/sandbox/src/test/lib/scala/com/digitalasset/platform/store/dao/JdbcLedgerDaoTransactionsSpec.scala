@@ -105,6 +105,42 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "return all events in the expected order" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      (_, create) <- store(singleCreate)
+      firstContractId = nonTransient(create).loneElement
+      (offset, exercise) <- store(exerciseWithChild(firstContractId))
+      result <- ledgerDao.transactionsReader
+        .getFlatTransactions(
+          from,
+          offset,
+          Map(exercise.submittingParty.get -> Set.empty[Identifier]),
+          verbose = true)
+        .runWith(Sink.seq)
+    } yield {
+      import com.daml.ledger.api.v1.event.Event
+      import com.daml.ledger.api.v1.event.Event.Event.{Created, Archived}
+
+      val txs =
+        result.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
+
+      inside(txs) {
+        case Vector(tx1, tx2) =>
+          tx1.transactionId shouldBe create.transactionId
+          tx2.transactionId shouldBe exercise.transactionId
+          inside(tx1.events) {
+            case Seq(Event(Created(createdEvent))) =>
+              createdEvent.contractId shouldBe firstContractId.coid
+          }
+          inside(tx2.events) {
+            case Seq(Event(Archived(archivedEvent)), Event(Created(_))) =>
+              archivedEvent.contractId shouldBe firstContractId.coid
+          }
+      }
+    }
+  }
+
   it should "hide events on transient contracts to the original submitter" in {
     for {
       (offset, tx) <- store(fullyTransient)

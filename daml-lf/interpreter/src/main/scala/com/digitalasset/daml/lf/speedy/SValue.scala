@@ -113,7 +113,7 @@ object SValue {
 
   /** "Primitives" that can be applied. */
   sealed trait Prim
-  final case class PBuiltin(b: SBuiltinEffect) extends Prim
+  final case class PBuiltin(b: SBuiltin) extends Prim
 
   /** A closure consisting of an expression together with the values the
     * expression is closing over.

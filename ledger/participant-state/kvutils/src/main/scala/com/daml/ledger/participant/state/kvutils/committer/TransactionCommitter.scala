@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
@@ -151,11 +151,12 @@ private[kvutils] class TransactionCommitter(
 
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
-    (commitContext, transactionEntry) =>
-      commitContext.getRecordTime
-        .map { recordTime =>
-          val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
-          val timeModel = config.timeModel
+    (commitContext, transactionEntry) => {
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+      val timeModel = config.timeModel
+
+      commitContext.getRecordTime match {
+        case Some(recordTime) =>
           val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
           timeModel
@@ -169,8 +170,24 @@ private[kvutils] class TransactionCommitter(
                     RejectionReason.InvalidLedgerTime(reason))),
               _ => StepContinue(transactionEntry)
             )
-        }
-        .getOrElse(StepContinue(transactionEntry))
+        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution
+          val maybeDeduplicateUntil =
+            getLedgerDeduplicateUntil(transactionEntry, commitContext)
+
+          commitContext.minimumRecordTime = Some(
+            transactionMinRecordTime(
+              transactionEntry.submissionTime.toInstant,
+              transactionEntry.ledgerEffectiveTime.toInstant,
+              maybeDeduplicateUntil,
+              timeModel))
+          commitContext.maximumRecordTime = Some(
+            transactionMaxRecordTime(
+              transactionEntry.submissionTime.toInstant,
+              transactionEntry.ledgerEffectiveTime.toInstant,
+              timeModel))
+          StepContinue(transactionEntry)
+      }
+    }
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Step =
@@ -613,4 +630,32 @@ private[kvutils] object TransactionCommitter {
   def getContractState(commitContext: CommitContext, key: DamlStateKey): DamlContractState =
     commitContext.get(key).getOrElse(throw Err.MissingInputState(key)).getContractState
 
+  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
+  private def transactionMinRecordTime(
+      submissionTime: Instant,
+      ledgerTime: Instant,
+      maybeDeduplicateUntil: Option[Instant],
+      timeModel: TimeModel): Instant =
+    List(
+      maybeDeduplicateUntil
+        .map(_.plus(Timestamp.Resolution)), // DeduplicateUntil defines a rejection window, endpoints inclusive
+      Some(timeModel.minRecordTime(ledgerTime)),
+      Some(timeModel.minRecordTime(submissionTime))
+    ).flatten.max
+
+  private def transactionMaxRecordTime(
+      submissionTime: Instant,
+      ledgerTime: Instant,
+      timeModel: TimeModel): Instant =
+    List(timeModel.maxRecordTime(ledgerTime), timeModel.maxRecordTime(submissionTime)).min
+
+  private def getLedgerDeduplicateUntil(
+      transactionEntry: DamlTransactionEntrySummary,
+      commitContext: CommitContext): Option[Instant] =
+    for {
+      dedupEntry <- commitContext.get(commandDedupKey(transactionEntry.submitterInfo))
+      dedupTimestamp <- PartialFunction.condOpt(dedupEntry.getCommandDedup.hasDeduplicatedUntil) {
+        case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
+      }
+    } yield parseTimestamp(dedupTimestamp).toInstant
 }

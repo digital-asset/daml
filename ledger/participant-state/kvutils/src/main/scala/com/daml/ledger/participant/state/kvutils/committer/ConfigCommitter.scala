@@ -50,6 +50,10 @@ private[kvutils] class ConfigCommitter(
           )
         ))
     } else {
+      if (ctx.getRecordTime.isEmpty) {
+        // Pre-execution: propagate the time bounds and defer the checks to post-execution.
+        ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
+      }
       StepContinue(result)
     }
   }

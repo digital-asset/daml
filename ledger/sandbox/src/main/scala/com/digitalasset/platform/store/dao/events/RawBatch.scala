@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import anorm.NamedParameter
+
 import com.daml.ledger.EventId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
@@ -89,7 +90,6 @@ private[events] object RawBatch {
   }
 
   object Event {
-
     sealed abstract class Specific {
       private[Event] def applySerialization(
           transactionId: TransactionId,
@@ -108,7 +108,15 @@ private[events] object RawBatch {
           "create_signatories" -> create.signatories.toArray[String],
           "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
           "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
+          // set exercise event columns to NULL
+          "exercise_consuming" -> Option.empty[Boolean],
+          "exercise_choice" -> Option.empty[String],
+          "exercise_argument" -> Option.empty[Array[Byte]],
+          "exercise_result" -> Option.empty[Array[Byte]],
+          "exercise_actors" -> Option.empty[Array[String]],
+          "exercise_child_event_ids" -> Option.empty[Array[String]],
         )
+
       override private[Event] def applySerialization(
           transactionId: TransactionId,
           eventId: EventId,
@@ -127,6 +135,12 @@ private[events] object RawBatch {
           "exercise_consuming" -> exercise.consuming,
           "exercise_choice" -> exercise.choiceId,
           "exercise_actors" -> exercise.actingParties.toArray[String],
+          // set create event columns to NULL
+          "create_argument" -> Option.empty[Array[Byte]],
+          "create_signatories" -> Option.empty[Array[String]],
+          "create_observers" -> Option.empty[Array[String]],
+          "create_agreement_text" -> Option.empty[String],
+          "create_key_value" -> Option.empty[Array[Byte]],
         )
       override private[Event] def applySerialization(
           transactionId: TransactionId,
@@ -137,7 +151,12 @@ private[events] object RawBatch {
           .map(EventId(transactionId, _).toLedgerString)
           .toArray[String]: NamedParameter)) ++ lfValueTranslation.serialize(eventId, exercise)
     }
-
   }
 
+  private implicit lazy val stringArrayParameterMetadata: anorm.ParameterMetaData[Array[String]] =
+    new anorm.ParameterMetaData[Array[String]] {
+      override def sqlType: String = "ARRAY"
+
+      override def jdbcType: Int = java.sql.Types.ARRAY
+    }
 }

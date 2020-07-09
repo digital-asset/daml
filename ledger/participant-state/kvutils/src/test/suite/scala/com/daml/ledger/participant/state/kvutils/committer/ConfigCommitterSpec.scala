@@ -49,16 +49,19 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
       }
     }
 
+    val instance = createConfigCommitter(aRecordTime)
+    val context = new FakeCommitContext(recordTime = None)
+
     "skip checking against maximum record time if record time is not available" in {
-      val instance = createConfigCommitter(aRecordTime)
-      val context = new FakeCommitContext(recordTime = None)
-
-      val actual = instance.checkTtl(context, anEmptyResult)
-
-      actual match {
+      instance.checkTtl(context, anEmptyResult) match {
         case StepContinue(_) => succeed
         case StepStop(_) => fail
       }
+    }
+
+    "set the maximum record time in the context if record time is not available" in {
+      instance.checkTtl(context, anEmptyResult)
+      context.maximumRecordTime shouldEqual Some(aRecordTime.toInstant)
     }
   }
 

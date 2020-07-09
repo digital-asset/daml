@@ -6,14 +6,17 @@
 -- it is simpler to have all code located here.
 module DA.Bazel.Runfiles
   ( locateRunfiles
+  , setRunfilesEnv
   , mainWorkspace
   , exe
   ) where
 
 import qualified Bazel.Runfiles
+import Control.Exception.Safe (MonadCatch, SomeException, try)
+import Control.Monad (forM_)
 import GHC.Stack
 import System.Directory
-import System.Environment
+import System.Environment.Blank
 import System.FilePath
 import System.Info (os)
 
@@ -45,3 +48,29 @@ locateRunfiles fp = do
       else do
           runfiles <- Bazel.Runfiles.create
           pure $! Bazel.Runfiles.rlocation runfiles fp
+
+-- | Store the detected runfiles in the environment.
+--
+-- Detects runfiles as in 'locateRunfiles' and, if found, stores the
+-- outcome in the environment. Do this at the beginning of the program
+-- if you intend to change working directory or use `withProgName` or
+-- `withArgs`.
+--
+-- Failure to detect runfiles will be ignored.
+setRunfilesEnv :: HasCallStack => IO ()
+setRunfilesEnv = do
+  execPath <- getExecutablePath
+  let jarResources = takeDirectory execPath </> "resources"
+  hasJarResources <- doesDirectoryExist jarResources
+  if hasJarResources
+      then pure ()
+      else try_ $ do
+          runfiles <- Bazel.Runfiles.create
+          let vars = Bazel.Runfiles.env runfiles
+          forM_ vars $ \(name, value) ->
+              setEnv name value True
+
+try_ :: MonadCatch m => m () -> m ()
+try_ m = do
+  _ <- try @_ @SomeException m
+  pure ()

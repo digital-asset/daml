@@ -62,6 +62,7 @@ da_haskell_binary(
     deps = [
         ":daml-helper-lib",
         "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
