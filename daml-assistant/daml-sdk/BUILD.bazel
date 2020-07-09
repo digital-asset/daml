@@ -26,6 +26,7 @@ da_scala_library(
         "//language-support/codegen-main:codegen-main-lib",
         "//ledger-service/http-json",
         "//ledger/sandbox",
+        "//ledger/sandbox-next",
         "//navigator/backend:navigator-library",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service:trigger-service",

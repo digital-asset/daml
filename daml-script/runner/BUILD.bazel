@@ -32,6 +32,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
+        "//ledger/sandbox-common",
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",

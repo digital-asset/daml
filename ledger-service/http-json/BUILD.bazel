@@ -180,6 +180,7 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
+        "//ledger/sandbox-common",
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",

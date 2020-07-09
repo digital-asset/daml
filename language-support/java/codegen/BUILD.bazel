@@ -276,6 +276,7 @@ da_scala_test(
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
         "//ledger/sandbox",
+        "//ledger/sandbox-common",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",

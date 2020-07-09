@@ -11,29 +11,26 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 
 compile_deps = [
+    "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
     "//daml-lf/engine",
-    "//daml-lf/interpreter",
-    "//daml-lf/language",
-    "//daml-lf/scenario-interpreter",
-    "//daml-lf/transaction",
     "//language-support/scala/bindings",
-    "//ledger-api/rs-grpc-bridge",
     "//ledger/caching",
     "//ledger/daml-integration-api",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",
+    "//ledger/ledger-on-sql",
     "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
     "//ledger/participant-state-metrics",
+    "//ledger/participant-state/kvutils",
     "//ledger/sandbox-common",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
-    "//libs-scala/direct-execution-context",
     "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
@@ -41,8 +38,6 @@ compile_deps = [
     "@maven//:com_typesafe_akka_akka_actor_2_12",
     "@maven//:com_typesafe_akka_akka_stream_2_12",
     "@maven//:com_typesafe_config",
-    "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:io_netty_netty_handler",
     "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     "@maven//:org_scalaz_scalaz_core_2_12",
     "@maven//:org_slf4j_slf4j_api",
@@ -57,7 +52,7 @@ runtime_deps = [
 ]
 
 da_scala_library(
-    name = "sandbox",
+    name = "sandbox-next",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
@@ -65,24 +60,7 @@ da_scala_library(
     # Do not include logback.xml into the library: let the user
     # of the sandbox-as-a-library decide how to log.
     resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = runtime_deps,
-    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
-)
-
-da_scala_library(
-    name = "ledger-api-server",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
-    ],
-    # Do not include logback.xml into the library: let the user
-    # of the sandbox-as-a-library decide how to log.
-    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-    tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:sandbox-next:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -91,37 +69,37 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "sandbox-binary",
-    main_class = "com.daml.platform.sandbox.SandboxMain",
+    name = "sandbox-next-binary",
+    main_class = "com.daml.platform.sandboxnext.Main",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox",
+        ":sandbox-next",
     ],
 )
 
 da_scala_binary(
-    name = "sandbox-ephemeral-postgresql",
-    main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
+    name = "sandbox-next-ephemeral-postgresql",
+    main_class = "com.daml.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox",
-        ":sandbox-scala-tests-lib",
+        ":sandbox-next",
+        ":sandbox-next-scala-tests-lib",
     ],
 )
 
 genrule(
-    name = "sandbox-tarball",
+    name = "sandbox-next-tarball",
     srcs = [
-        ":sandbox-binary_deploy.jar",
+        ":sandbox-next-binary_deploy.jar",
     ],
-    outs = ["sandbox-tarball.tar.gz"],
+    outs = ["sandbox-next-tarball.tar.gz"],
     cmd = """
-        mkdir -p sandbox-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
+        mkdir -p sandbox-next-tarball/sandbox
+        cp -L $(location :sandbox-next-binary_deploy.jar) sandbox-next-tarball/sandbox/sandbox-next-{mvn}.jar
         out=$$(realpath $@)
-        cd sandbox-tarball
+        cd sandbox-next-tarball
         tar c sandbox \\
           --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n > $$out
@@ -130,7 +108,7 @@ genrule(
 )
 
 container_image(
-    name = "sandbox-image-base",
+    name = "sandbox-next-image-base",
     base = "@java_base//image",
     cmd = None,
     directory = "/usr/bin",
@@ -140,16 +118,16 @@ container_image(
 ) if not is_windows else None
 
 java_image(
-    name = "sandbox-image",
-    base = ":sandbox-image-base",
-    main_class = "com.daml.platform.sandbox.SandboxMain",
+    name = "sandbox-next-image",
+    base = ":sandbox-next-image-base",
+    main_class = "com.daml.platform.sandboxnext.Main",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
-    runtime_deps = [":sandbox"],
+    runtime_deps = [":sandbox-next"],
 ) if not is_windows else None
 
 da_scala_library(
-    name = "sandbox-scala-tests-lib",
+    name = "sandbox-next-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -158,42 +136,26 @@ da_scala_library(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        ":sandbox",
+        ":sandbox-next",
         "//daml-lf/data",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/caching",
         "//ledger/daml-integration-api",
         "//ledger/daml-integration-api:daml-integration-api-tests-lib",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-auth-client",
-        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/ledger-api-health",
-        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/test-common",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/direct-execution-context",
-        "//libs-scala/grpc-utils",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_play_anorm_2_12",
-        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -202,8 +164,8 @@ da_scala_library(
 )
 
 test_deps = [
-    ":sandbox",
-    ":sandbox-scala-tests-lib",
+    ":sandbox-next",
+    ":sandbox-next-scala-tests-lib",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -265,7 +227,7 @@ test_deps = [
 ]
 
 da_scala_test_suite(
-    name = "sandbox-tests",
+    name = "sandbox-next-tests",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
@@ -279,7 +241,7 @@ da_scala_test_suite(
 )
 
 da_scala_test_suite(
-    name = "sandbox-resetservice-tests",
+    name = "sandbox-next-resetservice-tests",
     srcs = glob(
         ["src/test/suite/**/ResetService*IT.scala"],
     ),
@@ -292,27 +254,19 @@ da_scala_test_suite(
     deps = test_deps,
 )
 
-SERVERS = {
+NEXT_SERVERS = {
     "memory": {
-        "binary": ":sandbox-binary",
+        "binary": ":sandbox-next-binary",
         "server_args": [
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
-        ],
-    },
-    "h2database": {
-        "binary": ":sandbox-binary",
-        "server_args": [
-            "--port=6865",
-            "--eager-package-loading",
-            # "db_close_delay=-1" is needed so that the in-memory database is not closed
-            # (and therefore lost) after the flyway migration
-            "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
         ],
     },
     "postgresql": {
-        "binary": ":sandbox-ephemeral-postgresql",
+        "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -320,11 +274,11 @@ SERVERS = {
 }
 
 server_conformance_test(
-    name = "conformance-test-static-time",
+    name = "next-conformance-test-static-time",
     server_args = [
         "--static-time",
     ],
-    servers = SERVERS,
+    servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
@@ -332,11 +286,11 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-wall-clock",
+    name = "next-conformance-test-wall-clock-time",
     server_args = [
         "--wall-clock-time",
     ],
-    servers = SERVERS,
+    servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
@@ -344,15 +298,15 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-contract-id-seeding",
+    name = "next-conformance-test-closed-world",
     server_args = [
         "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
+        "--implicit-party-allocation=false",
     ],
-    servers = SERVERS,
+    servers = NEXT_SERVERS,
     test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
+        "--verbose",
+        "--include=ClosedWorldIT",
     ],
 )
 
