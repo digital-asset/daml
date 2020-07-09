@@ -72,6 +72,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_java_proto",
+        "//daml-lf/transaction-test-lib",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
