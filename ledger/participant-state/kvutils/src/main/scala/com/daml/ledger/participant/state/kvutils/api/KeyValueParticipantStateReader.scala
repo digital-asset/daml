@@ -16,12 +16,14 @@ import com.daml.metrics.{Metrics, Timed}
 class KeyValueParticipantStateReader(reader: LedgerReader, metrics: Metrics)(
     implicit materializer: Materializer)
     extends ReadService {
+  import KeyValueParticipantStateReader.offsetForUpdate
+
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     Source
-      .single(beginAfter.map(KVOffset.onlyKeepHighestIndex))
+      .single(beginAfter)
       .flatMapConcat(reader.events)
       .flatMapConcat {
         case LedgerRecord(offset, entryId, envelope) =>
@@ -33,11 +35,9 @@ class KeyValueParticipantStateReader(reader: LedgerReader, metrics: Metrics)(
                   metrics.daml.kvutils.reader.parseUpdates, {
                     val logEntryId = DamlLogEntryId.parseFrom(entryId)
                     val updates = KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry)
-                    val updateOffset: (Offset, Int) => Offset =
-                      if (updates.size > 1) KVOffset.setMiddleIndex else (offset, _) => offset
                     val updatesWithOffsets = Source(updates).zipWithIndex.map {
                       case (update, index) =>
-                        updateOffset(offset, index.toInt) -> update
+                        offsetForUpdate(offset, index.toInt, updates.size) -> update
                     }
                     Right(updatesWithOffsets)
                   }
@@ -58,4 +58,16 @@ class KeyValueParticipantStateReader(reader: LedgerReader, metrics: Metrics)(
       reader.ledgerId(),
       LedgerReader.DefaultConfiguration,
       Time.Timestamp.Epoch)
+}
+
+object KeyValueParticipantStateReader {
+  private[api] def offsetForUpdate(
+      offsetFromRecord: Offset,
+      index: Int,
+      totalUpdates: Int): Offset =
+    if (totalUpdates > 1) {
+      KVOffset.setLowestIndex(offsetFromRecord, index)
+    } else {
+      offsetFromRecord
+    }
 }

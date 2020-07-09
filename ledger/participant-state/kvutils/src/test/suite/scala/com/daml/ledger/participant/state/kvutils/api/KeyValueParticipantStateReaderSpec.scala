@@ -16,6 +16,7 @@ import com.google.protobuf.ByteString
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{AsyncWordSpec, Matchers}
+import KeyValueParticipantStateReader.offsetForUpdate
 
 import scala.concurrent.Future
 
@@ -159,6 +160,26 @@ class KeyValueParticipantStateReaderSpec
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
         succeed
       }
+    }
+  }
+
+  "offsetForUpdate" should {
+    "not overwrite middle offset from record in case of 2 updates" in {
+      val offsetFromRecord = KVOffset.fromLong(1, 2)
+      for (subOffset <- Seq(0, 1)) {
+        offsetForUpdate(offsetFromRecord, subOffset, 2) shouldBe KVOffset.fromLong(1, 2, subOffset)
+      }
+      succeed
+    }
+
+    "use original offset in case less than 2 updates" in {
+      val expectedOffset = KVOffset.fromLong(1, 2, 3)
+      for (totalUpdates <- Seq(0, 1)) {
+        for (i <- 0 until totalUpdates) {
+          offsetForUpdate(expectedOffset, i, totalUpdates) shouldBe expectedOffset
+        }
+      }
+      succeed
     }
   }
 
