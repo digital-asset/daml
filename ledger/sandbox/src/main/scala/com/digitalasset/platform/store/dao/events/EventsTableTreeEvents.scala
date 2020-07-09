@@ -128,7 +128,11 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by node_index asc"
+    SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
+                 case when submitter = $requestingParty then command_id else '' end as command_id
+          from participant_events
+          where transaction_id = $transactionId and #$witnessesWhereClause
+          order by node_index asc"""
   }
 
   private def multiPartyLookup(sqlFunctions: SqlFunctions)(
@@ -139,7 +143,11 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, #$filteredWitnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by node_index asc"
+    SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
+                 case when submitter in ($requestingParties) then command_id else '' end as command_id
+          from participant_events
+          where transaction_id = $transactionId and #$witnessesWhereClause
+          group by (#$groupByColumns) order by node_index asc"""
   }
 
   def preparePagedGetTransactionTrees(sqlFunctions: SqlFunctions)(
