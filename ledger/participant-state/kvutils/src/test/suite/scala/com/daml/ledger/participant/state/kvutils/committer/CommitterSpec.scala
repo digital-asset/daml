@@ -29,6 +29,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val expectedMaxRecordTime = Instant.ofEpochSecond(200)
       when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
+      when(mockContext.deduplicateUntil).thenReturn(None)
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       val expectedReadSet = Set(
         DamlStateKey.newBuilder.setContractId("1").build -> ByteString.copyFromUtf8("fp1"),
@@ -53,6 +54,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val mockContext = mock[CommitContext]
       when(mockContext.minimumRecordTime).thenReturn(None)
       when(mockContext.maximumRecordTime).thenReturn(None)
+      when(mockContext.deduplicateUntil).thenReturn(None)
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       when(mockContext.getOutputs).thenReturn(Map.empty)
       when(mockContext.getAccessedInputKeysWithFingerprints)
@@ -73,8 +75,10 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
         .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
       val expectedMinRecordTime = Instant.ofEpochSecond(100)
       val expectedMaxRecordTime = Instant.ofEpochSecond(200)
+      val expectedDuplicateUntil = Instant.ofEpochSecond(99)
       when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
+      when(mockContext.deduplicateUntil).thenReturn(Some(expectedDuplicateUntil))
       val instance = createCommitter()
       val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
@@ -82,6 +86,8 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val actualOutOfTimeBoundsLogEntry = actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry
       actualOutOfTimeBoundsLogEntry.getTooEarlyUntil shouldBe buildTimestamp(expectedMinRecordTime)
       actualOutOfTimeBoundsLogEntry.getTooLateFrom shouldBe buildTimestamp(expectedMaxRecordTime)
+      actualOutOfTimeBoundsLogEntry.getDuplicateUntil shouldBe buildTimestamp(
+        expectedDuplicateUntil)
       actualOutOfTimeBoundsLogEntry.hasEntry shouldBe true
       actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }
