@@ -27,9 +27,6 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - bash: ./fmt.sh --test
-    displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
   - bash: ./build.sh "_$(uname)"
     displayName: 'Build'
