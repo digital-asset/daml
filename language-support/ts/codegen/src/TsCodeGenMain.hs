@@ -161,7 +161,7 @@ daml2js Daml2jsParams {..} = do
         packageDir = scopeDir </> T.unpack pkgName
           -- The directory into which we write this package e.g. '/path/to/daml2js/davl-0.0.4'.
         packageSrcDir = packageDir </> "lib"
-          -- Where the source files of this package are written e.g. '/path/to/daml2js/davl-0.0.4/src'.
+          -- Where the source files of this package are written e.g. '/path/to/daml2js/davl-0.0.4/lib'.
         scope = optScope
           -- The scope e.g. '@daml.js'.
           -- We use this, for example, when generating import declarations e.g.
