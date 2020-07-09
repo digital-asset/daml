@@ -19,10 +19,12 @@ fi
 
 rm -rf .bazel-cache compatibility/.bazel-cache
 
-df -h
+find /tmp -xdev -printf '%h\n' | sort | uniq -c | sort -k 1 -n
 
-du -h $HOME -d 1 | sort -h
+# df -h
 
-du -h / -d 1 | sort -h
+# du -h $HOME -d 1 | sort -h
 
-du -h $HOME | sort -h
+# du -h / -d 1 | sort -h
+
+# du -h $HOME | sort -h
