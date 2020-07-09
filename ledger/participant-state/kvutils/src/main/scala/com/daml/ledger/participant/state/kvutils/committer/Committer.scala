@@ -92,7 +92,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMapWithFingerprints,
   ): PreexecutionResult = {
     preExecutionRunTimer.time { () =>
-      // TODO(miklos): Create context for pre-execution here.
       val commitContext = new CommitContext {
         override def getRecordTime: Option[Time.Timestamp] = None
 
@@ -115,10 +114,13 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       readSet = commitContext.getAccessedInputKeysWithFingerprints.toMap,
       successfulLogEntry = logEntry,
       stateUpdates = commitContext.getOutputs.toMap,
-      // TODO(miklos): Take out-of-time-bounds log entry and min/max record time from context.
       outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),
-      minimumRecordTime = Timestamp.MinValue,
-      maximumRecordTime = Timestamp.MaxValue,
+      minimumRecordTime = commitContext.minimumRecordTime
+        .map(Timestamp.assertFromInstant)
+        .getOrElse(Timestamp.MinValue),
+      maximumRecordTime = commitContext.maximumRecordTime
+        .map(Timestamp.assertFromInstant)
+        .getOrElse(Timestamp.MaxValue),
       // We assume the time updates must be visible to every participant.
       involvedParticipants = AllParticipants
     )

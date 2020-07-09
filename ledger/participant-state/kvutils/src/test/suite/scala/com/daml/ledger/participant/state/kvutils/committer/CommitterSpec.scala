@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Fingerprint}
@@ -29,10 +31,14 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
   "preexecute" should {
     "set pre-execution results from context" in {
+      val expectedMinRecordTime = Instant.ofEpochSecond(100)
+      val expectedMaxRecordTime = Instant.ofEpochSecond(200)
       val mockContext = mock[CommitContext]
       val expectedOutputs =
         Map(DamlStateKey.getDefaultInstance -> DamlStateValue.getDefaultInstance)
       when(mockContext.getOutputs).thenReturn(expectedOutputs)
+      when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
+      when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
       val expectedReadSet = Set(
         DamlStateKey.newBuilder.setContractId("1").build -> ByteString.copyFromUtf8("fp1"),
         DamlStateKey.newBuilder.setContractId("2").build -> ByteString.copyFromUtf8("fp2")
@@ -47,7 +53,24 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       actual.readSet shouldBe expectedReadSet.toMap
       actual.successfulLogEntry shouldBe aLogEntry
       actual.stateUpdates shouldBe expectedOutputs
+      actual.minimumRecordTime shouldBe Timestamp.assertFromInstant(expectedMinRecordTime)
+      actual.maximumRecordTime shouldBe Timestamp.assertFromInstant(expectedMaxRecordTime)
       actual.involvedParticipants shouldBe Committer.AllParticipants
+    }
+
+    "set min/max record time to default values in case they are not available from context" in {
+      val mockContext = mock[CommitContext]
+      when(mockContext.minimumRecordTime).thenReturn(None)
+      when(mockContext.maximumRecordTime).thenReturn(None)
+      when(mockContext.getOutputs).thenReturn(Map.empty)
+      when(mockContext.getAccessedInputKeysWithFingerprints)
+        .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
+      val instance = createCommitter()
+
+      val actual = instance.preexecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+
+      actual.minimumRecordTime shouldBe Timestamp.MinValue
+      actual.maximumRecordTime shouldBe Timestamp.MaxValue
     }
 
     "construct out-of-time-bounds log entry" in {
@@ -55,6 +78,8 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
       when(mockContext.getAccessedInputKeysWithFingerprints)
         .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
+      when(mockContext.minimumRecordTime).thenReturn(None)
+      when(mockContext.maximumRecordTime).thenReturn(None)
       val instance = createCommitter()
       val expectedOutOfTimeBoundsLogEntry = DamlLogEntry.newBuilder.build
 
