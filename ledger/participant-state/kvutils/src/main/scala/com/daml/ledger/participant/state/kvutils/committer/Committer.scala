@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
+  DamlOutOfTimeBoundsEntry,
   DamlStateKey,
   DamlStateValue,
   DamlSubmission
@@ -126,8 +127,20 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
     )
   }
 
-  private def constructOutOfTimeBoundsLogEntry(commitContext: CommitContext): DamlLogEntry =
-    DamlLogEntry.getDefaultInstance
+  private def constructOutOfTimeBoundsLogEntry(commitContext: CommitContext): DamlLogEntry = {
+    val rejectionLogEntry = commitContext.outOfTimeBoundsLogEntry
+      .getOrElse(
+        throw new IllegalArgumentException("Committer did not set an out-of-time-bounds log entry"))
+    val builder = DamlOutOfTimeBoundsEntry.newBuilder
+      .setEntry(rejectionLogEntry)
+    commitContext.minimumRecordTime.foreach(instant =>
+      builder.setTooEarlyUntil(buildTimestamp(instant)))
+    commitContext.maximumRecordTime.foreach(instant =>
+      builder.setTooLateFrom(buildTimestamp(instant)))
+    DamlLogEntry.newBuilder
+      .setOutOfTimeBoundsEntry(builder)
+      .build
+  }
 
   private[committer] def runSteps(
       commitContext: CommitContext,
