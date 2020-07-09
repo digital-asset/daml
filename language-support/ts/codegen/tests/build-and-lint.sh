@@ -18,6 +18,7 @@ else
     TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
     rm -rf $TMP_DIR && mkdir -p $TMP_DIR
 fi
+export YARN_CACHE_FOLDER=$TMP_DIR/yarn
 echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---

@@ -31,7 +31,8 @@ typescriptEslintVersion :: T.Text
 typescriptEslintVersion = "~2.31.0"
 
 main :: IO ()
-main = do
+main = withTempDir $ \yarnCache -> do
+    setEnv "YARN_CACHE_FOLDER" yarnCache True
     yarnPath : args <- getArgs
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     daml2js <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2js")
