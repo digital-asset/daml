@@ -103,7 +103,7 @@ object Cli {
               |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
               |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
-    opt[Double](name = "load-scale-factor")
+    opt[String](name = "load-scale-factor")
       .optional()
       .text("DEPRECATED: this option is no longer used and has no effect")
       .action(reportUsageOfDeprecatedOption("--load-scale-factor"))
