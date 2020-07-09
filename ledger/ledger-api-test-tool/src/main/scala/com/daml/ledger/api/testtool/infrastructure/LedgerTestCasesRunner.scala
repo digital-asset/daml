@@ -10,6 +10,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
+import com.daml.ledger.api.testtool.infrastructure.Result.Retired
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
@@ -82,6 +83,8 @@ final class LedgerTestCasesRunner(
     startedTest
       .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
       .recover[Either[Result.Failure, Result.Success]] {
+        case Retired =>
+          Right(Retired)
         case _: TimeoutException =>
           Left(Result.TimedOut)
         case failure: AssertionError =>
@@ -100,8 +103,7 @@ final class LedgerTestCasesRunner(
   private def summarize(
       suite: LedgerTestSuite,
       test: LedgerTestCase,
-      result: Either[Result.Failure, Result.Success])(
-      implicit ec: ExecutionContext,
+      result: Either[Result.Failure, Result.Success],
   ): LedgerTestSummary =
     LedgerTestSummary(suite.name, test.name, test.description, config, result)
 
@@ -111,28 +113,38 @@ final class LedgerTestCasesRunner(
     result(start(test, session))
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
+
     val system: ActorSystem = ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
-    val testCount = testCases.size
 
-    logger.info(s"Running $testCount tests, ${math.min(testCount, concurrentTestRuns)} at a time.")
-
-    val tests = testCases.zipWithIndex
-    Source(tests)
-      .mapAsyncUnordered(concurrentTestRuns) {
-        case (test, index) => {
-          run(test, ledgerSession).map(testResult => (test.suite, test, testResult) -> index)
+    def runTestCases(
+        testCases: Vector[LedgerTestCase],
+        concurrency: Int,
+    ): Future[Vector[LedgerTestSummary]] = {
+      val testCount = testCases.size
+      logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
+      Source(testCases.zipWithIndex)
+        .mapAsyncUnordered(concurrency) {
+          case (test, index) =>
+            run(test, ledgerSession).map(summarize(test.suite, test, _) -> index)
         }
-      }
-      .map {
-        case ((suite, test, testResult), index) => summarize(suite, test, testResult) -> index
-      }
-      .runWith(Sink.seq)
-      .map(_.toVector.sortBy(_._2).map(_._1))
+        .runWith(Sink.seq)
+        .map(_.toVector.sortBy(_._2).map(_._1))
+    }
+
+    val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
+
+    val testResults =
+      for {
+        concurrentTestsResults <- runTestCases(concurrentTestCases, concurrentTestRuns)
+        sequentialTestsResults <- runTestCases(sequentialTestCases, concurrency = 1)
+      } yield concurrentTestsResults ++ sequentialTestsResults
+
+    testResults
       .recover { case NonFatal(e) => throw LedgerTestCasesRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
