@@ -9,10 +9,10 @@ import org.scalatest.{Matchers, WordSpec}
 
 class NumericOffsetSpec extends WordSpec with Matchers {
 
-  "KVOffset" should {
+  "NumericOffset" should {
     val zeroBytes = data.Bytes.fromByteArray(Array.fill(16)(0: Byte))
 
-    def triple(offset: Offset) =
+    def triple(offset: Offset): (Long, Long, Long) =
       (
         NumericOffset.highestIndex(offset),
         NumericOffset.middleIndex(offset),
