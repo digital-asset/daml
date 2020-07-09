@@ -188,5 +188,6 @@ conformance_test(
         "--include=IdentityIT",
         "--all-tests",
         "--load-scale-factor=1",
+        "--target-port=8080",
     ],
 )

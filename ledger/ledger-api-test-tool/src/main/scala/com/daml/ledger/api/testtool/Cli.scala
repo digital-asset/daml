@@ -14,6 +14,14 @@ import scopt.Read.{intRead, stringRead}
 
 object Cli {
 
+  private def reportUsageOfDeprecatedOption[A, B](
+      option: String,
+  )(ignoredValue: A, ignoredConfig: B): B = {
+    System.err.println(
+      s"WARNING: $option has been deprecated and will be removed in a future version")
+    ignoredConfig
+  }
+
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
     val reads: String => (String, Int) = { s: String =>
@@ -67,6 +75,7 @@ object Cli {
     opt[String]("target-port")
       .optional()
       .text("DEPRECATED: this option is no longer used and has no effect")
+      .action(reportUsageOfDeprecatedOption("--target-port"))
       .hidden()
 
     opt[String]("pem")
@@ -97,6 +106,7 @@ object Cli {
     opt[Double](name = "load-scale-factor")
       .optional()
       .text("DEPRECATED: this option is no longer used and has no effect")
+      .action(reportUsageOfDeprecatedOption("--load-scale-factor"))
       .hidden()
 
     opt[Int](name = "concurrent-test-runs")
@@ -148,6 +158,7 @@ object Cli {
 
     opt[Unit]("all-tests")
       .text("DEPRECATED: All tests are always run by default.")
+      .action(reportUsageOfDeprecatedOption("--all-tests"))
       .hidden()
 
     opt[Unit]("shuffle-participants")
