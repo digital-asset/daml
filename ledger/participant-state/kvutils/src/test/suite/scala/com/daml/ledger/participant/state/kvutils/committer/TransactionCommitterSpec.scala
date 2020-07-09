@@ -197,10 +197,31 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
   }
 
   "buildLogEntry" should {
+    "set record time in log entry when it is available" in {
+      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+
+      val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
+
+      actual.hasRecordTime shouldBe true
+      actual.getRecordTime shouldBe buildTimestamp(theRecordTime)
+      actual.hasTransactionEntry shouldBe true
+      actual.getTransactionEntry shouldBe aTransactionEntrySummary.submission
+    }
+
+    "skip setting record time in log entry when it is not available" in {
+      val context = new FakeCommitContext(recordTime = None)
+
+      val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
+
+      actual.hasRecordTime shouldBe false
+      actual.hasTransactionEntry shouldBe true
+      actual.getTransactionEntry shouldBe aTransactionEntrySummary.submission
+    }
+
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = new FakeCommitContext(recordTime = None)
 
-      val actualSuccessLogEntry = instance.buildLogEntry(aTransactionEntrySummary, context)
+      val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
@@ -209,19 +230,15 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         actual.hasTransactionRejectionEntry shouldBe true
         actual.getTransactionRejectionEntry.getSubmitterInfo shouldBe aTransactionEntrySummary.submitterInfo
       }
-      actualSuccessLogEntry.hasRecordTime shouldBe false
-      actualSuccessLogEntry.getTransactionEntry shouldBe aTransactionEntrySummary.submission
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val context = new FakeCommitContext(recordTime = Some(aRecordTime))
 
-      val actualSuccessLogEntry = instance.buildLogEntry(aTransactionEntrySummary, context)
+      val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
-      actualSuccessLogEntry.hasRecordTime shouldBe true
-      actualSuccessLogEntry.getTransactionEntry shouldBe aTransactionEntrySummary.submission
     }
   }
 
