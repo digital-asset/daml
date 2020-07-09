@@ -86,9 +86,12 @@ Here are a few practical tips:
 
 ### List of components for changelog entries
 
+This list should cover the vast majority of needs. If unsure, ask on the relevant GitHub issue or PR.
+
   * DAML Compiler
   * DAML on SQL
   * DAML Studio
+  * Distribution/Releases
   * Extractor
   * Java Bindings
   * Java Codegen
@@ -96,7 +99,7 @@ Here are a few practical tips:
   * JavaScript Codegen
   * JSON API
   * Ledger API Specification
-  * Integration Kit (Ledger API Test Tool and changes only relevant for ledger integrations, e.g, kvutils changes, metrics, …)
+  * Integration Kit †
   * Navigator
   * DAML REPL
   * Sandbox
@@ -106,6 +109,8 @@ Here are a few practical tips:
   * DAML Assistant
   * DAML Standard Library
   * DAML Triggers
+
+† Covers the Ledger API Test Tool and changes to libraries that affect ledger integrations (e.g. `kvutils`)
 
 ## Working with issues
 
