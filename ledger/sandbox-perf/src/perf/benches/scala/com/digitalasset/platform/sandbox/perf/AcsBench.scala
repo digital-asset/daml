@@ -46,7 +46,7 @@ class AcsBench extends TestCommands with InfAwait {
       ledgerId = ledgerId,
       commandId = s"command-id-exercise-$sequenceNumber",
       commands = Seq(exerciseWithUnit(template, contractId, "DummyChoice1")),
-      appId = "app1"
+      applicationId = "app1",
     ).toSync
   }
 

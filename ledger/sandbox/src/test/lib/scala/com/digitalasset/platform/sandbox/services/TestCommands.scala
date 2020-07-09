@@ -6,10 +6,7 @@ package com.daml.platform.sandbox.services
 import java.io.File
 import java.util
 
-import com.daml.lf.archive.DarReader
-import com.daml.lf.data.Ref.PackageId
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.MockMessages.applicationId
 import com.daml.ledger.api.testing.utils.{MockMessages => M}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -18,6 +15,8 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand, Exerci
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.Value.Sum.{Bool, Party, Text, Timestamp}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.testing.TestTemplateIdentifiers
 import scalaz.syntax.tag._
@@ -34,12 +33,14 @@ trait TestCommands {
       ledgerId: domain.LedgerId,
       commandId: String,
       commands: Seq[Command],
-      appId: String = applicationId,
+      applicationId: String = M.applicationId,
+      party: String = M.party,
   ): SubmitRequest =
     M.submitRequest.update(
       _.commands.commandId := commandId,
       _.commands.ledgerId := ledgerId.unwrap,
-      _.commands.applicationId := appId,
+      _.commands.applicationId := applicationId,
+      _.commands.party := party,
       _.commands.commands := commands,
     )
 
@@ -49,13 +50,14 @@ trait TestCommands {
       party: String = M.party,
   ): SubmitRequest =
     buildRequest(
-      ledgerId,
-      commandId,
-      List(
+      ledgerId = ledgerId,
+      commandId = commandId,
+      commands = List(
         createWithOperator(templateIds.dummy, party),
         createWithOperator(templateIds.dummyWithParam, party),
         createWithOperator(templateIds.dummyFactory, party)
-      )
+      ),
+      party = party,
     )
 
   protected def createWithOperator(templateId: Identifier, party: String = M.party): Command =

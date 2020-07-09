@@ -24,7 +24,7 @@ trait DummyCommands extends TestCommands {
             ledgerId = ledgerId,
             commandId = s"command-id-create-$i",
             commands = Seq(createWithOperator(templates.dummy)),
-            appId = "app1"
+            applicationId = "app1",
           ).toSync)
   }
 }
