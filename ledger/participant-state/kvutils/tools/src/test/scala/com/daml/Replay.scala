@@ -18,8 +18,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.{Ast, Util => AstUtil}
-import com.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
+import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{Node, Transaction => Tx, TransactionCoder => TxCoder}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
@@ -27,7 +26,6 @@ import com.google.protobuf.ByteString
 import org.openjdk.jmh.annotations._
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 final case class TxEntry(
     tx: Tx.SubmittedTransaction,
@@ -37,7 +35,7 @@ final case class TxEntry(
     submissionSeed: crypto.Hash,
 )
 
-final case class BenchMarkState(
+final case class BenchmarkState(
     name: String,
     transaction: TxEntry,
     contracts: Map[ContractId, Tx.ContractInst[ContractId]],
@@ -65,15 +63,15 @@ class Replay {
   var adapt: Boolean = _
 
   private var readDarFile: Option[String] = None
-  private var pkgs: Map[Ref.PackageId, Ast.Package] = _
+  private var loadedPackages: Map[Ref.PackageId, Ast.Package] = _
   private var engine: Engine = _
   private var benchmarksFile: Option[String] = None
-  private var benchmarks: Map[String, BenchMarkState] = _
-  private var benchmark: BenchMarkState = _
+  private var benchmarks: Map[String, BenchmarkState] = _
+  private var benchmark: BenchmarkState = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(): Unit = {
-    val r = engine
+    val result = engine
       .replay(
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
@@ -82,14 +80,14 @@ class Replay {
         benchmark.transaction.submissionSeed,
       )
       .consume(benchmark.contracts.get, _ => Replay.unexpectedError, benchmark.contractKeys.get)
-    assert(r.isRight)
+    assert(result.isRight)
   }
 
   @Setup(Level.Trial)
   def init(): Unit = {
     if (!readDarFile.contains(darFile)) {
-      pkgs = Replay.loadDar(Paths.get(darFile))
-      engine = Replay.compile(pkgs)
+      loadedPackages = Replay.loadDar(Paths.get(darFile))
+      engine = Replay.compile(loadedPackages)
       readDarFile = Some(darFile)
     }
     if (!benchmarksFile.contains(ledgerFile)) {
@@ -97,10 +95,11 @@ class Replay {
       benchmarksFile = Some(ledgerFile)
     }
 
-    benchmark = if (adapt) Replay.adapt(pkgs, benchmarks(choiceName)) else benchmarks(choiceName)
+    benchmark =
+      if (adapt) Replay.adapt(loadedPackages, benchmarks(choiceName)) else benchmarks(choiceName)
 
     // before running the bench, we validate the transaction first to be sure everything is fine.
-    val r = engine
+    val result = engine
       .validate(
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
@@ -113,7 +112,7 @@ class Replay {
         pkgId => throw new IllegalArgumentException(s"package $pkgId not found"),
         benchmark.contractKeys.get,
       )
-    assert(r.isRight)
+    assert(result.isRight)
   }
 
 }
@@ -204,7 +203,7 @@ object Replay {
   private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  private def loadBenchmarks(dumpFile: Path): Map[String, BenchMarkState] = {
+  private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
     val transactions = exportEntries(dumpFile).flatMap(decodeSubmissionInfo)
     if (transactions.isEmpty) sys.error("no transaction find")
@@ -232,7 +231,7 @@ object Replay {
         case ImmArray(exe: Node.NodeExercises.WithTxValue[_, ContractId]) =>
           val inputContracts = entry.tx.inputContracts
           List(
-            BenchMarkState(
+            BenchmarkState(
               name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
               transaction = entry,
               contracts = allContracts.filterKeys(inputContracts),
@@ -256,111 +255,13 @@ object Replay {
 
   }
 
-  def adapt(pkgs: Map[Ref.PackageId, Ast.Package], benchMarkState: BenchMarkState): BenchMarkState =
-    new Adapter(pkgs).adapt(benchMarkState)
-
-  private[this] final class Adapter(pkgs: Map[Ref.PackageId, Ast.Package]) {
-
-    def adapt(state: BenchMarkState): BenchMarkState =
-      state.copy(
-        transaction = state.transaction.copy(tx = adapt(state.transaction.tx)),
-        contracts = state.contracts.transform((_, v) => adapt(v)),
-        contractKeys = state.contractKeys.iterator.map { case (k, v) => adapt(k) -> v }.toMap,
-      )
-
-    private[this] def adapt(tx: Tx.Transaction): Tx.SubmittedTransaction =
-      tx.foldWithPathState(new TxBuilder, Option.empty[Tx.NodeId])(
-          (builder, parent, _, node) =>
-            (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
-        )
-        .buildSubmitted()
-
-    // drop version and children
-    private[this] def adapt(node: Tx.Node): Node.GenNode[Tx.NodeId, ContractId, Value[ContractId]] =
-      node match {
-        case create: Node.NodeCreate.WithTxValue[ContractId] =>
-          create.copy(
-            coinst =
-              create.coinst.copy(adapt(create.coinst.template), adapt(create.coinst.arg.value)),
-            optLocation = None,
-            key = create.key.map(adapt)
-          )
-        case exe: Node.NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
-          exe.copy(
-            templateId = adapt(exe.templateId),
-            optLocation = None,
-            chosenValue = adapt(exe.chosenValue.value),
-            children = ImmArray.empty,
-            exerciseResult = exe.exerciseResult.map(v => adapt(v.value)),
-            key = exe.key.map(adapt),
-          )
-        case fetch: Node.NodeFetch.WithTxValue[ContractId] =>
-          fetch.copy(
-            templateId = adapt(fetch.templateId),
-            optLocation = None,
-            key = fetch.key.map(adapt),
-          )
-        case lookup: Node.NodeLookupByKey.WithTxValue[ContractId] =>
-          lookup.copy(
-            templateId = adapt(lookup.templateId),
-            optLocation = None,
-            key = adapt(lookup.key),
-          )
-      }
-
-    // drop version
-    private[this] def adapt(
-        k: KeyWithMaintainers[Tx.Value[ContractId]],
-    ): KeyWithMaintainers[Value[ContractId]] =
-      k.copy(adapt(k.key.value))
-
-    private[this] def adapt(coinst: Tx.ContractInst[ContractId]): Tx.ContractInst[ContractId] =
-      coinst.copy(
-        template = adapt(coinst.template),
-        arg = coinst.arg.copy(value = adapt(coinst.arg.value)),
-      )
-
-    private[this] def adapt(gkey: GlobalKey): GlobalKey =
-      GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))
-
-    private[this] def adapt(value: Value[ContractId]): Value[ContractId] =
-      value match {
-        case Value.ValueEnum(tycon, value) =>
-          Value.ValueEnum(tycon.map(adapt), value)
-        case Value.ValueRecord(tycon, fields) =>
-          Value.ValueRecord(tycon.map(adapt), fields.map { case (f, v) => f -> adapt(v) })
-        case Value.ValueVariant(tycon, variant, value) =>
-          Value.ValueVariant(tycon.map(adapt), variant, adapt(value))
-        case Value.ValueList(values) =>
-          Value.ValueList(values.map(adapt))
-        case Value.ValueOptional(value) =>
-          Value.ValueOptional(value.map(adapt))
-        case Value.ValueTextMap(value) =>
-          Value.ValueTextMap(value.mapValue(adapt))
-        case Value.ValueGenMap(entries) =>
-          Value.ValueGenMap(entries.map { case (k, v) => adapt(k) -> adapt(v) })
-        case Value.ValueStruct(fields) =>
-          Value.ValueStruct(fields.map { case (f, v) => f -> adapt(v) })
-        case _: Value.ValueCidlessLeaf | _: Value.ValueContractId[ContractId] =>
-          value
-      }
-
-    private[this] val cache = mutable.Map.empty[Ref.Identifier, Ref.Identifier]
-
-    private[this] def adapt(id: Ref.Identifier): Ref.Identifier =
-      cache.getOrElseUpdate(id, assertRight(lookup(id)))
-
-    private[this] def lookup(id: Ref.Identifier): Either[String, Ref.Identifier] = {
-      val pkgIds = pkgs.collect {
-        case (pkgId, pkg) if pkg.lookupIdentifier(id.qualifiedName).isRight => pkgId
-      }
-      pkgIds.toSeq match {
-        case Seq(pkgId) => Right(id.copy(packageId = pkgId))
-        case Seq() => Left(s"no package foud for ${id.qualifiedName}")
-        case _ => Left(s"2 or more packages found for ${id.qualifiedName}")
-      }
-    }
-
+  def adapt(pkgs: Map[Ref.PackageId, Ast.Package], state: BenchmarkState): BenchmarkState = {
+    val adapter = new Adapter(pkgs)
+    state.copy(
+      transaction = state.transaction.copy(tx = adapter.adapt(state.transaction.tx)),
+      contracts = state.contracts.transform((_, v) => adapter.adapt(v)),
+      contractKeys = state.contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
+    )
   }
 
 }

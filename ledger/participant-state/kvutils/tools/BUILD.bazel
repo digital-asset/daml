@@ -61,7 +61,7 @@ da_scala_binary(
 
 da_scala_benchmark_jmh(
     name = "replay",
-    srcs = glob(["src/test/scala/**/Replay.scala"]),
+    srcs = glob(["src/test/scala/**/*.scala"]),
     max_heap_size = "4g",
     scalacopts = lf_scalacopts,
     deps = [
