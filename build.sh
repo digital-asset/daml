@@ -17,4 +17,4 @@ if [[ "$execution_log_postfix" == "_Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
-du -h /tmp | sort -h
+du -h .bazel-cache --summarize
