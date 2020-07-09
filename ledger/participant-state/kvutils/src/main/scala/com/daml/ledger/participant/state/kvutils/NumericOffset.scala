@@ -5,6 +5,15 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
 
+/**
+  * Helper functions for generating 16 byte [[com.daml.ledger.participant.state.v1.Offset]]s from integers.
+  * Example usage:
+  *  * If you have one log entry per block then just use [[NumericOffset.fromLong(<block-ID>)]]
+  *  * If you may have multiple log entries per block then use [[NumericOffset.fromLong(<block-ID>, <index>)]],
+  *  where <index> denotes the position or index of a given log entry in the block.
+  *
+  *  @see com.daml.ledger.participant.state.v1.Offset
+  */
 object NumericOffset {
   private[kvutils] val highestStart = 0
   private[kvutils] val middleStart = 8
