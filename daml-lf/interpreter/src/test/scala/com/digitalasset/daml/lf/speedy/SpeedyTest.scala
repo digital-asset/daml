@@ -222,7 +222,7 @@ class SpeedyTest extends WordSpec with Matchers {
     }
   }
 
-  "type abstract" should {
+  "type abstraction" should {
     "evaluate when using (un uninhabited) type of kind '* -> nat'" in {
       val e = e"""/\(f : * -> nat). ADD_NUMERIC @(f Unit)"""
       val x = eval(e, anyPkgs)
