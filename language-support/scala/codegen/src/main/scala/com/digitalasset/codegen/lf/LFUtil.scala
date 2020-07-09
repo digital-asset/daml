@@ -378,6 +378,7 @@ object LFUtil {
   val stdMapCompanion = q"_root_.scala.collection.immutable.Map"
   val stdVectorType = tq"_root_.scala.collection.immutable.Vector"
   val stdSeqCompanion = q"_root_.scala.collection.immutable.Seq"
+  val nothingType = q"_root_.scala.Nothing"
 
   def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"
 

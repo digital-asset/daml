@@ -9,6 +9,7 @@ import com.daml.codegen.Util
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
+import scalaz.syntax.std.option._
 
 import scala.reflect.runtime.universe._
 
@@ -77,6 +78,7 @@ object DamlContractTemplateGen {
       q"""implicit final class ${TypeName(s"${contractName.name} syntax")}[$syntaxIdDecl](private val id: $syntaxIdType) extends _root_.scala.AnyVal {
             ..$templateChoiceMethods
           }""",
+      q"type key = ${templateInterface.template.key.cata(util.genTypeToScalaType, LFUtil.nothingType)}",
       consumingChoicesMethod,
       toNamedArgumentsMethod,
       fromNamedArgumentsMethod

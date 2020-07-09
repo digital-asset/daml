@@ -37,6 +37,13 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
     */
   implicit final def `the TemplateCompanion`: this.type = this
 
+  /** The template's key type, or [[Nothing]] if there is no key type. */
+  type key
+
+  /** Prepare an exercise-by-key Update. */
+  final def key(k: key)(implicit enc: ValueEncoder[key]): Template.Key[T] =
+    Template.Key(Value encode k)
+
   /** Proof that T <: Template[T].  Expressed here instead of as a type parameter
     * bound because the latter is much more inconvenient in practice.
     */
@@ -87,6 +94,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
 object TemplateCompanion {
   abstract class Empty[T](implicit isTemplate: T <~< Template[T]) extends TemplateCompanion[T] {
     protected def onlyInstance: T
+    override type key = Nothing
     type view[C[_]] = RecordView.Empty[C]
     override def toNamedArguments(associatedType: T) = ` arguments`()
     override def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T] = Some(onlyInstance)
