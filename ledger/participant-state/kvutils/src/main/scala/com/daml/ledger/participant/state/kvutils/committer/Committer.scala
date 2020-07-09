@@ -56,6 +56,8 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   // These are lazy because they rely on `committerName`, which is defined in the subclass and
   // therefore not set at object initialization.
   private lazy val runTimer: Timer = metrics.daml.kvutils.committer.runTimer(committerName)
+  private lazy val preExecutionRunTimer: Timer =
+    metrics.daml.kvutils.committer.preExecutionRunTimer(committerName)
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {
       case (info, _) =>
@@ -89,7 +91,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       participantId: ParticipantId,
       inputState: DamlStateMapWithFingerprints,
   ): PreexecutionResult = {
-    runTimer.time { () =>
+    preExecutionRunTimer.time { () =>
       // TODO(miklos): Create context for pre-execution here.
       val commitContext = new CommitContext {
         override def getRecordTime: Option[Time.Timestamp] = None

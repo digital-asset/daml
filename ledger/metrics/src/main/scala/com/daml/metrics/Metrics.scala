@@ -73,6 +73,8 @@ class Metrics(val registry: MetricRegistry) {
 
         def runTimer(committerName: String): Timer =
           registry.timer(Prefix :+ committerName :+ "run_timer")
+        def preExecutionRunTimer(committerName: String): Timer =
+          registry.timer(Prefix :+ committerName :+ "preexecution_run_timer")
         def stepTimer(committerName: String, stepName: String): Timer =
           registry.timer(Prefix :+ committerName :+ "step_timers" :+ stepName)
 
