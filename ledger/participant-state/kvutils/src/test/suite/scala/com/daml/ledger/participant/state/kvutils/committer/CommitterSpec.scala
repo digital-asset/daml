@@ -29,7 +29,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val aDamlSubmission = DamlSubmission.getDefaultInstance
   private val aParticipantId = Ref.ParticipantId.assertFromString("a participant")
 
-  "preexecute" should {
+  "preExecute" should {
     "set pre-execution results from context" in {
       val expectedMinRecordTime = Instant.ofEpochSecond(100)
       val expectedMaxRecordTime = Instant.ofEpochSecond(200)
@@ -46,7 +46,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.getAccessedInputKeysWithFingerprints).thenReturn(expectedReadSet)
       val instance = createCommitter()
 
-      val actual = instance.preexecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
       verify(mockContext, times(1)).getOutputs
       verify(mockContext, times(1)).getAccessedInputKeysWithFingerprints
@@ -67,7 +67,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
         .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
       val instance = createCommitter()
 
-      val actual = instance.preexecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
       actual.minimumRecordTime shouldBe Timestamp.MinValue
       actual.maximumRecordTime shouldBe Timestamp.MaxValue
@@ -83,7 +83,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val instance = createCommitter()
       val expectedOutOfTimeBoundsLogEntry = DamlLogEntry.newBuilder.build
 
-      val actual = instance.preexecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
+      val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
       actual.outOfTimeBoundsLogEntry shouldBe expectedOutOfTimeBoundsLogEntry
     }

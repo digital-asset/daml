@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreexecutionResult
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
   SubmissionExecutor,
@@ -110,7 +110,7 @@ class KeyValueCommitting private[daml] (
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
-  ): PreexecutionResult =
+  ): PreExecutionResult =
     createCommitter(engine, defaultConfig, submission).dryRun(
       submission,
       participantId,
@@ -277,7 +277,7 @@ class KeyValueCommitting private[daml] (
 }
 
 object KeyValueCommitting {
-  case class PreexecutionResult(
+  case class PreExecutionResult(
       readSet: Map[DamlStateKey, Fingerprint],
       successfulLogEntry: DamlLogEntry,
       stateUpdates: Map[DamlStateKey, DamlStateValue],
