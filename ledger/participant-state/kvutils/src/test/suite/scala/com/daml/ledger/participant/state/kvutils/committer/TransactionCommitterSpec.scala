@@ -149,6 +149,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           Instant.ofEpochSecond(-28))
         contextWithTimeModelAndEmptyCommandDeduplication.maximumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(31))
+        contextWithTimeModelAndEmptyCommandDeduplication.deduplicateUntil shouldBe empty
       }
 
       "compute and correctly set the min/max ledger time with deduplicateUntil" in {
@@ -159,6 +160,9 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           Instant.ofEpochSecond(3).plus(Timestamp.Resolution))
         contextWithTimeModelAndCommandDeduplication.maximumRecordTime shouldEqual Some(
           Instant.ofEpochSecond(31))
+        contextWithTimeModelAndCommandDeduplication.deduplicateUntil shouldEqual Some(
+          Instant.ofEpochSecond(aDeduplicateUntil.getSeconds)
+        )
       }
     }
 

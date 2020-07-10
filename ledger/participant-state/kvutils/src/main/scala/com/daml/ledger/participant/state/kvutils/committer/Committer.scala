@@ -146,6 +146,9 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
         commitContext.maximumRecordTime.foreach { instant =>
           builder.setTooLateFrom(buildTimestamp(instant))
         }
+        commitContext.deduplicateUntil.foreach { instant =>
+          builder.setDuplicateUntil(buildTimestamp(instant))
+        }
         DamlLogEntry.newBuilder
           .setOutOfTimeBoundsEntry(builder)
           .build
