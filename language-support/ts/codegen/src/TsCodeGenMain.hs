@@ -437,16 +437,18 @@ renderSerializableDef SerializableDef{..}
           ]
     in (jsDecl, tsDecl)
   | otherwise = assert (null serKeys) $
-    let tsDecl = T.unlines
+    let tsDecl = T.unlines $
             -- If we have type parameters, the serializable definition is
             -- a function and we generate extra properties on that function
             -- for each nested decoder.
-            [ "export declare const " <> serName <> " : " <> tyArgs <> " => "
-            , "  damlTypes.Serializable<" <> serName <> tyParams <> ">;"
+            [ "export declare const " <> serName <> " :"
+            , "  (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <> tyParams <> ">) & {"
+            ] ++
+            [ "  " <> n <> ": (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <.> n <> ">);"
+            | (n, _) <- serNestedDecoders
+            ] ++
+            [ "};"
             ]
-            -- NOTE (MK) It would be nice to type the nested
-            -- fields here as well (we didn’t do that when we generated
-            -- TS code either).
         jsSource = T.unlines $
             -- If we have type parameters, the serializable definition is
             -- a function and we generate extra properties on that function
