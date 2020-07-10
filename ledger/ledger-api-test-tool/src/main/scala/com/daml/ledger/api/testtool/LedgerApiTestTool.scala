@@ -107,7 +107,8 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val allTestCaseNames: Set[String] = (Tests.all ++ Tests.retired).map(_.name).toSet
+    val allTestCaseNames: Set[String] =
+      (Tests.all ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix)))
     if (missingTests.nonEmpty) {
