@@ -38,7 +38,7 @@ class KeyValueParticipantStateReader private[api] (
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     Source
-      .single(beginAfter.map(dropLowestIndex))
+      .single(beginAfter.map(OffsetBuilder.dropLowestIndex))
       .flatMapConcat(reader.events)
       .flatMapConcat {
         case LedgerRecord(offset, entryId, envelope) =>
@@ -89,10 +89,4 @@ object KeyValueParticipantStateReader {
     } else {
       offsetFromRecord
     }
-
-  private[api] def dropLowestIndex(offset: Offset): Offset = {
-    val highest = OffsetBuilder.highestIndex(offset)
-    val middle = OffsetBuilder.middleIndex(offset)
-    OffsetBuilder.fromLong(highest, middle.toInt)
-  }
 }

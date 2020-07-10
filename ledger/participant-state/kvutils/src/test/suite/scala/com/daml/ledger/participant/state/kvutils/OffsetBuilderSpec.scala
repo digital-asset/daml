@@ -9,7 +9,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 class OffsetBuilderSpec extends WordSpec with Matchers {
 
-  "NumericOffset" should {
+  "OffsetBuilder" should {
     val zeroBytes = data.Bytes.fromByteArray(Array.fill(16)(0: Byte))
 
     def triple(offset: Offset): (Long, Long, Long) =
@@ -37,6 +37,11 @@ class OffsetBuilderSpec extends WordSpec with Matchers {
     "zero out the middle and lowest index" in {
       val offset = OffsetBuilder.fromLong(1, 2, 3)
       triple(OffsetBuilder.onlyKeepHighestIndex(offset)) shouldBe ((1, 0, 0))
+    }
+
+    "zero out the lowest index" in {
+      val offset = OffsetBuilder.fromLong(1, 2, 3)
+      triple(OffsetBuilder.dropLowestIndex(offset)) shouldBe ((1, 2, 0))
     }
 
     "retain leading zeros" in {

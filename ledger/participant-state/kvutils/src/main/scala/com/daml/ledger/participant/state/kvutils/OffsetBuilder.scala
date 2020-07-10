@@ -12,8 +12,8 @@ import com.daml.ledger.participant.state.v1.Offset
   * Leading zeros will be retained when generating the resulting offset bytes.
   *
   * Example usage:
-  *  * If you have one log entry per block then just use [[OffsetBuilder.fromLong(<block-ID>)]]
-  *  * If you may have multiple log entries per block then use [[OffsetBuilder.fromLong(<block-ID>, <index>)]],
+  *  * If you have one record per block then just use [[OffsetBuilder.fromLong(<block-ID>)]]
+  *  * If you may have multiple records per block then use [[OffsetBuilder.fromLong(<block-ID>, <index>)]],
   *  where <index> denotes the position or index of a given log entry in the block.
   *
   *  @see com.daml.ledger.participant.state.v1.Offset
@@ -30,6 +30,12 @@ object OffsetBuilder {
   def onlyKeepHighestIndex(offset: Offset): Offset = {
     val highest = highestIndex(offset)
     fromLong(highest)
+  }
+
+  def dropLowestIndex(offset: Offset): Offset = {
+    val highest = highestIndex(offset)
+    val middle = middleIndex(offset)
+    fromLong(highest, middle.toInt)
   }
 
   def setMiddleIndex(offset: Offset, middle: Int): Offset = {
