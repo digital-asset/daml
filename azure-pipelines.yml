@@ -201,7 +201,7 @@ jobs:
     dependsOn:
       - da_ghc_lib
       - check_for_release
-    timeoutInMinutes: 60
+    timeoutInMinutes: 360
     pool:
       name: linux-pool
       demands: assignment -equals default
@@ -217,7 +217,7 @@ jobs:
       - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
-    timeoutInMinutes: 60
+    timeoutInMinutes: 360
     pool:
       name: linux-pool
       demands: assignment -equals default
@@ -235,7 +235,7 @@ jobs:
       - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
-    timeoutInMinutes: 60
+    timeoutInMinutes: 360
     pool:
       name: macOS-pool
     steps:
@@ -254,7 +254,7 @@ jobs:
       - check_for_release
       - compatibility_ts_libs
       - patch_bazel_windows
-    timeoutInMinutes: 60
+    timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
       demands: assignment -equals default
