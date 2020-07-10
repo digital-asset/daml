@@ -12,13 +12,13 @@ import com.daml.ledger.participant.state.v1.Offset
   * Leading zeros will be retained when generating the resulting offset bytes.
   *
   * Example usage:
-  *  * If you have one log entry per block then just use [[NumericOffset.fromLong(<block-ID>)]]
-  *  * If you may have multiple log entries per block then use [[NumericOffset.fromLong(<block-ID>, <index>)]],
+  *  * If you have one log entry per block then just use [[OffsetBuilder.fromLong(<block-ID>)]]
+  *  * If you may have multiple log entries per block then use [[OffsetBuilder.fromLong(<block-ID>, <index>)]],
   *  where <index> denotes the position or index of a given log entry in the block.
   *
   *  @see com.daml.ledger.participant.state.v1.Offset
   */
-object NumericOffset {
+object OffsetBuilder {
   private[kvutils] val highestStart = 0
   private[kvutils] val middleStart = 8
   private[kvutils] val lowestStart = 12

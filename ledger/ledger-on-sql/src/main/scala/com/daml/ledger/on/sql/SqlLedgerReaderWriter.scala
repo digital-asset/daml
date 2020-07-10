@@ -21,7 +21,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
   LedgerWriter
 }
-import com.daml.ledger.participant.state.kvutils.{Bytes, NumericOffset}
+import com.daml.ledger.participant.state.kvutils.{Bytes, OffsetBuilder}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
@@ -81,7 +81,7 @@ final class SqlLedgerReaderWriter(
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
-        NumericOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
+        OffsetBuilder.highestIndex(startExclusive.getOrElse(StartOffset)),
         RangeSource(
           (startExclusive, endInclusive) =>
             Source
@@ -123,7 +123,7 @@ final class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  private val StartOffset: Offset = NumericOffset.fromLong(StartIndex)
+  private val StartOffset: Offset = OffsetBuilder.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 

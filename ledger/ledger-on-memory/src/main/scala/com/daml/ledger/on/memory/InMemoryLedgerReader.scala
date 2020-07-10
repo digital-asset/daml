@@ -6,7 +6,7 @@ package com.daml.ledger.on.memory
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.participant.state.kvutils.NumericOffset
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
 import com.daml.metrics.{Metrics, Timed}
@@ -23,7 +23,7 @@ class InMemoryLedgerReader(
     dispatcher
       .startingAt(
         startExclusive
-          .map(NumericOffset.highestIndex(_).toInt)
+          .map(OffsetBuilder.highestIndex(_).toInt)
           .getOrElse(StartIndex),
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
