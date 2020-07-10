@@ -78,13 +78,13 @@ There's also quite a lot going on inside the ``do`` block of the ``Redeem`` choi
 Time on DAML ledgers
 --------------------
 
-Each transaction on a DAML ledger has two timestamps called the *ledger effective time (LET)* and the *record time (RT)*. The ledger effective time is set by the submitter of a transaction, the record time is set by the consensus protocol.
+Each transaction on a DAML ledger has two timestamps called the *ledger effective time (LET)* and the *record time (RT)*. The ledger effective time is set by the participant, the record time is set by the consensus protocol.
 
-Each DAML ledger has a policy on the allowed difference between LET and RT called the *skew*. The submitter has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
+Each DAML ledger has a policy on the allowed difference between LET and RT called the *skew*. The participant has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
 
 ``getTime`` is an action that gets the LET from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
 
-Suppose now that the ledger had a skew of 10 seconds, but a submission took less than 4 seconds to commit. At 18:00:05, Alice could submit a transaction with a LET of 17:59:59 to redeem an Iou. It would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:59 so ``hrs == 17``. Since RT will be before 18:00:09, ``LET - RT < 10 seconds`` and the transaction won't be rejected.
+Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:55:55, Alice submits a transaction to redeem an Iou. The transaction is assigned a LET of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LET - RT < 10 seconds`` and the transaction won't be rejected.
 
 Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameter.
 
