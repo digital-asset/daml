@@ -44,12 +44,12 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       actual.readSet shouldBe expectedReadSet.toMap
       actual.successfulLogEntry shouldBe aLogEntry
       actual.stateUpdates shouldBe expectedOutputs
-      actual.minimumRecordTime shouldBe Timestamp.assertFromInstant(expectedMinRecordTime)
-      actual.maximumRecordTime shouldBe Timestamp.assertFromInstant(expectedMaxRecordTime)
+      actual.minimumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMinRecordTime))
+      actual.maximumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMaxRecordTime))
       actual.involvedParticipants shouldBe Committer.AllParticipants
     }
 
-    "set min/max record time to default values in case they are not available from context" in {
+    "set min/max record time to None in case they are not available from context" in {
       val mockContext = mock[CommitContext]
       when(mockContext.minimumRecordTime).thenReturn(None)
       when(mockContext.maximumRecordTime).thenReturn(None)
@@ -61,8 +61,8 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
       val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
-      actual.minimumRecordTime shouldBe Timestamp.MinValue
-      actual.maximumRecordTime shouldBe Timestamp.MaxValue
+      actual.minimumRecordTime should not be defined
+      actual.maximumRecordTime should not be defined
     }
 
     "construct out-of-time-bounds log entry" in {
