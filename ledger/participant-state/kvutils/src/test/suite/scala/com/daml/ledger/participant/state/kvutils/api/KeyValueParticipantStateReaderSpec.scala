@@ -50,7 +50,7 @@ class KeyValueParticipantStateReaderSpec
       }
     }
 
-    "stream offsets from a given offset" in {
+    "stream offsets from a given 1 component offset" in {
       val reader = readerStreamingFrom(
         offset = Some(toOffset(4)),
         LedgerRecord(toOffset(5), aLogEntryId(5), aWrappedLogEntry),
@@ -74,10 +74,10 @@ class KeyValueParticipantStateReaderSpec
 
     "remove index suffix when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
-        offset = Some(toOffset(1)),
+        offset = Some(toOffset(1, 2)),
         LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry))
       val instance = new KeyValueParticipantStateReader(reader, newMetrics)
-      val stream = instance.stateUpdates(Some(toOffset(1)))
+      val stream = instance.stateUpdates(Some(toOffset(1, 2, 3)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 1
@@ -85,7 +85,7 @@ class KeyValueParticipantStateReaderSpec
       }
     }
 
-    "append index to internal offset" in {
+    "do not append index to underlying reader's offset for not more than 1 update" in {
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
