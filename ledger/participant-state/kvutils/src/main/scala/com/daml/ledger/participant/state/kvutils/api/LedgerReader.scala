@@ -15,6 +15,8 @@ import com.daml.ledger.api.health.ReportsHealth
   *
   * For a detailed description of the required semantics of state updates see
   * [[com.daml.ledger.participant.state.v1.ReadService]].
+  * For a detailed description of the requirements on how offsets should be generated see
+  * [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader]].
   */
 trait LedgerReader extends ReportsHealth {
 
@@ -22,7 +24,7 @@ trait LedgerReader extends ReportsHealth {
     * Streams raw updates from the given offset for the participant.
     *
     * In case an offset is not specified, all updates must be streamed from the oldest known state.
-    * Each update is defined either as an opaque log entry ID and an
+    * Each update is defined as an opaque log entry ID and an
     * envelope ([[com.daml.ledger.participant.state.kvutils.api.LedgerRecord]]).
     *
     * @param startExclusive offset right after which updates must be streamed; in case not specified updates

@@ -34,7 +34,7 @@ class KeyValueParticipantState(
     extends ReadService
     with WriteService {
   private val readerAdapter =
-    new KeyValueParticipantStateReader(reader, metrics)
+    KeyValueParticipantStateReader(reader, metrics)
   private val writerAdapter =
     new KeyValueParticipantStateWriter(new TimedLedgerWriter(writer, metrics), metrics)
 
