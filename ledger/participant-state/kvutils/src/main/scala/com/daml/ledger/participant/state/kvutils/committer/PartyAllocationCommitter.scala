@@ -15,7 +15,7 @@ import com.daml.metrics.Metrics
 
 private[kvutils] class PartyAllocationCommitter(
     override protected val metrics: Metrics,
-) extends Committer[DamlPartyAllocationEntry, DamlPartyAllocationEntry.Builder] {
+) extends Committer[DamlPartyAllocationEntry.Builder] {
 
   override protected val committerName = "party_allocation"
 
@@ -164,9 +164,9 @@ private[kvutils] class PartyAllocationCommitter(
 
   override protected def init(
       ctx: CommitContext,
-      partyAllocationEntry: DamlPartyAllocationEntry,
+      submission: DamlSubmission,
   ): DamlPartyAllocationEntry.Builder =
-    partyAllocationEntry.toBuilder
+    submission.getPartyAllocationEntry.toBuilder
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submission" -> authorizeSubmission,

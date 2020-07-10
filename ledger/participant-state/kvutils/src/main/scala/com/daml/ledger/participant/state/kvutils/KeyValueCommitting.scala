@@ -6,8 +6,10 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
+  SubmissionExecutor,
   PackageCommitter,
   PartyAllocationCommitter,
   TransactionCommitter
@@ -19,7 +21,6 @@ import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.ValueOuterClass
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -38,29 +39,6 @@ class KeyValueCommitting private[daml] (
 
   def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
 
-  def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
-
-  def unpackDamlStateKey(bytes: ByteString): DamlStateKey =
-    DamlStateKey.parseFrom(bytes)
-
-  def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
-
-  def unpackDamlStateValue(bytes: Array[Byte]): DamlStateValue =
-    DamlStateValue.parseFrom(bytes)
-
-  def unpackDamlStateValue(bytes: ByteString): DamlStateValue =
-    DamlStateValue.parseFrom(bytes)
-
-  def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
-  def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry =
-    DamlLogEntry.parseFrom(bytes)
-
-  def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
-  def unpackDamlLogEntryId(bytes: Array[Byte]): DamlLogEntryId =
-    DamlLogEntryId.parseFrom(bytes)
-  def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId =
-    DamlLogEntryId.parseFrom(bytes)
-
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
     *
@@ -70,8 +48,7 @@ class KeyValueCommitting private[daml] (
     *
     * The caller is expected to store the produced [[DamlLogEntry]] in key-value store at a location
     * that can be accessed through `entryId`. The DAML state updates may create new entries or update
-    * existing entries in the key-value store. The concrete key for DAML state entry is obtained by applying
-    * [[packDamlStateKey]] to [[DamlStateKey]].
+    * existing entries in the key-value store.
     *
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
@@ -103,10 +80,9 @@ class KeyValueCommitting private[daml] (
     metrics.daml.kvutils.committer.last.lastParticipantIdGauge.updateValue(participantId)
     val ctx = metrics.daml.kvutils.committer.runTimer.time()
     try {
-      val (logEntry, outputState) = processPayload(
-        engine,
+      val committer = createCommitter(engine, defaultConfig, submission)
+      val (logEntry, outputState) = committer.run(
         Some(recordTime),
-        defaultConfig,
         submission,
         participantId,
         inputState,
@@ -128,49 +104,38 @@ class KeyValueCommitting private[daml] (
     }
   }
 
-  private def processPayload(
-      engine: Engine,
-      recordTime: Option[Timestamp],
+  @throws(classOf[Err])
+  def preExecuteSubmission(
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: DamlStateMap,
-  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+  ): PreExecutionResult =
+    createCommitter(engine, defaultConfig, submission).runWithPreExecution(
+      submission,
+      participantId,
+      inputState,
+    )
+
+  private def createCommitter(
+      engine: Engine,
+      defaultConfig: Configuration,
+      submission: DamlSubmission,
+  ): SubmissionExecutor =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        new PackageCommitter(engine, metrics).run(
-          recordTime,
-          submission.getPackageUploadEntry,
-          participantId,
-          inputState,
-        )
+        new PackageCommitter(engine, metrics)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        new PartyAllocationCommitter(metrics).run(
-          recordTime,
-          submission.getPartyAllocationEntry,
-          participantId,
-          inputState,
-        )
+        new PartyAllocationCommitter(metrics)
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         val maximumRecordTime = parseTimestamp(
           submission.getConfigurationSubmission.getMaximumRecordTime)
-        new ConfigCommitter(defaultConfig, maximumRecordTime, metrics).run(
-          recordTime,
-          submission.getConfigurationSubmission,
-          participantId,
-          inputState,
-        )
+        new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
-          .run(
-            recordTime,
-            submission.getTransactionEntry,
-            participantId,
-            inputState,
-          )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
@@ -309,4 +274,16 @@ class KeyValueCommitting private[daml] (
       )
     }
   }
+}
+
+object KeyValueCommitting {
+  case class PreExecutionResult(
+      readSet: Map[DamlStateKey, Fingerprint],
+      successfulLogEntry: DamlLogEntry,
+      stateUpdates: Map[DamlStateKey, DamlStateValue],
+      outOfTimeBoundsLogEntry: DamlLogEntry,
+      minimumRecordTime: Option[Timestamp],
+      maximumRecordTime: Option[Timestamp],
+      involvedParticipants: Set[ParticipantId]
+  )
 }
