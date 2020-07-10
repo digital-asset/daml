@@ -107,6 +107,7 @@ test_suite(
 
 migration_test(
     name = "migration-stable",
+    timeout = "long",
     # Exclusive due to hardcoded postgres ports.
     tags = [
         "exclusive",
@@ -129,6 +130,7 @@ migration_test(
 
 migration_test(
     name = "migration-all",
+    timeout = "long",
     # Exclusive due to hardcoded postgres ports.
     tags = ["exclusive"],
     versions = platform_versions,
