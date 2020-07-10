@@ -117,12 +117,10 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       stateUpdates = commitContext.getOutputs.toMap,
       outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),
       minimumRecordTime = commitContext.minimumRecordTime
-        .map(Timestamp.assertFromInstant)
-        .getOrElse(Timestamp.MinValue),
+        .map(Timestamp.assertFromInstant),
       maximumRecordTime = commitContext.maximumRecordTime
-        .map(Timestamp.assertFromInstant)
-        .getOrElse(Timestamp.MaxValue),
-      // We assume the time updates must be visible to every participant.
+        .map(Timestamp.assertFromInstant),
+      // We assume the time updates must be visible to every participant for public ledgers.
       involvedParticipants = AllParticipants
     )
   }

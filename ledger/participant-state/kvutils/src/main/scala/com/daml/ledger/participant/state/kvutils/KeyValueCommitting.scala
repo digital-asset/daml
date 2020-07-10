@@ -282,8 +282,8 @@ object KeyValueCommitting {
       successfulLogEntry: DamlLogEntry,
       stateUpdates: Map[DamlStateKey, DamlStateValue],
       outOfTimeBoundsLogEntry: DamlLogEntry,
-      minimumRecordTime: Timestamp,
-      maximumRecordTime: Timestamp,
+      minimumRecordTime: Option[Timestamp],
+      maximumRecordTime: Option[Timestamp],
       involvedParticipants: Set[ParticipantId]
   )
 }
