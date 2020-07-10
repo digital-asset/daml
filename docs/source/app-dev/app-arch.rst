@@ -172,7 +172,7 @@ How is this used in practice?
 
 More precisely, the ledger time is implemented as follows:
 
-- Each transaction has a ledger time ``lt_TX`` assigned by the participant during command submission and a *record time* ``rt_TX`` assigned by the ledger during the transaction commit.
+- Each transaction has a *ledger time* ``lt_TX`` assigned by the participant during command submission and a *record time* ``rt_TX`` assigned by the ledger during the transaction commit.
 - The ledger time ``lt_TX`` is set to the local time on the participant server and adjusted to satisfy both the user-defined mimimum ledger time and causal monotonicity (see above).
 - The participant submits the transaction to the ledger when its local clock reaches ``lt_TX - transaction_latency``, i.e., with the intention that the transaction is committed at its ledger time, taking into account the *average* latency between the submission and the commit, ``transaction_latency``.
 - During the transaction commit, the ledger assigns a *record time* ``rt_TX`` and and validates that the ledger time statisfies ``rt_TX - min_skew <= lt_TX`` and ``lt_TX <= rt_TX + max_skew``.
