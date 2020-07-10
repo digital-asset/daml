@@ -22,16 +22,24 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import org.slf4j.{Logger, LoggerFactory}
 
-/** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
+/** A committer either processes or pre-executes a submission, with its inputs into an ordered set of output state and
+  * a log entry or multiple log entries in case of pre-execution.
   * It is parametrized by the committer's partial result `PartialResult`.
   *
-  * A committer implementation defines an initial partial result with `init` and `steps` to process the submission
+  * A committer implementation defines an initial partial result with init and `steps` to process the submission
   * into a set of DAML state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
   * approach to implementing a kvutils committer that shares the handling of input and output DAML state, rejecting
   * a submission, logging and metrics.
   *
-  * Each step is invoked with [[CommitContext]], that allows it to [[CommitContext.get]] and [[CommitContext.set]] daml state, and the
-  * partial result from previous step.
+  * Each step is invoked with [[CommitContext]], that allows it to [[CommitContext.get]] and [[CommitContext.set]]
+  * DAML state, and the partial result from previous step.
+  * When processing a submission for pre-execution, a committer produces the following set of results:
+  *   - a set of output states and a log entry to be applied in case of no conflicts and/or time-out,
+  *   - a record time window within which the submission is considered valid and a deduplication
+  * deadline (optional),
+  *   - a rejection log entry to be sent back to the participant in case the record time at
+  * sequencing the commit is out of the previous bounds.
+  * The above pieces of information are set via the [[CommitContext]] as well.
   *
   * The result from a step is either [[StepContinue]] to continue to next step with new partial result, or [[StepStop]]
   * to finish the commit. A committer must produce a [[StepStop]] from one of the steps.
@@ -39,6 +47,9 @@ import org.slf4j.{Logger, LoggerFactory}
   * Each committer is assigned its own logger (according to class name) and a set of metrics under
   * e.g. `kvutils.PackageCommitter`. An overall run time is measured in `kvutils.PackageCommitter.run-timer`,
   * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
+  *
+  * @see [[com.daml.ledger.participant.state.kvutils.committer.CommitContext]]
+  * @see [[com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult]]
   */
 private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
@@ -91,7 +102,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMapWithFingerprints,
-  ): PreExecutionResult = {
+  ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
       val commitContext = new CommitContext {
         override def getRecordTime: Option[Time.Timestamp] = None
@@ -102,7 +113,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       }
       preExecute(submission, participantId, inputState, commitContext)
     }
-  }
 
   private[committer] def preExecute(
       submission: DamlSubmission,
@@ -110,10 +120,10 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMapWithFingerprints,
       commitContext: CommitContext,
   ): PreExecutionResult = {
-    val logEntry = runSteps(commitContext, submission)
+    val successfulLogEntry = runSteps(commitContext, submission)
     PreExecutionResult(
       readSet = commitContext.getAccessedInputKeysWithFingerprints.toMap,
-      successfulLogEntry = logEntry,
+      successfulLogEntry = successfulLogEntry,
       stateUpdates = commitContext.getOutputs.toMap,
       outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),
       minimumRecordTime = commitContext.minimumRecordTime

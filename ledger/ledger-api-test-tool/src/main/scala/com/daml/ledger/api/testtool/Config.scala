@@ -15,7 +15,6 @@ final case class Config(
     mustFail: Boolean,
     verbose: Boolean,
     timeoutScaleFactor: Double,
-    loadScaleFactor: Double,
     concurrentTestRuns: Int,
     extract: Boolean,
     tlsConfig: Option[TlsConfiguration],
@@ -25,7 +24,6 @@ final case class Config(
     performanceTestsReport: Option[Path],
     listTests: Boolean,
     listTestSuites: Boolean,
-    allTests: Boolean,
     shuffleParticipants: Boolean,
     partyAllocation: PartyAllocationConfiguration,
 )
@@ -37,7 +35,6 @@ object Config {
     mustFail = false,
     verbose = false,
     timeoutScaleFactor = 1.0,
-    loadScaleFactor = 1.0,
     concurrentTestRuns = Runtime.getRuntime.availableProcessors(),
     extract = false,
     tlsConfig = None,
@@ -47,7 +44,6 @@ object Config {
     performanceTestsReport = None,
     listTests = false,
     listTestSuites = false,
-    allTests = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
   )

@@ -439,6 +439,19 @@ template TemplateWith23Arguments
     arg23: Bool
   where signatory arg1
 
+template KeyedNumber
+  with
+    owner: Party
+    number: Int
+  where
+    signatory owner
+    key owner : Party
+    maintainer key
+    controller owner can
+      Increment: ContractId KeyedNumber
+        with delta: Int
+        do create KeyedNumber with owner; number = number + delta
+
 data Enum = E1 | E2 Unit | E3
   deriving (Show, Eq)
 

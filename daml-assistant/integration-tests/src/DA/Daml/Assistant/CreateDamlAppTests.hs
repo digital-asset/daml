@@ -24,7 +24,8 @@ import DA.Test.Process (callCommandSilent)
 import DA.Test.Util
 
 main :: IO ()
-main = do
+main = withTempDir $ \yarnCache -> do
+    setEnv "YARN_CACHE_FOLDER" yarnCache True
     yarn : args <- getArgs
     javaPath <- locateRunfiles "local_jdk/bin"
     oldPath <- getSearchPath

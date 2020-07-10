@@ -11,6 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerSessionConfiguration,
   LedgerTestCase,
   LedgerTestCasesRunner,
+  LedgerTestSuite,
   LedgerTestSummary
 }
 import org.slf4j.LoggerFactory
@@ -38,29 +39,25 @@ object LedgerApiTestTool {
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
-  private def printListOfTests[A](defaults: Seq[A], optionals: Seq[A])(
-      getName: A => String): Unit = {
-    println("Tests marked with * are run by default.")
-    println(
-      "You can include extra tests with `--include=TEST-NAME`, or run all tests with `--all-tests`.\n")
-    defaults.map(getName(_) + " * ").sorted.foreach(println(_))
-    optionals.map(getName).sorted.foreach(println(_))
+  private def printListOfTests[A](tests: Seq[A])(getName: A => String): Unit = {
+    println("All tests are run by default.")
+    println()
+    tests.map(getName).sorted.foreach(println(_))
 
-    println("\nAlternatively, you can run performance tests.")
-    println(
-      "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`.\n")
+    println()
+    println("Alternatively, you can run performance tests.")
+    println("They are not run by default, but can be run with `--perf-tests=TEST-NAME`.")
+    println()
     Tests.PerformanceTestsKeys.sorted.foreach(println(_))
   }
   private def printAvailableTestSuites(config: Config): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
-    printListOfTests(Tests.default.values.toSeq, Tests.optional(config).values.toSeq)(_.name)
+    printListOfTests(Tests.all)(_.name)
   }
 
   private def printAvailableTests(config: Config): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
-    printListOfTests(
-      Tests.default.values.flatMap(_.tests).toSeq,
-      Tests.optional(config).values.flatMap(_.tests).toSeq)(_.name)
+    printListOfTests(Tests.all.flatMap(_.tests).toSeq)(_.name)
   }
 
   private def extractResources(resources: String*): Unit = {
@@ -74,6 +71,12 @@ object LedgerApiTestTool {
       println(s"Extracted $resource to $targetFile")
     }
   }
+
+  private def cases(m: Map[String, LedgerTestSuite]): Iterable[LedgerTestCase] =
+    m.values.flatMap(_.tests)
+
+  private def matches(prefixes: Iterable[String])(test: LedgerTestCase): Boolean =
+    prefixes.exists(test.name.startsWith)
 
   def main(args: Array[String]): Unit = {
 
@@ -104,11 +107,8 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val cases: Tests.Tests => Iterable[LedgerTestCase] = m => m.values.flatMap(_.tests)
-    val matches: Iterable[String] => LedgerTestCase => Boolean = prefixes =>
-      test => prefixes.exists(prefix => test.name.startsWith(prefix))
-
-    val allTestCaseNames: Set[String] = cases(Tests.all(config)).map(_.name).toSet
+    val allTestCaseNames: Set[String] =
+      (Tests.all ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix)))
     if (missingTests.nonEmpty) {
@@ -122,7 +122,7 @@ object LedgerApiTestTool {
     val performanceTestsToRun =
       Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
 
-    if ((config.allTests || config.included.nonEmpty) && performanceTestsToRun.nonEmpty) {
+    if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
       println("Either regular or performance tests can be run, but not both.")
       sys.exit(64)
     }
@@ -134,11 +134,15 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
+    val allCases = Tests.all.flatMap(_.tests)
+    val retiredCases = Tests.retired.flatMap(_.tests)
+
+    val includedTests =
+      if (config.included.isEmpty) allCases
+      else (allCases ++ retiredCases).filter(matches(config.included))
+
     val testsToRun: Iterable[LedgerTestCase] =
-      (if (config.allTests) cases(Tests.all(config))
-       else if (config.included.isEmpty) cases(Tests.default)
-       else cases(Tests.all(config)).filter(matches(config.included)))
-        .filterNot(matches(config.excluded))
+      includedTests.filterNot(matches(config.excluded))
 
     val runner =
       if (performanceTestsToRun.nonEmpty)
@@ -155,7 +159,10 @@ object LedgerApiTestTool {
 
     runner.verifyRequirementsAndRun {
       case Success(summaries) =>
-        new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
+        new ColorizedPrintStreamReporter(
+          System.out,
+          config.verbose,
+        ).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(e) =>
         logger.error(e.getMessage, e)
@@ -172,7 +179,6 @@ object LedgerApiTestTool {
         config.participants,
         config.shuffleParticipants,
         config.tlsConfig,
-        config.loadScaleFactor,
         config.partyAllocation,
       ),
       cases.toVector,
