@@ -15,10 +15,14 @@ genrule(
     ],
     outs = ["create-daml-app-docs.tar.gz"],
     cmd = """
+set -eou pipefail
 SRC=templates
 OUT=create-daml-app
 mkdir -p $$OUT
 cp -rL $$SRC/create-daml-app/* $$OUT
+# Undo project name templating since we don’t want that to show up
+# in the docs.
+find $$OUT/ -name '*.template' -type f -exec sh -c 'mv "$$0" "$${0%.template}" && sed -i "s/__PROJECT_NAME__/create-daml-app/g" "$${0%.template}"' {} ';'
 # Apply patch for messaging feature (we only need the "after" state)
 PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
 MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
