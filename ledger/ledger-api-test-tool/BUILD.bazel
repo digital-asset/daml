@@ -204,7 +204,7 @@ conformance_test(
         "--participant participant-id=test-name,port=6865",
     ],
     test_tool_args = [
-        "--include=ContractKeysIT",
-        "--include=ContractKeysIT:CKFetchOrLookup",
+        "--include=IdentityIT",
+        "--include=IdentityIT:IdNotEmpty",
     ],
 )
