@@ -14,7 +14,10 @@ import com.daml.ledger.javaapi.data._
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.TransactionServiceOuterClass.{GetLedgerEndRequest, GetTransactionsResponse}
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
+  GetLedgerEndRequest,
+  GetTransactionsResponse
+}
 import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode

@@ -20,7 +20,15 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.{ApiParameters, Participant, Participants, Runner, ScriptLedgerClient, ScriptTimeMode, Party => ScriptParty}
+import com.daml.lf.engine.script.{
+  ApiParameters,
+  Participant,
+  Participants,
+  Runner,
+  ScriptLedgerClient,
+  ScriptTimeMode,
+  Party => ScriptParty
+}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -33,7 +41,13 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.testing.utils.{MockMessages, OwnedResource, SuiteResource, SuiteResourceManagementAroundAll, Resource => TestResource}
+import com.daml.ledger.api.testing.utils.{
+  MockMessages,
+  OwnedResource,
+  SuiteResource,
+  SuiteResourceManagementAroundAll,
+  Resource => TestResource
+}
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.apiserver.services.GrpcClientResource
