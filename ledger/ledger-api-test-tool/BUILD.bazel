@@ -193,3 +193,18 @@ conformance_test(
         "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
     ],
 )
+
+# Test that both --include ContractKeysIT as well as --include ContractKeysIT:CKFetchOrLookup
+# are supporte.
+conformance_test(
+    name = "test-name-syntax",
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=test-name,port=6865",
+    ],
+    test_tool_args = [
+        "--include=IdentityIT",
+        "--include=IdentityIT:IdNotEmpty",
+    ],
+)
