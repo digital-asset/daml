@@ -35,7 +35,7 @@ jobs:
 
   - job: compatibility
     dependsOn: compatibility_ts_libs
-    timeoutInMinutes: 360
+    timeoutInMinutes: 720
     strategy:
       matrix:
         linux:
@@ -55,7 +55,7 @@ jobs:
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
-    timeoutInMinutes: 360
+    timeoutInMinutes: 720
     pool:
       name: windows-pool
       demands: assignment -equals default
