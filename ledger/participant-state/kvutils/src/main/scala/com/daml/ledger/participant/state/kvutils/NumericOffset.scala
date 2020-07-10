@@ -7,6 +7,10 @@ import com.daml.ledger.participant.state.v1.Offset
 
 /**
   * Helper functions for generating 16 byte [[com.daml.ledger.participant.state.v1.Offset]]s from integers.
+  * The created offset will look as follows:
+  * | highest index (64 bits) | middle index (32 bits) | lowest index (32 bits) |
+  * Leading zeros will be retained when generating the resulting offset bytes.
+  *
   * Example usage:
   *  * If you have one log entry per block then just use [[NumericOffset.fromLong(<block-ID>)]]
   *  * If you may have multiple log entries per block then use [[NumericOffset.fromLong(<block-ID>, <index>)]],
