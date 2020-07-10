@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.v1.Offset
   *  where <index> denotes the position or index of a given log entry in the block.
   *
   *  @see com.daml.ledger.participant.state.v1.Offset
+  *  @see com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader
   */
 object OffsetBuilder {
   private[kvutils] val highestStart = 0
