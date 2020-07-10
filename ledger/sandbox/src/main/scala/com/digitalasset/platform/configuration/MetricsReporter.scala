@@ -14,7 +14,7 @@ import scopt.Read
 
 import scala.util.Try
 
-sealed trait MetricsReporter {
+sealed trait MetricsReporter extends Product with Serializable {
   def register(registry: MetricRegistry): ScheduledReporter
 }
 
@@ -34,10 +34,12 @@ object MetricsReporter {
         .build(directory.toFile)
   }
 
-  final case class Graphite(address: InetSocketAddress) extends MetricsReporter {
+  final case class Graphite(address: InetSocketAddress, prefix: Option[String] = None)
+      extends MetricsReporter {
     override def register(registry: MetricRegistry): ScheduledReporter =
       metrics.graphite.GraphiteReporter
         .forRegistry(registry)
+        .prefixedWith(prefix.orNull)
         .build(new metrics.graphite.Graphite(address))
   }
 
@@ -52,8 +54,25 @@ object MetricsReporter {
       Graphite(new InetSocketAddress(defaultHost, port))
   }
 
-  implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads {
-    _.split(":", 2).toSeq match {
+  implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads { value =>
+    if (value == "console") Console
+    else if (!value.contains("://")) {
+      readLegacy(value)
+    } else {
+      val uri = Read.uriRead.reads(value)
+      uri.getScheme match {
+        case "csv" => Csv(Paths.get(uri.getPath))
+        case "graphite" =>
+          val port = if (uri.getPort > 0) uri.getPort else Graphite.defaultPort
+          val address = new InetSocketAddress(uri.getHost, port)
+          val metricPrefix = Some(uri.getPath.stripPrefix("/")).filter(_.nonEmpty)
+          Graphite(address, metricPrefix)
+      }
+    }
+  }
+
+  private def readLegacy(value: String) = {
+    value.split(":", 2).toSeq match {
       case Seq("console") => Console
       case Seq("csv", directory) => Csv(Paths.get(directory))
       case Seq("graphite") =>
@@ -72,8 +91,8 @@ object MetricsReporter {
           .get
       case _ =>
         throw new InvalidConfigException(
-          """Must be one of "console", "csv:PATH", or "graphite[:HOST][:PORT]".""")
+          """Must be one of "console", "csv:///PATH", or "graphite://HOST[:PORT][/METRIC_PREFIX]".""")
     }
-  }
 
+  }
 }
