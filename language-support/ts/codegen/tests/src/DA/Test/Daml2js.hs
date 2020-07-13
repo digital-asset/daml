@@ -25,11 +25,6 @@ import DA.Test.Util
 eslintVersion :: T.Text
 eslintVersion = "^6.8.0"
 
--- Version of typescript-eslint for linting the generated code.
--- 2.32 produces an error https://github.com/typescript-eslint/typescript-eslint/issues/2009
-typescriptEslintVersion :: T.Text
-typescriptEslintVersion = "~2.31.0"
-
 main :: IO ()
 main = withTempDir $ \yarnCache -> do
     setEnv "YARN_CACHE_FOLDER" yarnCache True
@@ -177,20 +172,20 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
           , "A" </> "B" </> "D" </> "index"
           , "A" </> "B" </> "D" </> "module"
           ]
-        assertFileDoesNotExist (projectTs </> "src" </> "A" </> "B" </> "module.ts")
+        assertFileDoesNotExist (projectTs </> "lib" </> "A" </> "B" </> "module.js")
 
-        withCurrentDirectory (projectTs </> "src") $ do
+        withCurrentDirectory (projectTs </> "lib") $ do
           let reexportIndex name =
                 [ "import * as " <> name <> " from './" <> name <> "';"
-                , "export import " <> name <> " = " <> name <> ";"
+                , "export { " <> name <> " } ;"
                 ]
           let reexportModule = ["export * from './module';"]
-          indexContents <- T.lines <$> T.readFileUtf8 "index.ts"
+          indexContents <- T.lines <$> T.readFileUtf8 "index.d.ts"
           assertBool "index.ts does not reexport A" (reexportIndex "A" `isPrefixOf` indexContents)
-          assertFileLines ("A" </> "index.ts") (reexportIndex "B" ++ reexportModule)
-          assertFileLines ("A" </> "B" </> "index.ts") (reexportIndex "C" ++ reexportIndex "D")
-          assertFileLines ("A" </> "B" </> "C" </> "index.ts") reexportModule
-          assertFileLines ("A" </> "B" </> "D" </> "index.ts") reexportModule
+          assertFileLines ("A" </> "index.d.ts") (reexportIndex "B" ++ reexportModule)
+          assertFileLines ("A" </> "B" </> "index.d.ts") (reexportIndex "C" ++ reexportIndex "D")
+          assertFileLines ("A" </> "B" </> "C" </> "index.d.ts") reexportModule
+          assertFileLines ("A" </> "B" </> "D" </> "index.d.ts") reexportModule
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2jsDir = here </> "daml2js"
@@ -226,32 +221,26 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
             [ "private" .= True
             , "devDependencies" .= object
                 [ "eslint" .= eslintVersion
-                , "@typescript-eslint/eslint-plugin" .= typescriptEslintVersion
-                , "@typescript-eslint/parser" .= typescriptEslintVersion
                 ]
             , "workspaces" .= pkgs
             , "resolutions" .= object
               [ "@daml/types" .= ("file:../daml-types" :: T.Text)
               , "@daml/ledger" .= ("file:../daml-ledger" :: T.Text)]
             ]
-        BSL.writeFile ".eslintrc.json" $ encode $
-          object
-            [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
-            , "parserOptions" .= object [("project", "./tsconfig.json")]
-            , "plugins" .= (["@typescript-eslint"] :: [T.Text])
-            , "extends" .= (
-                [ "eslint:recommended"
-                , "plugin:@typescript-eslint/eslint-recommended"
-                , "plugin:@typescript-eslint/recommended"
-                , "plugin:@typescript-eslint/recommended-requiring-type-checking"
-                ] :: [T.Text])
+        BSL.writeFile ".eslintrc.json" $ encode $ object
+            [ "extends" .=
+                [ "eslint:recommended" :: T.Text
+                ]
+            , "env" .= object [ "commonjs" .= True ] -- We generate commonjs modules
             , "rules" .= object
-              [ ("@typescript-eslint/explicit-function-return-type", "off")
-              , ("@typescript-eslint/no-inferrable-types", "off")
-              ]
-          ]
+                [ "no-unused-vars" .=
+                -- We disable the unused argument warning since that gets
+                -- triggered for decoders of phantom type arguments.
+                    [ "error" :: Value , object [ "args" .= ("none" :: T.Text) ] ]
+                ]
+            ]
         callProcessSilent yarn ["install", "--pure-lockfile"]
-        callProcessSilent yarn ["workspaces", "run", "eslint", "-c", ".." </> ".eslintrc.json", "--ext", ".ts", "--max-warnings", "0", "src/"]
+        callProcessSilent yarn ["workspaces", "run", "eslint", "-c", ".." </> ".eslintrc.json", "--max-warnings", "0", "lib/"]
   ]
   where
     setupYarnEnvironment :: IO ()
@@ -279,7 +268,6 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
 
     assertTsFileExists :: FilePath -> String -> IO ()
     assertTsFileExists proj file = do
-      assertFileExists (proj </> "src" </> file <.> "ts")
       assertFileExists (proj </> "lib" </> file <.> "js")
       assertFileExists (proj </> "lib" </> file <.> "d.ts")
 

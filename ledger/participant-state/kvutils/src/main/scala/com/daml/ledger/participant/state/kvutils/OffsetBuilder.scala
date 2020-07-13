@@ -5,7 +5,21 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
 
-object KVOffset {
+/**
+  * Helper functions for generating 16 byte [[com.daml.ledger.participant.state.v1.Offset]]s from integers.
+  * The created offset will look as follows:
+  * | highest index (64 bits) | middle index (32 bits) | lowest index (32 bits) |
+  * Leading zeros will be retained when generating the resulting offset bytes.
+  *
+  * Example usage:
+  *  * If you have one record per block then just use [[OffsetBuilder.fromLong(<block-ID>)]]
+  *  * If you may have multiple records per block then use [[OffsetBuilder.fromLong(<block-ID>, <index>)]],
+  *  where <index> denotes the position or index of a given log entry in the block.
+  *
+  *  @see com.daml.ledger.participant.state.v1.Offset
+  *  @see com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader
+  */
+object OffsetBuilder {
   private[kvutils] val highestStart = 0
   private[kvutils] val middleStart = 8
   private[kvutils] val lowestStart = 12
@@ -16,6 +30,12 @@ object KVOffset {
   def onlyKeepHighestIndex(offset: Offset): Offset = {
     val highest = highestIndex(offset)
     fromLong(highest)
+  }
+
+  def dropLowestIndex(offset: Offset): Offset = {
+    val highest = highestIndex(offset)
+    val middle = middleIndex(offset)
+    fromLong(highest, middle.toInt)
   }
 
   def setMiddleIndex(offset: Offset, middle: Int): Offset = {

@@ -376,7 +376,7 @@ genrule(
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
         "//templates:templates-tarball",
-        "//templates:create-daml-app-test-resources/messaging.patch",
+        "//templates:create-daml-app-docs",
         "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
     ],
@@ -396,14 +396,13 @@ genrule(
         # Copy templates for code snippets in getting started guide
         CODE_DIR=$$PWD/build/docs/source/getting-started/code/
         mkdir -p $$CODE_DIR
+
         tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+        rm -rf $$CODE_DIR/templates-tarball/create-daml-app
+        tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
         # Copy create-daml-app tests
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
-        # Apply patch for messaging feature (we only need the "after" state)
-        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
-        MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
-        (cd $$CODE_DIR/templates-tarball; $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH)
 
         # Build with Sphinx
         cd build
@@ -461,7 +460,6 @@ genrule(
         """.format(sdk = sdk_version),
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
-        "@patch_dev_env//:patch",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 

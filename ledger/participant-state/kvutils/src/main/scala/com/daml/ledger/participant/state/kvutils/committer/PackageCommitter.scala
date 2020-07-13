@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 private[kvutils] class PackageCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
-) extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
+) extends Committer[DamlPackageUploadEntry.Builder] {
 
   override protected val committerName = "package_upload"
 
@@ -166,9 +166,9 @@ private[kvutils] class PackageCommitter(
 
   override protected def init(
       ctx: CommitContext,
-      uploadEntry: DamlPackageUploadEntry,
+      submission: DamlSubmission,
   ): DamlPackageUploadEntry.Builder =
-    uploadEntry.toBuilder
+    submission.getPackageUploadEntry.toBuilder
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submission" -> authorizeSubmission,

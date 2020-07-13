@@ -127,13 +127,14 @@ private[state] object Conversions {
       deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
     )
 
-  def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp = {
-    val instant = ts.toInstant
+  def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp =
+    buildTimestamp(ts.toInstant)
+
+  def buildTimestamp(instant: Instant): com.google.protobuf.Timestamp =
     com.google.protobuf.Timestamp.newBuilder
       .setSeconds(instant.getEpochSecond)
       .setNanos(instant.getNano)
       .build
-  }
 
   def parseTimestamp(ts: com.google.protobuf.Timestamp): Time.Timestamp =
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
