@@ -60,9 +60,6 @@ tests =
         withCurrentDirectory tmpDir $ do
           callCommandSilent $ "daml new " <> projectName <> " create-daml-app"
         let cdaDir = tmpDir </> projectName
-
-        hPutStrLn stderr cdaDir
-
         -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
           step "Build DAML model for base application"
