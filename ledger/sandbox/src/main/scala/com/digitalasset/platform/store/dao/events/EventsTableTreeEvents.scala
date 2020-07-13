@@ -7,8 +7,6 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
-import scala.collection.compat._
-
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
@@ -142,34 +140,27 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
   ): SqlSequence[Vector[EventsTable.Entry[Raw.TreeEvent]]] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
-    val minPageSize = 10 min pageSize max (pageSize / 10)
-    val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
-    SqlSequence.vector(
-      SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                   case when submitter = $requestingParty then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$witnessesWhereClause
-            order by event_sequential_id"""
-        .withFetchSize(Some(pageSize)),
-      rawTreeEventParser
-    ) flatMap { arithPage =>
-      if (guessedPageEnd == range.endInclusive || arithPage.sizeIs >= minPageSize)
-        SqlSequence point arithPage
-      else
-        SqlSequence.vector(
-          SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                       case when submitter = $requestingParty then command_id else '' end as command_id
-                from participant_events
-                where event_sequential_id > ${range.startExclusive}
-                      and event_sequential_id <= ${range.endInclusive}
-                      and #$witnessesWhereClause
-                order by event_sequential_id limit $minPageSize"""
-            .withFetchSize(Some(minPageSize)),
-          rawTreeEventParser
-        )
-    }
+    EventsRange.readPage(
+      fasterRead = guessedPageEnd => SQL"""
+        select #$selectColumns, array[$requestingParty] as event_witnesses,
+               case when submitter = $requestingParty then command_id else '' end as command_id
+        from participant_events
+        where event_sequential_id > ${range.startExclusive}
+              and event_sequential_id <= $guessedPageEnd
+              and #$witnessesWhereClause
+        order by event_sequential_id""",
+      saferRead = minPageSize => SQL"""
+        select #$selectColumns, array[$requestingParty] as event_witnesses,
+               case when submitter = $requestingParty then command_id else '' end as command_id
+        from participant_events
+        where event_sequential_id > ${range.startExclusive}
+              and event_sequential_id <= ${range.endInclusive}
+              and #$witnessesWhereClause
+        order by event_sequential_id limit $minPageSize""",
+      rawTreeEventParser,
+      range,
+      pageSize
+    )
   }
 
   private def multiPartyTrees(sqlFunctions: SqlFunctions)(
@@ -181,34 +172,27 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
-    val minPageSize = 10 min pageSize max (pageSize / 10)
-    val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
-    SqlSequence.vector(
-      SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($requestingParties) then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$witnessesWhereClause
-            order by event_sequential_id"""
-        .withFetchSize(Some(pageSize)),
-      rawTreeEventParser
-    ) flatMap { arithPage =>
-      if (guessedPageEnd == range.endInclusive || arithPage.sizeIs >= minPageSize)
-        SqlSequence point arithPage
-      else
-        SqlSequence.vector(
-          SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                       case when submitter in ($requestingParties) then command_id else '' end as command_id
-                from participant_events
-                where event_sequential_id > ${range.startExclusive}
-                      and event_sequential_id <= ${range.endInclusive}
-                      and #$witnessesWhereClause
-                order by event_sequential_id limit $minPageSize"""
-            .withFetchSize(Some(minPageSize)),
-          rawTreeEventParser
-        )
-    }
+    EventsRange.readPage(
+      fasterRead = guessedPageEnd => SQL"""
+        select #$selectColumns, #$filteredWitnesses as event_witnesses,
+               case when submitter in ($requestingParties) then command_id else '' end as command_id
+        from participant_events
+        where event_sequential_id > ${range.startExclusive}
+              and event_sequential_id <= $guessedPageEnd
+              and #$witnessesWhereClause
+        order by event_sequential_id""",
+      saferRead = minPageSize => SQL"""
+        select #$selectColumns, #$filteredWitnesses as event_witnesses,
+               case when submitter in ($requestingParties) then command_id else '' end as command_id
+        from participant_events
+        where event_sequential_id > ${range.startExclusive}
+              and event_sequential_id <= ${range.endInclusive}
+              and #$witnessesWhereClause
+        order by event_sequential_id limit $minPageSize""",
+      rawTreeEventParser,
+      range,
+      pageSize
+    )
   }
 
 }

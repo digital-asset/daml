@@ -3,8 +3,10 @@
 package com.daml.platform.store.dao.events
 
 import anorm.SqlParser.get
-import anorm.SqlStringInterpolation
+import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
+
+import scala.collection.compat._
 
 final case class EventsRange[A](startExclusive: A, endInclusive: A)
 
@@ -61,4 +63,21 @@ object EventsRange {
         .as(get[Long](1).singleOpt)(connection)
         .getOrElse(EmptyEventSeqIdRange.endInclusive)
     }
+
+  private[events] def readPage[A](
+      fasterRead: Long => SimpleSql[Row], // takes guessedPageEnd
+      saferRead: Int => SimpleSql[Row], // takes minPageSize
+      row: RowParser[A],
+      range: EventsRange[Long],
+      pageSize: Int): SqlSequence[Vector[A]] = {
+    val minPageSize = 10 min pageSize max (pageSize / 10)
+    val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
+    SqlSequence.vector(fasterRead(guessedPageEnd) withFetchSize Some(pageSize), row) flatMap {
+      arithPage =>
+        if (guessedPageEnd == range.endInclusive || arithPage.sizeIs >= minPageSize)
+          SqlSequence point arithPage
+        else
+          SqlSequence.vector(saferRead(minPageSize) withFetchSize Some(minPageSize), row)
+    }
+  }
 }
