@@ -8,7 +8,7 @@ import java.nio.file.{Path, Paths}
 
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
-import com.daml.platform.sandbox.config.InvalidConfigException
+
 import scopt.Read
 
 sealed abstract class MetricsReporter {
