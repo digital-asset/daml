@@ -129,9 +129,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       minimumRecordTime = commitContext.minimumRecordTime
         .map(Timestamp.assertFromInstant),
       maximumRecordTime = commitContext.maximumRecordTime
-        .map(Timestamp.assertFromInstant),
-      // We assume the time updates must be visible to every participant for public ledgers.
-      involvedParticipants = AllParticipants
+        .map(Timestamp.assertFromInstant)
     )
   }
 
@@ -173,8 +171,6 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
 object Committer {
   type StepInfo = String
-
-  val AllParticipants: Set[ParticipantId] = Set.empty
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
