@@ -261,6 +261,7 @@ cmdRepl numProcessors =
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
             <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
+            <*> many (strOption (long "import" <> short 'i' <> help "Import modules of these packages into the REPL" <> metavar "PACKAGE"))
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag
@@ -583,14 +584,14 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl
     :: ProjectOpts
     -> Options
-    -> FilePath -> [FilePath]
+    -> FilePath -> [FilePath] -> [String]
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
     -> ReplClient.ReplTimeMode
     -> Command
-execRepl projectOpts opts scriptDar dars ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar dars importPkgs ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
@@ -619,7 +620,7 @@ execRepl projectOpts opts scriptDar dars ledgerHost ledgerPort mbAuthToken mbSsl
                 initPackageDb opts (InitPkgDb True)
                 -- We want diagnostics to go to stdout in the repl.
                 withDamlIdeState opts logger (hDiagnosticsLogger stdout)
-                    (Repl.runRepl opts replHandle)
+                    (Repl.runRepl importPkgs opts replHandle)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
