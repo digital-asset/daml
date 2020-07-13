@@ -114,14 +114,14 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
     }
 
     frqK match {
-      case FrqK.Fast(fasterRead, saferRead) =>
+      case FrqK.ByArith(fasterRead, saferRead) =>
         EventsRange.readPage(
           fasterRead,
           saferRead,
           EventsTable.rawFlatEventParser,
           offsetRange(offset),
           pageSize)
-      case FrqK.Slow(sql) =>
+      case FrqK.ByLimit(sql) =>
         SqlSequence.vector(sql withFetchSize Some(pageSize), EventsTable.rawFlatEventParser)
     }
   }
