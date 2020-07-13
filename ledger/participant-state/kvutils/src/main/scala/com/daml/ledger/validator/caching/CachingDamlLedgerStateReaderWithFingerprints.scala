@@ -16,9 +16,12 @@ class CachingDamlLedgerStateReaderWithFingerprints(
     extends DamlLedgerStateReaderWithFingerprints {
   override def read(keys: Seq[DamlKvutils.DamlStateKey])
     : Future[Seq[(Option[DamlKvutils.DamlStateValue], Fingerprint)]] = {
-    val cachedValues = keys.view
+    @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
+    val cachedValues: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)] = keys.view
       .map(key => key -> cache.getIfPresent(key))
-      .filter(_._2.isDefined)
+      .collect {
+        case (key, Some((value, fingerprint))) => (key, (Some(value), fingerprint))
+      }
       .toMap
     val keysToRead = keys.toSet -- cachedValues.keySet
     if (keysToRead.nonEmpty) {
