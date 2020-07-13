@@ -133,12 +133,11 @@ private[events] object EventsTableFlatEventsRangeQueries {
       extends Product
       with Serializable
   private[EventsTableFlatEventsRangeQueries] object FrqK {
-    final case class Fast(fasterRead: Long => SimpleSql[Row], saferRead: Int => SimpleSql[Row])
+    final case class ByArith(fasterRead: Long => SimpleSql[Row], saferRead: Int => SimpleSql[Row])
         extends FrqK
-    final case class Slow(saferRead: SimpleSql[Row]) extends FrqK
-    // TODO SC: remove Slow and remove this conversion
+    final case class ByLimit(saferRead: SimpleSql[Row]) extends FrqK
     import language.implicitConversions
-    implicit def `go slow`(saferRead: SimpleSql[Row]): Slow = Slow(saferRead)
+    implicit def `go by limit`(saferRead: SimpleSql[Row]): ByLimit = ByLimit(saferRead)
   }
 
   final class GetTransactions(
@@ -154,7 +153,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
     ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
-      FrqK.Fast(
+      FrqK.ByArith(
         fasterRead = guessedPageEnd => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
                    case when submitter = $party then command_id else '' end as command_id
