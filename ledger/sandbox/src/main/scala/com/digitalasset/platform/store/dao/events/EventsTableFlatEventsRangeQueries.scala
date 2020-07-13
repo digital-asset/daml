@@ -151,16 +151,27 @@ private[events] object EventsTableFlatEventsRangeQueries {
         range: EventsRange[Long],
         party: Party,
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
-      SQL"""select #$selectColumns, array[$party] as event_witnesses,
+      FrqK.Fast(
+        fasterRead = guessedPageEnd => SQL"""
+            select #$selectColumns, array[$party] as event_witnesses,
+                   case when submitter = $party then command_id else '' end as command_id
+            from participant_events
+            where event_sequential_id > ${range.startExclusive}
+                  and event_sequential_id <= $guessedPageEnd
+                  and #$witnessesWhereClause
+            order by event_sequential_id""",
+        saferRead = minPageSize => SQL"""
+            select #$selectColumns, array[$party] as event_witnesses,
                    case when submitter = $party then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-            order by event_sequential_id limit $pageSize"""
+            order by event_sequential_id limit $minPageSize"""
+      )
     }
 
     override protected def singlePartyWithTemplates(
