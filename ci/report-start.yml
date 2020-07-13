@@ -4,8 +4,11 @@
 steps:
   - bash: |
       set -euo pipefail
-      echo "##vso[task.setvariable variable=time;isOutput=true]$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
-      echo "##vso[task.setvariable variable=machine;isOutput=true]$(Agent.MachineName)"
+
+      source ci/lib.sh
+
+      setvar time $(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
+      setvar machine $(Agent.MachineName)
     condition: always()
     name: start
 
