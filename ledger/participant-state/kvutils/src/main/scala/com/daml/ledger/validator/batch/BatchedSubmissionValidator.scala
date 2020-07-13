@@ -73,7 +73,7 @@ object BatchedSubmissionValidator {
   // instead and remove the whole concept of log entry identifiers.
   // For now this implementation uses a sha256 hash of the submission envelope in order to generate
   // deterministic log entry IDs.
-  private def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
+  private[validator] def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
     val messageDigest = MessageDigest
       .getInstance("SHA-256")
     messageDigest.update(bytes.asReadOnlyByteBuffer())

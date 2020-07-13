@@ -1,10 +1,8 @@
 package com.daml.ledger.validator.preexecution
 
-import java.security.MessageDigest
 import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
   DamlSubmission
@@ -13,11 +11,11 @@ import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecution
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,7 +50,7 @@ class PreExecutingSubmissionValidator[WriteSet](
           decodedSubmission,
           submittingParticipantId,
           fetchedInputs)
-        logEntryId = bytesToLogEntryId(submissionEnvelope)
+        logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
         inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
         generatedWriteSets <- commitStrategy.generateWriteSets(
           submittingParticipantId,
@@ -128,21 +126,4 @@ class PreExecutingSubmissionValidator[WriteSet](
       }
       .toVector
       .sortBy(_._1.asReadOnlyByteBuffer)
-
-  // TODO: Share with BatchedSubmissionValidator.
-  private val LogEntryIdPrefix = "0"
-
-  private def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
-    val messageDigest = MessageDigest
-      .getInstance("SHA-256")
-    messageDigest.update(bytes.asReadOnlyByteBuffer())
-    val hash = messageDigest
-      .digest()
-      .map("%02x" format _)
-      .mkString
-    val prefixedHash = ByteString.copyFromUtf8(LogEntryIdPrefix + hash)
-    DamlLogEntryId.newBuilder
-      .setEntryId(prefixedHash)
-      .build
-  }
 }
