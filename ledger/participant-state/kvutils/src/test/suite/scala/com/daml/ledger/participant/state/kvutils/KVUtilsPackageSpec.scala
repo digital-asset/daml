@@ -63,6 +63,19 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       }
     }
 
+    "be able to pre-execute model-test.dar" in KVTest.runTest {
+      for {
+        // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
+        preExecutionResult <- preExecuteArchives(
+          "model-test-submission",
+          testStablePackages.all: _*)
+          .map(_._2)
+      } yield {
+        preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
+        preExecutionResult.successfulLogEntry.getPackageUploadEntry.getArchivesCount shouldEqual testStablePackages.all.length
+      }
+    }
+
     "reject invalid packages" in KVTest.runTest {
       for {
         logEntry <- submitArchives("bad-archive-submission", badArchive).map(_._2)
@@ -81,11 +94,10 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
           DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
         logEntry1.getPackageUploadRejectionEntry.getReasonCase shouldEqual
           DamlPackageUploadRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
-
       }
     }
 
-    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTestWithSimplePackage() {
       for {
         //Submit archive twice to force one acceptance and one rejection on duplicate
         _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
@@ -97,6 +109,5 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         metrics.daml.kvutils.committer.runTimer("package_upload").getCount should be >= 1L
       }
     }
-
   }
 }
