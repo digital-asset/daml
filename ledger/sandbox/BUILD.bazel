@@ -52,7 +52,7 @@ runtime_deps = [
 ]
 
 da_scala_library(
-    name = "sandbox-next",
+    name = "sandbox",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
@@ -60,7 +60,7 @@ da_scala_library(
     # Do not include logback.xml into the library: let the user
     # of the sandbox-as-a-library decide how to log.
     resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-    tags = ["maven_coordinates=com.daml:sandbox-next:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -69,37 +69,37 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "sandbox-next-binary",
+    name = "sandbox-binary",
     main_class = "com.daml.platform.sandboxnext.Main",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox-next",
+        ":sandbox",
     ],
 )
 
 da_scala_binary(
-    name = "sandbox-next-ephemeral-postgresql",
+    name = "sandbox-ephemeral-postgresql",
     main_class = "com.daml.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox-next",
-        ":sandbox-next-scala-tests-lib",
+        ":sandbox",
+        ":sandbox-scala-tests-lib",
     ],
 )
 
 genrule(
-    name = "sandbox-next-tarball",
+    name = "sandbox-tarball",
     srcs = [
-        ":sandbox-next-binary_deploy.jar",
+        ":sandbox-binary_deploy.jar",
     ],
-    outs = ["sandbox-next-tarball.tar.gz"],
+    outs = ["sandbox-tarball.tar.gz"],
     cmd = """
-        mkdir -p sandbox-next-tarball/sandbox
-        cp -L $(location :sandbox-next-binary_deploy.jar) sandbox-next-tarball/sandbox/sandbox-next-{mvn}.jar
+        mkdir -p sandbox-tarball/sandbox
+        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
-        cd sandbox-next-tarball
+        cd sandbox-tarball
         tar c sandbox \\
           --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n > $$out
@@ -108,7 +108,7 @@ genrule(
 )
 
 container_image(
-    name = "sandbox-next-image-base",
+    name = "sandbox-image-base",
     base = "@java_base//image",
     cmd = None,
     directory = "/usr/bin",
@@ -118,16 +118,16 @@ container_image(
 ) if not is_windows else None
 
 java_image(
-    name = "sandbox-next-image",
-    base = ":sandbox-next-image-base",
+    name = "sandbox-image",
+    base = ":sandbox-image-base",
     main_class = "com.daml.platform.sandboxnext.Main",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
-    runtime_deps = [":sandbox-next"],
+    runtime_deps = [":sandbox"],
 ) if not is_windows else None
 
 da_scala_library(
-    name = "sandbox-next-scala-tests-lib",
+    name = "sandbox-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -136,7 +136,7 @@ da_scala_library(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        ":sandbox-next",
+        ":sandbox",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
@@ -164,8 +164,8 @@ da_scala_library(
 )
 
 test_deps = [
-    ":sandbox-next",
-    ":sandbox-next-scala-tests-lib",
+    ":sandbox",
+    ":sandbox-scala-tests-lib",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -227,7 +227,7 @@ test_deps = [
 ]
 
 da_scala_test_suite(
-    name = "sandbox-next-tests",
+    name = "sandbox-tests",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
@@ -241,7 +241,7 @@ da_scala_test_suite(
 )
 
 da_scala_test_suite(
-    name = "sandbox-next-resetservice-tests",
+    name = "sandbox-resetservice-tests",
     srcs = glob(
         ["src/test/suite/**/ResetService*IT.scala"],
     ),
@@ -256,7 +256,7 @@ da_scala_test_suite(
 
 NEXT_SERVERS = {
     "memory": {
-        "binary": ":sandbox-next-binary",
+        "binary": ":sandbox-binary",
         "server_args": [
             "--contract-id-seeding=testing-weak",
             "--port=6865",
@@ -264,7 +264,7 @@ NEXT_SERVERS = {
         ],
     },
     "postgresql": {
-        "binary": ":sandbox-next-ephemeral-postgresql",
+        "binary": ":sandbox-ephemeral-postgresql",
         "server_args": [
             "--contract-id-seeding=testing-weak",
             "--port=6865",
