@@ -57,6 +57,11 @@ main = do
               staticTimeTests damlc scriptDar testDar getSandboxPort
             , withSandbox defaultSandboxConf $ \getSandboxPort ->
                   noPackageTests damlc scriptDar getSandboxPort
+            , withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , mbLedgerId = Just testLedgerId
+                  } $ \getSandboxPort ->
+              importTests damlc scriptDar testDar getSandboxPort
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -192,4 +197,50 @@ testSetTime damlc scriptDar testDar ledgerPort = do
                    , testDar
                    , "--import"
                    , "repl-test"
+                   ]
+
+-- | Test the @--import@ flag
+importTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
+importTests damlc scriptDar testDar getSandboxPort = testGroup "import"
+    [ testCase "none" $ do
+        port <- getSandboxPort
+        testImport damlc scriptDar testDar port [] False
+    , testCase "unversioned" $ do
+        port <- getSandboxPort
+        testImport damlc scriptDar testDar port ["repl-test"] True
+    , testCase "versioned" $ do
+        port <- getSandboxPort
+        testImport damlc scriptDar testDar port ["repl-test-0.1.0"] True
+    ]
+
+testImport
+    :: FilePath
+    -> FilePath
+    -> FilePath
+    -> Int
+    -> [String]
+    -> Bool
+    -> Assertion
+testImport damlc scriptDar testDar ledgerPort imports successful = do
+    out <- readCreateProcess cp $ unlines
+        [ "alice <- allocateParty \"Alice\""
+        , "debug (T alice alice)"
+        ]
+    let regexString :: String
+        regexString
+          | successful = "^daml> daml> .*: T {proposer = '.*', accepter = '.*'}\ndaml> Goodbye.\n$"
+          | otherwise  = "^daml> daml> File: .*\nHidden: .*\nRange: .*\nSource: .*\nSeverity: DsError\nMessage: .*: error:Data constructor not in scope: T : Party -> Party -> .*\ndaml> Goodbye.\n$"
+    let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+    unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
+    where cp = proc damlc $ concat
+                   [ [ "repl"
+                     , "--ledger-host=localhost"
+                     , "--ledger-port"
+                     , show ledgerPort
+                     , "--script-lib"
+                     , scriptDar
+                     , testDar
+                     ]
+                   , [ "--import=" <> pkg | pkg <- imports ]
                    ]
