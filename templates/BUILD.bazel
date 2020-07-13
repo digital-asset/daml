@@ -1,5 +1,6 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+load("@os_info//:os_info.bzl", "is_windows")
 
 exports_files(glob(["create-daml-app-test-resources/*"]))
 
@@ -33,7 +34,7 @@ tar c create-daml-app \\
 """,
     tools = ["@patch_dev_env//:patch"],
     visibility = ["//visibility:public"],
-)
+) if not is_windows else None
 
 genrule(
     name = "templates-tarball",
