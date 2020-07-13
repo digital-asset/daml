@@ -159,22 +159,15 @@ da_haskell_test(
     ],
 )
 
-da_haskell_test(
-    name = "create-daml-app-tests",
-    timeout = "long",
+da_haskell_library(
+    name = "create-daml-app-tests-lib",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
-    args = [
-        "$(location //:yarn)",
-    ],
     data = [
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "@patch_dev_env//:patch",
     ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
-    # The Puppeteer tests can have race conditions, probably due to the way
-    # we depend on UI elements appearing.
-    flaky = True,
     hackage_deps = [
         "aeson",
         "aeson-extra",
@@ -183,12 +176,10 @@ da_haskell_test(
         "directory",
         "extra",
         "filepath",
+        "tagged",
         "tasty",
         "tasty-hunit",
     ],
-    main_function = "DA.Daml.Assistant.CreateDamlAppTests.main",
-    # Exclusive until we stop hardcoding port numbers in index.test.ts
-    tags = ["exclusive"],
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
@@ -197,4 +188,34 @@ da_haskell_test(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests",
+    timeout = "long",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
+    args = ["$(location //:yarn)"],
+    data = ["//:yarn"],
+    hackage_deps = ["base"],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
+    deps = [":create-daml-app-tests-lib"],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests-proj-name",
+    timeout = "long",
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
+    args = [
+        "$(location //:yarn)",
+        "--project-name",
+        "not-create-daml-app",
+    ],
+    data = ["//:yarn"],
+    hackage_deps = ["base"],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
+    deps = [":create-daml-app-tests-lib"],
 )

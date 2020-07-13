@@ -20,7 +20,7 @@ export const ledgerId: string =
   deploymentMode === DeploymentMode.PROD_DABL
   ? window.location.hostname.split('.')[0]
   : process.env.REACT_APP_LEDGER_ID
-  ?? 'create-daml-app-sandbox';
+  ?? '__PROJECT_NAME__-sandbox';
 
 export const httpBaseUrl =
   deploymentMode === DeploymentMode.PROD_DABL

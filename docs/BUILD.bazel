@@ -396,6 +396,7 @@ genrule(
         # Copy templates for code snippets in getting started guide
         CODE_DIR=$$PWD/build/docs/source/getting-started/code/
         mkdir -p $$CODE_DIR
+
         tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
         rm -rf $$CODE_DIR/templates-tarball/create-daml-app
         tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
