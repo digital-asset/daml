@@ -67,16 +67,15 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[Long]) =>
-      (connection: Connection) =>
-        EventsTable
-          .preparePagedGetFlatTransactions(sqlFunctions)(
-            range = range,
-            filter = filter,
-            pageSize = pageSize,
-          )
-          .withFetchSize(Some(pageSize))
-          .asVectorOf(EventsTable.rawFlatEventParser)(connection)
+    val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
+      EventsTable
+        .preparePagedGetFlatTransactions(sqlFunctions)(
+          range = range,
+          filter = filter,
+          pageSize = pageSize,
+        )
+        .executeSql
+    }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
       Source
@@ -187,16 +186,15 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
 
-    val query = (range: EventsRange[(Offset, Long)]) =>
-      (connection: Connection) =>
-        EventsTable
-          .preparePagedGetActiveContracts(sqlFunctions)(
-            range = range,
-            filter = filter,
-            pageSize = pageSize,
-          )
-          .withFetchSize(Some(pageSize))
-          .asVectorOf(EventsTable.rawFlatEventParser)(connection)
+    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
+      EventsTable
+        .preparePagedGetActiveContracts(sqlFunctions)(
+          range = range,
+          filter = filter,
+          pageSize = pageSize,
+        )
+        .executeSql
+    }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
       Source

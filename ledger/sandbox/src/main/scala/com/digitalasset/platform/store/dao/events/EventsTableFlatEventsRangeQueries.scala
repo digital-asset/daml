@@ -8,56 +8,60 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.{Identifier => ApiIdentifier}
 import com.daml.platform.store.Conversions._
 
-private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
+private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] {
+
+  import EventsTableFlatEventsRangeQueries.FrqK
 
   protected def singleWildcardParty(
       offset: Offset,
       party: Party,
       pageSize: Int,
-  ): SimpleSql[Row]
+  ): FrqK
 
   protected def singlePartyWithTemplates(
       offset: Offset,
       party: Party,
       templateIds: Set[ApiIdentifier],
       pageSize: Int,
-  ): SimpleSql[Row]
+  ): FrqK
 
   protected def onlyWildcardParties(
       offset: Offset,
       parties: Set[Party],
       pageSize: Int,
-  ): SimpleSql[Row]
+  ): FrqK
 
   protected def sameTemplates(
       offset: Offset,
       parties: Set[Party],
       templateIds: Set[ApiIdentifier],
       pageSize: Int,
-  ): SimpleSql[Row]
+  ): FrqK
 
   protected def mixedTemplates(
       offset: Offset,
       partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
       pageSize: Int,
-  ): SimpleSql[Row]
+  ): FrqK
 
   protected def mixedTemplatesWithWildcardParties(
       offset: Offset,
       wildcardParties: Set[Party],
       partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
       pageSize: Int,
-  ): SimpleSql[Row]
+  ): FrqK
+
+  protected def offsetRange(offset: Offset): EventsRange[Long]
 
   final def apply(
       offset: Offset,
       filter: FilterRelation,
       pageSize: Int,
-  ): SimpleSql[Row] = {
+  ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] = {
     require(filter.nonEmpty, "The request must be issued by at least one party")
 
     // Route the request to the correct underlying query
-    if (filter.size == 1) {
+    val frqK = if (filter.size == 1) {
       val (party, templateIds) = filter.toIterator.next
       if (templateIds.isEmpty) {
         // Single-party request, no specific template identifier
@@ -85,7 +89,7 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
             parties = parties,
             templateIds = templateIds,
             pageSize = pageSize,
-          ).map(r => r)
+          )
         } else {
           // If there are different template identifier but there are no wildcard parties
           val partiesAndTemplateIds = Relation.flatten(filter).toSet
@@ -108,10 +112,34 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
         }
       }
     }
+
+    frqK match {
+      case FrqK.Fast(fasterRead, saferRead) =>
+        EventsRange.readPage(
+          fasterRead,
+          saferRead,
+          EventsTable.rawFlatEventParser,
+          offsetRange(offset),
+          pageSize)
+      case FrqK.Slow(sql) =>
+        SqlSequence.vector(sql withFetchSize Some(pageSize), EventsTable.rawFlatEventParser)
+    }
   }
 }
 
 private[events] object EventsTableFlatEventsRangeQueries {
+
+  private[EventsTableFlatEventsRangeQueries] sealed abstract class FrqK
+      extends Product
+      with Serializable
+  private[EventsTableFlatEventsRangeQueries] object FrqK {
+    final case class Fast(fasterRead: Long => SimpleSql[Row], saferRead: Int => SimpleSql[Row])
+        extends FrqK
+    final case class Slow(saferRead: SimpleSql[Row]) extends FrqK
+    // TODO SC: remove Slow and remove this conversion
+    import language.implicitConversions
+    implicit def `go slow`(saferRead: SimpleSql[Row]): Slow = Slow(saferRead)
+  }
 
   final class GetTransactions(
       selectColumns: String,
@@ -140,7 +168,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         party: Party,
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
@@ -157,7 +185,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         range: EventsRange[Long],
         parties: Set[Party],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
@@ -171,12 +199,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    protected def sameTemplates(
+    override protected def sameTemplates(
         range: EventsRange[Long],
         parties: Set[Party],
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
@@ -191,11 +219,11 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    protected def mixedTemplates(
+    override protected def mixedTemplates(
         range: EventsRange[Long],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val parties = partiesAndTemplateIds.map(_._1)
       val partiesAndTemplatesCondition =
         formatPartiesAndTemplatesWhereClause(
@@ -213,12 +241,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    protected def mixedTemplatesWithWildcardParties(
+    override protected def mixedTemplatesWithWildcardParties(
         range: EventsRange[Long],
         wildcardParties: Set[Party],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
       val partiesAndTemplatesCondition =
         formatPartiesAndTemplatesWhereClause(
@@ -237,6 +265,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
             order by event_sequential_id limit $pageSize"""
     }
+
+    override protected def offsetRange(offset: EventsRange[Long]) = offset
   }
 
   final class GetActiveContracts(
@@ -249,7 +279,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         range: EventsRange[(Offset, Long)],
         party: Party,
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
@@ -268,7 +298,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         party: Party,
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
@@ -283,11 +313,11 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    def onlyWildcardParties(
+    override def onlyWildcardParties(
         range: EventsRange[(Offset, Long)],
         parties: Set[Party],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
@@ -303,12 +333,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    def sameTemplates(
+    override def sameTemplates(
         range: EventsRange[(Offset, Long)],
         parties: Set[Party],
         templateIds: Set[ApiIdentifier],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
@@ -325,11 +355,11 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    def mixedTemplates(
+    override def mixedTemplates(
         range: EventsRange[(Offset, Long)],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val parties = partiesAndTemplateIds.map(_._1)
       val partiesAndTemplatesCondition =
         formatPartiesAndTemplatesWhereClause(
@@ -349,12 +379,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
             order by event_sequential_id limit $pageSize"""
     }
 
-    def mixedTemplatesWithWildcardParties(
+    override def mixedTemplatesWithWildcardParties(
         range: EventsRange[(Offset, Long)],
         wildcardParties: Set[Party],
         partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
-    ): SimpleSql[Row] = {
+    ): FrqK = {
       val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
       val partiesAndTemplatesCondition =
         formatPartiesAndTemplatesWhereClause(
@@ -375,6 +405,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
             order by event_sequential_id limit $pageSize"""
     }
+
+    override protected def offsetRange(offset: EventsRange[(Offset, Long)]) = offset map (_._2)
   }
 
   private def formatPartiesAndTemplatesWhereClause(
