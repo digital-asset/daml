@@ -78,7 +78,7 @@ da_haskell_test(
     srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
     data = [
         "daml-helper",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
         "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
@@ -104,7 +104,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-assistant/daml-helper",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     hackage_deps = [
         "aeson",

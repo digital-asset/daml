@@ -155,8 +155,8 @@ da_scala_test_suite(
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         "//ledger/participant-state",
-        "//ledger/sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
@@ -177,7 +177,7 @@ client_server_test(
     client = ":test_client_single_participant",
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--static-time",
         "--port=0",
@@ -191,7 +191,7 @@ client_server_test(
     client_args = ["-w"],
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",
@@ -212,7 +212,7 @@ client_server_test(
     data = [
         ":script-test.dar",
     ],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",
@@ -237,7 +237,7 @@ client_server_test(
         "//ledger/test-common/test-certificates:server.crt",
         "//ledger/test-common/test-certificates:server.pem",
     ],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox-classic:sandbox-classic-binary",
     server_args = [
         "--wall-clock-time",
         "--port=0",

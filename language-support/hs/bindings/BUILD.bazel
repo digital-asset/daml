@@ -49,7 +49,7 @@ da_haskell_test(
     data = [
         ":for-tests.dar",
         ":for-upload.dar",
-        "//ledger/sandbox:sandbox-binary",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     # The tests are flaky probably due to issues in gRPC-haskell.
     flaky = True,

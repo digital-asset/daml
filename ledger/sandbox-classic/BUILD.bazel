@@ -57,7 +57,7 @@ runtime_deps = [
 ]
 
 da_scala_library(
-    name = "sandbox",
+    name = "sandbox-classic",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
@@ -91,37 +91,37 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "sandbox-binary",
+    name = "sandbox-classic-binary",
     main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox",
+        ":sandbox-classic",
     ],
 )
 
 da_scala_binary(
-    name = "sandbox-ephemeral-postgresql",
+    name = "sandbox-classic-ephemeral-postgresql",
     main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
-        ":sandbox",
-        ":sandbox-scala-tests-lib",
+        ":sandbox-classic",
+        ":sandbox-classic-scala-tests-lib",
     ],
 )
 
 genrule(
-    name = "sandbox-tarball",
+    name = "sandbox-classic-tarball",
     srcs = [
-        ":sandbox-binary_deploy.jar",
+        ":sandbox-classic-binary_deploy.jar",
     ],
-    outs = ["sandbox-tarball.tar.gz"],
+    outs = ["sandbox-classic-tarball.tar.gz"],
     cmd = """
-        mkdir -p sandbox-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
+        mkdir -p sandbox-classic-tarball/sandbox
+        cp -L $(location :sandbox-classic-binary_deploy.jar) sandbox-classic-tarball/sandbox/sandbox-classic-{mvn}.jar
         out=$$(realpath $@)
-        cd sandbox-tarball
+        cd sandbox-classic-tarball
         tar c sandbox \\
           --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
           | gzip -n > $$out
@@ -130,7 +130,7 @@ genrule(
 )
 
 container_image(
-    name = "sandbox-image-base",
+    name = "sandbox-classic-image-base",
     base = "@java_base//image",
     cmd = None,
     directory = "/usr/bin",
@@ -140,16 +140,16 @@ container_image(
 ) if not is_windows else None
 
 java_image(
-    name = "sandbox-image",
-    base = ":sandbox-image-base",
+    name = "sandbox-classic-image",
+    base = ":sandbox-classic-image-base",
     main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
-    runtime_deps = [":sandbox"],
+    runtime_deps = [":sandbox-classic"],
 ) if not is_windows else None
 
 da_scala_library(
-    name = "sandbox-scala-tests-lib",
+    name = "sandbox-classic-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -158,7 +158,7 @@ da_scala_library(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        ":sandbox",
+        ":sandbox-classic",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
@@ -202,8 +202,8 @@ da_scala_library(
 )
 
 test_deps = [
-    ":sandbox",
-    ":sandbox-scala-tests-lib",
+    ":sandbox-classic",
+    ":sandbox-classic-scala-tests-lib",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -265,7 +265,7 @@ test_deps = [
 ]
 
 da_scala_test_suite(
-    name = "sandbox-tests",
+    name = "sandbox-classic-tests",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
@@ -279,7 +279,7 @@ da_scala_test_suite(
 )
 
 da_scala_test_suite(
-    name = "sandbox-resetservice-tests",
+    name = "sandbox-classic-resetservice-tests",
     srcs = glob(
         ["src/test/suite/**/ResetService*IT.scala"],
     ),
@@ -294,14 +294,14 @@ da_scala_test_suite(
 
 SERVERS = {
     "memory": {
-        "binary": ":sandbox-binary",
+        "binary": ":sandbox-classic-binary",
         "server_args": [
             "--port=6865",
             "--eager-package-loading",
         ],
     },
     "h2database": {
-        "binary": ":sandbox-binary",
+        "binary": ":sandbox-classic-binary",
         "server_args": [
             "--port=6865",
             "--eager-package-loading",
@@ -311,7 +311,7 @@ SERVERS = {
         ],
     },
     "postgresql": {
-        "binary": ":sandbox-ephemeral-postgresql",
+        "binary": ":sandbox-classic-ephemeral-postgresql",
         "server_args": [
             "--port=6865",
             "--eager-package-loading",

@@ -89,7 +89,7 @@ sh_test(
         "//:java",
         "//:yarn",
         "//:daml2js",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
         "//language-support/ts/daml-types:npm_package",
