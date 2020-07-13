@@ -127,7 +127,7 @@ testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
                      , scriptDar
                      , testDar
                      , "--import"
-                     , "repl-test-0.1.0"
+                     , "repl-test"
                      ]
                    , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [mbTokenFile] ]
                    , [ "--cacrt=" <> cacrt | Just cacrt <- [mbCaCrt] ]
@@ -191,5 +191,5 @@ testSetTime damlc scriptDar testDar ledgerPort = do
                    , scriptDar
                    , testDar
                    , "--import"
-                   , "repl-test-0.1.0"
+                   , "repl-test"
                    ]

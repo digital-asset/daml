@@ -264,7 +264,7 @@ testInteraction replClient serviceOut options ideState steps = do
         withBinaryFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
-            capture_ $ runRepl ["repl-test-0.1.0", "repl-test-two-0.1.0"] options replClient ideState
+            capture_ $ runRepl ["repl-test", "repl-test-two"] options replClient ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out

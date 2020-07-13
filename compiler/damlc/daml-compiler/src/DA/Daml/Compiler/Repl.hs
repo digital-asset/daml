@@ -5,6 +5,7 @@
 module DA.Daml.Compiler.Repl (runRepl) where
 
 import BasicTypes (Boxity(..))
+import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Except
 import qualified Control.Monad.State.Strict as State
@@ -198,18 +199,25 @@ loadPackages importPkgs replClient ideState = do
                 exitFailure
             Right _ -> pure ()
     -- Determine module names in imported DALFs.
-    importLfPkgs <- forM importPkgs $ \pkgId ->
-        case Map.lookup (stringToUnitId pkgId) pkgs of
+    let getPackage = LF.extPackagePkg . LF.dalfPackagePkg
+        unversionedPkgs = Map.fromList
+          [ (LF.packageName md, pkg)
+          | pkg@LF.Package {LF.packageMetadata = Just md} <- getPackage <$> Map.elems pkgs
+          ]
+    importLfPkgs <- forM importPkgs $ \nameOrId ->
+        let mbVersioned = getPackage <$> Map.lookup (stringToUnitId nameOrId) pkgs
+            mbUnversioned = Map.lookup (LF.PackageName . T.pack $ nameOrId) unversionedPkgs
+        in
+        case mbVersioned <|> mbUnversioned of
             Just lfPkg -> pure lfPkg
             Nothing -> do
                 hPutStrLn stderr $
-                    "Could not find package for import: " <> show pkgId <> "\n"
+                    "Could not find package for import: " <> show nameOrId <> "\n"
                     <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
                 exitFailure
     pure
       [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
-      | lfPkg <- importLfPkgs
-      , let pkg = LF.extPackagePkg $ LF.dalfPackagePkg $ lfPkg
+      | pkg <- importLfPkgs
       , mod <- NM.names $ LF.packageModules pkg
       ]
 
