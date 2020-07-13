@@ -170,3 +170,4 @@ How is this used in practice?
 - Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time relative to the tolerance interval set by the ledger.
 - In some corner cases, the participant node may be unable to determine a suitable ledger time by itself. If you get an error that no ledger time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
 
+For details, see :ref:`Background concepts - time <time>`.

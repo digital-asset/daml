@@ -88,6 +88,8 @@ Consider the following example: Suppose that the ledger had a skew of 10 seconds
 
 Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameter.
 
+For details, see :ref:`Background concepts - time <time>`.
+
 Time in scenarios
 ~~~~~~~~~~~~~~~~~
 
