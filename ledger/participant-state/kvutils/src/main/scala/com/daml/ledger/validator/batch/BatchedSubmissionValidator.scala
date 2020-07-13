@@ -36,13 +36,11 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      engine: Engine,
       ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
-      engine,
       conflictDetection,
       metrics,
       ledgerDataExporter
@@ -56,7 +54,6 @@ object BatchedSubmissionValidator {
     new BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
-      engine,
       new ConflictDetection(metrics),
       metrics)
 
@@ -106,7 +103,6 @@ object BatchedSubmissionValidator {
 class BatchedSubmissionValidator[CommitResult] private[validator] (
     params: BatchedSubmissionValidatorParameters,
     committer: KeyValueCommitting,
-    engine: Engine,
     conflictDetection: ConflictDetection,
     damlMetrics: Metrics,
     ledgerDataExporter: LedgerDataExporter = LedgerDataExporter()) {
