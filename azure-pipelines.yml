@@ -545,9 +545,26 @@ jobs:
              --location \
              -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \
              https://api.github.com/repos/digital-asset/daml/pulls
+        setvar "branch" "$BRANCH"
+      name: out
+
     - template: ci/tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
+
+  - job: compat_versions_pr_trigger_daily
+    dependsOn: compat_versions_pr
+    pool:
+      vmImage: "ubuntu-latest"
+    variables:
+      branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        az extension add --name azure-devops
+        echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+        az pipelines build queue --branch $(branch) --definition-name "digital-asset.daml-daily-compat" --org "https://dev.azure.com/digitalasset" --project daml
 
   - job: write_ledger_dump
     dependsOn:
