@@ -55,6 +55,8 @@ main = do
                   , timeMode = Static
                   } $ \getSandboxPort ->
               staticTimeTests damlc scriptDar testDar getSandboxPort
+            , withSandbox defaultSandboxConf $ \getSandboxPort ->
+                  noPackageTests damlc scriptDar getSandboxPort
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -135,6 +137,27 @@ staticTimeTests damlc scriptDar testDar getSandboxPort = testGroup "static-time"
         port <- getSandboxPort
         testSetTime damlc scriptDar testDar port
     ]
+
+noPackageTests :: FilePath -> FilePath -> IO Int -> TestTree
+noPackageTests damlc scriptDar getSandboxPort = testGroup "static-time"
+    [ testCase "no package" $ do
+        port <- getSandboxPort
+        out <- readCreateProcess (cp port) $ unlines
+            [ "debug (1 + 1)"
+            ]
+        let regexString = "daml> \\[[^]]+\\]: 2\ndaml> Goodbye.\n$" :: String
+        let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+        unless (matchTest regex out) $
+            assertFailure (show out <> " did not match " <> show regexString <> ".")
+    ]
+    where cp port = proc damlc
+                   [ "repl"
+                   , "--ledger-host=localhost"
+                   , "--ledger-port"
+                   , show port
+                   , "--script-lib"
+                   , scriptDar
+                   ]
 
 testSetTime
     :: FilePath
