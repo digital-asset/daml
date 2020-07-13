@@ -506,6 +506,7 @@ da_haskell_test(
         "directory",
         "extra",
         "filepath",
+        "ghc-lib-parser",
         "ghcide",
         "hspec",
         "process",

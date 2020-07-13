@@ -23,6 +23,7 @@ import Development.IDE.Types.Location
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import GHC.IO.Handle
+import Module (stringToUnitId)
 import SdkVersion
 import System.Directory
 import System.FilePath
@@ -264,7 +265,8 @@ testInteraction replClient serviceOut options ideState steps = do
         withBinaryFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
-            capture_ $ runRepl ["repl-test", "repl-test-two"] options replClient ideState
+            let imports = map stringToUnitId ["repl-test", "repl-test-two"]
+            capture_ $ runRepl imports options replClient ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out

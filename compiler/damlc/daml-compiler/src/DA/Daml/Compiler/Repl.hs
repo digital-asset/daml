@@ -5,7 +5,6 @@
 module DA.Daml.Compiler.Repl (runRepl) where
 
 import BasicTypes (Boxity(..))
-import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Except
 import qualified Control.Monad.State.Strict as State
@@ -41,7 +40,7 @@ import HsPat (Pat(..))
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
 import Lexer (ParseResult(..))
-import Module (unitIdString, stringToUnitId)
+import Module (unitIdString)
 import OccName (occName, OccSet, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
 import RdrName (mkRdrUnqual)
@@ -186,7 +185,7 @@ parseReplInput input dflags =
 -- | Load all packages in the given session.
 --
 -- Returns the list of modules in the specified import packages.
-loadPackages :: [String] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
+loadPackages :: [UnitId] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
 loadPackages importPkgs replClient ideState = do
     -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
@@ -204,15 +203,16 @@ loadPackages importPkgs replClient ideState = do
           [ (LF.packageName md, pkg)
           | pkg@LF.Package {LF.packageMetadata = Just md} <- getPackage <$> Map.elems pkgs
           ]
-    importLfPkgs <- forM importPkgs $ \nameOrId ->
-        let mbVersioned = getPackage <$> Map.lookup (stringToUnitId nameOrId) pkgs
-            mbUnversioned = Map.lookup (LF.PackageName . T.pack $ nameOrId) unversionedPkgs
+    importLfPkgs <- forM importPkgs $ \importPkg ->
+        let mbPkg = case LF.splitUnitId importPkg of
+                (pkgName, Nothing) -> Map.lookup pkgName unversionedPkgs
+                _ -> getPackage <$> Map.lookup importPkg pkgs
         in
-        case mbVersioned <|> mbUnversioned of
+        case mbPkg of
             Just lfPkg -> pure lfPkg
             Nothing -> do
                 hPutStrLn stderr $
-                    "Could not find package for import: " <> show nameOrId <> "\n"
+                    "Could not find package for import: " <> unitIdString importPkg <> "\n"
                     <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
                 exitFailure
     pure
@@ -222,7 +222,7 @@ loadPackages importPkgs replClient ideState = do
       ]
 
 
-runRepl :: [String] -> Options -> ReplClient.Handle -> IdeState -> IO ()
+runRepl :: [UnitId] -> Options -> ReplClient.Handle -> IdeState -> IO ()
 runRepl importPkgs opts replClient ideState = do
     imports <- loadPackages importPkgs replClient ideState
     let initReplState = ReplState

@@ -70,7 +70,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module (unitIdString)
+import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -261,7 +261,7 @@ cmdRepl numProcessors =
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
             <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
-            <*> many (strOption (long "import" <> short 'i' <> help "Import modules of these packages into the REPL" <> metavar "PACKAGE"))
+            <*> many packageImport
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag
@@ -272,6 +272,11 @@ cmdRepl numProcessors =
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
+    packageImport = fmap stringToUnitId . strOption $
+        long "import"
+        <> short 'i'
+        <> help "Import modules of these packages into the REPL"
+        <> metavar "PACKAGE"
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -584,7 +589,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl
     :: ProjectOpts
     -> Options
-    -> FilePath -> [FilePath] -> [String]
+    -> FilePath -> [FilePath] -> [UnitId]
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
