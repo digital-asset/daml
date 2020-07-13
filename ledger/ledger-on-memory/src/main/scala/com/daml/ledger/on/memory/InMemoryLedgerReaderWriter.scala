@@ -126,8 +126,7 @@ object InMemoryLedgerReaderWriter {
           batchingLedgerWriterConfig.enableBatching),
         keyValueCommitting,
         new ConflictDetection(metrics),
-        metrics,
-        engine
+        metrics
       )
       val committer =
         BatchedValidatingCommitter[Index](
