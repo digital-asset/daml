@@ -62,7 +62,7 @@ runtime_deps = [
 ]
 
 da_scala_library(
-    name = "daml-integration-api",
+    name = "participant-integration-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         "@maven//:com_github_ghik_silencer_plugin_2_12_11",
@@ -74,7 +74,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
-    tags = ["maven_coordinates=com.daml:daml-integration-api:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -104,7 +104,7 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "daml-integration-api-tests-lib",
+    name = "participant-integration-api-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -113,7 +113,7 @@ da_scala_library(
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
-        ":daml-integration-api",
+        ":participant-integration-api",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -145,8 +145,8 @@ da_scala_library(
 )
 
 test_deps = [
-    ":daml-integration-api",
-    ":daml-integration-api-tests-lib",
+    ":participant-integration-api",
+    ":participant-integration-api-tests-lib",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -206,7 +206,7 @@ test_deps = [
 ]
 
 da_scala_test_suite(
-    name = "daml-integration-api-tests",
+    name = "participant-integration-api-tests",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = ["src/test/suite/**/ResetService*IT.scala"],
