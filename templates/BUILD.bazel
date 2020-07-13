@@ -3,6 +3,34 @@
 
 exports_files(glob(["create-daml-app-test-resources/*"]))
 
+# Split out into a separate rule so we can cheaply include this in the
+# live-preview.
+genrule(
+    name = "create-daml-app-docs",
+    srcs = glob(
+        ["create-daml-app/**"],
+        exclude = ["**/NO_AUTO_COPYRIGHT"],
+    ) + [
+        "//templates:create-daml-app-test-resources/messaging.patch",
+    ],
+    outs = ["create-daml-app-docs.tar.gz"],
+    cmd = """
+SRC=templates
+OUT=create-daml-app
+mkdir -p $$OUT
+cp -rL $$SRC/create-daml-app/* $$OUT
+# Apply patch for messaging feature (we only need the "after" state)
+PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
+$$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH
+tar c create-daml-app \\
+    --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
+    | gzip -n >$(location :create-daml-app-docs.tar.gz)
+""",
+    tools = ["@patch_dev_env//:patch"],
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "templates-tarball",
     srcs = glob(
