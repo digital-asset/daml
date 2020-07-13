@@ -14,10 +14,20 @@
 module DA.Optional(Optional(..), optional, module DA.Optional) where
 
 -- | The `fromSome` function extracts the element out of a `Some` and
--- throws an error if its argument is `None`.
+-- throws an error if its argument is `None`. Semantically equivalent
+-- to `fromSomeNote "fromSome: None"`.
+--
+-- See also: `fromSomeNote`.
 fromSome : Optional a -> a
 fromSome = fromSomeNote "fromSome: None"
 
+-- | The `fromSomeNote` function takes a Text and an Optional, and
+-- returns the value wrapped by the `Optional` if it is a `Some` or
+-- throws an error with the given `Text` message if the given
+-- `Optional` is `None`.
+--
+-- `fromSome` is semantically equivalent to
+-- `fromSomeNote "fromSome: None"`.
 fromSomeNote : Text -> Optional a -> a
 fromSomeNote _ (Some x) = x
 fromSomeNote n None = error n
