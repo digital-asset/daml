@@ -163,6 +163,35 @@ object LedgerApiTestTool {
           System.out,
           config.verbose,
         ).report(summaries)
+        config.jsonReport.map({ p =>
+          import spray.json._
+          import DefaultJsonProtocol._
+
+          val json = (summaries
+            .map(
+              report =>
+                Map(
+                  "suite" -> report.suite,
+                  "name" -> report.name,
+                  "description" -> report.description,
+                  "result" -> (report.result match {
+                    case Left(_) => "failure"
+                    case Right(_) => "success"
+                  })
+              ))
+            ++ allCases.toSet
+              .diff(testsToRun.toSet)
+              .toVector
+              .map(
+                c =>
+                  Map(
+                    "suite" -> c.suite.name,
+                    "name" -> c.name,
+                    "description" -> c.description,
+                    "result" -> "skipped"))).toJson.compactPrint
+          Files.createDirectories(p.getParent)
+          Files.write(p, json.getBytes("UTF-8"))
+        })
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(e) =>
         logger.error(e.getMessage, e)

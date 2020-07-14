@@ -154,7 +154,7 @@ object Cli {
       .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
       .optional()
       .text(
-        "The path of the the benchmark report file produced by performance tests (default: stdout).")
+        "The path of the benchmark report file produced by performance tests (default: stdout).")
 
     opt[Unit]("all-tests")
       .text("DEPRECATED: All tests are always run by default.")
@@ -190,6 +190,11 @@ object Cli {
       .optional()
       .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
       .text("Prints the version on stdout and exit.")
+
+    opt[Path]("json-report")
+      .action((inc, c) => c.copy(jsonReport = Some(inc)))
+      .optional()
+      .text("If this option is passed, the test tool will produce a JSON-formatted report of the current test run at the given path. This does not affect the normal output on stdout. No effect on performance tests.")
 
     help("help").text("Prints this usage text")
 
