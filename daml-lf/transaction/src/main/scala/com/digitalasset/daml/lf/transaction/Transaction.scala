@@ -104,7 +104,7 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
 final case class GenTransaction[Nid, +Cid, +Val](
-    nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]],
+    nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Val]
     with value.CidContainer[GenTransaction[Nid, Cid, Val]] {
