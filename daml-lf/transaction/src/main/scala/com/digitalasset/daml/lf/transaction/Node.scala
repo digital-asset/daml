@@ -423,9 +423,6 @@ object Node {
   }
 }
 
-/** The constructor is private so that we make sure that only this object constructs
-  * node ids -- we don't want external code to manipulate them.
-  */
 final case class NodeId(index: Int)
 
 object NodeId {

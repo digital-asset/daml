@@ -496,8 +496,6 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  def p5 = "1"
-
   type Transaction = VersionedTransaction[transaction.NodeId, Value.ContractId]
   val Transaction = VersionedTransaction
 
