@@ -40,9 +40,9 @@ cp ../../NOTICES ../source
 
 # GSG source, while this is arguably part of --gen
 # it is quick enough and important enough to always include it.
-bazel build //templates:templates-tarball
-mkdir -p $BUILD_DIR/source/getting-started/code
-tar -zxf ../../bazel-bin/templates/templates-tarball.tar.gz -C $BUILD_DIR/source/getting-started/code/
+bazel build //templates:create-daml-app-docs
+mkdir -p $BUILD_DIR/source/getting-started/code/templates-tarball
+tar -zxf ../../bazel-bin/templates/create-daml-app-docs.tar.gz -C $BUILD_DIR/source/getting-started/code/templates-tarball/
 
 for arg in "$@"
 do

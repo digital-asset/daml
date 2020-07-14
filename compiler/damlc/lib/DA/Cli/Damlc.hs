@@ -260,7 +260,7 @@ cmdRepl numProcessors =
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
-            <*> some (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
+            <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag

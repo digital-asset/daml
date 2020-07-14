@@ -15,9 +15,13 @@ module DA.Optional(Optional(..), optional, module DA.Optional) where
 
 -- | The `fromSome` function extracts the element out of a `Some` and
 -- throws an error if its argument is `None`.
+--
+-- Note that in most cases you should prefer using `fromSomeNote`
+-- to get a better error on failures.
 fromSome : Optional a -> a
 fromSome = fromSomeNote "fromSome: None"
 
+-- | Like `fromSome` but with a custom error message.
 fromSomeNote : Text -> Optional a -> a
 fromSomeNote _ (Some x) = x
 fromSomeNote n None = error n
