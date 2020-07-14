@@ -6,10 +6,19 @@ import anorm.SqlParser.get
 import anorm.SqlStringInterpolation
 import com.daml.ledger.participant.state.v1.Offset
 
+import com.daml.platform.store.Conversions.OffsetToStatement
+
+// (startExclusive, endInclusive]
 final case class EventsRange[A](startExclusive: A, endInclusive: A)
 
 object EventsRange {
+  // (0, 0] -- non-existent range
   private val EmptyEventSeqIdRange = EventsRange(0L, 0L)
+
+  def isEmpty[A: Ordering](range: EventsRange[A]): Boolean = {
+    val A = implicitly[Ordering[A]]
+    A.gteq(range.startExclusive, range.endInclusive)
+  }
 
   /**
     * Converts Offset range to Event Sequential ID range.
@@ -40,25 +49,47 @@ object EventsRange {
     if (startExclusive == Offset.beforeBegin) {
       EmptyEventSeqIdRange.startExclusive
     } else {
-      import com.daml.platform.store.Conversions.OffsetToStatement
-      // This query could be: "select min(event_sequential_id) - 1 from participant_events where event_offset > ${range.startExclusive}"
-      // however there are cases when postgres decides not to use the index. We are forcing the index usage specifying `order by event_offset`
-      SQL"select min(event_sequential_id) from participant_events where event_offset > ${startExclusive} group by event_offset order by event_offset asc limit 1"
-        .as(get[Long](1).singleOpt)(connection)
-        .map(_ - 1L)
-        .getOrElse(EmptyEventSeqIdRange.startExclusive)
+      // TODO(Leo): fuse these two queries
+      readMaxRowId(startExclusive)(connection).getOrElse(
+        readNextRowId(startExclusive)(connection)
+          .map(_ - 1L)
+          .getOrElse(
+            if (isLedgerEmpty(connection))
+              EmptyEventSeqIdRange.startExclusive
+            else
+              throw new IllegalStateException(
+                s"readLowerBound($startExclusive) returned None on non-empty ledger")
+          )
+      )
     }
+
+  private def readMaxRowId(offset: Offset)(connection: java.sql.Connection): Option[Long] = {
+    SQL"select max(event_sequential_id) from participant_events where event_offset = ${offset}"
+      .as(get[Option[Long]](1).single)(connection)
+  }
+
+  private def readNextRowId(offset: Offset)(connection: java.sql.Connection): Option[Long] = {
+    SQL"select min(event_sequential_id) from participant_events where event_offset > ${offset}"
+      .as(get[Option[Long]](1).single)(connection)
+  }
 
   private def readUpperBound(endInclusive: Offset)(connection: java.sql.Connection): Long =
     if (endInclusive == Offset.beforeBegin) {
       EmptyEventSeqIdRange.endInclusive
     } else {
-      import com.daml.platform.store.Conversions.OffsetToStatement
-      // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
-      // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
-      // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-      SQL"select max(event_sequential_id) from participant_events where event_offset <= ${endInclusive} group by event_offset order by event_offset desc limit 1"
-        .as(get[Long](1).singleOpt)(connection)
-        .getOrElse(EmptyEventSeqIdRange.endInclusive)
+      SQL"select max(event_sequential_id) from participant_events where event_offset <= ${endInclusive}"
+        .as(get[Option[Long]](1).single)(connection)
+        .getOrElse(
+          if (isLedgerEmpty(connection))
+            EmptyEventSeqIdRange.endInclusive
+          else
+            throw new IllegalStateException(
+              s"readUpperBound($endInclusive) returned None on non-empty ledger")
+        )
     }
+
+  private def isLedgerEmpty(connection: java.sql.Connection): Boolean = {
+    SQL"select count(1) = 0 where exists (select * from participant_events)"
+      .as(get[Boolean](1).single)(connection)
+  }
 }
