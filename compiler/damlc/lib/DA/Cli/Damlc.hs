@@ -29,6 +29,7 @@ import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenario
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
 import DA.Daml.LanguageServer
@@ -91,6 +92,7 @@ import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
+import "ghc-lib-parser" Util (looksLikePackageName)
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -272,11 +274,18 @@ cmdRepl numProcessors =
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
-    packageImport = fmap stringToUnitId . strOption $
+    packageImport = option readPackage $
         long "import"
         <> short 'i'
         <> help "Import modules of these packages into the REPL"
         <> metavar "PACKAGE"
+      where
+        readPackage = eitherReader $ \s -> do
+            let pkg@(name, _) = splitUnitId (stringToUnitId s)
+                strName = T.unpack . LF.unPackageName $ name
+            unless (looksLikePackageName strName) $
+                fail $ "Illegal package name: " ++ strName
+            pure pkg
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -589,7 +598,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl
     :: ProjectOpts
     -> Options
-    -> FilePath -> [FilePath] -> [UnitId]
+    -> FilePath -> [FilePath] -> [(LF.PackageName, Maybe LF.PackageVersion)]
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig

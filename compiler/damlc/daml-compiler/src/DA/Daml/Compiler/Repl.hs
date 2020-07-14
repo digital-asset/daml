@@ -185,7 +185,7 @@ parseReplInput input dflags =
 -- | Load all packages in the given session.
 --
 -- Returns the list of modules in the specified import packages.
-loadPackages :: [UnitId] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
+loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
 loadPackages importPkgs replClient ideState = do
     -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
@@ -204,15 +204,16 @@ loadPackages importPkgs replClient ideState = do
           | pkg@LF.Package {LF.packageMetadata = Just md} <- getPackage <$> Map.elems pkgs
           ]
     importLfPkgs <- forM importPkgs $ \importPkg ->
-        let mbPkg = case LF.splitUnitId importPkg of
+        let unitId = uncurry pkgNameVersion importPkg
+            mbPkg = case importPkg of
                 (pkgName, Nothing) -> Map.lookup pkgName unversionedPkgs
-                _ -> getPackage <$> Map.lookup importPkg pkgs
+                _ -> getPackage <$> Map.lookup unitId pkgs
         in
         case mbPkg of
             Just lfPkg -> pure lfPkg
             Nothing -> do
                 hPutStrLn stderr $
-                    "Could not find package for import: " <> unitIdString importPkg <> "\n"
+                    "Could not find package for import: " <> unitIdString unitId <> "\n"
                     <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
                 exitFailure
     pure
@@ -222,7 +223,7 @@ loadPackages importPkgs replClient ideState = do
       ]
 
 
-runRepl :: [UnitId] -> Options -> ReplClient.Handle -> IdeState -> IO ()
+runRepl :: [(LF.PackageName, Maybe LF.PackageVersion)] -> Options -> ReplClient.Handle -> IdeState -> IO ()
 runRepl importPkgs opts replClient ideState = do
     imports <- loadPackages importPkgs replClient ideState
     let initReplState = ReplState

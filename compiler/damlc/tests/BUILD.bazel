@@ -506,7 +506,6 @@ da_haskell_test(
         "directory",
         "extra",
         "filepath",
-        "ghc-lib-parser",
         "ghcide",
         "hspec",
         "process",
@@ -522,6 +521,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
