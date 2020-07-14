@@ -31,7 +31,7 @@ as run from the main project root directory (adjust the location of the JAR acco
   <archive>...             Daml archives to load. Only DAML-LF v1 Archives are currently supported.
   --pem <value>            TLS: The pem file to be used as the private key
   --crt <value>            TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.
-  --cacrt <value>          TLS: The crt file to be used as the the trusted root CA.
+  --cacrt <value>          TLS: The crt file to be used as the trusted root CA.
   --help                   Print the usage text
 ```
 

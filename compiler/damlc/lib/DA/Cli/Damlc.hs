@@ -299,7 +299,7 @@ cmdRepl numProcessors =
             ]
         mbCACert <- optional $ strOption $ mconcat
             [ long "cacrt"
-            , help "The crt file to be used as the the trusted root CA."
+            , help "The crt file to be used as the trusted root CA."
             ]
         mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
             (strOption $ mconcat
@@ -704,7 +704,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 
 -- | Given a path to a .dalf or a .dar return the bytes of either the .dalf file
--- or the the main dalf from the .dar
+-- or the main dalf from the .dar
 -- In addition to the bytes, we also return the basename of the dalf file.
 getDalfBytes :: FilePath -> IO (B.ByteString, FilePath)
 getDalfBytes fp

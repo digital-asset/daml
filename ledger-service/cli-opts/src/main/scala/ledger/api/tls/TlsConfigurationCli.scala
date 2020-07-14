@@ -36,7 +36,7 @@ object TlsConfigurationCli {
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA.")
+      .text("TLS: The crt file to be used as the trusted root CA.")
       .validate(validatePath(_, "The file specified via --cacrt does not exist"))
       .action { (path, c) =>
         enableSet(_ copy (trustCertCollectionFile = Some(Paths.get(path).toFile)), c)

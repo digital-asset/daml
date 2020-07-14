@@ -138,7 +138,7 @@ object Config {
           config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path)))))
       opt[String]("cacrt")
         .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
           config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
 

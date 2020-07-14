@@ -92,7 +92,7 @@ object Cli {
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA. Applied to all endpoints.")
+      .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
       .action(cacrtConfig)
 
     opt[Double](name = "timeout-scale-factor")
@@ -154,7 +154,7 @@ object Cli {
       .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
       .optional()
       .text(
-        "The path of the the benchmark report file produced by performance tests (default: stdout).")
+        "The path of the benchmark report file produced by performance tests (default: stdout).")
 
     opt[Unit]("all-tests")
       .text("DEPRECATED: All tests are always run by default.")

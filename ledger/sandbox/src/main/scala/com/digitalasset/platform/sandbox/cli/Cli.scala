@@ -124,7 +124,7 @@ object Cli {
 
       opt[String]("cacrt")
         .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
           config.copy(tlsConfig = config.tlsConfig
             .fold(Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
