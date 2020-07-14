@@ -6,11 +6,11 @@ Note: If you encounter bugs. Please report issues you find in the #team-ledger-a
 
 To build a fat JAR with the sandbox built from HEAD run
 
-    bazel build //ledger/sandbox:sandbox-binary_deploy.jar
+    bazel build //ledger/sandbox-classic:sandbox-classic-binary_deploy.jar
 
 Sandbox application can be run from command line with the following command:
 
-    java -jar bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar [options] <archive>
+    java -jar bazel-bin/ledger/sandbox-classic/sandbox-classic-binary_deploy.jar [options] <archive>
 
 as run from the main project root directory (adjust the location of the JAR according to your working directory).
 
@@ -49,18 +49,18 @@ The new Ledger API uses gRPC. If you just want to create / exercise contracts, I
 
 You can enable debug logging in Sandbox with `sandbox-log-level` system property:
 
-    $ java -jar ./bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar
+    $ java -jar ./bazel-bin/ledger/sandbox-classic/sandbox-classic-binary_deploy.jar --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar
 
 Or when started from Bazel with:
 
-    $ bazel run //ledger/sandbox:sandbox-binary -- --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar
+    $ bazel run //ledger/sandbox-classic:sandbox-classic-binary -- --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar
 
 # Profiling
 
 You can enable profiling in Sandbox by passing a directory where the profiling
 information should be written via the `--profile-dir` flag, e.g.
 ```shell
-$ bazel run //ledger/sandbox:sandbox-binary -- --profile-dir=/write/profiles/here/ ...
+$ bazel run //ledger/sandbox-classic:sandbox-classic-binary -- --profile-dir=/write/profiles/here/ ...
 ```
 
 **DISCLAIMER**: Profiling is not intended to be used in production setups since

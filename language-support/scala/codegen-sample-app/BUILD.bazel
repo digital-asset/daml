@@ -116,7 +116,7 @@ da_scala_test(
         "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
     ],
     jvm_flags = [
-        "-Dcom.daml.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar",
+        "-Dcom.daml.sandbox.jar=ledger/sandbox-classic/sandbox-classic-binary_deploy.jar",
     ],
     deps = [
         ":daml-lf-codegen-sample-app",
