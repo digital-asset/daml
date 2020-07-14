@@ -31,6 +31,7 @@ class CachingDamlLedgerStateReaderWithFingerprints(
       delegate
         .read(keysToRead.toSeq)
         .map { readStateValues =>
+          assert(keysToRead.size == readStateValues.size)
           val readValues = keysToRead.zip(readStateValues).toMap
           readValues.collect {
             case (key, (Some(value), fingerprint)) if shouldCache(key) =>

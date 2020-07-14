@@ -165,10 +165,11 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       mockCommitStrategy)
   }
 
-  private def createMockLedgerStateReader(): DamlLedgerStateReaderWithFingerprints = {
-    val mockLedgerStateReader = mock[DamlLedgerStateReaderWithFingerprints]
-    when(mockLedgerStateReader.read(any[Seq[DamlStateKey]]))
-      .thenReturn(Future.successful(Seq.empty))
-    mockLedgerStateReader
-  }
+  private def createMockLedgerStateReader(): DamlLedgerStateReaderWithFingerprints =
+    (keys: Seq[DamlStateKey]) =>
+      Future.successful {
+        keys.map { _ =>
+          (None, FingerprintPlaceholder)
+        }
+    }
 }

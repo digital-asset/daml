@@ -102,6 +102,7 @@ class PreExecutingSubmissionValidator[WriteSet](
       ledgerStateReader
         .read(inputKeys)
         .map { values =>
+          assert(inputKeys.size == values.size)
           inputKeys.zip(values).toMap
         }
     )
