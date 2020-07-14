@@ -56,7 +56,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
-    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:sandbox-common:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
