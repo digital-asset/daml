@@ -198,22 +198,16 @@ loadPackages importPkgs replClient ideState = do
                 exitFailure
             Right _ -> pure ()
     -- Determine module names in imported DALFs.
-    let getPackage = LF.extPackagePkg . LF.dalfPackagePkg
-        unversionedPkgs = Map.fromList
-          [ (LF.packageName md, pkg)
-          | pkg@LF.Package {LF.packageMetadata = Just md} <- getPackage <$> Map.elems pkgs
-          ]
+    let unversionedPkgs = Map.mapKeys (fst . LF.splitUnitId) pkgs
+        toUnitId (pkgName, mbVersion) = pkgNameVersion pkgName mbVersion
+        lookupPkg (pkgName, Nothing) = Map.lookup pkgName unversionedPkgs
+        lookupPkg (toUnitId -> unitId) = Map.lookup unitId pkgs
     importLfPkgs <- forM importPkgs $ \importPkg ->
-        let unitId = uncurry pkgNameVersion importPkg
-            mbPkg = case importPkg of
-                (pkgName, Nothing) -> Map.lookup pkgName unversionedPkgs
-                _ -> getPackage <$> Map.lookup unitId pkgs
-        in
-        case mbPkg of
-            Just lfPkg -> pure lfPkg
+        case lookupPkg importPkg of
+            Just dalf -> pure $ LF.extPackagePkg $ LF.dalfPackagePkg dalf
             Nothing -> do
                 hPutStrLn stderr $
-                    "Could not find package for import: " <> unitIdString unitId <> "\n"
+                    "Could not find package for import: " <> unitIdString (toUnitId importPkg) <> "\n"
                     <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
                 exitFailure
     pure
