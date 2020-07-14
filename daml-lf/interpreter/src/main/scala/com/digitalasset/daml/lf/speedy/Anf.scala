@@ -272,17 +272,24 @@ private[lf] object Anf {
       case x: SEVal => Bounce(() => transform(depth, x, k))
       case x: SEImportValue => Bounce(() => transform(depth, x, k))
 
-      case SEAppGeneral(func, args) => {
-        Bounce(() =>
-          atomizeExp(depth, env, func, k) { (depth, func, txK1) =>
-            Bounce(() =>
-              atomizeExps(depth, env, args.toList, txK1) { (depth, args, txK) =>
-                val func1 = makeRelativeA(depth)(func)
-                val args1 = args.map(makeRelativeA(depth))
-                Bounce(() => transform(depth, SEAppAtomic(func1, args1.toArray), txK))
-            })
-        })
-      }
+      case SEAppGeneral(func, args) =>
+        // It's safe to perform ANF if the func-expression has no effects when evaluated.
+        val safeFunc =
+          func match {
+            // we know that trivially in these two cases
+            case _: SEBuiltin => true
+            case _: SEBuiltinRecursiveDefinition => true
+            case _ => false
+          }
+        // It's also safe to perform ANF for applications of a single argument.
+        if (safeFunc || args.size == 1) {
+          transformMultiApp[A](depth, env, func, args, k)(transform)
+        } else {
+          // Otherwise we expand the multi-app into a cascade of single-apps.
+          val expanded = expandMultiApp(func, args)
+          transformExp(depth, env, expanded, k)(transform)
+        }
+
       case SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
         val body = flattenToAnf(body0).wrapped
@@ -385,6 +392,35 @@ private[lf] object Anf {
       }
     }
     loop(body, rhss.reverse)
+  }
+
+  private[this] def transformMultiApp[A](
+      depth: DepthA,
+      env: Env,
+      func: SExpr,
+      args: Array[SExpr],
+      k: K[AExpr, A])(transform: Tx[SExpr, A]): Trampoline[A] = {
+    Bounce(() =>
+      atomizeExp(depth, env, func, k) { (depth, func, txK1) =>
+        Bounce(() =>
+          atomizeExps(depth, env, args.toList, txK1) { (depth, args, txK) =>
+            val func1 = makeRelativeA(depth)(func)
+            val args1 = args.map(makeRelativeA(depth))
+            Bounce(() => transform(depth, SEAppAtomic(func1, args1.toArray), txK))
+        })
+    })
+  }
+
+  private[this] def expandMultiApp(func: SExpr, args: Array[SExpr]): SExpr = {
+    @tailrec
+    def loop(acc: SExpr, xs: List[SExpr]): SExpr = {
+      xs match {
+        case Nil => acc
+        case arg1 :: argsTail =>
+          loop(SEAppGeneral(acc, Array(arg1)), argsTail)
+      }
+    }
+    loop(func, args.toList)
   }
 
 }
