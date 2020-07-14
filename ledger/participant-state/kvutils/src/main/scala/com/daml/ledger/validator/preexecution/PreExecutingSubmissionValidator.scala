@@ -30,6 +30,8 @@ class PreExecutingSubmissionValidator[WriteSet](
     metrics: Metrics,
     keySerializationStrategy: StateKeySerializationStrategy,
     commitStrategy: PreExecutingCommitStrategy[WriteSet]) {
+  import PreExecutingSubmissionValidator._
+
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
@@ -89,8 +91,6 @@ class PreExecutingSubmissionValidator[WriteSet](
         Future.failed(ValidationFailed.ValidationError(s"Cannot open envelope: $error"))
     }
 
-  type DamlInputStateWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
-
   private def fetchSubmissionInputs(
       submission: DamlSubmission,
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints)(
@@ -127,4 +127,8 @@ class PreExecutingSubmissionValidator[WriteSet](
       }
       .toVector
       .sortBy(_._1.asReadOnlyByteBuffer)
+}
+
+object PreExecutingSubmissionValidator {
+  type DamlInputStateWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
 }
