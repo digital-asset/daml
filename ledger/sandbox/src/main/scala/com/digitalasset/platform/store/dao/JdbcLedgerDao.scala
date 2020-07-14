@@ -894,7 +894,8 @@ private class JdbcLedgerDao(
 
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
-      executionContext)
+      executionContext,
+      logCtx)
 
   private val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(executionContext)
