@@ -3,11 +3,12 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
+import com.google.protobuf.ByteString
 
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,16 +29,13 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
             (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
         }(breakOut)
       }
-      envelopedSuccessLogEntry <- Future {
-        Envelope.enclose(preExecutionResult.successfulLogEntry)
-      }
       serializedLogEntryId = entryId.toByteString
-      serializedSuccessLogEntryPair = Seq((serializedLogEntryId, envelopedSuccessLogEntry))
-      envelopedOutOfTimeBoundsLogEntry <- Future {
-        Envelope.enclose(preExecutionResult.outOfTimeBoundsLogEntry)
-      }
-      serializedOutOfTimeBoundsLogEntryPair = Seq(
-        (serializedLogEntryId, envelopedOutOfTimeBoundsLogEntry))
+      serializedSuccessLogEntryPair <- logEntryToKeyValuePairs(
+        serializedLogEntryId,
+        preExecutionResult.successfulLogEntry)
+      serializedOutOfTimeBoundsLogEntryPair <- logEntryToKeyValuePairs(
+        serializedLogEntryId,
+        preExecutionResult.outOfTimeBoundsLogEntry)
     } yield
       PreExecutionCommitResult(
         successWriteSet = serializedSuccessKeyValuePairs ++ serializedSuccessLogEntryPair,
@@ -46,5 +44,12 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
         // public ledgers.
         involvedParticipants = Set.empty
       )
+  }
+
+  private def logEntryToKeyValuePairs(
+      logEntryId: ByteString,
+      logEntry: DamlLogEntry): Future[RawKeyValuePairs] = Future {
+    val envelopedLogEntry = Envelope.enclose(logEntry)
+    Seq((logEntryId, envelopedLogEntry))
   }
 }
