@@ -30,16 +30,15 @@ object EventsRange {
   def readEventSeqIdRange(range: EventsRange[Offset])(
       connection: java.sql.Connection
   ): EventsRange[Long] =
-    if (isEmpty(range)) EmptyEventSeqIdRange
-    else readEventSeqIdRangeOpt(range)(connection).getOrElse(EmptyEventSeqIdRange)
-
-  private def readEventSeqIdRangeOpt(range: EventsRange[Offset])(
-      connection: java.sql.Connection
-  ): Option[EventsRange[Long]] =
-    for {
-      startExclusive <- readEventSeqId(range.startExclusive)(connection)
-      endInclusive <- readEventSeqId(range.endInclusive)(connection)
-    } yield EventsRange(startExclusive = startExclusive, endInclusive = endInclusive)
+    if (isEmpty(range))
+      EmptyEventSeqIdRange
+    else
+      EventsRange(
+        startExclusive =
+          readEventSeqId(range.startExclusive)(connection).getOrElse(EmptyLedgerEventSeqId),
+        endInclusive =
+          readEventSeqId(range.endInclusive)(connection).getOrElse(EmptyLedgerEventSeqId),
+      )
 
   /**
     * Converts ledger end offset to Event Sequential ID.
