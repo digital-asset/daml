@@ -237,10 +237,14 @@ To enable metrics and configure reporting, you can use the two following CLI opt
 
 - ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
   are ``console``, ``csv:</path/to/metrics.csv>`` and ``graphite:<local_server_port>``.
+
   - ``console``: prints captured metrics on the standard output
+
   - ``csv:</path/to/metrics.csv>``: saves the captured metrics in CSV format at the specified location
+
   - ``graphite:<local_server_port>``: sends captured metrics to a local Graphite server. If the port
     is omitted, the default value ``2003`` will be used.
+
 - ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
   the reporter, this option allows the user to set the interval. The formats accepted are based
   on the ISO-8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
