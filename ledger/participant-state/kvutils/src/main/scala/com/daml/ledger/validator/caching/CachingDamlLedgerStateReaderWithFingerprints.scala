@@ -3,11 +3,12 @@
 
 package com.daml.ledger.validator.caching
 
-import com.daml.caching.Cache
+import com.daml.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Fingerprint}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
+import com.google.protobuf.MessageLite
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -46,4 +47,14 @@ class CachingDamlLedgerStateReaderWithFingerprints(
       }
     }
   }
+}
+
+object CachingDamlLedgerStateReaderWithFingerprints {
+
+  implicit object `Message-Fingerprint Pair Weight`
+      extends Weight[(Option[MessageLite], Fingerprint)] {
+    override def weigh(value: (Option[MessageLite], Fingerprint)): Cache.Size =
+      value._1.map(_.getSerializedSize.toLong).getOrElse(0L) + value._2.size()
+  }
+
 }
