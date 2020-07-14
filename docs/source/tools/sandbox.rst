@@ -450,21 +450,6 @@ mismatching ledger effective time.
 Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
-``daml.lapi``
--------------
-
-Every metrics under this namespace is a timer, one for each
-service exposed by the Ledger API, in the format:
-
-    daml.lapi.service_name.service_endpoint
-
-As in the following example:
-
-    daml.lapi.command_service.submit_and_wait
-
-Single call services return the time to serve the request,
-streaming services measure the time to return the first response.
-
 ``daml.index.db``
 -----------------
 
@@ -645,3 +630,18 @@ management service.
 
 Time spent persisting the information that a given
 command has been rejected.
+
+``daml.lapi``
+-------------
+
+Every metrics under this namespace is a timer, one for each
+service exposed by the Ledger API, in the format:
+
+    daml.lapi.service_name.service_endpoint
+
+As in the following example:
+
+    daml.lapi.command_service.submit_and_wait
+
+Single call services return the time to serve the request,
+streaming services measure the time to return the first response.
