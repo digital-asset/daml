@@ -77,7 +77,7 @@ object ValueGenerators {
 
   val nameGen: Gen[Name] = {
     val firstChars =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_".toVector
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$".toVector
     val mainChars =
       firstChars ++ "1234567890"
     for {
