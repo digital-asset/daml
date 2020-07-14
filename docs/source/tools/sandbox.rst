@@ -317,25 +317,6 @@ A timer records all metrics registered by a meter and by an histogram, where
 the histogram records the time necessary to execute a given operation (measured
 in milliseconds, unless otherwise specified).
 
-Cache Metrics
--------------
-
-A "cache metric" is a collection of simpler metrics that keep track of
-relevant numbers about caches kept by the system to avoid re-running
-expensive operations.
-
-The metrics are:
-
-- ``<metric.qualified.name>.size`` (gauge): instant measurement of the number of cached items
-- ``<metric.qualified.name>.weight`` (gauge): instant measurement of the number of the (possibly approximate) size in bytes of cached items
-- ``<metric.qualified.name>.hitCount`` (counter): how many times the cache was successfully accessed to retrieve an item
-- ``<metric.qualified.name>.missCount`` (counter): how many times the cache did not have the required item and had to load it
-- ``<metric.qualified.name>.loadSuccessCount`` (counter): how many times the cache successfully loaded an item so that it could be later served
-- ``<metric.qualified.name>.loadFailureCount`` (counter): how many times the cache failed while trying to load an item
-- ``<metric.qualified.name>.totalLoadTime`` (timer): overall time spent accessing the resource cached by this entity
-- ``<metric.qualified.name>.evictionCount`` (counter): how many items have been evicted overall
-- ``<metric.qualified.name>.evictionWeight`` (counter): (possibly approximate) size in bytes of overall evicted items
-
 Database Metrics
 ----------------
 
@@ -353,286 +334,270 @@ These metrics are:
 List of metrics
 ===============
 
-The following is a (non-exhaustive) list of namespaces under
-which you can find several metrics with a brief description
-for each, accompanied by a list of selected metrics that can
-be particularly important to track. Note that not all the
-following metrics are available unless you run the sandbox
-with a PostgreSQL backend.
+The following is a non-exhaustive list of selected metrics
+that can be particularly important to track. Note that not
+all the following metrics are available unless you run the
+sandbox with a PostgreSQL backend.
 
-``daml.commands``
------------------
+``daml.commands.deduplicated_commands``
+---------------------------------------
 
-Statistics about the submission process of commands, including
-validation, deduplication and delay.
+A meter. Number of deduplicated commands.
 
-``daml.commands.deduplicated_commands`` (meter)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.commands.delayed_submissions``
+-------------------------------------
 
-Number of deduplicated commnands.
-
-``daml.commands.delayed_submissions`` (meter)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Number of delayed submissions (submission who have been
+A meter. Number of delayed submissions (submission who have been
 evaluated to transaction with a ledger time farther in
 the future than the expected latency).
 
-``daml.commands.failed_command_interpretation`` (meter)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.commands.failed_command_interpretation``
+-----------------------------------------------
 
-Number of commands that have been deemed unacceptable
+A meter. Number of commands that have been deemed unacceptable
 by the interpreter and thus rejected (e.g. double spends)
 
-``daml.commands.submissions`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.commands.submissions``
+-----------------------------
 
-Overall time to fully process a submission (validation,
+A timer. Time to fully process a submission (validation,
 deduplication and interpretation) before it's handed over
 to the ledger to be finalized (either committed or rejected).
 
-``daml.commands.valid_submissions`` (meter)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.commands.valid_submissions``
+-----------------------------------
 
-Number of submission that pass validation and are
+A meter. Number of submission that pass validation and are
 further sent to deduplication and interpretation.
 
-``daml.commands.validation`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.commands.validation``
+----------------------------
 
-Time to validate submitted commands before they are
+A timer. Time to validate submitted commands before they are
 fed to the DAML interpreter.
 
-``daml.execution``
-------------------
 
-``daml.execution.get_lf_package`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.get_lf_package``
+---------------------------------
 
-Time spent by the engine fetching the packages of compiled
+A timer. Time spent by the engine fetching the packages of compiled
 DAML code necessary for interpretation.
 
-``daml.execution.lookup_active_contract_count_per_execution`` (histogram)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.lookup_active_contract_count_per_execution``
+-------------------------------------------------------------
 
-Number of active contracts fetched for each processed transaction.
+A histogram. Number of active contracts fetched for each processed transaction.
 
-``daml.execution.lookup_active_contract_per_execution`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.lookup_active_contract_per_execution``
+-------------------------------------------------------
 
-Time to fetch all active contracts necessary to process each transaction.
+A timer. Time to fetch all active contracts necessary to process each transaction.
 
-``daml.execution.lookup_active_contract`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.lookup_active_contract``
+-----------------------------------------
 
-Time to fetch each individual active contract during interpretation.
+A timer. Time to fetch each individual active contract during interpretation.
 
-``daml.execution.lookup_contract_key_count_per_execution`` (histogram)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.lookup_contract_key_count_per_execution``
+----------------------------------------------------------
 
-Number of contract keys looked up for each processed transaction.
+A histogram. Number of contract keys looked up for each processed transaction.
 
-``daml.execution.lookup_contract_key_per_execution`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.lookup_contract_key_per_execution``
+----------------------------------------------------
 
-Time to lookup all contract keys necessary to process each transaction.
+A timer. Time to lookup all contract keys necessary to process each transaction.
 
-``daml.execution.lookup_contract_key`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.lookup_contract_key``
+--------------------------------------
 
-Time to lookup each individual contract key during interpretation.
+A timer. Time to lookup each individual contract key during interpretation.
 
-``daml.execution.retry`` (meter)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.retry``
+------------------------
 
-Overall number of interpretation retries attempted due to
+A meter. Overall number of interpretation retries attempted due to
 mismatching ledger effective time.
 
-``daml.execution.total`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.execution.total``
+------------------------
 
-Time spent interpreting a valid command into a transaction
+A timer. Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
-``daml.index.db``
------------------
+``daml.index.db.deduplicate_command``
+-------------------------------------
 
-Statistics about operations performed against the
-persistent Ledger API server index.
-
-``daml.index.db.deduplicate_command`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Time spent persisting deduplication information to ensure the
+A timer. Time spent persisting deduplication information to ensure the
 continued working of the deduplication mechanism across restarts.
 
-``daml.index.db.get_active_contracts`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.get_active_contracts``
+--------------------------------------
 
-Time spent retrieving a page of active contracts to be
+A database metric. Time spent retrieving a page of active contracts to be
 served from the active contract service. The page size is
 configurable, please look at the CLI reference.
 
-``daml.index.db.get_completions`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.get_completions``
+---------------------------------
 
-Time spent retrieving a page of command completions to be
+A database metric. Time spent retrieving a page of command completions to be
 served from the command completion service. The page size is
 configurable, please look at the CLI reference.
 
-``daml.index.db.get_flat_transactions`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.get_flat_transactions``
+---------------------------------------
 
-Time spent retrieving a page of flat transactions to be
+A database metric. Time spent retrieving a page of flat transactions to be
 streamed from the transaction service. The page size is
 configurable, please look at the CLI reference.
 
-``daml.index.db.get_ledger_end`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.get_ledger_end``
+--------------------------------
 
-Time spent retrieving the current ledger end. The count for this metric is expected to
+A database metric. Time spent retrieving the current ledger end. The count for this metric is expected to
 be very high and always increasing as the indexed is queried for the latest updates.
 
-``daml.index.db.get_ledger_id`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.get_ledger_id``
+-------------------------------
 
-Time spent retrieving the ledger identifier.
+A database metric. Time spent retrieving the ledger identifier.
 
-``daml.index.db.get_transaction_trees`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.get_transaction_trees``
+---------------------------------------
 
-Time spent retrieving a page of flat transactions to be
+A database metric. Time spent retrieving a page of flat transactions to be
 streamed from the transaction service. The page size is
 configurable, please look at the CLI reference.
 
-``daml.index.db.load_all_parties`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_all_parties``
+----------------------------------
 
-Load the currently allocated parties so that
+A database metric. Load the currently allocated parties so that
 they are served via the party management service.
 
-``daml.index.db.load_archive`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_archive``
+------------------------------
 
-Time spent loading a package of compiled DAML code
+A database metric. Time spent loading a package of compiled DAML code
 so that it's given to the DAML interpreter when
 needed.
 
-``daml.index.db.load_configuration_entries`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_configuration_entries``
+--------------------------------------------
 
-Time to load the current entries in the log of
+A database metric. Time to load the current entries in the log of
 configuration entries. Used to verify whether a configuration
 has been ultimately set.
 
-``daml.index.db.load_package_entries`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_package_entries``
+--------------------------------------
 
-Time to load the current entries in the log of
+A database metric. Time to load the current entries in the log of
 package uploads. Used to verify whether a package
 has been ultimately uploaded.
 
-``daml.index.db.load_packages`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_packages``
+-------------------------------
 
-Load the currently uploaded packages so that
+A database metric. Load the currently uploaded packages so that
 they are served via the package management service.
 
-``daml.index.db.load_parties`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_parties``
+------------------------------
 
-Load the currently allocated parties so that
+A database metric. Load the currently allocated parties so that
 they are served via the party service.
 
-``daml.index.db.load_party_entries`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.load_party_entries``
+------------------------------------
 
-Time to load the current entries in the log of
+A database metric. Time to load the current entries in the log of
 party allocations. Used to verify whether a party
 has been ultimately allocated.
 
-``daml.index.db.lookup_active_contract`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.lookup_active_contract``
+----------------------------------------
 
-Time to fetch one contract on the index to be used by
+A database metric. Time to fetch one contract on the index to be used by
 the DAML interpreter to evaluate a command into a
 transaction.
 
-``daml.index.db.lookup_configuration`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.lookup_configuration``
+--------------------------------------
 
-Time to fetch the configuration so that it's
+A database metric. Time to fetch the configuration so that it's
 served via the configuration management service.
 
-``daml.index.db.lookup_contract_by_key`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.lookup_contract_by_key``
+----------------------------------------
 
-Time to lookup one contract key on the index to be used by
+A database metric. Time to lookup one contract key on the index to be used by
 the DAML interpreter to evaluate a command into a
 transaction.
 
-``daml.index.db.lookup_flat_transaction_by_id`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.lookup_flat_transaction_by_id``
+-----------------------------------------------
 
-Time to lookup a single flat transaction by identifier
+A database metric. Time to lookup a single flat transaction by identifier
 to be served by the transaction service.
 
-``daml.index.db.lookup_maximum_ledger_time`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.lookup_maximum_ledger_time``
+--------------------------------------------
 
-Time spent looking up the ledger effective time of a
+A database metric. Time spent looking up the ledger effective time of a
 transaction as the maximum ledger time of all active
 contracts involved to ensure causal monotonicity.
 
-``daml.index.db.lookup_transaction_tree_by_id`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.lookup_transaction_tree_by_id``
+-----------------------------------------------
 
-Time to lookup a single transaction tree by identifier
+A database metric. Time to lookup a single transaction tree by identifier
 to be served by the transaction service.
 
-``daml.index.db.remove_expired_deduplication_data`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.remove_expired_deduplication_data``
+---------------------------------------------------
 
-Time spent removing deduplication information after the expiration
+A database metric. Time spent removing deduplication information after the expiration
 of the deduplication window. Deduplication information is persisted to
 ensure the continued working of the deduplication mechanism across restarts.
 
-``daml.index.db.stop_deduplicating_command`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.stop_deduplicating_command``
+--------------------------------------------
 
-Time spent removing deduplication information after the failure of a
+A database metric. Time spent removing deduplication information after the failure of a
 command. Deduplication information is persisted to ensure the continued
 working of the deduplication mechanism across restarts.
 
-``daml.index.db.store_configuration_entry`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.store_configuration_entry``
+-------------------------------------------
 
-Time spent persisting a change in the ledger configuration
+A database metric. Time spent persisting a change in the ledger configuration
 provided through the configuration management service.
 
-``daml.index.db.store_ledger_entry`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.store_ledger_entry``
+------------------------------------
 
-Time spent persisting a transaction that has been
+A database metric. Time spent persisting a transaction that has been
 successfully interpreted and is final.
 
-``daml.index.db.store_package_entry`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.store_package_entry``
+-------------------------------------
 
-Time spent storing a DAML package uploaded through
+A database metric. Time spent storing a DAML package uploaded through
 the package management service.
 
-``daml.index.db.store_party_entry`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.store_party_entry``
+-----------------------------------
 
-Time spent storing party information as part of the
+A database metric. Time spent storing party information as part of the
 party allocation endpoint provided by the party
 management service.
 
-``daml.index.db.store_rejection`` (timer)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``daml.index.db.store_rejection``
+---------------------------------
 
-Time spent persisting the information that a given
+A database metric. Time spent persisting the information that a given
 command has been rejected.
 
 ``daml.lapi``
@@ -641,11 +606,11 @@ command has been rejected.
 Every metrics under this namespace is a timer, one for each
 service exposed by the Ledger API, in the format:
 
-    daml.lapi.service_name.service_endpoint
+``daml.lapi.service_name.service_endpoint``
 
 As in the following example:
 
-    daml.lapi.command_service.submit_and_wait
+``daml.lapi.command_service.submit_and_wait``
 
 Single call services return the time to serve the request,
 streaming services measure the time to return the first response.
