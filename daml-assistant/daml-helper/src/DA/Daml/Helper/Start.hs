@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiWayIf #-}
 module DA.Daml.Helper.Start
     ( runStart
+    , runPlatformJar
 
     , withJar
     , withSandbox
@@ -26,6 +27,7 @@ module DA.Daml.Helper.Start
 
 import Control.Concurrent
 import Control.Concurrent.Async
+import Control.Exception
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import qualified Data.HashMap.Strict as HashMap
@@ -35,6 +37,7 @@ import DA.PortFile
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.HTTP.Simple as HTTP
+import System.Environment (getEnv, lookupEnv)
 import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
@@ -45,6 +48,32 @@ import Data.Aeson
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
+
+-- [Note] The `platform-version` field:
+--
+-- If `daml.yaml` contains a `platform-version` field platform commands
+-- (at this point `daml sandbox`, `daml sandbox-classic` and `daml json-api`)
+-- proceed as follows:
+--
+-- 1. The assistant invokes `daml-helper` as usual. The assistant is not aware of the
+--    `platform-version` field or what is and what is not a platform command.
+-- 2. `daml-helper` reads the `DAML_PLATFORM_VERSION` env var falling back to
+--    the `platform-version` field from `daml.yaml`.
+-- 3.1. If the platform version is equal to the SDK version (from `DAML_SDK_VERSION`),
+--      `daml-helper` invokes the underlying tools (sandbox, JSON API, …) directly
+--      and we are finished.
+-- 3.2. If the platform version is different from the SDK version, `daml-helper`
+--      invokes the underlying tool via the assistant, setting both `DAML_SDK_VERSION`
+--      and `DAML_PLATFORM_VERSION` to the platform version.
+-- 4. The assistant will now invoke `daml-helper` from the platform version SDK.
+--    At this point, we are guaranteed to fall into 3.1 and daml-helper invokes the
+--    tool directly.
+--
+-- Note that this supports `platform-version`s for SDKs that are not
+-- aware of `platform-version`. In that case, `daml-helper` only has
+-- the codepath for invoking the underlying tool so we are also guaranteed
+-- to go to step 3.1.
 
 data SandboxPortSpec = FreePort | SpecifiedPort SandboxPort
 
@@ -69,10 +98,13 @@ navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxClassic -> SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox (SandboxClassic classic) portSpec args a = withTempFile $ \portFile -> do
-    logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
+withSandbox (SandboxClassic classic) portSpec extraArgs a = withTempFile $ \portFile -> do
     let sandbox = if classic then "sandbox-classic" else "sandbox"
-    withJar damlSdkJar [logbackArg] ([sandbox, "--port", show (fromSandboxPortSpec portSpec), "--port-file", portFile] ++ args) $ \ph -> do
+    let args = [ sandbox
+               , "--port", show (fromSandboxPortSpec portSpec)
+               , "--port-file", portFile
+               ] ++ extraArgs
+    withPlatformJar args "sandbox-logback.xml" $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         port <- readPortFile maxRetries portFile
         a ph (SandboxPort port)
@@ -92,12 +124,15 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
         a ph
 
 withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
-withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
-    logbackArg <- getLogbackArg (damlSdkJarFolder </> "json-api-logback.xml")
-    let jsonApiArgs =
-            ["--ledger-host", "localhost", "--ledger-port", show sandboxPort,
-             "--http-port", show jsonApiPort, "--allow-insecure-tokens"] <> args
-    withJar damlSdkJar [logbackArg] ("json-api":jsonApiArgs) $ \ph -> do
+withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
+    let args =
+            [ "json-api"
+            , "--ledger-host", "localhost"
+            , "--ledger-port", show sandboxPort
+            , "--http-port", show jsonApiPort
+            , "--allow-insecure-tokens"
+            ] ++ extraArgs
+    withPlatformJar args "json-api-logback.xml" $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
         -- The secret doesn’t matter here
         let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
@@ -225,3 +260,68 @@ runStart
             case mbJsonApiPort of
                 Nothing -> f sandboxPh
                 Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
+
+platformVersionEnvVar :: String
+platformVersionEnvVar = "DAML_PLATFORM_VERSION"
+
+-- | Returns the platform version determined as follows:
+--
+-- 1. If DAML_PLATFORM_VERSION is set return that.
+-- 2. If DAML_PROJECT is set and non-empty and `daml.yaml`
+--    has a `platform-version` field return that.
+-- 3. If `DAML_SDK_VERSION` is set return that.
+-- 4. Else we are invoked outside of the assistant and we throw an exception.
+getPlatformVersion :: IO String
+getPlatformVersion = do
+  mbPlatformVersion <- lookupEnv platformVersionEnvVar
+  case mbPlatformVersion of
+    Just platformVersion -> pure platformVersion
+    Nothing -> do
+      mbProjPath <- getProjectPath
+      case mbProjPath of
+        Just projPath -> do
+          project <- readProjectConfig (ProjectPath projPath)
+          case queryProjectConfig ["platform-version"] project of
+            Left err -> throwIO err
+            Right (Just ver) -> pure ver
+            Right Nothing -> getSdkVersion
+        Nothing -> getSdkVersion
+
+-- Convenience-wrapper around `withPlatformProcess` for commands that call the SDK
+-- JAR `daml-sdk.jar`.
+withPlatformJar
+    :: [String]
+    -- ^ Commands passed to the assistant and the platform JAR.
+    -> FilePath
+    -- ^ File name of the logback config.
+    -> (Process () () () -> IO a)
+    -> IO a
+withPlatformJar args logbackConf f = do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> logbackConf)
+    withPlatformProcess args (withJar damlSdkJar [logbackArg] args) f
+
+runPlatformJar :: [String] -> FilePath -> IO ()
+runPlatformJar args logback = do
+    withPlatformJar args logback (const $ pure ())
+
+withPlatformProcess
+    :: [String]
+    -- ^ List of commands passed to the assistant to invoke the command.
+    -> ((Process () () () -> IO a) -> IO a)
+    -- ^ Function to invoke the command in the current SDK.
+    -> (Process () () () -> IO a)
+    -> IO a
+withPlatformProcess args runInCurrentSdk f = do
+    platformVersion <- getPlatformVersion
+    sdkVersion <- getSdkVersion
+    if platformVersion == sdkVersion
+       then runInCurrentSdk f
+       else do
+        assistant <- getEnv damlAssistantEnvVar
+        withProcessWait_
+            ( setEnv [ (platformVersionEnvVar, platformVersion)
+                    , (sdkVersionEnvVar, platformVersion)
+                    ]
+            $ proc assistant args
+            )
+            f
