@@ -349,18 +349,96 @@ These metrics are:
 List of metrics
 ===============
 
-How to read this list
----------------------
+The following is a (non-exhaustive) list of namespaces under
+which you can find several metrics with a brief description
+for each, accompanied by a list of selected metrics that can
+be particularly important to track. Note that not all the
+following metrics are available unless you run the sandbox
+with a PostgreSQL backend.
 
-This list contains all the metrics recorded by a running sandbox.
+``daml.commands``
+-----------------
 
-Based on your setup, the list of metrics may vary. For simplicity, this list
-is split in three main sections: metrics kept by any sandbox, additional metrics
-when running a persistent sandbox (using the ``--sql-backend-jdbcurl`` CLI
-option) and further additional metrics when running ``daml sandbox`` (as
-opposed to ``daml sandbox-classic``).
+Statistics about the submission process of commands, including
+validation, deduplication and delay.
 
-TODO List
----------
+``daml.commands.deduplicated_commands`` (meter)
+``daml.commands.delayed_submissions`` (meter)
+``daml.commands.failed_command_interpretation`` (meter)
+``daml.commands.submissions`` (timer)
+``daml.commands.valid_submissions`` (meter)
+``daml.commands.validation`` (timer)
 
-TODO
+``daml.execution``
+------------------
+
+``daml.execution.get_lf_package`` (timer)
+``daml.execution.lookup_active_contract_count_per_execution`` (timer)
+``daml.execution.lookup_active_contract_per_execution`` (timer)
+``daml.execution.lookup_active_contract`` (timer)
+``daml.execution.lookup_contract_key_count_per_execution`` (histogram)
+``daml.execution.lookup_contract_key_per_execution`` (timer)
+``daml.execution.lookup_contract_key`` (timer)
+``daml.execution.retry`` (meter)
+``daml.execution.total`` (timer)
+
+``daml.lapi``
+-------------
+
+Every metrics under this namespace is a timer, one for each
+service exposed by the Ledger API, in the format:
+
+    daml.lapi.service_name.service_endpoint
+
+As in the following example:
+
+    daml.lapi.command_service.submit_and_wait
+
+Single call services return the time to serve the request,
+streaming services measure the time to return the first response.
+
+``daml.index.db``
+-----------------
+
+``daml.index.db.deduplicate_command`` (timer)
+``daml.index.db.get_acs_event_sequential_id_range`` (timer)
+``daml.index.db.get_active_contracts`` (timer)
+``daml.index.db.get_completions`` (timer)
+``daml.index.db.get_event_sequential_id_range`` (timer)
+``daml.index.db.get_flat_transactions`` (timer)
+``daml.index.db.get_initial_ledger_end`` (timer)
+``daml.index.db.get_ledger_end`` (timer)
+``daml.index.db.get_ledger_id`` (timer)
+``daml.index.db.get_transaction_trees`` (timer)
+``daml.index.db.initialize_ledger_parameters`` (timer)
+``daml.index.db.load_all_parties`` (timer)
+``daml.index.db.load_archive`` (timer)
+``daml.index.db.load_configuration_entries`` (timer)
+``daml.index.db.load_package_entries`` (timer)
+``daml.index.db.load_packages`` (timer)
+``daml.index.db.load_parties`` (timer)
+``daml.index.db.load_party_entries`` (timer)
+``daml.index.db.lookup_active_contract_with_cached_argument`` (timer)
+``daml.index.db.lookup_active_contract`` (timer)
+``daml.index.db.lookup_configuration`` (timer)
+``daml.index.db.lookup_contract_by_key`` (timer)
+``daml.index.db.lookup_flat_transaction_by_id`` (timer)
+``daml.index.db.lookup_maximum_ledger_time`` (timer)
+``daml.index.db.lookup_transaction_tree_by_id`` (timer)
+``daml.index.db.remove_expired_deduplication_data`` (timer)
+``daml.index.db.stop_deduplicating_command`` (timer)
+``daml.index.db.store_configuration_entry`` (timer)
+``daml.index.db.store_initial_state_from_scenario`` (timer)
+``daml.index.db.store_ledger_entry`` (timer)
+``daml.index.db.store_package_entry`` (timer)
+``daml.index.db.store_party_entry`` (timer)
+``daml.index.db.store_rejection`` (timer)
+``daml.index.db.truncate_all_tables`` (timer)
+
+``daml.indexer``
+----------------
+
+``daml.indexer.current_record_time_lag`` (gauge)
+``daml.indexer.last_received_offset`` (gauge)
+``daml.indexer.last_received_record_time`` (gauge)
+``daml.indexer.processed_state_updates`` (timer)
