@@ -1,5 +1,7 @@
 package com.daml.ledger.validator.preexecution
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -28,11 +30,15 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val expectedReadSet = Map(
         TestHelper.allDamlStateKeyTypes.head -> FingerprintPlaceholder
       )
+      val expectedMinRecordTime = Some(recordTime.toInstant.minusSeconds(123))
+      val expectedMaxRecordTime = Some(recordTime.toInstant)
       val expectedSuccessWriteSet = ByteString.copyFromUtf8("success")
       val expectedOutOfTimeBoundsWriteSet = ByteString.copyFromUtf8("failure")
       val expectedInvolvedParticipants = Set(TestHelpers.mkParticipantId(0))
       val instance = createInstance(
         expectedReadSet = expectedReadSet,
+        expectedMinRecordTime = expectedMinRecordTime,
+        expectedMaxRecordTime = expectedMaxRecordTime,
         expectedSuccessWriteSet = expectedSuccessWriteSet,
         expectedOutOfTimeBoundsWriteSet = expectedOutOfTimeBoundsWriteSet,
         expectedInvolvedParticipants = expectedInvolvedParticipants
@@ -42,7 +48,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(anEnvelope(), aCorrelationId, aParticipantId, mockLedgerStateReader)
         .map { actual =>
-          actual.maxRecordTime shouldBe Some(recordTime.toInstant)
+          actual.minRecordTime shouldBe expectedMinRecordTime
+          actual.maxRecordTime shouldBe expectedMaxRecordTime
           actual.successWriteSet shouldBe expectedSuccessWriteSet
           actual.outOfTimeBoundsWriteSet shouldBe expectedOutOfTimeBoundsWriteSet
           actual.readSet should have size expectedReadSet.size.toLong
@@ -140,6 +147,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
   private def createInstance(
       expectedReadSet: Map[DamlStateKey, Fingerprint] = Map.empty,
+      expectedMinRecordTime: Option[Instant] = None,
+      expectedMaxRecordTime: Option[Instant] = None,
       expectedSuccessWriteSet: Bytes = ByteString.EMPTY,
       expectedOutOfTimeBoundsWriteSet: Bytes = ByteString.EMPTY,
       expectedInvolvedParticipants: Set[ParticipantId] = Set.empty)
@@ -157,8 +166,9 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
           aLogEntry,
           Map.empty,
           aLogEntry,
-          None,
-          Some(recordTime)))
+          expectedMinRecordTime.map(Timestamp.assertFromInstant),
+          expectedMaxRecordTime.map(Timestamp.assertFromInstant)
+        ))
     val mockCommitStrategy = mock[PreExecutingCommitStrategy[Bytes]]
     when(
       mockCommitStrategy.generateWriteSets(
