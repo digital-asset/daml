@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.app
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+import java.util.UUID
 
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -19,7 +20,7 @@ import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 final case class Config[Extra](
-    ledgerId: Option[String],
+    ledgerId: String,
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
@@ -59,7 +60,7 @@ object Config {
 
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
-      ledgerId = None,
+      ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
@@ -123,9 +124,10 @@ object Config {
           config.copy(participants = config.participants :+ partConfig)
         })
       opt[String]("ledger-id")
+        .optional()
         .text(
           "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
-        .action((ledgerId, config) => config.copy(ledgerId = Some(ledgerId)))
+        .action((ledgerId, config) => config.copy(ledgerId = ledgerId))
 
       opt[String]("pem")
         .optional()

@@ -37,7 +37,7 @@ import scala.concurrent.duration.{DurationInt, DurationLong}
   */
 final class LedgerConfigProvider private (
     index: IndexConfigManagementService,
-    writeService: WriteService,
+    optWriteService: Option[WriteService],
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
@@ -62,10 +62,12 @@ final class LedgerConfigProvider private (
     readyPromise.trySuccess(())
     ()
   })
-  materializer.scheduleOnce(config.initialConfigurationSubmitDelay.toNanos.nanos, () => {
-    if (latestConfiguration.isEmpty) submitInitialConfig()
-    ()
-  })
+  optWriteService.foreach { writeService =>
+    materializer.scheduleOnce(config.initialConfigurationSubmitDelay.toNanos.nanos, () => {
+      if (latestConfiguration.isEmpty) submitInitialConfig(writeService)
+      ()
+    })
+  }
 
   // Looks up the latest ledger configuration, then subscribes to a
   // stream of configuration changes.
@@ -118,7 +120,7 @@ final class LedgerConfigProvider private (
     ()
   }
 
-  private[this] def submitInitialConfig(): Future[Unit] = {
+  private[this] def submitInitialConfig(writeService: WriteService): Future[Unit] = {
     implicit val executionContext: ExecutionContext = DE
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
@@ -168,10 +170,10 @@ object LedgerConfigProvider {
 
   def create(
       index: IndexConfigManagementService,
-      writeService: WriteService,
+      optWriteService: Option[WriteService],
       timeProvider: TimeProvider,
       config: LedgerConfiguration)(
       implicit materializer: Materializer,
       logCtx: LoggingContext): LedgerConfigProvider =
-    new LedgerConfigProvider(index, writeService, timeProvider, config, materializer)
+    new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
 }

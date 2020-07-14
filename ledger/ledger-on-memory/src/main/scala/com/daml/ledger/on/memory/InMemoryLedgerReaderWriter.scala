@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.util.UUID
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -21,7 +19,6 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidatorFactory,
   ConflictDetection
 }
-import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -69,7 +66,7 @@ object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   final class SingleParticipantOwner(
-      initialLedgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -85,7 +82,7 @@ object InMemoryLedgerReaderWriter {
       for {
         dispatcher <- dispatcherOwner.acquire()
         readerWriter <- new Owner(
-          initialLedgerId,
+          ledgerId,
           batchingLedgerWriterConfig,
           participantId,
           metrics,
@@ -100,7 +97,7 @@ object InMemoryLedgerReaderWriter {
   }
 
   final class Owner(
-      initialLedgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       metrics: Metrics,
@@ -114,8 +111,6 @@ object InMemoryLedgerReaderWriter {
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[KeyValueLedger] = {
-      val ledgerId =
-        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
       val keyValueCommitting =
         new KeyValueCommitting(
           engine,

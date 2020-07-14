@@ -24,7 +24,7 @@ import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 object ReadOnlySqlLedger {
 
@@ -45,7 +45,7 @@ object ReadOnlySqlLedger {
     ): Resource[ReadOnlyLedger] =
       for {
         ledgerDao <- ledgerDaoOwner().acquire()
-        ledgerId <- Resource.fromFuture(verifyOrSetLedgerId(ledgerDao, initialLedgerId))
+        ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         ledger <- ResourceOwner
@@ -53,7 +53,7 @@ object ReadOnlySqlLedger {
           .acquire()
       } yield ledger
 
-    private def verifyOrSetLedgerId(
+    private def verifyLedgerId(
         ledgerDao: LedgerReadDao,
         initialLedgerId: LedgerId,
     )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] =
@@ -67,7 +67,12 @@ object ReadOnlySqlLedger {
             Future.failed(
               new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
           case None =>
-            Future.successful(initialLedgerId)
+            logger.info("Ledger ID not found in the index database. Retrying again in 5 seconds.")
+            val promise = Promise[LedgerId]()
+            mat.scheduleOnce(5.seconds, () => {
+              promise.completeWith(verifyLedgerId(ledgerDao, initialLedgerId))
+            })
+            promise.future
         }
 
     private def ledgerDaoOwner(): ResourceOwner[LedgerReadDao] =

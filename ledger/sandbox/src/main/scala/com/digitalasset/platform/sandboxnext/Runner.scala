@@ -140,9 +140,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   case TimeProviderType.WallClock =>
                     None
                 }
+                ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
                 isReset = startupMode == StartupMode.ResetAndStart
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
-                  initialLedgerId = specifiedLedgerId,
+                  ledgerId = ledgerId,
                   participantId = ParticipantId,
                   metrics = metrics,
                   jdbcUrl = ledgerJdbcUrl,
@@ -200,6 +201,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   )
                 }
                 apiServer <- new StandaloneApiServer(
+                  ledgerId = ledgerId,
                   config = ApiServerConfig(
                     participantId = ParticipantId,
                     archiveFiles = if (isReset) List.empty else config.damlPackages,
@@ -219,8 +221,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     implicitPartyAllocation = config.implicitPartyAllocation,
                   ),
                   ledgerConfig = config.ledgerConfig,
-                  readService = readService,
-                  writeService = writeService,
+                  optWriteService = Some(writeService),
                   authService = authService,
                   transformIndexService = new TimedIndexService(_, metrics),
                   metrics = metrics,

@@ -35,7 +35,11 @@ import com.daml.platform.configuration.{
   LedgerConfiguration,
   PartyConfiguration
 }
-import com.daml.platform.server.api.services.grpc.GrpcHealthService
+import com.daml.platform.server.api.services.grpc.{
+  GrpcCommandCompletionService,
+  GrpcHealthService,
+  GrpcTransactionService
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.BindableService
@@ -64,7 +68,7 @@ object ApiServices {
 
   class Owner(
       participantId: Ref.ParticipantId,
-      writeService: WriteService,
+      optWriteService: Option[WriteService],
       indexService: IndexService,
       authorizer: Authorizer,
       engine: Engine,
@@ -99,7 +103,7 @@ object ApiServices {
           ledgerId <- identityService.getLedgerId()
           ledgerConfigProvider = LedgerConfigProvider.create(
             configManagementService,
-            writeService,
+            optWriteService,
             timeProvider,
             ledgerConfiguration)
           services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
@@ -118,37 +122,6 @@ object ApiServices {
 
     private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
-      val commandExecutor = new TimedCommandExecutor(
-        new LedgerTimeAwareCommandExecutor(
-          new StoreBackedCommandExecutor(
-            engine,
-            participantId,
-            packagesService,
-            contractStore,
-            metrics,
-          ),
-          contractStore,
-          maxRetries = 3,
-          metrics,
-        ),
-        metrics,
-      )
-      val apiSubmissionService = ApiSubmissionService.create(
-        ledgerId,
-        contractStore,
-        writeService,
-        submissionService,
-        partyManagementService,
-        timeProvider,
-        timeProviderType,
-        ledgerConfigProvider,
-        seedService,
-        commandExecutor,
-        ApiSubmissionService.Configuration(
-          partyConfig.implicitPartyAllocation,
-        ),
-        metrics,
-      )
 
       logger.info(engine.info.show)
 
@@ -166,29 +139,6 @@ object ApiServices {
       val apiCompletionService =
         ApiCommandCompletionService.create(ledgerId, completionsService)
 
-      // Note: the command service uses the command submission, command completion, and transaction
-      // services internally. These connections do not use authorization, authorization wrappers are
-      // only added here to all exposed services.
-      val apiCommandService = ApiCommandService.create(
-        ApiCommandService.Configuration(
-          ledgerId,
-          commandConfig.inputBufferSize,
-          commandConfig.maxCommandsInFlight,
-          commandConfig.limitMaxCommandsInFlight,
-          commandConfig.retentionPeriod,
-        ),
-        // Using local services skips the gRPC layer, improving performance.
-        ApiCommandService.LocalServices(
-          CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
-          r => apiCompletionService.completionStreamSource(r),
-          () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
-          apiTransactionService.getTransactionById,
-          apiTransactionService.getFlatTransactionById
-        ),
-        timeProvider,
-        ledgerConfigProvider,
-      )
-
       val apiActiveContractsService =
         ApiActiveContractsService.create(ledgerId, activeContractsService)
 
@@ -203,42 +153,119 @@ object ApiServices {
           )
         }
 
-      val apiPartyManagementService =
-        ApiPartyManagementService
-          .createApiService(partyManagementService, transactionsService, writeService)
-
-      val apiPackageManagementService =
-        ApiPackageManagementService
-          .createApiService(indexService, transactionsService, writeService, timeProvider)
-
-      val apiConfigManagementService =
-        ApiConfigManagementService
-          .createApiService(
-            configManagementService,
-            writeService,
-            timeProvider,
-            ledgerConfiguration)
+      val writeServiceBackedApiServices =
+        intitializeWriteServiceBackedApiServices(
+          ledgerId,
+          ledgerConfigProvider,
+          apiCompletionService,
+          apiTransactionService)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks)
 
       apiTimeServiceOpt.toList :::
+        writeServiceBackedApiServices :::
         List(
         new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
         new PackageServiceAuthorization(apiPackageService, authorizer),
         new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
-        new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
         new TransactionServiceAuthorization(apiTransactionService, authorizer),
         new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
-        new CommandServiceAuthorization(apiCommandService, authorizer),
         new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
-        new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
-        new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
-        new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
         apiReflectionService,
         apiHealthService,
       )
+    }
+
+    private def intitializeWriteServiceBackedApiServices(
+        ledgerId: LedgerId,
+        ledgerConfigProvider: LedgerConfigProvider,
+        apiCompletionService: GrpcCommandCompletionService,
+        apiTransactionService: GrpcTransactionService)(
+        implicit mat: Materializer,
+        ec: ExecutionContext,
+        logCtx: LoggingContext): List[BindableService] = {
+      optWriteService.toList.flatMap { writeService =>
+        val commandExecutor = new TimedCommandExecutor(
+          new LedgerTimeAwareCommandExecutor(
+            new StoreBackedCommandExecutor(
+              engine,
+              participantId,
+              packagesService,
+              contractStore,
+              metrics,
+            ),
+            contractStore,
+            maxRetries = 3,
+            metrics,
+          ),
+          metrics,
+        )
+
+        val apiSubmissionService = ApiSubmissionService.create(
+          ledgerId,
+          contractStore,
+          writeService,
+          submissionService,
+          partyManagementService,
+          timeProvider,
+          timeProviderType,
+          ledgerConfigProvider,
+          seedService,
+          commandExecutor,
+          ApiSubmissionService.Configuration(
+            partyConfig.implicitPartyAllocation,
+          ),
+          metrics,
+        )
+
+        // Note: the command service uses the command submission, command completion, and transaction
+        // services internally. These connections do not use authorization, authorization wrappers are
+        // only added here to all exposed services.
+        val apiCommandService = ApiCommandService.create(
+          ApiCommandService.Configuration(
+            ledgerId,
+            commandConfig.inputBufferSize,
+            commandConfig.maxCommandsInFlight,
+            commandConfig.limitMaxCommandsInFlight,
+            commandConfig.retentionPeriod,
+          ),
+          // Using local services skips the gRPC layer, improving performance.
+          ApiCommandService.LocalServices(
+            CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
+            r => apiCompletionService.completionStreamSource(r),
+            () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
+            apiTransactionService.getTransactionById,
+            apiTransactionService.getFlatTransactionById
+          ),
+          timeProvider,
+          ledgerConfigProvider,
+        )
+        val apiPartyManagementService =
+          ApiPartyManagementService
+            .createApiService(partyManagementService, transactionsService, writeService)
+
+        val apiPackageManagementService =
+          ApiPackageManagementService
+            .createApiService(indexService, transactionsService, writeService, timeProvider)
+
+        val apiConfigManagementService =
+          ApiConfigManagementService
+            .createApiService(
+              configManagementService,
+              writeService,
+              timeProvider,
+              ledgerConfiguration)
+
+        List(
+          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+          new CommandServiceAuthorization(apiCommandService, authorizer),
+          new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
+          new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
+          new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
+        )
+      }
     }
   }
 }

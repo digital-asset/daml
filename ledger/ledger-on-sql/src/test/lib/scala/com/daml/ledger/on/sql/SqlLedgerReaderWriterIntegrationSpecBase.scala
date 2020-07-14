@@ -20,7 +20,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
   override protected final val startIndex: Long = StartIndex
 
   override protected final def participantStateFactory(
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,

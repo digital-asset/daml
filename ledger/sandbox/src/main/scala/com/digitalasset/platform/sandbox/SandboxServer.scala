@@ -303,7 +303,7 @@ final class SandboxServer(
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
-        writeService = new TimedWriteService(indexAndWriteService.writeService, metrics),
+        optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
         indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
         authorizer = authorizer,
         engine = SandboxServer.engine,
