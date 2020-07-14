@@ -484,7 +484,7 @@ object Transaction {
   type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
 
   /** Transaction nodes */
-  type Node = GenNode.WithTxValue[NodeId, Value.ContractId]
+  type Node = GenNode.WithTxValue[Value.NodeId, Value.ContractId]
   type LeafNode = LeafOnlyNode.WithTxValue[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
@@ -495,7 +495,7 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = VersionedTransaction[NodeId, Value.ContractId]
+  type Transaction = VersionedTransaction[Value.NodeId, Value.ContractId]
   val Transaction = VersionedTransaction
 
   /** Transaction meta data
@@ -567,7 +567,7 @@ object Transaction {
   final case class ContractNotActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      consumedBy: NodeId)
+      consumedBy: Value.NodeId)
       extends TransactionError
 
 }
