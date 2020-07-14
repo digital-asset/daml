@@ -3,8 +3,6 @@
 
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue,
@@ -17,21 +15,12 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-
-sealed case class PreExecutionOutput[WriteSet](
-    minRecordTime: Option[Instant],
-    maxRecordTime: Option[Instant],
-    successWriteSet: WriteSet,
-    outOfTimeBoundsWriteSet: WriteSet,
-    readSet: ReadSet,
-    involvedParticipants: Set[ParticipantId]
-)
 
 /**
   * Validator pre-executing submissions.
