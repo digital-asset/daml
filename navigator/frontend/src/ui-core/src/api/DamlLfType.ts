@@ -104,7 +104,7 @@ export function mapTypeVars(t: DamlLfType, f: (t: DamlLfTypeVar) => DamlLfType):
 
 /**
  * Instantiate a type constructor.
- * `tc.name` should the the identifier of the given `ddt`
+ * `tc.name` should the identifier of the given `ddt`
  * The result is a closed type (i.e., one without type variables).
  */
 export function instantiate(tc: DamlLfTypeCon, ddt: DamlLfDefDataType): DamlLfDataType {

@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
@@ -38,11 +39,13 @@ private[dao] final class TransactionsReader(
     pageSize: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
-)(implicit executionContext: ExecutionContext) {
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext) {
 
   private val dbMetrics = metrics.daml.index.db
 
   private val sqlFunctions = SqlFunctions(dbType)
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -65,9 +68,12 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
 
+    logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
+
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
     val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
+      logger.debug(s"getFlatTransactions query($range)")
       EventsTable
         .preparePagedGetFlatTransactions(sqlFunctions)(
           range = range,
@@ -125,9 +131,13 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
 
+    logger.debug(
+      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)")
+
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
     val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
+      logger.debug(s"getTransactionTrees query($range)")
       EventsTable
         .preparePagedGetTransactionTrees(sqlFunctions)(
           eventsRange = range,
@@ -184,9 +194,12 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   ): Source[GetActiveContractsResponse, NotUsed] = {
 
+    logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
+
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
 
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
+      logger.debug(s"getActiveContracts query($range)")
       EventsTable
         .preparePagedGetActiveContracts(sqlFunctions)(
           range = range,
@@ -235,21 +248,25 @@ private[dao] final class TransactionsReader(
     dispatcher.executeSql(dbMetrics.getEventSeqIdRange)(
       EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive)))
 
-  private def streamEvents[A, E](
+  private def streamEvents[A: Ordering, E](
       verbose: Boolean,
       queryMetric: DatabaseMetrics,
       query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
       getNextPageRange: EventsTable.Entry[E] => EventsRange[A],
   )(range: EventsRange[A]): Source[EventsTable.Entry[E], NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
-        dispatcher.executeSql(queryMetric)(query(range1))
-      rawEvents.flatMap(
-        es =>
-          Timed.future(
-            future = Future.traverse(es)(deserializeEntry(verbose)),
-            timer = queryMetric.translationTimer,
+      if (EventsRange.isEmpty(range1))
+        Future.successful(Vector.empty)
+      else {
+        val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
+          dispatcher.executeSql(queryMetric)(query(range1))
+        rawEvents.flatMap(
+          es =>
+            Timed.future(
+              future = Future.traverse(es)(deserializeEntry(verbose)),
+              timer = queryMetric.translationTimer,
+          )
         )
-      )
+      }
     }
 }

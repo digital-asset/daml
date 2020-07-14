@@ -444,7 +444,7 @@ renderSerializableDef SerializableDef{..}
             [ "export declare const " <> serName <> " :"
             , "  (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <> tyParams <> ">) & {"
             ] ++
-            [ "  " <> n <> ": (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <.> n <> ">);"
+            [ "  " <> n <> ": (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <.> n <> tyParams <> ">);"
             | (n, _) <- serNestedDecoders
             ] ++
             [ "};"

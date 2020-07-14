@@ -31,7 +31,7 @@ The auth service endpoints that are relevant to us are:
  * `cred`: retrieves the SA credential associated with the given credential id (valid 30 days)
  * `login`: uses (credential id, credential string) pair for basic auth and returns an SA token for ledger access (valid 1 day)
 
-## Authentication flow 
+## Authentication flow
 
 For a new party using the trigger service, we must:
  1. `authorize` with basic username/password credentials to get an auth service bearer token
@@ -53,3 +53,60 @@ We can directly check that the credential is still valid before requesting a new
 For a party using the trigger service after the first time, we will look up their service account and see if there is a valid SA credential associated with it.
 Depending on that, we enter the flow at step 4 (requesting a new SA credential) or step 7 (`login` with an existing credential).
 
+## Example flow using the command line
+
+In one terminal window, run a sandbox which the auth service will use as its "admin ledger".
+(It is an implementation choice of the auth service to use a DAML ledger for managing users, service accounts, credentials, etc).
+```
+❯ daml sandbox
+```
+
+In another terminal window, build and run the auth service.
+We run with the "test mode" which allows us to authorize users using basic username/password credentials.
+```
+❯ make clean assembly
+❯ DABL_AUTHENTICATION_SERVICE_TEST_MODE=true java -jar target/scala-2.12/authentication-service-assembly-0.1.jar
+```
+
+In a third window, we'll execute requests to the auth service using `curl`.
+
+```
+❯ curl -X POST localhost:8089/sa/secure/authorize -u user:pass
+{"token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImEtcy1lMDZmZDVjMy00NWM1LTRjZGQtYTI1OC1iMmIzMmIyNjA3NDYifQ.eyJpc3MiOiJsb2NhbGhvc3QvbG9naW4iLCJzdWIiOiJ1c2VyIiwiZXhwIjoxNTk0ODI3NTIwLCJsZWRnZXJJZCI6Ii5hdXRoIiwicGFydHkiOiJ1c2VyIiwicmlnaHRzIjpbInJlYWQiLCJ3cml0ZTpjcmVhdGUiLCJ3cml0ZTpleGVyY2lzZSJdfQ.NiOHuA3Zm6yAs2ThSlXzlGyffbjauJLBjlnD8k8Qi-BBsya45bD0k4cLr-NMcUeabyoEHWVdDuPm7CoUCRkMqePBU5Q9FcwNyU3pqUdiRwmsLLEnFfaSi5mXV9JDH8qlw59LBLXOu5_D2i3p5mC4WB6hvLjqocJG7hguG5pmYZ4"}
+```
+
+```
+❯ curl -X GET localhost:8089/sa/secure/me --oauth2-bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImEtcy1lMDZmZDVjMy00NWM1LTRjZGQtYTI1OC1iMmIzMmIyNjA3NDYifQ.eyJpc3MiOiJsb2NhbGhvc3QvbG9naW4iLCJzdWIiOiJ1c2VyIiwiZXhwIjoxNTk0ODI3NTIwLCJsZWRnZXJJZCI6Ii5hdXRoIiwicGFydHkiOiJ1c2VyIiwicmlnaHRzIjpbInJlYWQiLCJ3cml0ZTpjcmVhdGUiLCJ3cml0ZTpleGVyY2lzZSJdfQ.NiOHuA3Zm6yAs2ThSlXzlGyffbjauJLBjlnD8k8Qi-BBsya45bD0k4cLr-NMcUeabyoEHWVdDuPm7CoUCRkMqePBU5Q9FcwNyU3pqUdiRwmsLLEnFfaSi5mXV9JDH8qlw59LBLXOu5_D2i3p5mC4WB6hvLjqocJG7hguG5pmYZ4
+{
+  "user": "sa-user-21a4c943-57cc-46e7-b07e-380d2c780622"
+}
+```
+
+We'll write `--oauth2-bearer ...` in the following requests to refer to same bearer token as used above.
+Also note that the service account `request` below refers to a `test-ledger` id of the ledger we are
+granting authentication to (not the admin ledger).
+```
+❯ curl -X POST localhost:8089/sa/secure/request/test-ledger -H "Content-type: application/json" -d '{"nonce": "random-nonce"}' --oauth2-bearer ...
+
+❯ curl -X GET localhost:8089/sa/secure --oauth2-bearer ...
+{"serviceAccounts":[{"creds":[],"nonce":"random-nonce","serviceAccount":"sa-d007e6a6-7af6-41de-890d-96647c4b23f8"}]}
+
+❯ curl -X POST localhost:8089/sa/secure/sa-d007e6a6-7af6-41de-890d-96647c4b23f8/credRequest --oauth2-bearer ...
+
+❯ curl -X GET localhost:8089/sa/secure --oauth2-bearer ...
+{"serviceAccounts":[{"creds":[{"credId":"cred-80f27291-7fce-4b0d-b77f-cd3671edf474"}],"nonce":"random-nonce","serviceAccount":"sa-d007e6a6-7af6-41de-890d-96647c4b23f8"}]}
+
+❯ curl -X GET localhost:8089/sa/secure/cred/cred-80f27291-7fce-4b0d-b77f-cd3671edf474 --oauth2-bearer ...
+{
+  "cred": "O0hR6WrOawvf1tPJ",
+  "credId": "cred-80f27291-7fce-4b0d-b77f-cd3671edf474",
+  "nonce": "random-nonce",
+  "validFrom": "2020-07-14T15:50:01.378721Z",
+  "validTo": "2020-08-13T15:50:01.378721Z"
+}
+
+❯ curl -X POST localhost:8089/sa/login -u cred-80f27291-7fce-4b0d-b77f-cd3671edf474:O0hR6WrOawvf1tPJ
+{"token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImEtcy1lMDZmZDVjMy00NWM1LTRjZGQtYTI1OC1iMmIzMmIyNjA3NDYifQ.eyJpc3MiOiJsb2NhbGhvc3QvbG9naW4iLCJzdWIiOiJzYS1kMDA3ZTZhNi03YWY2LTQxZGUtODkwZC05NjY0N2M0YjIzZjgiLCJleHAiOjE1OTQ4Mjg5MDYsImxlZGdlcklkIjoidGVzdC1sZWRnZXIiLCJwYXJ0eSI6InNhLWQwMDdlNmE2LTdhZjYtNDFkZS04OTBkLTk2NjQ3YzRiMjNmOCIsInJpZ2h0cyI6WyJyZWFkIiwid3JpdGU6Y3JlYXRlIiwid3JpdGU6ZXhlcmNpc2UiXX0.JczDfJDEQzdqHEterHCXF-_PejUkFkeeE7SnTfBDqIVuhTIk9Bzh-rBUuMZ-ae0jxMyIB5rU9qlbn64vkqOD6xqqiR1IlIg1mxoaqKaomvy0ernx8mD_SqcDDKXCIMKaA8VEZOXVjvvZQGjVCzRK15Gy902ki-CXryKYjXxbYBQ"}
+```
+
+This final token is the one used to authenticate requests to the `test-ledger`.

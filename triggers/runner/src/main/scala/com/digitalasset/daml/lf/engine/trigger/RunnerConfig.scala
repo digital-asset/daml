@@ -110,7 +110,7 @@ object RunnerConfig {
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA.")
+      .text("TLS: The crt file to be used as the trusted root CA.")
       .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
       .action((path, arguments) =>
         arguments.copy(tlsConfig = arguments.tlsConfig.fold(

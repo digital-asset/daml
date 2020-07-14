@@ -287,7 +287,7 @@ commandParser = subparser $ fold
             ]
         mbCACert <- optional $ strOption $ mconcat
             [ long "cacrt"
-            , help "The crt file to be used as the the trusted root CA."
+            , help "The crt file to be used as the trusted root CA."
             ]
         mbClientKeyCertPair <- optional $ liftA2 ClientSSLKeyCertPair
             (strOption $ mconcat

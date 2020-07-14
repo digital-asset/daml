@@ -452,6 +452,7 @@ EOF
 
 da_haskell_test(
     name = "repl",
+    timeout = "long",
     srcs = ["src/DA/Test/Repl.hs"],
     data = [
         ":repl-test.dar",
