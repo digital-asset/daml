@@ -113,7 +113,9 @@ def _collect_maven_info_impl(_target, ctx):
         d
         for d in deps.to_list()
         if not (only_external_deps and (d.split(":")[0].startswith("com.daml") or
-                                        d.split(":")[0].startswith("com.digitalasset")))
+                                        d.split(":")[0].startswith("com.digitalasset"))) and
+           # Filter out silencer-lib since it’s a compile-only thing.
+           not d.startswith("com.github.ghik:silencer-lib_")
     ]
 
     if maven_coordinates:
