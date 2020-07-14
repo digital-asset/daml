@@ -29,17 +29,14 @@ jobs:
     steps:
       - bash: |
           set -euo pipefail
-
-          source ci/lib.sh
-
           if [ "$(Build.Reason)" == "PullRequest" ]; then
-              setvar branch $(git rev-parse HEAD^2)
-              setvar master $(git rev-parse HEAD^1)
-              setvar fork_point $(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))
+              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
           else
-              setvar branch $(git rev-parse HEAD)
-              setvar master $(git rev-parse HEAD^1)
-              setvar fork_point $(git rev-parse HEAD^1)
+              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
           fi
         name: out
 
@@ -103,8 +100,8 @@ jobs:
       name: 'linux-pool'
       demands: assignment -equals default
     steps:
-      - checkout: self
       - template: ci/report-start.yml
+      - checkout: self
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -140,9 +137,9 @@ jobs:
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
-      - checkout: self
       - template: ci/report-start.yml
       - template: ci/clear-shared-segments-macos.yml
+      - checkout: self
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -178,8 +175,8 @@ jobs:
       name: 'windows-pool'
       demands: assignment -equals default
     steps:
-      - checkout: self
       - template: ci/report-start.yml
+      - checkout: self
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -209,8 +206,8 @@ jobs:
       name: linux-pool
       demands: assignment -equals default
     steps:
-      - checkout: self
       - template: ci/report-start.yml
+      - checkout: self
       - template: ci/compatibility_ts_libs.yml
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
@@ -225,8 +222,8 @@ jobs:
       name: linux-pool
       demands: assignment -equals default
     steps:
-      - checkout: self
       - template: ci/report-start.yml
+      - checkout: self
       - template: ci/compatibility.yml
         parameters:
           test_flags: '--quick'
@@ -242,9 +239,9 @@ jobs:
     pool:
       name: macOS-pool
     steps:
-      - checkout: self
       - template: ci/report-start.yml
       - template: ci/clear-shared-segments-macos.yml
+      - checkout: self
       - template: ci/compatibility.yml
         parameters:
           test_flags: '--quick'
@@ -262,8 +259,8 @@ jobs:
       name: 'windows-pool'
       demands: assignment -equals default
     steps:
-      - checkout: self
       - template: ci/report-start.yml
+      - checkout: self
       - template: ci/compatibility-windows.yml
         parameters:
           test_flags: '--quick'
@@ -288,8 +285,6 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          source ci/lib.sh
-
           ./release.sh check
 
           changes_release_files() {
@@ -304,6 +299,11 @@ jobs:
               add_one="1_0"
               change_one="1_1"
               [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
+          }
+
+          setvar() {
+              echo "Setting '$1' to '$2'"
+              echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
           }
 
           added_line() {
@@ -369,20 +369,17 @@ jobs:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     steps:
+      - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
-      - template: ci/report-start.yml
       - bash: |
           set -euxo pipefail
-
-          source ci/lib.sh
-
           if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
             mkdir $(Build.StagingDirectory)/bucket
           else
-            setvar skip-github TRUE
+            echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
       - task: DownloadPipelineArtifact@0
         inputs:
@@ -501,9 +498,6 @@ jobs:
     - bash: ci/dev-env-install.sh
     - bash: |
         set -euo pipefail
-
-        source ci/lib.sh
-
         eval "$(./dev-env/bin/dade-assist)"
 
         DELAY=1
