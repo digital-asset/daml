@@ -76,7 +76,7 @@ class PreExecutingSubmissionValidator[WriteSet](
           .update(submission.getSerializedSize)
         Future.successful(submission)
 
-      case Right(Envelope.SubmissionBatchMessage(batch)) =>
+      case Right(Envelope.SubmissionBatchMessage(_)) =>
         logger.error("Batched submissions are not supported for pre-execution")
         Future.failed(
           ValidationFailed.ValidationError(
