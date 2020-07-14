@@ -18,11 +18,13 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.Transaction
 import com.daml.metrics.Metrics
+import com.google.protobuf.ByteString
 import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 final case class KVTestState(
     participantId: ParticipantId,
@@ -209,26 +211,36 @@ object KVTest {
   def submitConfig(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
-      mrtDelta: Duration = MinMaxRecordTimeDelta
+      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta
   ): KVTest[DamlLogEntry] =
     for {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
       result <- submit(
-        createConfigurationSubmission(configModify, submissionId, mrtDelta, testState, oldConf)
+        createConfigurationSubmission(
+          configModify,
+          submissionId,
+          minMaxRecordTimeDelta,
+          testState,
+          oldConf)
       )
     } yield result._2
 
   def preExecuteConfig(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
-      mrtDelta: Duration = MinMaxRecordTimeDelta
+      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta
   ): KVTest[PreExecutionResult] =
     for {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
       result <- preExecute(
-        createConfigurationSubmission(configModify, submissionId, mrtDelta, testState, oldConf)
+        createConfigurationSubmission(
+          configModify,
+          submissionId,
+          minMaxRecordTimeDelta,
+          testState,
+          oldConf)
       )
     } yield result._2
 
@@ -257,8 +269,6 @@ object KVTest {
       }
     } yield result
 
-  private[kvutils] val metrics = new Metrics(new MetricRegistry)
-
   private def submit(submission: DamlSubmission): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
@@ -279,7 +289,7 @@ object KVTest {
       assert(
         newState.keySet subsetOf keyValueCommitting.submissionOutputs(submission)
       )
-      // Verify that we can always process the log entry
+      // Verify that we can always process the log entry.
       val _ = KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
 
       entryId -> logEntry
@@ -303,15 +313,7 @@ object KVTest {
           defaultConfig = testState.defaultConfig,
           submission = damlSubmission,
           participantId = testState.participantId,
-          inputState = inputKeys.map { key =>
-            {
-              val damlStateValue = testState.damlState
-                .get(key)
-              key -> (damlStateValue -> damlStateValue
-                .map(_.toByteString)
-                .getOrElse(FingerprintPlaceholder))
-            }
-          }.toMap,
+          inputState = createInputState(inputKeys, testState),
         )
       _ <- addDamlState(newState)
     } yield {
@@ -334,8 +336,23 @@ object KVTest {
   private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
   private[this] val DefaultAdditionalContractDataTy = "Party"
   private[this] val engine = Engine.DevEngine()
+  private[kvutils] val metrics = new Metrics(new MetricRegistry)
   private[this] val keyValueCommitting = new KeyValueCommitting(engine, metrics)
   private[this] val keyValueSubmission = new KeyValueSubmission(metrics)
+
+  private[this] def createInputState(
+      inputKeys: mutable.Buffer[DamlStateKey],
+      testState: KVTestState): Map[DamlStateKey, (Option[DamlStateValue], ByteString)] = {
+    inputKeys.map { key =>
+      {
+        val damlStateValue = testState.damlState
+          .get(key)
+        key -> (damlStateValue -> damlStateValue
+          .map(_.toByteString)
+          .getOrElse(FingerprintPlaceholder))
+      }
+    }.toMap
+  }
 
   private[this] def createSubmitterInfo(
       submitter: Party,
@@ -383,11 +400,11 @@ object KVTest {
   private[this] def createConfigurationSubmission(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId,
-      mrtDelta: Duration,
+      minMaxRecordTimeDelta: Duration,
       testState: KVTestState,
       oldConf: Configuration): DamlSubmission =
     keyValueSubmission.configurationToSubmission(
-      maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
+      maxRecordTime = testState.recordTime.addMicros(minMaxRecordTimeDelta.toNanos / 1000),
       submissionId = submissionId,
       participantId = testState.participantId,
       config = configModify(oldConf)

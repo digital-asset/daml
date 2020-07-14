@@ -40,7 +40,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
           configModify = c => c.copy(generation = c.generation + 1),
           submissionId = Ref.LedgerString.assertFromString("config")
         )
-        newConfig <- getConfiguration
       } yield
         preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
     }
@@ -74,7 +73,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
     "reject expired submissions" in KVTest.runTest {
       for {
         logEntry <- submitConfig(
-          mrtDelta = Duration.ofMinutes(-1),
+          minMaxRecordTimeDelta = Duration.ofMinutes(-1),
           configModify = { c =>
             c.copy(generation = c.generation + 1)
           },
