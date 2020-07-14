@@ -125,8 +125,7 @@ object Config {
         })
       opt[String]("ledger-id")
         .optional()
-        .text(
-          "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
+        .text("The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
         .action((ledgerId, config) => config.copy(ledgerId = ledgerId))
 
       opt[String]("pem")
