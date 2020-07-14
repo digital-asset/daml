@@ -18,6 +18,7 @@ import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.collection.JavaConverters._
@@ -48,7 +49,7 @@ class PreExecutingSubmissionValidator[WriteSet](
       submittingParticipantId: ParticipantId,
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
   )(implicit executionContext: ExecutionContext): Future[PreExecutionOutput[WriteSet]] =
-    LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
+    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
       for {
         decodedSubmission <- decodeSubmission(submissionEnvelope)
         fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
