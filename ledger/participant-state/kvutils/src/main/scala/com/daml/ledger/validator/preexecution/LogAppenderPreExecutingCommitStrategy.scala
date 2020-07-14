@@ -26,7 +26,7 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
       serializedSuccessKeyValuePairs <- Future {
         preExecutionResult.stateUpdates.map {
           case (key, value) =>
-            (keySerializationStrategy.serializeStateKey(key), Envelope.enclose(value))
+            keySerializationStrategy.serializeStateKey(key) -> Envelope.enclose(value)
         }(breakOut)
       }
       serializedLogEntryId = entryId.toByteString
@@ -50,6 +50,6 @@ class LogAppenderPreExecutingCommitStrategy(keySerializationStrategy: StateKeySe
       logEntryId: ByteString,
       logEntry: DamlLogEntry): Future[RawKeyValuePairs] = Future {
     val envelopedLogEntry = Envelope.enclose(logEntry)
-    Seq((logEntryId, envelopedLogEntry))
+    Seq(logEntryId -> envelopedLogEntry)
   }
 }
