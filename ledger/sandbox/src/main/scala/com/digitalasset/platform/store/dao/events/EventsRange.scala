@@ -57,18 +57,15 @@ object EventsRange {
     else EmptyEventSeqIdRange.copy(endInclusive = readEventSeqId(endInclusive)(connection))
   }
 
-  private def readUpperBound(endInclusive: Offset)(connection: java.sql.Connection): Long =
-    if (endInclusive == Offset.beforeBegin) {
-      EmptyEventSeqIdRange.endInclusive
-    } else {
-      import com.daml.platform.store.Conversions.OffsetToStatement
-      // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
-      // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
-      // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-      SQL"select max(event_sequential_id) from participant_events where event_offset <= ${endInclusive} group by event_offset order by event_offset desc limit 1"
-        .as(get[Long](1).singleOpt)(connection)
-        .getOrElse(EmptyEventSeqIdRange.endInclusive)
-    }
+  private def readEventSeqId(offset: Offset)(connection: java.sql.Connection): Long = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
+    // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
+    // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
+    SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc limit 1"
+      .as(get[Long](1).singleOpt)(connection)
+      .getOrElse(EmptyLedgerEventSeqId)
+  }
 
   private[events] def readPage[A](
       fasterRead: Long => SimpleSql[Row], // takes guessedPageEnd
@@ -85,15 +82,5 @@ object EventsRange {
         else
           SqlSequence.vector(saferRead(minPageSize) withFetchSize Some(minPageSize), row)
     }
-  }
-
-  private def readEventSeqId(offset: Offset)(connection: java.sql.Connection): Long = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
-    // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
-    // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc limit 1"
-      .as(get[Long](1).singleOpt)(connection)
-      .getOrElse(EmptyLedgerEventSeqId)
   }
 }
