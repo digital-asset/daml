@@ -8,7 +8,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -88,7 +88,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (nodeId, exerciseNode: NodeExercises.WithTxValue[Tx.NodeId, ContractId]) =
+          val (nodeId, exerciseNode: NodeExercises.WithTxValue[NodeId, ContractId]) =
             exercise.transaction.nodes.head
           transaction.commandId shouldBe exercise.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -127,7 +127,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             }.get
           val (exerciseNodeId, exerciseNode) =
             tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeExercises.WithTxValue[Tx.NodeId, ContractId]) =>
+              case (nodeId, node: NodeExercises.WithTxValue[NodeId, ContractId]) =>
                 nodeId -> node
             }.get
 
@@ -184,8 +184,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.eventsById should have size 2
 
           transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe EventId(transaction.transactionId, Tx.NodeId(2)).toLedgerString
-          transaction.rootEventIds(1) shouldBe EventId(transaction.transactionId, Tx.NodeId(3)).toLedgerString
+          transaction.rootEventIds(0) shouldBe EventId(transaction.transactionId, NodeId(2)).toLedgerString
+          transaction.rootEventIds(1) shouldBe EventId(transaction.transactionId, NodeId(3)).toLedgerString
       }
     }
   }

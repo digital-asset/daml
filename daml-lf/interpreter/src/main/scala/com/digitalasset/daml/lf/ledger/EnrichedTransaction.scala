@@ -6,7 +6,7 @@ package com.daml.lf.ledger
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
 
 object EnrichedTransaction {
@@ -18,14 +18,14 @@ object EnrichedTransaction {
 
   /** State to use during enriching a transaction with disclosure information. */
   private final case class EnrichState(
-      disclosures: Relation[Tx.NodeId, Party],
+      disclosures: Relation[NodeId, Party],
       divulgences: Relation[ContractId, Party],
-      failedAuthorizations: Map[Tx.NodeId, FailedAuthorization],
+      failedAuthorizations: Map[NodeId, FailedAuthorization],
   ) {
 
     def discloseNode(
         parentWitnesses: Set[Party],
-        nid: Tx.NodeId,
+        nid: NodeId,
         node: Tx.Node,
     ): (Set[Party], EnrichState) = {
       val witnesses = parentWitnesses union node.informeesOfNode
@@ -44,7 +44,7 @@ object EnrichedTransaction {
     }
 
     def authorize(
-        nodeId: Tx.NodeId,
+        nodeId: NodeId,
         passIf: Boolean,
         failWith: FailedAuthorization,
     ): EnrichState =
@@ -56,7 +56,7 @@ object EnrichedTransaction {
         copy(failedAuthorizations = failedAuthorizations + (nodeId -> failWith))
 
     def authorizeCreate(
-        nodeId: Tx.NodeId,
+        nodeId: NodeId,
         create: NodeCreate.WithTxValue[ContractId],
         signatories: Set[Party],
         authorization: Authorization,
@@ -99,8 +99,8 @@ object EnrichedTransaction {
         })
 
     def authorizeExercise(
-        nodeId: Tx.NodeId,
-        ex: NodeExercises.WithTxValue[Tx.NodeId, ContractId],
+        nodeId: NodeId,
+        ex: NodeExercises.WithTxValue[NodeId, ContractId],
         actingParties: Set[Party],
         authorization: Authorization,
         controllersDifferFromActors: Boolean,
@@ -143,7 +143,7 @@ object EnrichedTransaction {
     }
 
     def authorizeFetch(
-        nodeId: Tx.NodeId,
+        nodeId: NodeId,
         fetch: NodeFetch.WithTxValue[ContractId],
         stakeholders: Set[Party],
         authorization: Authorization,
@@ -233,7 +233,7 @@ object EnrichedTransaction {
       that `authorizers ∩ stakeholders ≠ ∅`.
      */
     def authorizeLookupByKey(
-        nodeId: Tx.NodeId,
+        nodeId: NodeId,
         lbk: NodeLookupByKey.WithTxValue[ContractId],
         authorization: Authorization,
     ): EnrichState = {
@@ -278,7 +278,7 @@ object EnrichedTransaction {
         state: EnrichState,
         parentExerciseWitnesses: Set[Party],
         authorization: Authorization,
-        nodeId: Tx.NodeId,
+        nodeId: NodeId,
     ): EnrichState = {
       val node =
         tx.nodes
@@ -322,7 +322,7 @@ object EnrichedTransaction {
               authorization = authorization,
             )
 
-        case ex: NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
+        case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
           // ------------------------------------------------------------------
           // witnesses:
           //    | consuming  -> stakeholders(targetId) union witnesses of parent exercise node
@@ -393,7 +393,7 @@ object EnrichedTransaction {
 final case class EnrichedTransaction[Transaction <: Tx.Transaction](
     tx: Transaction,
     // A relation between a node id and the parties to which this node gets explicitly disclosed.
-    explicitDisclosure: Relation[Tx.NodeId, Party],
+    explicitDisclosure: Relation[NodeId, Party],
     // A relation between contract id and the parties to which the contract id gets
     // explicitly disclosed.
     implicitDisclosure: Relation[ContractId, Party],

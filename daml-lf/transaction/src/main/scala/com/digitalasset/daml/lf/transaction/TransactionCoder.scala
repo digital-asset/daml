@@ -32,25 +32,25 @@ object TransactionCoder {
     def fromString(s: String): Either[DecodeError, Nid]
   }
 
-  val NidEncoder: EncodeNid[Value.NodeId] = new EncodeNid[Value.NodeId] {
-    override def asString(id: Value.NodeId): String = id.index.toString
+  val NidEncoder: EncodeNid[NodeId] = new EncodeNid[NodeId] {
+    override def asString(id: NodeId): String = id.index.toString
   }
 
-  val NidDecoder: DecodeNid[Value.NodeId] = new DecodeNid[Value.NodeId] {
-    override def fromString(s: String): Either[DecodeError, Value.NodeId] =
+  val NidDecoder: DecodeNid[NodeId] = new DecodeNid[NodeId] {
+    override def fromString(s: String): Either[DecodeError, NodeId] =
       scalaz.std.string
         .parseInt(s)
-        .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(Value.NodeId(idx)))
+        .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(NodeId(idx)))
   }
 
-  def EventIdEncoder(trId: Ref.LedgerString): EncodeNid[Value.NodeId] =
-    new EncodeNid[Value.NodeId] {
-      override def asString(id: Value.NodeId): String = ledger.EventId(trId, id).toLedgerString
+  def EventIdEncoder(trId: Ref.LedgerString): EncodeNid[NodeId] =
+    new EncodeNid[NodeId] {
+      override def asString(id: NodeId): String = ledger.EventId(trId, id).toLedgerString
     }
 
-  def EventIdDecoder(trId: Ref.LedgerString): DecodeNid[Value.NodeId] =
-    new DecodeNid[Value.NodeId] {
-      override def fromString(s: String): Either[DecodeError, Value.NodeId] =
+  def EventIdDecoder(trId: Ref.LedgerString): DecodeNid[NodeId] =
+    new DecodeNid[NodeId] {
+      override def fromString(s: String): Either[DecodeError, NodeId] =
         ledger.EventId
           .fromString(s)
           .fold(

@@ -7,7 +7,7 @@ import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, Speedy, PartialTransaction => SPartialTransaction}
-import com.daml.lf.transaction.{Node => N, Transaction => Tx}
+import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
@@ -387,10 +387,10 @@ final class Conversions(
   def convertEventId(nodeId: EventId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.toLedgerString).build
 
-  def convertNodeId(trId: Ref.LedgerString, nodeId: Tx.NodeId): proto.NodeId =
+  def convertNodeId(trId: Ref.LedgerString, nodeId: NodeId): proto.NodeId =
     proto.NodeId.newBuilder.setId(EventId(trId, nodeId).toLedgerString).build
 
-  def convertTxNodeId(nodeId: Tx.NodeId): proto.NodeId =
+  def convertTxNodeId(nodeId: NodeId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.index.toString).build
 
   def convertNode(eventId: EventId, nodeInfo: ScenarioLedger.LedgerNodeInfo): proto.Node = {
@@ -438,7 +438,7 @@ final class Conversions(
             .build,
         )
       case ex: N.NodeExercises[
-            Tx.NodeId,
+            NodeId,
             V.ContractId,
             Tx.Value[
               V.ContractId,
@@ -488,7 +488,7 @@ final class Conversions(
 
   def convertNode[Val](
       convertValue: Val => proto.Value,
-      nodeWithId: (Tx.NodeId, N.GenNode[V.NodeId, V.ContractId, Val]),
+      nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId, Val]),
   ): proto.Node = {
     val (nodeId, node) = nodeWithId
     val builder = proto.Node.newBuilder
@@ -520,7 +520,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build,
         )
-      case ex: N.NodeExercises[V.NodeId, V.ContractId, Val] =>
+      case ex: N.NodeExercises[NodeId, V.ContractId, Val] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           proto.Node.Exercise.newBuilder
