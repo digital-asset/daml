@@ -7,8 +7,8 @@ package test
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.{ChoiceName, Name}
-import com.daml.lf.transaction.Node.GenNode
-import com.daml.lf.transaction.{Transaction => Tx}
+import transaction.Node.GenNode
+import transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.collection.immutable.HashMap
@@ -69,7 +69,7 @@ object TransactionBuilder {
 
   type Value = value.Value[ContractId]
   type TxValue = value.Value.VersionedValue[ContractId]
-  type NodeId = Tx.NodeId
+  type NodeId = transaction.NodeId
   type Node = Node.GenNode[NodeId, ContractId, Value]
   type TxNode = Node.GenNode[NodeId, ContractId, TxValue]
 
@@ -77,21 +77,21 @@ object TransactionBuilder {
   type Exercise = Node.NodeExercises[NodeId, ContractId, Value]
   type Fetch = Node.NodeFetch[ContractId, Value]
   type LookupByKey = Node.NodeLookupByKey[ContractId, Value]
-  type KeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers[Value]
+  type KeyWithMaintainers = transaction.Node.KeyWithMaintainers[Value]
 
   type TxExercise = Node.NodeExercises[NodeId, ContractId, TxValue]
-  type TxKeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers[TxValue]
+  type TxKeyWithMaintainers = transaction.Node.KeyWithMaintainers[TxValue]
 
   private val ValueVersions = com.daml.lf.value.ValueVersions
   private val LfValue = com.daml.lf.value.Value
 
-  private val NodeId = com.daml.lf.transaction.Transaction.NodeId
-  private val Create = com.daml.lf.transaction.Node.NodeCreate
-  private val Exercise = com.daml.lf.transaction.Node.NodeExercises
-  private val Fetch = com.daml.lf.transaction.Node.NodeFetch
-  private val LookupByKey = com.daml.lf.transaction.Node.NodeLookupByKey
+  private val NodeId = transaction.NodeId
+  private val Create = transaction.Node.NodeCreate
+  private val Exercise = transaction.Node.NodeExercises
+  private val Fetch = transaction.Node.NodeFetch
+  private val LookupByKey = transaction.Node.NodeLookupByKey
 
-  private val KeyWithMaintainers = com.daml.lf.transaction.Node.KeyWithMaintainers
+  private val KeyWithMaintainers = transaction.Node.KeyWithMaintainers
 
   def version(v: Value): TxValue =
     ValueVersions.assertAsVersionedValue(v)

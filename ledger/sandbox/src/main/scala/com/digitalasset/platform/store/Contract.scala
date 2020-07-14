@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
 import com.daml.ledger.{TransactionId, WorkflowId}
@@ -53,7 +53,7 @@ object Contract {
       id: Value.ContractId,
       let: Instant, // time when the contract was committed
       transactionId: TransactionId, // transaction id where the contract originates
-      nodeId: Tx.NodeId,
+      nodeId: NodeId,
       workflowId: Option[WorkflowId], // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[ContractId]],
       witnesses: Set[Party],

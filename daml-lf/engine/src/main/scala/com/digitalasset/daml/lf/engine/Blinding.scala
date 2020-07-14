@@ -6,7 +6,7 @@ package com.daml.lf.engine
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, Transaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
@@ -19,7 +19,7 @@ object Blinding {
       authorization: Authorization): Either[AuthorizationError, BlindingInfo] = {
     val enrichedTx =
       EnrichedTransaction(authorization, tx)
-    def authorizationErrors(failures: Map[Transaction.NodeId, FailedAuthorization]) = {
+    def authorizationErrors(failures: Map[NodeId, FailedAuthorization]) = {
       failures
         .map {
           case (id, failure) =>

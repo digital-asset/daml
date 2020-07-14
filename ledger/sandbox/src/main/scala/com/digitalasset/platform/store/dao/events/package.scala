@@ -18,7 +18,7 @@ package object events {
   private[events] val Contract = lfval.ContractInst
 
   import com.daml.lf.{transaction => lftx}
-  private[events] type NodeId = lftx.Transaction.NodeId
+  private[events] type NodeId = lftx.NodeId
   private[events] type Node = lftx.Node.GenNode.WithTxValue[NodeId, ContractId]
   private[events] type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
   private[events] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]

@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.{Transaction => Tx, TransactionCommitter}
+import com.daml.lf.transaction.{NodeId, TransactionCommitter}
 import com.daml.lf.value.Value.ContractId
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.platform.store.ReadOnlyLedger
@@ -57,7 +57,7 @@ object Ledger {
       committer: TransactionCommitter,
       transactionId: TransactionId,
       transaction: SubmittedTransaction
-  ): (CommittedTransaction, Relation[Tx.NodeId, Party], Divulgence) = {
+  ): (CommittedTransaction, Relation[NodeId, Party], Divulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones
     val committedTransaction = committer.commitTransaction(transactionId, transaction)

@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state
 
 import com.daml.lf.data.Ref
+import com.daml.lf.transaction
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
 
@@ -84,7 +85,7 @@ package object v1 {
   type SubmissionId = Ref.LedgerString
 
   /** Identifiers for nodes in a transaction. */
-  type NodeId = Tx.NodeId
+  type NodeId = transaction.NodeId
 
   /** Identifiers for packages. */
   type PackageId = Ref.PackageId
