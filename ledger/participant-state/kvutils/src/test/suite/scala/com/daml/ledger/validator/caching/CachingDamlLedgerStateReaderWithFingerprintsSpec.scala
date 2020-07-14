@@ -3,15 +3,17 @@
 
 package com.daml.ledger.validator.caching
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import com.daml.caching.{Cache, Weight, WeightedCache}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
 import com.google.protobuf.MessageLite
-import org.mockito.ArgumentMatchers.argThat
-import org.mockito.Mockito.{times, verify, when}
+import org.mockito.ArgumentMatchers._
+import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Inside, Matchers}
 
@@ -46,16 +48,24 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
     }
 
     "serve request from cache for seen key (if policy allows)" in {
-      val mockReader = mock[DamlLedgerStateReaderWithFingerprints]
-      when(mockReader.read(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
-        .thenReturn(Future.successful(Seq((None, FingerprintPlaceholder))))
-      val instance = newInstance(mockReader, shouldCache = true)
+      val readCalledTimes = new AtomicInteger()
+      val fakeReader =
+        new DamlLedgerStateReaderWithFingerprints {
+          override def read(
+              keys: Seq[DamlStateKey]): Future[Seq[(Option[DamlStateValue], Fingerprint)]] = {
+            readCalledTimes.incrementAndGet()
+            Future.successful(keys.map(_ => (None, FingerprintPlaceholder)))
+          }
+        }
+      val instance = newInstance(fakeReader, shouldCache = true)
 
       for {
         originalReadState <- instance.read(Seq(aDamlStateKey))
         readAgain <- instance.read(Seq(aDamlStateKey))
       } yield {
-        verify(mockReader, times(1)).read(_)
+        readCalledTimes.get() shouldBe 1
+        originalReadState should have length 1
+        originalReadState.head shouldBe ((None, FingerprintPlaceholder))
         readAgain shouldEqual originalReadState
       }
     }
@@ -72,14 +82,15 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
 
   private def aDamlStateValue(): DamlStateValue = DamlStateValue.getDefaultInstance
 
-  implicit object `Message-fingerprint Pair Weight` extends Weight[(MessageLite, Fingerprint)] {
-    override def weigh(value: (MessageLite, Fingerprint)): Cache.Size =
-      value._1.getSerializedSize.toLong
+  implicit object `Message-fingerprint Pair Weight`
+      extends Weight[(Option[MessageLite], Fingerprint)] {
+    override def weigh(value: (Option[MessageLite], Fingerprint)): Cache.Size =
+      value._1.map(_.getSerializedSize.toLong).getOrElse(0L) + value._2.size()
   }
 
   private def newInstance(delegate: DamlLedgerStateReaderWithFingerprints, shouldCache: Boolean)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints = {
-    val cache = WeightedCache.from[DamlStateKey, (DamlStateValue, Fingerprint)](
+    val cache = WeightedCache.from[DamlStateKey, (Option[DamlStateValue], Fingerprint)](
       WeightedCache.Configuration(1024))
     new CachingDamlLedgerStateReaderWithFingerprints(
       cache,

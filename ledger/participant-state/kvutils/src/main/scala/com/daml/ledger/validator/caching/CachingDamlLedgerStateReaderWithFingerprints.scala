@@ -12,7 +12,7 @@ import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerpri
 import scala.concurrent.{ExecutionContext, Future}
 
 class CachingDamlLedgerStateReaderWithFingerprints(
-    val cache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
+    val cache: Cache[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
     shouldCache: DamlStateKey => Boolean,
     keySerializationStrategy: StateKeySerializationStrategy,
     delegate: DamlLedgerStateReaderWithFingerprints)(implicit executionContext: ExecutionContext)
@@ -23,19 +23,19 @@ class CachingDamlLedgerStateReaderWithFingerprints(
     val cachedValues: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)] = keys.view
       .map(key => key -> cache.getIfPresent(key))
       .collect {
-        case (key, Some((value, fingerprint))) => (key, (Some(value), fingerprint))
+        case (key, Some(valueFingerprintPair)) => (key, valueFingerprintPair)
       }
       .toMap
     val keysToRead = keys.toSet -- cachedValues.keySet
     if (keysToRead.nonEmpty) {
       delegate
         .read(keysToRead.toSeq)
-        .map { readStateValues =>
-          assert(keysToRead.size == readStateValues.size)
-          val readValues = keysToRead.zip(readStateValues).toMap
+        .map { readResults =>
+          assert(keysToRead.size == readResults.size)
+          val readValues = keysToRead.zip(readResults).toMap
           readValues.collect {
-            case (key, (Some(value), fingerprint)) if shouldCache(key) =>
-              cache.put(key, value -> fingerprint)
+            case (key, valueFingerprintPair) if shouldCache(key) =>
+              cache.put(key, valueFingerprintPair)
           }
           val all = cachedValues ++ readValues
           keys.map(all(_))
