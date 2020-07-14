@@ -44,7 +44,5 @@ class CachingDamlLedgerStateReaderWithFingerprints(
         keys.map(cachedValues(_))
       }
     }
-
-    delegate.read(keys)
   }
 }
