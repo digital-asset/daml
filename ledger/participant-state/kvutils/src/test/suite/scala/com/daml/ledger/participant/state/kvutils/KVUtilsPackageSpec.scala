@@ -55,7 +55,6 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
 
     "be able to submit model-test.dar" in KVTest.runTest {
       for {
-        // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
         logEntry <- submitArchives("model-test-submission", testStablePackages.all: _*).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
@@ -65,14 +64,14 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
 
     "be able to pre-execute model-test.dar" in KVTest.runTest {
       for {
-        // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
         preExecutionResult <- preExecuteArchives(
           "model-test-submission",
           testStablePackages.all: _*)
           .map(_._2)
+        actualLogEntry = preExecutionResult.successfulLogEntry
       } yield {
-        preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
-        preExecutionResult.successfulLogEntry.getPackageUploadEntry.getArchivesCount shouldEqual testStablePackages.all.length
+        actualLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
+        actualLogEntry.getPackageUploadEntry.getArchivesCount shouldEqual testStablePackages.all.length
       }
     }
 
