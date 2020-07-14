@@ -34,10 +34,8 @@ object EventsRange {
       EmptyEventSeqIdRange
     else
       EventsRange(
-        startExclusive =
-          readEventSeqId(range.startExclusive)(connection).getOrElse(EmptyLedgerEventSeqId),
-        endInclusive =
-          readEventSeqId(range.endInclusive)(connection).getOrElse(EmptyLedgerEventSeqId),
+        startExclusive = readEventSeqId(range.startExclusive)(connection),
+        endInclusive = readEventSeqId(range.endInclusive)(connection)
       )
 
   /**
@@ -50,19 +48,17 @@ object EventsRange {
   def readEventSeqIdRange(endInclusive: Offset)(
       connection: java.sql.Connection
   ): EventsRange[Long] = {
-    if (endInclusive == Offset.beforeBegin)
-      EmptyEventSeqIdRange
-    else
-      readEventSeqId(endInclusive)(connection)
-        .fold(EmptyEventSeqIdRange)(x => EmptyEventSeqIdRange.copy(endInclusive = x))
+    if (endInclusive == Offset.beforeBegin) EmptyEventSeqIdRange
+    else EmptyEventSeqIdRange.copy(endInclusive = readEventSeqId(endInclusive)(connection))
   }
 
-  private def readEventSeqId(offset: Offset)(connection: java.sql.Connection): Option[Long] = {
+  private def readEventSeqId(offset: Offset)(connection: java.sql.Connection): Long = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
     // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
     SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc limit 1"
       .as(get[Long](1).singleOpt)(connection)
+      .getOrElse(EmptyLedgerEventSeqId)
   }
 }
