@@ -103,9 +103,23 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
             actualReason should include("Cannot open envelope")
         }
     }
+
+    "fail in case an unexpected message type is input in the envelope" in {
+      val instance = createInstance()
+      val mockLedgerStateReader = createMockLedgerStateReader()
+      val anEnvelopedDamlLogEntry = Envelope.enclose(aLogEntry)
+
+      instance
+        .validate(anEnvelopedDamlLogEntry, aCorrelationId, aParticipantId, mockLedgerStateReader)
+        .failed
+        .map {
+          case ValidationError(actualReason) =>
+            actualReason should include("Unexpected message in envelope")
+        }
+    }
   }
 
-  private val recordTime: Timestamp = Timestamp.now()
+  private val recordTime = Timestamp.now()
 
   private val metrics = new Metrics(new MetricRegistry)
 
