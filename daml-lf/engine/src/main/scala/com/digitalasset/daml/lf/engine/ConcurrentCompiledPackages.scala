@@ -22,7 +22,7 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
 final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   private[this] val _packages: ConcurrentMap[PackageId, Package] =
     new ConcurrentHashMap().asScala
-  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
+  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.AExpr] =
     new ConcurrentHashMap()
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
@@ -32,7 +32,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
     new ConcurrentHashMap().asScala
 
   override def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
-  override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
+  override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.AExpr] =
     Option(_defns.get(dref))
 
   override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =

@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, Pretty}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
@@ -290,12 +290,11 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
-      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
+        anf = Machine.makeApplyToToken(compiledPackages.compiler.unsafeCompile(commands)),
         globalCids = globalCids,
         committers = submitters,
         outputTransactionVersions = config.allowedOutputTransactionVersions,

@@ -24,7 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{AExpr, Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -137,7 +137,7 @@ object Trigger extends StrictLogging {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
+    val machine = Speedy.Machine.fromPureAExpr(compiledPackages, heartbeat)
     Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
@@ -154,7 +154,7 @@ object Trigger extends StrictLogging {
     val registeredTemplates =
       compiler.unsafeCompile(
         ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
+    val machine = Speedy.Machine.fromPureAExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
@@ -327,10 +327,10 @@ class Runner(
 
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
-    val update: SExpr =
+    val update: AExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
-    val getInitialState: SExpr =
+    val getInitialState: AExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
     // Convert the ACS to a speedy value.
@@ -341,14 +341,13 @@ class Runner(
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     // Setup an application expression of initialState on the ACS.
-    val initialState: SExpr =
+    val initialState: AExpr =
       makeApp(
         getInitialState,
         Array(SParty(Party.assertFromString(party)), STimestamp(clientTime), createdValue))
     // Prepare a speedy machine for evaluting expressions.
-    val machine: Speedy.Machine = Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
+    val machine: Speedy.Machine = Speedy.Machine.fromPureAExpr(compiledPackages, initialState)
     // Evaluate it.
-    machine.setExpressionToEvaluate(initialState)
     val value = Machine.stepToValue(machine)
     val evaluatedInitialState: SValue = handleStepResult(value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
@@ -420,8 +419,11 @@ class Runner(
       }))(Keep.right[NotUsed, Future[SValue]])
   }
 
-  def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
-    SEApp(func, values.map(SEValue(_)))
+  def makeApp(func: AExpr, values: Array[SValue]): AExpr = {
+    val args: Array[SExprAtomic] = values.map(SEValue(_))
+    // We can safely introduce a let-expression here to bind the `func` expression,
+    // because there are no stack-references in `args`, since they are pure speedy values.
+    AExpr(SELet1General(func.wrapped, SEAppAtomicGeneral(SELocS(1), args)))
   }
 
   // Query the ACS. This allows you to separate the initialization of
