@@ -71,30 +71,27 @@ steps:
                    eq('${{parameters.name}}', 'linux'))
   - bash: |
       set -euo pipefail
-
       eval "$(./dev-env/bin/dade-assist)"
-
-      source ci/lib.sh
 
       TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
-      setvar tarball $TARBALL
+      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
 
       PROTOS_ZIP=protobufs-${{parameters.release_tag}}.zip
       cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
-      setvar protos-zip $PROTOS_ZIP
+      echo "##vso[task.setvariable variable=protos-zip;isOutput=true]$PROTOS_ZIP"
 
       DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //ledger/sandbox:sandbox-binary_deploy.jar
       cp bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
-      setvar daml-on-sql $DAML_ON_SQL
+      echo "##vso[task.setvariable variable=daml-on-sql;isOutput=true]$DAML_ON_SQL"
 
       JSON_API=http-json-${{parameters.release_tag}}.jar
       ## Not built by default
       bazel build //ledger-service/http-json:http-json-binary_deploy.jar
       cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
-      setvar json-api $JSON_API
+      echo "##vso[task.setvariable variable=json-api;isOutput=true]$JSON_API"
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
