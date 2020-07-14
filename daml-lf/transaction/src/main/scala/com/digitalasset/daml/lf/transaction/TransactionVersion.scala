@@ -5,7 +5,6 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value, ValueVersion}
 
 final case class TransactionVersion(protoValue: String)
@@ -110,18 +109,18 @@ private[lf] object TransactionVersions
   }
 
   def asVersionedTransaction(
-      tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
+      tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
       supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
-  ): Either[String, Tx.Transaction] =
+  ): Either[String, Transaction.Transaction] =
     for {
       v <- assignVersion(tx, supportedVersions)
     } yield VersionedTransaction(v, tx)
 
   @throws[IllegalArgumentException]
   def assertAsVersionedTransaction(
-      tx: GenTransaction.WithTxValue[Tx.NodeId, Value.ContractId],
+      tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
       supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
-  ): Tx.Transaction =
+  ): Transaction.Transaction =
     data.assertRight(asVersionedTransaction(tx, supportedVersions))
 
 }

@@ -13,7 +13,6 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion.UtilGHC
-import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import qualified DA.Daml.Preprocessor.Records as Preprocessor
 import Data.Bifunctor (first)
@@ -21,6 +20,7 @@ import Data.Functor.Alt
 import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
+import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -40,6 +40,7 @@ import HsPat (Pat(..))
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
 import Lexer (ParseResult(..))
+import Module (unitIdString)
 import OccName (occName, OccSet, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
 import RdrName (mkRdrUnqual)
@@ -183,9 +184,9 @@ parseReplInput input dflags =
 
 -- | Load all packages in the given session.
 --
--- Returns the list of modules in the main DALFs.
-loadPackages :: ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
-loadPackages replClient ideState = do
+-- Returns the list of modules in the specified import packages.
+loadPackages :: [(LF.PackageName, Maybe LF.PackageVersion)] -> ReplClient.Handle -> IdeState -> IO [ImportDecl GhcPs]
+loadPackages importPkgs replClient ideState = do
     -- Load packages
     Just (PackageMap pkgs) <- runAction ideState (use GeneratePackageMap "Dummy.daml")
     Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
@@ -196,19 +197,29 @@ loadPackages replClient ideState = do
                 hPutStrLn stderr ("Package could not be loaded: " <> show err)
                 exitFailure
             Right _ -> pure ()
-    -- Determine module names in main DALFs.
-    md <- readMetadata (toNormalizedFilePath' ".")
+    -- Determine module names in imported DALFs.
+    let unversionedPkgs = Map.mapKeys (fst . LF.splitUnitId) pkgs
+        toUnitId (pkgName, mbVersion) = pkgNameVersion pkgName mbVersion
+        lookupPkg (pkgName, Nothing) = Map.lookup pkgName unversionedPkgs
+        lookupPkg (toUnitId -> unitId) = Map.lookup unitId pkgs
+    importLfPkgs <- forM importPkgs $ \importPkg ->
+        case lookupPkg importPkg of
+            Just dalf -> pure $ LF.extPackagePkg $ LF.dalfPackagePkg dalf
+            Nothing -> do
+                hPutStrLn stderr $
+                    "Could not find package for import: " <> unitIdString (toUnitId importPkg) <> "\n"
+                    <> "Known packages: " <> intercalate ", " (unitIdString <$> Map.keys pkgs)
+                exitFailure
     pure
       [ simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString $ mod
-      | dep <- directDependencies md
-      , let pkg = LF.extPackagePkg $ LF.dalfPackagePkg $ pkgs Map.! dep
+      | pkg <- importLfPkgs
       , mod <- NM.names $ LF.packageModules pkg
       ]
 
 
-runRepl :: Options -> ReplClient.Handle -> IdeState -> IO ()
-runRepl opts replClient ideState = do
-    imports <- loadPackages replClient ideState
+runRepl :: [(LF.PackageName, Maybe LF.PackageVersion)] -> Options -> ReplClient.Handle -> IdeState -> IO ()
+runRepl importPkgs opts replClient ideState = do
+    imports <- loadPackages importPkgs replClient ideState
     let initReplState = ReplState
           { imports = imports
           , bindings = []

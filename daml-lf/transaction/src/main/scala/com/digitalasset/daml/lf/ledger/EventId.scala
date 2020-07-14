@@ -5,14 +5,14 @@ package com.daml.lf
 package ledger
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.NodeId
 
 import scala.util.Try
 
 // transactionId should be small so the concatenation in toLedgerString does not exceed 255 chars
 case class EventId(
     transactionId: LedgerString,
-    nodeId: Tx.NodeId
+    nodeId: NodeId
 ) {
   lazy val toLedgerString: LedgerString = {
     val builder = StringBuilder.newBuilder
@@ -35,7 +35,7 @@ object EventId {
             for {
               ix <- Try(index.toInt).fold(_ => err, Right(_))
               transId <- LedgerString.fromString(transIdString)
-            } yield EventId(transId, Tx.NodeId(ix))
+            } yield EventId(transId, NodeId(ix))
           case _ => err
         }
       case _ => err

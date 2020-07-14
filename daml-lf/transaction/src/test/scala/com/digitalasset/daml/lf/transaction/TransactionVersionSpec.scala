@@ -73,7 +73,7 @@ object TransactionVersionSpec {
 
   import TransactionSpec._
 
-  private[this] val singleId = Value.NodeId(0)
+  private[this] val singleId = NodeId(0)
   private val dummyCreateTransaction =
     mkTransaction(HashMap(singleId -> dummyCreateNode("cid1")), ImmArray(singleId))
   private val dummyExerciseWithResultTransaction =

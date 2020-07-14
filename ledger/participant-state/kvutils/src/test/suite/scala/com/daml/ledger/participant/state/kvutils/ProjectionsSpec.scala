@@ -9,8 +9,8 @@ import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value.{ContractId, ContractInst, NodeId, ValueText}
+import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import org.scalatest.{Matchers, WordSpec}
 
 class ProjectionsSpec extends WordSpec with Matchers {

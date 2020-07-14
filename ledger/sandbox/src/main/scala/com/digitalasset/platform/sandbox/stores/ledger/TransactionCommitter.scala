@@ -42,7 +42,7 @@ object LegacyTransactionCommitter extends TransactionCommitter {
         .withDefault(identity)
 
     Transaction.CommittedTransaction(
-      VersionedTransaction.map2(identity[Transaction.NodeId], contractMapping)(transaction)
+      VersionedTransaction.map2(identity[NodeId], contractMapping)(transaction)
     )
 
   }

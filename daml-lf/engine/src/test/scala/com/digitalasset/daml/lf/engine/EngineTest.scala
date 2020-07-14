@@ -17,6 +17,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{
   TransactionVersions => TxVersions,
   GenTransaction => GenTx,
+  NodeId,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
@@ -547,7 +548,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
-        case _: ExerciseEvent[Tx.NodeId, ContractId, Tx.Value[ContractId]] => succeed
+        case _: ExerciseEvent[NodeId, ContractId, Tx.Value[ContractId]] => succeed
         case _ => fail("expected exercise")
       }
     }
@@ -1649,7 +1650,7 @@ object EngineTest {
   private def reinterpret(
       engine: Engine,
       submitters: Set[Party],
-      nodes: ImmArray[Tx.NodeId],
+      nodes: ImmArray[NodeId],
       tx: Tx.Transaction,
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,

@@ -9,6 +9,7 @@ import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.transaction.{
   GenTransaction,
   Node,
+  NodeId,
   TransactionVersion,
   TransactionVersions,
   Transaction => Tx
@@ -20,7 +21,7 @@ import scala.collection.immutable.HashMap
 private[lf] object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
-  type Node = Node.GenNode[Value.NodeId, Value.ContractId, Value[Value.ContractId]]
+  type Node = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
   type LeafNode = Node.LeafOnlyNode[Value.ContractId, Value[Value.ContractId]]
 
   /** Contexts of the transaction graph builder, which we use to record
@@ -28,10 +29,10 @@ private[lf] object PartialTransaction {
     */
   final class Context private (
       val exeContext: Option[ExercisesContext], // empty if root context
-      val children: BackStack[Value.NodeId],
+      val children: BackStack[NodeId],
       protected val childrenSeeds: Int => crypto.Hash
   ) {
-    def addChild(child: Value.NodeId): Context =
+    def addChild(child: NodeId): Context =
       new Context(exeContext, children :+ child, childrenSeeds)
     def nextChildrenSeed: crypto.Hash =
       childrenSeeds(children.length)
@@ -103,7 +104,7 @@ private[lf] object PartialTransaction {
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
-      nodeId: Value.NodeId,
+      nodeId: NodeId,
       parent: Context,
   )
 
@@ -156,10 +157,10 @@ private[lf] object PartialTransaction {
 private[lf] case class PartialTransaction(
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
-    nodes: HashMap[Value.NodeId, PartialTransaction.Node],
-    nodeSeeds: BackStack[(Value.NodeId, crypto.Hash)],
-    byKeyNodes: BackStack[Value.NodeId],
-    consumedBy: Map[Value.ContractId, Value.NodeId],
+    nodes: HashMap[NodeId, PartialTransaction.Node],
+    nodeSeeds: BackStack[(NodeId, crypto.Hash)],
+    byKeyNodes: BackStack[NodeId],
+    consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[Node.GlobalKey, Option[Value.ContractId]],
@@ -173,7 +174,7 @@ private[lf] case class PartialTransaction(
       val sb = new StringBuilder()
 
       def addToStringBuilder(
-          nid: Value.NodeId,
+          nid: NodeId,
           node: Node,
           rootPrefix: String,
       ): Unit = {
@@ -193,9 +194,9 @@ private[lf] case class PartialTransaction(
       // roots field is not initialized when this method is executed on a failed transaction,
       // so we need to compute them.
       val rootNodes = {
-        val allChildNodeIds: Set[Value.NodeId] = nodes.values.iterator.flatMap {
+        val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
           case _: Node.LeafOnlyNode[_, _] => Nil
-          case ex: Node.NodeExercises[Value.NodeId, _, _] => ex.children.toSeq
+          case ex: Node.NodeExercises[NodeId, _, _] => ex.children.toSeq
         }.toSet
 
         nodes.keySet diff allChildNodeIds
@@ -273,7 +274,7 @@ private[lf] case class PartialTransaction(
         stakeholders,
         key,
       )
-      val nid = Value.NodeId(nextNodeIdx)
+      val nid = NodeId(nextNodeIdx)
       val ptx = copy(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
@@ -350,7 +351,7 @@ private[lf] case class PartialTransaction(
           .mkString(",")}""",
       )
     } else {
-      val nid = Value.NodeId(nextNodeIdx)
+      val nid = NodeId(nextNodeIdx)
       Right(
         mustBeActive(
           targetId,
@@ -440,7 +441,7 @@ private[lf] case class PartialTransaction(
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   def insertLeafNode(node: LeafNode, byKey: Boolean): PartialTransaction = {
-    val nid = Value.NodeId(nextNodeIdx)
+    val nid = NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addChild(nid),

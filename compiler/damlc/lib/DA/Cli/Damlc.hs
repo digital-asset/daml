@@ -29,6 +29,7 @@ import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenario
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
 import DA.Daml.LanguageServer
@@ -70,7 +71,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module (unitIdString)
+import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -91,6 +92,7 @@ import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion
+import "ghc-lib-parser" Util (looksLikePackageName)
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -261,6 +263,7 @@ cmdRepl numProcessors =
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
             <*> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
+            <*> many packageImport
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
             <*> accessTokenFileFlag
@@ -271,6 +274,18 @@ cmdRepl numProcessors =
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
+    packageImport = option readPackage $
+        long "import"
+        <> short 'i'
+        <> help "Import modules of these packages into the REPL"
+        <> metavar "PACKAGE"
+      where
+        readPackage = eitherReader $ \s -> do
+            let pkg@(name, _) = splitUnitId (stringToUnitId s)
+                strName = T.unpack . LF.unPackageName $ name
+            unless (looksLikePackageName strName) $
+                fail $ "Illegal package name: " ++ strName
+            pure pkg
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
@@ -583,14 +598,14 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl
     :: ProjectOpts
     -> Options
-    -> FilePath -> [FilePath]
+    -> FilePath -> [FilePath] -> [(LF.PackageName, Maybe LF.PackageVersion)]
     -> String -> String
     -> Maybe FilePath
     -> Maybe ReplClient.ClientSSLConfig
     -> Maybe ReplClient.MaxInboundMessageSize
     -> ReplClient.ReplTimeMode
     -> Command
-execRepl projectOpts opts scriptDar dars ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
+execRepl projectOpts opts scriptDar dars importPkgs ledgerHost ledgerPort mbAuthToken mbSslConf mbMaxInboundMessageSize timeMode = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
@@ -619,7 +634,7 @@ execRepl projectOpts opts scriptDar dars ledgerHost ledgerPort mbAuthToken mbSsl
                 initPackageDb opts (InitPkgDb True)
                 -- We want diagnostics to go to stdout in the repl.
                 withDamlIdeState opts logger (hDiagnosticsLogger stdout)
-                    (Repl.runRepl opts replHandle)
+                    (Repl.runRepl importPkgs opts replHandle)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
