@@ -23,8 +23,8 @@ Run the tool using Bazel:
 
 # `benchmark-replay`
 
-A tool base on JMH that benchmark LF engine using transactions from a
-ledger export stored in a file.
+that benchmark LF engine using transactions from a ledger export
+stored in a file.
 
 ## Build 
 
@@ -36,7 +36,7 @@ Build the tool with Bazel:
 ## Running the tool 
 
 Run the tool using Bazel and pass the benchmark parameters using `-p`
-JHM command line functionality:
+jmh command line functionality:
 
     bazel run //ledger/participant-state/kvutils/tools:replay -- \
       -p ledgerFile=<ledger export files>                        \
@@ -47,22 +47,24 @@ JHM command line functionality:
 
 
 * `<ledger export files>` : is the full path of the ledger export
-  files to be tested separate by commas (`,`)
+  files to be tested separated by commas (`,`)
 
 * `<dar files>` : is the full path of the dar files to be tested
   separate by commas (`,`)
 
-* `<exercise choice names`>: is the full qualified choice names of the
-  exercises to be tests separate by commas (`,`).  a full qualified
-  choice name should be of the form `ModuleName:TemplateName:ChoiceName`. 
-  Note the package ID is omitted. 
+* `<exercise choice names`>: is the full qualified choice name of the
+  exercises to be benchmarked separated by commas (`,`).  A full
+  qualified choice name should be of the form
+  `ModuleName:TemplateName:ChoiceName`,  Note the package ID is
+  omitted.
 
-* the optional parameter `adapt=true` can be set to enable dar-export 
-  adaptation. The adaptation process attempt to map the identifiers from the export
-  file with the one of dar file when those latter differ only in their package ID.
-  This can be use when the original DAML source use to generate the ledger export 
-  is only slightly modified or compiled with different option. 
+* the optional parameter `adapt=true` can be set to enable dar-export
+  adaptation. The adaptation process attempt to map the identifiers
+  from the export file with the one of dar file when those latter
+  differ only in their package ID.  This can be used when the original
+  DAML source used to generate the ledger export is only slightly
+  modified or compiled with different options.
   
-The tool expects the exercised choice to be unique in the ledger
+The tool expects the exercised choices to be unique in the ledger
 export.  If two or more transactions in the export exercise the same
 choice (same template Name same choice Name), both are ignored.
