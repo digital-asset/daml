@@ -14,7 +14,7 @@ package object v29_fix_participant_events {
   type ContractId = lfval.ContractId
 
   import com.daml.lf.{transaction => lftx}
-  type NodeId = lftx.Transaction.NodeId
+  type NodeId = lftx.NodeId
   type Transaction = lftx.Transaction.Transaction
   type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
   type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]

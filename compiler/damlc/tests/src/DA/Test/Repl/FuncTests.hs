@@ -11,6 +11,7 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Output
 import DA.Daml.Compiler.Repl
+import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -264,7 +265,8 @@ testInteraction replClient serviceOut options ideState steps = do
         withBinaryFile stdinFile ReadMode $ \readIn ->
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
-            capture_ $ runRepl options replClient ideState
+            let imports = [(LF.PackageName name, Nothing) | name <- ["repl-test", "repl-test-two"]]
+            capture_ $ runRepl imports options replClient ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out

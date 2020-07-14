@@ -8,9 +8,9 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger._
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
-import Value._
+import Value.{NodeId => _, _}
 import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
@@ -50,7 +50,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode.WithTxValue[Tx.NodeId, ContractId]
+  type Node = GenNode.WithTxValue[NodeId, ContractId]
 
   /** A transaction as it is committed to the ledger.
     *
@@ -79,7 +79,7 @@ object ScenarioLedger {
       effectiveAt: Time.Timestamp,
       transactionId: LedgerString,
       transaction: Tx.CommittedTransaction,
-      explicitDisclosure: Relation[Tx.NodeId, Party],
+      explicitDisclosure: Relation[NodeId, Party],
       implicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
   )
@@ -405,7 +405,7 @@ object ScenarioLedger {
       richTr: RichTransaction,
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
-    type ExerciseNodeProcessing = (Option[Tx.NodeId], List[Tx.NodeId])
+    type ExerciseNodeProcessing = (Option[NodeId], List[NodeId])
 
     @tailrec
     def processNodes(
@@ -465,7 +465,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
+                    case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(
                           info =>

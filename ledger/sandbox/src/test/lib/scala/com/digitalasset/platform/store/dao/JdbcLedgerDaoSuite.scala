@@ -17,7 +17,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{Node, Transaction => Tx}
+import com.daml.lf.transaction.{Node, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.lf.value.Value
 import com.daml.daml_lf_dev.DamlLf
@@ -111,7 +111,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   private def exercise(
       targetCid: ContractId,
-  ): NodeExercises[Tx.NodeId, ContractId, Value[ContractId]] =
+  ): NodeExercises[NodeId, ContractId, Value[ContractId]] =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -132,7 +132,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     tx.transaction.fold(Set.empty[ContractId]) {
       case (set, (_, create: NodeCreate.WithTxValue[ContractId])) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises.WithTxValue[Tx.NodeId, ContractId]))
+      case (set, (_, exercise: Node.NodeExercises.WithTxValue[NodeId, ContractId]))
           if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>

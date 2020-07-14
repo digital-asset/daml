@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.lf.data.BackStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Transaction.{NodeId, Transaction}
+import com.daml.lf.transaction.{NodeId, Transaction}
 
 final case class ProjectionRoots(
     party: Party,
@@ -25,7 +25,7 @@ object Projections {
     * we keep an explicit list of roots for each party.
     */
   def computePerPartyProjectionRoots(
-      tx: Transaction,
+      tx: Transaction.Transaction,
       blindingInfo: BlindingInfo): List[ProjectionRoots] = {
 
     val perPartyRoots = tx.foldWithPathState(

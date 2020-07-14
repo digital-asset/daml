@@ -7,13 +7,13 @@ import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import Value._
+import Value.{NodeId => _, _}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -81,7 +81,7 @@ private[lf] object Pretty {
         "create" &: prettyContractInst(create.coinst)
       case fetch: NodeFetch[Value.ContractId, Value[Value.ContractId]] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises[Value.NodeId, Value.ContractId, Value[Value.ContractId]] =>
+      case ex: NodeExercises[NodeId, Value.ContractId, Value[Value.ContractId]] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
@@ -277,7 +277,7 @@ private[lf] object Pretty {
       case ea: NodeFetch[ContractId, Tx.Value[ContractId]] =>
         "ensure active" &: prettyContractId(ea.coid)
       case ex: NodeExercises[
-            Tx.NodeId,
+            NodeId,
             ContractId,
             Tx.Value[ContractId]
           ] =>

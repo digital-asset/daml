@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine
+
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.lf.data.{FrontStack, FrontStackCons}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.value.Value._
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
+import com.daml.lf.value.Value.{NodeId => _, _}
 
 import scala.annotation.tailrec
 
@@ -31,7 +32,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     this.synchronized {
       // traverse in topo order and add / remove
       @tailrec
-      def go(remaining: FrontStack[Tx.NodeId]): Unit = remaining match {
+      def go(remaining: FrontStack[NodeId]): Unit = remaining match {
         case FrontStack() => ()
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
@@ -39,7 +40,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
             case nc: NodeCreate.WithTxValue[ContractId] =>
               pcs.put(nc.coid, nc.coinst)
               go(nodeIds)
-            case ne: NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
+            case ne: NodeExercises.WithTxValue[NodeId, ContractId] =>
               go(ne.children ++: nodeIds)
             case _: NodeLookupByKey[_, _] | _: NodeFetch[_, _] =>
               go(nodeIds)

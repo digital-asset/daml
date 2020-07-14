@@ -21,7 +21,7 @@ import com.daml.lf.value.Value.ContractId
   */
 final case class BlindingInfo(
     /** Disclosure, specified in terms of local node IDs */
-    disclosure: Relation[Transaction.NodeId, Party],
+    disclosure: Relation[NodeId, Party],
     /**
       * Divulgence, specified in terms of contract IDs.
       * Note that if this info was produced by blinding a transaction

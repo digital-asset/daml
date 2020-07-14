@@ -445,15 +445,10 @@ object Value extends CidContainer1[Value] {
       CidMapper.basicMapperInstance[ContractId, ContractId.V1]
   }
 
-  /** The constructor is private so that we make sure that only this object constructs
-    * node ids -- we don't want external code to manipulate them.
-    */
-  final case class NodeId(index: Int)
-
-  object NodeId {
-    implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
-      CidMapper.trivialMapper
-  }
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  type NodeId = transaction.NodeId
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  val NodeId = transaction.NodeId
 
   /*** Keys cannot contain contract ids */
   type Key = Value[Nothing]

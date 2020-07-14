@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.ledger._
 import com.daml.ledger.api.domain.RejectionReason
 
@@ -32,6 +32,6 @@ object LedgerEntry {
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,
       transaction: Tx.CommittedTransaction,
-      explicitDisclosure: Relation[Tx.NodeId, Party])
+      explicitDisclosure: Relation[NodeId, Party])
       extends LedgerEntry
 }
