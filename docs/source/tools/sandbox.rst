@@ -363,24 +363,92 @@ Statistics about the submission process of commands, including
 validation, deduplication and delay.
 
 ``daml.commands.deduplicated_commands`` (meter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Number of deduplicated commnands.
+
 ``daml.commands.delayed_submissions`` (meter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Number of delayed submissions (submission who have been
+evaluated to transaction with a ledger time farther in
+the future than the expected latency).
+
 ``daml.commands.failed_command_interpretation`` (meter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Number of commands that have been deemed unacceptable
+by the interpreter and thus rejected (e.g. double spends)
+
 ``daml.commands.submissions`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Overall time to fully process a submission (validation,
+deduplication and interpretation) before it's handed over
+to the ledger to be finalized (either committed or rejected).
+
 ``daml.commands.valid_submissions`` (meter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Number of submission that pass validation and are
+further sent to deduplication and interpretation.
+
 ``daml.commands.validation`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to validate submitted commands before they are
+fed to the DAML interpreter.
 
 ``daml.execution``
 ------------------
 
 ``daml.execution.get_lf_package`` (timer)
-``daml.execution.lookup_active_contract_count_per_execution`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent by the engine fetching the packages of compiled
+DAML code necessary for interpretation.
+
+``daml.execution.lookup_active_contract_count_per_execution`` (histogram)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Number of active contracts fetched for each processed transaction.
+
 ``daml.execution.lookup_active_contract_per_execution`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to fetch all active contracts necessary to process each transaction.
+
 ``daml.execution.lookup_active_contract`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to fetch each individual active contract during interpretation.
+
 ``daml.execution.lookup_contract_key_count_per_execution`` (histogram)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Number of contract keys looked up for each processed transaction.
+
 ``daml.execution.lookup_contract_key_per_execution`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to lookup all contract keys necessary to process each transaction.
+
 ``daml.execution.lookup_contract_key`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to lookup each individual contract key during interpretation.
+
 ``daml.execution.retry`` (meter)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Overall number of interpretation retries attempted due to
+mismatching ledger effective time.
+
 ``daml.execution.total`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent interpreting a valid command into a transaction
+ready to be submitted to the ledger for finalization.
 
 ``daml.lapi``
 -------------
@@ -400,45 +468,180 @@ streaming services measure the time to return the first response.
 ``daml.index.db``
 -----------------
 
+Statistics about operations performed against the
+persistent Ledger API server index.
+
 ``daml.index.db.deduplicate_command`` (timer)
-``daml.index.db.get_acs_event_sequential_id_range`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent persisting deduplication information to ensure the
+continued working of the deduplication mechanism across restarts.
+
 ``daml.index.db.get_active_contracts`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent retrieving a page of active contracts to be
+served from the active contract service. The page size is
+configurable, please look at the CLI reference.
+
 ``daml.index.db.get_completions`` (timer)
-``daml.index.db.get_event_sequential_id_range`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent retrieving a page of command completions to be
+served from the command completion service. The page size is
+configurable, please look at the CLI reference.
+
 ``daml.index.db.get_flat_transactions`` (timer)
-``daml.index.db.get_initial_ledger_end`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent retrieving a page of flat transactions to be
+streamed from the transaction service. The page size is
+configurable, please look at the CLI reference.
+
 ``daml.index.db.get_ledger_end`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent retrieving the current ledger end. The count for this metric is expected to
+be very high and always increasing as the indexed is queried for the latest updates.
+
 ``daml.index.db.get_ledger_id`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent retrieving the ledger identifier.
+
 ``daml.index.db.get_transaction_trees`` (timer)
-``daml.index.db.initialize_ledger_parameters`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent retrieving a page of flat transactions to be
+streamed from the transaction service. The page size is
+configurable, please look at the CLI reference.
+
 ``daml.index.db.load_all_parties`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Load the currently allocated parties so that
+they are served via the party management service.
+
 ``daml.index.db.load_archive`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent loading a package of compiled DAML code
+so that it's given to the DAML interpreter when
+needed.
+
 ``daml.index.db.load_configuration_entries`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to load the current entries in the log of
+configuration entries. Used to verify whether a configuration
+has been ultimately set.
+
 ``daml.index.db.load_package_entries`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to load the current entries in the log of
+package uploads. Used to verify whether a package
+has been ultimately uploaded.
+
 ``daml.index.db.load_packages`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Load the currently uploaded packages so that
+they are served via the package management service.
+
 ``daml.index.db.load_parties`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Load the currently allocated parties so that
+they are served via the party service.
+
 ``daml.index.db.load_party_entries`` (timer)
-``daml.index.db.lookup_active_contract_with_cached_argument`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to load the current entries in the log of
+party allocations. Used to verify whether a party
+has been ultimately allocated.
+
 ``daml.index.db.lookup_active_contract`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to fetch one contract on the index to be used by
+the DAML interpreter to evaluate a command into a
+transaction.
+
 ``daml.index.db.lookup_configuration`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to fetch the configuration so that it's
+served via the configuration management service.
+
 ``daml.index.db.lookup_contract_by_key`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to lookup one contract key on the index to be used by
+the DAML interpreter to evaluate a command into a
+transaction.
+
 ``daml.index.db.lookup_flat_transaction_by_id`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to lookup a single flat transaction by identifier
+to be served by the transaction service.
+
 ``daml.index.db.lookup_maximum_ledger_time`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent looking up the ledger effective time of a
+transaction as the maximum ledger time of all active
+contracts involved to ensure causal monotonicity.
+
 ``daml.index.db.lookup_transaction_tree_by_id`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time to lookup a single transaction tree by identifier
+to be served by the transaction service.
+
 ``daml.index.db.remove_expired_deduplication_data`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent removing deduplication information after the expiration
+of the deduplication window. Deduplication information is persisted to
+ensure the continued working of the deduplication mechanism across restarts.
+
 ``daml.index.db.stop_deduplicating_command`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent removing deduplication information after the failure of a
+command. Deduplication information is persisted to ensure the continued
+working of the deduplication mechanism across restarts.
+
 ``daml.index.db.store_configuration_entry`` (timer)
-``daml.index.db.store_initial_state_from_scenario`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent persisting a change in the ledger configuration
+provided through the configuration management service.
+
 ``daml.index.db.store_ledger_entry`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent persisting a transaction that has been
+successfully interpreted and is final.
+
 ``daml.index.db.store_package_entry`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent storing a DAML package uploaded through
+the package management service.
+
 ``daml.index.db.store_party_entry`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time spent storing party information as part of the
+party allocation endpoint provided by the party
+management service.
+
 ``daml.index.db.store_rejection`` (timer)
-``daml.index.db.truncate_all_tables`` (timer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``daml.indexer``
-----------------
-
-``daml.indexer.current_record_time_lag`` (gauge)
-``daml.indexer.last_received_offset`` (gauge)
-``daml.indexer.last_received_record_time`` (gauge)
-``daml.indexer.processed_state_updates`` (timer)
+Time spent persisting the information that a given
+command has been rejected.
