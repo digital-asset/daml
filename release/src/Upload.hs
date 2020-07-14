@@ -141,7 +141,7 @@ prepareStagingRepo baseRequest manager = do
     -- Note in Profile IDs
     --
     -- Currently the profile IDs are hardcoded. The IDs are fixed to the "namespaces" ('com.daml' and 'com.digitialasset')
-    -- attached to the Digitalasset accounts on the the Sonatype OSSRH.
+    -- attached to the Digitalasset accounts on the Sonatype OSSRH.
     --
 
     --

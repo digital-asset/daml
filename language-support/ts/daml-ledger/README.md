@@ -11,7 +11,7 @@ Comprehensive documentation for `@daml/ledger` can be found
 ## Usage
 
 The best way to get you started quickly is to look at [Create DAML
-App](https://github.com/digital-asset/create-daml-app) and to read the the [Quickstart
+App](https://github.com/digital-asset/create-daml-app) and to read the [Quickstart
 Guide](https://docs.daml.com/getting-started/quickstart.html).
 
 We recommend to use the [React](https://reactjs.org) framework and the `@daml/react` library to

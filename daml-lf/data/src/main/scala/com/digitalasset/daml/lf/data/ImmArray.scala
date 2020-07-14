@@ -28,7 +28,7 @@ import scala.reflect.ClassTag
   * they keep referring to the same underlying array.
   *
   * Note that we _very intentionally_ do _not_ make this an instance of any sorts of `Seq`, since
-  * using `Seq` encourages patterns where the the performance of what you're doing is totally
+  * using `Seq` encourages patterns where the performance of what you're doing is totally
   * unclear. Use `toSeq` if you want a `Seq`, and think about what that means.
   */
 final class ImmArray[+A] private (

@@ -88,7 +88,7 @@ From a DAML project directory:
             TLS: The crt file to be used as the cert chain.
             Required for client authentication.
       --cacrt <value>
-            TLS: The crt file to be used as the the trusted root CA.
+            TLS: The crt file to be used as the trusted root CA.
       --tls
             TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
       --package-reload-interval <value>

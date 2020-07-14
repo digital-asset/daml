@@ -23,7 +23,7 @@
 ---------------------------------------------------------------------
 -- DICTIONARY SANITIZATION
 --
--- GHC's desugaring for default methods relies on the the fact that Haskell is
+-- GHC's desugaring for default methods relies on the fact that Haskell is
 -- lazy. In contrast, DAML-LF is strict. This mismatch causes a few problems.
 -- For instance, GHC desugars:
 --
