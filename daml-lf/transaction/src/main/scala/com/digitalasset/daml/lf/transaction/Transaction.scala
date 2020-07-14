@@ -103,8 +103,8 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final private[lf] case class GenTransaction[Nid, +Cid, +Val](
-    nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
+final case class GenTransaction[Nid, +Cid, +Val](
+    nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Val]
     with value.CidContainer[GenTransaction[Nid, Cid, Val]] {
@@ -424,22 +424,23 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
 }
 
-private[lf] object GenTransaction extends value.CidContainer3[GenTransaction] {
+object GenTransaction extends value.CidContainer3[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
-  private val Empty =
+  private[this] val Empty =
     GenTransaction[Nothing, Nothing, Nothing](
       HashMap.empty[Nothing, Nothing],
       ImmArray.empty[Nothing])
 
-  def empty[A, B, C]: GenTransaction[A, B, C] = Empty.asInstanceOf[GenTransaction[A, B, C]]
+  private[lf] def empty[A, B, C]: GenTransaction[A, B, C] =
+    Empty.asInstanceOf[GenTransaction[A, B, C]]
 
-  case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
-  sealed trait NotWellFormedErrorReason
-  case object DanglingNodeId extends NotWellFormedErrorReason
-  case object OrphanedNode extends NotWellFormedErrorReason
-  case object AliasedNode extends NotWellFormedErrorReason
+  private[lf] case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
+  private[lf] sealed trait NotWellFormedErrorReason
+  private[lf] case object DanglingNodeId extends NotWellFormedErrorReason
+  private[lf] case object OrphanedNode extends NotWellFormedErrorReason
+  private[lf] case object AliasedNode extends NotWellFormedErrorReason
 
   override private[lf] def map3[A1, A2, A3, B1, B2, B3](
       f1: A1 => B1,
