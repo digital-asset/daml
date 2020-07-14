@@ -6,7 +6,11 @@ package com.daml.ledger.validator.caching
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.caching.WeightedCache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlPartyAllocation,
+  DamlStateKey,
+  DamlStateValue
+}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
@@ -31,8 +35,8 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
         .thenReturn(Future.successful(Seq((Some(aDamlStateValue()), FingerprintPlaceholder))))
       val instance = newInstance(mockReader, shouldCache = true)
 
-      instance.read(Seq(aDamlStateKey)).map { _ =>
-        instance.cache.getIfPresent(aDamlStateKey) shouldBe defined
+      instance.read(Seq(aDamlStateKey())).map { _ =>
+        instance.cache.getIfPresent(aDamlStateKey()) shouldBe defined
       }
     }
 
@@ -42,8 +46,8 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
         .thenReturn(Future.successful(Seq((Some(aDamlStateValue()), FingerprintPlaceholder))))
       val instance = newInstance(mockReader, shouldCache = false)
 
-      instance.read(Seq(aDamlStateKey)).map { _ =>
-        instance.cache.getIfPresent(aDamlStateKey) should not be defined
+      instance.read(Seq(aDamlStateKey())).map { _ =>
+        instance.cache.getIfPresent(aDamlStateKey()) should not be defined
       }
     }
 
@@ -61,8 +65,8 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       val instance = newInstance(fakeReader, shouldCache = true)
 
       for {
-        originalReadState <- instance.read(Seq(aDamlStateKey))
-        readAgain <- instance.read(Seq(aDamlStateKey))
+        originalReadState <- instance.read(Seq(aDamlStateKey()))
+        readAgain <- instance.read(Seq(aDamlStateKey()))
       } yield {
         readCalledTimes.get() shouldBe 1
         originalReadState should have length 1
@@ -72,16 +76,48 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
     }
 
     "return results for keys in the same order as requested" in {
-      succeed
+      val expectedKeyValues = (0 to 10).map { index =>
+        (aDamlStateKey(index), aDamlStateValue(index))
+      }
+      val expectedKeys = expectedKeyValues.map(_._1)
+      val expectedStateValueFingerprintPairs = expectedKeyValues.map {
+        case (_, value) =>
+          Some(value) -> FingerprintPlaceholder
+      }
+      val fakeReader = new DamlLedgerStateReaderWithFingerprints {
+        override def read(
+            keys: Seq[DamlStateKey]): Future[Seq[(Option[DamlStateValue], Fingerprint)]] =
+          Future.successful {
+            keys.map { key =>
+              expectedStateValueFingerprintPairs(key.getContractId.toInt)
+            }
+          }
+      }
+      val instance = newInstance(fakeReader, shouldCache = true)
+
+      for {
+        originalReadState <- instance.read(expectedKeys)
+        readAgain <- instance.read(expectedKeys)
+      } yield {
+        originalReadState should have length expectedKeyValues.length.toLong
+        readAgain shouldEqual expectedStateValueFingerprintPairs
+      }
     }
   }
   private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
-  private lazy val aDamlStateKey = DamlStateKey.newBuilder
-    .setContractId("aContractId")
-    .build
+  private def aDamlStateKey(id: Int = 0): DamlStateKey =
+    DamlStateKey.newBuilder
+      .setContractId(id.toString)
+      .build
 
-  private def aDamlStateValue(): DamlStateValue = DamlStateValue.getDefaultInstance
+  private def aDamlStateValue(id: Int = 0): DamlStateValue =
+    DamlStateValue.newBuilder
+      .setParty(
+        DamlPartyAllocation.newBuilder
+          .setDisplayName(id.toString)
+          .setParticipantId(id.toString))
+      .build
 
   private def newInstance(delegate: DamlLedgerStateReaderWithFingerprints, shouldCache: Boolean)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints = {
