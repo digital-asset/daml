@@ -8,7 +8,7 @@ import java.time.Instant
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.data.LawlessTraversals._
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.ledger.EventId
@@ -176,7 +176,7 @@ object LfEngineToApi {
   def lfNodeCreateToEvent(
       verbose: Boolean,
       trId: Ref.LedgerString,
-      nodeId: Tx.NodeId,
+      nodeId: NodeId,
       node: NodeCreate.WithTxValue[Lf.ContractId],
   ): Either[String, Event] =
     for {
@@ -198,8 +198,8 @@ object LfEngineToApi {
 
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
-      nodeId: Tx.NodeId,
-      node: NodeExercises.WithTxValue[Tx.NodeId, Lf.ContractId],
+      nodeId: NodeId,
+      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -243,8 +243,8 @@ object LfEngineToApi {
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises.WithTxValue[Tx.NodeId, Lf.ContractId],
-      filterChildren: Tx.NodeId => Boolean,
+      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
+      filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {
       arg <- lfVersionedValueToApiValue(verbose, node.chosenValue)

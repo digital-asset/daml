@@ -12,11 +12,12 @@ import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.transaction.{
   BlindingInfo,
   GenTransaction,
+  NodeId,
   TransactionVersion,
   TransactionVersions,
   Transaction => Tx
 }
-import com.daml.lf.value.Value._
+import com.daml.lf.value.Value.{NodeId => _, _}
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 
@@ -76,7 +77,7 @@ object ValueGenerators {
 
   val nameGen: Gen[Name] = {
     val firstChars =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_".toVector
+      """abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$""".toVector
     val mainChars =
       firstChars ++ "1234567890"
     for {
@@ -296,7 +297,7 @@ object ValueGenerators {
 
   /** Makes exercise nodes with some random child IDs. */
   val danglingRefExerciseNodeGen
-    : Gen[NodeExercises[Tx.NodeId, Value.ContractId, Tx.Value[Value.ContractId]]] = {
+    : Gen[NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]]] = {
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -308,7 +309,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
-        .map(_.map(Tx.NodeId(_)))
+        .map(_.map(NodeId(_)))
         .map(ImmArray(_))
       exerciseResultValue <- versionedValueGen
       key <- versionedValueGen

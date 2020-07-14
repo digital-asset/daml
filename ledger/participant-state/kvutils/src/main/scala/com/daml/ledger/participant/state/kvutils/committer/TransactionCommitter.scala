@@ -19,7 +19,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{BlindingInfo, Node, Transaction => Tx}
+import com.daml.lf.transaction.{BlindingInfo, Node, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -384,7 +384,7 @@ private[kvutils] class TransactionCommitter(
       blindingInfo: BlindingInfo,
       commitContext: CommitContext): Unit = {
     val effects = InputsAndEffects.computeEffects(transactionEntry.transaction)
-    val cid2nid: Value.ContractId => Value.NodeId =
+    val cid2nid: Value.ContractId => NodeId =
       transactionEntry.transaction.localContracts
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
     for ((key, createNode) <- effects.createdContracts) {

@@ -11,7 +11,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{TransactionVersions, Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, TransactionVersions, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueVersions}
 import java.nio.file.{Files, Path, Paths}
@@ -130,7 +130,7 @@ class Engine(config: Engine.Config) {
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenNode.WithTxValue[Value.NodeId, Value.ContractId],
+      node: GenNode.WithTxValue[NodeId, Value.ContractId],
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,

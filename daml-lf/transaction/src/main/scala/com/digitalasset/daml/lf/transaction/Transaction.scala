@@ -471,10 +471,12 @@ private[lf] object GenTransaction extends value.CidContainer3[GenTransaction] {
 
 object Transaction {
 
-  type NodeId = Value.NodeId
-  val NodeId = Value.NodeId
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  type NodeId = transaction.NodeId
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  val NodeId = transaction.NodeId
 
-  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.4.0")
+  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.2.0")
   type TContractId = Value.ContractId
 
   type Value[+Cid] = Value.VersionedValue[Cid]
@@ -482,7 +484,7 @@ object Transaction {
   type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
 
   /** Transaction nodes */
-  type Node = Node.GenNode.WithTxValue[NodeId, Value.ContractId]
+  type Node = Node.GenNode.WithTxValue[transaction.NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyNode.WithTxValue[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
@@ -493,7 +495,9 @@ object Transaction {
     *  divulgence of contracts.
     *
     */
-  type Transaction = VersionedTransaction[NodeId, Value.ContractId]
+  def p5 = "1"
+
+  type Transaction = VersionedTransaction[transaction.NodeId, Value.ContractId]
   val Transaction = VersionedTransaction
 
   /** Transaction meta data
@@ -518,8 +522,8 @@ object Transaction {
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
-      nodeSeeds: ImmArray[(Value.NodeId, crypto.Hash)],
-      byKeyNodes: ImmArray[Value.NodeId],
+      nodeSeeds: ImmArray[(transaction.NodeId, crypto.Hash)],
+      byKeyNodes: ImmArray[transaction.NodeId],
   )
 
   sealed abstract class DiscriminatedSubtype[X] {
@@ -565,7 +569,7 @@ object Transaction {
   final case class ContractNotActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      consumedBy: NodeId)
+      consumedBy: transaction.NodeId)
       extends TransactionError
 
 }

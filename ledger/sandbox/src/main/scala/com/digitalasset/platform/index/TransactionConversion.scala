@@ -7,7 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf
 import com.daml.ledger.{CommandId, EventId, TransactionId}
@@ -36,9 +36,9 @@ object TransactionConversion {
   private type Transaction = Tx.CommittedTransaction
   private type Node = Tx.Node
   private type Create = NodeCreate.WithTxValue[ContractId]
-  private type Exercise = NodeExercises.WithTxValue[Tx.NodeId, ContractId]
+  private type Exercise = NodeExercises.WithTxValue[NodeId, ContractId]
 
-  private def collect[A](tx: Transaction)(pf: PartialFunction[(Tx.NodeId, Node), A]): Seq[A] =
+  private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] =
     tx.fold(Vector.empty[A]) {
       case (nodes, node) if pf.isDefinedAt(node) => nodes :+ pf(node)
       case (nodes, _) => nodes
@@ -53,7 +53,7 @@ object TransactionConversion {
 
   private def toFlatEvent(
       trId: TransactionId,
-      verbose: Boolean): PartialFunction[(Tx.NodeId, Node), Event] = {
+      verbose: Boolean): PartialFunction[(NodeId, Node), Event] = {
     case (nodeId, node: Create) =>
       assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
@@ -108,7 +108,7 @@ object TransactionConversion {
       transactionId: TransactionId,
       transaction: Transaction,
       parties: Set[Ref.Party],
-  ): Option[Relation[Tx.NodeId, Ref.Party]] =
+  ): Option[Relation[NodeId, Ref.Party]] =
     Some(
       Blinding
         .blind(transaction)
@@ -131,9 +131,9 @@ object TransactionConversion {
   private def toTreeEvent(
       verbose: Boolean,
       trId: Ref.LedgerString,
-      disclosure: Relation[Tx.NodeId, Ref.Party],
-      nodes: Map[Tx.NodeId, Node],
-  ): PartialFunction[(Tx.NodeId, Node), (String, TreeEvent)] = {
+      disclosure: Relation[NodeId, Ref.Party],
+      nodes: Map[NodeId, Node],
+  ): PartialFunction[(NodeId, Node), (String, TreeEvent)] = {
     case (nodeId, node: Create) if disclosure.contains(nodeId) =>
       val eventId = EventId(trId, nodeId)
       eventId.toLedgerString -> assertOrRuntimeEx(
@@ -156,11 +156,11 @@ object TransactionConversion {
 
   private def newRoots(
       tx: Transaction,
-      disclosed: Tx.NodeId => Boolean,
+      disclosed: NodeId => Boolean,
   ) = {
 
     @tailrec
-    def go(toProcess: FrontStack[Tx.NodeId], acc: BackStack[Tx.NodeId]): Seq[Tx.NodeId] =
+    def go(toProcess: FrontStack[NodeId], acc: BackStack[NodeId]): Seq[NodeId] =
       toProcess match {
         case FrontStackCons(head, tail) =>
           tx.nodes(head) match {
@@ -181,7 +181,7 @@ object TransactionConversion {
   private def applyDisclosure(
       trId: Ref.LedgerString,
       tx: Transaction,
-      disclosure: Relation[Tx.NodeId, Ref.Party],
+      disclosure: Relation[NodeId, Ref.Party],
       verbose: Boolean,
   ): Option[ApiTransactionTree] =
     Some(collect(tx)(toTreeEvent(verbose, trId, disclosure, tx.nodes))).collect {

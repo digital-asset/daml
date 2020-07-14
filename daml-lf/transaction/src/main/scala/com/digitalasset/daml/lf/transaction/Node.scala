@@ -7,7 +7,7 @@ package transaction
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
 import com.daml.lf.data.Ref._
-import com.daml.lf.value.Value
+import com.daml.lf.value.{CidMapper, Value}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.language.higherKinds
@@ -421,4 +421,14 @@ object Node {
   sealed trait WithTxValue3[F[+ _, + _, + _]] {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
   }
+}
+
+/** The constructor is private so that we make sure that only this object constructs
+  * node ids -- we don't want external code to manipulate them.
+  */
+final case class NodeId(index: Int)
+
+object NodeId {
+  implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
+    CidMapper.trivialMapper
 }
