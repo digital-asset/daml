@@ -104,6 +104,7 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       }
     }
   }
+
   private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
   private def aDamlStateKey(id: Int = 0): DamlStateKey =
@@ -129,5 +130,4 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       keySerializationStrategy,
       delegate)
   }
-
 }
