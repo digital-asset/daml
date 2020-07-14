@@ -12,3 +12,16 @@ dependencies:
   - daml-script
 sandbox-options:
   - --wall-clock-time
+
+# https://discuss.daml.com/t/making-the-most-out-of-daml-compiler-warnings/739
+build-options: [
+  # make compilation fail if there is a warning
+  #"--ghc-option", "-Werror",
+
+  # this is an example to get you started; uncomment the ones you want
+  "--ghc-option", "-Wunused-matches",
+  #"--ghc-option", "-Wunused-do-bind",
+  #"--ghc-option", "-Wincomplete-uni-patterns",
+  #"--ghc-option", "-Wredundant-constraints",
+  #"--ghc-option", "-Wmissing-signatures",
+  ]
