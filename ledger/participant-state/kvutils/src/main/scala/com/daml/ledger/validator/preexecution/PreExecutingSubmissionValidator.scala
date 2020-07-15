@@ -61,7 +61,7 @@ class PreExecutingSubmissionValidator[WriteSet](
           maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
           successWriteSet = generatedWriteSets.successWriteSet,
           outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-          readSet = generateReadSet(preExecutionResult.readSet),
+          readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
           involvedParticipants = generatedWriteSets.involvedParticipants
         )
       }
@@ -117,11 +117,20 @@ class PreExecutingSubmissionValidator[WriteSet](
       LedgerReader.DefaultConfiguration,
       submission,
       submittingParticipantId,
-      inputState)
+      inputState.mapValues { case (value, _) => value })
   }
 
-  private def generateReadSet(keyToFingerprint: Map[DamlStateKey, Fingerprint]): ReadSet =
-    keyToFingerprint
+  private def generateReadSet(
+      fetchedInputs: DamlInputStateWithFingerprints,
+      accessedKeys: Set[DamlStateKey]): ReadSet =
+    accessedKeys
+      .map { key =>
+        val (_, fingerprint) = fetchedInputs.getOrElse(
+          key,
+          throw new IllegalStateException(
+            "Committer accessed key that was not present in the input"))
+        key -> fingerprint
+      }
       .map {
         case (damlKey, fingerprint) =>
           keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint

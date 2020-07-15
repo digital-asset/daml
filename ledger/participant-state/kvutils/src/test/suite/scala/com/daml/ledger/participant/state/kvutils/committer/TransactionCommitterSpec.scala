@@ -6,11 +6,11 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.DamlTransactionEntrySummary
-import com.daml.ledger.participant.state.kvutils.{Conversions, FingerprintPlaceholder}
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -35,13 +35,10 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     .commandDedupKey(aTransactionEntrySummary.submitterInfo)
   private val configurationStateValue = defaultConfigurationStateValueBuilder().build
   private val inputWithTimeModelAndEmptyCommandDeduplication =
-    Map(
-      Conversions.configurationStateKey ->
-        (Some(configurationStateValue) -> FingerprintPlaceholder),
-      dedupKey -> (None -> FingerprintPlaceholder))
+    Map(Conversions.configurationStateKey -> Some(configurationStateValue), dedupKey -> None)
   private val contextWithTimeModelAndEmptyCommandDeduplication = new FakeCommitContext(
     recordTime = None,
-    inputsWithFingerprints = inputWithTimeModelAndEmptyCommandDeduplication)
+    inputs = inputWithTimeModelAndEmptyCommandDeduplication)
   private val aSubmissionTime = createProtobufTimestamp(seconds = 1)
   private val aLedgerEffectiveTime = createProtobufTimestamp(seconds = 2)
   private val aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes =
@@ -57,13 +54,10 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     .build()
   private val inputWithTimeModelAndCommandDeduplication =
     Map(
-      Conversions.configurationStateKey ->
-        (Some(configurationStateValue) -> FingerprintPlaceholder),
-      dedupKey -> (Some(dedupValue) -> FingerprintPlaceholder))
+      Conversions.configurationStateKey -> Some(configurationStateValue),
+      dedupKey -> Some(dedupValue))
   private val contextWithTimeModelAndCommandDeduplication =
-    new FakeCommitContext(
-      recordTime = None,
-      inputsWithFingerprints = inputWithTimeModelAndCommandDeduplication)
+    new FakeCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
@@ -78,9 +72,9 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "continue if record time is available but no deduplication entry could be found" in {
-      val inputs = Map(dedupKey -> (None -> FingerprintPlaceholder))
+      val inputs = Map(dedupKey -> None)
       val context =
-        new FakeCommitContext(recordTime = Some(aRecordTime), inputsWithFingerprints = inputs)
+        new FakeCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -92,12 +86,9 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
     "continue if record time is after deduplication time in case a deduplication entry is found" in {
       val dedupValue = newDedupValue(aRecordTime)
-      val inputs =
-        Map(dedupKey -> (Some(dedupValue) -> dedupValue.toByteString))
+      val inputs = Map(dedupKey -> Some(dedupValue))
       val context =
-        new FakeCommitContext(
-          recordTime = Some(aRecordTime.addMicros(1)),
-          inputsWithFingerprints = inputs)
+        new FakeCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -112,10 +103,9 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
           (aRecordTime, aRecordTime),
           (aRecordTime, aRecordTime.addMicros(1)))) {
         val dedupValue = newDedupValue(deduplicationTime)
-        val inputs =
-          Map(dedupKey -> (Some(dedupValue) -> dedupValue.toByteString))
+        val inputs = Map(dedupKey -> Some(dedupValue))
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputsWithFingerprints = inputs)
+          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputs)
 
         val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -174,14 +164,11 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       val upperBound =
         recordTimeInstant.plus(theDefaultConfig.timeModel.maxSkew).plusMillis(1)
       val inputWithDeclaredConfig =
-        Map(
-          Conversions.configurationStateKey -> (Some(configurationStateValue) -> configurationStateValue.toByteString))
+        Map(Conversions.configurationStateKey -> Some(configurationStateValue))
 
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
-          new FakeCommitContext(
-            recordTime = Some(recordTime),
-            inputsWithFingerprints = inputWithDeclaredConfig)
+          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
         val transactionEntrySummary = DamlTransactionEntrySummary(
           aDamlTransactionEntry.toBuilder
             .setLedgerEffectiveTime(

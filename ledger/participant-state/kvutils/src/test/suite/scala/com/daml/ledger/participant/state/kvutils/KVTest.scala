@@ -18,7 +18,6 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.Transaction
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -317,7 +316,7 @@ object KVTest {
       _ <- addDamlState(newState)
     } yield {
       assert(
-        readSet.keySet subsetOf inputKeys.toSet
+        readSet subsetOf inputKeys.toSet
       )
       // Verify that we can always process both the successful and rejection log entries
       KeyValueConsumption.logEntryToUpdate(
@@ -341,14 +340,12 @@ object KVTest {
 
   private[this] def createInputState(
       inputKeys: mutable.Buffer[DamlStateKey],
-      testState: KVTestState): Map[DamlStateKey, (Option[DamlStateValue], ByteString)] = {
+      testState: KVTestState): Map[DamlStateKey, Option[DamlStateValue]] = {
     inputKeys.map { key =>
       {
         val damlStateValue = testState.damlState
           .get(key)
-        key -> (damlStateValue -> damlStateValue
-          .map(_.toByteString)
-          .getOrElse(FingerprintPlaceholder))
+        key -> damlStateValue
       }
     }.toMap
   }
