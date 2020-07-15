@@ -53,7 +53,7 @@ main = do
             , testCase "no project, platform-version" $ withTempDir $ \tempDir -> do
                   writeFileUTF8 (tempDir </> "daml.yaml") $ unlines
                     [ "sdk-version: 0.0.0"
-                    , "platform-version: 1.2.0"
+                    , "platform-version: " <> latestStableVersion
                     ]
                   out <- Proc.readProcessStdout_ (Proc.setWorkingDir tempDir (Proc.shell "daml sandbox --help"))
                   assertInfixOf ("Sandbox version " <> latestStableVersion) out
@@ -65,7 +65,7 @@ main = do
             , testCase "daml start" $ withTempDir $ \tempDir -> do
                   writeFileUTF8 (tempDir </> "daml.yaml") $ unlines
                     [ "sdk-version: 0.0.0"
-                    , "platform-version: 1.2.0"
+                    , "platform-version: " <> latestStableVersion
                     , "name: foobar"
                     , "version: 0.0.1"
                     , "dependencies: [daml-prim, daml-stdlib]"
@@ -84,7 +84,7 @@ main = do
                       hClose (Proc.getStdin ph)
                       pure $ Proc.getStdout ph
                   out <- atomically getOut
-                  assertInfixOf "sandbox version 1.2.0" out
+                  assertInfixOf ("sandbox version " <> latestStableVersion) out
                   -- Navigator, sadly not prefixed with Navigator
                   assertInfixOf "Version 0.0.0" out
                   -- JSON API, doesn’t even print a version but let’s at least check
