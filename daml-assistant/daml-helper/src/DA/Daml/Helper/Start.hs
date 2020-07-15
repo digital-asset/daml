@@ -330,4 +330,5 @@ withPlatformProcess args runInCurrentSdk f = do
 extendEnv :: [(String, String)] -> IO [(String, String)]
 extendEnv xs = do
     oldEnv <- getEnvironment
-    pure (xs ++ filter (\(k, _) -> k `notElem` map fst xs) oldEnv)
+    -- DAML_SDK is version specific so we need to filter it.
+    pure (xs ++ filter (\(k, _) -> k `notElem` (sdkPathEnvVar : map fst xs)) oldEnv)
