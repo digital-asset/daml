@@ -75,12 +75,13 @@ object EventsRange {
       pageSize: Int): SqlSequence[Vector[A]] = {
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
-    SqlSequence.vector(fasterRead(guessedPageEnd) withFetchSize Some(pageSize), row) flatMap {
-      arithPage =>
+    SqlSequence
+      .vector(fasterRead(guessedPageEnd) withFetchSize Some(pageSize), row)
+      .flatMap { arithPage =>
         if (guessedPageEnd == range.endInclusive || arithPage.sizeIs >= minPageSize)
           SqlSequence point arithPage
         else
           SqlSequence.vector(saferRead(minPageSize) withFetchSize Some(minPageSize), row)
-    }
+      }
   }
 }
