@@ -114,13 +114,8 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
     }
 
     frqK match {
-      case QueryParts.ByArith(fasterRead, saferRead) =>
-        EventsRange.readPage(
-          fasterRead,
-          saferRead,
-          EventsTable.rawFlatEventParser,
-          offsetRange(offset),
-          pageSize)
+      case QueryParts.ByArith(read) =>
+        EventsRange.readPage(read, EventsTable.rawFlatEventParser, offsetRange(offset), pageSize)
       case QueryParts.ByLimit(sql) =>
         SqlSequence.vector(sql withFetchSize Some(pageSize), EventsTable.rawFlatEventParser)
     }
@@ -133,8 +128,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       extends Product
       with Serializable
   private[EventsTableFlatEventsRangeQueries] object QueryParts {
-    final case class ByArith(fasterRead: Long => SimpleSql[Row], saferRead: Int => SimpleSql[Row])
-        extends QueryParts
+    final case class ByArith(read: (EventsRange[Long], String) => SimpleSql[Row]) extends QueryParts
     final case class ByLimit(saferRead: SimpleSql[Row]) extends QueryParts
     import language.implicitConversions
     implicit def `go by limit`(saferRead: SimpleSql[Row]): ByLimit = ByLimit(saferRead)
@@ -154,22 +148,14 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       QueryParts.ByArith(
-        fasterRead = guessedPageEnd => SQL"""
-            select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitter = $party then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$witnessesWhereClause
-            order by event_sequential_id""",
-        saferRead = minPageSize => SQL"""
+        read = (range, limitExpr) => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
                    case when submitter = $party then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-            order by event_sequential_id limit $minPageSize"""
+            order by event_sequential_id #$limitExpr"""
       )
     }
 
@@ -182,16 +168,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       QueryParts.ByArith(
-        fasterRead = guessedPageEnd => SQL"""
-            select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitter = $party then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$witnessesWhereClause
-                  and template_id in ($templateIds)
-            order by event_sequential_id""",
-        saferRead = minPageSize => SQL"""
+        read = (range, limitExpr) => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
                    case when submitter = $party then command_id else '' end as command_id
             from participant_events
@@ -199,7 +176,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
                   and template_id in ($templateIds)
-            order by event_sequential_id limit $minPageSize"""
+            order by event_sequential_id #$limitExpr"""
       )
     }
 
@@ -213,22 +190,14 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       QueryParts.ByArith(
-        fasterRead = guessedPageEnd => SQL"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$witnessesWhereClause
-            order by event_sequential_id""",
-        saferRead = minPageSize => SQL"""
+        read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when submitter in ($parties) then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
-            order by event_sequential_id limit $minPageSize"""
+            order by event_sequential_id #$limitExpr"""
       )
     }
 
@@ -243,16 +212,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       QueryParts.ByArith(
-        fasterRead = guessedPageEnd => SQL"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$witnessesWhereClause
-                  and template_id in ($templateIds)
-            order by event_sequential_id""",
-        saferRead = minPageSize => SQL"""
+        read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when submitter in ($parties) then command_id else '' end as command_id
             from participant_events
@@ -260,7 +220,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                   and event_sequential_id <= ${range.endInclusive}
                   and #$witnessesWhereClause
                   and template_id in ($templateIds)
-            order by event_sequential_id limit $minPageSize"""
+            order by event_sequential_id #$limitExpr"""
       )
     }
 
@@ -278,22 +238,14 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       QueryParts.ByArith(
-        fasterRead = guessedPageEnd => SQL"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and #$partiesAndTemplatesCondition
-            order by event_sequential_id""",
-        saferRead = minPageSize => SQL"""
+        read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when submitter in ($parties) then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and #$partiesAndTemplatesCondition
-            order by event_sequential_id limit $minPageSize"""
+            order by event_sequential_id #$limitExpr"""
       )
     }
 
@@ -314,22 +266,14 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       QueryParts.ByArith(
-        fasterRead = guessedPageEnd => SQL"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= $guessedPageEnd
-                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
-            order by event_sequential_id""",
-        saferRead = minPageSize => SQL"""
+        read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when submitter in ($parties) then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
                   and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
-            order by event_sequential_id limit $minPageSize"""
+            order by event_sequential_id #$limitExpr"""
       )
     }
 

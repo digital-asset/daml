@@ -6,8 +6,6 @@ import anorm.SqlParser.get
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
 
-import scala.collection.compat._
-
 // (startExclusive, endInclusive]
 final case class EventsRange[A](startExclusive: A, endInclusive: A) {
   def map[B](f: A => B): EventsRange[B] =
@@ -68,20 +66,28 @@ object EventsRange {
   }
 
   private[events] def readPage[A](
-      fasterRead: Long => SimpleSql[Row], // takes guessedPageEnd
-      saferRead: Int => SimpleSql[Row], // takes minPageSize
+      read: (EventsRange[Long], String) => SimpleSql[Row], // takes range and limit sub-expression
       row: RowParser[A],
       range: EventsRange[Long],
       pageSize: Int): SqlSequence[Vector[A]] = {
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
     SqlSequence
-      .vector(fasterRead(guessedPageEnd) withFetchSize Some(pageSize), row)
+      .vector(
+        read(range copy (endInclusive = guessedPageEnd), "") withFetchSize Some(pageSize),
+        row)
       .flatMap { arithPage =>
-        if (guessedPageEnd == range.endInclusive || arithPage.sizeIs >= minPageSize)
+        val found = arithPage.size
+        if (guessedPageEnd == range.endInclusive || found >= minPageSize)
           SqlSequence point arithPage
         else
-          SqlSequence.vector(saferRead(minPageSize) withFetchSize Some(minPageSize), row)
+          SqlSequence
+            .vector(
+              read(
+                range copy (startExclusive = guessedPageEnd),
+                s"limit ${minPageSize - found: Int}") withFetchSize Some(minPageSize - found),
+              row)
+            .map(arithPage ++ _)
       }
   }
 }

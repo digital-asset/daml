@@ -141,22 +141,14 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
     EventsRange.readPage(
-      fasterRead = guessedPageEnd => SQL"""
-        select #$selectColumns, array[$requestingParty] as event_witnesses,
-               case when submitter = $requestingParty then command_id else '' end as command_id
-        from participant_events
-        where event_sequential_id > ${range.startExclusive}
-              and event_sequential_id <= $guessedPageEnd
-              and #$witnessesWhereClause
-        order by event_sequential_id""",
-      saferRead = minPageSize => SQL"""
+      read = (range, limitExpr) => SQL"""
         select #$selectColumns, array[$requestingParty] as event_witnesses,
                case when submitter = $requestingParty then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
               and #$witnessesWhereClause
-        order by event_sequential_id limit $minPageSize""",
+        order by event_sequential_id #$limitExpr""",
       rawTreeEventParser,
       range,
       pageSize
@@ -173,22 +165,14 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
     EventsRange.readPage(
-      fasterRead = guessedPageEnd => SQL"""
-        select #$selectColumns, #$filteredWitnesses as event_witnesses,
-               case when submitter in ($requestingParties) then command_id else '' end as command_id
-        from participant_events
-        where event_sequential_id > ${range.startExclusive}
-              and event_sequential_id <= $guessedPageEnd
-              and #$witnessesWhereClause
-        order by event_sequential_id""",
-      saferRead = minPageSize => SQL"""
+      read = (range, limitExpr) => SQL"""
         select #$selectColumns, #$filteredWitnesses as event_witnesses,
                case when submitter in ($requestingParties) then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
               and #$witnessesWhereClause
-        order by event_sequential_id limit $minPageSize""",
+        order by event_sequential_id #$limitExpr""",
       rawTreeEventParser,
       range,
       pageSize
