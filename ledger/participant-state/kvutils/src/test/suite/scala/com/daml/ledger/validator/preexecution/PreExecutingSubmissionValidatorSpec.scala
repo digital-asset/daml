@@ -143,6 +143,20 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
     }
   }
 
+  "generateReadSet" should {
+    "throw in case an input key is declared in the read set but not fetched as input" in {
+      val instance = createInstance()
+
+      assertThrows[IllegalStateException](
+        instance
+          .generateReadSet(
+            fetchedInputs = Map.empty,
+            accessedKeys = TestHelper.allDamlStateKeyTypes.toSet
+          )
+      )
+    }
+  }
+
   private val recordTime = Timestamp.now()
 
   private val metrics = new Metrics(new MetricRegistry)

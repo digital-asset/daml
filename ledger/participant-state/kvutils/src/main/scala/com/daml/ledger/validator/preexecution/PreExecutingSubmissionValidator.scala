@@ -120,7 +120,7 @@ class PreExecutingSubmissionValidator[WriteSet](
       inputState.mapValues { case (value, _) => value })
   }
 
-  private def generateReadSet(
+  private[preexecution] def generateReadSet(
       fetchedInputs: DamlInputStateWithFingerprints,
       accessedKeys: Set[DamlStateKey]): ReadSet =
     accessedKeys
