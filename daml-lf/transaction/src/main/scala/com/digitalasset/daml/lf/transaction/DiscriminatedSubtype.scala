@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.lf.transaction
 
 import scala.language.higherKinds
@@ -15,3 +18,4 @@ object DiscriminatedSubtype {
     override def subst[F[_]](fx: F[X]): F[T] = fx
   }
 }
+
