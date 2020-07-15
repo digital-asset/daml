@@ -51,10 +51,9 @@ class CachingDamlLedgerStateReaderWithFingerprints(
 
 object CachingDamlLedgerStateReaderWithFingerprints {
 
-  implicit object `Message-Fingerprint Pair Weight`
-      extends Weight[(Option[MessageLite], Fingerprint)] {
-    override def weigh(value: (Option[MessageLite], Fingerprint)): Cache.Size =
-      value._1.map(_.getSerializedSize.toLong).getOrElse(0L) + value._2.size()
+  implicit object `Message-Fingerprint Pair Weight` extends Weight[(MessageLite, Fingerprint)] {
+    override def weigh(value: (MessageLite, Fingerprint)): Cache.Size =
+      value._1.getSerializedSize.toLong + value._2.size()
   }
 
 }

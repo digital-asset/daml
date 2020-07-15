@@ -14,12 +14,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
+import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
-import org.mockito.ArgumentMatchers._
+import org.mockito.ArgumentMatchers.argThat
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Inside, Matchers}
-import CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -52,7 +52,7 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
     }
 
     "serve request from cache for seen key (if policy allows)" in {
-      val expectedStateValueFingerprintPair = None -> FingerprintPlaceholder
+      val expectedStateValueFingerprintPair = Some(aDamlStateValue()) -> FingerprintPlaceholder
       val readCalledTimes = new AtomicInteger()
       val fakeReader =
         new DamlLedgerStateReaderWithFingerprints {
