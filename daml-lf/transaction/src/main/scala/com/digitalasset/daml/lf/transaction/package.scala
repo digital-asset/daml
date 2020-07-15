@@ -8,8 +8,6 @@ import com.daml.lf.value.Value.ContractId
 import scala.collection.TraversableLike
 import scala.collection.generic.CanBuildFrom
 
-import scala.language.higherKinds
-
 package object transaction {
 
   /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
@@ -28,20 +26,6 @@ package object transaction {
       }
       Right(b.result())
     }
-
-  sealed abstract class DiscriminatedSubtype[X] {
-    type T <: X
-    def apply(x: X): T
-    def subst[F[_]](fx: F[X]): F[T]
-  }
-
-  object DiscriminatedSubtype {
-    def apply[X]: DiscriminatedSubtype[X] = new DiscriminatedSubtype[X] {
-      override type T = X
-      override def apply(x: X): T = x
-      override def subst[F[_]](fx: F[X]): F[T] = fx
-    }
-  }
 
   val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId, ContractId]]
   type SubmittedTransaction = SubmittedTransaction.T
