@@ -192,6 +192,7 @@ class Metrics(val registry: MetricRegistry) {
 
           // The below metrics are only generated for pre-execution.
           val validatePreExecute: Timer = registry.timer(Prefix :+ "validate_pre_execute")
+          val generateWriteSets: Timer = registry.timer(Prefix :+ "generate_write_sets")
 
           val validatePreExecuteRunning: Counter =
             registry.counter(Prefix :+ "validate_pre_execute_running")

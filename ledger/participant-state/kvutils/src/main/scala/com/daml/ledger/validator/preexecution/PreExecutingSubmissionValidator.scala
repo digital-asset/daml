@@ -53,8 +53,14 @@ class PreExecutingSubmissionValidator[WriteSet](
             fetchedInputs)
           logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
           inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
-          generatedWriteSets <- commitStrategy
-            .generateWriteSets(submittingParticipantId, logEntryId, inputState, preExecutionResult)
+          generatedWriteSets <- Timed.future(
+            metrics.daml.kvutils.submission.validator.generateWriteSets,
+            commitStrategy.generateWriteSets(
+              submittingParticipantId,
+              logEntryId,
+              inputState,
+              preExecutionResult)
+          )
         } yield {
           PreExecutionOutput(
             minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
