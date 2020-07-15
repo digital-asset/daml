@@ -17,6 +17,7 @@ import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
+import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.transaction.{Node, Transaction => Tx, TransactionCoder => TxCoder}
 import com.daml.lf.value.Value.ContractId
@@ -34,34 +35,43 @@ final case class TxEntry(
     submissionSeed: crypto.Hash,
 )
 
-final case class BenchMarkState(
+final case class BenchmarkState(
     name: String,
     transaction: TxEntry,
-    contracts: ContractId => Option[Tx.ContractInst[ContractId]],
-    contractKeys: GlobalKey => Option[ContractId],
+    contracts: Map[ContractId, Tx.ContractInst[ContractId]],
+    contractKeys: Map[GlobalKey, ContractId],
 )
 
 @State(Scope.Benchmark)
 class Replay {
 
   @Param(Array())
+  // choiceName of the exercise to benchmark
+  // format: "ModuleName:TemplateName:ChoiceName"
   var choiceName: String = _
 
   @Param(Array())
+  // path of the darFile
   var darFile: String = _
 
   @Param(Array())
+  // path of the ledger export
   var ledgerFile: String = _
 
-  private var engineDarFile: Option[String] = None
+  @Param(Array("false"))
+  // if 'true' try to adapt the benchmark to the dar
+  var adapt: Boolean = _
+
+  private var readDarFile: Option[String] = None
+  private var loadedPackages: Map[Ref.PackageId, Ast.Package] = _
   private var engine: Engine = _
   private var benchmarksFile: Option[String] = None
-  private var benchmarks: Map[String, BenchMarkState] = _
-  private var benchmark: BenchMarkState = _
+  private var benchmarks: Map[String, BenchmarkState] = _
+  private var benchmark: BenchmarkState = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(): Unit = {
-    val r = engine
+    val result = engine
       .replay(
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
@@ -69,24 +79,27 @@ class Replay {
         benchmark.transaction.submissionTime,
         benchmark.transaction.submissionSeed,
       )
-      .consume(benchmark.contracts, _ => Replay.unexpectedError, benchmark.contractKeys)
-    assert(r.isRight)
+      .consume(benchmark.contracts.get, _ => Replay.unexpectedError, benchmark.contractKeys.get)
+    assert(result.isRight)
   }
 
   @Setup(Level.Trial)
   def init(): Unit = {
-    if (!engineDarFile.contains(darFile)) {
-      engine = Replay.loadDar(Paths.get(darFile))
-      engineDarFile = Some(darFile)
+    if (!readDarFile.contains(darFile)) {
+      loadedPackages = Replay.loadDar(Paths.get(darFile))
+      engine = Replay.compile(loadedPackages)
+      readDarFile = Some(darFile)
     }
     if (!benchmarksFile.contains(ledgerFile)) {
       benchmarks = Replay.loadBenchmarks(Paths.get(ledgerFile))
       benchmarksFile = Some(ledgerFile)
     }
 
-    benchmark = benchmarks(choiceName)
+    benchmark =
+      if (adapt) Replay.adapt(loadedPackages, benchmarks(choiceName)) else benchmarks(choiceName)
+
     // before running the bench, we validate the transaction first to be sure everything is fine.
-    val r = engine
+    val result = engine
       .validate(
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
@@ -94,8 +107,12 @@ class Replay {
         benchmark.transaction.submissionTime,
         benchmark.transaction.submissionSeed,
       )
-      .consume(benchmark.contracts, _ => Replay.unexpectedError, benchmark.contractKeys)
-    assert(r.isRight)
+      .consume(
+        benchmark.contracts.get,
+        pkgId => throw new IllegalArgumentException(s"package $pkgId not found"),
+        benchmark.contractKeys.get,
+      )
+    assert(result.isRight)
   }
 
 }
@@ -104,21 +121,32 @@ object Replay {
 
   private def unexpectedError = sys.error("Unexpected Error")
 
-  def loadDar(darFile: Path): Engine = {
+  private def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    lazy val dar = UniversalArchiveReader().readFile(darFile.toFile).get
-    lazy val packages = dar.all.map {
-      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }.toMap
+    UniversalArchiveReader()
+      .readFile(darFile.toFile)
+      .get
+      .all
+      .map {
+        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+      }
+      .toMap
+  }
+
+  private def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
+    println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(Engine.DevConfig)
-    val r = engine
-      .preloadPackage(dar.main._1, packages(dar.main._1))
-      .consume(_ => unexpectedError, packages.get, _ => unexpectedError)
-    assert(r.isRight)
+    AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
+      val r = engine
+        .preloadPackage(pkgId, pkgs(pkgId))
+        .consume(_ => unexpectedError, _ => unexpectedError, _ => unexpectedError)
+      assert(r.isRight)
+    }
     engine
   }
 
-  private def exportEntries(file: Path): Stream[SubmissionInfo] = {
+  private[this] def exportEntries(file: Path): Stream[SubmissionInfo] = {
+
     val ledgerExportStream = new DataInputStream(Files.newInputStream(file))
 
     def go: Stream[SubmissionInfo] =
@@ -132,7 +160,10 @@ object Replay {
     go
   }
 
-  private def decodeSubmission(participantId: ParticipantId, submission: Proto.DamlSubmission) = {
+  private[this] def decodeSubmission(
+      participantId: Ref.ParticipantId,
+      submission: Proto.DamlSubmission,
+  ): Stream[TxEntry] =
     submission.getPayloadCase match {
       case Proto.DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
@@ -153,9 +184,11 @@ object Replay {
       case _ =>
         Stream.empty
     }
-  }
 
-  private def decodeEnvelope(participantId: ParticipantId, envelope: ByteString): Stream[TxEntry] =
+  private[this] def decodeEnvelope(
+      participantId: Ref.ParticipantId,
+      envelope: ByteString,
+  ): Stream[TxEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
         decodeSubmission(participantId, submission)
@@ -167,10 +200,10 @@ object Replay {
         Stream.empty
     }
 
-  private def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
+  private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  private def loadBenchmarks(dumpFile: Path): Map[String, BenchMarkState] = {
+  private def loadBenchmarks(dumpFile: Path): Map[String, BenchmarkState] = {
     println(s"%%% load ledger export file  $dumpFile...")
     val transactions = exportEntries(dumpFile).flatMap(decodeSubmissionInfo)
     if (transactions.isEmpty) sys.error("no transaction find")
@@ -198,14 +231,13 @@ object Replay {
         case ImmArray(exe: Node.NodeExercises.WithTxValue[_, ContractId]) =>
           val inputContracts = entry.tx.inputContracts
           List(
-            BenchMarkState(
+            BenchmarkState(
               name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
               transaction = entry,
-              contracts = allContracts.filterKeys(inputContracts).get,
+              contracts = allContracts.filterKeys(inputContracts),
               contractKeys = inputContracts.iterator
                 .flatMap(cid => allContractsWithKey.get(cid).toList.map(_ -> cid))
                 .toMap
-                .get
             ))
         case _ =>
           List.empty
@@ -221,6 +253,15 @@ object Replay {
         List.empty
     }
 
+  }
+
+  def adapt(pkgs: Map[Ref.PackageId, Ast.Package], state: BenchmarkState): BenchmarkState = {
+    val adapter = new Adapter(pkgs)
+    state.copy(
+      transaction = state.transaction.copy(tx = adapter.adapt(state.transaction.tx)),
+      contracts = state.contracts.transform((_, v) => adapter.adapt(v)),
+      contractKeys = state.contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
+    )
   }
 
 }
