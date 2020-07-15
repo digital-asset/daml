@@ -52,9 +52,8 @@ import DA.Daml.Project.Types
 
 -- [Note] The `platform-version` field:
 --
--- If `daml.yaml` contains a `platform-version` field platform commands
--- (at this point `daml sandbox`, `daml sandbox-classic` and `daml json-api`)
--- proceed as follows:
+-- Platform commands (at this point `daml sandbox`, `daml sandbox-classic` and `daml json-api`)
+-- are handled as follows:
 --
 -- 1. The assistant invokes `daml-helper` as usual. The assistant is not aware of the
 --    `platform-version` field or what is and what is not a platform command.
