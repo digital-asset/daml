@@ -27,7 +27,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -195,7 +195,7 @@ final class ApiSubmissionService private (
     } yield submissionResult
 
   private def allocateMissingInformees(
-      transaction: Tx.SubmittedTransaction,
+      transaction: SubmittedTransaction,
   ): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
       val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode).toSet

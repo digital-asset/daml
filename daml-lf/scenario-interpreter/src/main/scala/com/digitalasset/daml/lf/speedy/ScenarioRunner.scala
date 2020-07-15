@@ -8,7 +8,7 @@ import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{TransactionVersion, Transaction => Tx}
+import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
@@ -108,7 +108,7 @@ final case class ScenarioRunner(
     }
   }
 
-  private def mustFail(tx: Tx.SubmittedTransaction, committers: Set[Party]) = {
+  private def mustFail(tx: SubmittedTransaction, committers: Set[Party]) = {
     // Update expression evaluated successfully,
     // however we might still have an authorization failure.
     val committer =
@@ -129,7 +129,7 @@ final case class ScenarioRunner(
 
   private def commit(
       value: SValue,
-      tx: Tx.SubmittedTransaction,
+      tx: SubmittedTransaction,
       committers: Set[Party],
       callback: SValue => Unit) = {
     val committer =

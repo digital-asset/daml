@@ -19,7 +19,12 @@ import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.{Node, Transaction => Tx, TransactionCoder => TxCoder}
+import com.daml.lf.transaction.{
+  Node,
+  Transaction => Tx,
+  TransactionCoder => TxCoder,
+  SubmittedTransaction
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
 import com.google.protobuf.ByteString
@@ -28,7 +33,7 @@ import org.openjdk.jmh.annotations._
 import scala.collection.JavaConverters._
 
 final case class TxEntry(
-    tx: Tx.SubmittedTransaction,
+    tx: SubmittedTransaction,
     participantId: ParticipantId,
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
@@ -172,7 +177,7 @@ object Replay {
             TxCoder.NidDecoder,
             ValCoder.CidDecoder,
             submission.getTransactionEntry.getTransaction)
-          .fold(err => sys.error(err.toString), Tx.SubmittedTransaction(_))
+          .fold(err => sys.error(err.toString), SubmittedTransaction(_))
         Stream(
           TxEntry(
             tx = tx,

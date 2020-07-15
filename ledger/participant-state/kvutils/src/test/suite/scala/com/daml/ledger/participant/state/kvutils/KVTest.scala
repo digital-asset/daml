@@ -187,6 +187,19 @@ object KVTest {
       testState <- get[KVTestState]
       submInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
       (tx, txMetaData) = transaction
+      subm = keyValueSubmission.transactionToSubmission(
+        submitterInfo = submInfo,
+        meta = TransactionMeta(
+          ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
+          workflowId = None,
+          submissionTime = txMetaData.submissionTime,
+          submissionSeed = submissionSeed,
+          optUsedPackages = Some(txMetaData.usedPackages),
+          optNodeSeeds = None,
+          optByKeyNodes = None,
+        ),
+        submittedTransaction = tx
+      )
       subm = transactionToSubmission(submissionSeed, letDelta, testState, submInfo, tx, txMetaData)
       result <- submit(subm)
     } yield result
