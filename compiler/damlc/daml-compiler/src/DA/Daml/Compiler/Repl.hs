@@ -63,10 +63,10 @@ renderError dflags err = case err of
     (UnsupportedStatement str) ->
         putStrLn ("Unsupported statement: " <> str)
     TypeError ->
-        -- ^ The error will be displayed via diagnostics.
+        -- The error will be displayed via diagnostics.
         pure ()
     (ScriptError _err) ->
-        -- ^ The error will be displayed by the script runner.
+        -- The error will be displayed by the script runner.
         pure ()
 
 -- | Take a set of variables and a pattern and shadow all the variables

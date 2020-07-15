@@ -84,7 +84,7 @@ data VirtualResource = VRScenario
     { vrScenarioFile :: !NormalizedFilePath
     , vrScenarioName :: !T.Text
     } deriving (Eq, Ord, Show, Generic)
-    -- ^ VRScenario identifies a scenario in a given file.
+    -- VRScenario identifies a scenario in a given file.
     -- This virtual resource is associated with the HTML result of
     -- interpreting the corresponding scenario.
 
