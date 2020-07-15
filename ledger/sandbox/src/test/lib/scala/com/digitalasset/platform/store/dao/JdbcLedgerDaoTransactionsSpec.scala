@@ -13,10 +13,15 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
+import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
+
+import scalaz.syntax.traverse._
+import scalaz.std.vector._
+import scalaz.std.scalaFuture._
 
 import scala.concurrent.Future
 
@@ -422,6 +427,74 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             case Seq(Event(Created(createdEvent))) =>
               createdEvent.contractId shouldBe nonTransient(create2).loneElement.coid
           }
+      }
+    }
+  }
+
+  // Test case for #6698
+  it should "return empty source when offset range is from the future" in {
+    val commands: Vector[(Offset, LedgerEntry.Transaction)] = Vector.fill(3)(singleCreate)
+    val beginOffsetFromTheFuture = nextOffset();
+    val endOffsetFromTheFuture = nextOffset()
+
+    for {
+      _ <- commands.traverse(x => store(x))
+
+      result <- ledgerDao.transactionsReader
+        .getFlatTransactions(
+          beginOffsetFromTheFuture,
+          endOffsetFromTheFuture,
+          Map(alice -> Set.empty[Identifier]),
+          verbose = true)
+        .runWith(Sink.seq)
+
+    } yield {
+      extractAllTransactions(result) shouldBe Vector.empty[Transaction]
+    }
+  }
+
+  it should "return all transactions in the specified offset range when iterating with pageSize = 2" in {
+    val pageSize = 2
+
+    def offsetGap(): Vector[(Offset, LedgerEntry.Transaction)] = {
+      nextOffset()
+      Vector.empty[(Offset, LedgerEntry.Transaction)]
+    }
+
+    // the order of `nextOffset()` calls is important
+    val beginOffset = nextOffset()
+
+    val commands: Vector[(Offset, LedgerEntry.Transaction)] =
+      Vector(singleCreate) ++ offsetGap ++
+        Vector.fill(2)(singleCreate) ++ offsetGap ++
+        Vector.fill(3)(singleCreate) ++ offsetGap ++ offsetGap ++
+        Vector.fill(5)(singleCreate)
+
+    val endOffset = nextOffset()
+
+    commands.size shouldBe 11
+
+    for {
+      _ <- commands.traverse(x => store(x))
+
+      ledgerDao2 <- LoggingContext.newLoggingContext { implicit logCtx =>
+        daoOwner(pageSize).acquire()
+      }.asFuture
+
+      result <- ledgerDao2.transactionsReader
+        .getFlatTransactions(
+          beginOffset,
+          endOffset,
+          Map(alice -> Set.empty[Identifier]),
+          verbose = true)
+        .runWith(Sink.seq)
+    } yield {
+      inside(extractAllTransactions(result)) {
+        case readTxs =>
+          readTxs.size shouldBe commands.size
+          val readTxOffsets: Vector[String] = readTxs.map(_.offset)
+          readTxOffsets shouldBe readTxOffsets.sorted
+          readTxOffsets shouldBe commands.map(_._1.toHexString)
       }
     }
   }
