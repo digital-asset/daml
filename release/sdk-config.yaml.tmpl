@@ -84,7 +84,7 @@ commands:
   args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
 - name: trigger-service
   path: daml-helper/daml-helper
-  desc: "Launch the trigger service"
+  desc: "Launch the trigger service (early access)"
   args: ["run-jar", "--logback-config=daml-sdk/trigger-service-logback.xml", "daml-sdk/daml-sdk.jar", "trigger-service"]
 - name: trigger
   path: daml-helper/daml-helper
@@ -101,4 +101,4 @@ commands:
 - name: repl
   path: damlc/damlc
   args: ["repl"]
-  desc: "Launch the DAML REPL (early access)"
+  desc: "Launch the DAML REPL"
