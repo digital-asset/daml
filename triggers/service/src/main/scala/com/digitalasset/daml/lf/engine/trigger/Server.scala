@@ -41,6 +41,7 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import com.daml.lf.engine.trigger.dao._
 
 class Server(
@@ -185,12 +186,25 @@ class Server(
                     .findCredentials(secretKey, request)
                     .fold(
                       message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                      credentials =>
-                        startTrigger(credentials, params.triggerName) match {
-                          case Left(err) =>
-                            complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                          case Right(triggerInstance) =>
-                            complete(successResponse(triggerInstance))
+                      credentials => {
+                        val tokenFuture = Http(ctx.system).singleRequest(HttpRequest(
+                          method = HttpMethods.POST,
+                          uri = "http://localhost:8089/sa/secure/authorize",
+                          headers = request.headers
+                            .find({
+                              case Authorization(BasicHttpCredentials(username, password)) => true
+                              case _ => false
+                            })
+                            .toList // Presence of credentials checked in findCredentials above
+                        ))
+                        onComplete(tokenFuture) { tokenResponse =>
+                          startTrigger(credentials, params.triggerName) match {
+                            case Left(err) =>
+                              complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                            case Right(triggerInstance) =>
+                              complete(successResponse(triggerInstance))
+                          }
+                        }
                       }
                     )
               }
