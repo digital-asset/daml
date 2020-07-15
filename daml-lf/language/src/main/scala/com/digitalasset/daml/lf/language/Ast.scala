@@ -658,7 +658,8 @@ object Ast {
   case class Package(
       modules: Map[ModuleName, Module],
       directDeps: Set[PackageId],
-      metadata: Option[PackageMetadata]) {
+      metadata: Option[PackageMetadata]
+  ) {
     def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
       this.modules.get(identifier.module) match {
         case None =>
