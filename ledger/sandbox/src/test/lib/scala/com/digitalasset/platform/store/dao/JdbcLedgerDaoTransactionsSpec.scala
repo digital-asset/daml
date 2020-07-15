@@ -449,7 +449,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .runWith(Sink.seq)
 
     } yield {
-      extractAllTransactions(result) shouldBe Vector.empty[Transaction]
+      extractAllTransactions(result) shouldBe empty
     }
   }
 
@@ -481,21 +481,20 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         daoOwner(pageSize).acquire()
       }.asFuture
 
-      result <- ledgerDao2.transactionsReader
+      response <- ledgerDao2.transactionsReader
         .getFlatTransactions(
           beginOffset,
           endOffset,
           Map(alice -> Set.empty[Identifier]),
           verbose = true)
         .runWith(Sink.seq)
+
+      readTxs = extractAllTransactions(response)
     } yield {
-      inside(extractAllTransactions(result)) {
-        case readTxs =>
-          readTxs.size shouldBe commands.size
-          val readTxOffsets: Vector[String] = readTxs.map(_.offset)
-          readTxOffsets shouldBe readTxOffsets.sorted
-          readTxOffsets shouldBe commands.map(_._1.toHexString)
-      }
+      readTxs.size shouldBe commands.size
+      val readTxOffsets: Vector[String] = readTxs.map(_.offset)
+      readTxOffsets shouldBe readTxOffsets.sorted
+      readTxOffsets shouldBe commands.map(_._1.toHexString)
     }
   }
 
