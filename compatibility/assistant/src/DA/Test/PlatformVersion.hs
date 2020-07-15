@@ -31,6 +31,7 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     javaHome <- fromJust <$> getEnv "JAVA_HOME"
+    print javaHome
     oldPath <- getSearchPath
     setEnv "PATH" (intercalate [searchPathSeparator] ((javaHome </> "bin") : oldPath)) True
     defaultMain $ withSdkResource $ \_getSdkPath ->
