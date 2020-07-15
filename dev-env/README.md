@@ -11,7 +11,6 @@ This folder contains the development dependencies of this project.
 * `dev-env/lib/dade-dump-profile` is a script which outputs - in porcelain
   mode - all environmental variables necessary for dev-env to function in a
   given shell.
-* `dev-env/lib/dade-base-profile` is a sourcable version of `dade-dump-profile`.
 
 ### Debugging
 
@@ -35,8 +34,8 @@ dev-env for external tools to consume.
   and mutable data; mutable content; if not set, can be derived from
   `DADE_DEVENV_DIR`; input and output.
 * `DADE_DEVENV_DIR` - directory named `dev-env` under `$DADE_BASE_ROOT`, assume
-  to be immutable (not yet the case); has to be set before `dade-base-profile`
-  is sourced or `dade-dump-profile` is executed; input and output.
+  to be immutable (not yet the case); has to be set before `dade-dump-profile`
+  is executed; input and output.
 * `DADE_DESIRED_NIX_VERSION` - user can provide this variable in their profile
   to silence the warning (in future, disable automatic installation of) the
   supported Nix version.
