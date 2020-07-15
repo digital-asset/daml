@@ -59,11 +59,6 @@
   type: jar-scala
 - target: //language-support/scala/codegen:codegen
   type: jar-scala
-- target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
-  type: targz
-  location:
-    groupId: com.daml
-    artifactId: ledger-api-protos
 - target: //ledger-api/grpc-definitions:ledger-api-scalapb
   type: jar-scala
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
