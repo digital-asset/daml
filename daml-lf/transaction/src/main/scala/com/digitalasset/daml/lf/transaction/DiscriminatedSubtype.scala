@@ -18,4 +18,3 @@ object DiscriminatedSubtype {
     override def subst[F[_]](fx: F[X]): F[T] = fx
   }
 }
-
