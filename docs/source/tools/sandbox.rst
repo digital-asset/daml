@@ -242,7 +242,7 @@ To enable metrics and configure reporting, you can use the two following CLI opt
 
   - ``csv:</path/to/metrics.csv>``: saves the captured metrics in CSV format at the specified location
 
-  - ``graphite:<local_server_port>``: sends captured metrics to a local Graphite server. If the port
+  - ``graphite:<server_host>:<server_port>``: sends captured metrics to a Graphite server. If the port
     is omitted, the default value ``2003`` will be used.
 
 - ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
