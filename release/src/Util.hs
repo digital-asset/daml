@@ -20,7 +20,6 @@ module Util (
     buildTargets,
     copyToReleaseDir,
     getBazelLocations,
-    isJar,
     isDeployJar,
     loggedProcess_,
     mavenArtifactCoords,
@@ -67,9 +66,7 @@ newtype BazelTarget = BazelTarget { getBazelTarget :: Text }
     deriving (FromJSON, Show)
 
 data ReleaseType
-    = TarGz
-    | Zip
-    | Jar JarType
+    = Jar JarType
     deriving (Eq, Show)
 
 data JarType
@@ -89,8 +86,6 @@ data JarType
 instance FromJSON ReleaseType where
     parseJSON = withText "ReleaseType" $ \t ->
         case t of
-            "targz" -> pure TarGz
-            "zip" -> pure Zip
             "jar" -> pure $ Jar Plain
             "jar-lib" -> pure $ Jar Lib
             "jar-deploy" -> pure $ Jar Deploy
@@ -157,8 +152,6 @@ buildTargets art@Artifact{..} =
                     , javadocProtoJarName art
                     , T.pack . toFilePath <$> artJavadocJar
                     ])
-        Zip -> [artTarget]
-        TarGz -> [artTarget]
 
 data PomData = PomData
   { pomGroupId :: GroupId
@@ -213,21 +206,15 @@ splitBazelTarget (BazelTarget t) =
         _ -> error ("Malformed bazel target: " <> show t)
 
 mainExt :: ReleaseType -> Text
-mainExt Zip = "zip"
-mainExt TarGz = "tar.gz"
 mainExt Jar{} = "jar"
 
 mainFileName :: ReleaseType -> Text -> Text
-mainFileName releaseType name =
-    case releaseType of
-        TarGz -> name <> ".tar.gz"
-        Zip -> name <> ".zip"
-        Jar jarTy -> case jarTy of
-            Plain -> name <> ".jar"
-            Lib -> "lib" <> name <> ".jar"
-            Deploy -> name <> "_deploy.jar"
-            Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
-            Scala -> name <> ".jar"
+mainFileName (Jar jarTy) name = case jarTy of
+    Plain -> name <> ".jar"
+    Lib -> "lib" <> name <> ".jar"
+    Deploy -> name <> "_deploy.jar"
+    Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
+    Scala -> name <> ".jar"
 
 sourceJarName :: Artifact a -> Maybe Text
 sourceJarName Artifact{..}
@@ -297,8 +284,9 @@ artifactFiles artifact@Artifact{..} = do
     javadocJarOut <- releaseDocJarPath artMetadata
 
     pure $
-        [(directory </> mainArtifactIn, outDir </> mainArtifactOut)] <>
-        [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType] <>
+        [ (directory </> mainArtifactIn, outDir </> mainArtifactOut)
+        , (directory </> pomFileIn, outDir </> pomFileOut)
+        ] <>
         [(directory </> sourceJarIn, outDir </> sourceJarOut) | Just sourceJarIn <- pure mbSourceJarIn] <>
         [(directory </> javadocJarIn, outDir </> javadocJarOut) | Just javadocJarIn <- pure mbJavadocJarIn]
         -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
@@ -351,10 +339,11 @@ mavenArtifactCoords Artifact{..} = do
 
     let mavenCoords classifier artifactType =
            MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = Version pomVersion, classifier, artifactType }
-    pure $ [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)] <>
-           [ (mavenCoords Nothing "pom",  outDir </> pomFile) | isJar artReleaseType] <>
-           [ (mavenCoords (Just "sources") "jar", outDir </> sourcesFile) | isJar artReleaseType] <>
-           [ (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile) | isJar artReleaseType]
+    pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
+         , (mavenCoords Nothing "pom",  outDir </> pomFile)
+         , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
+         , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
+         ]
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do
@@ -363,12 +352,6 @@ copyToReleaseDir BazelLocations{..} releaseDir inp out = do
     $logInfo ("Copying " <> pathToText absIn <> " to " <> pathToText absOut)
     createDirIfMissing True (parent absOut)
     copyFile absIn absOut
-
-isJar :: ReleaseType -> Bool
-isJar t =
-    case t of
-        Jar{} -> True
-        _ -> False
 
 isDeployJar :: ReleaseType -> Bool
 isDeployJar t =
