@@ -41,55 +41,60 @@ class PreExecutingSubmissionValidator[WriteSet](
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
   )(implicit executionContext: ExecutionContext): Future[PreExecutionOutput[WriteSet]] =
     newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
-      for {
-        decodedSubmission <- decodeSubmission(submissionEnvelope)
-        fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
-        preExecutionResult <- preExecuteSubmission(
-          decodedSubmission,
-          submittingParticipantId,
-          fetchedInputs)
-        logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
-        inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
-        generatedWriteSets <- commitStrategy.generateWriteSets(
-          submittingParticipantId,
-          logEntryId,
-          inputState,
-          preExecutionResult)
-      } yield {
-        PreExecutionOutput(
-          minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
-          maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
-          successWriteSet = generatedWriteSets.successWriteSet,
-          outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-          readSet = generateReadSet(preExecutionResult.readSet),
-          involvedParticipants = generatedWriteSets.involvedParticipants
-        )
-      }
+      Timed.timedAndTrackedFuture(
+        metrics.daml.kvutils.submission.validator.validatePreExecute,
+        metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
+        for {
+          decodedSubmission <- decodeSubmission(submissionEnvelope)
+          fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
+          preExecutionResult <- preExecuteSubmission(
+            decodedSubmission,
+            submittingParticipantId,
+            fetchedInputs)
+          logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
+          inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
+          generatedWriteSets <- commitStrategy
+            .generateWriteSets(submittingParticipantId, logEntryId, inputState, preExecutionResult)
+        } yield {
+          PreExecutionOutput(
+            minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
+            maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
+            successWriteSet = generatedWriteSets.successWriteSet,
+            outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
+            readSet = generateReadSet(preExecutionResult.readSet),
+            involvedParticipants = generatedWriteSets.involvedParticipants
+          )
+        }
+      )
     }
 
   private def decodeSubmission(submissionEnvelope: Bytes)(
-      implicit logCtx: LoggingContext): Future[DamlSubmission] =
-    metrics.daml.kvutils.submission.validator.decode
-      .time(() => Envelope.open(submissionEnvelope)) match {
-      case Right(Envelope.SubmissionMessage(submission)) =>
-        metrics.daml.kvutils.submission.validator.receivedSubmissionBytes
-          .update(submission.getSerializedSize)
-        Future.successful(submission)
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext): Future[DamlSubmission] =
+    Timed.timedAndTrackedFuture(
+      metrics.daml.kvutils.submission.validator.decode,
+      metrics.daml.kvutils.submission.validator.decodeRunning,
+      Future {
+        Envelope.open(submissionEnvelope) match {
+          case Right(Envelope.SubmissionMessage(submission)) =>
+            metrics.daml.kvutils.submission.validator.receivedSubmissionBytes
+              .update(submission.getSerializedSize)
+            submission
 
-      case Right(Envelope.SubmissionBatchMessage(_)) =>
-        logger.error("Batched submissions are not supported for pre-execution")
-        Future.failed(
-          ValidationFailed.ValidationError(
-            "Batched submissions are not supported for pre-execution"))
+          case Right(Envelope.SubmissionBatchMessage(_)) =>
+            logger.error("Batched submissions are not supported for pre-execution")
+            throw new ValidationFailed.ValidationError(
+              "Batched submissions are not supported for pre-execution")
 
-      case Right(other) =>
-        Future.failed(
-          ValidationFailed.ValidationError(
-            s"Unexpected message in envelope: ${other.getClass.getSimpleName}"))
+          case Right(other) =>
+            throw new ValidationFailed.ValidationError(
+              s"Unexpected message in envelope: ${other.getClass.getSimpleName}")
 
-      case Left(error) =>
-        Future.failed(ValidationFailed.ValidationError(s"Cannot open envelope: $error"))
-    }
+          case Left(error) =>
+            throw new ValidationFailed.ValidationError(s"Cannot open envelope: $error")
+        }
+      }
+    )
 
   private def fetchSubmissionInputs(
       submission: DamlSubmission,
