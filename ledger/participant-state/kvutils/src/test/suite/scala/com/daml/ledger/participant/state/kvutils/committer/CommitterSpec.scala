@@ -47,7 +47,6 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       actual.stateUpdates shouldBe expectedOutputs
       actual.minimumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMinRecordTime))
       actual.maximumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMaxRecordTime))
-      actual.involvedParticipants shouldBe Committer.AllParticipants
     }
 
     "set min/max record time to None in case they are not available from context" in {

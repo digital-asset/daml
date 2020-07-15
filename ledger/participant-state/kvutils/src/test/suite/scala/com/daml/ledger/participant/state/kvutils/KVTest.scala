@@ -307,7 +307,6 @@ object KVTest {
         newState,
         outOfTimeBoundsLogEntry,
         _,
-        _,
         _) = keyValueCommitting
         .preExecuteSubmission(
           defaultConfig = testState.defaultConfig,
