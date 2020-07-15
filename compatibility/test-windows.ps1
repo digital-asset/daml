@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $test_args = ""
 if (($args.length -ge 1) -and ($args[0] -eq "--quick")) {
-  $test_args = "--test_tag_filters +head-quick"
+  $test_args = "--test_tag_filters=+head-quick"
 }
 write-output $test_args
 
