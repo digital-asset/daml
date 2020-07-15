@@ -3,14 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlStateMapWithFingerprints
+import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.TestHelpers.mkParticipantId
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 
 class FakeCommitContext(
     recordTime: Option[Timestamp],
-    override val inputsWithFingerprints: DamlStateMapWithFingerprints = Map.empty,
+    override val inputs: DamlStateMap = Map.empty,
     participantId: Int = 0,
     entryId: Int = 0)
     extends CommitContext {

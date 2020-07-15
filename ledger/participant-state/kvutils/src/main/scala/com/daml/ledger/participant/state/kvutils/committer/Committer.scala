@@ -89,10 +89,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
         override def getParticipantId: ParticipantId = participantId
 
-        override def inputsWithFingerprints: DamlStateMapWithFingerprints =
-          inputState.map {
-            case (key, value) => (key, (value, FingerprintPlaceholder))
-          }
+        override val inputs: DamlStateMap = inputState
       }
       val logEntry = runSteps(ctx, submission)
       logEntry -> ctx.getOutputs.toMap
@@ -101,7 +98,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   def runWithPreExecution(
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: DamlStateMapWithFingerprints,
+      inputState: DamlStateMap,
   ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
       val commitContext = new CommitContext {
@@ -109,7 +106,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
         override def getParticipantId: ParticipantId = participantId
 
-        override def inputsWithFingerprints: DamlStateMapWithFingerprints = inputState
+        override val inputs: DamlStateMap = inputState
       }
       preExecute(submission, participantId, inputState, commitContext)
     }
@@ -117,12 +114,12 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   private[committer] def preExecute(
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: DamlStateMapWithFingerprints,
+      inputState: DamlStateMap,
       commitContext: CommitContext,
   ): PreExecutionResult = {
     val successfulLogEntry = runSteps(commitContext, submission)
     PreExecutionResult(
-      readSet = commitContext.getAccessedInputKeysWithFingerprints.toMap,
+      readSet = commitContext.getAccessedInputKeys.toSet,
       successfulLogEntry = successfulLogEntry,
       stateUpdates = commitContext.getOutputs.toMap,
       outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),

@@ -3,14 +3,15 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlStateKey,
-  DamlStateValue,
-  DamlSubmission
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlSubmission}
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{
+  Bytes,
+  DamlStateMapWithFingerprints,
+  Envelope,
+  KeyValueCommitting
+}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
@@ -30,8 +31,6 @@ class PreExecutingSubmissionValidator[WriteSet](
     metrics: Metrics,
     keySerializationStrategy: StateKeySerializationStrategy,
     commitStrategy: PreExecutingCommitStrategy[WriteSet]) {
-  import PreExecutingSubmissionValidator._
-
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
@@ -61,7 +60,7 @@ class PreExecutingSubmissionValidator[WriteSet](
           maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
           successWriteSet = generatedWriteSets.successWriteSet,
           outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-          readSet = generateReadSet(preExecutionResult.readSet),
+          readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
           involvedParticipants = generatedWriteSets.involvedParticipants
         )
       }
@@ -94,7 +93,7 @@ class PreExecutingSubmissionValidator[WriteSet](
   private def fetchSubmissionInputs(
       submission: DamlSubmission,
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints)(
-      implicit executionContext: ExecutionContext): Future[DamlInputStateWithFingerprints] = {
+      implicit executionContext: ExecutionContext): Future[DamlStateMapWithFingerprints] = {
     val inputKeys = submission.getInputDamlStateList.asScala
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.fetchInputs,
@@ -111,25 +110,30 @@ class PreExecutingSubmissionValidator[WriteSet](
   private def preExecuteSubmission(
       submission: DamlSubmission,
       submittingParticipantId: ParticipantId,
-      inputState: DamlInputStateWithFingerprints)(
+      inputState: DamlStateMapWithFingerprints)(
       implicit executionContext: ExecutionContext): Future[PreExecutionResult] = Future {
     committer.preExecuteSubmission(
       LedgerReader.DefaultConfiguration,
       submission,
       submittingParticipantId,
-      inputState)
+      inputState.mapValues { case (value, _) => value })
   }
 
-  private def generateReadSet(keyToFingerprint: Map[DamlStateKey, Fingerprint]): ReadSet =
-    keyToFingerprint
+  private[preexecution] def generateReadSet(
+      fetchedInputs: DamlStateMapWithFingerprints,
+      accessedKeys: Set[DamlStateKey]): ReadSet =
+    accessedKeys
+      .map { key =>
+        val (_, fingerprint) = fetchedInputs.getOrElse(
+          key,
+          throw new IllegalStateException(
+            "Committer accessed key that was not present in the input"))
+        key -> fingerprint
+      }
       .map {
         case (damlKey, fingerprint) =>
           keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint
       }
       .toVector
       .sortBy(_._1.asReadOnlyByteBuffer)
-}
-
-object PreExecutingSubmissionValidator {
-  type DamlInputStateWithFingerprints = Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
 }

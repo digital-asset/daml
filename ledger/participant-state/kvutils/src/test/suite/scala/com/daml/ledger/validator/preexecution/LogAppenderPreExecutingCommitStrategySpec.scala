@@ -32,7 +32,7 @@ class LogAppenderPreExecutingCommitStrategySpec
       val logEntryId = aLogEntryId()
       val expectedLogEntryKey = logEntryId.toByteString
       val preExecutionResult = PreExecutionResult(
-        readSet = Map.empty,
+        readSet = Set.empty,
         successfulLogEntry = aLogEntry,
         stateUpdates = Map(aStateKey(0) -> aStateValue, aStateKey(1) -> aStateValue),
         outOfTimeBoundsLogEntry = aRejectionLogEntry,

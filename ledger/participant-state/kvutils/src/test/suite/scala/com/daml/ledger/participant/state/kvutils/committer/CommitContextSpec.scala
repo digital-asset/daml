@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.{DamlStateMapWithFingerprints, TestHelpers}
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, TestHelpers}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
 import org.scalatest.{Matchers, WordSpec}
@@ -17,34 +17,31 @@ import org.scalatest.{Matchers, WordSpec}
 class CommitContextSpec extends WordSpec with Matchers {
   "get" should {
     "check output first" in {
-      val context = newInstance(inputsWithFingerprints = newDamlStateMap(aKey -> anotherValue))
+      val context = newInstance(inputs = newDamlStateMap(aKey -> anotherValue))
       context.set(aKey, aValue)
       context.get(aKey) shouldBe Some(aValue)
     }
 
     "return input if key has not been output" in {
-      val context = newInstance(inputsWithFingerprints = newDamlStateMap(aKey -> aValue))
+      val context = newInstance(inputs = newDamlStateMap(aKey -> aValue))
       context.get(aKey) shouldBe Some(aValue)
     }
 
     "record all accessed input keys" in {
-      val context = newInstance(
-        inputsWithFingerprints = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+      val context =
+        newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
       context.get(aKey)
       context.get(anotherKey)
 
-      context.getAccessedInputKeysWithFingerprints shouldBe Set(
-        aKey -> aValue.toByteString,
-        anotherKey -> anotherValue.toByteString)
+      context.getAccessedInputKeys shouldBe Set(aKey, anotherKey)
     }
 
     "not record input keys that are not accessed" in {
       val context =
-        newInstance(
-          inputsWithFingerprints = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+        newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
       context.get(aKey)
 
-      context.getAccessedInputKeysWithFingerprints shouldBe Set(aKey -> aValue.toByteString)
+      context.getAccessedInputKeys shouldBe Set(aKey)
     }
 
     "throw in case key cannot be found" in {
@@ -74,19 +71,19 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
 
     "not output a key whose value is identical to its input value" in {
-      val context = newInstance(inputsWithFingerprints = newDamlStateMap(aKey -> aValue))
+      val context = newInstance(inputs = newDamlStateMap(aKey -> aValue))
       context.set(aKey, aValue)
       context.getOutputs should have size 0
     }
 
     "output a key whose value has changed from its input value" in {
-      val context = newInstance(inputsWithFingerprints = newDamlStateMap(aKey -> aValue))
+      val context = newInstance(inputs = newDamlStateMap(aKey -> aValue))
       context.set(aKey, anotherValue)
       context.getOutputs.toSeq shouldBe Seq((aKey, anotherValue))
     }
 
     "output last set value for a key that was also input" in {
-      val context = newInstance(inputsWithFingerprints = newDamlStateMap(aKey -> aValue))
+      val context = newInstance(inputs = newDamlStateMap(aKey -> aValue))
 
       context.set(aKey, anotherValue)
       context.set(aKey, aValue)
@@ -119,18 +116,17 @@ class CommitContextSpec extends WordSpec with Matchers {
 
   private class TestCommitContext(
       override val getRecordTime: Option[Time.Timestamp],
-      override val inputsWithFingerprints: DamlStateMapWithFingerprints)
+      override val inputs: DamlStateMap)
       extends CommitContext {
     override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)
   }
 
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
-      inputsWithFingerprints: DamlStateMapWithFingerprints = Map.empty) =
-    new TestCommitContext(recordTime, inputsWithFingerprints)
+      inputs: DamlStateMap = Map.empty) =
+    new TestCommitContext(recordTime, inputs)
 
-  private def newDamlStateMap(
-      keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMapWithFingerprints =
+  private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =
     (for ((key, value) <- keyAndValues)
-      yield (key, (Some(value), value.toByteString))).toMap
+      yield (key, Some(value))).toMap
 }
