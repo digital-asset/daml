@@ -79,10 +79,15 @@ main = do
                             "daml start --shutdown-stdin-close --open-browser=no --json-api-option --port-file --json-api-option " <> show (tempDir </> "portfile")
                   getOut <- Proc.withProcessWait conf $ \ph -> do
                       -- Wait for the port file as a sign that the JSON API has started.
+                      putStrLn "Reading port file"
                       _ <- readPortFile maxRetries (tempDir </> "portfile")
+                      putStrLn "closing stdin"
                       hClose (Proc.getStdin ph)
+                      putStrLn "got stdin"
                       pure $ Proc.getStdout ph
+                  putStrLn "waiting for stdout"
                   out <- atomically getOut
+                  putStrLn "got stdout"
                   assertInfixOf ("sandbox version " <> latestStableVersion) out
                   -- Navigator, sadly not prefixed with Navigator
                   assertInfixOf "Version 0.0.0" out
