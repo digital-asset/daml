@@ -313,7 +313,7 @@ in the `Dropwizard Metrics library documentation <https://metrics.dropwizard.io/
 Timers
 ------
 
-A timer records all metrics registered by a meter and by an histogram, where
+A timer records all metrics registered by a meter and by a histogram, where
 the histogram records the time necessary to execute a given operation (measured
 in milliseconds, unless otherwise specified).
 
