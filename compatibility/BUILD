@@ -97,11 +97,6 @@ config_setting(
     if versions.is_at_least(sdk_version, platform_version)
 ]
 
-test_suite(
-    name = "head-quick",
-    tags = ["head-quick"],
-)
-
 # We have two migration tests: migration-stable runs through all stable releases
 # including current HEAD. migration-all includes snapshot releases.
 
