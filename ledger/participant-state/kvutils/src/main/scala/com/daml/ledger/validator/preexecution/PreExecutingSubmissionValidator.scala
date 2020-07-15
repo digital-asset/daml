@@ -83,15 +83,15 @@ class PreExecutingSubmissionValidator[WriteSet](
 
           case Right(Envelope.SubmissionBatchMessage(_)) =>
             logger.error("Batched submissions are not supported for pre-execution")
-            throw new ValidationFailed.ValidationError(
+            throw ValidationFailed.ValidationError(
               "Batched submissions are not supported for pre-execution")
 
           case Right(other) =>
-            throw new ValidationFailed.ValidationError(
+            throw ValidationFailed.ValidationError(
               s"Unexpected message in envelope: ${other.getClass.getSimpleName}")
 
           case Left(error) =>
-            throw new ValidationFailed.ValidationError(s"Cannot open envelope: $error")
+            throw ValidationFailed.ValidationError(s"Cannot open envelope: $error")
         }
       }
     )
