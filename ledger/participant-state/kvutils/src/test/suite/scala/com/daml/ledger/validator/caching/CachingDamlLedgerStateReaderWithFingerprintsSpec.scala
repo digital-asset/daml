@@ -130,10 +130,11 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
           .setDisplayName(id.toString)
           .setParticipantId(id.toString))
       .build
+  private def aDamlStateValue(): DamlStateValue = DamlStateValue.getDefaultInstance
 
   private def newInstance(delegate: DamlLedgerStateReaderWithFingerprints, shouldCache: Boolean)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints = {
-    val cache = WeightedCache.from[DamlStateKey, (Option[DamlStateValue], Fingerprint)](
+    val cache = WeightedCache.from[DamlStateKey, (DamlStateValue, Fingerprint)](
       WeightedCache.Configuration(1024))
     new CachingDamlLedgerStateReaderWithFingerprints(
       cache,

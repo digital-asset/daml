@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * Caches only positive lookups, i.e., in case the values for a requested key are available on the ledger.
   */
 class CachingDamlLedgerStateReaderWithFingerprints(
-    val cache: Cache[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+    val cache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     shouldCache: DamlStateKey => Boolean,
     keySerializationStrategy: StateKeySerializationStrategy,
     delegate: DamlLedgerStateReaderWithFingerprints)(implicit executionContext: ExecutionContext)
@@ -28,19 +28,19 @@ class CachingDamlLedgerStateReaderWithFingerprints(
     val cachedValues: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)] = keys.view
       .map(key => key -> cache.getIfPresent(key))
       .collect {
-        case (key, Some(valueFingerprintPair)) => (key, valueFingerprintPair)
+        case (key, Some((value, fingerprint))) => (key, (Some(value), fingerprint))
       }
       .toMap
     val keysToRead = keys.toSet -- cachedValues.keySet
     if (keysToRead.nonEmpty) {
       delegate
         .read(keysToRead.toSeq)
-        .map { readResults =>
-          assert(keysToRead.size == readResults.size)
-          val readValues = keysToRead.zip(readResults).toMap
+        .map { readStateValues =>
+          assert(keysToRead.size == readStateValues.size)
+          val readValues = keysToRead.zip(readStateValues).toMap
           readValues.collect {
-            case (key, valueFingerprintPair) if shouldCache(key) =>
-              cache.put(key, valueFingerprintPair)
+            case (key, (Some(value), fingerprint)) if shouldCache(key) =>
+              cache.put(key, value -> fingerprint)
           }
           val all = cachedValues ++ readValues
           keys.map(all(_))
