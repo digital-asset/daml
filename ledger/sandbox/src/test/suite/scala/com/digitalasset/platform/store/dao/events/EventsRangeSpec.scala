@@ -9,7 +9,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class EventsRangeSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
-    PropertyCheckConfiguration(minSuccessful = 1000)
+    PropertyCheckConfiguration(minSuccessful = 100)
 
   behavior of EventsRange.getClass.getSimpleName
 
