@@ -318,10 +318,17 @@ withPlatformProcess args runInCurrentSdk f = do
        then runInCurrentSdk f
        else do
         assistant <- getEnv damlAssistantEnvVar
+        env <- extendEnv
+            [ (platformVersionEnvVar, platformVersion)
+            , (sdkVersionEnvVar, platformVersion)
+            ]
         withProcessWait_
-            ( setEnv [ (platformVersionEnvVar, platformVersion)
-                    , (sdkVersionEnvVar, platformVersion)
-                    ]
+            ( setEnv env
             $ proc assistant args
             )
             f
+
+extendEnv :: [(String, String)] -> IO [(String, String)]
+extendEnv xs = do
+    oldEnv <- getEnvironment
+    pure (xs ++ filter (\(k, _) -> k `notElem` map fst xs) oldEnv)
