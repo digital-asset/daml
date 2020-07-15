@@ -37,7 +37,7 @@ import DA.PortFile
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.HTTP.Simple as HTTP
-import System.Environment (getEnv, lookupEnv)
+import System.Environment (getEnvironment, getEnv, lookupEnv)
 import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
