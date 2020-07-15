@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.test
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{Transaction => Tx, Node}
+import com.daml.lf.transaction.{Transaction => Tx, Node, NodeId}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -15,14 +15,14 @@ import scala.collection.mutable
 private[test] final class Adapter(packages: Map[Ref.PackageId, Ast.Package]) {
 
   def adapt(tx: Tx.Transaction): Tx.SubmittedTransaction =
-    tx.foldWithPathState(new TxBuilder, Option.empty[Tx.NodeId])(
+    tx.foldWithPathState(new TxBuilder, Option.empty[NodeId])(
         (builder, parent, _, node) =>
           (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
       )
       .buildSubmitted()
 
   // drop value version and children
-  private[this] def adapt(node: Tx.Node): Node.GenNode[Tx.NodeId, ContractId, Value[ContractId]] =
+  private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId, Value[ContractId]] =
     node match {
       case create: Node.NodeCreate.WithTxValue[ContractId] =>
         create.copy(
@@ -30,7 +30,7 @@ private[test] final class Adapter(packages: Map[Ref.PackageId, Ast.Package]) {
           optLocation = None,
           key = create.key.map(adapt)
         )
-      case exe: Node.NodeExercises.WithTxValue[Tx.NodeId, ContractId] =>
+      case exe: Node.NodeExercises.WithTxValue[NodeId, ContractId] =>
         exe.copy(
           templateId = adapt(exe.templateId),
           optLocation = None,
