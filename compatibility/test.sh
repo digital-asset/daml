@@ -59,12 +59,13 @@ start_postgresql
 
 bazel build //...
 
-BAZEL_TARGET="//..."
+BAZEL_ARGS=""
 if [ "${1:-}" = "--quick" ]; then
-    BAZEL_TARGET="//:head-quick"
+    BAZEL_ARGS="--test_tag_filters +head-quick"
 fi
 
-bazel test $BAZEL_TARGET \
+bazel test //... \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
+  $BAZEL_ARGS

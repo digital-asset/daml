@@ -7,9 +7,9 @@ $ErrorActionPreference = 'Stop'
 # tests against HEAD. At the moment this includes the SDK release tarball
 # and the ledger-api-test-tool fat JAR.
 
-$test_args = "//..."
+$test_args = ""
 if (($args.length -ge 1) -and ($args[0] -eq "--quick")) {
-  $test_args = "//:head-quick"
+  $test_args = "--test_tag_filters +head-quick"
 }
 write-output $test_args
 
@@ -49,4 +49,4 @@ bazel fetch @nodejs_dev_env//...
 bazel build //...
 bazel shutdown
 
-bazel test "$test_args"
+bazel test //... $test_args
