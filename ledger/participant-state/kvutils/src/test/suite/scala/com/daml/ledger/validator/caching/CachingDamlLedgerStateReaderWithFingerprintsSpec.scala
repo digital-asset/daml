@@ -75,6 +75,17 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
       }
     }
 
+    "do not cache None value returned from delegate" in {
+      val mockReader = mock[DamlLedgerStateReaderWithFingerprints]
+      when(mockReader.read(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
+        .thenReturn(Future.successful(Seq((None, FingerprintPlaceholder))))
+      val instance = newInstance(mockReader, shouldCache = true)
+
+      instance.read(Seq(aDamlStateKey())).map { _ =>
+        instance.cache.getIfPresent(aDamlStateKey()) should not be defined
+      }
+    }
+
     "return results for keys in the same order as requested" in {
       val expectedKeyValues = (0 to 10).map { index =>
         (aDamlStateKey(index), aDamlStateValue(index))
