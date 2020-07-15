@@ -8,7 +8,7 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
-import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.on.sql.queries.ReadWriteQueries._
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -16,7 +16,7 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import scala.collection.{breakOut, immutable}
 import scala.util.Try
 
-trait CommonQueries extends Queries {
+trait CommonQueries extends ReadWriteQueries {
   protected implicit val connection: Connection
 
   override final def selectLatestLogEntryId(): Try[Option[Index]] = Try {

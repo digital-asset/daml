@@ -13,7 +13,7 @@ import com.daml.caching.Cache
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
-import com.daml.ledger.on.sql.queries.Queries
+import com.daml.ledger.on.sql.queries.ReadWriteQueries
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api.{
   CommitMetadata,
@@ -35,8 +35,9 @@ import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.resources.{Resource, ResourceOwner}
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -85,10 +86,9 @@ final class SqlLedgerReaderWriter(
         RangeSource(
           (startExclusive, endInclusive) =>
             Source
-              .future(
-                Timed.value(metrics.daml.ledger.log.read, database.inReadTransaction("read_log") {
-                  queries =>
-                    Future.fromTry(queries.selectFromLog(startExclusive, endInclusive))
+              .future(Timed
+                .future(metrics.daml.ledger.log.read, database.inReadOnlyTransaction("read_log") {
+                  _.selectFromLog(startExclusive, endInclusive)
                 }))
               .mapConcat(identity)
               .mapMaterializedValue(_ => NotUsed)),
@@ -104,12 +104,17 @@ final class SqlLedgerReaderWriter(
 
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      database.inWriteTransaction("commit") { queries =>
-        body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
+      database.inTransaction("commit") { queries =>
+        Try {
+          Await.result(
+            body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics)),
+            atMost = Duration.Inf,
+          )
+        }
       }
   }
 
-  private final class SqlLedgerStateOperations(queries: Queries)
+  private final class SqlLedgerStateOperations(queries: ReadWriteQueries)
       extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys))
@@ -167,21 +172,19 @@ object SqlLedgerReaderWriter {
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[LedgerId] =
-    database.inWriteTransaction("retrieve_ledger_id") { queries =>
-      Future.fromTry(
-        queries
-          .updateOrRetrieveLedgerId(providedLedgerId)
-          .flatMap { ledgerId =>
-            if (providedLedgerId != ledgerId) {
-              Failure(
-                new LedgerIdMismatchException(
-                  domain.LedgerId(ledgerId),
-                  domain.LedgerId(providedLedgerId),
-                ))
-            } else {
-              Success(ledgerId)
-            }
-          })
+    database.inTransaction("retrieve_ledger_id") {
+      _.updateOrRetrieveLedgerId(providedLedgerId)
+        .flatMap { ledgerId =>
+          if (providedLedgerId != ledgerId) {
+            Failure(
+              new LedgerIdMismatchException(
+                domain.LedgerId(ledgerId),
+                domain.LedgerId(providedLedgerId),
+              ))
+          } else {
+            Success(ledgerId)
+          }
+        }
     }
 
   private final class DispatcherOwner(database: Database)(implicit logCtx: LoggingContext)
@@ -192,10 +195,10 @@ object SqlLedgerReaderWriter {
       for {
         head <- Resource.fromFuture(
           database
-            .inReadTransaction("read_head") { queries =>
-              Future.fromTry(
-                queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
-            })
+            .inReadOnlyTransaction("read_head") {
+              _.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex))
+            }
+        )
         dispatcher <- Dispatcher
           .owner(
             name = "sql-participant-state",

@@ -8,7 +8,7 @@ import java.util.concurrent.Executors
 
 import com.daml.ledger.on.sql.queries._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Metrics
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
@@ -17,47 +17,26 @@ import org.flywaydb.core.Flyway
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.Try
 
 final class Database(
-    queries: Connection => Queries,
-    readerConnectionPool: DataSource,
-    readerExecutionContext: ExecutionContext,
-    writerConnectionPool: DataSource,
-    writerExecutionContext: ExecutionContext,
+    readOnlyTransactor: Transactor[ReadQueries],
+    readWriteTransactor: Transactor[ReadWriteQueries],
     metrics: Metrics,
 ) {
-  def inReadTransaction[T](name: String)(
-      body: ReadQueries => Future[T],
-  )(implicit logCtx: LoggingContext): Future[T] =
-    inTransaction(name, readerConnectionPool)(connection =>
-      Future(body(new TimedQueries(queries(connection), metrics)))(readerExecutionContext).flatten)
 
-  def inWriteTransaction[T](name: String)(
-      body: Queries => Future[T],
+  def inReadOnlyTransaction[T](name: String)(
+      body: ReadQueries => Try[T],
   )(implicit logCtx: LoggingContext): Future[T] =
-    inTransaction(name, writerConnectionPool)(connection =>
-      Future(body(new TimedQueries(queries(connection), metrics)))(writerExecutionContext).flatten)
+    readOnlyTransactor.inTransaction(name)(readQueries =>
+      body(new TimedReadQueries(readQueries, metrics)))
 
-  private def inTransaction[T](name: String, connectionPool: DataSource)(
-      body: Connection => Future[T],
-  )(implicit logCtx: LoggingContext): Future[T] = {
-    val connection = Timed.value(
-      metrics.daml.ledger.database.transactions.acquireConnection(name),
-      connectionPool.getConnection())
-    Timed.future(
-      metrics.daml.ledger.database.transactions.run(name), {
-        body(connection)
-          .andThen {
-            case Success(_) => connection.commit()
-            case Failure(_) => connection.rollback()
-          }(writerExecutionContext)
-          .andThen {
-            case _ => connection.close()
-          }(writerExecutionContext)
-      }
-    )
-  }
+  def inTransaction[T](name: String)(
+      body: ReadWriteQueries => Try[T],
+  )(implicit logCtx: LoggingContext): Future[T] =
+    readWriteTransactor.inTransaction(name)(writeQueries =>
+      body(new TimedReadWriteQueries(writeQueries, metrics)))
+
 }
 
 object Database {
@@ -108,24 +87,24 @@ object Database {
         metrics: Metrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
-        readerConnectionPool <- ResourceOwner.forCloseable(() =>
+        readOnlyConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, readOnly = true))
-        writerConnectionPool <- ResourceOwner.forCloseable(() =>
+        readWriteConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-        readerExecutorService <- ResourceOwner.forExecutorService(() =>
+        readOnlyExecutorService <- ResourceOwner.forExecutorService(() =>
           Executors.newCachedThreadPool())
-        readerExecutionContext = ExecutionContext.fromExecutorService(readerExecutorService)
-        writerExecutorService <- ResourceOwner.forExecutorService(() =>
+        readOnlyExecutionContext = ExecutionContext.fromExecutorService(readOnlyExecutorService)
+        readWriteExecutorService <- ResourceOwner.forExecutorService(() =>
           Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
-        writerExecutionContext = ExecutionContext.fromExecutorService(writerExecutorService)
+        readWriteExecutionContext = ExecutionContext.fromExecutorService(readWriteExecutorService)
       } yield
         new UninitializedDatabase(
           system = system,
-          readerConnectionPool = readerConnectionPool,
-          readerExecutionContext = readerExecutionContext,
-          writerConnectionPool = writerConnectionPool,
-          writerExecutionContext = writerExecutionContext,
+          readOnlyConnectionPool = readOnlyConnectionPool,
+          readOnlyExecutionContext = readOnlyExecutionContext,
+          readWriteConnectionPool = readWriteConnectionPool,
+          readWriteExecutionContext = readWriteExecutionContext,
           adminConnectionPool = adminConnectionPool,
           metrics = metrics,
         )
@@ -148,10 +127,10 @@ object Database {
       } yield
         new UninitializedDatabase(
           system = system,
-          readerConnectionPool = readerWriterConnectionPool,
-          readerExecutionContext = readerWriterExecutionContext,
-          writerConnectionPool = readerWriterConnectionPool,
-          writerExecutionContext = readerWriterExecutionContext,
+          readOnlyConnectionPool = readerWriterConnectionPool,
+          readOnlyExecutionContext = readerWriterExecutionContext,
+          readWriteConnectionPool = readerWriterConnectionPool,
+          readWriteExecutionContext = readerWriterExecutionContext,
           adminConnectionPool = adminConnectionPool,
           metrics = metrics,
         )
@@ -173,35 +152,35 @@ object Database {
   sealed trait RDBMS {
     val name: String
 
-    val queries: Connection => Queries
+    val queries: Connection => ReadWriteQueries
   }
 
   object RDBMS {
     object H2 extends RDBMS {
       override val name: String = "h2"
 
-      override val queries: Connection => Queries = H2Queries.apply
+      override val queries: Connection => ReadWriteQueries = H2Queries.apply
     }
 
     object PostgreSQL extends RDBMS {
       override val name: String = "postgresql"
 
-      override val queries: Connection => Queries = PostgresqlQueries.apply
+      override val queries: Connection => ReadWriteQueries = PostgresqlQueries.apply
     }
 
     object SQLite extends RDBMS {
       override val name: String = "sqlite"
 
-      override val queries: Connection => Queries = SqliteQueries.apply
+      override val queries: Connection => ReadWriteQueries = SqliteQueries.apply
     }
   }
 
-  class UninitializedDatabase(
+  final class UninitializedDatabase(
       system: RDBMS,
-      readerConnectionPool: DataSource,
-      readerExecutionContext: ExecutionContext,
-      writerConnectionPool: DataSource,
-      writerExecutionContext: ExecutionContext,
+      readOnlyConnectionPool: DataSource,
+      readOnlyExecutionContext: ExecutionContext,
+      readWriteConnectionPool: DataSource,
+      readWriteExecutionContext: ExecutionContext,
       adminConnectionPool: DataSource,
       metrics: Metrics,
   ) {
@@ -217,11 +196,18 @@ object Database {
     def migrate(): Database = {
       flyway.migrate()
       new Database(
-        queries = system.queries,
-        readerConnectionPool = readerConnectionPool,
-        readerExecutionContext = readerExecutionContext,
-        writerConnectionPool = writerConnectionPool,
-        writerExecutionContext = writerExecutionContext,
+        readOnlyTransactor = new Transactor.ReadOnly(
+          system.queries,
+          readOnlyConnectionPool,
+          metrics,
+          readOnlyExecutionContext,
+        ),
+        readWriteTransactor = new Transactor.ReadWrite(
+          system.queries,
+          readWriteConnectionPool,
+          metrics,
+          readWriteExecutionContext,
+        ),
         metrics = metrics,
       )
     }
@@ -230,10 +216,7 @@ object Database {
         implicit executionContext: ExecutionContext,
         loggerCtx: LoggingContext): Future[Database] = {
       val db = migrate()
-      db.inWriteTransaction("ledger_reset") { queries =>
-          Future.fromTry(queries.truncate())
-        }
-        .map(_ => db)
+      db.inTransaction("ledger_reset")(_.truncate()).map(_ => db)
     }
 
     def clear(): this.type = {
@@ -242,7 +225,7 @@ object Database {
     }
   }
 
-  class InvalidDatabaseException(message: String)
+  final class InvalidDatabaseException(message: String)
       extends RuntimeException(message)
       with StartupException
 }

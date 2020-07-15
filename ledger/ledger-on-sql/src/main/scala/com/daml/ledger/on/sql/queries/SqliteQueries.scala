@@ -8,14 +8,14 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
-import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.on.sql.queries.ReadWriteQueries._
 import com.daml.ledger.participant.state.v1.LedgerId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.util.Try
 
 final class SqliteQueries(override protected implicit val connection: Connection)
-    extends Queries
+    extends ReadWriteQueries
     with CommonQueries {
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] = Try {
     SQL"INSERT INTO #$MetaTable (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId) ON CONFLICT DO NOTHING"
@@ -48,7 +48,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
 }
 
 object SqliteQueries {
-  def apply(connection: Connection): Queries = {
+  def apply(connection: Connection): ReadWriteQueries = {
     implicit val conn: Connection = connection
     new SqliteQueries
   }

@@ -253,8 +253,6 @@ final class Metrics(val registry: MetricRegistry) {
 
           def acquireConnection(name: String): Timer =
             registry.timer(Prefix :+ name :+ "acquire_connection")
-          def run(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "run")
         }
       }
 

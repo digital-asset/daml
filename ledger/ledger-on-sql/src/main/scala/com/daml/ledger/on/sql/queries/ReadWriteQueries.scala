@@ -19,9 +19,9 @@ import anorm.{
 }
 import com.google.protobuf.ByteString
 
-trait Queries extends ReadQueries with WriteQueries
+trait ReadWriteQueries extends ReadQueries with WriteQueries
 
-object Queries {
+object ReadWriteQueries {
   val TablePrefix = "ledger"
   val LogTable = s"${TablePrefix}_log"
   val MetaTable = s"${TablePrefix}_meta"
