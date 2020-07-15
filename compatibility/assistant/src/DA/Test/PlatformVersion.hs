@@ -81,14 +81,13 @@ main = do
                             "daml start --shutdown-stdin-close --open-browser=no --json-api-option --port-file --json-api-option " <> show (tempDir </> "portfile")
                   getOut <- Proc.withProcessWait conf $ \ph -> do
                       -- Wait for the port file as a sign that the JSON API has started.
-                      putStrLn "Reading port file"
                       _ <- readPortFile maxRetries (tempDir </> "portfile")
-                      putStrLn "closing stdin"
                       hClose (Proc.getStdin ph)
+                      -- Process management on Windows is a nightmare so we opt
+                      -- for the safest option of creating a group and killing everything
+                      -- in that group.
                       interruptProcessGroupOf (Proc.unsafeProcessHandle ph)
-                      putStrLn "got stdin"
                       pure $ Proc.getStdout ph
-                  putStrLn "waiting for stdout"
                   out <- atomically getOut
                   putStrLn "got stdout"
                   assertInfixOf ("sandbox version " <> latestStableVersion) out
