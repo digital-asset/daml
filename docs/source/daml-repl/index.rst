@@ -4,12 +4,6 @@
 DAML REPL
 ###########
 
-**WARNING:** DAML REPL is an early access feature that is actively
-being designed and is *subject to breaking changes*.
-We welcome feedback about the DAML REPL on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new>`_
-or `on our forum <https://discuss.daml.com>`_ or `on Slack <https://slack.daml.com>`_.
-
 The DAML REPL allows you to use the :doc:`/daml-script/index` API
 interactively. This is useful for debugging and for interactively
 inspecting and manipulating a ledger.
@@ -40,12 +34,16 @@ separate terminal using the following command.
 
 .. code-block:: sh
 
-   daml repl --ledger-host=localhost --ledger-port=6865 .daml/dist/script-example-0.0.1.dar
+   daml repl --ledger-host=localhost --ledger-port=6865 .daml/dist/script-example-0.0.1.dar --import script-example
 
 The ``--ledger-host`` and ``--ledger-port`` parameters point to the
 host and port your ledger is running on. In addition to that, you also
 need to pass in the name of a DAR containing the templates and other
-definitions that will be accessible in the REPL.
+definitions that will be accessible in the REPL. We also specify that we want
+to import all modules from the ``script-example`` package. If your modules
+provide colliding definitions you can also import modules individually from
+within the REPL. Note that you can also specify multiple DARs and they
+will all be available.
 
 You should now see a prompt looking like
 
@@ -116,9 +114,9 @@ To exit ``daml repl`` press ``Control-D``.
 What is in scope at the prompt?
 ===============================
 
-In the prompt, all modules from the main dalf of the DAR passed to
-``daml repl`` are imported. In addition to that the ``Daml.Script``
-module is imported and gives you access to the DAML Script API.
+In the prompt, all modules from DALFs specified in ``--import`` are
+imported automatically. In addition to that, the ``DAML.Script``
+module is also imported and gives you access to the DAML Script API.
 
 You can use import declarations at the prompt to import additional modules.
 
