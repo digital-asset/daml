@@ -28,6 +28,7 @@ da_haskell_test(
         "stm",
     ],
     main_function = "DA.Test.PlatformVersion.main",
+    tags = ["head-quick"],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools:versions-hs-lib",
