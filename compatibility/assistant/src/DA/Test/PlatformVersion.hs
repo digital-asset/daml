@@ -26,6 +26,7 @@ import Test.Tasty.HUnit
 import Data.Maybe
 import Sandbox (readPortFile, maxRetries)
 import Versions (latestStableVersion)
+import System.Process (interruptProcessGroupOf)
 
 main :: IO ()
 main = do
@@ -72,6 +73,7 @@ main = do
                     , "parties: []"
                     ]
                   let conf =
+                          Proc.setCreateGroup True $
                           Proc.setStdin Proc.createPipe $
                           Proc.setStdout Proc.byteStringOutput $
                           Proc.setWorkingDir tempDir $
@@ -83,6 +85,7 @@ main = do
                       _ <- readPortFile maxRetries (tempDir </> "portfile")
                       putStrLn "closing stdin"
                       hClose (Proc.getStdin ph)
+                      interruptProcessGroupOf (Proc.unsafeProcessHandle ph)
                       putStrLn "got stdin"
                       pure $ Proc.getStdout ph
                   putStrLn "waiting for stdout"
