@@ -12,6 +12,10 @@ import com.google.protobuf.MessageLite
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/**
+  * A caching adapter for ledger read operations that return fingerprints as well.
+  * Caches only positive lookups, i.e., in case the values for a requested key are available on the ledger.
+  */
 class CachingDamlLedgerStateReaderWithFingerprints(
     val cache: Cache[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
     shouldCache: DamlStateKey => Boolean,
