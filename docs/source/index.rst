@@ -48,6 +48,7 @@ DAML SDK documentation
    app-dev/bindings-ts/index
    json-api/index
    DAML Script <daml-script/index>
+   DAML REPL <daml-repl/index>
    upgrade/index
    app-dev/authentication
    app-dev/ledger-api
@@ -101,7 +102,6 @@ DAML SDK documentation
    tools/extractor
    daml-integration-kit/index
    triggers/index
-   daml-repl/index
    tools/visual
    tools/trigger-service
 

@@ -36,13 +36,11 @@ object BatchedSubmissionValidator {
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
       metrics: Metrics,
-      engine: Engine,
       ledgerDataExporter: LedgerDataExporter = LedgerDataExporter())(
       implicit executionContext: ExecutionContext): BatchedSubmissionValidator[CommitResult] =
     new BatchedSubmissionValidator[CommitResult](
       params,
       committer,
-      engine,
       conflictDetection,
       metrics,
       ledgerDataExporter
@@ -56,7 +54,6 @@ object BatchedSubmissionValidator {
     new BatchedSubmissionValidator[CommitResult](
       params,
       new KeyValueCommitting(engine, metrics),
-      engine,
       new ConflictDetection(metrics),
       metrics)
 
@@ -76,7 +73,7 @@ object BatchedSubmissionValidator {
   // instead and remove the whole concept of log entry identifiers.
   // For now this implementation uses a sha256 hash of the submission envelope in order to generate
   // deterministic log entry IDs.
-  private def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
+  private[validator] def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
     val messageDigest = MessageDigest
       .getInstance("SHA-256")
     messageDigest.update(bytes.asReadOnlyByteBuffer())
@@ -106,7 +103,6 @@ object BatchedSubmissionValidator {
 class BatchedSubmissionValidator[CommitResult] private[validator] (
     params: BatchedSubmissionValidatorParameters,
     committer: KeyValueCommitting,
-    engine: Engine,
     conflictDetection: ConflictDetection,
     damlMetrics: Metrics,
     ledgerDataExporter: LedgerDataExporter = LedgerDataExporter()) {

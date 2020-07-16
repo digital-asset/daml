@@ -23,12 +23,14 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
   protected def dbType: DbType
   protected def jdbcUrl: String
 
-  protected def daoOwner(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+  protected def daoOwner(eventsPageSize: Int)(
+      implicit logCtx: LoggingContext
+  ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao
       .writeOwner(
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
-        eventsPageSize = 100,
+        eventsPageSize = eventsPageSize,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       )
@@ -44,7 +46,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
     resource = newLoggingContext { implicit logCtx =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        dao <- daoOwner.acquire()
+        dao <- daoOwner(100).acquire()
         _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger")))
       } yield dao
     }

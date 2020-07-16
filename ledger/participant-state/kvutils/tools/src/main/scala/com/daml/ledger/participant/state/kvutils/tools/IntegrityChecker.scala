@@ -44,7 +44,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       new KeyValueCommitting(engine, metrics),
       new ConflictDetection(metrics),
       metrics,
-      engine,
       NoopLedgerDataExporter,
     )
     val (reader, commitStrategy, queryableWriteSet) = commitStrategySupport.createComponents()

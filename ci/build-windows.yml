@@ -30,9 +30,6 @@ steps:
 
   - bash: |
       set -euo pipefail
-
-      source ci/lib.sh
-
       INSTALLER=daml-sdk-${{parameters.release_tag}}-windows.exe
       mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$(Build.StagingDirectory)/$INSTALLER"
       chmod +wx "$(Build.StagingDirectory)/$INSTALLER"
@@ -44,10 +41,10 @@ steps:
       MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
       rm signing_key.pfx
       trap - EXIT
-      setvar installer $INSTALLER
+      echo "##vso[task.setvariable variable=installer;isOutput=true]$INSTALLER"
       TARBALL=daml-sdk-${{parameters.release_tag}}-windows.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$TARBALL
-      setvar tarball $TARBALL
+      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
     name: publish
     env:
       SIGNING_KEY: $(microsoft-code-signing)

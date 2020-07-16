@@ -167,7 +167,7 @@ sendDiagnostics fp diags = do
         event = LSP.NotPublishDiagnostics $
             LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
             LSP.PublishDiagnosticsParams uri (List diags)
-            -- ^ This is just 'publishDiagnosticsNotification' from ghcide.
+            -- This is just 'publishDiagnosticsNotification' from ghcide.
     sendEvent event
 
 -- | Get an unvalidated DALF package.
@@ -410,7 +410,7 @@ generateSerializedDalfRule options =
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
                                     rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
-                                        -- ^ NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
+                                        -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated

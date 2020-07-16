@@ -109,7 +109,7 @@ class KeyValueCommitting private[daml] (
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+      inputState: DamlStateMap,
   ): PreExecutionResult =
     createCommitter(engine, defaultConfig, submission).runWithPreExecution(
       submission,
@@ -278,12 +278,11 @@ class KeyValueCommitting private[daml] (
 
 object KeyValueCommitting {
   case class PreExecutionResult(
-      readSet: Map[DamlStateKey, Fingerprint],
+      readSet: Set[DamlStateKey],
       successfulLogEntry: DamlLogEntry,
       stateUpdates: Map[DamlStateKey, DamlStateValue],
       outOfTimeBoundsLogEntry: DamlLogEntry,
       minimumRecordTime: Option[Timestamp],
-      maximumRecordTime: Option[Timestamp],
-      involvedParticipants: Set[ParticipantId]
+      maximumRecordTime: Option[Timestamp]
   )
 }

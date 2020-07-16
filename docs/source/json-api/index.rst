@@ -309,7 +309,7 @@ Examples
 
 .. code-block:: json
 
-    {"status":400, "errors":["Cannot not resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
+    {"status":400, "errors":["Cannot resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
 
 **Authentication Error:**
 

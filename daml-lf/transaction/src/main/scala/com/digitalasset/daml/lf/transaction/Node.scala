@@ -5,7 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
+import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.{CidMapper, Value}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
@@ -27,6 +27,8 @@ object Node {
       with Serializable
       with NodeInfo
       with value.CidContainer[GenNode[Nid, Cid, Val]] {
+
+    def templateId: TypeConName
 
     final override protected def self: this.type = this
 
@@ -193,14 +195,18 @@ object Node {
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
   ) extends LeafOnlyNode[Cid, Val]
-      with NodeInfo.Create {}
+      with NodeInfo.Create {
+
+    override def templateId: TypeConName = coinst.template
+
+  }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class NodeFetch[+Cid, +Val](
       coid: Cid,
-      templateId: Identifier,
+      override val templateId: TypeConName,
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
@@ -218,7 +224,7 @@ object Node {
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
       targetCoid: Cid,
-      templateId: Identifier,
+      override val templateId: TypeConName,
       choiceId: ChoiceName,
       optLocation: Option[Location], // Optional location of the exercise expression
       consuming: Boolean,
@@ -249,7 +255,7 @@ object Node {
       */
     def apply[Nid, Cid, Val](
         targetCoid: Cid,
-        templateId: Identifier,
+        templateId: TypeConName,
         choiceId: ChoiceName,
         optLocation: Option[Location],
         consuming: Boolean,
@@ -279,7 +285,7 @@ object Node {
   }
 
   final case class NodeLookupByKey[+Cid, +Val](
-      templateId: Identifier,
+      override val templateId: TypeConName,
       optLocation: Option[Location],
       key: KeyWithMaintainers[Val],
       result: Option[Cid],
@@ -390,7 +396,7 @@ object Node {
     * a key. The 'hash' is guaranteed to be stable over time.
     */
   final class GlobalKey private (
-      val templateId: Identifier,
+      val templateId: TypeConName,
       val key: Value[ContractId],
       val hash: Hash
   ) extends {
@@ -403,14 +409,14 @@ object Node {
   }
 
   object GlobalKey {
-    def apply(templateId: Ref.ValueRef, key: Value[Nothing]): GlobalKey =
+    def apply(templateId: ValueRef, key: Value[Nothing]): GlobalKey =
       new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
 
     // Will fail if key contains contract ids
-    def build(templateId: Identifier, key: Value[ContractId]): Either[String, GlobalKey] =
+    def build(templateId: TypeConName, key: Value[ContractId]): Either[String, GlobalKey] =
       Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
-    def assertBuild(templateId: Identifier, key: Value[ContractId]): GlobalKey =
+    def assertBuild(templateId: TypeConName, key: Value[ContractId]): GlobalKey =
       data.assertRight(build(templateId, key))
   }
 

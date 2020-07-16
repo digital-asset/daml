@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.lf.crypto.Hash
@@ -42,7 +43,7 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
         Ref.ParticipantId.assertFromString("anId"),
         mock[IndexPackagesService],
         mock[ContractStore],
-        mock[Metrics])
+        new Metrics(new MetricRegistry))
       val mockDomainCommands = mock[Commands]
       val mockLfCommands = mock[com.daml.lf.command.Commands]
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())

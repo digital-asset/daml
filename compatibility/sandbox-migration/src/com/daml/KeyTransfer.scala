@@ -73,7 +73,7 @@ final class KeyTransfer(
   private val clientConfig =
     LedgerClientConfiguration(
       KeyTransfer.ApplicationId,
-      LedgerIdRequirement("", enabled = false),
+      LedgerIdRequirement.none,
       CommandClientConfiguration.default,
       None,
     )

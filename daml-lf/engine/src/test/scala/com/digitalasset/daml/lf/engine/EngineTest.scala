@@ -15,10 +15,11 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{
-  TransactionVersions => TxVersions,
-  GenTransaction => GenTx,
   NodeId,
-  Transaction => Tx
+  SubmittedTransaction,
+  GenTransaction => GenTx,
+  Transaction => Tx,
+  TransactionVersions => TxVersions
 }
 import com.daml.lf.value.Value
 import Value._
@@ -1521,7 +1522,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "be validable in whole" in {
-      def validate(tx: Tx.SubmittedTransaction, metaData: Tx.Metadata) =
+      def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         engine
           .validate(tx, let, participant, metaData.submissionTime, submissionSeed)
           .consume(_ => None, lookupPackage, _ => None)

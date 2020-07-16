@@ -13,10 +13,15 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
+import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
+
+import scalaz.syntax.traverse._
+import scalaz.std.vector._
+import scalaz.std.scalaFuture._
 
 import scala.concurrent.Future
 
@@ -426,6 +431,75 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "return empty source when offset range is from the future" in {
+    val commands: Vector[(Offset, LedgerEntry.Transaction)] = Vector.fill(3)(singleCreate)
+    val beginOffsetFromTheFuture = nextOffset()
+    val endOffsetFromTheFuture = nextOffset()
+
+    for {
+      _ <- commands.traverse(x => store(x))
+
+      result <- ledgerDao.transactionsReader
+        .getFlatTransactions(
+          beginOffsetFromTheFuture,
+          endOffsetFromTheFuture,
+          Map(alice -> Set.empty[Identifier]),
+          verbose = true)
+        .runWith(Sink.seq)
+
+    } yield {
+      extractAllTransactions(result) shouldBe empty
+    }
+  }
+
+  // TODO(Leo): this should be converted to scalacheck test with random offset gaps and pageSize
+  // flaky, issue: #6760
+  ignore should "return all transactions in the specified offset range when iterating with gaps in the offsets assigned to events and a page size that ensures a page ends in such a gap" in {
+    // Simulates a gap in the offsets assigned to events, as they
+    // can be assigned to party allocation, package uploads and
+    // configuration updates as well
+    def offsetGap(): Vector[(Offset, LedgerEntry.Transaction)] = {
+      nextOffset()
+      Vector.empty[(Offset, LedgerEntry.Transaction)]
+    }
+
+    // the order of `nextOffset()` calls is important
+    val beginOffset = nextOffset()
+
+    val commandWithOffsetGaps: Vector[(Offset, LedgerEntry.Transaction)] =
+      Vector(singleCreate) ++ offsetGap ++
+        Vector.fill(2)(singleCreate) ++ offsetGap ++
+        Vector.fill(3)(singleCreate) ++ offsetGap ++ offsetGap ++
+        Vector.fill(5)(singleCreate)
+
+    val endOffset = nextOffset()
+
+    commandWithOffsetGaps.size shouldBe 11
+
+    for {
+      _ <- commandWithOffsetGaps.traverse(x => store(x))
+
+      // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
+      // that streaming works with event pages separated by offsets that don't have events in the store
+      ledgerDao <- createLedgerDao(pageSize = 2)
+
+      response <- ledgerDao.transactionsReader
+        .getFlatTransactions(
+          beginOffset,
+          endOffset,
+          Map(alice -> Set.empty[Identifier]),
+          verbose = true)
+        .runWith(Sink.seq)
+
+      readTxs = extractAllTransactions(response)
+    } yield {
+      readTxs.size shouldBe commandWithOffsetGaps.size
+      val readTxOffsets: Vector[String] = readTxs.map(_.offset)
+      readTxOffsets shouldBe readTxOffsets.sorted
+      readTxOffsets shouldBe commandWithOffsetGaps.map(_._1.toHexString)
+    }
+  }
+
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
       from <- ledgerDao.lookupLedgerEnd()
@@ -463,4 +537,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   private def extractAllTransactions(
       responses: Seq[(Offset, GetTransactionsResponse)]): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
+
+  private def createLedgerDao(pageSize: Int) =
+    LoggingContext.newLoggingContext { implicit logCtx =>
+      daoOwner(eventsPageSize = 2).acquire()
+    }.asFuture
 }

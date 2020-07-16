@@ -9,8 +9,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue,
   DamlSubmission
 }
+import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.{DamlStateMap, DamlStateMapWithFingerprints}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
 
@@ -25,6 +25,6 @@ trait SubmissionExecutor {
   def runWithPreExecution(
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: DamlStateMapWithFingerprints,
+      inputState: DamlStateMap,
   ): PreExecutionResult
 }

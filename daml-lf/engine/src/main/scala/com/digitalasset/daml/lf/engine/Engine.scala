@@ -11,7 +11,12 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{NodeId, TransactionVersions, Transaction => Tx}
+import com.daml.lf.transaction.{
+  NodeId,
+  SubmittedTransaction,
+  TransactionVersions,
+  Transaction => Tx
+}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueVersions}
 import java.nio.file.{Files, Path, Paths}
@@ -83,7 +88,7 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
@@ -134,7 +139,7 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commandWithCids <- preprocessor.translateNode(node)
       (command, globalCids) = commandWithCids
@@ -152,12 +157,12 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
     } yield (tx, meta)
 
   def replay(
-      tx: Tx.SubmittedTransaction,
+      tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
 
@@ -216,7 +221,7 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
     */
   def validate(
-      tx: Tx.SubmittedTransaction,
+      tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
@@ -281,7 +286,7 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] =
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
@@ -305,7 +310,7 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[(Tx.SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {

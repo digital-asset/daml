@@ -20,8 +20,6 @@ class CachingDamlLedgerStateReaderSpec
     with Inside
     with MockitoSugar {
 
-  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
-
   "readState" should {
     "record read keys" in {
       val mockReader = mock[DamlLedgerStateReader]
@@ -72,6 +70,8 @@ class CachingDamlLedgerStateReaderSpec
       }
     }
   }
+
+  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
   private lazy val aDamlStateKey = DamlStateKey.newBuilder
     .setContractId("aContractId")

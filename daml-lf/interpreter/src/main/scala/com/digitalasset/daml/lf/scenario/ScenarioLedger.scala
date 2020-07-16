@@ -8,7 +8,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger._
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  NodeId,
+  SubmittedTransaction,
+  Transaction => Tx
+}
 import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
 import com.daml.lf.data.Relation.Relation
@@ -78,7 +83,7 @@ object ScenarioLedger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       transactionId: LedgerString,
-      transaction: Tx.CommittedTransaction,
+      transaction: CommittedTransaction,
       explicitDisclosure: Relation[NodeId, Party],
       implicitDisclosure: Relation[ContractId, Party],
       failedAuthorizations: FailedAuthorizations,
@@ -97,17 +102,19 @@ object ScenarioLedger {
         committer: Party,
         effectiveAt: Time.Timestamp,
         transactionId: LedgerString,
-        enrichedTx: EnrichedTransaction[Tx.CommittedTransaction],
-    ): RichTransaction =
+        submittedTransaction: SubmittedTransaction,
+    ): RichTransaction = {
+      val enrichedTx = EnrichedTransaction(Authorize(Set(committer)), submittedTransaction)
       new RichTransaction(
         committer = committer,
         effectiveAt = effectiveAt,
         transactionId = transactionId,
-        transaction = enrichedTx.tx,
+        transaction = Tx.commitTransaction(submittedTransaction),
         explicitDisclosure = enrichedTx.explicitDisclosure,
         implicitDisclosure = enrichedTx.implicitDisclosure,
         failedAuthorizations = enrichedTx.failedAuthorizations,
       )
+    }
 
   }
 
@@ -235,19 +242,13 @@ object ScenarioLedger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
-      tx: Tx.SubmittedTransaction,
+      tx: SubmittedTransaction,
       l: ScenarioLedger,
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
     val transactionId = l.scenarioStepId.id
-    val richTr =
-      RichTransaction(
-        committer,
-        effectiveAt,
-        transactionId,
-        EnrichedTransaction(Authorize(Set(committer)), Tx.commitTransaction(tx)),
-      )
+    val richTr = RichTransaction(committer, effectiveAt, transactionId, tx)
     if (richTr.failedAuthorizations.nonEmpty)
       Left(CommitError.FailedAuthorizations(richTr.failedAuthorizations))
     else {

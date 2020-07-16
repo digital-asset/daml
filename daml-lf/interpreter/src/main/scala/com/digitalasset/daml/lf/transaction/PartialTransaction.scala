@@ -10,6 +10,7 @@ import com.daml.lf.transaction.{
   GenTransaction,
   Node,
   NodeId,
+  SubmittedTransaction,
   TransactionVersion,
   TransactionVersions,
   Transaction => Tx
@@ -220,7 +221,7 @@ private[lf] case class PartialTransaction(
   def finish(
       supportedValueVersions: VersionRange[ValueVersion],
       supportedTransactionVersions: VersionRange[TransactionVersion],
-  ): Either[PartialTransaction, Tx.SubmittedTransaction] = {
+  ): Either[PartialTransaction, SubmittedTransaction] = {
 
     val versionNode: Node => Tx.Node =
       Node.GenNode.map3(
@@ -231,7 +232,7 @@ private[lf] case class PartialTransaction(
 
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
-      Tx.SubmittedTransaction(
+      SubmittedTransaction(
         TransactionVersions
           .asVersionedTransaction(
             GenTransaction(

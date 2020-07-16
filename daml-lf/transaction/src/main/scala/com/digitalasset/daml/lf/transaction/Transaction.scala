@@ -9,12 +9,10 @@ import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.VersionedValue
 import scalaz.Equal
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
-import scala.language.higherKinds
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
@@ -29,7 +27,7 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
     VersionedTransaction(
       version,
-      transaction = GenTransaction.map3(identity[Nid], f, VersionedValue.map1(f))(transaction)
+      transaction = GenTransaction.map3(identity[Nid], f, Value.VersionedValue.map1(f))(transaction)
     )
 
   /** Increase the `version` if appropriate for `languageVersions`.
@@ -472,9 +470,9 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
 
 object Transaction {
 
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
   type NodeId = transaction.NodeId
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
   val NodeId = transaction.NodeId
 
   @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.2.0")
@@ -525,34 +523,27 @@ object Transaction {
       byKeyNodes: ImmArray[transaction.NodeId],
   )
 
-  sealed abstract class DiscriminatedSubtype[X] {
-    type T <: X
-    def apply(x: X): T
-    def subst[F[_]](fx: F[X]): F[T]
-  }
+  @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")
+  type SubmittedTransaction = transaction.SubmittedTransaction
 
-  object DiscriminatedSubtype {
-    def apply[X]: DiscriminatedSubtype[X] = new DiscriminatedSubtype[X] {
-      override type T = X
-      override def apply(x: X): T = x
-      override def subst[F[_]](fx: F[X]): F[T] = fx
-    }
-  }
+  @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")
+  val SubmittedTransaction = transaction.SubmittedTransaction
 
-  val SubmittedTransaction = DiscriminatedSubtype[Transaction]
-  type SubmittedTransaction = SubmittedTransaction.T
+  @deprecated("Use com.daml.lf.transaction.CommittedTransaction", since = "1.4.0")
+  type CommittedTransaction = transaction.CommittedTransaction
 
-  val CommittedTransaction = DiscriminatedSubtype[Transaction]
-  type CommittedTransaction = CommittedTransaction.T
-
-  def commitTransaction(tx: SubmittedTransaction): CommittedTransaction =
-    CommittedTransaction(tx)
+  @deprecated("Use com.daml.lf.transaction.CommittedTransaction", since = "1.4.0")
+  val CommittedTransaction = transaction.CommittedTransaction
 
   def commitTransaction(
-      tx: SubmittedTransaction,
+      submittedTransaction: transaction.SubmittedTransaction): transaction.CommittedTransaction =
+    transaction.CommittedTransaction(submittedTransaction)
+
+  def commitTransaction(
+      submittedTransaction: transaction.SubmittedTransaction,
       f: crypto.Hash => Bytes,
-  ): Either[String, CommittedTransaction] =
-    tx.suffixCid(f).map(CommittedTransaction(_))
+  ): Either[String, transaction.CommittedTransaction] =
+    submittedTransaction.suffixCid(f).map(transaction.CommittedTransaction(_))
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable

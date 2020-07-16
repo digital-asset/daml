@@ -445,9 +445,9 @@ object Value extends CidContainer1[Value] {
       CidMapper.basicMapperInstance[ContractId, ContractId.V1]
   }
 
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
   type NodeId = transaction.NodeId
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.3.0")
+  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
   val NodeId = transaction.NodeId
 
   /*** Keys cannot contain contract ids */

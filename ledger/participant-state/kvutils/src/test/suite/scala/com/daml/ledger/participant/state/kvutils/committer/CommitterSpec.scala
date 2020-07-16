@@ -7,13 +7,12 @@ import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Fingerprint}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
@@ -32,22 +31,21 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.deduplicateUntil).thenReturn(None)
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       val expectedReadSet = Set(
-        DamlStateKey.newBuilder.setContractId("1").build -> ByteString.copyFromUtf8("fp1"),
-        DamlStateKey.newBuilder.setContractId("2").build -> ByteString.copyFromUtf8("fp2")
+        DamlStateKey.newBuilder.setContractId("1").build,
+        DamlStateKey.newBuilder.setContractId("2").build
       )
-      when(mockContext.getAccessedInputKeysWithFingerprints).thenReturn(expectedReadSet)
+      when(mockContext.getAccessedInputKeys).thenReturn(expectedReadSet)
       val instance = createCommitter()
 
       val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
 
       verify(mockContext, times(1)).getOutputs
-      verify(mockContext, times(1)).getAccessedInputKeysWithFingerprints
-      actual.readSet shouldBe expectedReadSet.toMap
+      verify(mockContext, times(1)).getAccessedInputKeys
+      actual.readSet shouldBe expectedReadSet
       actual.successfulLogEntry shouldBe aLogEntry
       actual.stateUpdates shouldBe expectedOutputs
       actual.minimumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMinRecordTime))
       actual.maximumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMaxRecordTime))
-      actual.involvedParticipants shouldBe Committer.AllParticipants
     }
 
     "set min/max record time to None in case they are not available from context" in {
@@ -57,8 +55,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       when(mockContext.deduplicateUntil).thenReturn(None)
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       when(mockContext.getOutputs).thenReturn(Map.empty)
-      when(mockContext.getAccessedInputKeysWithFingerprints)
-        .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
+      when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
       val instance = createCommitter()
 
       val actual = instance.preExecute(aDamlSubmission, aParticipantId, Map.empty, mockContext)
@@ -71,8 +68,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val mockContext = mock[CommitContext]
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
-      when(mockContext.getAccessedInputKeysWithFingerprints)
-        .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
+      when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
       val expectedMinRecordTime = Instant.ofEpochSecond(100)
       val expectedMaxRecordTime = Instant.ofEpochSecond(200)
       val expectedDuplicateUntil = Instant.ofEpochSecond(99)
@@ -96,8 +92,7 @@ class CommitterSpec extends WordSpec with Matchers with MockitoSugar {
       val mockContext = mock[CommitContext]
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
-      when(mockContext.getAccessedInputKeysWithFingerprints)
-        .thenReturn(Set.empty[(DamlStateKey, Fingerprint)])
+      when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
       when(mockContext.minimumRecordTime).thenReturn(None)
       when(mockContext.maximumRecordTime).thenReturn(None)
       val instance = createCommitter()

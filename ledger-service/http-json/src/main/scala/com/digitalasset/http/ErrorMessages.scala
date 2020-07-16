@@ -10,7 +10,7 @@ object ErrorMessages {
     s"Cannot resolve template ID, given: ${t.toString}"
 
   def cannotResolveAnyTemplateId: String =
-    "Cannot not resolve any template ID from request"
+    "Cannot resolve any template ID from request"
 
   def cannotResolveTemplateId(a: domain.ContractLocator[_]): String =
     s"Cannot resolve templateId, given: $a"
