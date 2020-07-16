@@ -7,7 +7,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
 
--- Useful references:
+-- | Useful references:
 --
 -- * DAML-LF AST: https://github.com/DACH-NY/da/blob/master/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
 -- * GHC Syntax: https://hackage.haskell.org/package/ghc-8.4.1/docs/CoreSyn.html#t:Expr
@@ -670,7 +670,7 @@ convertBind env (name, x)
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
     = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
 
-    -- | Constraint tuple projections are turned into LF struct projections at use site.
+    -- Constraint tuple projections are turned into LF struct projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
@@ -1337,14 +1337,14 @@ convertCoercion env co = evalStateT (go env co) 0
             pure (to, from)
         -- NOTE(MH): This case is commented out because we don't know how to trigger
         -- it in a test case yet. In theory it should do the right thing though.
-        -- | Just (a, k_co, co') <- splitForAllCo_maybe co
-        -- , isReflCo k_co
-        -- = do
-        --     (a, k) <- lift $ convTypeVar a
-        --     (to', from') <- go env co'
-        --     let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
-        --     let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
-        --     pure (to, from)
+        --   | Just (a, k_co, co') <- splitForAllCo_maybe co
+        --   , isReflCo k_co
+        --   = do
+        --       (a, k) <- lift $ convTypeVar a
+        --       (to', from') <- go env co'
+        --       let to expr = ETyLam (a, k) $ to' $ ETyApp expr $ TVar a
+        --       let from expr = ETyLam (a, k) $ from' $ ETyApp expr $ TVar a
+        --       pure (to, from)
         -- Case (1) & (2)
         | Just (tCon, ts, field, flv) <- isSatNewTyCon s t = newtypeCoercion tCon ts field flv
         | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv

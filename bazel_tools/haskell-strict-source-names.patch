@@ -16,7 +16,7 @@ index 910dc57c..99547c5d 100644
      name = "ghc_wrapper",
      srcs = ["private/ghc_wrapper.sh"],
 diff --git a/haskell/defs.bzl b/haskell/defs.bzl
-index 00e5163c..4fc8cafa 100644
+index e89fc402..c0604c45 100644
 --- a/haskell/defs.bzl
 +++ b/haskell/defs.bzl
 @@ -65,11 +65,6 @@ _haskell_common_attrs = {
@@ -181,7 +181,7 @@ index 00e5163c..4fc8cafa 100644
        deps: List of other Haskell libraries to be linked to this target.
        data: See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common.data).,
 diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
-index 0d845f29..276c5b5c 100644
+index d1bf0bd1..0f7c6198 100644
 --- a/haskell/private/actions/compile.bzl
 +++ b/haskell/private/actions/compile.bzl
 @@ -10,7 +10,6 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
@@ -357,7 +357,7 @@ index 0d845f29..276c5b5c 100644
          import_dir_map,
          extra_srcs,
          user_compile_flags,
-@@ -457,18 +475,17 @@ def compile_library(
+@@ -457,7 +475,7 @@ def compile_library(
          source_files: set of Haskell module files
          import_dirs: import directories that should make all modules visible (for GHCi)
      """
@@ -365,7 +365,8 @@ index 0d845f29..276c5b5c 100644
 +    c = _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, module_map, import_dir_map, extra_srcs, user_compile_flags, "dynamic-too" if with_shared else "static", with_profiling, my_pkg_id = my_pkg_id, version = my_pkg_id.version, plugins = plugins, preprocessors = preprocessors)
      if with_shared:
          c.args.add("-dynamic-too")
- 
+         if not hs.toolchain.is_darwin and not hs.toolchain.is_windows:
+@@ -467,11 +485,10 @@ def compile_library(
      coverage_data = []
      if hs.coverage_enabled:
          c.args.add_all(_hpc_compiler_args(hs))
@@ -380,7 +381,7 @@ index 0d845f29..276c5b5c 100644
  
      if srcs:
          hs.toolchain.actions.run_ghc(
-@@ -482,76 +499,13 @@ def compile_library(
+@@ -485,76 +502,13 @@ def compile_library(
              env = c.env,
              arguments = c.args,
          )
@@ -460,7 +461,7 @@ index 0d845f29..276c5b5c 100644
 -    )
 -    return exposed_modules_file
 diff --git a/haskell/private/actions/link.bzl b/haskell/private/actions/link.bzl
-index 7e592273..18ac11b1 100644
+index 21e346ff..5e11e7d7 100644
 --- a/haskell/private/actions/link.bzl
 +++ b/haskell/private/actions/link.bzl
 @@ -34,41 +34,6 @@ def merge_parameter_files(hs, file1, file2):
@@ -514,7 +515,7 @@ index 7e592273..18ac11b1 100644
          dynamic,
          with_profiling,
          version):
-@@ -146,13 +111,7 @@ def link_binary(
+@@ -149,13 +114,7 @@ def link_binary(
          "-optl-Wno-unused-command-line-argument",
      ])
  
@@ -529,7 +530,7 @@ index 7e592273..18ac11b1 100644
  
      if hs.toolchain.is_darwin:
          args.add("-optl-Wl,-headerpad_max_install_names")
-@@ -171,14 +130,13 @@ def link_binary(
+@@ -174,14 +133,13 @@ def link_binary(
              depset(extra_srcs),
              dep_info.package_databases,
              dep_info.hs_libraries,
@@ -545,7 +546,7 @@ index 7e592273..18ac11b1 100644
      )
  
      return (executable, dynamic_libs)
-@@ -194,32 +152,22 @@ def _so_extension(hs):
+@@ -237,32 +195,22 @@ def _so_extension(hs):
      """
      return "dylib" if hs.toolchain.is_darwin else "so"
  
@@ -583,7 +584,7 @@ index 7e592273..18ac11b1 100644
          # TODO Get ar location from the CC toolchain. This is
          # complicated by the fact that the CC toolchain does not
          # always use ar, and libtool has an entirely different CLI.
-@@ -228,18 +176,13 @@ def link_library_static(hs, cc, posix, dep_info, objects_dir, my_pkg_id, with_pr
+@@ -271,18 +219,13 @@ def link_library_static(hs, cc, posix, dep_info, objects_dir, my_pkg_id, with_pr
              inputs = inputs,
              outputs = [static_library],
              mnemonic = "HaskellLinkStaticLibrary",
@@ -603,7 +604,7 @@ index 7e592273..18ac11b1 100644
          hs.actions.run(
              inputs = inputs,
              outputs = [static_library],
-@@ -250,12 +193,13 @@ def link_library_static(hs, cc, posix, dep_info, objects_dir, my_pkg_id, with_pr
+@@ -293,12 +236,13 @@ def link_library_static(hs, cc, posix, dep_info, objects_dir, my_pkg_id, with_pr
  
      return static_library
  
@@ -618,7 +619,7 @@ index 7e592273..18ac11b1 100644
  
      dynamic_library = hs.actions.declare_file(
          "lib{0}-ghc{1}.{2}".format(
-@@ -295,19 +239,12 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, my_pk
+@@ -338,19 +282,12 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, my_pk
  
      args.add_all(["-o", dynamic_library.path])
  
@@ -640,7 +641,7 @@ index 7e592273..18ac11b1 100644
              extra_srcs,
              dep_info.package_databases,
              dep_info.hs_libraries,
-@@ -317,7 +254,6 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, my_pk
+@@ -360,7 +297,6 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, my_pk
          outputs = [dynamic_library],
          mnemonic = "HaskellLinkDynamicLibrary",
          arguments = args,
@@ -711,7 +712,7 @@ index a122332c..bcb83c73 100644
  
      return conf_file, cache_file
 diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
-index 87834c4e..8df9ef83 100644
+index 219b8cb9..38b1eb9d 100644
 --- a/haskell/private/haskell_impl.bzl
 +++ b/haskell/private/haskell_impl.bzl
 @@ -11,10 +11,6 @@ load(
@@ -759,7 +760,7 @@ index 87834c4e..8df9ef83 100644
          dynamic = dynamic,
          with_profiling = with_profiling,
          version = ctx.attr.version,
-@@ -358,6 +356,7 @@ def haskell_library_impl(ctx):
+@@ -360,6 +358,7 @@ def haskell_library_impl(ctx):
  
      with_profiling = is_profiling_enabled(hs)
      srcs_files, import_dir_map = _prepare_srcs(ctx.attr.srcs)
@@ -767,7 +768,7 @@ index 87834c4e..8df9ef83 100644
  
      with_shared = not ctx.attr.linkstatic
      if with_profiling or hs.toolchain.is_static:
-@@ -382,6 +381,7 @@ def haskell_library_impl(ctx):
+@@ -384,6 +383,7 @@ def haskell_library_impl(ctx):
          dep_info,
          plugin_dep_info,
          srcs = srcs_files,
@@ -775,7 +776,7 @@ index 87834c4e..8df9ef83 100644
          import_dir_map = import_dir_map,
          extra_srcs = depset(ctx.files.extra_srcs),
          user_compile_flags = user_compile_flags,
-@@ -394,14 +394,9 @@ def haskell_library_impl(ctx):
+@@ -396,14 +396,9 @@ def haskell_library_impl(ctx):
  
      other_modules = ctx.attr.hidden_modules
      exposed_modules_reexports = _exposed_modules_reexports(ctx.attr.reexported_modules)
@@ -793,7 +794,7 @@ index 87834c4e..8df9ef83 100644
  
      if srcs_files:
          static_library = link_library_static(
-@@ -409,7 +404,7 @@ def haskell_library_impl(ctx):
+@@ -411,7 +406,7 @@ def haskell_library_impl(ctx):
              cc,
              posix,
              dep_info,
@@ -802,7 +803,7 @@ index 87834c4e..8df9ef83 100644
              my_pkg_id,
              with_profiling = with_profiling,
          )
-@@ -423,7 +418,7 @@ def haskell_library_impl(ctx):
+@@ -425,7 +420,7 @@ def haskell_library_impl(ctx):
              posix,
              dep_info,
              depset(ctx.files.extra_srcs),
@@ -811,7 +812,7 @@ index 87834c4e..8df9ef83 100644
              my_pkg_id,
              user_compile_flags,
          )
-@@ -436,14 +431,14 @@ def haskell_library_impl(ctx):
+@@ -438,14 +433,14 @@ def haskell_library_impl(ctx):
          posix,
          dep_info,
          with_shared,
