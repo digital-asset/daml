@@ -6,9 +6,10 @@ package com.daml.ledger.on.sql
 import java.sql.Connection
 
 import com.daml.ledger.on.sql.queries.{ReadQueries, ReadWriteQueries}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import javax.sql.DataSource
+import com.zaxxer.hikari.HikariDataSource
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -16,34 +17,57 @@ import scala.util.control.NonFatal
 
 sealed abstract class Transactor[Q](
     queries: Connection => Q,
-    connectionPool: DataSource,
+    connectionPool: HikariDataSource,
     metrics: Metrics,
 )(implicit ec: ExecutionContext) {
 
+  private val logger = ContextualizedLogger.get(getClass)
+
   def inTransaction[T](name: String)(body: Q => Try[T])(
-      implicit logCtx: LoggingContext): Future[T] =
+      implicit logCtx: LoggingContext,
+  ): Future[T] =
     Future {
-      // Connection is acquired in the same future to ensure that
-      // two connection acquisition are not accidentally scheduled
-      // one after the other, causing a deadlock on a connection
-      // pool with a single available slot (the first connection
-      // is acquired but cannot be scheduled, the second connection
-      // acquisition is scheduled but cannot be performed until
-      // the first connection is used and made available again)
-      val connection = Timed.value(
-        metrics.daml.ledger.database.transactions.acquireConnection(name),
-        connectionPool.getConnection()
-      )
-      try {
-        val result = body(queries(connection)).get
-        connection.commit()
-        result
-      } catch {
-        case NonFatal(e) =>
-          connection.rollback()
-          throw e
-      } finally {
-        connection.close()
+      withEnrichedLoggingContext(
+        "transaction" -> name,
+        "connectionPool" -> connectionPool.getPoolName,
+      ) { implicit logCtx =>
+        // The connection is acquired in the same callback as the
+        // one where the query is run. If connection acquisition
+        // is turned into its own callback it can cause a deadlock
+        // if we have a connection pool with a single available slot
+        // and a single-threaded executor: if two connection acquisitions
+        // are scheduled one after the other, the second will block
+        // the only thread while trying to acquire the connection, while
+        // the latter will be unable be dispatched on a thread so that it
+        // can be executed and finally release the connection.
+        logger.debug(s"Acquiring connection...")
+        val connection: Connection =
+          Timed.value(
+            metrics.daml.ledger.database.transactions.acquireConnection(name),
+            connectionPool.getConnection()
+          )
+        try {
+          logger.debug(s"Connection acquired, attempting query...")
+          val result = body(queries(connection)).get
+          logger.debug(s"Query successful, committing...")
+          connection.commit()
+          logger.debug(s"Commit successful")
+          result
+        } catch {
+          case NonFatal(e) =>
+            logger.debug("Rolling back transaction if connection is open", e)
+            if (!connection.isClosed) {
+              logger.debug("Connection open, rolling back.")
+              connection.rollback()
+            }
+            throw e
+        } finally {
+          logger.debug("Checking if connection needs closing...")
+          if (!connection.isClosed) {
+            logger.debug("Connection not closed yet, closing now.")
+            connection.close()
+          }
+        }
       }
     }
 
@@ -53,14 +77,14 @@ object Transactor {
 
   final class ReadWrite(
       queries: Connection => ReadWriteQueries,
-      connectionPool: DataSource,
+      connectionPool: HikariDataSource,
       metrics: Metrics,
       executionContext: ExecutionContext,
   ) extends Transactor[ReadWriteQueries](queries, connectionPool, metrics)(executionContext)
 
   final class ReadOnly(
       queries: Connection => ReadQueries,
-      connectionPool: DataSource,
+      connectionPool: HikariDataSource,
       metrics: Metrics,
       executionContext: ExecutionContext,
   ) extends Transactor[ReadQueries](queries, connectionPool, metrics)(executionContext)

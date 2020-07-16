@@ -569,7 +569,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
           .toVector
 
-      val updatesF = ps
+      // Wait before trying to read the results to ensure that single-threaded
+      // implementations don't end up having reads and writes step on each
+      // other's toes
+      lazy val updatesF = ps
         .stateUpdates(beginAfter = None)
         .idleTimeout(IdleTimeout)
         .take(partyCount)

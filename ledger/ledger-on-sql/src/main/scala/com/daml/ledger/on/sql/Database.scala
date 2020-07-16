@@ -12,7 +12,6 @@ import com.daml.metrics.Metrics
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
-import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 
 import scala.collection.JavaConverters._
@@ -34,8 +33,8 @@ final class Database(
   def inTransaction[T](name: String)(
       body: ReadWriteQueries => Try[T],
   )(implicit logCtx: LoggingContext): Future[T] =
-    readWriteTransactor.inTransaction(name)(writeQueries =>
-      body(new TimedReadWriteQueries(writeQueries, metrics)))
+    readWriteTransactor.inTransaction(name)(readWriteQueries =>
+      body(new TimedReadWriteQueries(readWriteQueries, metrics)))
 
 }
 
@@ -52,6 +51,16 @@ object Database {
   // To be able to process commits in parallel, we will need to fail reads and retry if there are
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
+
+  private final class ConnectionPoolName(override val toString: String) extends AnyVal
+
+  private object ConnectionPoolName {
+    private val Prefix = "Ledger-Pool"
+    val ReadWrite = new ConnectionPoolName(s"$Prefix-ReadWrite")
+    val ReadOnly = new ConnectionPoolName(s"$Prefix-ReadOnly")
+    val SingleConnection = new ConnectionPoolName(s"$Prefix-SingleConnection")
+    val Admin = new ConnectionPoolName(s"$Prefix-Admin")
+  }
 
   def owner(jdbcUrl: String, metrics: Metrics)(
       implicit logCtx: LoggingContext,
@@ -88,10 +97,15 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readOnlyConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true))
-        readWriteConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
-        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+          newHikariDataSource(ConnectionPoolName.ReadOnly, jdbcUrl, readOnly = true))
+        readWriteConnectionPool <- ResourceOwner.forCloseable(
+          () =>
+            newRestrictedHikariDataSource(
+              ConnectionPoolName.ReadOnly,
+              jdbcUrl,
+              MaximumWriterConnectionPoolSize))
+        adminConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(ConnectionPoolName.Admin, jdbcUrl))
         readOnlyExecutorService <- ResourceOwner.forExecutorService(() =>
           Executors.newCachedThreadPool())
         readOnlyExecutionContext = ExecutionContext.fromExecutorService(readOnlyExecutorService)
@@ -117,9 +131,14 @@ object Database {
         metrics: Metrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
-        readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
-        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+        readerWriterConnectionPool <- ResourceOwner.forCloseable(
+          () =>
+            newRestrictedHikariDataSource(
+              ConnectionPoolName.SingleConnection,
+              jdbcUrl,
+              MaximumWriterConnectionPoolSize))
+        adminConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(ConnectionPoolName.Admin, jdbcUrl))
         readerWriterExecutorService <- ResourceOwner.forExecutorService(() =>
           Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
         readerWriterExecutionContext = ExecutionContext.fromExecutorService(
@@ -137,15 +156,26 @@ object Database {
   }
 
   private def newHikariDataSource(
+      name: ConnectionPoolName,
       jdbcUrl: String,
       readOnly: Boolean = false,
-      maxPoolSize: Option[Int] = None,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
+    pool.setPoolName(name.toString)
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
     pool.setReadOnly(readOnly)
-    maxPoolSize.foreach(pool.setMaximumPoolSize)
+    pool
+  }
+
+  private def newRestrictedHikariDataSource(
+      name: ConnectionPoolName,
+      jdbcUrl: String,
+      maxPoolSize: Int,
+      readOnly: Boolean = false,
+  ): HikariDataSource = {
+    val pool = newHikariDataSource(name, jdbcUrl, readOnly)
+    pool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
     pool
   }
 
@@ -177,11 +207,11 @@ object Database {
 
   final class UninitializedDatabase(
       system: RDBMS,
-      readOnlyConnectionPool: DataSource,
+      readOnlyConnectionPool: HikariDataSource,
       readOnlyExecutionContext: ExecutionContext,
-      readWriteConnectionPool: DataSource,
+      readWriteConnectionPool: HikariDataSource,
       readWriteExecutionContext: ExecutionContext,
-      adminConnectionPool: DataSource,
+      adminConnectionPool: HikariDataSource,
       metrics: Metrics,
   ) {
     private val flyway: Flyway =
