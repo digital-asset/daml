@@ -451,7 +451,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     import scalaz.std.vector._
     import scalaz.std.scalaFuture._
 
-    val storeDelayed = (a: (Offset, LedgerEntry.Transaction)) => Free.liftF(store(a))
+    val storeDelayed = (a: (Offset, LedgerEntry.Transaction)) => Free.suspend(Free.liftF(store(a)))
 
     // force synchronous future processing with Free monad
     // to provide the guarantees that all transactions persisted in the specified order
