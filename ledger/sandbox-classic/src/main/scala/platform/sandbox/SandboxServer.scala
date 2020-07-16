@@ -20,7 +20,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.lf.data.ImmArray
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
@@ -46,6 +46,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{Resource, ResourceOwner}
+import com.github.ghik.silencer.silent
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -60,7 +61,8 @@ object SandboxServer {
 
   // FIXME: https://github.com/digital-asset/daml/issues/5164
   // This should be made configurable
-  private val engineConfig: Engine.Config = Engine.DevConfig
+  @silent("Sandbox_Classic in object EngineConfig is deprecated")
+  private[sandbox] val engineConfig: EngineConfig = EngineConfig.Sandbox_Classic
 
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
