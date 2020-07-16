@@ -17,7 +17,6 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.value.ValueVersion
 
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
@@ -253,16 +252,14 @@ object ScenarioRunner {
       scenarioDef: Ast.Definition,
       compiledPackages: CompiledPackages,
       transactionSeed: crypto.Hash,
-      supportedValueVersions: VersionRange[ValueVersion],
-      supportedTransactionVersions: VersionRange[TransactionVersion],
+      outputTransactionVersions: VersionRange[TransactionVersion],
   ): ScenarioLedger = {
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
     val speedyMachine = Speedy.Machine.fromScenarioExpr(
       compiledPackages,
       transactionSeed,
       scenarioExpr,
-      supportedValueVersions,
-      supportedTransactionVersions,
+      outputTransactionVersions,
     )
     ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>

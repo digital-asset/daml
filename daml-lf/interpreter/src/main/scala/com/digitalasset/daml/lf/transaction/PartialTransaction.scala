@@ -5,7 +5,8 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.data.{BackStack, ImmArray, Time}
+import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{
   GenTransaction,
   GlobalKey,
@@ -16,7 +17,7 @@ import com.daml.lf.transaction.{
   TransactionVersions,
   Transaction => Tx
 }
-import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
+import com.daml.lf.value.Value
 
 import scala.collection.immutable.HashMap
 
@@ -220,26 +221,19 @@ private[lf] case class PartialTransaction(
     *  aborted.
     */
   def finish(
-      supportedValueVersions: VersionRange[ValueVersion],
-      supportedTransactionVersions: VersionRange[TransactionVersion],
+      outputTransactionVersions: VersionRange[TransactionVersion],
+      packageLanguageVersion: Ref.PackageId => LanguageVersion,
   ): Either[PartialTransaction, SubmittedTransaction] = {
-
-    val versionNode: Node => Tx.Node =
-      Node.GenNode.map3(
-        identity,
-        identity,
-        ValueVersions.asVersionedValue(_, supportedValueVersions).fold(SError.crash, identity),
-      )
 
     Either.cond(
       context.exeContext.isEmpty && aborted.isEmpty,
       SubmittedTransaction(
         TransactionVersions
           .asVersionedTransaction(
-            GenTransaction(
-              nodes = nodes.transform((_, n) => versionNode(n)),
-              roots = context.children.toImmArray),
-            supportedTransactionVersions,
+            outputTransactionVersions,
+            packageLanguageVersion,
+            context.children.toImmArray,
+            nodes
           )
           .fold(SError.crash, identity)
       ),
