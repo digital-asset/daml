@@ -88,7 +88,8 @@ Assigning ledger time
 The ledger time is assigned automatically by the participant.
 In most cases, DAML applications will not need to worry about ledger time and record time at all.
 
-For reference, this section describes the details of how the ledger time is assigned. 
+For reference, this section describes the details of how the ledger time is currently assigned.
+The algorithm is not part of the definition of time in DAML, and may change in the future.
 
 #. When submitting commands over the ledger API,
    users can optionally specify a ``min_ledger_time_rel`` or ``min_ledger_time_abs`` argument.
