@@ -55,7 +55,7 @@ sealed abstract class Transactor[Q](
           result
         } catch {
           case NonFatal(e) =>
-            logger.debug("Rolling back transaction if connection is open", e)
+            logger.error("Transaction failed, rolling back if connection is open", e)
             if (!connection.isClosed) {
               logger.debug("Connection open, rolling back.")
               connection.rollback()

@@ -52,7 +52,7 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  private final class ConnectionPoolName(override val toString: String) extends AnyVal
+  private final class ConnectionPoolName(val string: String) extends AnyVal
 
   private object ConnectionPoolName {
     private val Prefix = "Ledger-Pool"
@@ -161,7 +161,7 @@ object Database {
       readOnly: Boolean = false,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
-    pool.setPoolName(name.toString)
+    pool.setPoolName(name.string)
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
     pool.setReadOnly(readOnly)
@@ -175,7 +175,7 @@ object Database {
       readOnly: Boolean = false,
   ): HikariDataSource = {
     val pool = newHikariDataSource(name, jdbcUrl, readOnly)
-    pool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
+    pool.setMaximumPoolSize(maxPoolSize)
     pool
   }
 
