@@ -4,4 +4,5 @@
 package com.daml.platform.common
 
 class LedgerIdNotFoundException(attempts: Int)
-    extends RuntimeException(s"""No ledger ID found in the index database after $attempts attempts.""")
+    extends RuntimeException(
+      s"""No ledger ID found in the index database after $attempts attempts.""")

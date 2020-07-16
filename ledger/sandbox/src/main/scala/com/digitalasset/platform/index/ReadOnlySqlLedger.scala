@@ -65,21 +65,23 @@ object ReadOnlySqlLedger {
       }
       val retryDelay = 5.seconds
       val maxAttempts = 100
-      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) { (attempt, _wait) =>
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(`initialLedgerId`) =>
-              logger.info(s"Found existing ledger with ID: $initialLedgerId")
-              Future.successful(initialLedgerId)
-            case Some(foundLedgerId) =>
-              Future.failed(
-                new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
-            case None =>
-              logger.info(
-                s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay.")
-              Future.failed(new LedgerIdNotFoundException(attempt))
-          }
+      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
+        (attempt, _wait) =>
+          ledgerDao
+            .lookupLedgerId()
+            .flatMap {
+              case Some(`initialLedgerId`) =>
+                logger.info(s"Found existing ledger with ID: $initialLedgerId")
+                Future.successful(initialLedgerId)
+              case Some(foundLedgerId) =>
+                Future.failed(
+                  new LedgerIdMismatchException(foundLedgerId, initialLedgerId)
+                  with StartupException)
+              case None =>
+                logger.info(
+                  s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay.")
+                Future.failed(new LedgerIdNotFoundException(attempt))
+            }
       }
 
     }
