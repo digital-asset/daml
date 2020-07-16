@@ -465,7 +465,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     // the order of `nextOffset()` calls is important
     val beginOffset = nextOffset()
 
-    val commands: Vector[(Offset, LedgerEntry.Transaction)] =
+    val commandWithOffsetGaps: Vector[(Offset, LedgerEntry.Transaction)] =
       Vector(singleCreate) ++ offsetGap ++
         Vector.fill(2)(singleCreate) ++ offsetGap ++
         Vector.fill(3)(singleCreate) ++ offsetGap ++ offsetGap ++
@@ -473,16 +473,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
     val endOffset = nextOffset()
 
-    commands.size shouldBe 11
+    commandWithOffsetGaps.size shouldBe 11
 
     for {
-      _ <- commands.traverse(x => store(x))
+      _ <- commandWithOffsetGaps.traverse(x => store(x))
 
-      ledgerDao <- LoggingContext.newLoggingContext { implicit logCtx =>
-        // eventsPageSize = 2 makes sure that a page is delimited
-        // by an offset that does not have a corresponding event in the store
-        daoOwner(eventsPageSize = 2).acquire()
-      }.asFuture
+      // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
+      // that streaming works with event pages separated by offsets that don't have events in the store
+      ledgerDao <- createLedgerDao(pageSize = 2)
 
       response <- ledgerDao.transactionsReader
         .getFlatTransactions(
@@ -494,10 +492,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       readTxs = extractAllTransactions(response)
     } yield {
-      readTxs.size shouldBe commands.size
+      readTxs.size shouldBe commandWithOffsetGaps.size
       val readTxOffsets: Vector[String] = readTxs.map(_.offset)
       readTxOffsets shouldBe readTxOffsets.sorted
-      readTxOffsets shouldBe commands.map(_._1.toHexString)
+      readTxOffsets shouldBe commandWithOffsetGaps.map(_._1.toHexString)
     }
   }
 
@@ -538,4 +536,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   private def extractAllTransactions(
       responses: Seq[(Offset, GetTransactionsResponse)]): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
+
+  private def createLedgerDao(pageSize: Int) =
+    LoggingContext.newLoggingContext { implicit logCtx =>
+      daoOwner(eventsPageSize = 2).acquire()
+    }.asFuture
 }
