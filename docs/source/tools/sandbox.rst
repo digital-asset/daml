@@ -426,6 +426,22 @@ mismatching ledger effective time.
 A timer. Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
+``daml.index.db.connection.sandbox.pool``
+----------------------------
+
+This namespace holds a number of interesting metrics about the
+connection pool used to communicate with the persistent store
+that underlies the index.
+
+These metrics include:
+
+- ``daml.index.db.connection.sandbox.pool.Wait`` (timer): time spent waiting to acquire a connection
+- ``daml.index.db.connection.sandbox.pool.Usage`` (histogram): time spent using each acquired connection
+- ``daml.index.db.connection.sandbox.pool.TotalConnections`` (gauge): number or total connections
+- ``daml.index.db.connection.sandbox.pool.IdleConnections`` (gauge): number of idle connections
+- ``daml.index.db.connection.sandbox.pool.ActiveConnections`` (gauge): number of active connections
+- ``daml.index.db.connection.sandbox.pool.PendingConnections`` (gauge): number of threads waiting for a connection
+
 ``daml.index.db.deduplicate_command``
 -------------------------------------
 
