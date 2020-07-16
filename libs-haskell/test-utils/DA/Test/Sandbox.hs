@@ -52,7 +52,7 @@ defaultSandboxConf = SandboxConfig
 
 getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess
 getSandboxProc SandboxConfig{..} portFile = do
-    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox-classic" </> exe "sandbox-classic-binary")
+    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
     tlsArgs <- if enableTls
         then do
             certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
