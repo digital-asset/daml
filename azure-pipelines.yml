@@ -565,6 +565,7 @@ jobs:
         az extension add --name azure-devops
         echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
         az pipelines build queue --branch $(branch) --definition-name "digital-asset.daml-daily-compat" --org "https://dev.azure.com/digitalasset" --project daml
+        az pipelines build queue --branch $(branch) --definition-name "digital-asset.daml" --org "https://dev.azure.com/digitalasset" --project daml
 
   - job: write_ledger_dump
     dependsOn:
