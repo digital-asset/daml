@@ -75,12 +75,30 @@ class AnfTest extends WordSpec with Matchers {
     }
   }
 
-  "multi-arg fun: [\\f g. f (g 1) (g 2)]" should {
+  "builtin multi-arg fun: [\\g. (g 1) - (g 2)]" should {
     "be transformed to ANF as expected" in {
+      val original =
+        lam(1, binop(SBSubInt64, app(arg1, num1), app(arg1, num2)))
+      val expected =
+        AExpr(
+          lam(
+            1,
+            let1(appa(arg1, num1), let1(appa(arg1, num2), binopa(SBSubInt64, stack2, stack1)))))
+      testTransform(original, expected)
+    }
+  }
+
+  "unknown multi-arg fun: [\\f g. f (g 1) (g 2)]" should {
+    "be transformed to ANF as expected (safely)" in {
       val original =
         lam(2, app2(arg0, app(arg1, num1), app(arg1, num2)))
       val expected =
-        AExpr(lam(2, let1(appa(arg1, num1), let1(appa(arg1, num2), app2a(arg0, stack2, stack1)))))
+        AExpr(
+          lam(
+            2,
+            let1(
+              appa(arg1, num1),
+              let1(appa(arg0, stack1), let1(appa(arg1, num2), appa(stack2, stack1))))))
       testTransform(original, expected)
     }
   }
@@ -113,22 +131,20 @@ class AnfTest extends WordSpec with Matchers {
   "nested lambda: [\\f g x. g (\\y. f (f y)) x]" should {
     "be transformed to ANF as expected" in {
       val original =
-        lam(3, app2(arg1, clo1(arg0, 1, app(free0, app(free0, arg0))), arg2))
+        lam(2, app(arg1, clo1(arg0, 1, app(free0, app(free0, arg0)))))
       val expected =
         AExpr(
           lam(
-            3,
-            let1(
-              clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))),
-              app2a(arg1, stack1, arg2))))
+            2,
+            let1(clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))), appa(arg1, stack1))))
       testTransform(original, expected)
     }
   }
 
-  "issue 6535: [\\f x. f x x]" should {
+  "issue 6535: [\\x. x + x]" should {
     "be transformed to ANF as expected (with no redundant lets)" in {
-      val original = lam(2, app2(arg0, arg1, arg1))
-      val expected = AExpr(lam(2, app2a(arg0, arg1, arg1)))
+      val original = lam(1, binop(SBAddInt64, arg1, arg1))
+      val expected = AExpr(lam(1, binopa(SBAddInt64, arg1, arg1)))
       testTransform(original, expected)
     }
   }
