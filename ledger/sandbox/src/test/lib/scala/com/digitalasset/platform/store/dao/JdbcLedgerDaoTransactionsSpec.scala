@@ -431,7 +431,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  // Test case for #6698
   it should "return empty source when offset range is from the future" in {
     val commands: Vector[(Offset, LedgerEntry.Transaction)] = Vector.fill(3)(singleCreate)
     val beginOffsetFromTheFuture = nextOffset()
@@ -453,6 +452,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  // TODO(Leo): this should be converted to scalacheck test with random offset gaps and pageSize
   it should "return all transactions in the specified offset range when iterating with gaps in the offsets assigned to events and a page size that ensures a page ends in such a gap" in {
     // Simulates a gap in the offsets assigned to events, as they
     // can be assigned to party allocation, package uploads and
@@ -480,7 +480,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       ledgerDao <- LoggingContext.newLoggingContext { implicit logCtx =>
         // eventsPageSize = 2 makes sure that a page is delimited
-        // by an offset that has is absent from the events table
+        // by an offset that does not have a corresponding event in the store
         daoOwner(eventsPageSize = 2).acquire()
       }.asFuture
 
