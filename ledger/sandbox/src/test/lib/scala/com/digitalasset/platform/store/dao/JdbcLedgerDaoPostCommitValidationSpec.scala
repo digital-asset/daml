@@ -17,12 +17,14 @@ import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  override protected def daoOwner(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+  override protected def daoOwner(eventsPageSize: Int)(
+      implicit logCtx: LoggingContext
+  ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao
       .validatingWriteOwner(
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
-        eventsPageSize = 100,
+        eventsPageSize = eventsPageSize,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
       )
