@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.stores
 import java.time.Instant
 import java.util.concurrent.CompletionStage
 
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
@@ -40,7 +39,7 @@ import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 trait IndexAndWriteService {
   def indexService: IndexService
@@ -116,12 +115,7 @@ object SandboxIndexAndWriteService {
       initialConfig: Configuration,
       timeProvider: TimeProvider,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
-    val indexSvc = new LedgerBackedIndexService(ledger, participantId) {
-      override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
-        Source
-          .single(LedgerConfiguration(initialConfig.maxDeduplicationTime))
-          .concat(Source.future(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
-    }
+    val indexSvc = new LedgerBackedIndexService(ledger, participantId)
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {

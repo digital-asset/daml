@@ -71,7 +71,6 @@ final class StandaloneApiServer(
       indexService <- JdbcIndex
         .owner(
           ServerRole.ApiServer,
-          ledgerConfig.initialConfiguration,
           domain.LedgerId(ledgerId),
           participantId,
           config.jdbcUrl,

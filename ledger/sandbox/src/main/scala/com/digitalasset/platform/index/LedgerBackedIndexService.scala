@@ -19,6 +19,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -48,7 +49,7 @@ import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 
-abstract class LedgerBackedIndexService(
+final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: ParticipantId,
 )(implicit mat: Materializer)
@@ -236,6 +237,26 @@ abstract class LedgerBackedIndexService(
     ledger
       .lookupLedgerConfiguration()
       .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
+
+  /** Looks up the current configuration, if set, and continues to stream configuration changes.
+    *
+    */
+  override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] = {
+    Source
+      .future(lookupConfiguration())
+      .flatMapConcat { optResult =>
+        val offset = optResult.map(_._1)
+        val foundConfig = optResult.map(_._2)
+
+        val initialConfig = Source(foundConfig.toList)
+        val configStream = configurationEntries(offset).collect {
+          case (_, Accepted(_, _, configuration)) => configuration
+        }
+        initialConfig
+          .concat(configStream)
+          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationTime))
+      }
+  }
 
   /** Retrieve configuration entries. */
   override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
