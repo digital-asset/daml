@@ -427,7 +427,7 @@ A timer. Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
 ``daml.index.db.connection.sandbox.pool``
-----------------------------
+-----------------------------------------
 
 This namespace holds a number of interesting metrics about the
 connection pool used to communicate with the persistent store
