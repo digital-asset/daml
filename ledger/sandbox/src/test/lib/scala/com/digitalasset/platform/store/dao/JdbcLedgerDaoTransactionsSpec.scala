@@ -454,8 +454,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   }
 
   it should "return all transactions in the specified offset range when iterating with pageSize = 2" in {
-    val pageSize = 2
-
+    // Simulates a gap in the offsets assigned to events, as they
+    // can be assigned to party allocation, package uploads and
+    // configuration updates as well
     def offsetGap(): Vector[(Offset, LedgerEntry.Transaction)] = {
       nextOffset()
       Vector.empty[(Offset, LedgerEntry.Transaction)]
@@ -477,11 +478,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       _ <- commands.traverse(x => store(x))
 
-      ledgerDao2 <- LoggingContext.newLoggingContext { implicit logCtx =>
-        daoOwner(pageSize).acquire()
+      ledgerDao <- LoggingContext.newLoggingContext { implicit logCtx =>
+        // eventsPageSize = 2 makes sure that a page is delimited
+        // by an offset that has is absent from the events table
+        daoOwner(eventsPageSize = 2).acquire()
       }.asFuture
 
-      response <- ledgerDao2.transactionsReader
+      response <- ledgerDao.transactionsReader
         .getFlatTransactions(
           beginOffset,
           endOffset,
