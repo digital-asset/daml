@@ -18,6 +18,7 @@ template Asset
           create this with
             owner = newOwner
 
+setup : Scenario AssetId
 setup = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"

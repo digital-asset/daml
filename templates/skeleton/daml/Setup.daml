@@ -18,7 +18,7 @@ initialize = do
   bobTV <- submit alice do
     exerciseCmd aliceTV Give with newOwner = bob
 
-  submit bob do
+  _ <- submit bob do
     exerciseCmd bobTV Give with newOwner = alice
 
   pure ()
