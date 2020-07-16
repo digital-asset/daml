@@ -41,14 +41,14 @@ data Tools = Tools
 
 newtype DamlOption = DamlOption FilePath
 instance IsOption DamlOption where
-  defaultValue = DamlOption $ "daml"
+  defaultValue = DamlOption "daml"
   parseValue = Just . DamlOption
   optionName = Tagged "daml"
   optionHelp = Tagged "runfiles path to the daml executable"
 
 newtype SandboxOption = SandboxOption FilePath
 instance IsOption SandboxOption where
-  defaultValue = SandboxOption $ "sandbox"
+  defaultValue = SandboxOption "sandbox"
   parseValue = Just . SandboxOption
   optionName = Tagged "sandbox"
   optionHelp = Tagged "runfiles path to the sandbox executable"
@@ -64,7 +64,7 @@ instance IsOption SandboxArgsOption where
 
 newtype CertificatesOption = CertificatesOption FilePath
 instance IsOption CertificatesOption where
-  defaultValue = CertificatesOption $ "certificates"
+  defaultValue = CertificatesOption "certificates"
   parseValue = Just . CertificatesOption
   optionName = Tagged "certs"
   optionHelp = Tagged "runfiles path to the certificates directory"

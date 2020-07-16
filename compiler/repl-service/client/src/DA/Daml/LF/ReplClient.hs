@@ -3,7 +3,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.ReplClient
   ( Options(..)
   , MaxInboundMessageSize(..)
