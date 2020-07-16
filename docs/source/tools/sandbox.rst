@@ -615,3 +615,11 @@ As in the following example:
 
 Single call services return the time to serve the request,
 streaming services measure the time to return the first response.
+
+``jvm``
+-------
+
+Under the ``jvm`` namespace there is a collection of metrics that
+tracks important measurements about the JVM that the sandbox is
+running on, including CPU usage, memory consumption and the
+current state of threads.
