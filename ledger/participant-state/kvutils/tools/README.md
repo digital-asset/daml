@@ -23,7 +23,7 @@ Run the tool using Bazel:
 
 # `benchmark-replay`
 
-that benchmark LF engine using transactions from a ledger export
+that benchmarks LF engine using transactions from a ledger export
 stored in a file.
 
 ## Build 
@@ -38,33 +38,33 @@ Build the tool with Bazel:
 Run the tool using Bazel and pass the benchmark parameters using `-p`
 jmh command line functionality:
 
-    bazel run //ledger/participant-state/kvutils/tools:replay -- \
-      -p ledgerFile=<ledger export files>                        \
-      -p darFile=<dar files>                                     \
-      -p choiceName=<exercise choice names>                      \
-      [-p adapt=true]                                            \
+    bazel run //ledger/participant-state/kvutils/tools:benchmark-replay -- \
+      -p ledgerFile=<ledger export files>                                  \
+      -p darFile=<dar files>                                               \
+      -p choiceName=<exercise choice names>                                \
+      [-p adapt=true]
 
+where:
 
+* `<ledger export files>`: is the full path of the ledger export
+  files to be used separated by commas (`,`)
 
-* `<ledger export files>` : is the full path of the ledger export
-  files to be tested separated by commas (`,`)
-
-* `<dar files>` : is the full path of the dar files to be tested
-  separate by commas (`,`)
+* `<dar files>` : is the full path of the dar files to be used
+  separated by commas (`,`)
 
 * `<exercise choice names`>: is the full qualified choice name of the
   exercises to be benchmarked separated by commas (`,`).  A full
   qualified choice name should be of the form
-  `ModuleName:TemplateName:ChoiceName`,  Note the package ID is
+  `ModuleName:TemplateName:ChoiceName`.  Note the package ID is
   omitted.
 
 * the optional parameter `adapt=true` can be set to enable dar-export
-  adaptation. The adaptation process attempt to map the identifiers
-  from the export file with the one of dar file when those latter
+  "adaptation". The adaptation process attempts to map the identifiers
+  from the export file with the ones of dar file when those latter
   differ only in their package ID.  This can be used when the original
   DAML source used to generate the ledger export is only slightly
   modified or compiled with different options.
   
 The tool expects the exercised choices to be unique in the ledger
 export.  If two or more transactions in the export exercise the same
-choice (same template Name same choice Name), both are ignored.
+choice (same template name same choice name), both are ignored.
