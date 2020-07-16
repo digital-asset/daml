@@ -82,7 +82,7 @@ final class ProposeAccept(
   private val clientConfig =
     LedgerClientConfiguration(
       ProposeAccept.ApplicationId,
-      LedgerIdRequirement("", enabled = false),
+      LedgerIdRequirement.none,
       CommandClientConfiguration.default,
       None,
     )
