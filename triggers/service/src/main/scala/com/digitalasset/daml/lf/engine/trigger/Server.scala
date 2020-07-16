@@ -42,6 +42,7 @@ import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.engine.trigger.dao._
 
 class Server(
@@ -54,6 +55,8 @@ class Server(
     esf: ExecutionSequencerFactory) {
 
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
+
+  private var authServiceClient = AuthServiceClient(secretKey)
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
   // When running with a persistent store we also write the encoded packages so we can recover
@@ -183,27 +186,22 @@ class Server(
               entity(as[StartParams]) {
                 params =>
                   TokenManagement
-                    .findCredentials(secretKey, request)
+                    .getBasicCredentials(secretKey, request)
                     .fold(
                       message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                      credentials => {
-                        val tokenFuture = Http(ctx.system).singleRequest(HttpRequest(
-                          method = HttpMethods.POST,
-                          uri = "http://localhost:8089/sa/secure/authorize",
-                          headers = request.headers
-                            .find({
-                              case Authorization(BasicHttpCredentials(username, password)) => true
-                              case _ => false
-                            })
-                            .toList // Presence of credentials checked in findCredentials above
-                        ))
-                        onComplete(tokenFuture) { tokenResponse =>
-                          startTrigger(credentials, params.triggerName) match {
-                            case Left(err) =>
-                              complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                            case Right(triggerInstance) =>
-                              complete(successResponse(triggerInstance))
-                          }
+                      userpass => {
+                        val (username, password) = userpass
+                        val tokenFuture = (authServiceClient.authorize _).tupled(userpass)
+                        onComplete(tokenFuture) {
+                          authServiceToken =>
+                            val encryptedCreds = UserCredentials(
+                              TokenManagement.encrypt(secretKey, username, password))
+                            startTrigger(encryptedCreds, params.triggerName) match {
+                              case Left(err) =>
+                                complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                              case Right(triggerInstance) =>
+                                complete(successResponse(triggerInstance))
+                            }
                         }
                       }
                     )
