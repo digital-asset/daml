@@ -434,7 +434,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   // Test case for #6698
   it should "return empty source when offset range is from the future" in {
     val commands: Vector[(Offset, LedgerEntry.Transaction)] = Vector.fill(3)(singleCreate)
-    val beginOffsetFromTheFuture = nextOffset();
+    val beginOffsetFromTheFuture = nextOffset()
     val endOffsetFromTheFuture = nextOffset()
 
     for {
