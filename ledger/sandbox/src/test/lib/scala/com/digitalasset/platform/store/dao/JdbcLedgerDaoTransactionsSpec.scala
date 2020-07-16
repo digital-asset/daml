@@ -461,7 +461,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     // the order of `nextOffset()` calls is important
     val beginOffset = nextOffset()
 
-    val commandWithOffsetGaps: Vector[(Offset, LedgerEntry.Transaction)] =
+    val commandsWithOffsetGaps: Vector[(Offset, LedgerEntry.Transaction)] =
       Vector(singleCreate) ++ offsetGap ++
         Vector.fill(2)(singleCreate) ++ offsetGap ++
         Vector.fill(3)(singleCreate) ++ offsetGap ++ offsetGap ++
@@ -469,10 +469,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
     val endOffset = nextOffset()
 
-    commandWithOffsetGaps should have length 11L
+    commandsWithOffsetGaps should have length 11L
 
     for {
-      _ <- storeSync(commandWithOffsetGaps)
+      _ <- storeSync(commandsWithOffsetGaps)
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
@@ -490,7 +490,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     } yield {
       val readTxOffsets: Vector[String] = readTxs.map(_.offset)
       readTxOffsets shouldBe readTxOffsets.sorted
-      readTxOffsets shouldBe commandWithOffsetGaps.map(_._1.toHexString)
+      readTxOffsets shouldBe commandsWithOffsetGaps.map(_._1.toHexString)
     }
   }
 
