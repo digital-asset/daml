@@ -15,16 +15,17 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdNotFoundException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
@@ -56,24 +57,32 @@ object ReadOnlySqlLedger {
     private def verifyLedgerId(
         ledgerDao: LedgerReadDao,
         initialLedgerId: LedgerId,
-    )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] =
-      ledgerDao
-        .lookupLedgerId()
-        .flatMap {
-          case Some(`initialLedgerId`) =>
-            logger.info(s"Found existing ledger with ID: $initialLedgerId")
-            Future.successful(initialLedgerId)
-          case Some(foundLedgerId) =>
-            Future.failed(
-              new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
-          case None =>
-            logger.info("Ledger ID not found in the index database. Retrying again in 5 seconds.")
-            val promise = Promise[LedgerId]()
-            mat.scheduleOnce(5.seconds, () => {
-              promise.completeWith(verifyLedgerId(ledgerDao, initialLedgerId))
-            })
-            promise.future
-        }
+    )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[LedgerId] = {
+      val predicate: PartialFunction[Throwable, Boolean] = {
+        case _: LedgerIdNotFoundException => true
+        case _: LedgerIdMismatchException => false
+        case _ => false
+      }
+      val retryDelay = 5.seconds
+      val maxAttempts = 100
+      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) { (attempt, _wait) =>
+        ledgerDao
+          .lookupLedgerId()
+          .flatMap {
+            case Some(`initialLedgerId`) =>
+              logger.info(s"Found existing ledger with ID: $initialLedgerId")
+              Future.successful(initialLedgerId)
+            case Some(foundLedgerId) =>
+              Future.failed(
+                new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
+            case None =>
+              logger.info(
+                s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay.")
+              Future.failed(new LedgerIdNotFoundException(attempt))
+          }
+      }
+
+    }
 
     private def ledgerDaoOwner(): ResourceOwner[LedgerReadDao] =
       JdbcLedgerDao.readOwner(
