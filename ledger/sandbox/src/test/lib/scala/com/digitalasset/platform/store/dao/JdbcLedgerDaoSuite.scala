@@ -30,8 +30,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 import scala.util.{Success, Try}
 
-import scala.language.higherKinds
-
 private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLedgerDaoBackend {
   this: Suite =>
 
@@ -448,23 +446,19 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final def storeSync(commands: Vector[(Offset, LedgerEntry.Transaction)])(
       implicit ec: ExecutionContext): Future[Vector[(Offset, LedgerEntry.Transaction)]] = {
 
-    import scalaz.Free
+    import scalaz.{Free, NaturalTransformation}
     import scalaz.syntax.traverse._
     import scalaz.std.vector._
     import scalaz.std.scalaFuture._
 
-    val storeDelayed = (a: (Offset, LedgerEntry.Transaction)) => Free.liftFU(store(a))
+    val storeDelayed = (a: (Offset, LedgerEntry.Transaction)) => Free.liftF(store(a))
 
     // force synchronous future processing with Free monad
     // to provide the guarantees that all transactions persisted in the specified order
     val xs: Free[Future, Vector[(Offset, LedgerEntry.Transaction)]] =
       commands.traverse(storeDelayed)
 
-    xs.foldMap(noopNaturalTransformation[Future])
-  }
-
-  private def noopNaturalTransformation[F[_]] = new scalaz.NaturalTransformation[F, F] {
-    override def apply[A](fa: F[A]): F[A] = fa
+    xs.foldMap(NaturalTransformation.refl[Future])
   }
 
   /** A transaction that creates the given key */
