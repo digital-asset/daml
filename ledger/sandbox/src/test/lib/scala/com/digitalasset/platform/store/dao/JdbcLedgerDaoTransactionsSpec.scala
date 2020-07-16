@@ -453,7 +453,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   }
 
   // TODO(Leo): this should be converted to scalacheck test with random offset gaps and pageSize
-  it should "return all transactions in the specified offset range when iterating with gaps in the offsets assigned to events and a page size that ensures a page ends in such a gap" in {
+  // flaky, issue: #6760
+  ignore should "return all transactions in the specified offset range when iterating with gaps in the offsets assigned to events and a page size that ensures a page ends in such a gap" in {
     // Simulates a gap in the offsets assigned to events, as they
     // can be assigned to party allocation, package uploads and
     // configuration updates as well
