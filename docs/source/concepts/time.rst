@@ -13,27 +13,19 @@ This document describes the detailed semantics of time on DAML ledgers,
 centered around the two timestamps assigned to each transaction:
 the *ledger time* ``lt_TX`` and the *record time* ``rt_TX``.
 
+
+.. _ledger_time:
+
 Ledger time
 ***********
 
 The *ledger time* ``lt_TX`` is a property of a transaction.
-It is a timestamp with microsecond resolution,
-and defines the value of all :ref:`getTime <daml-ref-gettime>` calls in the given transaction.
-The ledger time is assigned by the participant as part of the DAML command interpretation.
+It is a timestamp that defines the value of all :ref:`getTime <daml-ref-gettime>` calls in the given transaction,
+and has microsecond resolution.
+The ledger time is assigned by the submitting participant as part of the DAML command interpretation.
 
-The ledger time of valid transaction ``TX`` must fullfil the following rules:
 
-#. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
-   on a contract ``C``, ``lt_TX >= lt_C``,
-   where ``lt_C`` is the ledger time of the transaction that created ``C``.
-
-#. **Skew**: ``rt_TX - skew_min <= lt_TX <= rt_TX + skew_max``,
-   where ``skew_min`` and ``skew_max`` are parameters defined by the ledger.
-
-Apart from that, no other guarantees are given on the ledger time.
-Time has therefore to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameters.
-DAML applications should not interpret the value returned by :ref:`getTime <daml-ref-gettime>` as a precise timestamp.
-
+.. _record-time:
 
 Record time
 ***********
@@ -42,7 +34,34 @@ The *record time* ``rt_TX`` is another property of a transaction.
 It is timestamp with microsecond resolution,
 and is assigned by the ledger when the transaction is recorded on the ledger.
 
-The DAML ledger model does not prescribe how the record time is assigned.
+The record time should be an intuitive representation of "real time",
+but the DAML ledger model does not prescribe how exactly the record time is assigned.
+Each ledger implementation might use a different way of representing time in a distributed setting -
+for details, contact your ledger operator.
+
+
+.. _time_guarantees:
+
+Guarantees
+**********
+
+The ledger time of valid transaction ``TX`` must fullfil the following rules:
+
+#. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
+   on a contract ``C``, ``lt_TX >= lt_C``,
+   where ``lt_C`` is the ledger time of the transaction that created ``C``.
+
+#. **Bounded skew**: ``rt_TX - skew_min <= lt_TX <= rt_TX + skew_max``,
+   where ``skew_min`` and ``skew_max`` are parameters defined by the ledger.
+
+Apart from that, no other guarantees are given on the ledger time.
+In particular, neither the ledger time nor the record time need to be monotonically increasing.
+
+Time has therefore to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameters.
+DAML applications should not interpret the value returned by :ref:`getTime <daml-ref-gettime>` as a precise timestamp.
+
+
+.. _ledger-time-model:
 
 Ledger time model
 *****************
@@ -54,10 +73,14 @@ It consists of the following:
 
 #. ``transaction_latency``, the average duration from the time a transaction is submitted from a participant to the ledger
    until the transaction is recorded.
-
+   This value is used by the participant to account for latency when submitting transactions to the ledger:
+   transactions are submitted slightly ahead of their ledger time, with the intention that they arrive at ``lt_TX == rt_TX``.
 
 The ledger time model is part of the ledger configuration and can be changed by ledger operators through the
 :ref:`SetTimeModel <com.daml.ledger.api.v1.admin.SetTimeModelRequest>` config management API.
+
+
+.. _assigning-ledger-time:
 
 Assigning ledger time
 *********************
@@ -78,8 +101,12 @@ For reference, this section describes the details of how the ledger time is assi
    #. ``t_p + min_ledger_time_rel``, if ``min_ledger_time_rel`` is given
    #. ``min_ledger_time_abs``, if ``min_ledger_time_abs`` is given
 
-#. If the set of contracts used by the transaction depends on time,
-   then the command interpretation may need to be repeated until a suitable ledger time is found.
+#. Since the set of commands used by given transaction can depend on the chosen time,
+   the above process might need to be repeated until a suitable ledger time is found.
+
+#. If no suitable ledger time is found after 3 iterations, the submission is rejected.
+   This can happen if there is contention around a contract,
+   or if the transaction uses a very fine-grained control flow based on time.
 
 #. At this point, the ledger time may lie in the future (e.g., if a large value for ``min_ledger_time_rel`` was given).
    The participant waits until ``lt_TX - transaction_latency`` before it submits the transaction to the ledger - 
