@@ -17,7 +17,7 @@ DAML has these built-in functions for working with time:
 - ``subTime``: subtracts one time from another. Returns the ``RelTime`` difference between ``time1`` and ``time2``.
 - ``addRelTime``: add times. Takes a ``Time`` and ``RelTime`` and adds the ``RelTime`` to the ``Time``.
 - ``days``, ``hours``, ``minutes``, ``seconds``: constructs a ``RelTime`` of the specified length.
-- ``pass``: (in :doc:`scenario tests <../testing-scenarios>` only) use ``pass : RelTime -> Scenario Time`` to advance the ledger effective time by the argument amount. Returns the new time.
+- ``pass``: (in :doc:`scenario tests <../testing-scenarios>` only) use ``pass : RelTime -> Scenario Time`` to advance the ledger time by the argument amount. Returns the new time.
 
 Working with numbers
 ********************
