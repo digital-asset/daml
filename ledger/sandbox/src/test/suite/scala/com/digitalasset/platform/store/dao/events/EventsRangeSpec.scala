@@ -18,7 +18,7 @@ class EventsRangeSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
     EventsRange.isEmpty(range) shouldBe expected
   }
 
-  private def eventsRangeGen: Gen[EventsRange[Int]] =
+  private val eventsRangeGen: Gen[EventsRange[Int]] =
     for {
       a <- Arbitrary.arbitrary[Int]
       b <- Arbitrary.arbitrary[Int]
