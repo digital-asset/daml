@@ -59,7 +59,7 @@ where:
   omitted.
 
 * the optional parameter `adapt=true` can be set to enable dar-export
-  "adaptation". The adaptation process attempt to map the identifiers
+  "adaptation". The adaptation process attempts to map the identifiers
   from the export file with the ones of dar file when those latter
   differ only in their package ID.  This can be used when the original
   DAML source used to generate the ledger export is only slightly
