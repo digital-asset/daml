@@ -474,7 +474,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
     val endOffset = nextOffset()
 
-    commandWithOffsetGaps.size shouldBe 11
+    commandWithOffsetGaps should have length 11L
 
     for {
       _ <- commandWithOffsetGaps.traverse(x => store(x))
@@ -493,7 +493,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       readTxs = extractAllTransactions(response)
     } yield {
-      readTxs.size shouldBe commandWithOffsetGaps.size
+      readTxs should have length commandWithOffsetGaps.size.toLong
       val readTxOffsets: Vector[String] = readTxs.map(_.offset)
       readTxOffsets shouldBe readTxOffsets.sorted
       readTxOffsets shouldBe commandWithOffsetGaps.map(_._1.toHexString)
