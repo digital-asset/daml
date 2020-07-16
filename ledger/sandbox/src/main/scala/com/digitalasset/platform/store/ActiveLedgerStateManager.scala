@@ -12,7 +12,7 @@ import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{CommittedTransaction, NodeId, Node => N}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
@@ -63,7 +63,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
-      transaction: Tx.CommittedTransaction,
+      transaction: CommittedTransaction,
       disclosure: Relation[NodeId, Party],
       divulgence: Relation[ContractId, Party],
       divulgedContracts: List[(Value.ContractId, ContractInst)])

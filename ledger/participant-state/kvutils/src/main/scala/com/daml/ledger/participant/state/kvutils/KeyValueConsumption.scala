@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
@@ -258,7 +258,7 @@ object KeyValueConsumption {
         optNodeSeeds = None,
         optByKeyNodes = None,
       ),
-      transaction = Tx.CommittedTransaction(transaction),
+      transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = List.empty

@@ -7,7 +7,7 @@ import java.io.InputStream
 
 import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.data.Ref.LedgerString
-import com.daml.lf.transaction.{Transaction => Tx, TransactionCoder, TransactionOuterClass}
+import com.daml.lf.transaction.{CommittedTransaction, TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 
@@ -15,13 +15,13 @@ trait TransactionSerializer {
 
   def serializeTransaction(
       trId: LedgerString,
-      transaction: Tx.CommittedTransaction,
+      transaction: CommittedTransaction,
   ): Either[EncodeError, Array[Byte]]
 
   def deserializeTransaction(
       trId: LedgerString,
       stream: InputStream,
-  ): Either[DecodeError, Tx.CommittedTransaction]
+  ): Either[DecodeError, CommittedTransaction]
 
 }
 
@@ -29,7 +29,7 @@ object TransactionSerializer extends TransactionSerializer {
 
   override def serializeTransaction(
       trId: LedgerString,
-      transaction: Tx.CommittedTransaction,
+      transaction: CommittedTransaction,
   ): Either[EncodeError, Array[Byte]] =
     TransactionCoder
       .encodeTransaction(
@@ -41,7 +41,8 @@ object TransactionSerializer extends TransactionSerializer {
 
   override def deserializeTransaction(
       trId: LedgerString,
-      stream: InputStream): Either[DecodeError, Tx.CommittedTransaction] =
+      stream: InputStream,
+  ): Either[DecodeError, CommittedTransaction] =
     TransactionCoder
       .decodeTransaction(
         TransactionCoder.EventIdDecoder(trId),
@@ -49,5 +50,5 @@ object TransactionSerializer extends TransactionSerializer {
         TransactionOuterClass.Transaction.parseFrom(
           Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
       )
-      .map(Tx.CommittedTransaction(_))
+      .map(CommittedTransaction(_))
 }

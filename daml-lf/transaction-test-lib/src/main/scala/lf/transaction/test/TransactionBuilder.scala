@@ -57,9 +57,9 @@ final class TransactionBuilder {
     TransactionVersions.assertAsVersionedTransaction(GenTransaction(nodes.result(), roots.result()))
   }
 
-  def buildSubmitted(): Tx.SubmittedTransaction = Tx.SubmittedTransaction(build())
+  def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
 
-  def buildCommitted(): Tx.CommittedTransaction = Tx.CommittedTransaction(build())
+  def buildCommitted(): CommittedTransaction = CommittedTransaction(build())
 
   def newCid: ContractId = ContractId.V1(newHash())
 
@@ -196,16 +196,16 @@ object TransactionBuilder {
     builder.build()
   }
 
-  def justSubmitted(node: Node, nodes: Node*): Tx.SubmittedTransaction =
-    Tx.SubmittedTransaction(just(node, nodes: _*))
+  def justSubmitted(node: Node, nodes: Node*): SubmittedTransaction =
+    SubmittedTransaction(just(node, nodes: _*))
 
-  def justCommitted(node: Node, nodes: Node*): Tx.CommittedTransaction =
-    Tx.CommittedTransaction(just(node, nodes: _*))
+  def justCommitted(node: Node, nodes: Node*): CommittedTransaction =
+    CommittedTransaction(just(node, nodes: _*))
 
   // not valid transactions.
   val Empty: Tx.Transaction =
     TransactionVersions.assertAsVersionedTransaction(GenTransaction(HashMap.empty, ImmArray.empty))
-  val EmptySubmitted: Tx.SubmittedTransaction = Tx.SubmittedTransaction(Empty)
-  val EmptyCommitted: Tx.CommittedTransaction = Tx.CommittedTransaction(Empty)
+  val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
+  val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
 
 }

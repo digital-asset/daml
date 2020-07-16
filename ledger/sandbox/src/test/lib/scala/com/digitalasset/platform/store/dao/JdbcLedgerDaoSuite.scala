@@ -17,7 +17,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.{Node, NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.lf.value.Value
 import com.daml.daml_lf_dev.DamlLf
@@ -222,7 +222,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = Tx.CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = CommittedTransaction(txBuilder.buildCommitted()),
       explicitDisclosure = Map(nid -> Set("Alice", "Bob"))
     )
   }
@@ -254,7 +254,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val txBuilder = new TransactionBuilder
     val exerciseId = txBuilder.add(exercise(targetCid))
     val childId = txBuilder.add(create(txBuilder.newCid), exerciseId)
-    val tx = Tx.CommittedTransaction(txBuilder.build())
+    val tx = CommittedTransaction(txBuilder.build())
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
@@ -267,7 +267,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      Tx.CommittedTransaction(tx),
+      CommittedTransaction(tx),
       Map(exerciseId -> Set("Alice", "Bob"), childId -> Set("Alice", "Bob"))
     )
   }
@@ -430,7 +430,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         submitterInfo = submitterInfo,
         workflowId = entry.workflowId,
         transactionId = entry.transactionId,
-        transaction = Tx.CommittedTransaction(entry.transaction),
+        transaction = CommittedTransaction(entry.transaction),
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = entry.ledgerEffectiveTime,
         offset = offset,

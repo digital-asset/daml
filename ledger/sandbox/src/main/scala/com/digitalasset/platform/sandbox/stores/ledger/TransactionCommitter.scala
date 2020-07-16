@@ -3,7 +3,6 @@
 
 package com.daml.lf.transaction
 
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, SubmittedTransaction}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 
@@ -41,9 +40,7 @@ object LegacyTransactionCommitter extends TransactionCommitter {
           Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString)))
         .withDefault(identity)
 
-    Transaction.CommittedTransaction(
-      VersionedTransaction.map2(identity[NodeId], contractMapping)(transaction)
-    )
+    CommittedTransaction(VersionedTransaction.map2(identity[NodeId], contractMapping)(transaction))
 
   }
 

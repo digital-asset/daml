@@ -7,7 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.{NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{CommittedTransaction, NodeId, Transaction => Tx}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf
 import com.daml.ledger.{CommandId, EventId, TransactionId}
@@ -33,7 +33,7 @@ import scala.annotation.tailrec
 object TransactionConversion {
 
   private type ContractId = lf.value.Value.ContractId
-  private type Transaction = Tx.CommittedTransaction
+  private type Transaction = CommittedTransaction
   private type Node = Tx.Node
   private type Create = NodeCreate.WithTxValue[ContractId]
   private type Exercise = NodeExercises.WithTxValue[NodeId, ContractId]

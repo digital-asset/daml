@@ -261,10 +261,10 @@ object EnrichedTransaction {
     * @param tx            transaction resulting from executing the update
     *                      expression at the given effective time.
     */
-  def apply[Transaction <: Tx.Transaction](
+  def apply(
       authorization: Authorization,
-      tx: Transaction,
-  ): EnrichedTransaction[Transaction] = {
+      tx: Tx.Transaction,
+  ): EnrichedTransaction = {
 
     // Before we traversed through an exercise node the exercise witnesses
     // contain only the initial authorizers.
@@ -376,7 +376,7 @@ object EnrichedTransaction {
     }
 
     val finalState =
-      tx.roots.foldLeft(EnrichState.Empty) { (s, nodeId) =>
+      tx.transaction.roots.foldLeft(EnrichState.Empty) { (s, nodeId) =>
         enrichNode(s, initialParentExerciseWitnesses, authorization, nodeId)
       }
 
@@ -390,8 +390,8 @@ object EnrichedTransaction {
 
 }
 
-final case class EnrichedTransaction[Transaction <: Tx.Transaction](
-    tx: Transaction,
+final case class EnrichedTransaction(
+    tx: Tx.Transaction,
     // A relation between a node id and the parties to which this node gets explicitly disclosed.
     explicitDisclosure: Relation[NodeId, Party],
     // A relation between contract id and the parties to which the contract id gets
