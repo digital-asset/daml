@@ -453,7 +453,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "return all transactions in the specified offset range when iterating with pageSize = 2" in {
+  it should "return all transactions in the specified offset range when iterating with gaps in the offsets assigned to events and a page size that ensures a page ends in such a gap" in {
     // Simulates a gap in the offsets assigned to events, as they
     // can be assigned to party allocation, package uploads and
     // configuration updates as well
