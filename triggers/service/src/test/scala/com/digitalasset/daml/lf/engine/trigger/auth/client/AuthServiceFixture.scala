@@ -77,10 +77,10 @@ object AuthServiceFixture {
       }
     } yield (process, port)
 
-    val authServiceBaseUri = Uri.from(scheme = "http", host = host.getHostAddress)
     val testF: Future[A] = for {
       (_, authServicePort) <- authServiceInstanceF
-      authServiceClient = AuthServiceClient(authServiceBaseUri.withPort(authServicePort.value))
+      authServiceBaseUri = Uri.from(scheme = "http", host = host.getHostAddress, port = authServicePort.value)
+      authServiceClient = AuthServiceClient(authServiceBaseUri)
       result <- testFn(authServiceClient)
     } yield result
 

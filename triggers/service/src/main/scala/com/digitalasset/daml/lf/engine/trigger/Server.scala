@@ -29,6 +29,7 @@ import com.daml.lf.engine.{
   ResultDone,
   ResultNeedPackage
 }
+import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
@@ -37,13 +38,9 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import java.io.ByteArrayInputStream
-import java.net.InetAddress
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
-
-import com.daml.lf.engine.trigger.dao._
-import com.daml.ports.Port
 
 class Server(
     ledgerConfig: LedgerConfig,
@@ -55,11 +52,6 @@ class Server(
     esf: ExecutionSequencerFactory) {
 
   private var triggerLog: Map[UUID, Vector[(LocalDateTime, String)]] = Map.empty
-
-  private val authServiceClient = AuthServiceClient(InetAddress.getLoopbackAddress, Port(8089))(
-    ctx.system.toClassic,
-    materializer,
-    ctx.system.executionContext)
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
   // When running with a persistent store we also write the encoded packages so we can recover
@@ -189,23 +181,15 @@ class Server(
               entity(as[StartParams]) {
                 params =>
                   TokenManagement
-                    .getBasicCredentials(request)
+                    .findCredentials(secretKey, request)
                     .fold(
                       message => complete(errorResponse(StatusCodes.Unauthorized, message)),
-                      userpass => {
-                        val (username, password) = userpass
-                        val tokenFuture = authServiceClient.authorize(username, password)
-                        onComplete(tokenFuture) {
-                          authServiceToken =>
-                            val encryptedCreds = UserCredentials(
-                              TokenManagement.encrypt(secretKey, username, password))
-                            startTrigger(encryptedCreds, params.triggerName) match {
-                              case Left(err) =>
-                                complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                              case Right(triggerInstance) =>
-                                complete(successResponse(triggerInstance))
-                            }
-                        }
+                      credentials =>
+                        startTrigger(credentials, params.triggerName) match {
+                          case Left(err) =>
+                            complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                          case Right(triggerInstance) =>
+                            complete(successResponse(triggerInstance))
                       }
                     )
               }
