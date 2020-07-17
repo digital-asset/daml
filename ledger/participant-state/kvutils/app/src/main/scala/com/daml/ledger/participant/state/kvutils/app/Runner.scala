@@ -89,12 +89,12 @@ final class Runner[T <: ReadWriteService, Extra](
                 lfValueTranslationCache = lfValueTranslationCache,
               ).acquire()
               _ <- new StandaloneApiServer(
+                ledgerId = config.ledgerId,
                 config = factory.apiServerConfig(participantConfig, config),
                 commandConfig = factory.commandConfig(participantConfig, config),
                 partyConfig = factory.partyConfig(config),
                 ledgerConfig = factory.ledgerConfig(config),
-                readService = readService,
-                writeService = writeService,
+                optWriteService = Some(writeService),
                 authService = factory.authService(config),
                 transformIndexService = service => new TimedIndexService(service, metrics),
                 metrics = metrics,

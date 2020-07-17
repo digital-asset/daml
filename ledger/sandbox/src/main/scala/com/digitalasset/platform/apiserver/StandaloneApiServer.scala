@@ -9,7 +9,6 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -17,7 +16,7 @@ import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -25,7 +24,7 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
   PartyConfiguration,
-  ServerRole,
+  ServerRole
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
@@ -42,12 +41,12 @@ import scala.concurrent.ExecutionContext
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
 final class StandaloneApiServer(
+    ledgerId: LedgerId,
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
     ledgerConfig: LedgerConfiguration,
-    readService: ReadService,
-    writeService: WriteService,
+    optWriteService: Option[WriteService],
     authService: AuthService,
     transformIndexService: IndexService => IndexService = identity,
     metrics: Metrics,
@@ -69,17 +68,10 @@ final class StandaloneApiServer(
     preloadPackages(packageStore)
 
     val owner = for {
-      initialConditions <- ResourceOwner.forFuture(() =>
-        readService.getLedgerInitialConditions().runWith(Sink.head))
-      authorizer = new Authorizer(
-        () => java.time.Clock.systemUTC.instant(),
-        initialConditions.ledgerId,
-        participantId)
       indexService <- JdbcIndex
         .owner(
           ServerRole.ApiServer,
-          initialConditions.config,
-          domain.LedgerId(initialConditions.ledgerId),
+          domain.LedgerId(ledgerId),
           participantId,
           config.jdbcUrl,
           config.eventsPageSize,
@@ -87,15 +79,16 @@ final class StandaloneApiServer(
           lfValueTranslationCache,
         )
         .map(transformIndexService)
+      authorizer = new Authorizer(
+        () => java.time.Clock.systemUTC.instant(),
+        ledgerId,
+        participantId)
       healthChecks = new HealthChecks(
-        "index" -> indexService,
-        "read" -> readService,
-        "write" -> writeService,
-      )
+        Seq("index" -> indexService) ++ optWriteService.toList.map("write" -> _): _*)
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
-        writeService = writeService,
+        optWriteService = optWriteService,
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,
@@ -124,7 +117,7 @@ final class StandaloneApiServer(
     } yield {
       writePortFile(apiServer.port)
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = ${initialConditions.ledgerId}, port = ${apiServer.port}, dar file = ${config.archiveFiles}")
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}")
       apiServer
     }
 

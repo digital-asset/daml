@@ -55,17 +55,17 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
-    newParticipantState()
+    newParticipantState(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
 
   private def newParticipantState(
-      ledgerId: Option[LedgerId] = None,
+      ledgerId: LedgerId,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
       participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
@@ -83,7 +83,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
+      newParticipantState(ledgerId = ledgerId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -596,10 +596,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       "store the ledger ID and re-use it" in {
         val ledgerId = newLedgerId()
         for {
-          retrievedLedgerId1 <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
+          retrievedLedgerId1 <- newParticipantState(ledgerId = ledgerId).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
-          retrievedLedgerId2 <- newParticipantState().use { ps =>
+          retrievedLedgerId2 <- newParticipantState(ledgerId = ledgerId).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
         } yield {
@@ -612,10 +612,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         val ledgerId = newLedgerId()
         val attemptedLedgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { _ =>
+          _ <- newParticipantState(ledgerId = ledgerId).use { _ =>
             Future.unit
           }
-          exception <- newParticipantState(ledgerId = Some(attemptedLedgerId)).use { _ =>
+          exception <- newParticipantState(ledgerId = attemptedLedgerId).use { _ =>
             Future.unit
           }.failed
         } yield {
@@ -629,14 +629,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
+          _ <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState().use { ps =>
+          updates <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
