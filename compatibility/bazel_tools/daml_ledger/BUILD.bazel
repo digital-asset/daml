@@ -34,7 +34,6 @@ da_haskell_binary(
         "extra",
         "filepath",
         "jwt",
-        "lens",
         "process",
         "semver",
         "tagged",

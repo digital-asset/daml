@@ -4,8 +4,8 @@
 module Main (main) where
 
 import Control.Applicative
-import Control.Lens
 import DA.Test.Process
+import Data.Either.Extra
 import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
@@ -289,13 +289,7 @@ writeMinimalProject (SdkVersion sdkVersion) = do
 
 supportsNoBearerPrefix :: SdkVersion -> Bool
 supportsNoBearerPrefix ver =
-    ver >= SdkVersion
-        ( SemVer.initial
-        & SemVer.major .~ 1
-        & SemVer.minor .~ 1
-        & SemVer.patch .~ 1
-        )
+    ver >= SdkVersion (fromRight' $ SemVer.fromText "1.1.1")
 
--- | TODO bump to the first snapshot after 1.4.0-snapshot.20200715.4733.0.d6e58626.
 supportsTimeout :: SdkVersion -> Bool
-supportsTimeout ver = ver >= SdkVersion SemVer.initial
+supportsTimeout ver = ver > SdkVersion (fromRight' $ SemVer.fromText "1.4.0-snapshot.20200715.4733.0.d6e58626")
