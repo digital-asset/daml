@@ -3,25 +3,33 @@
 
 module Main (main) where
 
-import Control.Applicative (many)
+import Control.Applicative
+import Control.Exception
 import DA.Test.Process
+import Data.Either.Extra
 import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
+import Data.SemVer (Version)
+import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
+import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
+import System.Exit
 import System.FilePath ((</>), takeBaseName)
 import System.IO.Extra (withTempDir,writeFileUTF8)
+import System.Process
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
-import Test.Tasty.HUnit (testCaseSteps, testCase)
+import Test.Tasty.HUnit
 import qualified Bazel.Runfiles
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import DA.Test.Util
 import qualified Web.JWT as JWT
 
 import Sandbox
@@ -89,13 +97,20 @@ withTools tests = do
   tests tools
 
 -- | This is the version of daml-helper.
-newtype SdkVersion = SdkVersion String
+newtype SdkVersion = SdkVersion Version
   deriving Eq
+
+instance Ord SdkVersion where
+    SdkVersion x <= SdkVersion y
+      | y == SemVer.initial = True -- 0.0.0 is >= than anything else
+      | x == SemVer.initial = False -- 0.0.0 not <= than anything other than 0.0.0
+      | otherwise = x <= y -- regular semver comparison
+
 instance IsOption SdkVersion where
-  defaultValue = SdkVersion "0.0.0"
+  defaultValue = SdkVersion SemVer.initial
   -- Tasty seems to force the value somewhere so we cannot just set this
   -- to `error`. However, this will always be set.
-  parseValue = Just . SdkVersion
+  parseValue = either (const Nothing) (Just . SdkVersion) . SemVer.fromText . T.pack
   optionName = Tagged "sdk-version"
   optionHelp = Tagged "The SDK version number"
 
@@ -117,7 +132,7 @@ main = do
     askOption $ \sdkVersion -> do
     testGroup "Deployment"
       [ authenticatedUploadTest sdkVersion getTools
-      , fetchTest sdkVersion getTools
+      , unauthenticatedTests sdkVersion getTools
       ]
 
 -- | Test `daml ledger list-parties --access-token-file`
@@ -151,8 +166,7 @@ authenticatedUploadTest sdkVersion getTools = do
                 , "--access-token-file", tokenFile
                 , "--host", "localhost", "--port", show port
                 ]
-    | sdkVersion == SdkVersion "0.0.0"
-       -- TODO Once we have releases supporting this should be extended.
+    | supportsNoBearerPrefix sdkVersion
     ]
   where
     sharedSecret = "TheSharedSecret"
@@ -168,11 +182,36 @@ makeSignedJwt sharedSecret = do
   let text = JWT.encodeSigned key mempty cs
   T.unpack text
 
+unauthenticatedTests :: SdkVersion -> IO Tools -> TestTree
+unauthenticatedTests sdkVersion getTools = do
+    withSandbox (sandboxConfig <$> getTools) $ \getSandboxPort ->
+        testGroup "unauthenticated" $
+            [ fetchTest sdkVersion getTools getSandboxPort
+            ] <>
+            [ timeoutTest getTools getSandboxPort | supportsTimeout sdkVersion ]
+
+timeoutTest :: IO Tools -> IO Int -> TestTree
+timeoutTest getTools getSandboxPort = do
+    testCase "timeout" $ do
+        port <- getSandboxPort
+        Tools{..} <- getTools
+        party <- show <$> UUID.nextRandom
+        (exit, stdout, stderr) <- readProcessWithExitCode daml
+            [ "ledger", "allocate-party", party
+            , "--host", "localhost"
+            , "--port", show port
+            , "--timeout", "0"
+            ]
+            ""
+        -- Not quite sure when we get which error message but both are fine.
+        assertInfixOf "GRPCIOTimeout" stderr `catch`
+            \(_ :: HUnitFailure) -> assertInfixOf "StatusDeadlineExceeded" stderr
+        assertInfixOf "Checking party allocation" stdout
+        exit @?= ExitFailure 1
+
 -- | Test `daml ledger fetch-dar`
-fetchTest :: SdkVersion -> IO Tools -> TestTree
-fetchTest sdkVersion getTools = do
-  let getSandboxConfig = sandboxConfig <$> getTools
-  withSandbox getSandboxConfig $ \getSandboxPort ->
+fetchTest :: SdkVersion -> IO Tools -> IO Int -> TestTree
+fetchTest sdkVersion getTools getSandboxPort = do
     testCaseSteps "fetchTest" $ \step -> do
     Tools{..} <- getTools
     port <- getSandboxPort
@@ -182,20 +221,20 @@ fetchTest sdkVersion getTools = do
         let origDar = ".daml/dist/proj1-0.0.1.dar"
         step "build/upload"
         callProcessSilent daml ["damlc", "build"]
-        callProcessSilent daml
+        callProcessSilent daml $
           [ "ledger", "upload-dar"
           , "--host", "localhost" , "--port" , show port
           , origDar
-          ]
+          ] <> ["--timeout=120" | supportsTimeout sdkVersion]
         pid <- getMainPidOfDar daml origDar
         step "fetch/validate"
         let fetchedDar = "fetched.dar"
-        callProcessSilent daml
+        callProcessSilent daml $
           [ "ledger", "fetch-dar"
           , "--host", "localhost" , "--port", show port
           , "--main-package-id", pid
           , "-o", fetchedDar
-          ]
+          ]  <> ["--timeout=120" | supportsTimeout sdkVersion]
         callProcessSilent daml ["damlc", "validate-dar", fetchedDar]
 
 -- | Discover the main package-identifier of a dar.
@@ -236,7 +275,7 @@ getMainPidOfDar daml fp = do
 writeMinimalProject :: SdkVersion -> IO ()
 writeMinimalProject (SdkVersion sdkVersion) = do
   writeFileUTF8 "daml.yaml" $ unlines
-      [ "sdk-version: " <> sdkVersion
+      [ "sdk-version: " <> SemVer.toString sdkVersion
       , "name: proj1"
       , "version: 0.0.1"
       , "source: ."
@@ -249,3 +288,10 @@ writeMinimalProject (SdkVersion sdkVersion) = do
     , "module Main where"
     , "template T with p : Party where signatory p"
     ]
+
+supportsNoBearerPrefix :: SdkVersion -> Bool
+supportsNoBearerPrefix ver =
+    ver >= SdkVersion (fromRight' $ SemVer.fromText "1.1.1")
+
+supportsTimeout :: SdkVersion -> Bool
+supportsTimeout ver = ver > SdkVersion (fromRight' $ SemVer.fromText "1.4.0-snapshot.20200715.4733.0.d6e58626")

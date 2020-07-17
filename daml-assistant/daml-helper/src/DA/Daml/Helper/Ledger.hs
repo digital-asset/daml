@@ -4,6 +4,7 @@ module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
     L.ClientSSLConfig(..),
     L.ClientSSLKeyCertPair(..),
+    L.TimeoutSeconds,
     JsonFlag(..),
     runDeploy,
     runLedgerListParties,
@@ -40,6 +41,7 @@ data LedgerFlags = LedgerFlags
   , portM :: Maybe Int
   , tokFileM :: Maybe FilePath
   , sslConfigM :: Maybe L.ClientSSLConfig
+  , timeout :: L.TimeoutSeconds
   }
 
 getTokFromFile :: Maybe FilePath -> IO (Maybe Token)
@@ -54,7 +56,7 @@ getTokFromFile tokFileM = do
       return (Just (L.Token tok))
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
-getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM,sslConfigM} = do
+getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM,sslConfigM,timeout} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
     tokM <- getTokFromFile tokFileM
