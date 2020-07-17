@@ -110,8 +110,8 @@ timeoutTest Tools{..} getSandboxPort = do
             , "--timeout", "0"
             ]
             ""
-        assertInfixOf "GRPCIOTimeout" stderr
-        assertInfixOf "Checking party allocation" stdout
+        -- Not quite sure when we get which error message but both are fine.
+        assertInfixOf "GRPCIOTimeout" stderr <|> assertInfixOf "Deadline Exceeded" stderr
         exit @?= ExitFailure 1
 
 -- | Test `daml ledger fetch-dar`

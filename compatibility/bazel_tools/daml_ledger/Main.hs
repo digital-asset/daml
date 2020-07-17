@@ -3,7 +3,7 @@
 
 module Main (main) where
 
-import Control.Applicative (many)
+import Control.Applicative
 import Control.Lens
 import DA.Test.Process
 import Data.Function ((&))
@@ -202,7 +202,8 @@ timeoutTest getTools getSandboxPort = do
             , "--timeout", "0"
             ]
             ""
-        assertInfixOf "GRPCIOTimeout" stderr
+        -- Not quite sure when we get which error message but both are fine.
+        assertInfixOf "GRPCIOTimeout" stderr <|> assertInfixOf "Deadline Exceeded" stderr
         assertInfixOf "Checking party allocation" stdout
         exit @?= ExitFailure 1
 
