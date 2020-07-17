@@ -117,7 +117,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
   }
 
   def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-    (key.gkey.templateId, key.gkey.key) match {
+    (key.globalKey.templateId, key.globalKey.key) match {
       case (
           BasicTests_WithKey,
           ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
@@ -1264,7 +1264,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     )
 
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
-      (key.gkey.templateId, key.gkey.key) match {
+      (key.globalKey.templateId, key.globalKey.key) match {
         case (
             BasicTests_WithKey,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
@@ -1435,7 +1435,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       )
 
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
-        (key.gkey.templateId, key.gkey.key) match {
+        (key.globalKey.templateId, key.globalKey.key) match {
           case (
               BasicTests_WithKey,
               ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
@@ -1683,7 +1683,7 @@ object EngineTest {
                 nodeSeedMap.get(nodeId),
                 txMeta.submissionTime,
                 ledgerEffectiveTime)
-              .consume(contracts0.get, lookupPackages, k => keys0.get(k.gkey))
+              .consume(contracts0.get, lookupPackages, k => keys0.get(k.globalKey))
             (tr1, meta1) = currentStep
             (contracts1, keys1) = tr1.transaction.fold((contracts0, keys0)) {
               case (

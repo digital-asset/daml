@@ -559,7 +559,7 @@ private[kvutils] class TransactionCommitter(
     //      to lookup the contract
     //    - the separate contract keys check ensures that all contracts pointed to by
     //    contract keys respect causal monotonicity.
-    val stateKey = Conversions.globalKeyToStateKey(key.gkey)
+    val stateKey = Conversions.globalKeyToStateKey(key.globalKey)
     val contractId = for {
       stateValue <- inputState.get(stateKey).flatten
       if stateValue.getContractKeyState.getContractId.nonEmpty

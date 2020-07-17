@@ -353,7 +353,7 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
               if (cb(SKeyLookupResult(result)))
                 interpretLoop(machine, time)
               else
-                ResultError(Error(s"dependency error: couldn't find key ${gk.gkey}"))
+                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}"))
           )
 
         case _: SResultScenarioCommit =>

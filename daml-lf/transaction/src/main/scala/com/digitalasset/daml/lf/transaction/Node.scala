@@ -429,7 +429,7 @@ object Node {
   }
 
   final case class GlobalKeyWithMaintainers(
-      gkey: GlobalKey,
+      globalKey: GlobalKey,
       maintainers: Set[Party]
   )
 }
