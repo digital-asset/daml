@@ -34,8 +34,8 @@ rules_scala_sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21b
 
 rules_haskell_version = "eb16a5401770098a801775ea3a893b09cafe054c"
 rules_haskell_sha256 = "2fcab6b01a184435359f6bcbb9403f0457c2a4e0f1b1a4572b9d7f89d2fc5431"
-rules_nixpkgs_version = "d3c7bc94fed4001d5375632a936d743dc085c9a1"
-rules_nixpkgs_sha256 = "903c6b98aa6a298bf45a6b931e77a3313c40a0cb1b44fa00d9792f9e8aedbb35"
+rules_nixpkgs_version = "659cf9db456f5a3c1a5a27747116fc50b709cdab"
+rules_nixpkgs_sha256 = "6a76b8004ad94daa9ce7e95d902c790646f8abd598ae9f1b1978fb74a95e9ebd"
 buildifier_version = "3.3.0"
 buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
 zlib_version = "cacf7f1d4e3d44d871b605da3b647f07d718623f"

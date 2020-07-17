@@ -200,6 +200,23 @@ index 721f64d..3ee682b 100644
  Example:
  
  ```bzl
+diff --git a/nixpkgs/BUILD.bazel b/nixpkgs/BUILD.bazel
+index 09fa6aa..f055a77 100644
+--- a/nixpkgs/BUILD.bazel
++++ b/nixpkgs/BUILD.bazel
+@@ -6,7 +6,11 @@ exports_files([
+     "nixpkgs.bzl",
+ ])
+ 
+-filegroup(name = "srcs", srcs = glob(["**"]), visibility = ["//visibility:public"])
++filegroup(
++    name = "srcs",
++    srcs = glob(["**"]),
++    visibility = ["//visibility:public"],
++)
+ 
+ # @bazel_tools//tools does not define a bzl_library itself, instead we are
+ # supposed to define our own using the @bazel_tools//tools:bzl_srcs filegroup.
 diff --git a/nixpkgs/constraints/BUILD.bazel b/nixpkgs/constraints/BUILD.bazel
 index 6662530..94678bd 100644
 --- a/nixpkgs/constraints/BUILD.bazel
@@ -214,14 +231,15 @@ index 6662530..94678bd 100644
  )
  
 diff --git a/nixpkgs/nixpkgs.bzl b/nixpkgs/nixpkgs.bzl
-index fb87da4..9a9ad75 100644
+index 5b77c87..5ff9dfa 100644
 --- a/nixpkgs/nixpkgs.bzl
 +++ b/nixpkgs/nixpkgs.bzl
-@@ -1,7 +1,15 @@
+@@ -1,12 +1,22 @@
  """Rules for importing Nixpkgs packages."""
  
 +load("@bazel_skylib//lib:paths.bzl", "paths")
 +load("@bazel_skylib//lib:sets.bzl", "sets")
++load("@bazel_skylib//lib:versions.bzl", "versions")
  load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_autoconf_impl")
 -load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 +load(
@@ -233,8 +251,15 @@ index fb87da4..9a9ad75 100644
 +load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
  
  def _nixpkgs_git_repository_impl(repository_ctx):
-     repository_ctx.file("BUILD")
-@@ -70,6 +78,54 @@ nixpkgs_local_repository = repository_rule(
+     repository_ctx.file(
+         "BUILD",
+-        content = 'filegroup(name = "srcs", srcs = glob(["**"]), visibility = ["//visibility:public"])')
++        content = 'filegroup(name = "srcs", srcs = glob(["**"]), visibility = ["//visibility:public"])',
++    )
+ 
+     # Make "@nixpkgs" (syntactic sugar for "@nixpkgs//:nixpkgs") a valid
+     # label for default.nix.
+@@ -72,6 +82,54 @@ nixpkgs_local_repository = repository_rule(
  def _is_supported_platform(repository_ctx):
      return repository_ctx.which("nix-build") != None
  
@@ -289,7 +314,7 @@ index fb87da4..9a9ad75 100644
  def _nixpkgs_package_impl(repository_ctx):
      repository = repository_ctx.attr.repository
      repositories = repository_ctx.attr.repositories
-@@ -117,8 +173,9 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -119,8 +177,9 @@ def _nixpkgs_package_impl(repository_ctx):
      else:
          expr_args = ["-E", "import <nixpkgs> { config = {}; overlays = []; }"]
  
@@ -300,7 +325,7 @@ index fb87da4..9a9ad75 100644
  
      expr_args.extend([
          "-A",
-@@ -133,7 +190,13 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -135,7 +194,13 @@ def _nixpkgs_package_impl(repository_ctx):
          "bazel-support/nix-out-link",
      ])
  
@@ -315,7 +340,7 @@ index fb87da4..9a9ad75 100644
  
      for repo in repositories.keys():
          path = str(repository_ctx.path(repo).dirname) + "/nix-file-deps"
-@@ -206,7 +269,7 @@ def _nixpkgs_package_impl(repository_ctx):
+@@ -208,7 +273,7 @@ def _nixpkgs_package_impl(repository_ctx):
          if create_build_file_if_needed:
              p = repository_ctx.path("BUILD")
              if not p.exists:
@@ -324,7 +349,7 @@ index fb87da4..9a9ad75 100644
  
  _nixpkgs_package = repository_rule(
      implementation = _nixpkgs_package_impl,
-@@ -220,6 +283,7 @@ _nixpkgs_package = repository_rule(
+@@ -222,6 +287,7 @@ _nixpkgs_package = repository_rule(
          "build_file": attr.label(),
          "build_file_content": attr.string(),
          "nixopts": attr.string_list(),
@@ -332,7 +357,7 @@ index fb87da4..9a9ad75 100644
          "quiet": attr.bool(),
          "fail_not_supported": attr.bool(default = True, doc = """
              If set to True (default) this rule will fail on platforms which do not support Nix (e.g. Windows). If set to False calling this rule will succeed but no output will be generated.
-@@ -244,6 +308,329 @@ def nixpkgs_package(*args, **kwargs):
+@@ -246,6 +312,352 @@ def nixpkgs_package(*args, **kwargs):
      else:
          _nixpkgs_package(*args, **kwargs)
  
@@ -378,6 +403,7 @@ index fb87da4..9a9ad75 100644
 +        "COVERAGE_COMPILE_FLAGS",
 +        "COVERAGE_LINK_FLAGS",
 +        "SUPPORTS_START_END_LIB",
++        "IS_CLANG",
 +    ])
 +    actual_keys = sets.make(info.keys())
 +    missing_keys = sets.difference(expected_keys, actual_keys)
@@ -415,7 +441,8 @@ index fb87da4..9a9ad75 100644
 +        dbg_compile_flags = info["DBG_COMPILE_FLAGS"],
 +        coverage_compile_flags = info["COVERAGE_COMPILE_FLAGS"],
 +        coverage_link_flags = info["COVERAGE_LINK_FLAGS"],
-+        supports_start_end_lib = info["SUPPORTS_START_END_LIB"] == "True",
++        supports_start_end_lib = info["SUPPORTS_START_END_LIB"] == ["True"],
++        is_clang = info["IS_CLANG"] == ["True"],
 +    )
 +
 +def _nixpkgs_cc_toolchain_config_impl(repository_ctx):
@@ -440,6 +467,23 @@ index fb87da4..9a9ad75 100644
 +        repository_ctx.path(repository_ctx.attr._armeabi_cc_toolchain_config),
 +        "armeabi_cc_toolchain_config.bzl",
 +    )
++
++    # A module map is required for clang starting from Bazel version 3.3.0.
++    # https://github.com/bazelbuild/bazel/commit/8b9f74649512ee17ac52815468bf3d7e5e71c9fa
++    needs_module_map = info.is_clang and versions.is_at_least("3.3.0", versions.get())
++    if needs_module_map:
++        generate_system_module_map = [
++            repository_ctx.path(repository_ctx.attr._generate_system_module_map),
++        ]
++        repository_ctx.file(
++            "module.modulemap",
++            _execute_or_fail(
++                repository_ctx,
++                generate_system_module_map + info.cxx_builtin_include_directories,
++                "Failed to generate system module map.",
++            ).stdout.strip(),
++            executable = False,
++        )
 +    cc_wrapper_src = (
 +        repository_ctx.attr._osx_cc_wrapper if darwin else repository_ctx.attr._linux_cc_wrapper
 +    )
@@ -465,6 +509,7 @@ index fb87da4..9a9ad75 100644
 +        {
 +            "%{cc_toolchain_identifier}": "local",
 +            "%{name}": cpu_value,
++            "%{modulemap}": ("\":module.modulemap\"" if needs_module_map else "None"),
 +            "%{supports_param_files}": "0" if darwin else "1",
 +            "%{cc_compiler_deps}": get_starlark_list(
 +                [":builtin_include_directory_paths"] + (
@@ -506,6 +551,9 @@ index fb87da4..9a9ad75 100644
 +        ),
 +        "_armeabi_cc_toolchain_config": attr.label(
 +            default = Label("@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"),
++        ),
++        "_generate_system_module_map": attr.label(
++            default = Label("@bazel_tools//tools/cpp:generate_system_module_map.sh"),
 +        ),
 +        "_osx_cc_wrapper": attr.label(
 +            default = Label("@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl"),
@@ -662,7 +710,7 @@ index fb87da4..9a9ad75 100644
  def _readlink(repository_ctx, path):
      return repository_ctx.path(path).realpath
  
-@@ -323,6 +710,16 @@ def nixpkgs_cc_configure(
+@@ -325,6 +737,16 @@ def nixpkgs_cc_configure(
          nixopts = []):
      """Use a CC toolchain from Nixpkgs. No-op if not a nix-based platform.
  
@@ -681,10 +729,10 @@ index fb87da4..9a9ad75 100644
      this rule to specific explicitly which commands the toolchain should
 diff --git a/nixpkgs/toolchains/cc.nix b/nixpkgs/toolchains/cc.nix
 new file mode 100644
-index 0000000..6b1bff4
+index 0000000..1e9e089
 --- /dev/null
 +++ b/nixpkgs/toolchains/cc.nix
-@@ -0,0 +1,278 @@
+@@ -0,0 +1,284 @@
 +with import <nixpkgs> { config = {}; overlays = []; };
 +
 +{ attribute_path ? null
@@ -932,6 +980,11 @@ index 0000000..6b1bff4
 +          if [[ -x ${cc}/bin/ld.gold ]]; then echo True; else echo False; fi
 +        )
 +      )
++      IS_CLANG=(
++        $(
++          ${cc}/bin/cc -v 2>&1 | grep -q clang && echo True || echo False
++        )
++      )
 +
 +      # Write CC_TOOLCHAIN_INFO
 +      #
@@ -962,6 +1015,7 @@ index 0000000..6b1bff4
 +      write_info COVERAGE_COMPILE_FLAGS
 +      write_info COVERAGE_LINK_FLAGS
 +      write_info SUPPORTS_START_END_LIB
++      write_info IS_CLANG
 +    ''
 diff --git a/nixpkgs/toolchains/go.bzl b/nixpkgs/toolchains/go.bzl
 index 79cbb99..d8c6366 100644
@@ -1005,7 +1059,7 @@ index 79cbb99..d8c6366 100644
          name = "nixpkgs_go_toolchain",
          repository = repository,
 diff --git a/tests/BUILD.bazel b/tests/BUILD.bazel
-index 450810b..d86d6a5 100644
+index 16866a3..5b75fad 100644
 --- a/tests/BUILD.bazel
 +++ b/tests/BUILD.bazel
 @@ -1,6 +1,7 @@
@@ -1059,12 +1113,22 @@ index 450810b..d86d6a5 100644
  # Test nixpkgs_python_configure() by running some Python code.
  test_suite(
      name = "python-test",
-@@ -86,5 +116,5 @@ sh_test(
+@@ -86,7 +116,7 @@ sh_test(
  # Test nixpkgs_go_configure()
  go_binary(
      name = "go-test",
 -    srcs = ["go-test.go"]
 +    srcs = ["go-test.go"],
+ )
+ 
+ sh_test(
+@@ -97,6 +127,6 @@ sh_test(
+         "//nixpkgs:srcs",
+         "//tests/invalid_nixpkgs_package:srcs",
+         "@busybox_static//:bin",
+-        "@nix-unstable//:bin"
++        "@nix-unstable//:bin",
+     ],
  )
 diff --git a/tests/cc-test.bzl b/tests/cc-test.bzl
 new file mode 100644
@@ -1131,6 +1195,31 @@ index 0000000..8494cc8
 +    test = True,
 +    toolchains = ["@rules_cc//cc:toolchain_type"],
 +)
+diff --git a/tests/invalid_nixpkgs_package/BUILD.bazel b/tests/invalid_nixpkgs_package/BUILD.bazel
+index 00cbfea..70ff958 100644
+--- a/tests/invalid_nixpkgs_package/BUILD.bazel
++++ b/tests/invalid_nixpkgs_package/BUILD.bazel
+@@ -1 +1,5 @@
+-filegroup(name = "srcs", srcs = glob(["**"]), visibility = ["//visibility:public"])
++filegroup(
++    name = "srcs",
++    srcs = glob(["**"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/tests/invalid_nixpkgs_package/workspace.bazel b/tests/invalid_nixpkgs_package/workspace.bazel
+index c434649..2113a77 100644
+--- a/tests/invalid_nixpkgs_package/workspace.bazel
++++ b/tests/invalid_nixpkgs_package/workspace.bazel
+@@ -1,5 +1,9 @@
+ workspace(name = "io_tweag_rules_nixpkgs")
+ 
++load("//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
++
++rules_nixpkgs_dependencies()
++
+ load(
+     "//nixpkgs:nixpkgs.bzl",
+     "nixpkgs_local_repository",
 diff --git a/tests/location_expansion.nix b/tests/location_expansion.nix
 new file mode 100644
 index 0000000..8023925
