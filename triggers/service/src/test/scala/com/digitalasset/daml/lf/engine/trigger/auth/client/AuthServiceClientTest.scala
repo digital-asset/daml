@@ -1,10 +1,10 @@
-package com.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger.auth.client
 
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import com.daml.lf.engine.trigger.AuthServiceDomain.AuthServiceToken
 import org.scalatest.concurrent.Eventually
-import AuthServiceDomain._
+import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.concurrent.ExecutionContext
 
