@@ -13,8 +13,9 @@ import java.time.Clock
 import java.util.UUID
 
 import io.grpc.netty.NettyChannelBuilder
+
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.{\/-, Applicative, Traverse}
+import scalaz.{Applicative, Traverse, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
@@ -22,6 +23,7 @@ import scalaz.std.map._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+
 import scala.language.higherKinds
 import spray.json._
 import com.daml.lf.archive.Dar
@@ -49,6 +51,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
 import ParticipantsJsonProtocol.ContractIdFormat
+import com.daml.lf.language.LanguageVersion
 
 object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
 
@@ -308,14 +311,21 @@ class Runner(
         SEMakeClo(Array(), 1, SELocA(0))
     }
     new CompiledPackages {
-      def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
-      def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+      override def getPackage(pkgId: PackageId): Option[Package] =
+        compiledPackages.getPackage(pkgId)
+      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
-      override def packages = compiledPackages.packages
-      def packageIds = compiledPackages.packageIds
-      override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
-      override def stackTraceMode = Compiler.FullStackTrace
-      override def profilingMode = Compiler.NoProfile
+      // FIXME: avoid override of non abstract method
+      override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
+      override def packageIds: Set[PackageId] = compiledPackages.packageIds
+      // FIXME: avoid override of non abstract method
+      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
+        fromLedgerValue.orElse(compiledPackages.definitions)
+      override def stackTraceMode: Compiler.FullStackTrace.type = Compiler.FullStackTrace
+      override def profilingMode: Compiler.NoProfile.type = Compiler.NoProfile
+      override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
+        compiledPackages.packageLanguageVersion
+
     }
   }
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)

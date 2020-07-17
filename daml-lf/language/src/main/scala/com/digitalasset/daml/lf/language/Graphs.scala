@@ -3,13 +3,13 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.InsertOrdSet
+import com.daml.lf.data.{InsertOrdSet, Relation}
 
 object Graphs {
 
   case class Cycle[X](vertices: List[X])
 
-  type Graph[X] = Map[X, Set[X]]
+  type Graph[X] = Relation.Relation[X, X]
 
   // Topologically order the vertices of an abstract Graph.
   // If the `graph` is a directed acyclic graph returns a list of its vertices in topological order as `Right`

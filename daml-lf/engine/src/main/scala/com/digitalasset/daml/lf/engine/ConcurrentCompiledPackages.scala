@@ -1,14 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
 import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy
+import com.daml.lf.speedy.Compiler
+
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
 
@@ -24,16 +28,24 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
     new ConcurrentHashMap()
   private[this] var _profilingMode: speedy.Compiler.ProfilingMode = speedy.Compiler.NoProfile
   private[this] var _stackTraceMode: speedy.Compiler.StackTraceMode = speedy.Compiler.FullStackTrace
+  private[this] val _packagesLanguageVersions: ConcurrentMap[PackageId, LanguageVersion] =
+    new ConcurrentHashMap().asScala
 
-  def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
-  def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
+  override def getPackage(pId: PackageId): Option[Package] = _packages.get(pId)
+  override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
     Option(_defns.get(dref))
 
-  override def profilingMode = _profilingMode
+  override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
+    _packagesLanguageVersions
+
+  override def profilingMode: Compiler.ProfilingMode = _profilingMode
+
   def profilingMode_=(profilingMode: speedy.Compiler.ProfilingMode) = {
     _profilingMode = profilingMode
   }
+
   override def stackTraceMode = _stackTraceMode
+
   def stackTraceMode_=(stackTraceMode: speedy.Compiler.StackTraceMode) = {
     _stackTraceMode = stackTraceMode
   }
@@ -109,6 +121,11 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
               pkgId,
               pkg
             )
+
+            // update the packageMaxLanguageVersions
+            // If the package is empty, no update
+            computePackageLanguageVersion(_packagesLanguageVersions, pkg)
+              .foreach(_packagesLanguageVersions.update(pkgId, _))
           }
         }
       }
