@@ -12,7 +12,7 @@ import DA.Daml.LF.Proto3.Archive (decodeArchivePackageId)
 import DA.Daml.LF.Reader(DalfManifest(..), Dalfs(..), readDalfs, readDalfManifest)
 import DA.Ledger as Ledger
 import DA.Test.Sandbox
-import Data.List (elem,isPrefixOf,isInfixOf,(\\))
+import Data.List (elem,isInfixOf,(\\))
 import Data.IORef
 import Prelude hiding(Enum)
 import System.Environment.Blank (setEnv)
@@ -104,7 +104,7 @@ run withSandbox f =
 tGetLedgerIdentity :: SandboxTest
 tGetLedgerIdentity withSandbox = testCase "getLedgerIdentity" $ run withSandbox $ \_darMetadata _testId -> do
     lid <- getLedgerIdentity
-    liftIO $ assertBool "looksLikeSandBoxLedgerId" (looksLikeSandBoxLedgerId lid)
+    liftIO $ assertEqual "ledger-id" lid (LedgerId "my-ledger-id")
 
 {-
 tReset :: SandboxTest
@@ -243,9 +243,12 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \DarMetadat
     lid <- getLedgerIdentity
     let command =  createIOU mainPackageId (alice testId) "A-coin" 100
     withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past1,future=future1} -> do
-    Right _ <- submitCommand lid (alice testId) command
+    -- We need a submitandWait here to make sure that the
+    -- second subscription to the transaction stream
+    -- comes after this has been applied.
+    Right _ <- submitAndWaitCommand lid (alice testId) command
     withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past2,future=future2} -> do
-    Right _ <- submitCommand lid (alice testId) command
+    Right _ <- submitAndWaitCommand lid (alice testId) command
     liftIO $ do
         Just (Right x1) <- timeout 1 (takeStream future1)
         Just (Right y1) <- timeout 1 (takeStream future1)
@@ -328,9 +331,9 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
-    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
+    [(_,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     liftIO $ do
-        assertEqual "off2" (AbsOffset "" ) off2 -- offset is only set in the last response message
+        -- All but the last offset are meaningless
         assertBool "off3 > off1" (off3 > off1)
         assertEqual "active" ev active
 
@@ -630,6 +633,13 @@ createWithoutKey pid owner n = CreateCommand {tid,args}
             RecordField "n" (VInt n)
             ]
 
+submitAndWaitCommand :: LedgerId -> Party -> Command -> LedgerService (Either String CommandId)
+submitAndWaitCommand lid party com = do
+    (cid,commands) <- liftIO $ makeCommands lid party com
+    Ledger.submitAndWait commands >>= \case
+        Left s -> return $ Left s
+        Right () -> return $ Right cid
+
 submitCommand :: LedgerId -> Party -> Command -> LedgerService (Either String CommandId)
 submitCommand lid party com = do
     (cid,commands) <- liftIO $ makeCommands lid party com
@@ -649,10 +659,6 @@ myAid = ApplicationId ":my-application:"
 
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . TL.pack . UUID.toString) randomIO
-
-looksLikeSandBoxLedgerId :: LedgerId -> Bool
-looksLikeSandBoxLedgerId (LedgerId text) =
-    "sandbox-" `isPrefixOf` s && length s == 44 where s = TL.unpack text
 
 ----------------------------------------------------------------------
 -- runWithSandbox
@@ -700,7 +706,7 @@ darPath = mainWorkspace </> "language-support/hs/bindings/for-tests.dar"
 
 testGroupWithSandbox :: FilePath -> Maybe Secret -> TestName -> [WithSandbox -> TestTree] -> TestTree
 testGroupWithSandbox testDar mbSecret name tests =
-    withSandbox defaultSandboxConf { dars = [ testDar ], timeMode = Static } $ \getSandboxPort ->
+    withSandbox defaultSandboxConf { dars = [ testDar ], timeMode = Static, mbLedgerId = Just "my-ledger-id" } $ \getSandboxPort ->
     withResource (readDarMetadata testDar) (const $ pure ()) $ \getDarMetadata ->
     withResource (newIORef $ TestId 0) (const $ pure ()) $ \getTestCounter ->
     let run :: WithSandbox

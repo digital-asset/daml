@@ -8,25 +8,26 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import io.grpc.Channel
 import java.io.File
+
 import org.scalatest._
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scalaz.{-\/, \/-}
 import scalaz.syntax.traverse._
 import spray.json._
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.{
   ApiParameters,
-  Participants,
-  Party => ScriptParty,
   Participant,
+  Participants,
   Runner,
   ScriptLedgerClient,
-  ScriptTimeMode
+  ScriptTimeMode,
+  Party => ScriptParty
 }
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -41,18 +42,19 @@ import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
+  MockMessages,
   OwnedResource,
-  Resource => TestResource,
   SuiteResource,
   SuiteResourceManagementAroundAll,
-  MockMessages,
+  Resource => TestResource
 }
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{GrpcClientResource, TestCommands}
+import com.daml.platform.sandbox.services.TestCommands
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
 
