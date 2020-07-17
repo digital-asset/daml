@@ -289,6 +289,7 @@ commandParser = subparser $ fold
         <*> portFlag
         <*> accessTokenFileFlag
         <*> sslConfig
+        <*> timeoutOption
 
     sslConfig :: Parser (Maybe ClientSSLConfig)
     sslConfig = do
@@ -336,6 +337,14 @@ commandParser = subparser $ fold
         long "access-token-file"
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
+
+    timeoutOption :: Parser TimeoutSeconds
+    timeoutOption = option auto $ mconcat
+        [ long "timeout"
+        , metavar "TIMEOUT"
+        , value 30
+        , help "Timeout of gRPC operations in seconds. Defaults to 30s"
+        ]
 
 runCommand :: Command -> IO ()
 runCommand = \case

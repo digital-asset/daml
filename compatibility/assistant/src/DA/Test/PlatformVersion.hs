@@ -27,6 +27,7 @@ import Data.Maybe
 import Sandbox (readPortFile, maxRetries)
 import Versions (latestStableVersion)
 import System.Process (interruptProcessGroupOf)
+import qualified DA.Test.Util as Util
 
 main :: IO ()
 main = do
@@ -148,5 +149,4 @@ exe | os == "mingw32" = (<.> "exe")
     | otherwise       = id
 
 assertInfixOf :: String -> ByteString -> Assertion
-assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` toString haystack)
-
+assertInfixOf needle haystack = Util.assertInfixOf needle (toString haystack)
