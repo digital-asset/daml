@@ -69,7 +69,7 @@ object TokenManagement {
     (Party(segments(0)), Password(segments(1)))
   }
 
-  // Parse the unencrypted credentials from a request's headers.
+  // Get the unencrypted basic credentials from the request header.
   def getBasicCredentials(req: HttpRequest): Either[String, (String, String)] = {
     req.headers
       .collectFirst {
@@ -79,7 +79,7 @@ object TokenManagement {
       case Some((username, password)) =>
         Ref.Party.fromString(username) match {
           case Left(err) => Left("invalid party identifier '" + username + "'")
-          case Right(p) => Right(username, password)
+          case Right(p) => Right((username, password))
         }
     }
   }

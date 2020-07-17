@@ -1,12 +1,14 @@
 package com.daml.lf.engine.trigger
 
-import akka.actor.typed.scaladsl.ActorContext
+import java.net.InetAddress
+
+import akka.actor.ActorSystem
 import akka.http.scaladsl.{Http, HttpExt}
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ports.Port
 import spray.json.{JsObject, JsValue}
 import spray.json._
 
@@ -16,19 +18,20 @@ import scala.concurrent.{ExecutionContext, Future}
 case class AuthServiceToken(token: String)
 
 class AuthServiceClient(
-    secretKey: SecretKey
-)(implicit ctx: ActorContext[Message], materializer: Materializer, esf: ExecutionSequencerFactory) {
+    host: InetAddress,
+    port: Port,
+)(implicit system: ActorSystem, materializer: Materializer, ec: ExecutionContext) {
 
-  implicit val ec: ExecutionContext = ctx.system.executionContext
+  private val http: HttpExt = Http(system)
 
-  val http: HttpExt = Http(ctx.system)
+  private val authServiceBaseUri = "http://" + host.getHostAddress + ":" + port.toString + "/sa/"
 
-  def responseBodyToString(resp: HttpResponse): Future[String] = {
+  private def responseBodyToString(resp: HttpResponse): Future[String] = {
     resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
   }
 
   // Extract a field from the JSON object in an HTTP response.
-  def parseResult(response: HttpResponse, field: String): Future[Option[JsValue]] = {
+  private def parseResponseField(response: HttpResponse, field: String): Future[Option[JsValue]] = {
     responseBodyToString(response) map { body =>
       body.parseJson match {
         case JsObject(fields) => fields.get(field)
@@ -37,18 +40,15 @@ class AuthServiceClient(
     }
   }
 
-  def authorize(
-      username: String,
-      password: String): Future[Either[String, AuthServiceToken]] = {
-    val encryptedToken: EncryptedToken = TokenManagement.encrypt(secretKey, username, password)
+  def authorize(username: String, password: String): Future[Either[String, AuthServiceToken]] = {
     for {
       authResponse <- http.singleRequest(
         HttpRequest(
           method = HttpMethods.POST,
-          uri = "http://localhost:8089/sa/secure/authorize",
+          uri = authServiceBaseUri + "secure/authorize",
           headers = List(Authorization(BasicHttpCredentials(username, password)))
         ))
-      responseToken <- parseResult(authResponse, "token")
+      responseToken <- parseResponseField(authResponse, "token")
       result = responseToken match {
         case None => Left("Response from authorize did not contain token")
         case Some(JsString(token)) => Right(AuthServiceToken(token))
@@ -60,10 +60,11 @@ class AuthServiceClient(
 }
 
 object AuthServiceClient {
-  def apply(secretKey: SecretKey)(
-      implicit ctx: ActorContext[Message],
+  def apply(host: InetAddress, port: Port)(
+      implicit system: ActorSystem,
       materializer: Materializer,
-      esf: ExecutionSequencerFactory): AuthServiceClient = {
-    new AuthServiceClient(secretKey)
+      ec: ExecutionContext,
+  ): AuthServiceClient = {
+    new AuthServiceClient(host, port)
   }
 }
