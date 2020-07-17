@@ -343,7 +343,7 @@ commandParser = subparser $ fold
         [ long "timeout"
         , metavar "INT"
         , value 30
-        , help "Timeout of gRPC operations in seconds. Defaults to 30s"
+        , help "Timeout of gRPC operations in seconds. Defaults to 30s. Must be > 0."
         ]
 
 runCommand :: Command -> IO ()
