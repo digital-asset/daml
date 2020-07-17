@@ -9,10 +9,10 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.GrpcClientResource
 import com.daml.platform.services.time.TimeProviderType.Static
 import com.daml.ports.Port
 import com.daml.resources.ResourceOwner

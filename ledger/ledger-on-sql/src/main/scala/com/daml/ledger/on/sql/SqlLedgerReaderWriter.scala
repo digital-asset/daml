@@ -128,7 +128,7 @@ object SqlLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   final class Owner(
-      initialLedgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       metrics: Metrics,
       engine: Engine,
@@ -147,7 +147,7 @@ object SqlLedgerReaderWriter {
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset()
           else Future.successful(uninitializedDatabase.migrate()))
-        ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
+        ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(ledgerId, database))
         dispatcher <- new DispatcherOwner(database).acquire()
       } yield
         new SqlLedgerReaderWriter(
@@ -163,22 +163,20 @@ object SqlLedgerReaderWriter {
         )
   }
 
-  private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
+  private def updateOrRetrieveLedgerId(providedLedgerId: LedgerId, database: Database)(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[LedgerId] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
-      val providedLedgerId =
-        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
       Future.fromTry(
         queries
           .updateOrRetrieveLedgerId(providedLedgerId)
           .flatMap { ledgerId =>
-            if (initialLedgerId.exists(_ != ledgerId)) {
+            if (providedLedgerId != ledgerId) {
               Failure(
                 new LedgerIdMismatchException(
                   domain.LedgerId(ledgerId),
-                  domain.LedgerId(initialLedgerId.get),
+                  domain.LedgerId(providedLedgerId),
                 ))
             } else {
               Success(ledgerId)

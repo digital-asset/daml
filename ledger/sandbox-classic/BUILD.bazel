@@ -1,0 +1,340 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
+
+compile_deps = [
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/engine",
+    "//daml-lf/interpreter",
+    "//daml-lf/language",
+    "//daml-lf/scenario-interpreter",
+    "//daml-lf/transaction",
+    "//language-support/scala/bindings",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger/caching",
+    "//ledger/participant-integration-api",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-health",
+    "//ledger/metrics",
+    "//ledger/participant-state",
+    "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
+    "//ledger/sandbox-common",
+    "//libs-scala/build-info",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/direct-execution-context",
+    "//libs-scala/ports",
+    "//libs-scala/resources",
+    "//libs-scala/resources-akka",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_config",
+    "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+runtime_deps = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_h2database_h2",
+    "@maven//:org_postgresql_postgresql",
+    "@maven//:org_xerial_sqlite_jdbc",
+]
+
+da_scala_library(
+    name = "sandbox-classic",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:com_github_ghik_silencer_plugin_2_12_11",
+    ],
+    # Do not include logback.xml into the library: let the user
+    # of the sandbox-as-a-library decide how to log.
+    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = runtime_deps,
+    deps = compile_deps + ["@maven//:com_github_ghik_silencer_lib_2_12_11"],
+)
+
+da_scala_binary(
+    name = "sandbox-classic-binary",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox-classic",
+    ],
+)
+
+da_scala_binary(
+    name = "sandbox-classic-ephemeral-postgresql",
+    main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox-classic",
+        ":sandbox-classic-scala-tests-lib",
+    ],
+)
+
+genrule(
+    name = "sandbox-classic-tarball",
+    srcs = [
+        ":sandbox-classic-binary_deploy.jar",
+    ],
+    outs = ["sandbox-classic-tarball.tar.gz"],
+    cmd = """
+        mkdir -p sandbox-classic-tarball/sandbox
+        cp -L $(location :sandbox-classic-binary_deploy.jar) sandbox-classic-tarball/sandbox/sandbox-classic-{mvn}.jar
+        out=$$(realpath $@)
+        cd sandbox-classic-tarball
+        tar c sandbox \\
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\\ 00:00Z --sort=name \\
+          | gzip -n > $$out
+    """.format(mvn = mvn_version),
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "sandbox-classic-image-base",
+    base = "@java_base//image",
+    cmd = None,
+    directory = "/usr/bin",
+    files = [
+        "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",
+    ],
+) if not is_windows else None
+
+java_image(
+    name = "sandbox-classic-image",
+    base = ":sandbox-classic-image-base",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":sandbox-classic"],
+) if not is_windows else None
+
+da_scala_library(
+    name = "sandbox-classic-scala-tests-lib",
+    srcs = glob(["src/test/lib/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:com_h2database_h2",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = [
+        ":sandbox-classic",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-auth-client",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+        "//ledger/participant-state",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_play_anorm_2_12",
+        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+test_deps = [
+    ":sandbox-classic",
+    ":sandbox-classic-scala-tests-lib",
+    "//bazel_tools/runfiles:scala_runfiles",
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/data",
+    "//daml-lf/engine",
+    "//daml-lf/interpreter",
+    "//daml-lf/language",
+    "//daml-lf/transaction",
+    "//daml-lf/transaction-test-lib",
+    "//language-support/scala/bindings",
+    "//ledger-api/rs-grpc-akka",
+    "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/sample-service",
+    "//ledger-api/testing-utils",
+    "//ledger/caching",
+    "//ledger/participant-integration-api",
+    "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
+    "//ledger/ledger-api-client",
+    "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-health",
+    "//ledger/metrics",
+    "//ledger/participant-state",
+    "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
+    "//ledger/sandbox-common",
+    "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+    "//ledger/test-common",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/direct-execution-context",
+    "//libs-scala/grpc-utils",
+    "//libs-scala/ports",
+    "//libs-scala/postgresql-testing",
+    "//libs-scala/resources",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+    "@maven//:com_typesafe_akka_akka_testkit_2_12",
+    "@maven//:com_typesafe_config",
+    "@maven//:commons_io_commons_io",
+    "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_grpc_grpc_services",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:org_awaitility_awaitility",
+    "@maven//:org_flywaydb_flyway_core",
+    "@maven//:org_mockito_mockito_core",
+    "@maven//:org_mockito_mockito_scala_2_12",
+    "@maven//:org_reactivestreams_reactive_streams",
+    "@maven//:org_scalacheck_scalacheck_2_12",
+    "@maven//:org_scalactic_scalactic_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+da_scala_test_suite(
+    name = "sandbox-classic-tests",
+    srcs = glob(
+        ["src/test/suite/**/*.scala"],
+        exclude = ["src/test/suite/**/ResetService*IT.scala"],
+    ),
+    data = [
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    deps = test_deps,
+)
+
+da_scala_test_suite(
+    name = "sandbox-classic-resetservice-tests",
+    srcs = glob(
+        ["src/test/suite/**/ResetService*IT.scala"],
+    ),
+    data = [
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    flaky = True,
+    resources = glob(["src/test/resources/**/*"]),
+    deps = test_deps,
+)
+
+SERVERS = {
+    "memory": {
+        "binary": ":sandbox-classic-binary",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+    "h2database": {
+        "binary": ":sandbox-classic-binary",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+            # "db_close_delay=-1" is needed so that the in-memory database is not closed
+            # (and therefore lost) after the flyway migration
+            "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
+        ],
+    },
+    "postgresql": {
+        "binary": ":sandbox-classic-ephemeral-postgresql",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+}
+
+server_conformance_test(
+    name = "conformance-test-static-time",
+    server_args = [
+        "--static-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-wall-clock",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-contract-id-seeding",
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)

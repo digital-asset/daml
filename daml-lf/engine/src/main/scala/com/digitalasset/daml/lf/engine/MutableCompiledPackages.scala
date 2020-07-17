@@ -10,7 +10,7 @@ import com.daml.lf.language.Ast.Package
 /** Trait that extends [[CompiledPackages]] with the ability to
   * add new packages.
   */
-trait MutableCompiledPackages extends CompiledPackages {
+abstract class MutableCompiledPackages extends CompiledPackages {
 
   /** Add a new package and compile it to internal form. If package
     * depends on another package the call may return with [[ResultNeedPackage]].

@@ -822,7 +822,7 @@ Impact and Migration
 >>>>>>>>>>>>>>>>>>>>
 
 Old applications will continue running against new ledgers, but
-ledger effective time and maximum record time set on submissions will
+ledger time and maximum record time set on submissions will
 be ignored. As soon as the client-side language bindings or compiled
 gRPC services are updated, the fields will need to be removed as they
 are no longer part of the API specification.

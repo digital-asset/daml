@@ -64,7 +64,7 @@ object Main {
     ): ResourceOwner[KeyValueLedger] = {
       val metrics = createMetrics(participantConfig, config)
       new InMemoryLedgerReaderWriter.Owner(
-        initialLedgerId = config.ledgerId,
+        ledgerId = config.ledgerId,
         config.extra.batchingLedgerWriterConfig,
         participantId = participantConfig.participantId,
         metrics = metrics,

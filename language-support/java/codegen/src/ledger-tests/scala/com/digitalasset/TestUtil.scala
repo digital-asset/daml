@@ -19,10 +19,10 @@ import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
   GetTransactionsResponse
 }
 import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.GrpcClientResource
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.Empty

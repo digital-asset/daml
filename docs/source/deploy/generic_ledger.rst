@@ -69,3 +69,12 @@ use a custom certificate authority for validating the server
 certificate by passing ``--cacrt server.crt``. If ``--pem``, ``--crt``
 or ``--cacrt`` are specified TLS is enabled automatically so ``--tls``
 is redundant.
+
+Configuring Request Timeouts
+----------------------------
+
+You can configure the timeout used on API requests by passing
+``--timeout=N`` to the various ``daml ledger`` commands and ``daml
+deploy`` which will set the timeout to N seconds. Note that this is a
+per-request timeout not a timeout for the whole command. That matters
+for commands like ``daml deploy`` that consist of multiple requests.

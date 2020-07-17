@@ -188,7 +188,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     for {
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      participantState <- newParticipantState(Some(ledgerId), participantId)(materializer, logCtx)
+      participantState <- newParticipantState(ledgerId, participantId)(materializer, logCtx)
       _ <- new StandaloneIndexerServer(
         readService = participantState,
         config = IndexerConfig(
@@ -226,14 +226,14 @@ object RecoveringIndexerIntegrationSpec {
     SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+    def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object SimpleParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] = {
@@ -249,7 +249,7 @@ object RecoveringIndexerIntegrationSpec {
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] =

@@ -28,6 +28,7 @@ data LedgerArgs = LedgerArgs
   , port :: Int
   , tokM :: Maybe L.Token
   , sslConfigM :: Maybe L.ClientSSLConfig
+  , timeout :: L.TimeoutSeconds
   }
 
 instance Show LedgerArgs where
@@ -104,10 +105,9 @@ runWithLedgerArgs :: LedgerArgs -> L.LedgerService a -> IO a
 runWithLedgerArgs args ls = do
     let LedgerArgs{host,port,tokM} = args
     let ls' = case tokM of Nothing -> ls; Just tok -> L.setToken tok ls
-    let timeout = 30 :: L.TimeoutSeconds
     let ledgerClientConfig =
             L.configOfHostAndPort
                 (L.Host $ fromString host)
                 (L.Port port)
                 (sslConfigM args)
-    L.runLedgerService ls' timeout ledgerClientConfig
+    L.runLedgerService ls' (timeout args) ledgerClientConfig

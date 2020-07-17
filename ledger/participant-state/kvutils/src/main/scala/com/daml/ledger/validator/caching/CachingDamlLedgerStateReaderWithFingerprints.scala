@@ -7,7 +7,12 @@ import com.daml.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Fingerprint}
 import com.daml.ledger.validator.StateKeySerializationStrategy
-import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
+import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.StateCacheWithFingerprints
+import com.daml.ledger.validator.preexecution.{
+  DamlLedgerStateReaderWithFingerprints,
+  LedgerStateReaderWithFingerprints,
+  RawToDamlLedgerStateReaderWithFingerprintsAdapter
+}
 import com.google.protobuf.MessageLite
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * Caches only positive lookups, i.e., in case the values for a requested key are available on the ledger.
   */
 class CachingDamlLedgerStateReaderWithFingerprints(
-    val cache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
+    val cache: StateCacheWithFingerprints,
     shouldCache: DamlStateKey => Boolean,
     keySerializationStrategy: StateKeySerializationStrategy,
     delegate: DamlLedgerStateReaderWithFingerprints)(implicit executionContext: ExecutionContext)
@@ -60,4 +65,20 @@ object CachingDamlLedgerStateReaderWithFingerprints {
       value._1.getSerializedSize.toLong + value._2.size()
   }
 
+  type StateCacheWithFingerprints = Cache[DamlStateKey, (DamlStateValue, Fingerprint)]
+
+  def apply(
+      cache: StateCacheWithFingerprints,
+      cachingPolicy: CacheUpdatePolicy,
+      ledgerStateReaderWithFingerprints: LedgerStateReaderWithFingerprints,
+      keySerializationStrategy: StateKeySerializationStrategy)(
+      implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints =
+    new CachingDamlLedgerStateReaderWithFingerprints(
+      cache,
+      cachingPolicy.shouldCacheOnRead,
+      keySerializationStrategy,
+      new RawToDamlLedgerStateReaderWithFingerprintsAdapter(
+        ledgerStateReaderWithFingerprints,
+        keySerializationStrategy)
+    )
 }
