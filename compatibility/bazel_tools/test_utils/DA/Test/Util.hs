@@ -18,4 +18,4 @@ assertFileDoesNotExist :: FilePath -> IO ()
 assertFileDoesNotExist file = doesFileExist file >>= assertBool (file ++ " was expected to not exist, but does exist") . not
 
 assertInfixOf :: String -> String -> Assertion
-assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)
+assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but got " <> show haystack) (needle `isInfixOf` haystack)
