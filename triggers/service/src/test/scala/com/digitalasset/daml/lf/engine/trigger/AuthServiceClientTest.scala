@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.scalatest.concurrent.Eventually
+import AuthServiceDomain._
 
 import scala.concurrent.ExecutionContext
 
@@ -17,7 +18,7 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
   it should "authorize a user to get an auth service bearer token" in AuthServiceFixture
     .withAuthServiceClient(testId) { authServiceClient =>
       for {
-        Right(AuthServiceToken(token)) <- authServiceClient.authorize("username", "password")
+        AuthServiceToken(token) <- authServiceClient.authorize("username", "password")
         _ <- token should not be empty
       } yield succeed
     }
