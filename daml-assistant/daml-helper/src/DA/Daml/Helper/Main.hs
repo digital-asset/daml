@@ -341,7 +341,7 @@ commandParser = subparser $ fold
     timeoutOption :: Parser TimeoutSeconds
     timeoutOption = option auto $ mconcat
         [ long "timeout"
-        , metavar "TIMEOUT"
+        , metavar "INT"
         , value 30
         , help "Timeout of gRPC operations in seconds. Defaults to 30s"
         ]
