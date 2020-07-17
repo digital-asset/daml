@@ -41,6 +41,7 @@ da_haskell_binary(
         "tasty",
         "tasty-hunit",
         "text",
+        "uuid",
     ],
     visibility = ["//visibility:public"],
     deps = [

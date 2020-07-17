@@ -3,6 +3,7 @@
 
 module DA.Daml.Helper.Test.Deployment (main) where
 
+import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit
@@ -101,8 +102,9 @@ timeoutTest :: Tools -> IO Int -> TestTree
 timeoutTest Tools{..} getSandboxPort = do
     testCase "timeout" $ do
         port <- getSandboxPort
+        party <- show <$> UUID.nextRandom
         (exit, stdout, stderr) <- readProcessWithExitCode damlHelper
-            [ "ledger", "allocate-party", "crap"
+            [ "ledger", "allocate-party", party
             , "--host", "localhost"
             , "--port", show port
             , "--timeout", "0"

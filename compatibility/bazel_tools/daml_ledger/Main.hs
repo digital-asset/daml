@@ -12,6 +12,7 @@ import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
+import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
@@ -193,8 +194,9 @@ timeoutTest getTools getSandboxPort = do
     testCase "timeout" $ do
         port <- getSandboxPort
         Tools{..} <- getTools
+        party <- show <$> UUID.nextRandom
         (exit, stdout, stderr) <- readProcessWithExitCode daml
-            [ "ledger", "allocate-party", "crap"
+            [ "ledger", "allocate-party", party
             , "--host", "localhost"
             , "--port", show port
             , "--timeout", "0"
