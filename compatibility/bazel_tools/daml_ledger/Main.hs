@@ -4,6 +4,7 @@
 module Main (main) where
 
 import Control.Applicative
+import Control.Exception
 import DA.Test.Process
 import Data.Either.Extra
 import Data.Function ((&))
@@ -203,7 +204,8 @@ timeoutTest getTools getSandboxPort = do
             ]
             ""
         -- Not quite sure when we get which error message but both are fine.
-        assertInfixOf "GRPCIOTimeout" stderr <|> assertInfixOf "Deadline Exceeded" stderr
+        assertInfixOf "GRPCIOTimeout" stderr `catch`
+            \(_ :: HUnitFailure) -> assertInfixOf "StatusDeadlineExceeded" stderr
         assertInfixOf "Checking party allocation" stdout
         exit @?= ExitFailure 1
 

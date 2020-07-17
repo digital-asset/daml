@@ -3,7 +3,7 @@
 
 module DA.Daml.Helper.Test.Deployment (main) where
 
-import Control.Applicative
+import Control.Exception
 import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment.Blank (setEnv)
@@ -112,7 +112,8 @@ timeoutTest Tools{..} getSandboxPort = do
             ]
             ""
         -- Not quite sure when we get which error message but both are fine.
-        assertInfixOf "GRPCIOTimeout" stderr <|> assertInfixOf "Deadline Exceeded" stderr
+        assertInfixOf "GRPCIOTimeout" stderr `catch`
+            \(_ :: HUnitFailure) -> assertInfixOf "StatusDeadlineExceeded" stderr
         assertInfixOf "Checking party allocation" stdout
         exit @?= ExitFailure 1
 
