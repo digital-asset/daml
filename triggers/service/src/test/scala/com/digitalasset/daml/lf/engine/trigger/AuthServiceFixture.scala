@@ -29,9 +29,9 @@ object AuthServiceFixture {
   }
 
   def withAuthServiceClient[A](testName: String)(testFn: AuthServiceClient => Future[A])(
-    implicit system: ActorSystem,
-    mat: Materializer,
-    ec: ExecutionContext): Future[A] = {
+      implicit system: ActorSystem,
+      mat: Materializer,
+      ec: ExecutionContext): Future[A] = {
     val adminLedgerId = LedgerId("admin-ledger")
     val adminLedgerF = for {
       ledger <- Future(
