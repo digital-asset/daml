@@ -427,6 +427,11 @@ object Node {
   sealed trait WithTxValue3[F[+ _, + _, + _]] {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
   }
+
+  final case class GlobalKeyWithMaintainers(
+      gkey: GlobalKey,
+      maintainers: Set[Party]
+  )
 }
 
 final case class NodeId(index: Int)

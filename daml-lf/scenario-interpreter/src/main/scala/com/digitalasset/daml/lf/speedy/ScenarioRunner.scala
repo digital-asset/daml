@@ -88,8 +88,8 @@ final case class ScenarioRunner(
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
-        case SResultNeedKey(gk, committers, cb) =>
-          lookupKey(gk, committers, cb)
+        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
+          lookupKey(keyWithMaintainers.gkey, committers, cb)
       }
     }
     val endTime = System.nanoTime()

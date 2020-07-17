@@ -131,7 +131,7 @@ class ContractDiscriminatorFreshnessCheckSpec
         participantId = participant,
         submissionSeed = submissionSeed,
       )
-      .consume(pcs, pkgs, keys)
+      .consume(pcs, pkgs, keyWithMaintainers => keys(keyWithMaintainers.gkey))
 
   val engine = Engine.DevEngine()
 
