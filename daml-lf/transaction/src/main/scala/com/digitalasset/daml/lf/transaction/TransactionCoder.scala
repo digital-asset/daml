@@ -186,14 +186,13 @@ object TransactionCoder {
         }
 
       case nf @ NodeFetch(_, _, _, _, _, _, _) =>
-        val (vversion, etid) = ValueCoder.encodeIdentifier(
+        val (_, etid) = ValueCoder.encodeIdentifier(
           nf.templateId,
           valueVersion1Only(transactionVersion) option ValueVersion("1"),
         )
         val fetchBuilder = TransactionOuterClass.NodeFetch
           .newBuilder()
           .setTemplateId(etid)
-          .setValueVersion(vversion.protoValue)
           .addAllStakeholders(nf.stakeholders.toSet[String].asJava)
           .addAllSignatories(nf.signatories.toSet[String].asJava)
 
