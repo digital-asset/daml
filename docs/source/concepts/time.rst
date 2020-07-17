@@ -116,3 +116,6 @@ The algorithm is not part of the definition of time in DAML, and may change in t
 Use the parameters ``min_ledger_time_rel`` and ``min_ledger_time_abs`` if you expect that
 command interpretation will take a considerate amount of time, such that by
 the time the resulting transaction is submitted to the ledger, its assigned ledger time is not valid anymore.
+Note that these parameters can only make sure that the transaction arrives roughly at ``rt_TX`` at the ledger.
+If a subsequent validation on the ledger takes longer than ``skew_max``,
+the transaction will still be rejected and you'll have to ask your ledger operator to increase the ``skew_max`` time model parameter. 
