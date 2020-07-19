@@ -66,6 +66,9 @@ set -u
   --url "https://\$VSTS_ACCOUNT.visualstudio.com"
 AGENT_SETUP
 
+## Remount Nix partition
+sudo hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
+
 ## Hardening
 chown -R root:wheel /Users/vsts/agent/{*.sh,bin,externals}
 
