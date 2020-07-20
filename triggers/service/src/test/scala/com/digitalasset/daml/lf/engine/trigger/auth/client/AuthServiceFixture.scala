@@ -71,7 +71,7 @@ object AuthServiceFixture {
         ).run()
       }
       // Wait for the auth service instance to be ready to accept connections.
-      _ <- RetryStrategy.constant(attempts = 3, waitTime = 4.seconds) { (_, _) =>
+      _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds) { (_, _) =>
         for {
           channel <- Future(new Socket(host, port.value))
         } yield channel.close()
