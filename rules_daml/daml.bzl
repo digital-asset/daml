@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
 _damlc = attr.label(
     allow_single_file = True,
@@ -325,47 +326,25 @@ def daml_build_test(
         dar = name + ".dar",
     )
 
-def _daml_test_impl(ctx):
-    script = """
-      set -eou pipefail
+def daml_test(
+        name,
+        srcs = [],
+        damlc = "//compiler/damlc",
+        **kwargs):
+    sh_inline_test(
+        name = name,
+        data = [damlc] + srcs,
+        cmd = """\
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
 
-      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-
-      $DAMLC test --files $(rlocations "{files}")
-    """.format(
-        damlc = ctx.executable.damlc.short_path,
-        files = " ".join([f.short_path for f in ctx.files.srcs]),
-    )
-
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = script,
-    )
-    damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
-    runfiles = ctx.runfiles(
-        collect_data = True,
-        files = ctx.files.srcs,
-    ).merge(damlc_runfiles)
-    return [DefaultInfo(runfiles = runfiles)]
-
-daml_test = rule(
-    implementation = _daml_test_impl,
-    attrs = {
-        "srcs": attr.label_list(
-            allow_files = [".daml"],
-            default = [],
-            doc = "DAML source files to test.",
+$$DAMLC test --files $$(rlocations {files})
+""".format(
+            damlc = damlc,
+            files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
         ),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("//compiler/damlc"),
-        ),
-    },
-    test = True,
-)
+        **kwargs
+    )
 
 def _daml_doctest_impl(ctx):
     script = """
