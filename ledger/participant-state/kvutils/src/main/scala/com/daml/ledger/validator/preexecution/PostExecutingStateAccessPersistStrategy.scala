@@ -8,7 +8,8 @@ import java.time.Instant
 import com.daml.ledger.participant.state.kvutils.{Err, Fingerprint}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateAccess
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.LedgerStateOperations.Value
+import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -17,7 +18,7 @@ class PostExecutingStateAccessPersistStrategy[LogResult](
   import PostExecutingStateAccessPersistStrategy._
 
   def conflictDetectAndPersist(
-      preExecutionOutput: PreExecutionOutput[Seq[(Key, Value)]],
+      preExecutionOutput: PreExecutionOutput[RawKeyValuePairs],
       ledgerStateAccess: LedgerStateAccess[LogResult])(
       implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     ledgerStateAccess.inTransaction { ledgerStateOperations =>

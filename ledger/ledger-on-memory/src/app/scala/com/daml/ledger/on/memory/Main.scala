@@ -18,7 +18,8 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   Runner
 }
-import com.daml.ledger.participant.state.kvutils.caching._
+import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -66,9 +67,14 @@ object Main {
       new InMemoryLedgerReaderWriter.Owner(
         ledgerId = config.ledgerId,
         config.extra.batchingLedgerWriterConfig,
+        config.extra.preExecute,
         participantId = participantConfig.participantId,
         metrics = metrics,
         stateValueCache = caching.WeightedCache.from(
+          configuration = config.stateValueCache,
+          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+        ),
+        stateValueCacheForPreExecution = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
@@ -93,6 +99,19 @@ object Main {
             config.copy(
               extra = config.extra.copy(
                 batchingLedgerWriterConfig = parsedBatchingConfig
+              )
+            )
+        }
+      parser
+        .opt[Boolean]("pre-execute")
+        .optional()
+        .text(
+          "Whether to enable pre-execution (mutually exclusive with batching and will disable it).")
+        .action {
+          case (preExecute, config) =>
+            config.copy(
+              extra = config.extra.copy(
+                preExecute = preExecute
               )
             )
         }
