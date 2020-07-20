@@ -55,7 +55,7 @@ common_scalacopts = [
     "-Xlint:constant",  # / 0
     "-Xlint:doc-detached",  # floating Scaladoc comment
     "-Xlint:inaccessible",  # method uses invisible types
-    "-Xlint:infer-any",  # less through but less buggy version of the Any wart
+    "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
     "-Xlint:option-implicit",  # implicit conversion arg might be null
     "-Xlint:package-object-classes",  # put them directly in the package
     "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
