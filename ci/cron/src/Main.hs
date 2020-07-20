@@ -12,6 +12,7 @@ import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
+import qualified Data.Char
 import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
@@ -26,6 +27,7 @@ import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
+import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
@@ -90,24 +92,43 @@ http_get url = do
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
-newtype Version = Version (Int, Int, Int, Maybe String)
+data StringOrInt = I Int | S String
   deriving (Eq, Ord)
 
+data Version = Version Int Int Int [StringOrInt]
+  deriving (Eq)
+
+instance Ord Version where
+    compare (Version maj1 min1 p1 q1) (Version maj2 min2 p2 q2) | (maj1, min1, p1) == (maj2, min2, p2) =
+        case (q1, q2) of
+          ([], []) -> EQ
+          ([], _) -> GT
+          (_, []) -> LT
+          (q1, q2) -> compare q1 q2
+    compare (Version maj1 min1 p1 _) (Version maj2 min2 p2 _) = compare (maj1, min1, p1) (maj2, min2, p2)
+
 instance Show Version where
-    show (Version (a, b, c, q)) = show a <> "." <> show b <> "." <> show c <> Maybe.maybe "" (\qual -> "-" <> qual) q
+    show (Version a b c q) = show a <> "." <> show b <> "." <> show c <> meta q
+        where meta [] = ""
+              meta q = "-" <> (List.intercalate "." $ map (\case I int -> show int; S s -> s) q)
+
+--is_stable :: Version -> Bool
+--is_stable (Version _ _ _ []) = True
+--is_stable (Version _ _ _ _) = False
 
 to_v :: String -> Version
 to_v s = case Split.splitOn "-" s of
     [prefix, qualifier] -> let (major, minor, patch) = parse_stable prefix
-                           in Version (major, minor, patch, Just qualifier)
+                           in Version major minor patch (parse_qual qualifier)
     [stable] -> let (major, minor, patch) = parse_stable stable
-                in Version (major, minor, patch, Nothing)
+                in Version major minor patch []
     _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
     where parse_stable s = case map read $ Split.splitOn "." s of
               [major, minor, patch] -> (major, minor, patch)
               _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
+          parse_qual q = map (\s -> if all Data.Char.isDigit s then I (read s) else S s) $ Split.splitOn "." q
 
-build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
+build_docs_folder :: String -> [GitHubVersion] -> String -> IO (String, String)
 build_docs_folder path versions current = do
     restore_sha $ do
         let old = path </> "old"
@@ -194,7 +215,7 @@ build_docs_folder path versions current = do
                   shell_ $ "cp " <> top_level_release_notes <> " " <> p gh_version
           _ -> do
               putStrLn "No version built, so no release page copied."
-        return new
+        return (new, old)
     where
         restore_sha io =
             Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
@@ -296,12 +317,37 @@ push_to_s3 doc_folder = do
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
 
-data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String } deriving Show
+push_to_github :: [GitHubVersion] -> String -> String -> IO ()
+push_to_github versions root github_auth = do
+    let vs = Set.fromList $ map name versions
+    let m = H.fromList $ map (\gh -> (name gh, show $ release_id gh)) versions
+    dirs <- filter (`Set.member` vs) <$> Directory.listDirectory root
+    Data.Foldable.for_ dirs (\version -> do
+        (zip_file_name, remote_exists) <- check_exists version
+        if remote_exists
+        then return ()
+        else do
+            let id = m H.! version
+            shell_ $ "cd " <> root <> "; zip -r " <> zip_file_name <> " " <> version
+            shell_ $ "curl"
+                   <> " -u" <> github_auth
+                   <> " --data-binary @" <> root </> zip_file_name
+                   <> " -H 'Content-Type: application/zip'"
+                   <> " https://api.github.com/repos/digital-asset/daml/releases/" <> id <> "/assets?name=" <> zip_file_name)
+    where check_exists v = do
+            let archive = "html-docs-" <> v <> ".zip"
+            let url = "https://github.com/digital-asset/daml/releases/download/v" <> v <> "/" <> archive
+            (exit, _, _) <- shell_exit_code $ "curl -I --fail " <> url
+            case exit of
+              Exit.ExitFailure _ -> return (archive, False)
+              Exit.ExitSuccess -> return (archive, True)
+
+data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, release_id :: Integer } deriving Show
 instance JSON.FromJSON GitHubVersion where
     parseJSON = JSON.withObject "GitHubVersion" $ \v -> GitHubVersion
         <$> v JSON..: Text.pack "prerelease"
         <*> v JSON..: Text.pack "tag_name"
-        <*> v JSON..:? Text.pack "body" JSON..!= ""
+        <*> v JSON..: Text.pack "id"
 
 name :: GitHubVersion -> String
 name gh = tail $ tag_name gh
@@ -325,11 +371,21 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> fail $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-fetch_gh_versions :: IO ([GitHubVersion], GitHubVersion)
-fetch_gh_versions = do
-    resp <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
-    let latest = List.maximumOn (to_v . name) $ filter (not . prerelease) resp
-    return (resp, latest)
+fetch_gh_versions :: IO [GitHubVersion]
+fetch_gh_versions =
+    fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
+
+keep_relevant_versions :: ([GitHubVersion], GitHubVersion) -> ([GitHubVersion], GitHubVersion)
+keep_relevant_versions (versions, latest) =
+    --let stable = filter (\v -> (to_v . name) v >= to_v "1.0.0") $ filter (is_stable . to_v . name) versions
+    --    snaps = filter (\v -> (to_v . name) v >= (to_v . name) latest) $ filter (not . is_stable . to_v . name) versions
+    --in (stable <> snaps, latest)
+    (versions, latest)
+
+extract_latest :: [GitHubVersion] -> ([GitHubVersion], GitHubVersion)
+extract_latest versions =
+    let latest = List.maximumOn (to_v . name) $ filter (not . prerelease) versions
+    in (versions, latest)
 
 same_versions :: (Set.Set Version, Set.Set Version) -> [GitHubVersion] -> Bool
 same_versions s3_versions gh_versions =
@@ -347,21 +403,24 @@ main = do
     Control.forM_ [IO.stdout, IO.stderr] $
         \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
-    (gh_versions, gh_latest) <- fetch_gh_versions
+    github_creds <- System.Environment.getEnv "GITHUB_AUTH"
+    all_gh_versions <- fetch_gh_versions
+    let (versions_to_keep, latest) = keep_relevant_versions $ extract_latest all_gh_versions
     s3_versions_before <- fetch_s3_versions
-    if same_versions s3_versions_before gh_versions
+    if same_versions s3_versions_before versions_to_keep
     then do
-        putStrLn "No new version found, skipping."
+        putStrLn "Versions match, nothing to do."
         Exit.exitSuccess
     else do
         IO.withTempDir $ \temp_dir -> do
-            putStrLn "Building docs listing"
-            docs_folder <- build_docs_folder temp_dir gh_versions $ name gh_latest
+            putStrLn "Building docs listing..."
+            (new_docs, old_docs) <- build_docs_folder temp_dir versions_to_keep $ name latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
             s3_versions_after <- fetch_s3_versions
-            if same_versions s3_versions_after gh_versions
+            if same_versions s3_versions_after versions_to_keep
             then do
                 putStrLn "No more new version, another process must have pushed already."
                 Exit.exitSuccess
             else do
-                push_to_s3 docs_folder
+                push_to_s3 new_docs
+                push_to_github all_gh_versions old_docs github_creds

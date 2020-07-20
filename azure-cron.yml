@@ -35,9 +35,25 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        persistCredentials: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/cron/run.sh
+      - bash:
+          set -euo pipefail
+          SHA=$(git log -n1 --format=%H)
+
+          revert_sha () {
+              git checkout $SHA
+          }
+          trap revert_sha EXIT
+
+          AUTH="$(git config remote.origin.url | grep -o "://.*:.*@" | cut -c4- | rev | cut -c2- | rev)"
+
+          eval "$(dev-env/bin/dade assist)"
+
+          bazel build //ci/cron:cron
+
+          GITHUB_AUTH=$AUTH ./bazel-bin/ci/cron/cron
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
