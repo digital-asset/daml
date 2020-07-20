@@ -61,16 +61,13 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
   private val saLogin = Path("/sa/login")
 
   def authorize(username: String, password: String): Future[AuthServiceToken] = {
-    val authorizeUri = authServiceBaseUri.withPath(saSecure./("authorize"))
-    val request = HttpRequest(
+    val uri = authServiceBaseUri.withPath(saSecure./("authorize"))
+    val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = authorizeUri,
+      uri,
       headers = List(Authorization(BasicHttpCredentials(username, password)))
     )
-    for {
-      authResponse <- http.singleRequest(request)
-      authServiceToken <- Unmarshal(authResponse).to[AuthServiceToken]
-    } yield authServiceToken
+    http.singleRequest(req).flatMap(Unmarshal(_).to[AuthServiceToken])
   }
 
   def requestServiceAccount(
