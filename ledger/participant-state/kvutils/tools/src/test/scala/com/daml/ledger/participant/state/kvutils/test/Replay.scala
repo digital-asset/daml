@@ -18,12 +18,12 @@ import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.{Ast, Util => AstUtil}
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.Node.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.transaction.{
   Node,
+  SubmittedTransaction,
   Transaction => Tx,
-  TransactionCoder => TxCoder,
-  SubmittedTransaction
+  TransactionCoder => TxCoder
 }
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
@@ -74,6 +74,12 @@ class Replay {
   private var benchmarks: Map[String, BenchmarkState] = _
   private var benchmark: BenchmarkState = _
 
+  private def getContract(cid: ContractId) =
+    benchmark.contracts.get(cid)
+
+  private def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
+    benchmark.contractKeys.get(globalKeyWithMaintainers.globalKey)
+
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(): Unit = {
     val result = engine
@@ -84,7 +90,7 @@ class Replay {
         benchmark.transaction.submissionTime,
         benchmark.transaction.submissionSeed,
       )
-      .consume(benchmark.contracts.get, _ => Replay.unexpectedError, benchmark.contractKeys.get)
+      .consume(getContract, Replay.unexpectedError, getContractKey)
     assert(result.isRight)
   }
 
@@ -112,11 +118,7 @@ class Replay {
         benchmark.transaction.submissionTime,
         benchmark.transaction.submissionSeed,
       )
-      .consume(
-        benchmark.contracts.get,
-        pkgId => throw new IllegalArgumentException(s"package $pkgId not found"),
-        benchmark.contractKeys.get,
-      )
+      .consume(getContract, Replay.unexpectedError, getContractKey)
     assert(result.isRight)
   }
 
@@ -124,7 +126,7 @@ class Replay {
 
 object Replay {
 
-  private def unexpectedError = sys.error("Unexpected Error")
+  private val unexpectedError = (_: Any) => sys.error("Unexpected Error")
 
   private def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
@@ -144,7 +146,7 @@ object Replay {
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine
         .preloadPackage(pkgId, pkgs(pkgId))
-        .consume(_ => unexpectedError, _ => unexpectedError, _ => unexpectedError)
+        .consume(unexpectedError, unexpectedError, unexpectedError)
       assert(r.isRight)
     }
     engine

@@ -547,7 +547,7 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       inputState: DamlStateMap,
       knownKeys: Map[DamlContractKey, Value.ContractId],
-  )(key: Node.GlobalKey): Option[Value.ContractId] = {
+  )(key: Node.GlobalKeyWithMaintainers): Option[Value.ContractId] = {
     // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
     // this is not a problem, because:
     // a) if the lookup was negative and we actually found a contract,
@@ -559,7 +559,7 @@ private[kvutils] class TransactionCommitter(
     //      to lookup the contract
     //    - the separate contract keys check ensures that all contracts pointed to by
     //    contract keys respect causal monotonicity.
-    val stateKey = Conversions.globalKeyToStateKey(key)
+    val stateKey = Conversions.globalKeyToStateKey(key.globalKey)
     val contractId = for {
       stateValue <- inputState.get(stateKey).flatten
       if stateValue.getContractKeyState.getContractId.nonEmpty

@@ -19,7 +19,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.daml.lf.transaction.Node.{GlobalKey, GlobalKeyWithMaintainers, KeyWithMaintainers}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
@@ -1072,7 +1072,7 @@ private[lf] object SBuiltin {
           // that.
           throw SpeedyHungry(
             SResultNeedKey(
-              gkey,
+              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
               machine.committers, {
                 case SKeyLookupResult.Found(cid) =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
@@ -1151,7 +1151,7 @@ private[lf] object SBuiltin {
           // that.
           throw SpeedyHungry(
             SResultNeedKey(
-              gkey,
+              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
               machine.committers, {
                 case SKeyLookupResult.Found(cid) =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
