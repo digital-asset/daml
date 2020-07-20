@@ -19,6 +19,7 @@ message HelloResponse {
 }
 
 service HelloService {
-    rpc Single (HelloRequest) returns (HelloResponse);
-    rpc ServerStreaming (HelloRequest) returns (stream HelloResponse);
+  rpc Single (HelloRequest) returns (HelloResponse);
+  rpc ServerStreaming (HelloRequest) returns (stream HelloResponse);
+  rpc Fails (HelloRequest) returns (HelloResponse);
 }
