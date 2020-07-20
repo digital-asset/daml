@@ -9,13 +9,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.{Http, HttpExt}
-import akka.http.scaladsl.model.{
-  ContentTypes,
-  HttpEntity,
-  HttpMethods,
-  HttpRequest,
-  Uri
-}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, Uri}
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, OAuth2BearerToken}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
@@ -26,11 +20,19 @@ import scala.concurrent.{ExecutionContext, Future}
 object AuthServiceDomain extends DefaultJsonProtocol {
   // OAuth2 bearer token for requests to authentication service
   case class AuthServiceToken(token: String)
-  implicit val authServiceTokenFormat: RootJsonFormat[AuthServiceToken] = jsonFormat1(
-    AuthServiceToken)
+  implicit val authServiceTokenFormat = jsonFormat1(AuthServiceToken)
 
   case class Nonce(nonce: String)
-  implicit val nonceFormat: RootJsonFormat[Nonce] = jsonFormat1(Nonce)
+  implicit val nonceFormat = jsonFormat1(Nonce)
+
+  case class CredentialId(credId: String)
+  implicit val credentialIdFormat = jsonFormat1(CredentialId)
+
+  case class ServiceAccount(creds: List[CredentialId], nonce: String, serviceAccount: String)
+  implicit val serviceAccountFormat = jsonFormat3(ServiceAccount)
+
+  case class ServiceAccountList(serviceAccounts: List[ServiceAccount])
+  implicit val serviceAccountListFormat = jsonFormat1(ServiceAccountList)
 }
 
 class AuthServiceClient(authServiceBaseUri: Uri)(
@@ -40,9 +42,10 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
   import AuthServiceDomain._
 
   private val http: HttpExt = Http(system)
+  private val saSecure: Path = Path("/sa/secure")
 
   def authorize(username: String, password: String): Future[AuthServiceToken] = {
-    val authorizeUri = authServiceBaseUri.withPath(Path("/sa/secure/authorize"))
+    val authorizeUri = authServiceBaseUri.withPath(saSecure./("authorize"))
     val request = HttpRequest(
       method = HttpMethods.POST,
       uri = authorizeUri,
@@ -54,8 +57,10 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     } yield authServiceToken
   }
 
-  def requestServiceAccount(authServiceToken: AuthServiceToken, ledgerId: String): Future[Boolean] = {
-    val uri = authServiceBaseUri.withPath(Path(s"/sa/secure/request/$ledgerId"))
+  def requestServiceAccount(
+      authServiceToken: AuthServiceToken,
+      ledgerId: String): Future[Boolean] = {
+    val uri = authServiceBaseUri.withPath(saSecure./("request")./(ledgerId))
     val authHeader = Authorization(OAuth2BearerToken(authServiceToken.token))
     val nonce = Nonce(UUID.randomUUID.toString)
     val entity = HttpEntity(ContentTypes.`application/json`, nonce.toJson.toString)
