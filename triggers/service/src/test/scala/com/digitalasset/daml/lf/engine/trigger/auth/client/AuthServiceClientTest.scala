@@ -19,12 +19,24 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
 
   private val testLedgerId = "test-ledger-id"
 
-  it should "authorize a user and request a service account" in AuthServiceFixture
-    .withAuthServiceClient(testId) { authServiceClient =>
+  it should "authorize a user and request a service account" in
+    AuthServiceFixture.withAuthServiceClient(testId) { authServiceClient =>
       for {
         authServiceToken <- authServiceClient.authorize("username", "password")
         _ <- authServiceToken.token should not be empty
         success <- authServiceClient.requestServiceAccount(authServiceToken, testLedgerId)
       } yield assert(success)
+    }
+
+  it should "retrieve a service account" in
+    AuthServiceFixture.withAuthServiceClient(testId) { authServiceClient =>
+      for {
+        authServiceToken <- authServiceClient.authorize("username", "password")
+        _ <- authServiceToken.token should not be empty
+        saReqSuccess <- authServiceClient.requestServiceAccount(authServiceToken, testLedgerId)
+        _ <- assert(saReqSuccess)
+        Some(sa) <- authServiceClient.getServiceAccount(authServiceToken)
+        _ <- sa.serviceAccount should not be empty
+      } yield succeed
     }
 }

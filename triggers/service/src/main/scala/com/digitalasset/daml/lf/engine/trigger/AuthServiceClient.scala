@@ -13,6 +13,9 @@ import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequ
 import akka.http.scaladsl.model.headers.{Authorization, BasicHttpCredentials, OAuth2BearerToken}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.Materializer
+import com.daml.timer.RetryStrategy
+
+import scala.concurrent.duration._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -73,6 +76,27 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     http.singleRequest(req).map(_.status.isSuccess)
   }
 
+  def listServiceAccounts(authServiceToken: AuthServiceToken): Future[ServiceAccountList] = {
+    val uri = authServiceBaseUri.withPath(saSecure)
+    val authHeader = Authorization(OAuth2BearerToken(authServiceToken.token))
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri,
+      headers = List(authHeader),
+    )
+    http.singleRequest(req).flatMap(Unmarshal(_).to[ServiceAccountList])
+  }
+
+  def getServiceAccount(authServiceToken: AuthServiceToken): Future[Option[ServiceAccount]] =
+    try {
+      RetryStrategy.constant(attempts = 3, waitTime = 4.seconds) { (_, _) =>
+        for {
+          ServiceAccountList(sa :: _) <- listServiceAccounts(authServiceToken)
+        } yield Some(sa)
+      }
+    } catch {
+      case e: Throwable => Future(None)
+    }
 }
 
 object AuthServiceClient {
