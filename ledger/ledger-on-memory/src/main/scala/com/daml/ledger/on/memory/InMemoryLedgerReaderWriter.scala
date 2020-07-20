@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
+import com.daml.ledger.validator.StateAccessingValidatingCommitter
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
@@ -33,7 +34,7 @@ final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-    committer: BatchedValidatingCommitter[Index],
+    committer: StateAccessingValidatingCommitter[Index],
     metrics: Metrics)(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
