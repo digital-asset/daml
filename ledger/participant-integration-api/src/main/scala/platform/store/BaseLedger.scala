@@ -40,7 +40,7 @@ import scalaz.syntax.tag.ToTagOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-abstract class BaseLedger(
+private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     dispatcher: Dispatcher[Offset],

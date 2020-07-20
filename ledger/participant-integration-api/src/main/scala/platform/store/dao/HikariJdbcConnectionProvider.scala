@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
-final class HikariConnection(
+private[platform] final class HikariConnection(
     serverRole: ServerRole,
     jdbcUrl: String,
     minimumIdle: Int,
@@ -70,7 +70,7 @@ final class HikariConnection(
   }
 }
 
-object HikariConnection {
+private[platform] object HikariConnection {
   private val MaxInitialConnectRetryAttempts = 600
   private val ConnectionPoolPrefix: String = "daml.index.db.connection"
 
@@ -96,7 +96,7 @@ object HikariConnection {
     )
 }
 
-class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: Timer)(
+private[platform] class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: Timer)(
     implicit logCtx: LoggingContext
 ) extends JdbcConnectionProvider {
   private val transientFailureCount = new AtomicInteger(0)
@@ -148,7 +148,7 @@ class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: T
   }
 }
 
-object HikariJdbcConnectionProvider {
+private[platform] object HikariJdbcConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
 

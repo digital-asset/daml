@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-final class DbDispatcher private (
+private[platform] final class DbDispatcher private (
     val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
     executor: Executor,
@@ -83,7 +83,7 @@ final class DbDispatcher private (
   }
 }
 
-object DbDispatcher {
+private[platform] object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(

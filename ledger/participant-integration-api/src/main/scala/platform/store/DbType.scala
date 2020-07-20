@@ -3,12 +3,12 @@
 
 package com.daml.platform.store
 
-sealed abstract class DbType(
+private[platform] sealed abstract class DbType(
     val name: String,
     val driver: String,
     val supportsParallelWrites: Boolean)
 
-object DbType {
+private[platform] object DbType {
   object Postgres extends DbType("postgres", "org.postgresql.Driver", true)
 
   // H2 does not support concurrent, conditional updates to the ledger_end at read committed isolation
