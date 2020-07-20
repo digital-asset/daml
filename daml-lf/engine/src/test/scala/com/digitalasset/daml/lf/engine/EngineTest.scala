@@ -381,7 +381,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "translate Optional values" in {
-      val (optionalPkgId, optionalPkg @ _, allOptionalPackages) =
+      val (optionalPkgId, _, allOptionalPackages) =
         loadPackage("daml-lf/tests/Optional.dar")
 
       val translator = new preprocessing.Preprocessor(ConcurrentCompiledPackages.apply())
@@ -1344,7 +1344,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
-      val Right((tx, txMeta @ _)) = engine
+      val Right((tx, _)) = engine
         .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
@@ -1417,7 +1417,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         case Some(Node.NodeFetch(_, _, _, _, _, _, key)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(keyValue @ _, maintainers)) =>
+            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -1479,7 +1479,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           case (id, nf: Node.NodeFetch[_, _]) =>
             nf.key match {
               // just test that the maintainers match here, getting the key out is a bit hairier
-              case Some(Node.KeyWithMaintainers(keyValue @ _, maintainers)) =>
+              case Some(Node.KeyWithMaintainers(_, maintainers)) =>
                 assert(maintainers == Set(alice))
               case None => fail("the recomputed fetch didn't have a key")
             }
