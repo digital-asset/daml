@@ -45,6 +45,9 @@ object AuthServiceDomain extends DefaultJsonProtocol {
       validTo: String
   )
   implicit val credentialFormat = jsonFormat5(Credential)
+
+  case class LedgerAccessToken(token: String)
+  implicit val ledgerAccessTokenFormat = jsonFormat1(LedgerAccessToken)
 }
 
 class AuthServiceClient(authServiceBaseUri: Uri)(
@@ -54,7 +57,8 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
   import AuthServiceDomain._
 
   private val http: HttpExt = Http(system)
-  private val saSecure: Path = Path("/sa/secure")
+  private val saSecure = Path("/sa/secure")
+  private val saLogin = Path("/sa/login")
 
   def authorize(username: String, password: String): Future[AuthServiceToken] = {
     val authorizeUri = authServiceBaseUri.withPath(saSecure./("authorize"))
@@ -143,7 +147,9 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
         }
     }
 
-  def getCredential(authServiceToken: AuthServiceToken, credentialId: CredentialId): Future[Credential] = {
+  def getCredential(
+      authServiceToken: AuthServiceToken,
+      credentialId: CredentialId): Future[Credential] = {
     val uri = authServiceBaseUri.withPath(saSecure./("cred")./(credentialId.credId))
     val authHeader = Authorization(OAuth2BearerToken(authServiceToken.token))
     val req = HttpRequest(
@@ -152,6 +158,17 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
       headers = List(authHeader),
     )
     http.singleRequest(req).flatMap(Unmarshal(_).to[Credential])
+  }
+
+  def login(credential: Credential): Future[LedgerAccessToken] = {
+    val uri = authServiceBaseUri.withPath(saLogin)
+    val authHeader = Authorization(BasicHttpCredentials(credential.credId, credential.cred))
+    val req = HttpRequest(
+      method = HttpMethods.POST,
+      uri,
+      headers = List(authHeader),
+    )
+    http.singleRequest(req).flatMap(Unmarshal(_).to[LedgerAccessToken])
   }
 }
 

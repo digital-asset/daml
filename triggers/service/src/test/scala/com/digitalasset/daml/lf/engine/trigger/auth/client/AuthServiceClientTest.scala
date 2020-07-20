@@ -28,7 +28,7 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
       } yield assert(success)
     }
 
-  it should "get a service account and a new credential" in
+  it should "get a service account, credential and ledger access token" in
     AuthServiceFixture.withAuthServiceClient(testId) { authServiceClient =>
       for {
         authServiceToken <- authServiceClient.authorize("username", "password")
@@ -43,6 +43,8 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
         cred <- authServiceClient.getCredential(authServiceToken, credId)
         _ <- cred.cred should not be empty
         _ <- cred.credId should equal(credId.credId)
+        ledgerAccessToken <- authServiceClient.login(cred)
+        _ <- ledgerAccessToken.token should not be empty
       } yield succeed
     }
 }
