@@ -5,6 +5,7 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
+import scala.concurrent.duration._
 import akka.stream.Materializer
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
@@ -21,8 +22,10 @@ import com.daml.ledger.validator.{
   StateKeySerializationStrategy
 }
 import com.daml.metrics.Metrics
+import com.daml.timer.RetryStrategy
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class PreExecutingValidatingCommitter[LogResult](
     now: () => Instant,
@@ -54,8 +57,18 @@ class PreExecutingValidatingCommitter[LogResult](
             keySerializationStrategy,
           )
         )
-      submissionResult <- postExecutor.conflictDetectAndPersist(
-        preExecutionOutput,
-        ledgerStateAccess)
+      submissionResult <- Retry {
+        case PostExecutingStateAccessPersistStrategy.Conflict => true
+      } { (_, _) =>
+        postExecutor.conflictDetectAndPersist(preExecutionOutput, ledgerStateAccess)
+      }.transform {
+        case result @ Success(_) => result
+        case Failure(PostExecutingStateAccessPersistStrategy.Conflict) =>
+          Success(SubmissionResult.InternalError("conflict")) // TODO Figure out what's the correct return
+        case Failure(exception: Exception) =>
+          Success(SubmissionResult.InternalError(exception.getMessage))
+      }
     } yield submissionResult
+
+  private[this] val Retry = RetryStrategy.constant(attempts = Some(3), 5.seconds)
 }
