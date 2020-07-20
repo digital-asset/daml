@@ -632,9 +632,9 @@ execRepl projectOpts opts scriptDar dars importPkgs ledgerHost ledgerPort mbAuth
                     , "data-dependencies:"
                     ] ++ ["- " <> show dar | dar <- dars]
                 initPackageDb opts (InitPkgDb True)
-                -- We want diagnostics to go to stdout in the repl.
-                withDamlIdeState opts logger (hDiagnosticsLogger stdout)
-                    (Repl.runRepl importPkgs opts replHandle)
+                replLogger <- Repl.getReplLogger
+                withDamlIdeState opts logger (Repl.replEventLogger replLogger)
+                    (Repl.runRepl importPkgs opts replHandle replLogger)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
