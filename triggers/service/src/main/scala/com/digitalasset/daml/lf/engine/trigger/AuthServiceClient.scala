@@ -36,6 +36,15 @@ object AuthServiceDomain extends DefaultJsonProtocol {
 
   case class ServiceAccountList(serviceAccounts: List[ServiceAccount])
   implicit val serviceAccountListFormat = jsonFormat1(ServiceAccountList)
+
+  case class Credential(
+      cred: String,
+      credId: String,
+      nonce: String,
+      validFrom: String,
+      validTo: String
+  )
+  implicit val credentialFormat = jsonFormat5(Credential)
 }
 
 class AuthServiceClient(authServiceBaseUri: Uri)(
@@ -133,6 +142,17 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
             }
         }
     }
+
+  def getCredential(authServiceToken: AuthServiceToken, credentialId: CredentialId): Future[Credential] = {
+    val uri = authServiceBaseUri.withPath(saSecure./("cred")./(credentialId.credId))
+    val authHeader = Authorization(OAuth2BearerToken(authServiceToken.token))
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri,
+      headers = List(authHeader),
+    )
+    http.singleRequest(req).flatMap(Unmarshal(_).to[Credential])
+  }
 }
 
 object AuthServiceClient {
