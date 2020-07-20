@@ -37,6 +37,7 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
         _ <- assert(saReqSuccess)
         Some(sa) <- authServiceClient.getServiceAccount(authServiceToken)
         _ <- sa.serviceAccount should not be empty
+        _ <- sa.creds should equal(List())
       } yield succeed
     }
 }
