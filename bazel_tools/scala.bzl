@@ -33,6 +33,8 @@ common_scalacopts = [
     "-target:jvm-1.8",
     "-encoding",
     "UTF-8",
+    # more detailed type errors
+    "-explaintypes",
     # more detailed information about type-erasure related warnings
     "-unchecked",
     # warn if using deprecated stuff
