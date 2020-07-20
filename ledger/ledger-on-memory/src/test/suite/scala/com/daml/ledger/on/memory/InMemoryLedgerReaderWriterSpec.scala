@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.{BatchedValidatingCommitter, LedgerStateOperations}
+import com.daml.ledger.validator.{BatchedValidatingCommitter, LedgerStateAccess}
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -33,7 +33,7 @@ class InMemoryLedgerReaderWriterSpec
           anyString(),
           any[ByteString](),
           any[ParticipantId](),
-          any[LedgerStateOperations[Index]])(any[ExecutionContext]()))
+          any[LedgerStateAccess[Index]])(any[ExecutionContext]()))
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
       val instance = new InMemoryLedgerReaderWriter(

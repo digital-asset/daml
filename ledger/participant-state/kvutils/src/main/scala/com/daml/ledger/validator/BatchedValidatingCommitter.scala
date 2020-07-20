@@ -61,18 +61,21 @@ class BatchedValidatingCommitter[LogResult](
       correlationId: String,
       envelope: Bytes,
       submittingParticipantId: ParticipantId,
-      ledgerStateOperations: LedgerStateOperations[LogResult]
+      ledgerStateAccess: LedgerStateAccess[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
-    val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
-    validator
-      .validateAndCommit(
-        envelope,
-        correlationId,
-        now(),
-        submittingParticipantId,
-        ledgerStateReader,
-        commitStrategy
-      )
+    ledgerStateAccess
+      .inTransaction { ledgerStateOperations =>
+        val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
+        validator
+          .validateAndCommit(
+            envelope,
+            correlationId,
+            now(),
+            submittingParticipantId,
+            ledgerStateReader,
+            commitStrategy
+          )
+      }
       .transformWith {
         case Success(_) =>
           Future.successful(SubmissionResult.Acknowledged)

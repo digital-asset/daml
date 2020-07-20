@@ -42,11 +42,8 @@ final class InMemoryLedgerReaderWriter(
       envelope: Bytes,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
-    ledgerStateAccess
-      .inTransaction { ledgerStateOperations =>
-        committer
-          .commit(correlationId, envelope, participantId, ledgerStateOperations)
-      }
+    committer
+      .commit(correlationId, envelope, participantId, ledgerStateAccess)
       .andThen {
         case Success(SubmissionResult.Acknowledged) =>
           dispatcher.signalNewHead(state.newHeadSinceLastWrite())
