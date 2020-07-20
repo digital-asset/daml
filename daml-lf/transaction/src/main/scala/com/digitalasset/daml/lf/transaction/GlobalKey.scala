@@ -40,4 +40,3 @@ final case class GlobalKeyWithMaintainers(
     globalKey: GlobalKey,
     maintainers: Set[Ref.Party]
 )
-
