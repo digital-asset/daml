@@ -226,11 +226,11 @@ scaladoc_jar(
     name = "scaladoc",
     srcs = [
         ":sources",
-        "//ledger/participant-state:sources",
         "//ledger/ledger-api-auth:sources",
+        "//ledger/participant-state:sources",
     ],
-    root_content = "rootdoc.txt",
     doctitle = "DAML participant integration API",
+    root_content = "rootdoc.txt",
     visibility = [
         "//visibility:public",
     ],
