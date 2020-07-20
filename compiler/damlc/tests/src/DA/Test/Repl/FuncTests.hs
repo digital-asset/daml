@@ -120,7 +120,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "debug props"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
-          , matchOutput "^\\[<contract-id>\\]$"
+          , matchOutput "^\\[<contract-id>\\].?$"
           , input "debug =<< query @T bob"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
@@ -241,10 +241,10 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
     , testInteraction' "repl output"
           [ input "pure ()" -- no output
           , input "pure (1 + 1)"
-          , matchOutput "^2$"
+          , matchOutput "^2.?$"
           , input "pure (\\x -> x)" -- no output
           , input "1 + 2"
-          , matchOutput "^3$"
+          , matchOutput "^3.?$"
           , input "\\x -> x"
           , matchOutput "^File:.*$"
           , matchOutput "^Hidden:.*$"
