@@ -6,8 +6,7 @@ package com.daml.lf.speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.{NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.value.Value.ContractId

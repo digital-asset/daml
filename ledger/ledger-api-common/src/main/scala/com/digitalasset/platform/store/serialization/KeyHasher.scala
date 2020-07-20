@@ -7,7 +7,7 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 
 import com.daml.lf.data.{Numeric, Utf8}
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 

@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, P
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.metrics.{Metrics, Timed}
@@ -60,7 +60,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics) extends L
 
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
-  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[Value.ContractId]] =
+  override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[Value.ContractId]] =
     Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParty))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =

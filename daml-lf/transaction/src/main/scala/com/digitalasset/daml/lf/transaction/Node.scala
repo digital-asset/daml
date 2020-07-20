@@ -4,11 +4,9 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.data.Ref._
-import com.daml.lf.value.{CidMapper, Value}
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.{CidContainer, CidContainer1, CidContainer3, CidMapper, Value}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -26,7 +24,7 @@ object Node {
       extends Product
       with Serializable
       with NodeInfo
-      with value.CidContainer[GenNode[Nid, Cid, Val]] {
+      with CidContainer[GenNode[Nid, Cid, Val]] {
 
     def templateId: TypeConName
 
@@ -56,7 +54,7 @@ object Node {
       GenNode.foreach3(fNid, fCid, fVal)(this)
   }
 
-  object GenNode extends WithTxValue3[GenNode] with value.CidContainer3[GenNode] {
+  object GenNode extends WithTxValue3[GenNode] with CidContainer3[GenNode] {
 
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
@@ -73,7 +71,7 @@ object Node {
           ) =>
         self copy (
           coid = f2(coid),
-          coinst = value.Value.ContractInst.map1(f3)(coinst),
+          coinst = Value.ContractInst.map1(f3)(coinst),
           key = key.map(KeyWithMaintainers.map1(f3)),
         )
       case self @ NodeFetch(
@@ -137,7 +135,7 @@ object Node {
           key,
           ) =>
         f2(coid)
-        value.Value.ContractInst.foreach1(f3)(coinst)
+        Value.ContractInst.foreach1(f3)(coinst)
         key.foreach(KeyWithMaintainers.foreach1(f3))
       case NodeFetch(
           coid,
@@ -189,7 +187,7 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
       coid: Cid,
-      coinst: ContractInst[Val],
+      coinst: Value.ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -300,7 +298,7 @@ object Node {
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
 
   final case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party])
-      extends value.CidContainer[KeyWithMaintainers[Val]] {
+      extends CidContainer[KeyWithMaintainers[Val]] {
 
     override protected def self: this.type = this
 
@@ -312,7 +310,7 @@ object Node {
       KeyWithMaintainers.foreach1(f)(this)
   }
 
-  object KeyWithMaintainers extends value.CidContainer1[KeyWithMaintainers] {
+  object KeyWithMaintainers extends CidContainer1[KeyWithMaintainers] {
     implicit def equalInstance[Val: Equal]: Equal[KeyWithMaintainers[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
@@ -392,33 +390,11 @@ object Node {
       }
     }(recorded, isReplayedBy)
 
-  /** Useful in various circumstances -- basically this is what a ledger implementation must use as
-    * a key. The 'hash' is guaranteed to be stable over time.
-    */
-  final class GlobalKey private (
-      val templateId: TypeConName,
-      val key: Value[ContractId],
-      val hash: Hash
-  ) extends {
-    override def equals(obj: Any): Boolean = obj match {
-      case that: GlobalKey => this.hash == that.hash
-      case _ => false
-    }
+  @deprecated("use com.daml.lf.transaction.GlobalKey", "1.4.0")
+  type GlobalKey = transaction.GlobalKey
 
-    override def hashCode(): Int = hash.hashCode()
-  }
-
-  object GlobalKey {
-    def apply(templateId: ValueRef, key: Value[Nothing]): GlobalKey =
-      new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
-
-    // Will fail if key contains contract ids
-    def build(templateId: TypeConName, key: Value[ContractId]): Either[String, GlobalKey] =
-      Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
-
-    def assertBuild(templateId: TypeConName, key: Value[ContractId]): GlobalKey =
-      data.assertRight(build(templateId, key))
-  }
+  @deprecated("use com.daml.lf.transaction.GlobalKey", "1.4.0")
+  val GlobalKey = transaction.GlobalKey
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
@@ -428,10 +404,6 @@ object Node {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
   }
 
-  final case class GlobalKeyWithMaintainers(
-      globalKey: GlobalKey,
-      maintainers: Set[Party]
-  )
 }
 
 final case class NodeId(index: Int)

@@ -4,7 +4,7 @@
 package db.migration.postgres
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.serialization.ValueSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
