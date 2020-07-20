@@ -351,8 +351,13 @@ def _scaladoc_jar_impl(ctx):
 
         outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
 
+        root_content = []
+        if ctx.attr.root_content != None:
+            root_content = [ctx.files.root_content[0]]
+
         args = ctx.actions.args()
         args.add_all(["-d", outdir.path])
+        args.add_all("-doc-root-content", root_content)
         args.add("-classpath")
         args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
@@ -360,9 +365,12 @@ def _scaladoc_jar_impl(ctx):
         args.add_all(ctx.attr.scalacopts)
         args.add_all(srcFiles)
 
+        if ctx.attr.doctitle != None:
+            args.add_all(["-doc-title", ctx.attr.doctitle])
+
         ctx.actions.run(
             executable = ctx.executable._scaladoc,
-            inputs = ctx.files.srcs + classpath + pluginPaths,
+            inputs = ctx.files.srcs + classpath + pluginPaths + root_content,
             outputs = [outdir],
             arguments = [args],
             mnemonic = "ScaladocGen",
@@ -406,6 +414,7 @@ scaladoc_jar = rule(
         # generated source files that should still be included.
         "generated_srcs": attr.label_list(allow_files = True),
         "scalacopts": attr.string_list(),
+        "root_content": attr.label(allow_single_file = True),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
