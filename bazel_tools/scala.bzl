@@ -49,6 +49,16 @@ common_scalacopts = [
     "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
+    "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
+    "-Xlint:constant",  # / 0
+    "-Xlint:doc-detached",  # floating Scaladoc comment
+    "-Xlint:inaccessible",  # method uses invisible types
+    "-Xlint:option-implicit",  # implicit conversion arg might be null
+    "-Xlint:package-object-classes",  # put them directly in the package
+    "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
+    "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:type-parameter-shadow",  # name shadowing
+    "-Xlint:unsound-match",
     # adapted args is a deprecated feature:
     # `def foo(a: (A, B))` can be called with `foo(a, b)`.
     # properly it should be `foo((a,b))`
