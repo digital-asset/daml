@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite", "scaladoc_jar")
 load("//bazel_tools:pom_file.bzl", "pom_file")
 
 compile_deps = [
@@ -220,3 +220,22 @@ da_scala_test_suite(
 )
 
 exports_files(["src/main/resources/logback.xml"])
+
+scaladoc_jar(
+    name = "scaladoc",
+    srcs = [
+        ":sources",
+        "//ledger/participant-state:sources",
+        "//ledger/ledger-api-auth:sources",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = compile_deps,
+)
+
+filegroup(
+    name = "sources",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
+)
