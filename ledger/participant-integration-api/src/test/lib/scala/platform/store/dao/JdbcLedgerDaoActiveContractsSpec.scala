@@ -17,6 +17,7 @@ import scala.concurrent.Future
 private[dao] trait JdbcLedgerDaoActiveContractsSpec
     extends OptionValues
     with Inside
+    with Inspectors
     with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
@@ -259,6 +260,27 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       identifier1.packageId shouldBe "acs"
       identifier1.moduleName shouldBe "mod"
       identifier1.entityName shouldBe "Template3"
+    }
+  }
+
+  it should "not set the offset" in {
+    for {
+      (_, t1) <- store(singleCreate)
+      (_, t2) <- store(singleCreate)
+      end <- ledgerDao.lookupLedgerEnd()
+      activeContracts <- ledgerDao.transactionsReader
+        .getActiveContracts(
+          activeAt = end,
+          filter = Map(alice -> Set.empty),
+          verbose = true,
+        )
+        .runWith(Sink.seq)
+
+    } yield {
+      activeContracts should not be empty
+      forAll(activeContracts) { ac =>
+        ac.offset shouldBe empty
+      }
     }
   }
 
