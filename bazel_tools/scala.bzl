@@ -53,7 +53,6 @@ common_scalacopts = [
     "-Xlint:missing-interpolator",
     "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
     "-Xlint:constant",  # / 0
-    "-Xlint:doc-detached",  # floating Scaladoc comment
     "-Xlint:inaccessible",  # method uses invisible types
     "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
     "-Xlint:option-implicit",  # implicit conversion arg might be null
