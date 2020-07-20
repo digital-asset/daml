@@ -57,18 +57,17 @@ class PreExecutingValidatingCommitter[LogResult](
             keySerializationStrategy,
           )
         )
-      submissionResult <- Retry {
+      submissionResult <- retry {
         case PostExecutingStateAccessPersistStrategy.Conflict => true
       } { (_, _) =>
         postExecutor.conflictDetectAndPersist(preExecutionOutput, ledgerStateAccess)
       }.transform {
-        case result @ Success(_) => result
         case Failure(PostExecutingStateAccessPersistStrategy.Conflict) =>
           Success(SubmissionResult.InternalError("conflict")) // TODO Figure out what's the correct return
-        case Failure(exception: Exception) =>
-          Success(SubmissionResult.InternalError(exception.getMessage))
+        case result => result
       }
     } yield submissionResult
 
-  private[this] val Retry = RetryStrategy.constant(attempts = Some(3), 5.seconds)
+  private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
+    RetryStrategy.constant(attempts = Some(3), 5.seconds)
 }
