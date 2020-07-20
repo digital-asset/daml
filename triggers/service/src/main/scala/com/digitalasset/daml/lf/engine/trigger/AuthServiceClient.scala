@@ -97,6 +97,19 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     } catch {
       case e: Throwable => Future(None)
     }
+
+  def requestCredential(
+      authServiceToken: AuthServiceToken,
+      serviceAccountId: String): Future[Boolean] = {
+    val uri = authServiceBaseUri.withPath(saSecure./(serviceAccountId)./("credRequest"))
+    val authHeader = Authorization(OAuth2BearerToken(authServiceToken.token))
+    val req = HttpRequest(
+      method = HttpMethods.POST,
+      uri,
+      headers = List(authHeader),
+    )
+    http.singleRequest(req).map(_.status.isSuccess)
+  }
 }
 
 object AuthServiceClient {
