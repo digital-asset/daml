@@ -1344,7 +1344,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
-      val Right((tx, _)) = engine
+      val Right((tx, txMeta)) = engine
         .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
