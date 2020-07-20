@@ -312,14 +312,15 @@ class Runner(
         AExpr(SEMakeClo(Array(), 1, SELocA(0)))
     }
     new CompiledPackages {
-      override def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
+      override def getPackage(pkgId: PackageId): Option[Package] =
+        compiledPackages.getPackage(pkgId)
       override def getDefinition(dref: SDefinitionRef): Option[AExpr] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
       override def packages: PartialFunction[PackageId, Package] = compiledPackages.packages
       override def packageIds: Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
-      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
+      override def definitions: PartialFunction[SDefinitionRef, AExpr] =
         fromLedgerValue.orElse(compiledPackages.definitions)
       override def stackTraceMode: Compiler.FullStackTrace.type = Compiler.FullStackTrace
       override def profilingMode: Compiler.NoProfile.type = Compiler.NoProfile
