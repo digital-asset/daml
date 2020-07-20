@@ -221,6 +221,12 @@ object Node {
     * We remember the `children` of this `NodeExercises`
     * to allow segregating the graph afterwards into party-specific
     * ledgers.
+    *
+    * @param controllersDifferFromActors
+    *     When we decode transactions version<6, the controllers might be different
+    *     from the actors.  However, such a transaction is always invalid, so we
+    *     prevalidate that when decoding and report the error when we get to the
+    *     actual validation stage.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
       targetCoid: Cid,
@@ -232,11 +238,6 @@ object Node {
       chosenValue: Val,
       stakeholders: Set[Party],
       signatories: Set[Party],
-      /** When we decode transactions version<6, the controllers might be different
-        * from the actors.  However, such a transaction is always invalid, so we
-        * prevalidate that when decoding and report the error when we get to the
-        * actual validation stage.
-        */
       controllersDifferFromActors: Boolean,
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
