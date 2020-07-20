@@ -9,9 +9,8 @@ import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
-import com.daml.lf.value.Value
+import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass, ValueVersion, ValueVersions}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
-import com.daml.lf.value.{ValueCoder, ValueOuterClass, ValueVersion}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
 
@@ -360,6 +359,11 @@ object TransactionCoder {
         val protoFetch = protoNode.getFetch
         for {
           ni <- nodeId
+          tidVV = protoFetch.getValueVersion
+          _ <- Either.cond(
+            tidVV.isEmpty || ValueVersions.isAcceptedVersion(tidVV).isDefined,
+            (),
+            DecodeError(s"Unsupported template ID version $tidVV"))
           templateId <- ValueCoder.decodeIdentifier(protoFetch.getTemplateId)
           c <- decodeCid.decode(txVersion, protoFetch.getContractId, protoFetch.getContractIdStruct)
           actingPartiesSet <- toPartySet(protoFetch.getActorsList)
