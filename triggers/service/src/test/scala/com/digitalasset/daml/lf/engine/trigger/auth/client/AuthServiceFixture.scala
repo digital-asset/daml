@@ -14,7 +14,6 @@ import com.daml.lf.engine.trigger.AuthServiceClient
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.daml.timer.RetryStrategy
 
@@ -43,7 +42,6 @@ object AuthServiceFixture {
         new SandboxServer(
           SandboxConfig.default.copy(
             port = Port.Dynamic,
-            timeProviderType = Some(TimeProviderType.Static),
             ledgerIdMode = LedgerIdMode.Static(adminLedgerId),
           ),
           mat))
