@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger.auth.client
 
 import akka.actor.ActorSystem
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.lf.engine.trigger.AuthServiceDomain.AuthServiceToken
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
@@ -18,11 +17,14 @@ class AuthServiceClientTest extends AsyncFlatSpec with Eventually with Matchers 
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
-  it should "authorize a user to get an auth service bearer token" in AuthServiceFixture
+  private val testLedgerId = "test-ledger-id"
+
+  it should "authorize a user and request a service account" in AuthServiceFixture
     .withAuthServiceClient(testId) { authServiceClient =>
       for {
-        AuthServiceToken(token) <- authServiceClient.authorize("username", "password")
-        _ <- token should not be empty
-      } yield succeed
+        authServiceToken <- authServiceClient.authorize("username", "password")
+        _ <- authServiceToken.token should not be empty
+        success <- authServiceClient.requestServiceAccount(authServiceToken, testLedgerId)
+      } yield assert(success)
     }
 }
