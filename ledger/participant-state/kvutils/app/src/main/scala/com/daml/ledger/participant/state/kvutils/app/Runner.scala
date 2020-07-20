@@ -16,7 +16,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
+import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.resources.akka.AkkaResourceOwner
@@ -96,7 +96,6 @@ final class Runner[T <: ReadWriteService, Extra](
                 ledgerConfig = factory.ledgerConfig(config),
                 optWriteService = Some(writeService),
                 authService = factory.authService(config),
-                transformIndexService = service => new TimedIndexService(service, metrics),
                 metrics = metrics,
                 timeServiceBackend = factory.timeServiceBackend(config),
                 otherInterceptors = factory.interceptors(config),

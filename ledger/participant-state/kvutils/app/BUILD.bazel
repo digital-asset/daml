@@ -35,7 +35,6 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/participant-state-index",
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//libs-scala/contextualized-logging",

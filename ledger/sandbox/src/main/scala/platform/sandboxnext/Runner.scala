@@ -223,7 +223,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ledgerConfig = config.ledgerConfig,
                   optWriteService = Some(writeService),
                   authService = authService,
-                  transformIndexService = new TimedIndexService(_, metrics),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   otherServices = List(resetService),
