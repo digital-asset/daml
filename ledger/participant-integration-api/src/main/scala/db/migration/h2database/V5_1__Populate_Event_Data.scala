@@ -16,7 +16,7 @@ import com.daml.platform.store.Conversions._
 import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V5_1__Populate_Event_Data extends BaseJavaMigration {
+private[migration] class V5_1__Populate_Event_Data extends BaseJavaMigration {
 
   val SELECT_TRANSACTIONS =
     "select distinct le.transaction_id, le.transaction from contracts c join ledger_entries le  on c.transaction_id = le.transaction_id"

@@ -14,7 +14,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V3__Recompute_Key_Hash extends BaseJavaMigration {
+private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.
   private val batchSize = 10 * 1000

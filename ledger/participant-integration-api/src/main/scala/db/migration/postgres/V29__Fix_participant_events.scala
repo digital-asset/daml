@@ -9,7 +9,7 @@ import db.migration.postgres.v29_fix_participant_events.V29TransactionsWriter
 import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V29__Fix_participant_events extends BaseJavaMigration {
+private[migration] class V29__Fix_participant_events extends BaseJavaMigration {
 
   val TRUNCATE_PARTICIPANT_EVENTS =
     "truncate table participant_events cascade"

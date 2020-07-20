@@ -11,7 +11,7 @@ import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, Workfl
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 
-object V25TransactionsWriter extends V25TransactionsWriter {
+private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
 
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
@@ -106,7 +106,7 @@ object V25TransactionsWriter extends V25TransactionsWriter {
 
 }
 
-trait V25TransactionsWriter {
+private[migration] trait V25TransactionsWriter {
 
   def apply(
       applicationId: Option[ApplicationId],

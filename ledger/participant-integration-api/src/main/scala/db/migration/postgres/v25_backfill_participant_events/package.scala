@@ -11,19 +11,19 @@ package db.migration.postgres
 package object v25_backfill_participant_events {
 
   import com.daml.lf.value.{Value => lfval}
-  type ContractId = lfval.ContractId
+  private[migration] type ContractId = lfval.ContractId
 
   import com.daml.lf.{transaction => lftx}
-  type NodeId = lftx.NodeId
-  type Transaction = lftx.Transaction.Transaction
-  type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
-  type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
+  private[migration] type NodeId = lftx.NodeId
+  private[migration] type Transaction = lftx.Transaction.Transaction
+  private[migration] type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
+  private[migration] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
 
   import com.daml.lf.{data => lfdata}
-  type Party = lfdata.Ref.Party
-  type Identifier = lfdata.Ref.Identifier
-  type LedgerString = lfdata.Ref.LedgerString
-  type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
-  type DisclosureRelation = WitnessRelation[NodeId]
-  val Relation = lfdata.Relation.Relation
+  private[migration] type Party = lfdata.Ref.Party
+  private[migration] type Identifier = lfdata.Ref.Identifier
+  private[migration] type LedgerString = lfdata.Ref.LedgerString
+  private[migration] type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
+  private[migration] type DisclosureRelation = WitnessRelation[NodeId]
+  private[migration] val Relation = lfdata.Relation.Relation
 }

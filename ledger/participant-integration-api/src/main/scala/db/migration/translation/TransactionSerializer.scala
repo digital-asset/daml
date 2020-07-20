@@ -11,7 +11,7 @@ import com.daml.lf.transaction.{CommittedTransaction, TransactionCoder, Transact
 import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 
-trait TransactionSerializer {
+private[migration] trait TransactionSerializer {
 
   def serializeTransaction(
       trId: LedgerString,
@@ -25,7 +25,7 @@ trait TransactionSerializer {
 
 }
 
-object TransactionSerializer extends TransactionSerializer {
+private[migration] object TransactionSerializer extends TransactionSerializer {
 
   override def serializeTransaction(
       trId: LedgerString,

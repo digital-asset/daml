@@ -40,7 +40,7 @@ import scala.collection.immutable
   * V2.0 adds corresponding new tables
   * V2.1 fills the new tables
   */
-class V2_1__Rebuild_Acs extends BaseJavaMigration {
+private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   // Serializers used in SqlLedger/PostgresLedgerDao
   private val keyHasher = KeyHasher

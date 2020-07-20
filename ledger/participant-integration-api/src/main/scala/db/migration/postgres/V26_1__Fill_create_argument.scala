@@ -9,7 +9,7 @@ import com.daml.platform.store.serialization.ValueSerializer
 import db.migration.translation.ContractSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V26_1__Fill_create_argument extends BaseJavaMigration {
+private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
 
   // left join on contracts to make sure to include divulged contracts
   private val SELECT_CONTRACT_DATA =

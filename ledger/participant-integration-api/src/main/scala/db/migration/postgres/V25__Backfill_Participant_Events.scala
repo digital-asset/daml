@@ -9,7 +9,7 @@ import db.migration.postgres.v25_backfill_participant_events.V25TransactionsWrit
 import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V25__Backfill_Participant_Events extends BaseJavaMigration {
+private[migration] class V25__Backfill_Participant_Events extends BaseJavaMigration {
 
   val SELECT_TRANSACTIONS = "select * from ledger_entries where typ='transaction'"
 

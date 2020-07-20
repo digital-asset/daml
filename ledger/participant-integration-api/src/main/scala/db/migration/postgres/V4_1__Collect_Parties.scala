@@ -16,7 +16,7 @@ import com.daml.platform.store.Conversions._
 import db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V4_1__Collect_Parties extends BaseJavaMigration {
+private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.
   private val batchSize = 10 * 1000

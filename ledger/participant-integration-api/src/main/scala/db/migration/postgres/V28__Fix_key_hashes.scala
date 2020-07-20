@@ -5,7 +5,7 @@ package db.migration.postgres
 
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-final class V28__Fix_key_hashes extends BaseJavaMigration {
+private[migration] final class V28__Fix_key_hashes extends BaseJavaMigration {
 
   override def migrate(context: Context): Unit = {
     // Content of migration moved to V32_1 (see https://github.com/digital-asset/daml/issues/6017)
