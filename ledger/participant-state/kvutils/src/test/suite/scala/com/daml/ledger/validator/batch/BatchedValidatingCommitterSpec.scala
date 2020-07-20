@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.validator
+package com.daml.ledger.validator.batch
 
 import java.time.Instant
 
@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.TestHelper.aParticipantId
-import com.daml.ledger.validator.batch.BatchedSubmissionValidator
+import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, LedgerStateAccess}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.Mockito.when

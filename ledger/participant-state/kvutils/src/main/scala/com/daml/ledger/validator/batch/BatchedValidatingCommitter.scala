@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.validator
+package com.daml.ledger.validator.batch
 
 import java.time.Instant
 
@@ -10,11 +10,8 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.batch.{
-  BatchedSubmissionValidator,
-  BatchedSubmissionValidatorFactory
-}
 import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCacheUpdatePolicy}
+import com.daml.ledger.validator._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

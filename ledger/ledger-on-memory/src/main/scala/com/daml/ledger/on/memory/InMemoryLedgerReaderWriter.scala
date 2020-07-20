@@ -13,10 +13,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.daml.ledger.validator._
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
+  BatchedValidatingCommitter,
   ConflictDetection
 }
 import com.daml.lf.engine.Engine
