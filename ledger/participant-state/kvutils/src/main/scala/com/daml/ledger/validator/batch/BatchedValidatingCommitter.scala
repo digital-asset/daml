@@ -57,7 +57,7 @@ class BatchedValidatingCommitter[LogResult](
     extends StateAccessingValidatingCommitter[LogResult] {
   override def commit(
       correlationId: String,
-      envelope: Bytes,
+      submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
@@ -66,7 +66,7 @@ class BatchedValidatingCommitter[LogResult](
         val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
         validator
           .validateAndCommit(
-            envelope,
+            submissionEnvelope,
             correlationId,
             now(),
             submittingParticipantId,

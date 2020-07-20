@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait StateAccessingValidatingCommitter[LogResult] {
   def commit(
       correlationId: String,
-      envelope: Bytes,
+      submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult]
