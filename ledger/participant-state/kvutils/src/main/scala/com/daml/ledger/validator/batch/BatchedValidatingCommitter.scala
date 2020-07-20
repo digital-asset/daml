@@ -53,8 +53,9 @@ class BatchedValidatingCommitter[LogResult](
     validator: BatchedSubmissionValidator[LogResult],
     stateValueCache: Cache[DamlStateKey, DamlStateValue],
     cacheUpdatePolicy: CacheUpdatePolicy
-)(implicit materializer: Materializer) {
-  def commit(
+)(implicit materializer: Materializer)
+    extends StateAccessingValidatingCommitter[LogResult] {
+  override def commit(
       correlationId: String,
       envelope: Bytes,
       submittingParticipantId: ParticipantId,
