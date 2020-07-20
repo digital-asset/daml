@@ -229,6 +229,7 @@ scaladoc_jar(
         "//ledger/ledger-api-auth:sources",
     ],
     root_content = "rootdoc.txt",
+    doctitle = "DAML participant integration API",
     visibility = [
         "//visibility:public",
     ],

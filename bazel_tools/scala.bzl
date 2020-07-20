@@ -365,6 +365,9 @@ def _scaladoc_jar_impl(ctx):
         args.add_all(ctx.attr.scalacopts)
         args.add_all(srcFiles)
 
+        if ctx.attr.doctitle != None:
+            args.add_all(["-doc-title", ctx.attr.doctitle])
+
         ctx.actions.run(
             executable = ctx.executable._scaladoc,
             inputs = ctx.files.srcs + classpath + pluginPaths + root_content,
