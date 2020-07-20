@@ -980,6 +980,6 @@ java_import(
 http_file(
     name = "ref-ledger-authentication",
     downloaded_file_path = "ref-ledger-authentication.jar",
-    sha256 = "377621e8df63fe9ca968af3bee0f44ef44be759d160fb2b05edd53dda55080b3",
-    urls = ["https://github.com/digital-asset/ref-ledger-authenticator/releases/download/v0.0.0-snapshot-20200625.8.b314c125/ref-ledger-authenticator-0.0.0-snapshot-20200625.8.b314c125.jar"],
+    sha256 = "761b1731339acea3370baf98a3242714e0c81789d8cbb26b623bbf93ce6f80ef",
+    urls = ["https://github.com/digital-asset/ref-ledger-authenticator/releases/download/v0.0.0-snapshot-20200716.15.2b46f9f5/ref-ledger-authenticator-0.0.0-snapshot-20200716.15.2b46f9f5.jar"],
 )
