@@ -2575,7 +2575,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Err t
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
@@ -2585,31 +2585,71 @@ as described by the ledger model::
        ⇓ᵤ
      Err "template precondition violated"
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, …, 'no_key' }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr2
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, 'signatories' eₛ, … }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr3
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateErr4
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'no_key' }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      cid ∉ dom(st₀)
      tr = 'create' (cid, Mod:T, vₜ, 'no_key')
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'active')]
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateWihoutKeySucceed
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithoutKeySucceed
      'create' @Mod:T vₜ ‖ (st₀, keys₀)
        ⇓ᵤ
      Ok (cid, tr) ‖ (st₁, keys₀)
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Err t
    —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyErr1
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Err t
    —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyErr2
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Ok vₘ
      (Mod:T, vₖ) ∈ dom(keys₀)
@@ -2618,8 +2658,12 @@ as described by the ledger model::
        ⇓ᵤ
      Err "Mod:T template key violation"
 
-     'tpl' (x : T) ↦ { 'precondition' eₚ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Ok vₘ
      (Mod:T, vₖ) ∉ dom(keys₀)
@@ -2736,7 +2780,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      e  ⇓  Ok vₖ
-     (eₘ vₖ)  ⇓  vₘ
+     (eₘ vₖ)  ⇓  Ok vₘ
      (Mod:T, vₖ) ∈ dom(keys)   cid = keys((Mod:T, v))
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
      'lookup_by_key' @Mod:T e ‖ (st; keys)
@@ -2745,7 +2789,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      e  ⇓  Ok vₖ
-     (eₘ vₖ)  ⇓  vₘ
+     (eₘ vₖ)  ⇓  Ok vₘ
      (Mod:T, vₖ) ∉ dom(keys)
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNotFound
      'lookup_by_key' @Mod:T e ‖ (st; keys)
