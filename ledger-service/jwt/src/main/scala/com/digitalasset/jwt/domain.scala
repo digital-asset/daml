@@ -8,7 +8,7 @@ import scalaz.{Applicative, Traverse}
 
 import scala.language.higherKinds
 
-package object domain {
+package domain {
 
   final case class KeyPair[A](publicKey: A, privateKey: A)
 

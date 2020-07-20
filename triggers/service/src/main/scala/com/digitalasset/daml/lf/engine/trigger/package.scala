@@ -11,7 +11,7 @@ import com.daml.platform.services.time.TimeProviderType
 
 import scala.concurrent.duration.FiniteDuration
 
-package object trigger {
+package trigger {
 
   case class LedgerConfig(
       host: String,
