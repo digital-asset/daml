@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey

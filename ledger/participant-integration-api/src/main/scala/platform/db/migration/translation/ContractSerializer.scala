@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.translation
+package com.daml.platform.db.migration.translation
 
 import java.io.InputStream
 

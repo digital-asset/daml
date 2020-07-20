@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import java.io.ByteArrayInputStream
 
 import com.daml.platform.store.serialization.ValueSerializer
-import db.migration.translation.ContractSerializer
+import com.daml.platform.db.migration.translation.ContractSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {

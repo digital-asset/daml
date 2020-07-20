@@ -70,5 +70,5 @@ class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
 
 object FlywayMigrations {
   def configurationBase(dbType: DbType): FluentConfiguration =
-    Flyway.configure().locations("classpath:db/migration/" + dbType.name)
+    Flyway.configure().locations("classpath:com/daml/platform/db/migration/" + dbType.name)
 }

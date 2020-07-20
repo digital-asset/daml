@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres.v25_backfill_participant_events
+package com.daml.platform.db.migration.postgres.v29_fix_participant_events
 
 import java.time.Instant
 
@@ -13,7 +13,7 @@ import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => 
 
 // Copied here to make it safe against future refactoring
 // in production code
-private[v25_backfill_participant_events] object V25EventsTableInsert {
+private[v29_fix_participant_events] object V29EventsTableInsert {
 
   private def cantSerialize(attribute: String, forContract: ContractId): String =
     s"Cannot serialize $attribute for ${forContract.coid}"
@@ -58,10 +58,8 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "transaction_id" -> "{transaction_id}",
       "workflow_id" -> "{workflow_id}",
       "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_package_id" -> "{template_package_id}",
-      "template_name" -> "{template_name}",
+      "template_id" -> "{template_id}",
       "node_index" -> "{node_index}",
-      "is_root" -> "{is_root}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
       "submitter" -> "{submitter}",
@@ -92,10 +90,8 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> create.coinst.template.packageId,
-      "template_name" -> create.coinst.template.qualifiedName,
+      "template_id" -> create.coinst.template,
       "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
       "command_id" -> commandId,
       "application_id" -> applicationId,
       "submitter" -> submitter,
@@ -114,10 +110,8 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "transaction_id" -> "{transaction_id}",
       "workflow_id" -> "{workflow_id}",
       "ledger_effective_time" -> "{ledger_effective_time}",
-      "template_package_id" -> "{template_package_id}",
-      "template_name" -> "{template_name}",
+      "template_id" -> "{template_id}",
       "node_index" -> "{node_index}",
-      "is_root" -> "{is_root}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
       "submitter" -> "{submitter}",
@@ -148,10 +142,8 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> exercise.templateId.packageId,
-      "template_name" -> exercise.templateId.qualifiedName,
+      "template_id" -> exercise.templateId,
       "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
       "command_id" -> commandId,
       "application_id" -> applicationId,
       "submitter" -> submitter,

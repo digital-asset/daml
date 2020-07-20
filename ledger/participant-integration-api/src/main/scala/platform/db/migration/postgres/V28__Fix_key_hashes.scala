@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 

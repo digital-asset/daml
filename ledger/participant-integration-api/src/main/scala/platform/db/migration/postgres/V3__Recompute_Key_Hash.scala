@@ -3,7 +3,7 @@
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
 // 'db.migration.postgres' for postgres migrations
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import java.sql.{Connection, ResultSet}
 

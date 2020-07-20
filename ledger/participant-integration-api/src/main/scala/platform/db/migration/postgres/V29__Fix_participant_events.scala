@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
-import db.migration.postgres.v29_fix_participant_events.V29TransactionsWriter
-import db.migration.translation.TransactionSerializer
+import com.daml.platform.db.migration.postgres.v29_fix_participant_events.V29TransactionsWriter
+import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] class V29__Fix_participant_events extends BaseJavaMigration {

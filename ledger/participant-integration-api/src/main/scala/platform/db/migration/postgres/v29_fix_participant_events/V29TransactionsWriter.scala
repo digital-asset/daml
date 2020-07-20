@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres.v25_backfill_participant_events
+package com.daml.platform.db.migration.postgres.v29_fix_participant_events
 
 import java.sql.Connection
 import java.time.Instant
@@ -11,7 +11,7 @@ import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, Workfl
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 
-private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
+private[migration] object V29TransactionsWriter extends V29TransactionsWriter {
 
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
@@ -52,7 +52,7 @@ private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
       transaction: Transaction,
   )(implicit connection: Connection): Unit = {
 
-    val eventBatches = V25EventsTableInsert.prepareBatchInsert(
+    val eventBatches = V29EventsTableInsert.prepareBatchInsert(
       applicationId = applicationId,
       workflowId = workflowId,
       transactionId = transactionId,
@@ -88,13 +88,13 @@ private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
 
       // Prepare batch inserts for flat transactions
       val flatTransactionWitnessesBatch =
-        V25WitnessesTable.ForFlatTransactions.prepareBatchInsert(
+        V29WitnessesTable.ForFlatTransactions.prepareBatchInsert(
           witnesses = disclosureForFlatTransaction,
         )
 
       // Prepare batch inserts for all witnesses except those for flat transactions
       val complementWitnessesBatch =
-        V25WitnessesTable.Complement.prepareBatchInsert(
+        V29WitnessesTable.Complement.prepareBatchInsert(
           witnesses = disclosureComplement,
         )
 
@@ -106,7 +106,7 @@ private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
 
 }
 
-private[migration] trait V25TransactionsWriter {
+private[migration] trait V29TransactionsWriter {
 
   def apply(
       applicationId: Option[ApplicationId],
