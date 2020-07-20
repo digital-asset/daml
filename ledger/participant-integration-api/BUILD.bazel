@@ -228,6 +228,7 @@ scaladoc_jar(
         "//ledger/participant-state:sources",
         "//ledger/ledger-api-auth:sources",
     ],
+    root_content = "rootdoc.txt",
     visibility = [
         "//visibility:public",
     ],

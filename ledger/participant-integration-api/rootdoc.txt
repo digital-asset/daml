@@ -1,0 +1,15 @@
+
+This is the documentation for the DAML participant integration API.
+
+Notable classes include:
+
+  - [[com.daml.ledger.participant.state.v1.ReadService `ReadService`]] - an interface for reading data from the underlying ledger,
+    to be implemented by ledger integrations.
+  - [[com.daml.ledger.participant.state.v1.WriteService `WriteService`]] - an interface for writing data to the underlying ledger,
+    to be implemented by ledger integrations.
+  - [[com.daml.platform.indexer.StandaloneIndexerServer `StandaloneIndexerServer`]] - the indexer reads data from the
+    [[com.daml.ledger.participant.state.v1.ReadService `ReadService`]] and writes it to an index database.
+  - [[com.daml.platform.apiserver.StandaloneApiServer `StandaloneApiServer`]] - the ledger API server reads data from the index
+    database and serves it over the gRPC ledger API.
+
+See the complete list on the right for details.
