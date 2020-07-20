@@ -47,6 +47,7 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
     new InMemoryLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
       batchingLedgerWriterConfig,
+      preExecute = false,
       participantId,
       metrics = metrics,
       engine = Engine.DevEngine()

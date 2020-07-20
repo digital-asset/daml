@@ -241,6 +241,7 @@ object RecoveringIndexerIntegrationSpec {
       new InMemoryLedgerReaderWriter.SingleParticipantOwner(
         ledgerId,
         BatchingLedgerWriterConfig.reasonableDefault,
+        preExecute = false,
         participantId,
         metrics = metrics,
         engine = Engine.DevEngine()
