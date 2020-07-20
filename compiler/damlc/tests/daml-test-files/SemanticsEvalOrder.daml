@@ -1,0 +1,186 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Here we test that evaluation order proceeds as we expect. We do this by
+-- raising multiple errors and seeing which one percolates to the top (i.e.
+-- which error was evaluated first).
+--
+-- (Convention: When testing a rule in the operational semantics, we use the
+-- rule's name in the error message itself. If there are multiple tests for
+-- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
+-- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
+--
+-- @ERROR Aborted: overApply OK
+-- @ERROR Aborted: evExpAppErr1 OK
+-- @ERROR Aborted: evExpAppErr2 OK
+-- @ERROR Aborted: evExpLetErr OK
+-- @ERROR Aborted: evExpCaseErr OK
+-- @ERROR Aborted: evExpCase_1 OK
+-- @ERROR Aborted: evExpCase_2 OK
+-- @ERROR Aborted: evExpConsErr1 OK
+-- @ERROR Aborted: evExpConsErr2 OK
+-- @ERROR Aborted: evExpBuiltinErr OK
+-- @ERROR Aborted: evExpRecConErr_1 OK
+-- @ERROR Aborted: evExpRecConErr_2 OK
+-- @ERROR Aborted: evExpRecConErr_3 OK
+-- @ERROR Aborted: evExpRecConErr_4 OK
+-- @ERROR Aborted: evExpRecUpdErr1 OK
+-- @ERROR Aborted: evExpRecUpdErr2_1 OK
+-- @ERROR Aborted: evExpRecUpdErr2_2 OK
+-- @ERROR Aborted: evExpUpPureErr OK
+-- @ERROR Aborted: evExpUpBindErr OK
+-- @ERROR Aborted: evExpUpCreateErr OK
+-- @ERROR Aborted: evExpUpFetchErr OK
+-- @ERROR Aborted: evExpUpExerciseWithoutActorsErr1 OK
+-- @ERROR Aborted: evExpUpExerciseWithoutActorsErr2 OK
+-- @ERROR Aborted: evExpUpFetchByKeyErr OK
+-- @ERROR Aborted: evExpUpLookupByKeyErr OK
+module SemanticsEvalOrder where
+
+overApply = scenario do
+  let f x = error "overApply OK"
+  let _ = f 1 (error "overApply Failed")
+  let _ = f 1 2
+  pure ()
+
+evExpAppErr1 = scenario do
+  let _ = (error "evExpAppErr1 OK") (error "evExpAppErr1 failed")
+  pure ()
+
+evExpAppErr2 = scenario do
+  let f _ _ = error "evExpAppErr2 failed"
+  let _ = f 1 (error "evExpAppErr2 OK")
+  pure ()
+
+evExpLetErr = scenario do
+    let _ = error "evExpLetErr OK"
+    let _ = error "evExpLetErr bad"
+    error "evExpLetErr failed"
+    -- ^ The evaluation order goes "bad" if you
+    -- use a multiple-binding "let", as in,
+    --
+    --    let _ = error "evExpLetErr OK"
+    --        _ = error "evExpLetErr bad"
+    --    error "evExpLetErr failed"
+    --
+    -- This is tracked in issue #6788.
+
+evExpCaseErr = scenario do
+  case error "evExpCaseErr OK" of
+    None -> error "evExpCaseErr failed"
+    Some _ -> error "evExpCaseErr failed"
+
+evExpCase_1 = scenario do
+  case None of
+    None -> error "evExpCase_1 OK"
+    Some _ -> error "evExpCase_1 failed"
+
+evExpCase_2 = scenario do
+  case Some 1 of
+    None -> error "evExpCase_2 failed"
+    Some _ -> error "evExpCase_2 OK"
+
+evExpConsErr1 = scenario do
+  pure ( error "evExpConsErr1 OK"
+      :: error "evExpConsErr1 failed"
+      :: error "evExpConsErr1 failed")
+
+evExpConsErr2 = scenario do
+  pure ( 10
+      :: error "evExpConsErr2 OK"
+      :: error "evExpConsErr2 failed")
+
+evExpBuiltinErr = scenario do
+  let _ : Int = error "evExpBuiltinErr OK" + error "evExpBuiltinErr failed"
+  pure ()
+
+
+data R1 = R1 { a: Int, b: Int }
+
+evExpRecConErr_1 = scenario do
+  pure R1 { a = error "evExpRecConErr_1 OK", b = error "evExpRecConErr_1 failed" }
+
+evExpRecConErr_2 = scenario do
+  pure R1 { b = error "evExpRecConErr_2 failed", a = error "evExpRecConErr_2 OK" }
+
+data R2 = R2 { d: Int, c: Int }
+  -- ^ Checking that there isn't a dependence on the field names.
+  -- There should be a dependence on the definition order according to the LF spec.
+
+evExpRecConErr_3 = scenario do
+  pure R2 { d = error "evExpRecConErr_3 OK", c = error "evExpRecConErr_3 failed" }
+
+evExpRecConErr_4 = scenario do
+  pure R2 { c = error "evExpRecConErr_4 failed", d = error "evExpRecConErr_4 OK"  }
+
+evExpRecUpdErr1 = scenario do
+  pure (error "evExpRecUpdErr1 OK" : R1)
+    { a = error "evExpRecUpdErr1 failed", b = error "evExpRecUpdErr1 failed" }
+
+evExpRecUpdErr2_1 = scenario do
+  pure (R1 {a=0, b=0})
+    { a = error "evExpRecUpdErr2_1 OK", b = error "evExpRecUpdErr2_1 failed" }
+
+evExpRecUpdErr2_2 = scenario do
+  pure (R1 {a=0, b=0})
+    { b = error "evExpRecUpdErr2_2 OK", a = error "evExpRecUpdErr2_2 failed" }
+  -- ^ Note that record update depends on the order the fields appear in
+  -- code, rather than the order in which fields were defined.
+
+-- Can't test LF struct evaluation order from DAML, since we purposely avoid
+-- evaluation of struct fields during typeclass desugaring, and we don't have
+-- a way to construct LF structs directly.
+
+evExpUpPureErr = scenario do
+  let _ : Update () = pure (error "evExpUpPureErr OK")
+  pure ()
+
+evExpUpBindErr = scenario do
+  let _ : Update () = do
+          error "evExpUpBindErr OK"
+          error "evExpUpBindErr failed"
+  pure ()
+
+template T
+  with p : Party
+  where signatory p
+
+evExpUpCreateErr = scenario do
+  let _ : Update (ContractId T) = create (error "evExpUpCreateErr OK")
+  pure ()
+
+evExpUpFetchErr = scenario do
+  let _ : Update T = fetch (error "evExpUpFetchErr OK")
+  pure ()
+
+-- "exercise with actors" is not testable from DAML.
+
+evExpUpExerciseWithoutActorsErr1 = scenario do
+  let _ : Update () =
+          exercise @T @Archive
+              (error "evExpUpExerciseWithoutActorsErr1 OK")
+              (error "evExpUpExerciseWithoutActorsErr1 failed")
+  pure ()
+
+evExpUpExerciseWithoutActorsErr2 = scenario do
+  p <- getParty "Alice"
+  t <- submit p $ create (T p)
+  let _ : Update () = exercise @T @Archive t (error "evExpUpExerciseWithoutActorsErr2 OK")
+  pure ()
+
+template T2
+  with
+    p : Party
+    k : Int
+  where
+    signatory p
+    key (p,k) : (Party, Int)
+    maintainer key._1
+
+evExpUpFetchByKeyErr = scenario do
+  let _ = fetchByKey @T2 (error "evExpUpFetchByKeyErr OK")
+  pure ()
+
+evExpUpLookupByKeyErr = scenario do
+  let _ = lookupByKey @T2 (error "evExpUpLookupByKeyErr OK")
+  pure ()
