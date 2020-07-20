@@ -110,6 +110,29 @@ class AuthServiceClient(authServiceBaseUri: Uri)(
     )
     http.singleRequest(req).map(_.status.isSuccess)
   }
+
+  def getNewCredentialId(
+      authServiceToken: AuthServiceToken,
+      serviceAccountId: String): Future[Option[CredentialId]] =
+    getServiceAccount(authServiceToken) flatMap {
+      case None => Future(None)
+      case Some(sa) =>
+        val numCreds = sa.creds.length
+        requestCredential(authServiceToken, sa.serviceAccount) flatMap { reqSuccess =>
+          if (!reqSuccess) Future(None)
+          else
+            try {
+              RetryStrategy.constant(attempts = 3, waitTime = 4.seconds) { (_, _) =>
+                for {
+                  ServiceAccountList(sa :: _) <- listServiceAccounts(authServiceToken)
+                  if sa.creds.length > numCreds
+                } yield Some(sa.creds.head)
+              }
+            } catch {
+              case e: Throwable => Future(None)
+            }
+        }
+    }
 }
 
 object AuthServiceClient {
