@@ -39,7 +39,7 @@ class BatchedValidatingCommitterSpec
         BatchedValidatingCommitter[Unit](() => Instant.now(), mockValidator)
 
       instance
-        .commit("", ByteString.EMPTY, aParticipantId, mock[LedgerStateOperations[Unit]])
+        .commit("", ByteString.EMPTY, aParticipantId, mock[LedgerStateAccess[Unit]])
         .map { actual =>
           actual shouldBe SubmissionResult.Acknowledged
         }
@@ -59,7 +59,7 @@ class BatchedValidatingCommitterSpec
       val instance = BatchedValidatingCommitter[Unit](() => Instant.now(), mockValidator)
 
       instance
-        .commit("", ByteString.EMPTY, aParticipantId, mock[LedgerStateOperations[Unit]])
+        .commit("", ByteString.EMPTY, aParticipantId, mock[LedgerStateAccess[Unit]])
         .map { actual =>
           actual shouldBe SubmissionResult.InternalError("Validation failure")
         }
