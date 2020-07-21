@@ -33,7 +33,6 @@ DAML SDK documentation
    daml/intro/0_Intro.rst
    daml/reference/index
    daml/stdlib/index
-   daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
@@ -70,6 +69,7 @@ DAML SDK documentation
    :caption: SDK tools
 
    tools/assistant
+   daml/daml-studio
    tools/sandbox
    tools/navigator/index
    tools/codegen
