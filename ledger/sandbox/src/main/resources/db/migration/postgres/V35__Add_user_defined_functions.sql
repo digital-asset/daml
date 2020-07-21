@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V34: Add user-defined functions
+-- V24: Add user-defined functions
 --
 -- Add `da_varchar_arrays_intersection` returns intersection of two passed varchar arrays (`varchar[]`).
 -- Add `da_do_varchar_arrays_intersect` returns `boolean` if two passed varchar arrays (`varchar[]`) has intersection.
