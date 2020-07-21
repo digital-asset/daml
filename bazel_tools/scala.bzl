@@ -33,6 +33,8 @@ common_scalacopts = [
     "-target:jvm-1.8",
     "-encoding",
     "UTF-8",
+    # more detailed type errors
+    "-explaintypes",
     # more detailed information about type-erasure related warnings
     "-unchecked",
     # warn if using deprecated stuff
@@ -49,6 +51,16 @@ common_scalacopts = [
     "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
+    "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
+    "-Xlint:constant",  # / 0
+    "-Xlint:inaccessible",  # method uses invisible types
+    "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
+    "-Xlint:option-implicit",  # implicit conversion arg might be null
+    "-Xlint:package-object-classes",  # put them directly in the package
+    "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
+    "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:type-parameter-shadow",  # name shadowing
+    "-Xlint:unsound-match",
     # adapted args is a deprecated feature:
     # `def foo(a: (A, B))` can be called with `foo(a, b)`.
     # properly it should be `foo((a,b))`

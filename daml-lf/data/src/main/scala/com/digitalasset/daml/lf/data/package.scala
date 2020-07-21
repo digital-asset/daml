@@ -15,9 +15,4 @@ package object data {
   }
   type Numeric = Numeric.Numeric
 
-  trait NoCopy {
-    // prevents autogeneration of copy method in case class
-    protected def copy(nothing: Nothing): Nothing = nothing
-  }
-
 }

@@ -15,14 +15,16 @@ import com.squareup.javapoet._
 
 import scala.collection.JavaConverters._
 
+package inner {
+  case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
+}
+
 package object inner {
 
   private[inner] def generateArgumentList(fields: IndexedSeq[String]): CodeBlock =
     CodeBlock.join(fields.map(CodeBlock.of("$L", _)).asJava, ", ")
 
   private[inner] def newNameGenerator = Iterator.from(0).map(n => s"v$$$n")
-
-  case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
 
   type Fields = IndexedSeq[FieldInfo]
 
