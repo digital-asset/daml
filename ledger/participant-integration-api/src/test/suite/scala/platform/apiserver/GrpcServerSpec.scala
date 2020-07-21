@@ -48,7 +48,8 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers {
 
     "fail with a nice exception, even when the text is very long" in {
       val length = 64 * 1024
-      val exceptionMessage = Stream.continually("x").take(length).mkString
+      val exceptionMessage = "There was an error. " + Stream.continually("x").take(length).mkString
+
       resources().use { channel =>
         val helloService = HelloServiceGrpc.stub(channel)
         for {
@@ -57,6 +58,27 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers {
             .failed
         } yield {
           exception.getMessage shouldBe s"INTERNAL: $exceptionMessage"
+        }
+      }
+    }
+
+    "fail with a nice exception, even when the text is too long for the client to process" in {
+      val length = 1024 * 1024
+      val exceptionMessage =
+        "There was an error. " +
+          Stream.continually("x").take(length).mkString +
+          " And then some extra text that won't be sent."
+
+      resources().use { channel =>
+        val helloService = HelloServiceGrpc.stub(channel)
+        for {
+          exception <- helloService
+            .fails(HelloRequest(7, ByteString.copyFromUtf8(exceptionMessage)))
+            .failed
+        } yield {
+          // We don't want to test the exact message content, just that it does indeed contain a
+          // large chunk of the response error message, followed by "...".
+          exception.getMessage should fullyMatch regex "INTERNAL: There was an error. x{1024,}\\.\\.\\.".r
         }
       }
     }

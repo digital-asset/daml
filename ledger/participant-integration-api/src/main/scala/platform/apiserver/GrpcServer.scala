@@ -21,6 +21,11 @@ import scala.util.control.NoStackTrace
 
 object GrpcServer {
 
+  // Unfortunately, we can't get the maximum inbound message size from the client, so we don't know
+  // how big this should be. This seems long enough to contain useful data, but short enough that it
+  // won't break most well-configured clients.
+  private val MaximumStatusDescriptionLength = 256 * 1024 // 256 KB
+
   final class Owner(
       address: Option[String],
       desiredPort: Port,
@@ -43,6 +48,7 @@ object GrpcServer {
         builder.maxInboundMessageSize(maxInboundMessageSize)
         interceptors.foreach(builder.intercept)
         builder.intercept(new MetricsInterceptor(metrics))
+        builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
         eventLoopGroups.populate(builder)
         services.foreach { service =>
           builder.addService(service)
