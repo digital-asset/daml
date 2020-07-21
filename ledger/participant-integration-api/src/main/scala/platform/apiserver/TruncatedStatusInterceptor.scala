@@ -23,12 +23,8 @@ class TruncatedStatusInterceptor(maximumDescriptionLength: Int) extends ServerIn
     )
 
   private def truncate(description: String): String =
-    Option(description)
-      .map(
-        s =>
-          if (s.length > maximumDescriptionLength)
-            s.substring(0, maximumDescriptionLength - 3) + "..."
-          else
-          s)
-      .orNull
+    if (description != null && description.length > maximumDescriptionLength)
+      description.substring(0, maximumDescriptionLength - 3) + "..."
+    else
+      description
 }
