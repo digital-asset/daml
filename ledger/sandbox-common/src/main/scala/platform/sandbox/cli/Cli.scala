@@ -8,17 +8,17 @@ import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.auth0.jwt.algorithms.Algorithm
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.buildinfo.BuildInfo
-import com.daml.lf.data.Ref
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.TimeModel
+import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
 import com.daml.platform.configuration.Readers._
+import com.daml.platform.configuration.{InvalidConfigException, MetricsReporter}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -31,7 +31,7 @@ import scala.util.Try
 // The config object should not expose Options for mandatory fields as such
 // validations should not leave this class. Due to limitations of SCOPT as far I
 // see we either use nulls or use the mutable builder instead.
-object Cli {
+class Cli(defaultConfig: SandboxConfig) {
 
   private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
     case "none" => ClientAuth.NONE
@@ -349,8 +349,6 @@ object Cli {
     }.getOrElse(false)
   }
 
-  def parse(
-      args: Array[String],
-      default: SandboxConfig = SandboxConfig.default): Option[SandboxConfig] =
-    cmdArgParser.parse(args, default)
+  def parse(args: Array[String]): Option[SandboxConfig] =
+    cmdArgParser.parse(args, defaultConfig)
 }

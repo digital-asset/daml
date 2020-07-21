@@ -13,13 +13,12 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.lf.engine.trigger.AuthServiceClient
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxServer
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.ports.Port
 import com.daml.timer.RetryStrategy
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process.Process
-import scala.concurrent.duration._
 
 object AuthServiceFixture {
 
@@ -40,7 +39,7 @@ object AuthServiceFixture {
     val adminLedgerF = for {
       ledger <- Future(
         new SandboxServer(
-          SandboxConfig.default.copy(
+          SandboxServer.defaultConfig.copy(
             port = Port.Dynamic,
             ledgerIdMode = LedgerIdMode.Static(adminLedgerId),
           ),

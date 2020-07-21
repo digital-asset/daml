@@ -8,18 +8,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast.Package
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -60,13 +55,6 @@ object TestMain extends StrictLogging {
         }
 
         val applicationId = ApplicationId("Script Test")
-        val clientConfig = LedgerClientConfiguration(
-          applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement.none,
-          commandClient = CommandClientConfiguration.default,
-          sslContext = None
-        )
-
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
@@ -90,7 +78,7 @@ object TestMain extends StrictLogging {
                 case ScriptTimeMode.Static => TimeProviderType.Static
                 case ScriptTimeMode.WallClock => TimeProviderType.WallClock
               }
-              val sandboxConfig = SandboxConfig.default.copy(
+              val sandboxConfig = SandboxConfig.defaultConfig.copy(
                 port = Port.Dynamic,
                 timeProviderType = Some(timeProviderType),
               )
@@ -116,27 +104,26 @@ object TestMain extends StrictLogging {
         val darMap = dar.all.toMap
         val compiledPackages = PureCompiledPackages(darMap).right.get
         val testScripts = dar.main._2.modules.flatMap {
-          case (moduleName, module) => {
+          case (moduleName, module) =>
             module.definitions.collect(Function.unlift {
-              case (name, defn) => {
+              case (name, _) =>
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
                 Script.fromIdentifier(compiledPackages, id) match {
                   // We exclude generated identifiers starting with `$`.
-                  case Right(script: Script.Action) if name.toString.headOption != Some('$') =>
+                  case Right(script: Script.Action) if !name.dottedName.startsWith("$") =>
                     Some((id, script))
                   case _ => None
                 }
-              }
             })
-          }
         }
 
         val flow: Future[Boolean] = for {
           clients <- Runner.connect(
             participantParams,
-            ApplicationId("Script Test"),
+            applicationId,
             None,
-            config.maxInboundMessageSize)
+            config.maxInboundMessageSize,
+          )
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
             case Right(client) =>
@@ -145,7 +132,7 @@ object TestMain extends StrictLogging {
           }
           success = new AtomicBoolean(true)
           _ <- sequentialTraverse(testScripts.toList) {
-            case (id, script) => {
+            case (id, script) =>
               val runner =
                 new Runner(compiledPackages, script, applicationId, config.timeMode)
               val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
@@ -161,8 +148,6 @@ object TestMain extends StrictLogging {
               testRun.recover {
                 case _ => ()
               }
-            }
-
           }
         } yield success.get()
 

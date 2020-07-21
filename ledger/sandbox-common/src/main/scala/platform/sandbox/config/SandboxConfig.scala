@@ -24,6 +24,7 @@ final case class SandboxConfig(
     address: Option[String],
     port: Port,
     portFile: Option[Path],
+    ledgerIdMode: LedgerIdMode,
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     commandConfig: CommandConfiguration,
@@ -31,7 +32,6 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
-    ledgerIdMode: LedgerIdMode,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
@@ -59,11 +59,12 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  lazy val nextDefault: SandboxConfig =
+  lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
       portFile = None,
+      ledgerIdMode = LedgerIdMode.Dynamic,
       damlPackages = Nil,
       timeProviderType = None,
       commandConfig = CommandConfiguration.default,
@@ -71,7 +72,6 @@ object SandboxConfig {
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
-      ledgerIdMode = LedgerIdMode.Dynamic,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       eagerPackageLoading = false,
@@ -87,9 +87,4 @@ object SandboxConfig {
       stackTraces = true,
     )
 
-  lazy val default: SandboxConfig =
-    nextDefault.copy(
-      seeding = None,
-      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    )
 }

@@ -167,13 +167,13 @@ object HttpServiceTestFixture {
       authService: Option[AuthService] = None,
       useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
-    SandboxConfig.default.copy(
+    SandboxServer.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService
+      authService = authService,
     )
 
   private def clientConfig[A](
@@ -214,14 +214,14 @@ object HttpServiceTestFixture {
     } yield dao
 
   object UseTls extends NewBoolean.Named {
-    val Tls = True
-    val NoTls = False
+    val Tls: UseTls = True
+    val NoTls: UseTls = False
   }
   type UseTls = UseTls.T
 
   object LeakPasswords extends NewBoolean.Named {
-    val FiresheepStyle = True
-    val No = False
+    val FiresheepStyle: LeakPasswords = True
+    val No: LeakPasswords = False
   }
   type LeakPasswords = LeakPasswords.T
 
