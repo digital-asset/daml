@@ -19,13 +19,14 @@
 --
 -- Any errors here are tagged with the name of the rule in
 -- the semantics that they violate.
-
+--
+-- See the sister module, SemanticsValueSince17, for the missing
+-- ValExpTyAbsNat case.
 module SemanticsValue where
 
 main = scenario do
     let _ : Int -> Int = (\ (x : Int) -> error "ValExpAbs")
-    let x : forall (n:GHC.Types.Nat). Numeric n
-        x = error "ValExpTyAbsNat"
+    -- ValExpTyAbsNat is tested in SemanticsValueSince17
     let _ : Update Int = do
         _ <- pure ()
         error "ValUpdateBind"
