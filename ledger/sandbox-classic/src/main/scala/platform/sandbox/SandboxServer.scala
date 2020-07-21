@@ -17,9 +17,9 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
-import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
@@ -141,10 +141,6 @@ final class SandboxServer(
   engine.setProfileDir(config.profileDir)
   engine.enableStackTraces(config.stackTraces)
 
-  // Name of this participant
-  // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
-
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
 
@@ -259,7 +255,7 @@ final class SandboxServer(
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
           config.ledgerIdMode,
-          participantId,
+          config.participantId,
           jdbcUrl,
           defaultConfiguration,
           timeProvider,
@@ -277,7 +273,7 @@ final class SandboxServer(
       case None =>
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
           config.ledgerIdMode,
-          participantId,
+          config.participantId,
           defaultConfiguration,
           timeProvider,
           acs,
@@ -294,7 +290,8 @@ final class SandboxServer(
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         LedgerId.unwrap(ledgerId),
-        participantId)
+        config.participantId,
+      )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
@@ -308,7 +305,7 @@ final class SandboxServer(
       ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
-        participantId = participantId,
+        participantId = config.participantId,
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
         indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
         authorizer = authorizer,
@@ -369,7 +366,7 @@ final class SandboxServer(
   }
 
   private def start(): Future[SandboxState] = {
-    newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
+    newLoggingContext(logging.participantId(config.participantId)) { implicit logCtx =>
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,

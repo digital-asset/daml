@@ -8,6 +8,7 @@ import java.io.File
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -46,16 +47,31 @@ class CliSpec extends WordSpec with Matchers {
       config shouldEqual Some(expectedConfig)
     }
 
+    "parse the address when given" in {
+      val address = "myhost"
+      checkOption(Array("-a", address), _.copy(address = Some(address)))
+      checkOption(Array("--address", address), _.copy(address = Some(address)))
+    }
+
     "parse the port when given" in {
       val port = "1234"
       checkOption(Array("-p", port), _.copy(port = Port(port.toInt)))
       checkOption(Array("--port", port), _.copy(port = Port(port.toInt)))
     }
 
-    "parse the address when given" in {
-      val address = "myhost"
-      checkOption(Array("-a", address), _.copy(address = Some(address)))
-      checkOption(Array("--address", address), _.copy(address = Some(address)))
+    "parse the ledger ID when given" in {
+      val ledgerId = "myledger"
+      checkOption(
+        Array("--ledgerid", ledgerId),
+        _.copy(ledgerIdMode =
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
+    }
+
+    "parse the participant ID when given" in {
+      val participantId = "myParticipant"
+      checkOption(
+        Array("--participant-id", participantId),
+        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")))
     }
 
     "apply static time when given" in {
@@ -100,14 +116,6 @@ class CliSpec extends WordSpec with Matchers {
       checkOption(
         Array("--pem", pem),
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
-    }
-
-    "parse the ledger id when given" in {
-      val ledgerId = "myledger"
-      checkOption(
-        Array("--ledgerid", ledgerId),
-        _.copy(ledgerIdMode =
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
     }
 
     "parse the jdbcurl (deprecated) when given" in {

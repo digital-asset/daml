@@ -13,8 +13,8 @@ import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifie
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
@@ -54,6 +54,10 @@ class Cli(defaultConfig: SandboxConfig) {
         .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
         .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
 
+      opt[String]('a', "address")
+        .action((x, c) => c.copy(address = Some(x)))
+        .text("Sandbox service host. Defaults to binding on localhost.")
+
       opt[Int]('p', "port")
         .action((x, c) => c.copy(port = Port(x)))
         .validate(x => Port.validate(x).toEither.left.map(_.getMessage))
@@ -64,9 +68,18 @@ class Cli(defaultConfig: SandboxConfig) {
         .action((f, c) => c.copy(portFile = Some(f.toPath)))
         .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
 
-      opt[String]('a', "address")
-        .action((x, c) => c.copy(address = Some(x)))
-        .text("Sandbox service host. Defaults to binding on localhost.")
+      //TODO (robert): Think about all implications of allowing users to set the ledger ID.
+      opt[String]("ledgerid")
+        .optional()
+        .action((id, c) =>
+          c.copy(
+            ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
+        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used.")
+
+      opt[String]("participant-id")
+        .optional()
+        .action((id, c) => c.copy(participantId = v1.ParticipantId.assertFromString(id)))
+        .text(s"Sandbox participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
       // TODO remove in next major release.
       opt[Unit]("dalf")
@@ -157,14 +170,6 @@ class Cli(defaultConfig: SandboxConfig) {
         .text("The JDBC connection URL to a Postgres database containing the username and password as well. If present, the Sandbox will use the database to persist its data.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      //TODO (robert): Think about all implications of allowing users to set the ledger ID.
-      opt[String]("ledgerid")
-        .optional()
-        .action((id, c) =>
-          c.copy(
-            ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
-        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used.")
-
       opt[String]("log-level")
         .optional()
         .validate(l =>
@@ -239,7 +244,8 @@ class Cli(defaultConfig: SandboxConfig) {
         "no" -> None,
         "testing-static" -> Some(Seeding.Static),
         "testing-weak" -> Some(Seeding.Weak),
-        "strong" -> Some(Seeding.Strong))
+        "strong" -> Some(Seeding.Strong),
+      )
 
       opt[String]("contract-id-seeding")
         .optional()
@@ -316,7 +322,7 @@ class Cli(defaultConfig: SandboxConfig) {
           config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
         })
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}.")
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}.")
 
       help("help").text("Print the usage text")
 

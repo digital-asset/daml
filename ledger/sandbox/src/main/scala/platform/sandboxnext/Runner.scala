@@ -144,7 +144,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 isReset = startupMode == StartupMode.ResetAndStart
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   ledgerId = ledgerId,
-                  participantId = ParticipantId,
+                  participantId = config.participantId,
                   metrics = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   resetOnStartup = isReset,
@@ -172,7 +172,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- new StandaloneIndexerServer(
                   readService = readService,
                   config = IndexerConfig(
-                    ParticipantId,
+                    participantId = config.participantId,
                     jdbcUrl = indexJdbcUrl,
                     startupMode =
                       if (isReset) IndexerStartupMode.ResetAndStart
@@ -187,7 +187,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 promise = Promise[Unit]
                 resetService = {
                   val clock = Clock.systemUTC()
-                  val authorizer = new Authorizer(() => clock.instant(), ledgerId, ParticipantId)
+                  val authorizer =
+                    new Authorizer(() => clock.instant(), ledgerId, config.participantId)
                   new SandboxResetService(
                     domain.LedgerId(ledgerId),
                     () => {
@@ -203,7 +204,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 apiServer <- new StandaloneApiServer(
                   ledgerId = ledgerId,
                   config = ApiServerConfig(
-                    participantId = ParticipantId,
+                    participantId = config.participantId,
                     archiveFiles = if (isReset) List.empty else config.damlPackages,
                     // Re-use the same port when resetting the server.
                     port = currentPort.getOrElse(config.port),
@@ -245,7 +246,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   if (config.stackTraces) "" else ", stack traces = no",
                   config.profileDir match {
                     case None => ""
-                    case Some(profileDir) => s", profile directory = ${profileDir}"
+                    case Some(profileDir) => s", profile directory = $profileDir"
                   },
                 )
                 apiServer
@@ -273,9 +274,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
 
 object Runner {
   private val logger = ContextualizedLogger.get(classOf[Runner])
-
-  private val ParticipantId: v1.ParticipantId =
-    Ref.ParticipantId.assertFromString("sandbox-participant")
 
   private val InMemoryLedgerJdbcUrl =
     "jdbc:sqlite:file:ledger?mode=memory&cache=shared"
