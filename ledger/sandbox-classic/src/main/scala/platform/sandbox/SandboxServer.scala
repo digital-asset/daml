@@ -19,7 +19,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
@@ -143,7 +143,7 @@ final class SandboxServer(
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
+  val participantId: ParticipantId = SandboxConfig.ParticipantId
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
@@ -294,7 +294,8 @@ final class SandboxServer(
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         LedgerId.unwrap(ledgerId),
-        participantId)
+        participantId,
+      )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
