@@ -24,7 +24,9 @@ object GrpcServer {
   // Unfortunately, we can't get the maximum inbound message size from the client, so we don't know
   // how big this should be. This seems long enough to contain useful data, but short enough that it
   // won't break most well-configured clients.
-  private val MaximumStatusDescriptionLength = 256 * 1024 // 256 KB
+  // As the default response header limit for a Netty client is 8 KB, we set our limit to 4 KB to
+  // allow for extra information such as the exception stack trace.
+  private val MaximumStatusDescriptionLength = 4 * 1024 // 4 KB
 
   final class Owner(
       address: Option[String],

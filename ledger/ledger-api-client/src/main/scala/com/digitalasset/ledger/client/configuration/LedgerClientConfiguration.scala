@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.configuration
 
-import com.daml.ledger.client.configuration.LedgerClientConfiguration._
+import io.grpc.internal.GrpcUtil
 import io.netty.handler.ssl.SslContext
 
 /**
@@ -20,15 +20,5 @@ final case class LedgerClientConfiguration(
     commandClient: CommandClientConfiguration,
     sslContext: Option[SslContext],
     token: Option[String] = None,
-    maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
+    maxInboundMessageSize: Int = GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE,
 )
-
-object LedgerClientConfiguration {
-
-  // This needs to be large because we often include parts of the request in GRPC errors, which are
-  // returned in the response headers. A large request could lead to the client choking on the
-  // response headers if the limit is too low.
-  // The default limit set by Netty is 8 KB, which often leads to errors.
-  val DefaultMaxInboundMessageSize: Int = 1024 * 1024 // 1 MB
-
-}

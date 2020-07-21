@@ -46,8 +46,8 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "fail with a nice exception, even when the text is very long" in {
-      val length = 64 * 1024
+    "fail with a nice exception, even when the text is quite long" in {
+      val length = 2 * 1024
       val exceptionMessage = "There was an error. " + Stream.continually("x").take(length).mkString
 
       resources().use { channel =>
