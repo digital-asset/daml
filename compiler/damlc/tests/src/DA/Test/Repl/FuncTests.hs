@@ -45,6 +45,7 @@ import Text.Regex.TDFA
 main :: IO ()
 main = do
     setNumCapabilities 1
+    limitJvmMemory defaultJvmMemoryLimits
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDars <- forM ["repl-test", "repl-test-two"] $ \name ->
         locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <.> "dar")

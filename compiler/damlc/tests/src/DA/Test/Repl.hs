@@ -12,6 +12,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import DA.Test.Util
 import System.Environment.Blank
 import System.FilePath
 import System.IO.Extra
@@ -30,6 +31,7 @@ testLedgerId = "replledger"
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
+    limitJvmMemory defaultJvmMemoryLimits
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")

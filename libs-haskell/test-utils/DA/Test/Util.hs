@@ -13,6 +13,9 @@ module DA.Test.Util (
     withDevNull,
     assertFileExists,
     assertFileDoesNotExist,
+    limitJvmMemory,
+    defaultJvmMemoryLimits,
+    JvmMemoryLimits(..),
 ) where
 
 import Control.Monad
@@ -96,3 +99,23 @@ assertFileExists file = doesFileExist file >>= assertBool (file ++ " was expecte
 
 assertFileDoesNotExist :: FilePath -> IO ()
 assertFileDoesNotExist file = doesFileExist file >>= assertBool (file ++ " was expected to not exist, but does exist") . not
+
+data JvmMemoryLimits = JvmMemoryLimits
+  { initialHeapSize :: String
+  , maxHeapSize :: String
+  }
+
+defaultJvmMemoryLimits :: JvmMemoryLimits
+defaultJvmMemoryLimits = JvmMemoryLimits
+  { initialHeapSize = "128m"
+  , maxHeapSize = "256m"
+  }
+
+limitJvmMemory :: JvmMemoryLimits -> IO ()
+limitJvmMemory JvmMemoryLimits{..} = do
+    setEnv "_JAVA_OPTIONS" limits True
+  where
+    limits = unwords
+      [ "-Xms" <> initialHeapSize
+      , "-Xmx" <> maxHeapSize
+      ]
