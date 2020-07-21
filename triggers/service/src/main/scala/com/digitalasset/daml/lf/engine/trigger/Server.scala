@@ -29,6 +29,7 @@ import com.daml.lf.engine.{
   ResultDone,
   ResultNeedPackage
 }
+import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.daml_lf_dev.DamlLf
@@ -40,8 +41,6 @@ import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
-
-import com.daml.lf.engine.trigger.dao._
 
 class Server(
     ledgerConfig: LedgerConfig,

@@ -31,7 +31,7 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.metrics.{Metrics, Timed}
 
@@ -126,7 +126,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
 
   override def lookupContractKey(
       submitter: Party,
-      key: Node.GlobalKey
+      key: GlobalKey
   ): Future[Option[Value.ContractId]] =
     Timed.future(
       metrics.daml.services.index.lookupContractKey,

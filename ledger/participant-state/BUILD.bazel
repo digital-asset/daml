@@ -37,6 +37,12 @@ da_scala_library(
     ],
 )
 
+filegroup(
+    name = "sources",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
+)
+
 da_scala_test(
     name = "participant-state-tests",
     size = "small",

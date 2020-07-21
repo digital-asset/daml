@@ -24,7 +24,6 @@ Writing DAML
 
    daml/intro/0_Intro.rst
    daml/reference/index
-   daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
@@ -65,6 +64,7 @@ SDK tools
    :maxdepth: 2
 
    tools/assistant
+   daml/daml-studio
    tools/sandbox
    tools/navigator/index
 

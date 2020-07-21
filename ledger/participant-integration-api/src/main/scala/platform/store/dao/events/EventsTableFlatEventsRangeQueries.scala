@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{Row, SimpleSql, SqlStringInterpolation}
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref.{Identifier => ApiIdentifier}
 import com.daml.platform.store.Conversions._
 
@@ -123,6 +122,8 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 }
 
 private[events] object EventsTableFlatEventsRangeQueries {
+
+  import com.daml.ledger.participant.state.v1.Offset
 
   private[EventsTableFlatEventsRangeQueries] sealed abstract class QueryParts
       extends Product

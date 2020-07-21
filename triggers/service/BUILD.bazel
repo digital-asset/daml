@@ -84,7 +84,7 @@ java_binary(
 
 da_scala_test(
     name = "tests",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
         ":test-model.dar",
         "//triggers/service:ref-ledger-authentication-binary",
@@ -117,6 +117,35 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "auth-client-tests",
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/auth/client/*.scala"]),
+    data = [
+        "//triggers/service:ref-ledger-authentication-binary",
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    deps = [
+        ":trigger-service",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
+        "//libs-scala/ports",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

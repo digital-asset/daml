@@ -24,6 +24,7 @@ import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import DA.PortFile
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
@@ -116,13 +117,17 @@ loadPackage Handle{..} package = do
         (Grpc.LoadPackageRequest package)
     pure (() <$ r)
 
-runScript :: Handle -> LF.Version -> LF.Module -> IO (Either BackendError ())
+runScript :: Handle -> LF.Version -> LF.Module -> IO (Either BackendError (Maybe T.Text))
 runScript Handle{..} version m = do
     r <- performRequest
         (Grpc.replServiceRunScript hClient)
         (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)))
-    pure (() <$ r)
+    pure $ fmap handleResult r
     where bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+          handleResult r =
+              let t = TL.toStrict (Grpc.runScriptResponseResult r)
+              in if T.null t then Nothing else Just t
+
 
 clearResults :: Handle -> IO (Either BackendError ())
 clearResults Handle{..} = do

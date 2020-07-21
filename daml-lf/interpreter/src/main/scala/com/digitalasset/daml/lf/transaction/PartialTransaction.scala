@@ -8,6 +8,7 @@ import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.transaction.{
   GenTransaction,
+  GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -164,7 +165,7 @@ private[lf] case class PartialTransaction(
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keys: Map[Node.GlobalKey, Option[Value.ContractId]],
+    keys: Map[GlobalKey, Option[Value.ContractId]],
 ) {
 
   import PartialTransaction._
@@ -288,7 +289,7 @@ private[lf] case class PartialTransaction(
       key match {
         case None => Right((cid, ptx))
         case Some(kWithM) =>
-          val ck = Node.GlobalKey(coinst.template, kWithM.key)
+          val ck = GlobalKey(coinst.template, kWithM.key)
           Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
       }
     }
@@ -382,7 +383,7 @@ private[lf] case class PartialTransaction(
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(Node.GlobalKey(templateId, kWithM.key), None)
+                keys.updated(GlobalKey(templateId, kWithM.key), None)
               case _ => keys
             },
           ),

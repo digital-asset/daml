@@ -10,6 +10,7 @@ import com.daml.lf.ledger._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{
   CommittedTransaction,
+  GlobalKey,
   NodeId,
   SubmittedTransaction,
   Transaction => Tx

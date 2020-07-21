@@ -290,6 +290,27 @@ class TransactionCoderSpec
         }
       }
 
+    "fetch decoding should fail when unsupported value version received" in forAll(
+      fetchNodeGen,
+      minSuccessful(5)) { node =>
+      inside(
+        TransactionCoder.encodeNode(
+          TransactionCoder.NidEncoder,
+          ValueCoder.CidEncoder,
+          defaultTransactionVersion,
+          NodeId(0),
+          node)) {
+        case Right(cn) if cn.hasFetch =>
+          val badVersion = "I do not exist"
+          TransactionCoder.decodeNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            defaultTransactionVersion,
+            cn.toBuilder.setFetch(cn.getFetch.toBuilder.setValueVersion(badVersion)).build
+          ) should ===(Left(DecodeError(s"Unsupported template ID version $badVersion")))
+      }
+    }
+
     "do tx with a lot of root nodes" in {
       val node =
         Node.NodeCreate[Value.ContractId, Value.VersionedValue[Value.ContractId]](

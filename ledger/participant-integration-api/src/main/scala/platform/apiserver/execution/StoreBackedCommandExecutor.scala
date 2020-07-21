@@ -119,7 +119,7 @@ final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.daml.execution.lookupContractKey,
-              contractStore.lookupContractKey(submitter, key))
+              contractStore.lookupContractKey(submitter, key.globalKey))
             .flatMap { contractId =>
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()

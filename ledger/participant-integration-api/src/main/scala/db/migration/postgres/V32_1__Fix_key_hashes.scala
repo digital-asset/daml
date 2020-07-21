@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.serialization.ValueSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-final class V32_1__Fix_key_hashes extends BaseJavaMigration {
+private[migration] final class V32_1__Fix_key_hashes extends BaseJavaMigration {
 
   private val SELECT_KEYS =
     "select participant_events.contract_id, participant_events.template_id, create_key_value from participant_events inner join participant_contracts on participant_events.contract_id = participant_contracts.contract_id where create_key_value is not null"

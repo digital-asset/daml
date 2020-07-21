@@ -3,7 +3,7 @@
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
 // 'db.migration.postgres' for postgres migrations
-package db.migration.postgres
+package com.daml.platform.db.migration.postgres
 
 import java.io.InputStream
 import java.sql.Connection
@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1.{ContractInst, TransactionId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.RejectionReason
@@ -29,7 +29,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
 import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
-import db.migration.translation.{ContractSerializer, TransactionSerializer}
+import com.daml.platform.db.migration.translation.{ContractSerializer, TransactionSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -40,7 +40,7 @@ import scala.collection.immutable
   * V2.0 adds corresponding new tables
   * V2.1 fills the new tables
   */
-class V2_1__Rebuild_Acs extends BaseJavaMigration {
+private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   // Serializers used in SqlLedger/PostgresLedgerDao
   private val keyHasher = KeyHasher

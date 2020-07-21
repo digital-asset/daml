@@ -7,9 +7,8 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.speedy.SError._
-import com.daml.lf.transaction.Node.GlobalKey
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine
@@ -83,7 +82,7 @@ object SResult {
   ) extends SResult
 
   final case class SResultNeedKey(
-      key: GlobalKey,
+      key: GlobalKeyWithMaintainers,
       committers: Set[Party],
       // Callback.
       // returns true if machine can continue with the given result.

@@ -90,7 +90,7 @@ private[events] object EventsTable
       events.map {
         case entry if entry.event.isCreated =>
           GetActiveContractsResponse(
-            offset = ApiOffset.toApiString(entry.eventOffset),
+            offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
             traceContext = None,

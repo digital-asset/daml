@@ -15,7 +15,6 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -48,7 +47,6 @@ final class StandaloneApiServer(
     ledgerConfig: LedgerConfiguration,
     optWriteService: Option[WriteService],
     authService: AuthService,
-    transformIndexService: IndexService => IndexService = identity,
     metrics: Metrics,
     timeServiceBackend: Option[TimeServiceBackend] = None,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
@@ -78,7 +76,7 @@ final class StandaloneApiServer(
           metrics,
           lfValueTranslationCache,
         )
-        .map(transformIndexService)
+        .map(index => new TimedIndexService(index, metrics))
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         ledgerId,

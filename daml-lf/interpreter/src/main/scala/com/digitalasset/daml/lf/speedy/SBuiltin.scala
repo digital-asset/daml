@@ -19,7 +19,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.daml.lf.transaction.{Node, GlobalKey, GlobalKeyWithMaintainers}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
@@ -1072,7 +1072,7 @@ private[lf] object SBuiltin {
           // that.
           throw SpeedyHungry(
             SResultNeedKey(
-              gkey,
+              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
               machine.committers, {
                 case SKeyLookupResult.Found(cid) =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
@@ -1117,7 +1117,7 @@ private[lf] object SBuiltin {
       machine.ptx = machine.ptx.insertLookup(
         templateId,
         machine.lastLocation,
-        KeyWithMaintainers(
+        Node.KeyWithMaintainers(
           key = keyWithMaintainers.key,
           maintainers = keyWithMaintainers.maintainers,
         ),
@@ -1151,7 +1151,7 @@ private[lf] object SBuiltin {
           // that.
           throw SpeedyHungry(
             SResultNeedKey(
-              gkey,
+              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
               machine.committers, {
                 case SKeyLookupResult.Found(cid) =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
@@ -1594,7 +1594,7 @@ private[lf] object SBuiltin {
 
   private[this] def extractKeyWithMaintainers(
       v: SValue,
-  ): KeyWithMaintainers[V[Nothing]] =
+  ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
       case SStruct(flds, vals)
           if flds.length == 2 && flds(0) == Ast.keyFieldName && flds(1) == Ast.maintainersFieldName =>
@@ -1607,7 +1607,7 @@ private[lf] object SBuiltin {
               .left
               .map(coid => s"Unexpected contract id in key: $coid")
           } yield
-            KeyWithMaintainers(
+            Node.KeyWithMaintainers(
               key = keyVal,
               maintainers = extractParties(vals.get(1))
             ))
@@ -1616,7 +1616,7 @@ private[lf] object SBuiltin {
 
   private[this] def extractOptionalKeyWithMaintainers(
       optKey: SValue,
-  ): Option[KeyWithMaintainers[V[Nothing]]] =
+  ): Option[Node.KeyWithMaintainers[V[Nothing]]] =
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
       case v => crash(s"Expected optional key with maintainers, got: $v")

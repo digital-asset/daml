@@ -8,7 +8,7 @@ import java.security.MessageDigest
 import com.daml.lf
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import org.scalatest.{Matchers, WordSpec}

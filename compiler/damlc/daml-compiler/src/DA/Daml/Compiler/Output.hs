@@ -1,11 +1,12 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Cli.Output
+module DA.Daml.Compiler.Output
   ( writeOutput
   , writeOutputBSL
   , diagnosticsLogger
   , hDiagnosticsLogger
+  , printDiagnostics
   ) where
 
 import qualified Data.ByteString.Char8 as BS

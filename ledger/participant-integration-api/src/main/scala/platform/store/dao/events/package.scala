@@ -26,8 +26,8 @@ package object events {
   private[events] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
   private[events] type Fetch = lftx.Node.NodeFetch.WithTxValue[ContractId]
   private[events] type LookupByKey = lftx.Node.NodeLookupByKey.WithTxValue[ContractId]
-  private[events] type Key = lftx.Node.GlobalKey
-  private[events] val Key = lftx.Node.GlobalKey
+  private[events] type Key = lftx.GlobalKey
+  private[events] val Key = lftx.GlobalKey
 
   import com.daml.lf.{data => lfdata}
   private[events] type Party = lfdata.Ref.Party

@@ -6,7 +6,7 @@ package com.daml.lf.engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -39,11 +39,10 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
   }
 
-  // quick and dirty way to consume a Result
   def consume(
       pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
-      keys: GlobalKey => Option[ContractId]): Either[Error, A] = {
+      keys: GlobalKeyWithMaintainers => Option[ContractId]): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
       res match {
@@ -87,7 +86,9 @@ final case class ResultNeedContract[A](
 final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Package] => Result[A])
     extends Result[A]
 
-final case class ResultNeedKey[A](key: GlobalKey, resume: Option[ContractId] => Result[A])
+final case class ResultNeedKey[A](
+    key: GlobalKeyWithMaintainers,
+    resume: Option[ContractId] => Result[A])
     extends Result[A]
 
 object Result {

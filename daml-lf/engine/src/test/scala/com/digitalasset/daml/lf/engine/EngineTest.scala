@@ -13,8 +13,10 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   NodeId,
   SubmittedTransaction,
   GenTransaction => GenTx,
@@ -116,8 +118,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     allPackages.get(pkgId)
   }
 
-  def lookupKey(key: GlobalKey): Option[ContractId] =
-    (key.templateId, key.key) match {
+  def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+    (key.globalKey.templateId, key.globalKey.key) match {
       case (
           BasicTests_WithKey,
           ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
@@ -379,7 +381,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "translate Optional values" in {
-      val (optionalPkgId, optionalPkg @ _, allOptionalPackages) =
+      val (optionalPkgId, _, allOptionalPackages) =
         loadPackage("daml-lf/tests/Optional.dar")
 
       val translator = new preprocessing.Preprocessor(ConcurrentCompiledPackages.apply())
@@ -656,7 +658,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     "mark all the exercise nodes as performed byKey" in {
       val exerciseNodes = tx.nodes.collect {
-        case (id, _: NodeExercises[_, _, _]) => id
+        case (id, _: Node.NodeExercises[_, _, _]) => id
       }
       txMeta.byKeyNodes shouldBe 'nonEmpty
       txMeta.byKeyNodes.toSeq.toSet shouldBe exerciseNodes.toSet
@@ -704,8 +706,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       tx.roots should have length 2
       tx.nodes.keySet.toList should have length 2
       val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
-      create shouldBe a[NodeCreate[_, _]]
-      exercise shouldBe a[NodeExercises[_, _, _]]
+      create shouldBe a[Node.NodeCreate[_, _]]
+      exercise shouldBe a[Node.NodeExercises[_, _, _]]
     }
 
     "reinterpret to the same result" in {
@@ -958,7 +960,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
-        case NodeExercises(
+        case Node.NodeExercises(
             coid,
             _,
             choice,
@@ -981,7 +983,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case Node.NodeCreate(_, coins, _, _, stakeholders, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -993,7 +995,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case Node.NodeCreate(_, coins, _, _, stakeholders, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1117,9 +1119,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-    def actFetchActors[Nid, Cid, Val](n: GenNode[Nid, Cid, Val]): Set[Party] = {
+    def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case NodeFetch(_, _, _, actingParties, _, _, _) => actingParties.getOrElse(Set.empty)
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _) => actingParties.getOrElse(Set.empty)
         case _ => Set()
       }
     }
@@ -1173,8 +1175,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
       val fetchNodes =
-        tx.transaction.fold(Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
-          case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
+        tx.transaction.fold(Seq[(NodeId, Node.GenNode.WithTxValue[NodeId, ContractId])]()) {
+          case (ns, (nid, n @ Node.NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
           case (ns, _) => ns
         }
 
@@ -1226,7 +1228,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = Engine.DevEngine()
 
-      val fetchNode = NodeFetch(
+      val fetchNode = Node.NodeFetch(
         coid = fetchedCid,
         templateId = fetchedTid,
         optLocation = None,
@@ -1263,8 +1265,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       ""
     )
 
-    def lookupKey(key: GlobalKey): Option[ContractId] = {
-      (key.templateId, key.key) match {
+    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
+      (key.globalKey.templateId, key.globalKey.key) match {
         case (
             BasicTests_WithKey,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
@@ -1282,9 +1284,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     def firstLookupNode[Nid, Cid, Val](
         tx: GenTx[Nid, Cid, Val],
-    ): Option[(Nid, NodeLookupByKey[Cid, Val])] =
+    ): Option[(Nid, Node.NodeLookupByKey[Cid, Val])] =
       tx.nodes.collectFirst {
-        case (nid, nl @ NodeLookupByKey(_, _, _, _)) => nid -> nl
+        case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) => nid -> nl
       }
 
     val now = Time.Timestamp.now()
@@ -1300,7 +1302,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val lookupNodes = tx.transaction.nodes.collect {
-        case (id, _: NodeLookupByKey[_, _]) => id
+        case (id, _: Node.NodeLookupByKey[_, _]) => id
       }
 
       txMeta.byKeyNodes shouldBe 'nonEmpty
@@ -1342,7 +1344,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
-      val Right((tx, txMeta @ _)) = engine
+      val Right((tx, txMeta)) = engine
         .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, submissionSeed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
@@ -1412,10 +1414,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
-        case Some(NodeFetch(_, _, _, _, _, _, key)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, _, key)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -1434,8 +1436,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         ""
       )
 
-      def lookupKey(key: GlobalKey): Option[ContractId] = {
-        (key.templateId, key.key) match {
+      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
+        (key.globalKey.templateId, key.globalKey.key) match {
           case (
               BasicTests_WithKey,
               ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
@@ -1474,10 +1476,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
       tx.transaction.nodes
         .collectFirst {
-          case (id, nf: NodeFetch[_, _]) =>
+          case (id, nf: Node.NodeFetch[_, _]) =>
             nf.key match {
               // just test that the maintainers match here, getting the key out is a bit hairier
-              case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+              case Some(Node.KeyWithMaintainers(_, maintainers)) =>
                 assert(maintainers == Set(alice))
               case None => fail("the recomputed fetch didn't have a key")
             }
@@ -1534,7 +1536,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1638,7 +1640,9 @@ object EngineTest {
     a
   }
 
-  private def findNodeByIdx[Cid, Val](nodes: Map[NodeId, GenNode[NodeId, Cid, Val]], idx: Int) =
+  private def findNodeByIdx[Cid, Val](
+      nodes: Map[NodeId, Node.GenNode[NodeId, Cid, Val]],
+      idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -1683,14 +1687,14 @@ object EngineTest {
                 nodeSeedMap.get(nodeId),
                 txMeta.submissionTime,
                 ledgerEffectiveTime)
-              .consume(contracts0.get, lookupPackages, keys0.get)
+              .consume(contracts0.get, lookupPackages, k => keys0.get(k.globalKey))
             (tr1, meta1) = currentStep
             (contracts1, keys1) = tr1.transaction.fold((contracts0, keys0)) {
               case (
                   (contracts, keys),
                   (
                     _,
-                    NodeExercises(
+                    Node.NodeExercises(
                       targetCoid: ContractId,
                       _,
                       _,
@@ -1705,7 +1709,9 @@ object EngineTest {
                       _,
                       _))) =>
                 (contracts - targetCoid, keys)
-              case ((contracts, keys), (_, NodeCreate(cid: ContractId, coinst, _, _, _, key))) =>
+              case (
+                  (contracts, keys),
+                  (_, Node.NodeCreate(cid: ContractId, coinst, _, _, _, key))) =>
                 (
                   contracts.updated(
                     cid,
