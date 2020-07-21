@@ -56,9 +56,14 @@ You can think of this prompt like a line in a ``do``-block of the
 two forms:
 
 1. An expression ``expr`` of type ``Script a`` for some type ``a``. This
-   will execute the script ignoring the result.
+   will execute the script and print the result if ``a`` is an
+   instance of ``Show`` and not ``()``.
 
-2. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
+2. A pure expression ``expr`` of type ``a`` for some type ``a`` where
+   ``a`` is an instance of ``Show``. This will evaluate ``expr``
+   and print the result.
+
+3. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
    a variable name ``x`` to bind the result to
    and ``expr`` is an expression of type ``Script a``.
    This will execute the script and match the result against

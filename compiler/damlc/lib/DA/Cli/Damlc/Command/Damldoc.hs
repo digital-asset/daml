@@ -5,7 +5,7 @@
 module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 
 import DA.Cli.Options
-import DA.Cli.Output
+import DA.Daml.Compiler.Output
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
 import DA.Daml.Options.Types

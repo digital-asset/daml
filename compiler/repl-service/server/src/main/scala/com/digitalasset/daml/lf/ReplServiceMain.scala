@@ -265,7 +265,11 @@ class ReplService(
         respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)
-        respObs.onNext(RunScriptResponse.newBuilder.build)
+        val result = v match {
+          case SValue.SText(t) => t
+          case _ => ""
+        }
+        respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
         respObs.onCompleted
     }
   }

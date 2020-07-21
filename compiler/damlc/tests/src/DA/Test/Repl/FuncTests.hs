@@ -4,12 +4,10 @@ module DA.Test.Repl.FuncTests (main) where
 
 import Control.Concurrent
 import Control.Concurrent.Async
--- import Control.Concurrent.Chan
 import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import DA.Cli.Output
 import DA.Daml.Compiler.Repl
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -73,8 +71,9 @@ main = do
         withAsync (drainHandle serviceOut serviceLineChan) $ \_ -> do
             initPackageConfig scriptDar testDars
             logger <- Logger.newStderrLogger Logger.Warning "repl-tests"
-            withDamlIdeState options logger (hDiagnosticsLogger stdout) $ \ideState ->
-                (hspec $ functionalTests replHandle serviceLineChan options ideState) `finally`
+            replLogger <- newReplLogger
+            withDamlIdeState options logger (replEventLogger replLogger) $ \ideState ->
+                (hspec $ functionalTests replHandle replLogger serviceLineChan options ideState) `finally`
                     -- We need to kill the process to avoid getting stuck in hGetLine on Windows.
                     terminateProcess processHandle
 
@@ -103,24 +102,26 @@ drainHandle handle chan = forever $ do
 options :: Options
 options = (defaultOptions Nothing) { optScenarioService = EnableScenarioService False }
 
-functionalTests :: ReplClient.Handle -> Chan String -> Options -> IdeState -> Spec
-functionalTests replClient serviceOut options ideState = describe "repl func tests" $ sequence_
+functionalTests :: ReplClient.Handle -> ReplLogger -> Chan String -> Options -> IdeState -> Spec
+functionalTests replClient replLogger serviceOut options ideState = describe "repl func tests" $ sequence_
     [ testInteraction' "create and query"
           [ input "alice <- allocateParty \"Alice\""
           , input "debug =<< query @T alice"
           , matchServiceOutput "^.*: \\[\\]$"
-          , input "submit alice $ createCmd (T alice alice)"
+          , input "_ <- submit alice $ createCmd (T alice alice)"
           , input "debug =<< query @T alice"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           ]
     , testInteraction' "propose and accept"
           [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
-          , input "submit alice $ createCmd (TProposal alice bob)"
+          , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
           , input "debug props"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
+          -- Allow for trailing \r because Windows
+          , matchOutput "^\\[<contract-id>\\].?$"
           , input "debug =<< query @T bob"
           , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
@@ -160,7 +161,7 @@ functionalTests replClient serviceOut options ideState = describe "repl func tes
           , matchServiceOutput "^.*: 2"
           ]
     , testInteraction' "type error"
-          [ input "1"
+          [ input "1 + \"\""
           -- TODO Make this less noisy
           , matchOutput "^File:.*$"
           , matchOutput "^Hidden:.*$"
@@ -169,12 +170,7 @@ functionalTests replClient serviceOut options ideState = describe "repl func tes
           , matchOutput "^Severity:.*$"
           , matchOutput "^Message:.*$"
           , matchOutput "^.*error.*$"
-          , matchOutput "^.*expected type .*Script .* with actual type .*Int.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
-          , matchOutput "^.*$"
+          , matchOutput "^.*expected type .*Int.* with actual type .*Text.*$"
           , matchOutput "^.*$"
           , matchOutput "^.*$"
           , matchOutput "^.*$"
@@ -243,20 +239,45 @@ functionalTests replClient serviceOut options ideState = describe "repl func tes
           , input "debug t2"
           , matchServiceOutput "^.*: T2 {owner = 'two_dars_party'}"
           ]
+    , testInteraction' "repl output"
+          [ input "pure ()" -- no output
+          , input "pure (1 + 1)"
+          -- Allow for trailing \r because Windows
+          , matchOutput "^2.?$"
+          , input "pure (\\x -> x)" -- no output
+          , input "1 + 2"
+          -- Allow for trailing \r because Windows
+          , matchOutput "^3.?$"
+          , input "\\x -> x"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*$"
+          , matchOutput "^.*error.*$"
+          , matchOutput "^.*No instance for \\(Show.*$"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          , matchOutput "^.*"
+          ]
     ]
   where
     testInteraction' testName steps =
         it testName $
-        testInteraction replClient serviceOut options ideState steps
+        testInteraction replClient replLogger serviceOut options ideState steps
 
 testInteraction
     :: ReplClient.Handle
+    -> ReplLogger
     -> Chan String
     -> Options
     -> IdeState
     -> [Step]
     -> Expectation
-testInteraction replClient serviceOut options ideState steps = do
+testInteraction replClient replLogger serviceOut options ideState steps = do
     let (inLines, outAssertions) = processSteps steps
     -- On Windows we cannot dup2 between a file handle and a pipe.
     -- Therefore, we redirect to files, run the action and assert afterwards.
@@ -266,7 +287,7 @@ testInteraction replClient serviceOut options ideState steps = do
             redirectingHandle stdin readIn $ do
             Right () <- ReplClient.clearResults replClient
             let imports = [(LF.PackageName name, Nothing) | name <- ["repl-test", "repl-test-two"]]
-            capture_ $ runRepl imports options replClient ideState
+            capture_ $ runRepl imports options replClient replLogger ideState
     -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out
