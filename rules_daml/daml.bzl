@@ -346,68 +346,41 @@ $$DAMLC test --files $$(rlocations {files})
         **kwargs
     )
 
-def _daml_doctest_impl(ctx):
-    script = """
-      set -eou pipefail
-      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      CPP=$(rlocation $TEST_WORKSPACE/{cpp})
-      rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-{version} $(rlocations "{files}")
-    """.format(
-        damlc = ctx.executable.damlc.short_path,
-        # we end up with "../hpp/hpp" while we want "external/hpp/hpp"
-        # so we just do the replacement ourselves.
-        cpp = ctx.executable.cpp.short_path.replace("..", "external"),
-        package_name = ctx.attr.package_name,
-        flags = " ".join(ctx.attr.flags),
-        version = ghc_version,
-        files = " ".join([
-            f.short_path
-            for f in ctx.files.srcs
-            if all([not f.short_path.endswith(ignore) for ignore in ctx.attr.ignored_srcs])
-        ]),
-    )
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = script,
-    )
-    damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
-    cpp_runfiles = ctx.attr.cpp[DefaultInfo].data_runfiles
-    runfiles = ctx.runfiles(
-        collect_data = True,
-        files = ctx.files.srcs,
-    ).merge(damlc_runfiles).merge(cpp_runfiles)
-    return [DefaultInfo(runfiles = runfiles)]
+def daml_doc_test(
+        name,
+        package_name,
+        srcs = [],
+        ignored_srcs = [],
+        flags = [],
+        cpp = "@stackage-exe//hpp",
+        damlc = "//compiler/damlc",
+        **kwargs):
+    sh_inline_test(
+        name = name,
+        data = [cpp, damlc] + srcs,
+        cmd = """\
+CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
+DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+FILES=($$(
+  for file in {files}; do
+    for pattern in {ignored}; do
+      if [[ $$file = *$$pattern ]]; then
+        continue
+      fi
+      echo $$(canonicalize_rlocation $$i)
+    done
+  done
+))
 
-daml_doc_test = rule(
-    implementation = _daml_doctest_impl,
-    attrs = {
-        "srcs": attr.label_list(
-            allow_files = [".daml"],
-            default = [],
-            doc = "DAML source files that should be tested.",
+$$DAMLC doctest {flags} --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
+""".format(
+            cpp = cpp,
+            damlc = damlc,
+            package_name = package_name,
+            flags = " ".join(flags),
+            version = ghc_version,
+            files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
+            ignored = " ".join(ignored_srcs),
         ),
-        "ignored_srcs": attr.string_list(
-            default = [],
-            doc = "DAML source files that should be ignored.",
-        ),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("//compiler/damlc"),
-        ),
-        "cpp": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("@stackage-exe//hpp"),
-        ),
-        "flags": attr.string_list(
-            default = [],
-            doc = "Flags for damlc invokation.",
-        ),
-        "package_name": attr.string(),
-    },
-    test = True,
-)
+        **kwargs
+    )
