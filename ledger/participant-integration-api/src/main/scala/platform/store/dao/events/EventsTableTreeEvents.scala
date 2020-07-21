@@ -131,9 +131,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] = {
-    val sql = SQL"select #$selectColumns, da_varchar_arrays_intersection(tree_event_witnesses::varchar[], $requestingParties) as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and da_do_varchar_arrays_intersect(tree_event_witnesses::varchar[], $requestingParties) group by (#$groupByColumns) order by node_index asc"
-    println(s"--- $sql")
-    sql
+    SQL"select #$selectColumns, da_varchar_arrays_intersection(tree_event_witnesses::varchar[], $requestingParties) as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and da_do_varchar_arrays_intersect(tree_event_witnesses::varchar[], $requestingParties) group by (#$groupByColumns) order by node_index asc"
   }
 
   def preparePagedGetTransactionTrees(
