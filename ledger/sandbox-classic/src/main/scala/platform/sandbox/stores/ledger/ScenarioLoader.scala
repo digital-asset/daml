@@ -129,8 +129,7 @@ object ScenarioLoader {
       scenarioDef = scenarioDef,
       compiledPackages = compiledPackages,
       transactionSeed = transactionSeed,
-      supportedValueVersions = engineConfig.allowedOutputValueVersions,
-      supportedTransactionVersions = engineConfig.allowedOutputTransactionVersions,
+      outputTransactionVersions = engineConfig.allowedOutputTransactionVersions,
     )
     (scenarioLedger, scenarioRef)
   }

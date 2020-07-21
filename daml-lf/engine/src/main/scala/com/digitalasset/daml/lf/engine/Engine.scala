@@ -290,16 +290,15 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
     ) {
+      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr
-          .SEApp(compiledPackages.compiler.unsafeCompile(commands), Array(SExpr.SEValue.Token)),
+        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        supportedValueVersions = config.allowedOutputValueVersions,
-        supportedTransactionVersions = config.allowedOutputTransactionVersions,
+        outputTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
       )
       interpretLoop(machine, ledgerTime)
@@ -370,7 +369,10 @@ class Engine(config: Engine.Config = Engine.StableConfig) {
       }
     }
 
-    machine.ptx.finish(machine.supportedValueVersions, machine.supportedTransactionVersions) match {
+    machine.ptx.finish(
+      machine.outputTransactionVersions,
+      compiledPackages.packageLanguageVersion,
+    ) match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
       case Right(tx) =>

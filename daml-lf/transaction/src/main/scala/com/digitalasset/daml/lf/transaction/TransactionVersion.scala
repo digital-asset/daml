@@ -4,8 +4,14 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.transaction.VersionTimeline.SpecifiedVersion
+import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
+
+import scala.collection.immutable.HashMap
 
 final case class TransactionVersion(protoValue: String)
 
@@ -122,5 +128,55 @@ private[lf] object TransactionVersions
       supportedVersions: VersionRange[TransactionVersion] = SupportedDevVersions,
   ): Transaction.Transaction =
     data.assertRight(asVersionedTransaction(tx, supportedVersions))
+
+  def assignVersions(
+      supportedTxVersions: VersionRange[TransactionVersion],
+      as: Seq[SpecifiedVersion],
+  ): Either[String, (TransactionVersion, ValueVersion)] = {
+
+    import VersionTimeline._
+    import VersionTimeline.Implicits._
+
+    val transactionVersion =
+      latestWhenAllPresent(
+        supportedTxVersions.min,
+        (SupportedStableVersions.min: SpecifiedVersion) +: as: _*,
+      )
+
+    val valueVersion =
+      latestWhenAllPresent(ValueVersions.SupportedStableVersions.min, transactionVersion)
+
+    Either.cond(
+      !(supportedTxVersions.max precedes transactionVersion),
+      transactionVersion -> valueVersion,
+      s"inferred version $transactionVersion is not supported"
+    )
+  }
+
+  type UnversionedNode = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
+  type VersionedNode = Node.GenNode[NodeId, Value.ContractId, VersionedValue[Value.ContractId]]
+
+  def asVersionedTransaction(
+      supportedTxVersions: VersionRange[TransactionVersion],
+      pkgLangVersions: Ref.PackageId => LanguageVersion,
+      roots: ImmArray[NodeId],
+      nodes: HashMap[NodeId, UnversionedNode],
+  ): Either[String, VersionedTransaction[NodeId, Value.ContractId]] = {
+
+    import VersionTimeline.Implicits._
+
+    val langVersions: Iterator[SpecifiedVersion] =
+      roots.reverseIterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
+
+    assignVersions(supportedTxVersions, langVersions.toList).map {
+      case (transactionVersion, valueVersion) =>
+        val versionNode: UnversionedNode => VersionedNode =
+          Node.GenNode.map3(identity, identity, VersionedValue(valueVersion, _))
+        VersionedTransaction(
+          transactionVersion,
+          GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
+        )
+    }
+  }
 
 }

@@ -4,8 +4,9 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.language.LanguageMinorVersion.Dev
 import com.daml.lf.language._
-import value.ValueVersions
+import value.{ValueVersion, ValueVersions}
 
 import scala.language.higherKinds
 import scalaz.{ICons, INil, NonEmptyList}
@@ -14,7 +15,7 @@ import scalaz.syntax.foldable._
 import org.scalacheck.Gen
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
-import scalaz.\&/.That
+import scalaz.\&/.Both
 
 class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
   import VersionTimeline._
@@ -65,7 +66,9 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
 
     "end with a dev version" in {
       inside(inAscendingOrder.last) {
-        case That(LanguageVersion(_, LanguageMinorVersion.Dev)) =>
+        case Both(
+            Both(ValueVersion("7"), TransactionVersion("11")),
+            LanguageVersion(LanguageVersion.Major.V1, Dev)) =>
       }
     }
 
