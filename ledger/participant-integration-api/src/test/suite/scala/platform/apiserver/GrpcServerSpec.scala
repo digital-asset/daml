@@ -14,7 +14,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
-import com.daml.ports.FreePort
+import com.daml.ports.Port
 import com.daml.resources.ResourceOwner
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
@@ -96,24 +96,22 @@ object GrpcServerSpec {
     sslContext = None,
   )
 
-  private def resources(): ResourceOwner[ManagedChannel] = {
+  private def resources(): ResourceOwner[ManagedChannel] =
     for {
       eventLoopGroups <- new ServerEventLoopGroups.Owner(
         classOf[GrpcServerSpec].getSimpleName,
         workerParallelism = sys.runtime.availableProcessors(),
         bossParallelism = 1,
       )
-      port = FreePort.find()
-      _ <- new GrpcServer.Owner(
+      server <- new GrpcServer.Owner(
         address = None,
-        desiredPort = port,
+        desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = new Metrics(new MetricRegistry),
         eventLoopGroups = eventLoopGroups,
         services = Seq(new ReferenceImplementation),
       )
-      channel <- new GrpcChannel.Owner(port, clientConfiguration)
+      channel <- new GrpcChannel.Owner(Port(server.getPort), clientConfiguration)
     } yield channel
-  }
 
 }
