@@ -107,6 +107,8 @@ html_static_path = ['_static']
 # Don't show "powered by sphinx"
 html_show_sphinx = False
 
+html_show_copyright = False
+
 # Don't display the link to the sources
 html_show_sourcelink = False
 
