@@ -27,6 +27,7 @@ final case class SandboxConfig(
     port: Port,
     portFile: Option[Path],
     ledgerIdMode: LedgerIdMode,
+    participantId: ParticipantId,
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     commandConfig: CommandConfiguration,
@@ -61,7 +62,7 @@ object SandboxConfig {
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  val ParticipantId: ParticipantId =
+  val DefaultParticipantId: ParticipantId =
     Ref.ParticipantId.assertFromString("sandbox-participant")
 
   lazy val defaultConfig: SandboxConfig =
@@ -70,6 +71,7 @@ object SandboxConfig {
       port = DefaultPort,
       portFile = None,
       ledgerIdMode = LedgerIdMode.Dynamic,
+      participantId = DefaultParticipantId,
       damlPackages = Nil,
       timeProviderType = None,
       commandConfig = CommandConfiguration.default,

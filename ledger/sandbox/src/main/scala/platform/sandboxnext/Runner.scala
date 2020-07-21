@@ -144,7 +144,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 isReset = startupMode == StartupMode.ResetAndStart
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   ledgerId = ledgerId,
-                  participantId = SandboxConfig.ParticipantId,
+                  participantId = config.participantId,
                   metrics = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   resetOnStartup = isReset,
@@ -172,7 +172,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- new StandaloneIndexerServer(
                   readService = readService,
                   config = IndexerConfig(
-                    SandboxConfig.ParticipantId,
+                    participantId = config.participantId,
                     jdbcUrl = indexJdbcUrl,
                     startupMode =
                       if (isReset) IndexerStartupMode.ResetAndStart
@@ -188,7 +188,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 resetService = {
                   val clock = Clock.systemUTC()
                   val authorizer =
-                    new Authorizer(() => clock.instant(), ledgerId, SandboxConfig.ParticipantId)
+                    new Authorizer(() => clock.instant(), ledgerId, config.participantId)
                   new SandboxResetService(
                     domain.LedgerId(ledgerId),
                     () => {
@@ -204,7 +204,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 apiServer <- new StandaloneApiServer(
                   ledgerId = ledgerId,
                   config = ApiServerConfig(
-                    participantId = SandboxConfig.ParticipantId,
+                    participantId = config.participantId,
                     archiveFiles = if (isReset) List.empty else config.damlPackages,
                     // Re-use the same port when resetting the server.
                     port = currentPort.getOrElse(config.port),
