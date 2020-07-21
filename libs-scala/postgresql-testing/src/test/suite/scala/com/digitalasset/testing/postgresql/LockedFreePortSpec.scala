@@ -5,10 +5,10 @@ package com.daml.testing.postgresql
 
 import org.scalatest.{Matchers, WordSpec}
 
-class FreePortSpec extends WordSpec with Matchers {
+class LockedFreePortSpec extends WordSpec with Matchers {
   "a free port" should {
     "always be available" in {
-      val lockedPort = FreePort.find()
+      val lockedPort = LockedFreePort.find()
       try {
         lockedPort.port.value should (be >= 1024 and be < 65536)
       } finally {
@@ -17,7 +17,7 @@ class FreePortSpec extends WordSpec with Matchers {
     }
 
     "lock, to prevent race conditions" in {
-      val lockedPort = FreePort.find()
+      val lockedPort = LockedFreePort.find()
       try {
         PortLock.lock(lockedPort.port) should be(Left(PortLock.FailedToLock(lockedPort.port)))
       } finally {
@@ -26,7 +26,7 @@ class FreePortSpec extends WordSpec with Matchers {
     }
 
     "unlock when the server's started" in {
-      val lockedPort = FreePort.find()
+      val lockedPort = LockedFreePort.find()
       lockedPort.unlock()
 
       val locked = PortLock
@@ -36,8 +36,8 @@ class FreePortSpec extends WordSpec with Matchers {
       succeed
     }
 
-    "can be unlocked twice" in {
-      val lockedPort = FreePort.find()
+    "not error if it's unlocked twice" in {
+      val lockedPort = LockedFreePort.find()
       lockedPort.unlock()
       lockedPort.unlock()
       succeed

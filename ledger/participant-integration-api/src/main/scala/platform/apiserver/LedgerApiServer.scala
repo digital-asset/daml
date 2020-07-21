@@ -38,7 +38,7 @@ final class LedgerApiServer(
       ).acquire()
       apiServicesResource = apiServicesOwner.acquire()
       apiServices <- apiServicesResource
-      server <- new GrpcServerOwner(
+      server <- new GrpcServer.Owner(
         address,
         desiredPort,
         maxInboundMessageSize,
